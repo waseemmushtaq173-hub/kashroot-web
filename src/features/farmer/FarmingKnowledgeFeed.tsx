@@ -12,7 +12,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { useAuth } from '../../auth/AuthContext';
-import { API_BASE_URL } from '../../api';
+import { getAdvisories } from '../../api';
 import { LANGUAGE_LABELS, isFallbackLanguage, pickSpokenClip } from '../../lib/spoken-audio';
 import type { AdvisoryCategory, FarmingAdvisory, PreferredLanguage } from '../../types';
 
@@ -40,9 +40,8 @@ export function FarmingKnowledgeFeed() {
 
   useEffect(() => {
     let active = true;
-    fetch(`${API_BASE_URL}/advisories`)
-      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
-      .then((data: FarmingAdvisory[]) => active && setAdvisories(data))
+    getAdvisories()
+      .then((data) => active && setAdvisories(data))
       .catch(() => active && setAdvisories(SAMPLE_ADVISORIES))
       .finally(() => active && setLoading(false));
     return () => {

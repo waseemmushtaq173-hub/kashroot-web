@@ -12,6 +12,7 @@
 import { useCallback, useRef, useState } from 'react';
 
 import { useAuth } from '../../auth/AuthContext';
+import { inspectAgencyProduct } from '../../api';
 import type { AgencyInspectionResult, DiscrepancyReport } from '../../types';
 import { LANGUAGE_LABELS, isFallbackLanguage, pickSpokenClip } from '../../lib/spoken-audio';
 
@@ -88,9 +89,40 @@ export function TesterDashboard() {
   const preferredLanguage = user?.preferredLanguage ?? 'KASHMIRI';
   const [mode, setMode] = useState<'genuine' | 'counterfeit'>('counterfeit');
 
-  const result = SAMPLE_RESULTS[mode];
+  // Live verdict from POST /tester/inspect, when the tester runs a real scan.
+  // Until then (and if the call fails, e.g. no TESTER session) we preview the
+  // canned SAMPLE for the selected mode so the station is never blank.
+  const [liveResult, setLiveResult] = useState<AgencyInspectionResult | null>(null);
+  const [inspecting, setInspecting] = useState(false);
+  const [inspectError, setInspectError] = useState<string | null>(null);
+
   const sample = SCANNED_SAMPLE[mode];
+  const result = liveResult ?? SAMPLE_RESULTS[mode];
   const isCounterfeit = result.verdict === 'SUSPICIOUS_COUNTERFEIT';
+
+  const selectMode = useCallback((m: 'genuine' | 'counterfeit') => {
+    setMode(m);
+    setLiveResult(null);
+    setInspectError(null);
+  }, []);
+
+  const runInspection = useCallback(async () => {
+    setInspecting(true);
+    setInspectError(null);
+    try {
+      const res = await inspectAgencyProduct({
+        agencyName: 'Field Agency (demo)',
+        productBrand: GOLDEN_REFERENCE.brand,
+        scannedBatchNo: sample.batchNo,
+        observedHologramPattern: sample.hologram,
+      });
+      setLiveResult(res);
+    } catch (err) {
+      setInspectError(err instanceof Error ? err.message : 'Inspection failed');
+    } finally {
+      setInspecting(false);
+    }
+  }, [sample]);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const clip = pickSpokenClip(result.verifiedInstructions.audioPrompts, preferredLanguage);
@@ -113,22 +145,41 @@ export function TesterDashboard() {
             Scan a bottle, compare against the factory reference, get a verdict.
           </p>
         </div>
-        {/* Demo toggle — replace with a live scan trigger in the real build. */}
-        <div className="flex overflow-hidden rounded-lg border border-slate-700 text-sm">
-          {(['counterfeit', 'genuine'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMode(m)}
-              className={`px-3 py-1.5 font-medium ${
-                mode === m ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              {m === 'counterfeit' ? 'Fake sample' : 'Genuine sample'}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          {/* Demo toggle — replace with a live scan trigger in the real build. */}
+          <div className="flex overflow-hidden rounded-lg border border-slate-700 text-sm">
+            {(['counterfeit', 'genuine'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => selectMode(m)}
+                className={`px-3 py-1.5 font-medium ${
+                  mode === m ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {m === 'counterfeit' ? 'Fake sample' : 'Genuine sample'}
+              </button>
+            ))}
+          </div>
+          {/* Fires the real POST /tester/inspect for the selected sample. */}
+          <button
+            type="button"
+            onClick={runInspection}
+            disabled={inspecting}
+            className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-40"
+          >
+            {inspecting ? 'Inspecting…' : 'Run live inspection'}
+          </button>
         </div>
       </div>
+
+      {inspectError ? (
+        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+          Live inspection unavailable ({inspectError}) — showing sample verdict.
+        </p>
+      ) : liveResult ? (
+        <p className="text-xs font-medium text-emerald-300">● Live verdict from the API</p>
+      ) : null}
 
       {/* Side-by-side: local agency sample vs factory golden reference. */}
       <div className="grid gap-4 md:grid-cols-2">
