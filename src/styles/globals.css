@@ -1,0 +1,326 @@
+/*
+ * KashRoot Global Styles
+ *
+ * Defines CSS custom properties (design tokens) for both light and dark themes.
+ * All semantic token values reference the design-tokens.ts source of truth.
+ *
+ * USAGE
+ * -----
+ * Tokens are consumed via Tailwind utilities:
+ *   bg-kr-bg-page        text-kr-text-primary     border-kr-border-default
+ *   bg-kr-fill-brand     text-kr-text-brand        shadow-kr-card
+ *
+ * Dark mode is toggled by adding the `dark` class to <html>.
+ * Use the ThemeProvider in src/components/providers/theme-provider.tsx.
+ *
+ * FONT LOADING
+ * ------------
+ * Fraunces and Inter are loaded via next/font in src/app/layout.tsx.
+ * JetBrains Mono is loaded for mono usage.
+ * Do NOT add @import font URLs here — use next/font for optimized loading.
+ *
+ * COMPONENT STATES
+ * ----------------
+ * Shared component classes (.kr-btn-primary, .kr-input, .kr-card, etc.)
+ * are defined via Tailwind's component layer in tailwind.config.ts.
+ * Do NOT define per-page state overrides here.
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── LIGHT THEME (default) ───────────────────────────────────────────────── */
+
+:root {
+  color-scheme: light;
+
+  /* Backgrounds */
+  --kr-bg-page:          #F7F8FA;
+  --kr-bg-surface:       #FFFFFF;
+  --kr-bg-sunken:        #EDEEF2;
+  --kr-bg-overlay:       #FFFFFF;
+
+  /* Text */
+  --kr-text-primary:     #111827;
+  --kr-text-secondary:   #4A5568;
+  --kr-text-disabled:    #8E94A6;
+  --kr-text-inverse:     #FFFFFF;
+  --kr-text-brand:       #D4831A;
+  --kr-text-success:     #22543D;
+  --kr-text-warning:     #92400E;
+  --kr-text-danger:      #9E2D22;
+
+  /* Borders */
+  --kr-border-default:   #D6D9E0;
+  --kr-border-strong:    #8E94A6;
+  --kr-border-brand:     #FAA825;
+  --kr-border-focus:     #F5A623;
+  --kr-border-danger:    #E8625A;
+
+  /* Brand fills */
+  --kr-fill-brand:          #F5A623;
+  --kr-fill-brand-hover:    #D4831A;
+  --kr-fill-brand-active:   #A96112;
+  --kr-fill-brand-subtle:   #FFF8EC;
+  --kr-fill-secondary:      #8B5E3C;
+  --kr-fill-secondary-hover:#724B2F;
+  --kr-fill-success:        #3A8C52;
+  --kr-fill-warning:        #D97706;
+  --kr-fill-danger:         #C0392B;
+  --kr-fill-danger-hover:   #9E2D22;
+
+  /* Status badges */
+  --kr-badge-draft-bg:       #EDEEF2;
+  --kr-badge-draft-text:     #4A5568;
+  --kr-badge-published-bg:   #EDFAF3;
+  --kr-badge-published-text: #22543D;
+  --kr-badge-pending-bg:     #FFFBEB;
+  --kr-badge-pending-text:   #92400E;
+  --kr-badge-rejected-bg:    #FDF2F0;
+  --kr-badge-rejected-text:  #9E2D22;
+
+  /* Scrollbar (Webkit) */
+  --kr-scrollbar-track:  #EDEEF2;
+  --kr-scrollbar-thumb:  #B8BCC8;
+}
+
+/* ─── DARK THEME ──────────────────────────────────────────────────────────── */
+
+.dark {
+  color-scheme: dark;
+
+  /* Backgrounds */
+  --kr-bg-page:          #030712;
+  --kr-bg-surface:       #111827;
+  --kr-bg-sunken:        #1F2937;
+  --kr-bg-overlay:       #1F2937;
+
+  /* Text */
+  --kr-text-primary:     #F9FAFB;
+  --kr-text-secondary:   #8E94A6;
+  --kr-text-disabled:    #636B80;
+  --kr-text-inverse:     #111827;
+  --kr-text-brand:       #FCC057;
+  --kr-text-success:     #6DD9A4;
+  --kr-text-warning:     #FCD34D;
+  --kr-text-danger:      #F19389;
+
+  /* Borders */
+  --kr-border-default:   #374151;
+  --kr-border-strong:    #636B80;
+  --kr-border-brand:     #F5A623;
+  --kr-border-focus:     #FAA825;
+  --kr-border-danger:    #E8625A;
+
+  /* Brand fills */
+  --kr-fill-brand:          #F5A623;
+  --kr-fill-brand-hover:    #FAA825;
+  --kr-fill-brand-active:   #FCC057;
+  --kr-fill-brand-subtle:   #2B1504;
+  --kr-fill-secondary:      #A47A55;
+  --kr-fill-secondary-hover:#C09D7B;
+  --kr-fill-success:        #3A8C52;
+  --kr-fill-warning:        #D97706;
+  --kr-fill-danger:         #C0392B;
+  --kr-fill-danger-hover:   #E8625A;
+
+  /* Status badges */
+  --kr-badge-draft-bg:       #1F2937;
+  --kr-badge-draft-text:     #8E94A6;
+  --kr-badge-published-bg:   #061009;
+  --kr-badge-published-text: #6DD9A4;
+  --kr-badge-pending-bg:     #27100A;
+  --kr-badge-pending-text:   #FCD34D;
+  --kr-badge-rejected-bg:    #1E0705;
+  --kr-badge-rejected-text:  #F19389;
+
+  /* Scrollbar */
+  --kr-scrollbar-track:  #1F2937;
+  --kr-scrollbar-thumb:  #374151;
+}
+
+/* ─── BASE LAYER RESETS ───────────────────────────────────────────────────── */
+
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--kr-bg-page);
+    color: var(--kr-text-primary);
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 1rem;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Headings use Fraunces */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 700;
+    color: var(--kr-text-primary);
+    line-height: 1.2;
+  }
+
+  /* Remove default focus outline — we use focus-visible only */
+  *:focus { outline: none; }
+
+  /* WCAG 2.1 AA: Only show focus ring on keyboard nav (focus-visible) */
+  *:focus-visible {
+    outline: 2px solid var(--kr-border-focus);
+    outline-offset: 2px;
+  }
+
+  /* Links */
+  a {
+    color: var(--kr-text-brand);
+    text-decoration: none;
+    &:hover { text-decoration: underline; }
+    &:focus-visible { outline: 2px solid var(--kr-border-focus); outline-offset: 2px; border-radius: 2px; }
+  }
+
+  /* Scrollbar styling (Webkit) */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: var(--kr-scrollbar-track); }
+  ::-webkit-scrollbar-thumb {
+    background: var(--kr-scrollbar-thumb);
+    border-radius: 4px;
+    &:hover { background: var(--kr-border-strong); }
+  }
+
+  /* Images: always define alt text — enforced in component layer */
+  img { max-width: 100%; height: auto; }
+
+  /* Mono content */
+  code, kbd, pre, samp {
+    font-family: 'JetBrains Mono', Menlo, monospace;
+    font-size: 0.875em;
+  }
+
+  /* Remove list styles for nav elements — still accessible via role */
+  nav ol, nav ul { list-style: none; padding: 0; margin: 0; }
+
+  /* Reduced motion — respect user preference */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* ─── UTILITY LAYER ───────────────────────────────────────────────────────── */
+
+@layer utilities {
+  /* Page container */
+  .kr-container {
+    width: 100%;
+    max-width: 80rem;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+    @media (min-width: 768px)  { padding-left: 2rem;   padding-right: 2rem;   }
+    @media (min-width: 1024px) { padding-left: 4rem;   padding-right: 4rem;   }
+  }
+
+  /* Section spacing */
+  .kr-section {
+    padding-top: 5rem;
+    padding-bottom: 5rem;
+  }
+
+  /* Screen reader only — visually hidden but accessible */
+  .kr-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* Truncate text with ellipsis */
+  .kr-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Loading skeleton animation */
+  .kr-skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--kr-bg-sunken) 25%,
+      var(--kr-border-default) 50%,
+      var(--kr-bg-sunken) 75%
+    );
+    background-size: 200% 100%;
+    animation: kr-shimmer 1.5s infinite;
+    border-radius: 4px;
+  }
+
+  @keyframes kr-shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* Divider */
+  .kr-divider {
+    border: none;
+    border-top: 1px solid var(--kr-border-default);
+    margin: 0;
+  }
+
+  /* Empty state container */
+  .kr-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 3rem 1.5rem;
+    text-align: center;
+    color: var(--kr-text-secondary);
+  }
+
+  /* Error state container */
+  .kr-error-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    color: var(--kr-text-danger);
+    border: 1px solid var(--kr-border-danger);
+    background: var(--kr-badge-rejected-bg);
+    border-radius: 0.75rem;
+  }
+
+  /* Amount / price display — monospaced for alignment */
+  .kr-amount {
+    font-family: 'JetBrains Mono', Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.875rem;
+  }
+
+  .kr-amount-lg {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variant-numeric: tabular-nums;
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+}
