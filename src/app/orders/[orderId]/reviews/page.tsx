@@ -279,7 +279,7 @@ export default function ReviewsPage() {
   // SECURITY: RBAC check here is UX only. Backend /reviews enforces that
   // a user can only submit one review per order for the correct counterparty.
   const currentUserId = ''; // TODO: useAuthStore().user.id
-  const currentRole: 'FARMER' | 'BUYER' = 'BUYER'; // TODO: useAuthStore().user.role
+  const currentRole = 'BUYER' as 'FARMER' | 'BUYER'; // TODO: useAuthStore().user.role
 
   const { data: reviews = [], isLoading, isError, error, refetch } = useQuery<Review[]>({
     queryKey: ['reviews', orderId],

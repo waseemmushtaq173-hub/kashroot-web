@@ -1,7 +1,7 @@
 'use client';
 
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useMutation } from '@tanstack/react-query';
 import { AlertCircle, Loader2, CheckCircle2, MailOpen } from 'lucide-react';
@@ -28,6 +28,18 @@ import { ApiError } from '@/lib/api/client';
  *   - No blank error states — every failure path has a message.
  */
 export default function VerifyOtpPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex justify-center py-8">
+        <Loader2 className="w-6 h-6 animate-spin text-kr-primary-500" aria-hidden="true" />
+      </div>
+    }>
+      <VerifyOtpForm />
+    </Suspense>
+  );
+}
+
+function VerifyOtpForm() {
   const params  = useSearchParams();
   const router  = useRouter();
   const email   = params.get('email') ?? '';

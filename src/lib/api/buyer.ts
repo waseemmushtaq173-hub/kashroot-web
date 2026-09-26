@@ -69,9 +69,10 @@ export interface ListingSearchResult {
 export const buyerListingsApi = {
   /** GET /listings — public search with filters */
   search: (params: ListingSearchParams = {}): Promise<ListingSearchResult> => {
-    const query: Record<string, string | number | boolean | undefined> = { ...params };
-    if (params.certifications?.length) {
-      query.certifications = params.certifications.join(',');
+    const { certifications, ...rest } = params;
+    const query: Record<string, string | number | boolean | undefined> = { ...rest };
+    if (certifications?.length) {
+      query.certifications = certifications.join(',');
     }
     return api.get('/listings', { params: query });
   },

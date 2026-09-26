@@ -97,11 +97,11 @@ const config: Config = {
 
       // ── TYPOGRAPHY ───────────────────────────────────────────────────────
       fontFamily: {
-        display: typography.fontFamily.display,
-        heading:  typography.fontFamily.heading,
-        sans:     typography.fontFamily.body,
-        body:     typography.fontFamily.body,
-        mono:     typography.fontFamily.mono,
+        display: [...typography.fontFamily.display],
+        heading:  [...typography.fontFamily.heading],
+        sans:     [...typography.fontFamily.body],
+        body:     [...typography.fontFamily.body],
+        mono:     [...typography.fontFamily.mono],
       },
       fontSize: typography.fontSize as any,
 

@@ -601,7 +601,7 @@ export default function CheckoutPage() {
         </div>
 
         {/* Order summary sidebar */}
-        {listing && step !== 'success' && (
+        {listing && (
           <aside aria-label="Order summary" className="kr-card sticky top-6">
             <h2 className="font-heading text-h4 text-kr-text-primary mb-4">Order summary</h2>
             <div className="space-y-2 text-body-sm">

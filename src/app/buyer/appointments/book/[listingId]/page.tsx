@@ -441,8 +441,7 @@ export default function AppointmentBookPage() {
                         transition-colors kr-focus-ring
                         ${ isSelected
                           ? 'border-kr-border-brand bg-kr-fill-brand-subtle'
-                          : 'border-kr-border-default bg-kr-bg-surface
-                             hover:border-kr-border-brand hover:bg-kr-fill-brand-subtle'
+                          : 'border-kr-border-default bg-kr-bg-surface hover:border-kr-border-brand hover:bg-kr-fill-brand-subtle'
                         }
                       `}
                     >

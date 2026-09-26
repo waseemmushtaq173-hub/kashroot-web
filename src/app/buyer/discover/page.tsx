@@ -219,8 +219,7 @@ function FilterSidebar({
                   kr-focus-ring
                   ${ selected
                     ? 'bg-kr-primary-500 text-white border-kr-primary-500'
-                    : 'bg-transparent text-kr-text-secondary border-kr-border-default
-                       hover:border-kr-primary-500 hover:text-kr-primary-600'
+                    : 'bg-transparent text-kr-text-secondary border-kr-border-default hover:border-kr-primary-500 hover:text-kr-primary-600'
                   }
                 `}
               >

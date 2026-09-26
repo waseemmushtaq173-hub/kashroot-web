@@ -45,7 +45,7 @@ export default function MfaSetupPage() {
   const verifyMutation = useMutation({
     mutationFn: () => authApi.mfaVerify({ totp: totpCode }),
     onSuccess: (data) => {
-      tokenStore.set(data.accessToken);
+      tokenStore.setToken(data.accessToken);
       setSetupComplete(true);
       setTimeout(() => {
         const role = data.user.role;

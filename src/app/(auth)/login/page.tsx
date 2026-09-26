@@ -41,7 +41,7 @@ export default function LoginPage() {
   const loginMutation = useMutation({
     mutationFn: authApi.login,
     onSuccess: (data) => {
-      tokenStore.set(data.accessToken);
+      tokenStore.setToken(data.accessToken);
       if (data.requiresMfa) {
         // Admin roles with MFA enabled must complete TOTP verification
         router.push('/mfa-verify');

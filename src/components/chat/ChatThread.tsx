@@ -167,7 +167,7 @@ export function ChatThread({
 
     socket.on('connect',    () => { setStatus('connected'); setSocketError(null); });
     socket.on('disconnect', () => setStatus('disconnected'));
-    socket.on('connect_error', (err) => {
+    socket.on('connect_error', (err: Error) => {
       setStatus('error');
       setSocketError(err.message);
     });

@@ -495,7 +495,7 @@ export default function FarmerDashboardPage() {
           { label: 'Pending requests', value: apptQ.data?.total,    id: 'appointments' },
           { label: 'Active orders',    value: ordersQ.data?.total,  id: 'orders' },
           { label: 'Payout ledger',   value: null,                  id: 'payouts', cta: 'View' },
-        ] as const).map((card) => (
+        ] as Array<{ label: string; value: number | null | undefined; id: string; cta?: string }>).map((card) => (
           <button
             key={card.id}
             onClick={() => setActiveTab(card.id as Tab)}
