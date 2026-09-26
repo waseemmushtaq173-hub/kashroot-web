@@ -97,3 +97,12 @@ export const authApi = {
   refresh:       ()                    => api.post<RefreshResponse>('/auth/refresh'),
   logout:        ()                    => api.post<void>('/auth/logout'),
 };
+export const tokenStore = {
+  getToken: () => (typeof window !== 'undefined' ? localStorage.getItem('token') : null),
+  setToken: (token: string) => {
+    if (typeof window !== 'undefined') localStorage.setItem('token', token);
+  },
+  removeToken: () => {
+    if (typeof window !== 'undefined') localStorage.removeItem('token');
+  },
+};
