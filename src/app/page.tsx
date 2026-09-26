@@ -1,69 +1,134 @@
-import Image from "next/image";
+import type { Metadata } from 'next';
+import Link from 'next/link';
+import {
+  ArrowRight,
+  Sprout,
+  ShieldCheck,
+  Globe2,
+  Store,
+  LayoutDashboard,
+  LogIn,
+} from 'lucide-react';
+
+export const metadata: Metadata = {
+  title: "KashRoot — Kashmir's global agri-trade platform",
+  description:
+    'Connect directly with verified Kashmiri farmers. Transparent pricing, no middlemen, and end-to-end trade compliance.',
+};
+
+const FEATURES = [
+  {
+    icon: Sprout,
+    title: 'Direct from the source',
+    body: 'Buy straight from verified Kashmiri farmers — no middlemen, no hidden markups.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Trusted & compliant',
+    body: 'KYC-verified sellers with built-in customs and cross-border trade compliance.',
+  },
+  {
+    icon: Globe2,
+    title: 'Global reach',
+    body: "Ship Kashmir's produce to buyers across 48 export regions worldwide.",
+  },
+];
+
+const STATS = [
+  { value: '2,400+', label: 'Verified farmers' },
+  { value: '48', label: 'Export regions' },
+  { value: '₹0', label: 'Middleman fee' },
+];
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <div className="min-h-screen flex flex-col bg-kr-bg-page">
+      {/* Nav */}
+      <header className="border-b border-kr-border-default bg-kr-bg-surface">
+        <nav className="kr-container flex items-center justify-between py-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-lg bg-kr-primary-500 flex items-center justify-center">
+              <span className="text-white font-heading font-bold text-lg">K</span>
+            </div>
+            <span className="font-heading font-bold text-xl text-kr-text-primary">KashRoot</span>
+          </div>
+          <Link href="/login" className="kr-btn-ghost kr-btn-sm">
+            <LogIn className="w-4 h-4" aria-hidden="true" /> Sign in
+          </Link>
+        </nav>
+      </header>
+
+      <main id="main-content" className="flex-1">
+        {/* Hero */}
+        <section className="kr-container py-16 md:py-24 text-center">
+          <span className="inline-flex items-center gap-2 rounded-full bg-kr-fill-brand-subtle px-3 py-1 text-caption font-medium text-kr-text-brand mb-6">
+            <Sprout className="w-3.5 h-3.5" aria-hidden="true" /> Farm-to-world marketplace
+          </span>
+          <h1 className="font-heading text-h1 text-kr-text-primary leading-tight max-w-3xl mx-auto">
+            Kashmir&rsquo;s produce,{' '}
+            <span className="text-kr-primary-500">the world&rsquo;s table.</span>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-body-lg text-kr-text-secondary max-w-xl mx-auto mt-5">
+            Connect directly with verified Kashmiri farmers. Transparent pricing,
+            no middlemen, and end-to-end trade compliance.
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+
+          {/* Primary CTAs */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-9">
+            <Link href="/buyer/discover" className="kr-btn-primary kr-btn-lg w-full sm:w-auto">
+              <Store className="w-4 h-4" aria-hidden="true" /> Browse the marketplace
+              <ArrowRight className="w-4 h-4" aria-hidden="true" />
+            </Link>
+            <Link href="/farmer/dashboard" className="kr-btn-secondary kr-btn-lg w-full sm:w-auto">
+              <LayoutDashboard className="w-4 h-4" aria-hidden="true" /> Sell as a farmer
+            </Link>
+            <Link href="/login" className="kr-btn-ghost kr-btn-lg w-full sm:w-auto">
+              <LogIn className="w-4 h-4" aria-hidden="true" /> Sign in
+            </Link>
+          </div>
+
+          {/* Stats */}
+          <dl className="grid grid-cols-3 gap-6 max-w-lg mx-auto mt-16 pt-8 border-t border-kr-border-default">
+            {STATS.map((s) => (
+              <div key={s.label}>
+                <dt className="sr-only">{s.label}</dt>
+                <dd className="font-heading text-h3 text-kr-primary-500">{s.value}</dd>
+                <p className="text-caption text-kr-text-secondary mt-1">{s.label}</p>
+              </div>
+            ))}
+          </dl>
+        </section>
+
+        {/* Features */}
+        <section className="kr-container pb-20 md:pb-28" aria-labelledby="features-heading">
+          <h2 id="features-heading" className="sr-only">Why KashRoot</h2>
+          <div className="grid gap-5 md:grid-cols-3">
+            {FEATURES.map((f) => (
+              <div key={f.title} className="kr-card space-y-3">
+                <div className="w-10 h-10 rounded-lg bg-kr-fill-brand-subtle flex items-center justify-center">
+                  <f.icon className="w-5 h-5 text-kr-primary-600" aria-hidden="true" />
+                </div>
+                <h3 className="font-heading text-h4 text-kr-text-primary">{f.title}</h3>
+                <p className="text-body-sm text-kr-text-secondary">{f.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
       </main>
+
+      {/* Footer */}
+      <footer className="border-t border-kr-border-default bg-kr-bg-surface">
+        <div className="kr-container flex flex-col sm:flex-row items-center justify-between gap-3 py-6">
+          <p className="text-caption text-kr-text-secondary">
+            &copy; {new Date().getFullYear()} KashRoot Technologies Pvt. Ltd.
+          </p>
+          <div className="flex items-center gap-4 text-caption">
+            <Link href="/buyer/discover" className="text-kr-text-secondary hover:text-kr-text-brand">Marketplace</Link>
+            <Link href="/farmer/dashboard" className="text-kr-text-secondary hover:text-kr-text-brand">For farmers</Link>
+            <Link href="/login" className="text-kr-text-secondary hover:text-kr-text-brand">Sign in</Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
