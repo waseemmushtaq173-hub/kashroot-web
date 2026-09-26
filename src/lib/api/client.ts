@@ -5,7 +5,7 @@
  * ALL React Query hooks MUST use this client.
  * Do NOT hand-roll fetch() + useState/useEffect data fetching anywhere.
  *
- * BASE URL : NEXT_PUBLIC_API_URL env var (e.g. http://localhost:3001)
+ * BASE URL : NEXT_PUBLIC_API_URL env var (e.g. http://localhost:3001/api/v1)
  *
  * AUTH FLOW
  * ---------
@@ -33,7 +33,7 @@ export const tokenStore = {
 
 // ── Axios instance ────────────────────────────────────────────────────────
 export const apiClient: AxiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001',
+  baseURL: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1',
   timeout: 15_000,
   headers: { 'Content-Type': 'application/json' },
   withCredentials: true, // Send httpOnly refresh-token cookie
@@ -76,7 +76,7 @@ apiClient.interceptors.response.use(
 
     try {
       const { data } = await axios.post<{ accessToken: string }>(
-        `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'}/auth/refresh`,
+        `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1'}/auth/refresh`,
         {},
         { withCredentials: true },
       );
