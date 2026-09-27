@@ -93,7 +93,7 @@ apiClient.interceptors.response.use(
       if (typeof window !== 'undefined') {
         window.location.href = '/login';
       }
-      return Promise.reject(toApiError(error));
+      return Promise.reject(toApiError(error as any));
     } finally {
       _refreshing = false;
     }
