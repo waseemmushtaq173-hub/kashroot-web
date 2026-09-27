@@ -85,7 +85,7 @@ apiClient.interceptors.response.use(
       _refreshQueue = [];
       original.headers.Authorization = `Bearer ${data.accessToken}`;
       return apiClient(original);
-    } catch {
+    } catch(error) {
       tokenStore.clear();
       _refreshQueue.forEach((cb) => cb(null));
       _refreshQueue = [];
