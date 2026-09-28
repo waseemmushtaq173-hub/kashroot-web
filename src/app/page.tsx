@@ -3,35 +3,43 @@ import Link from 'next/link';
 import {
   ArrowRight,
   Sprout,
-  ShieldCheck,
-  Globe2,
-  Store,
   LayoutDashboard,
   LogIn,
+  Mic, 
+  CloudSun, 
+  Microscope, 
+  Lock, 
+  Store
 } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: "KashRoot — Kashmir's global agri-trade platform",
   description:
-    'Connect directly with verified Kashmiri farmers. Transparent pricing, no middlemen, and end-to-end trade compliance.',
+    'Connect directly with verified Kashmiri farmers. Secure Escrow payments, AI accessibility, and zero middlemen.',
 };
 
+// Replaced generic placeholders with your actual Kashroot tech features
 const FEATURES = [
   {
-    icon: Sprout,
-    title: 'Direct from the source',
-    body: 'Buy straight from verified Kashmiri farmers — no middlemen, no hidden markups.',
+    icon: Lock,
+    title: 'Secure Escrow Payments',
+    body: 'Funds are held securely and only released when produce quality is verified, eliminating middleman fraud.',
   },
   {
-    icon: ShieldCheck,
-    title: 'Trusted & compliant',
-    body: 'KYC-verified sellers with built-in customs and cross-border trade compliance.',
+    icon: Mic,
+    title: 'AI Voice Assistant',
+    body: 'Designed for accessibility. Get transaction receipts and critical alerts spoken live in Kashmiri and Urdu.',
   },
   {
-    icon: Globe2,
-    title: 'Global reach',
-    body: "Ship Kashmir's produce to buyers across 48 export regions worldwide.",
+    icon: CloudSun,
+    title: 'Live Mandi & Weather',
+    body: 'Real-time pricing for high-value crops (Parimpora, Sopore) combined with local harvest weather tracking.',
   },
+  {
+    icon: Microscope,
+    title: 'Input Verification',
+    body: 'Scan QR codes to stop fake pesticide usage, and book direct soil testing with certified agronomists.',
+  }
 ];
 
 const STATS = [
@@ -69,14 +77,15 @@ export default function Home() {
             <span className="text-kr-primary-500">the world&rsquo;s table.</span>
           </h1>
           <p className="text-body-lg text-kr-text-secondary max-w-xl mx-auto mt-5">
-            Connect directly with verified Kashmiri farmers. Transparent pricing,
-            no middlemen, and end-to-end trade compliance.
+            Connect directly with verified Kashmiri farmers. Transparent pricing, secure Escrow integration, 
+            and zero middlemen.
           </p>
 
           {/* Primary CTAs */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-9">
-            <Link href="/buyer/discover" className="kr-btn-primary kr-btn-lg w-full sm:w-auto">
-              <Store className="w-4 h-4" aria-hidden="true" /> Browse the marketplace
+            {/* CHANGED: Routed to /register to prevent 404 until you build /buyer/discover */}
+            <Link href="/register" className="kr-btn-primary kr-btn-lg w-full sm:w-auto">
+              <Store className="w-4 h-4" aria-hidden="true" /> Create Buyer Account
               <ArrowRight className="w-4 h-4" aria-hidden="true" />
             </Link>
             <Link href="/farmer/dashboard" className="kr-btn-secondary kr-btn-lg w-full sm:w-auto">
@@ -99,10 +108,10 @@ export default function Home() {
           </dl>
         </section>
 
-        {/* Features */}
+        {/* Features - Updated grid to handle 4 feature cards instead of 3 */}
         <section className="kr-container pb-20 md:pb-28" aria-labelledby="features-heading">
           <h2 id="features-heading" className="sr-only">Why KashRoot</h2>
-          <div className="grid gap-5 md:grid-cols-3">
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
             {FEATURES.map((f) => (
               <div key={f.title} className="kr-card space-y-3">
                 <div className="w-10 h-10 rounded-lg bg-kr-fill-brand-subtle flex items-center justify-center">
@@ -123,7 +132,7 @@ export default function Home() {
             &copy; {new Date().getFullYear()} KashRoot Technologies Pvt. Ltd.
           </p>
           <div className="flex items-center gap-4 text-caption">
-            <Link href="/buyer/discover" className="text-kr-text-secondary hover:text-kr-text-brand">Marketplace</Link>
+            <Link href="/register" className="text-kr-text-secondary hover:text-kr-text-brand">Marketplace</Link>
             <Link href="/farmer/dashboard" className="text-kr-text-secondary hover:text-kr-text-brand">For farmers</Link>
             <Link href="/login" className="text-kr-text-secondary hover:text-kr-text-brand">Sign in</Link>
           </div>
