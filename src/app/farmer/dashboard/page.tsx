@@ -6,29 +6,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Package, Calendar, ShoppingBag, Wallet,
   PlusCircle, AlertTriangle, Loader2, RefreshCw,
-  ChevronRight, Check, X, Info,
+  ChevronRight, Check, X, Info, CloudSun, Bot, Microscope,
 } from 'lucide-react';
 import { listingsApi, appointmentsApi, ordersApi, payoutsApi } from '@/lib/api/farmer';
 import type { FarmerListing, Appointment, FarmerOrder, ListingStatus } from '@/lib/api/farmer';
 import { ApiError } from '@/lib/api/client';
-
-/**
- * FarmerDashboardPage
- *
- * API contracts verified against Modules 2-4.
- * Payout ledger: proxy via completed orders (no dedicated /payouts endpoint in Modules 1-6).
- *
- * RBAC note:
- * <!-- SECURITY: Farmer-only UI rendered after JWT role check in layout.tsx. -->
- * <!-- Backend ListingsGuard / AppointmentsGuard / OrdersGuard enforce -->
- * <!-- the real authorization. This routing is UX only. -->
- *
- * Accessibility:
- * - Tab sections use role="tablist" / role="tab" / role="tabpanel" with aria-selected.
- * - Status badges have aria-label for screen readers.
- * - Empty + loading + error states for every panel — no blank screens.
- * - Mobile-first: single column on sm, two-col summary row on md.
- */
 
 type Tab = 'listings' | 'appointments' | 'orders' | 'payouts';
 
@@ -45,16 +27,16 @@ const LISTING_STATUS_CLASS: Record<ListingStatus, string> = {
 };
 
 const ORDER_STATUS_LABEL: Record<string, string> = {
-  PLACED:             'Placed',
-  CONFIRMED:          'Confirmed',
-  PACKED:             'Packed',
-  SHIPPED:            'Shipped',
-  CUSTOMS_CLEARANCE:  'Customs clearance',
-  OUT_FOR_DELIVERY:   'Out for delivery',
-  DELIVERED:          'Delivered',
-  COMPLETED:          'Completed',
-  CANCELLED:          'Cancelled',
-  DISPUTED:           'Disputed',
+  PLACED:            'Placed',
+  CONFIRMED:         'Confirmed',
+  PACKED:            'Packed',
+  SHIPPED:           'Shipped',
+  CUSTOMS_CLEARANCE: 'Customs clearance',
+  OUT_FOR_DELIVERY:  'Out for delivery',
+  DELIVERED:         'Delivered',
+  COMPLETED:         'Completed',
+  CANCELLED:         'Cancelled',
+  DISPUTED:          'Disputed',
 };
 
 const APPOINTMENT_STATUS_CLASS: Record<string, string> = {
@@ -127,84 +109,48 @@ function ListingsPanel() {
       <ul className="divide-y divide-kr-border-subtle" role="list">
         {listings.map((l) => (
           <li key={l.id} className="py-4 flex flex-col sm:flex-row sm:items-center gap-3">
-            {/* Thumbnail */}
-            <div
-              className="w-14 h-14 rounded-md bg-kr-bg-sunken shrink-0 overflow-hidden"
-              aria-hidden="true"
-            >
+            <div className="w-14 h-14 rounded-md bg-kr-bg-sunken shrink-0 overflow-hidden" aria-hidden="true">
               {l.images[0]
                 ? <img src={l.images[0]} alt={l.title} className="w-full h-full object-cover" />
                 : <Package className="w-6 h-6 m-4 text-kr-text-disabled" />}
             </div>
 
-            {/* Info */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <Link
-                  href={`/farmer/listings/${l.id}/edit`}
-                  className="font-medium text-body text-kr-text-primary hover:text-kr-text-brand truncate"
-                >
+                <Link href={`/farmer/listings/${l.id}/edit`} className="font-medium text-body text-kr-text-primary hover:text-kr-text-brand truncate">
                   {l.title}
                 </Link>
-                <span
-                  className={`kr-badge ${LISTING_STATUS_CLASS[l.status]}`}
-                  aria-label={`Status: ${LISTING_STATUS_LABEL[l.status]}`}
-                >
+                <span className={`kr-badge ${LISTING_STATUS_CLASS[l.status]}`} aria-label={`Status: ${LISTING_STATUS_LABEL[l.status]}`}>
                   {LISTING_STATUS_LABEL[l.status]}
                 </span>
               </div>
               <p className="text-body-sm text-kr-text-secondary mt-0.5">
-                {l.commodity} · {fmt(l.pricePerUnit, l.currency)}/{l.unit}
-                {' '}· {l.stockQuantity} {l.unit} stock
+                {l.commodity} · {fmt(l.pricePerUnit, l.currency)}/{l.unit} · {l.stockQuantity} {l.unit} stock
               </p>
             </div>
 
-            {/* Actions */}
             <div className="flex gap-2 shrink-0">
               {l.status === 'DRAFT' && (
-                <button
-                  onClick={() => publishMut.mutate(l.id)}
-                  disabled={publishMut.isPending}
-                  aria-busy={publishMut.isPending}
-                  className="kr-btn-primary kr-btn-sm"
-                >
-                  {publishMut.isPending && publishMut.variables === l.id
-                    ? <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
-                    : null}
+                <button onClick={() => publishMut.mutate(l.id)} disabled={publishMut.isPending} className="kr-btn-primary kr-btn-sm">
                   Publish
                 </button>
               )}
               {l.status === 'PUBLISHED' && (
-                <button
-                  onClick={() => unpublishMut.mutate(l.id)}
-                  disabled={unpublishMut.isPending}
-                  className="kr-btn-secondary kr-btn-sm"
-                >
+                <button onClick={() => unpublishMut.mutate(l.id)} disabled={unpublishMut.isPending} className="kr-btn-secondary kr-btn-sm">
                   Unpublish
                 </button>
               )}
-              <Link href={`/farmer/listings/${l.id}/edit`} className="kr-btn-ghost kr-btn-sm">
-                Edit
-              </Link>
+              <Link href={`/farmer/listings/${l.id}/edit`} className="kr-btn-ghost kr-btn-sm">Edit</Link>
             </div>
           </li>
         ))}
       </ul>
 
-      {/* Pagination */}
       {(data?.total ?? 0) > 10 && (
         <div className="flex justify-center gap-3 mt-6">
-          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="kr-btn-ghost kr-btn-sm">
-            Previous
-          </button>
+          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="kr-btn-ghost kr-btn-sm">Previous</button>
           <span className="text-body-sm text-kr-text-secondary self-center">Page {page}</span>
-          <button
-            onClick={() => setPage((p) => p + 1)}
-            disabled={(page * 10) >= (data?.total ?? 0)}
-            className="kr-btn-ghost kr-btn-sm"
-          >
-            Next
-          </button>
+          <button onClick={() => setPage((p) => p + 1)} disabled={(page * 10) >= (data?.total ?? 0)} className="kr-btn-ghost kr-btn-sm">Next</button>
         </div>
       )}
     </div>
@@ -250,43 +196,23 @@ function AppointmentsPanel() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="font-medium text-body text-kr-text-primary">{appt.buyerName}</p>
-              <span
-                className={`kr-badge ${APPOINTMENT_STATUS_CLASS[appt.status]}`}
-                aria-label={`Status: ${appt.status.toLowerCase().replace('_', ' ')}`}
-              >
+              <span className={`kr-badge ${APPOINTMENT_STATUS_CLASS[appt.status]}`} aria-label={`Status: ${appt.status.toLowerCase().replace('_', ' ')}`}>
                 {appt.status.toLowerCase().replace('_', ' ')}
               </span>
             </div>
-            <p className="text-body-sm text-kr-text-secondary mt-0.5">
-              Re: {appt.listingTitle}
-            </p>
+            <p className="text-body-sm text-kr-text-secondary mt-0.5">Re: {appt.listingTitle}</p>
             <p className="text-body-sm text-kr-text-secondary">
-              <time dateTime={appt.scheduledAt}>
-                {fmtDate(appt.scheduledAt)}
-              </time>
-              {' '}· {appt.durationMinutes} min
+              <time dateTime={appt.scheduledAt}>{fmtDate(appt.scheduledAt)}</time> · {appt.durationMinutes} min
             </p>
-            {appt.notes && (
-              <p className="text-caption text-kr-text-secondary mt-1 italic">“{appt.notes}”</p>
-            )}
+            {appt.notes && <p className="text-caption text-kr-text-secondary mt-1 italic">“{appt.notes}”</p>}
           </div>
 
           {appt.status === 'REQUESTED' && (
             <div className="flex gap-2 shrink-0">
-              <button
-                onClick={() => confirmMut.mutate(appt.id)}
-                disabled={confirmMut.isPending}
-                aria-label={`Confirm appointment with ${appt.buyerName}`}
-                className="kr-btn-primary kr-btn-sm"
-              >
+              <button onClick={() => confirmMut.mutate(appt.id)} disabled={confirmMut.isPending} className="kr-btn-primary kr-btn-sm">
                 <Check className="w-3 h-3" aria-hidden="true" /> Confirm
               </button>
-              <button
-                onClick={() => cancelMut.mutate(appt.id)}
-                disabled={cancelMut.isPending}
-                aria-label={`Cancel appointment with ${appt.buyerName}`}
-                className="kr-btn-ghost kr-btn-sm text-kr-text-danger hover:bg-kr-fill-danger-subtle"
-              >
+              <button onClick={() => cancelMut.mutate(appt.id)} disabled={cancelMut.isPending} className="kr-btn-ghost kr-btn-sm text-kr-text-danger hover:bg-kr-fill-danger-subtle">
                 <X className="w-3 h-3" aria-hidden="true" /> Decline
               </button>
             </div>
@@ -326,25 +252,16 @@ function OrdersPanel() {
               <p className="font-medium text-body text-kr-text-primary truncate">
                 #{order.id.slice(-6).toUpperCase()} · {order.listingTitle}
               </p>
-              {order.isCrossBorder && (
-                <span className="kr-badge kr-badge-cross-border" aria-label="Cross-border order">
-                  Cross-border
-                </span>
-              )}
+              {order.isCrossBorder && <span className="kr-badge kr-badge-cross-border">Cross-border</span>}
             </div>
             <p className="text-body-sm text-kr-text-secondary">
-              {order.buyerName} · {order.quantity} {order.unit}
-              {' '}· {fmt(order.totalAmount, order.currency)}
+              {order.buyerName} · {order.quantity} {order.unit} · {fmt(order.totalAmount, order.currency)}
             </p>
             <p className="text-caption text-kr-text-secondary">
               {ORDER_STATUS_LABEL[order.status]} · {fmtDate(order.updatedAt)}
             </p>
           </div>
-          <Link
-            href={`/orders/${order.id}`}
-            className="kr-btn-ghost kr-btn-sm shrink-0"
-            aria-label={`View order ${order.id.slice(-6).toUpperCase()}`}
-          >
+          <Link href={`/orders/${order.id}`} className="kr-btn-ghost kr-btn-sm shrink-0">
             Track <ChevronRight className="w-3 h-3" aria-hidden="true" />
           </Link>
         </li>
@@ -363,9 +280,8 @@ function PayoutsPanel() {
   if (isError)   return <PanelError  message={apiMsg(error)} onRetry={() => refetch()} />;
 
   const orders = data?.data ?? [];
-  const PLATFORM_FEE_PCT = 0.025; // 2.5% — hard-coded until /payouts endpoint exists
+  const PLATFORM_FEE_PCT = 0.025;
 
-  // Compute net from completed orders
   const entries = orders.map((o) => ({
     ...o,
     platformFee: +(o.totalAmount * PLATFORM_FEE_PCT).toFixed(2),
@@ -386,16 +302,13 @@ function PayoutsPanel() {
 
   return (
     <div>
-      {/* Proxy disclaimer */}
       <div className="flex items-start gap-2 p-3 rounded-md bg-kr-fill-warning-subtle border border-kr-border-warning mb-4" role="note">
         <Info className="w-4 h-4 text-kr-warning-600 mt-0.5 shrink-0" aria-hidden="true" />
         <p className="text-caption text-kr-warning-700">
           Payout data is derived from completed orders (2.5% platform fee estimated).
-          A dedicated payout ledger is coming soon.
         </p>
       </div>
 
-      {/* Summary */}
       <div className="kr-card bg-kr-fill-brand-subtle border-0 mb-6">
         <p className="text-caption text-kr-text-secondary uppercase tracking-wide">Total net earnings</p>
         <p className="font-heading text-display text-kr-primary-700 kr-amount">
@@ -421,10 +334,6 @@ function PayoutsPanel() {
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Shared micro-components
-// ---------------------------------------------------------------------------
 
 function PanelSkeleton({ rows }: { rows: number }) {
   return (
@@ -460,10 +369,6 @@ function apiMsg(err: unknown): string {
   return 'An unexpected error occurred. Please try again.';
 }
 
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
-
 const TABS: { id: Tab; label: string; Icon: typeof Package }[] = [
   { id: 'listings',     label: 'Listings',     Icon: Package     },
   { id: 'appointments', label: 'Appointments', Icon: Calendar    },
@@ -474,7 +379,6 @@ const TABS: { id: Tab; label: string; Icon: typeof Package }[] = [
 export default function FarmerDashboardPage() {
   const [activeTab, setActiveTab] = useState<Tab>('listings');
 
-  // Summary counts
   const listingsQ = useQuery({ queryKey: ['farmer', 'listings', 1], queryFn: () => listingsApi.myListings({ page: 1, limit: 1 }) });
   const apptQ     = useQuery({ queryKey: ['farmer', 'appt-count'],  queryFn: () => appointmentsApi.myAppointments({ limit: 1, status: 'REQUESTED' }) });
   const ordersQ   = useQuery({ queryKey: ['farmer', 'order-count'], queryFn: () => ordersApi.myOrders({ limit: 1 }) });
@@ -484,9 +388,34 @@ export default function FarmerDashboardPage() {
       <h1 className="font-heading text-h1 text-kr-text-primary mb-1">
         Dashboard
       </h1>
-      <p className="text-body text-kr-text-secondary mb-8">
+      <p className="text-body text-kr-text-secondary mb-6">
         Manage your listings, appointments, and sales from one place.
       </p>
+
+      {/* Quick Tools Access Bar */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
+        <Link href="/farmer/mandi" className="kr-card bg-blue-50/50 hover:bg-blue-50 border-blue-200 flex items-center gap-3 p-4 transition-colors">
+          <CloudSun className="w-5 h-5 text-blue-600 shrink-0" />
+          <div>
+            <p className="text-body-sm font-medium text-blue-900">Live Mandi & Weather</p>
+            <p className="text-caption text-blue-700">Parimpora & Sopore rates</p>
+          </div>
+        </Link>
+        <Link href="/farmer/assistant" className="kr-card bg-emerald-50/50 hover:bg-emerald-50 border-emerald-200 flex items-center gap-3 p-4 transition-colors">
+          <Bot className="w-5 h-5 text-emerald-600 shrink-0" />
+          <div>
+            <p className="text-body-sm font-medium text-emerald-900">AI Voice Assistant</p>
+            <p className="text-caption text-emerald-700">Kashmiri, Urdu & English</p>
+          </div>
+        </Link>
+        <Link href="/farmer/tester" className="kr-card bg-purple-50/50 hover:bg-purple-50 border-purple-200 flex items-center gap-3 p-4 transition-colors">
+          <Microscope className="w-5 h-5 text-purple-600 shrink-0" />
+          <div>
+            <p className="text-body-sm font-medium text-purple-900">AgroGuard Tester</p>
+            <p className="text-caption text-purple-700">Scan QR codes & batches</p>
+          </div>
+        </Link>
+      </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -494,7 +423,7 @@ export default function FarmerDashboardPage() {
           { label: 'Total listings', value: listingsQ.data?.total, id: 'listings' },
           { label: 'Pending requests', value: apptQ.data?.total,    id: 'appointments' },
           { label: 'Active orders',    value: ordersQ.data?.total,  id: 'orders' },
-          { label: 'Payout ledger',   value: null,                  id: 'payouts', cta: 'View' },
+          { label: 'Payout ledger',    value: null,                 id: 'payouts', cta: 'View' },
         ] as Array<{ label: string; value: number | null | undefined; id: string; cta?: string }>).map((card) => (
           <button
             key={card.id}
@@ -549,10 +478,10 @@ export default function FarmerDashboardPage() {
           aria-labelledby={`tab-${id}`}
           hidden={activeTab !== id}
         >
-          {id === 'listings'     && <ListingsPanel />}
+          {id === 'listings'    && <ListingsPanel />}
           {id === 'appointments' && <AppointmentsPanel />}
-          {id === 'orders'       && <OrdersPanel />}
-          {id === 'payouts'      && <PayoutsPanel />}
+          {id === 'orders'      && <OrdersPanel />}
+          {id === 'payouts'     && <PayoutsPanel />}
         </div>
       ))}
     </main>
