@@ -18,27 +18,30 @@ export const metadata: Metadata = {
     'Connect directly with verified Kashmiri farmers. Secure Escrow payments, AI accessibility, and zero middlemen.',
 };
 
-// Replaced generic placeholders with your actual Kashroot tech features
 const FEATURES = [
   {
     icon: Lock,
     title: 'Secure Escrow Payments',
     body: 'Funds are held securely and only released when produce quality is verified, eliminating middleman fraud.',
+    href: '/farmer/dashboard',
   },
   {
     icon: Mic,
     title: 'AI Voice Assistant',
     body: 'Designed for accessibility. Get transaction receipts and critical alerts spoken live in Kashmiri and Urdu.',
+    href: '/farmer/assistant',
   },
   {
     icon: CloudSun,
     title: 'Live Mandi & Weather',
     body: 'Real-time pricing for high-value crops (Parimpora, Sopore) combined with local harvest weather tracking.',
+    href: '/farmer/mandi',
   },
   {
     icon: Microscope,
     title: 'Input Verification',
     body: 'Scan QR codes to stop fake pesticide usage, and book direct soil testing with certified agronomists.',
+    href: '/farmer/tester',
   }
 ];
 
@@ -83,7 +86,6 @@ export default function Home() {
 
           {/* Primary CTAs */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-9">
-            {/* CHANGED: Routed to /register to prevent 404 until you build /buyer/discover */}
             <Link href="/register" className="kr-btn-primary kr-btn-lg w-full sm:w-auto">
               <Store className="w-4 h-4" aria-hidden="true" /> Create Buyer Account
               <ArrowRight className="w-4 h-4" aria-hidden="true" />
@@ -108,18 +110,24 @@ export default function Home() {
           </dl>
         </section>
 
-        {/* Features - Updated grid to handle 4 feature cards instead of 3 */}
+        {/* Features - Clickable Feature Cards */}
         <section className="kr-container pb-20 md:pb-28" aria-labelledby="features-heading">
           <h2 id="features-heading" className="sr-only">Why KashRoot</h2>
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
             {FEATURES.map((f) => (
-              <div key={f.title} className="kr-card space-y-3">
-                <div className="w-10 h-10 rounded-lg bg-kr-fill-brand-subtle flex items-center justify-center">
-                  <f.icon className="w-5 h-5 text-kr-primary-600" aria-hidden="true" />
+              <Link
+                key={f.title}
+                href={f.href}
+                className="kr-card space-y-3 block hover:border-kr-primary-500 transition-colors group"
+              >
+                <div className="w-10 h-10 rounded-lg bg-kr-fill-brand-subtle flex items-center justify-center group-hover:bg-kr-primary-500 group-hover:text-white transition-colors">
+                  <f.icon className="w-5 h-5 text-kr-primary-600 group-hover:text-white transition-colors" aria-hidden="true" />
                 </div>
-                <h3 className="font-heading text-h4 text-kr-text-primary">{f.title}</h3>
+                <h3 className="font-heading text-h4 text-kr-text-primary group-hover:text-kr-primary-600 transition-colors">
+                  {f.title}
+                </h3>
                 <p className="text-body-sm text-kr-text-secondary">{f.body}</p>
-              </div>
+              </Link>
             ))}
           </div>
         </section>
