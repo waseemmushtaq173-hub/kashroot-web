@@ -49,9 +49,9 @@ export default function LoginPage() {
       }
       // Route by role
       const role = data.user.role;
-      if (role === 'FARMER')         router.push('/farmer/dashboard');
-      else if (role === 'BUYER')     router.push('/buyer/discover');
-      else                           router.push('/admin');
+      if (role === 'FARMER')        router.push('/farmer/dashboard');
+      else if (role === 'BUYER')    router.push('/buyer/discover');
+      else                          router.push('/admin');
     },
   });
 
@@ -154,7 +154,7 @@ export default function LoginPage() {
             >
               {showPw
                 ? <EyeOff className="w-4 h-4" aria-hidden="true" />
-                : <Eye     className="w-4 h-4" aria-hidden="true" />}
+                : <Eye    className="w-4 h-4" aria-hidden="true" />}
             </button>
           </div>
           {errors.password && (
@@ -170,7 +170,7 @@ export default function LoginPage() {
           type="submit"
           disabled={loginMutation.isPending}
           aria-busy={loginMutation.isPending}
-          className="kr-btn-primary w-full kr-btn-lg mt-2"
+          className="w-full bg-stone-900 text-white py-3 px-4 rounded-lg font-medium hover:bg-black transition-colors flex items-center justify-center gap-2 mt-2 disabled:opacity-50"
         >
           {loginMutation.isPending ? (
             <>
