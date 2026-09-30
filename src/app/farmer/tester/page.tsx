@@ -12,9 +12,13 @@ export default function TesterPage() {
     e.preventDefault();
     setLoading(true);
     try {
+      const token = localStorage.getItem('token') || localStorage.getItem('accessToken') || '';
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tester/inspect`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ qrCode: code }),
       });
       const data = await res.json();

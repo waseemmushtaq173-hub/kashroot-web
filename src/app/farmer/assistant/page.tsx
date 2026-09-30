@@ -13,9 +13,13 @@ export default function AssistantPage() {
     if (!query.trim()) return;
     setLoading(true);
     try {
+      const token = localStorage.getItem('token') || localStorage.getItem('accessToken') || '';
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/assistant/voice`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ query }),
       });
       const data = await res.json();
