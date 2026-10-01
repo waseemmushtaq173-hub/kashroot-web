@@ -118,7 +118,7 @@ export default function Home() {
               <Link
                 key={f.title}
                 href={f.href}
-                className="kr-card space-y-3 block hover:border-kr-primary-500 transition-colors group"
+                className="kr-card space-y-3 block hover:border-kr-primary-500 transition-colors group cursor-pointer"
               >
                 <div className="w-10 h-10 rounded-lg bg-kr-fill-brand-subtle flex items-center justify-center group-hover:bg-kr-primary-500 group-hover:text-white transition-colors">
                   <f.icon className="w-5 h-5 text-kr-primary-600 group-hover:text-white transition-colors" aria-hidden="true" />
