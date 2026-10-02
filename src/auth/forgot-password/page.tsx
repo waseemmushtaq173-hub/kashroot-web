@@ -2,20 +2,21 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { KeyRound, Loader2, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Loader2, Key } from 'lucide-react';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault(); // Stops the browser from crashing with the HTML error
     setLoading(true);
     setError('');
 
     try {
+      // Connects to your live Render backend
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -25,12 +26,12 @@ export default function ForgotPasswordPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || 'Failed to send reset instructions.');
+        throw new Error(data.message || 'Failed to send reset instructions');
       }
 
-      setSubmitted(true);
+      setSuccess(true);
     } catch (err: any) {
-      setError(err.message || 'An error occurred. Please try again.');
+      setError(err.message || 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -42,7 +43,7 @@ export default function ForgotPasswordPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-stone-900">Reset password</h1>
           <p className="text-stone-600 text-sm mt-1">
-            Enter your account email and we&apos;ll send you instructions to reset your password.
+            Enter your account email and we'll send you instructions to reset your password.
           </p>
         </div>
 
@@ -52,27 +53,21 @@ export default function ForgotPasswordPage() {
           </div>
         )}
 
-        {submitted ? (
-          <div className="space-y-4 text-center py-4">
-            <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
-            <h3 className="font-semibold text-stone-900 text-lg">Check your inbox</h3>
-            <p className="text-sm text-stone-600">
-              We have sent password reset instructions to <span className="font-medium text-stone-900">{email}</span>.
-            </p>
-            <Link
-              href="/login"
-              className="inline-flex items-center gap-2 text-sm text-emerald-600 font-medium hover:underline pt-2"
-            >
-              <ArrowLeft className="w-4 h-4" /> Back to sign in
+        {success ? (
+          <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-center space-y-3">
+            <p className="font-medium">Instructions sent!</p>
+            <p className="text-sm">Please check your email ({email}) for the OTP code.</p>
+            <Link href="/verify-otp" className="block w-full bg-emerald-600 text-white py-2 rounded-lg mt-4 hover:bg-emerald-700">
+              Go to Verification
             </Link>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleResetPassword} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-stone-700 mb-1">Email address</label>
               <input
                 type="email"
-                placeholder="farmer@kashroot.com"
+                placeholder="waseem@gmail.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 bg-white border border-stone-300 rounded-lg text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900"
@@ -85,16 +80,13 @@ export default function ForgotPasswordPage() {
               disabled={loading}
               className="w-full bg-stone-900 text-white py-3 px-4 rounded-lg font-medium hover:bg-black transition-colors flex items-center justify-center gap-2 mt-2"
             >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <KeyRound className="w-5 h-5" />}
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Key className="w-5 h-5" />}
               Send reset instructions
             </button>
 
             <div className="text-center pt-2">
-              <Link
-                href="/login"
-                className="inline-flex items-center gap-2 text-sm text-stone-500 hover:text-stone-900 font-medium"
-              >
-                <ArrowLeft className="w-4 h-4" /> Back to sign in
+              <Link href="/login" className="text-sm text-stone-500 hover:text-stone-900 font-medium">
+                ← Back to sign in
               </Link>
             </div>
           </form>
