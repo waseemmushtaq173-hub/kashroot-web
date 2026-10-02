@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Authentication context. Holds the decoded JWT identity for the whole app and,
  * critically, the `UserRole` that the RoleLayoutRouter switches on to serve a
