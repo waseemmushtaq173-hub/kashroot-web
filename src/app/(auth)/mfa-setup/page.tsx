@@ -5,15 +5,15 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation } from '@tanstack/react-query';
 import { AlertCircle, Loader2, ShieldCheck, Copy, CheckCircle2 } from 'lucide-react';
-import { authApi, tokenStore } from '@/lib/api/auth';
+import { authApi } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
 
 /**
  * MfaSetupPage
  *
  * API contract (Module 1 — verified against src/modules/auth/):
- *   POST /auth/mfa/setup   → { qrCodeDataUrl: string, secret: string }
- *   POST /auth/mfa/verify  { totp: string } → { accessToken, user }
+ *   POST /auth/mfa/setup          → { qrCodeDataUrl: string, secret: string }
+ *   POST /auth/mfa/verify-setup   { totpCode: string } → { message: string }
  *
  * Who sees this page:
  *   Only REGIONAL_ADMIN and PLATFORM_ADMIN roles, after login if mfaEnabled=false
@@ -43,14 +43,12 @@ export default function MfaSetupPage() {
 
   // Step 2: verify TOTP to confirm setup
   const verifyMutation = useMutation({
-    mutationFn: () => authApi.mfaVerify({ totp: totpCode }),
-    onSuccess: (data) => {
-      tokenStore.setToken(data.accessToken);
+    mutationFn: () => authApi.mfaVerify({ totpCode }),
+    onSuccess: () => {
+      // The backend confirms enrolment but issues no session here, so the user
+      // signs in again with their new TOTP code.
       setSetupComplete(true);
-      setTimeout(() => {
-        const role = data.user.role;
-        router.push(role === 'PLATFORM_ADMIN' ? '/admin' : '/admin/regional');
-      }, 2_000);
+      setTimeout(() => router.push('/login'), 2_000);
     },
   });
 

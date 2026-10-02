@@ -59,7 +59,7 @@ function VerifyOtpForm() {
   }, [resendCooldown]);
 
   const verifyMutation = useMutation({
-    mutationFn: () => authApi.verifyOtp({ email, otp: digits.join('') }),
+    mutationFn: () => authApi.verifyOtp({ email, code: digits.join('') }),
     onSuccess: () => {
       setVerified(true);
       setTimeout(() => router.push('/login?verified=1'), 1_500);

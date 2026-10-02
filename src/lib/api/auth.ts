@@ -5,10 +5,10 @@
  * DTOs verified against Module 1 source:
  *   RegisterDto       POST /auth/register
  *   LoginDto          POST /auth/login
- *   VerifyOtpDto      POST /auth/otp/verify
+ *   VerifyOtpDto      POST /auth/verify-otp
  *   ResendOtpDto      POST /auth/otp/resend
  *   MfaSetupResponse  POST /auth/mfa/setup    (REGIONAL_ADMIN, PLATFORM_ADMIN only)
- *   MfaVerifyDto      POST /auth/mfa/verify
+ *   MfaVerifyDto      POST /auth/mfa/verify-setup
  *   RefreshResponse   POST /auth/refresh
  *
  * If any of these shapes change in the backend, update here and the
@@ -40,7 +40,8 @@ export interface LoginDto {
 
 export interface VerifyOtpDto {
   email: string;
-  otp:   string;
+  /** Backend VerifyOtpDto field is `code` (validated @Length(6, 6)). */
+  code:  string;
 }
 
 export interface ResendOtpDto {
@@ -48,7 +49,8 @@ export interface ResendOtpDto {
 }
 
 export interface MfaVerifyDto {
-  totp: string;
+  /** Backend reads this from the body as `totpCode`. */
+  totpCode: string;
 }
 
 // ── Response shapes ───────────────────────────────────────────────────────
@@ -68,8 +70,7 @@ export interface LoginResponse {
 }
 
 export interface OtpVerifyResponse {
-  verified: boolean;
-  message:  string;
+  message: string;
 }
 
 export interface MfaSetupResponse {
@@ -78,8 +79,7 @@ export interface MfaSetupResponse {
 }
 
 export interface MfaVerifyResponse {
-  accessToken: string;
-  user:        AuthUser;
+  message: string;
 }
 
 export interface RefreshResponse {
@@ -90,10 +90,10 @@ export interface RefreshResponse {
 export const authApi = {
   register:      (dto: RegisterDto)    => api.post<{ message: string }>('/auth/register', dto),
   login:         (dto: LoginDto)       => api.post<LoginResponse>('/auth/login', dto),
-  verifyOtp:     (dto: VerifyOtpDto)   => api.post<OtpVerifyResponse>('/auth/otp/verify', dto),
+  verifyOtp:     (dto: VerifyOtpDto)   => api.post<OtpVerifyResponse>('/auth/verify-otp', dto),
   resendOtp:     (dto: ResendOtpDto)   => api.post<{ message: string }>('/auth/otp/resend', dto),
   mfaSetup:      ()                    => api.post<MfaSetupResponse>('/auth/mfa/setup'),
-  mfaVerify:     (dto: MfaVerifyDto)   => api.post<MfaVerifyResponse>('/auth/mfa/verify', dto),
+  mfaVerify:     (dto: MfaVerifyDto)   => api.post<MfaVerifyResponse>('/auth/mfa/verify-setup', dto),
   refresh:       ()                    => api.post<RefreshResponse>('/auth/refresh'),
   logout:        ()                    => api.post<void>('/auth/logout'),
 };
