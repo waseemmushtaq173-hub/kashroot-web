@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Loader2, Key } from 'lucide-react';
-
+import { authApi } from '@/lib/api/auth';
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -16,8 +17,8 @@ export default function ForgotPasswordPage() {
     setError('');
 
     try {
-      // Instant mock bypass for OTP dispatch
-      await new Promise(r => setTimeout(r, 400)); // slight realistic delay
+      // Dispatch OTP via the API
+      await authApi.resendOtp({ email, phone });
       
       setSuccess(true);
       setTimeout(() => {
@@ -50,8 +51,8 @@ export default function ForgotPasswordPage() {
 
         {success ? (
           <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-center space-y-3">
-            <p className="font-medium">Instructions & OTP dispatched!</p>
-            <p className="text-sm">We've sent a 6-digit verification code to your mobile number and your email (<strong className="font-semibold">{email}</strong>).</p>
+            <p className="font-medium">OTP successfully sent to mobile number and email!</p>
+            <p className="text-sm">We've sent a 6-digit verification code to <strong className="font-semibold">{phone}</strong> and <strong className="font-semibold">{email}</strong>.</p>
             <Link href={`/verify-otp?email=${encodeURIComponent(email)}`} className="block w-full bg-emerald-600 text-white py-2 rounded-lg mt-4 hover:bg-emerald-700">
               Go to Verification
             </Link>
@@ -65,6 +66,18 @@ export default function ForgotPasswordPage() {
                 placeholder="waseem@gmail.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-3 bg-white border border-stone-300 rounded-lg text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900 mb-4"
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-stone-700 mb-1">Mobile Number</label>
+              <input
+                type="tel"
+                placeholder="+91 9999999999"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
                 className="w-full px-4 py-3 bg-white border border-stone-300 rounded-lg text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900"
                 required
               />

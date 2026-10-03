@@ -48,6 +48,7 @@ export interface VerifyOtpDto {
 
 export interface ResendOtpDto {
   email: string;
+  phone?: string;
 }
 
 export interface MfaVerifyDto {
@@ -114,7 +115,10 @@ export const authApi = {
     // Zero-delay instantaneous mockup
     return { message: 'OTP verified successfully' };
   },
-  resendOtp:     async (dto: ResendOtpDto)   => ({ message: 'OTP resent successfully' }),
+  resendOtp: async (dto: ResendOtpDto) => {
+    console.log(`[MOCK AUTH] OTP 123456 sent to email: ${dto.email} and mobile: ${dto.phone || 'N/A'}`);
+    return { message: 'OTP successfully sent to mobile number and email' };
+  },
   mfaSetup:      async ()                    => ({ qrCodeDataUrl: '', secret: '' } as MfaSetupResponse),
   mfaVerify:     async (dto: MfaVerifyDto)   => ({ message: 'MFA verified' } as MfaVerifyResponse),
   refresh:       async ()                    => ({ accessToken: 'mock_jwt_token_for_demo_purposes_only_12345' }),
