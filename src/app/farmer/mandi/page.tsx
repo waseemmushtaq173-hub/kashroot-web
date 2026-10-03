@@ -1,135 +1,552 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Loader2, TrendingUp, CloudSun, MapPin } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import type { ChangeEvent } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import {
+  AlertCircle,
+  CheckCircle2,
+  CloudSun,
+  FlaskConical,
+  Info,
+  Loader2,
+  LocateFixed,
+  MapPin,
+  RefreshCw,
+} from 'lucide-react';
+
+import { mandiApi } from '@/lib/api/mandi';
+import type {
+  LiveMandiFeed,
+  MandiFeedQuery,
+  MandiQuote,
+  TrendPoint,
+} from '@/lib/api/mandi';
+
+/** Sentinel for the "near me" entry in the market select. */
+const NEAR_ME = '__near_me__';
+
+/** How the page is asking for prices right now. */
+type Selection =
+  | { kind: 'hub'; id: string }
+  | { kind: 'coords'; lat: number; lng: number };
+
+// ── Formatting ──────────────────────────────────────────────────────────────
+// Arrival dates are plain calendar dates with no time component, so everything
+// here formats and compares them in UTC. Letting the browser's local zone near
+// midnight would slide a date by a day and quietly misreport how fresh a board
+// is.
+
+const inr = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+});
+
+const dayMonth = new Intl.DateTimeFormat('en-IN', {
+  day: 'numeric',
+  month: 'short',
+  timeZone: 'UTC',
+});
+
+function formatArrival(iso: string): string {
+  return dayMonth.format(new Date(`${iso}T00:00:00Z`));
+}
+
+/** Whole days between an arrival date and today, both in UTC. */
+function ageInDays(iso: string): number {
+  const then = Date.parse(`${iso}T00:00:00Z`);
+  const now = new Date();
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  return Math.round((today - then) / 86_400_000);
+}
+
+function formatAge(iso: string | null): string {
+  if (!iso) return '';
+  const days = ageInDays(iso);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  return `${days} days ago`;
+}
+
+// ── Sub-components ──────────────────────────────────────────────────────────
 
 /**
- * Shown only when the live feed returns no rows.
+ * A sparkline over the aggregated daily series.
  *
- * Every figure here is a stand-in, so the cards are badged "Sample" and the
- * page says so above them. The previous version rendered one of these wearing a
- * "Live Connected" footer, which is the worst of both worlds: an invented rate
- * presented as a live one. A price board is read as a price board.
- *
- * The crop is deliberately the same across all three markets — the whole point
- * of a mandi board is comparing one crop across hubs, so the local rate is
- * directly comparable with the terminal markets.
+ * Renders whatever the feed returned and nothing when it returned less than two
+ * points, rather than drawing a flat line that would read as "no movement"
+ * when the truth is "no data".
  */
-const SAMPLE_PRICES = [
-  {
-    market: 'Parimpora, Srinagar',
-    crop: 'Grade-A Apple',
-    price: '₹1,450',
-    unit: '/ 15kg box',
-    note: 'Weather: Clear (18°C)',
-  },
-  {
-    market: 'Azadpur, Delhi',
-    crop: 'Grade-A Apple',
-    price: '₹1,610',
-    unit: '/ 15kg box',
-    note: 'Weather: Clear (31°C)',
-  },
-  {
-    market: 'Jaipur, Rajasthan',
-    crop: 'Grade-A Apple',
-    price: '₹1,538',
-    unit: '/ 15kg box',
-    note: 'Weather: Clear (34°C)',
-  },
-];
+function PriceTrend({ points, caption }: { points: TrendPoint[]; caption: string }) {
+  if (points.length < 2) return null;
 
-export default function MandiWeatherPage() {
-  const [prices, setPrices] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const values = points.map((point) => point.modalPrice);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
 
-  useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/mandi-prices`)
-      .then((res) => res.json())
-      .then((data) => {
-        setPrices(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Failed to fetch mandi prices:', err);
-        setLoading(false);
-      });
-  }, []);
+  const WIDTH = 100;
+  const HEIGHT = 28;
+
+  // preserveAspectRatio="none" lets this stretch to any container width; the
+  // non-scaling stroke below keeps the line itself from stretching with it.
+  const path = values
+    .map((value, index) => {
+      const x = (index / (values.length - 1)) * WIDTH;
+      const y = HEIGHT - ((value - min) / span) * HEIGHT;
+      return `${index === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .join(' ');
+
+  const first = values[0] ?? 0;
+  const last = values[values.length - 1] ?? 0;
+  const changePct = first === 0 ? 0 : ((last - first) / first) * 100;
+  const rising = changePct >= 0;
+
+  const from = points[0]?.arrivalDate ?? '';
+  const to = points[points.length - 1]?.arrivalDate ?? '';
+  const label = `${caption}: ${points.length} daily averages from ${formatArrival(from)} to ${formatArrival(to)}, ${rising ? 'up' : 'down'} ${Math.abs(changePct).toFixed(1)} percent.`;
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-stone-900">Live Mandi Prices & Weather</h1>
-          <p className="text-stone-600 mt-1">
-            Rates from local hubs alongside the major terminal mandis — Azadpur,
-            Jaipur and beyond.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-4 py-2 rounded-lg font-medium text-sm">
-          <MapPin className="w-4 h-4" /> Pan-India Feed
-        </div>
+    <section className="kr-card" aria-label={caption}>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-label font-medium text-kr-text-primary">{caption}</h2>
+        <p className="text-caption text-kr-text-secondary">
+          {points.length} daily averages · {formatArrival(from)} – {formatArrival(to)}
+        </p>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center items-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-stone-600" />
-        </div>
-      ) : prices.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {prices.map((item, index) => (
-            <div key={index} className="bg-white p-6 rounded-xl border border-stone-200 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-semibold uppercase tracking-wider bg-stone-100 text-stone-700 px-2.5 py-1 rounded">
-                  {item.market || 'Local mandi'}
-                </span>
-                <TrendingUp className="w-4 h-4 text-emerald-600" />
-              </div>
-              <h3 className="text-lg font-bold text-stone-900">{item.cropName || 'Apple (Delicious)'}</h3>
-              <p className="text-2xl font-extrabold text-stone-900 mt-2">₹{item.price || '1,200'} <span className="text-sm font-normal text-stone-500">/ box</span></p>
-              <div className="mt-4 pt-4 border-t border-stone-100 flex items-center justify-between text-sm text-stone-500">
-                <span>Trend: Stable</span>
-                <span className="text-emerald-600 font-medium">Updated Today</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div>
-          <p
-            role="note"
-            className="mb-6 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
-          >
-            <CloudSun className="w-4 h-4 mt-0.5 shrink-0" />
-            <span>
-              Sample data — the live mandi feed returned no rows. These figures
-              are placeholders, not today&rsquo;s rates.
-            </span>
+      <svg
+        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={label}
+        className="mt-3 h-14 w-full text-kr-primary-600"
+      >
+        <path
+          d={path}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.5}
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+
+      <p className="mt-2 text-body-sm text-kr-text-secondary">
+        <span className={rising ? 'text-kr-text-success' : 'text-kr-text-danger'}>
+          {rising ? '▲' : '▼'} {Math.abs(changePct).toFixed(1)}%
+        </span>{' '}
+        across the period shown
+      </p>
+    </section>
+  );
+}
+
+/** One market board's card. */
+function PriceCard({ quote }: { quote: MandiQuote }) {
+  return (
+    <article className="kr-card flex flex-col">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="font-heading text-h4 text-kr-text-primary">
+            {quote.market}
+          </h3>
+          <p className="mt-1 text-caption text-kr-text-secondary">
+            {quote.district ? `${quote.district}, ` : ''}
+            {quote.state}
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {SAMPLE_PRICES.map((sample) => (
-              <div key={sample.market} className="bg-white p-6 rounded-xl border border-stone-200 shadow-sm">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-semibold uppercase tracking-wider bg-stone-100 text-stone-700 px-2.5 py-1 rounded">
-                    {sample.market}
+        </div>
+        {quote.grade ? (
+          <span className="kr-badge kr-badge-draft shrink-0">{quote.grade}</span>
+        ) : null}
+      </div>
+
+      <p className="mt-4 kr-amount-lg text-kr-text-primary">
+        {inr.format(quote.modalPrice)}
+      </p>
+      <p className="text-caption text-kr-text-secondary">
+        per {quote.unitOfSale} · {quote.commodity}
+        {quote.variety ? ` (${quote.variety})` : ''}
+      </p>
+
+      <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-kr-border-default pt-3">
+        <div>
+          <dt className="text-caption text-kr-text-secondary">Low</dt>
+          <dd className="kr-amount text-kr-text-primary">
+            {inr.format(quote.minPrice)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-caption text-kr-text-secondary">High</dt>
+          <dd className="kr-amount text-kr-text-primary">
+            {inr.format(quote.maxPrice)}
+          </dd>
+        </div>
+      </dl>
+    </article>
+  );
+}
+
+/** Shown while the first board for a location is in flight. */
+function BoardSkeleton() {
+  return (
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div key={index} className="kr-card">
+          <div className="kr-skeleton h-4 w-2/3" />
+          <div className="kr-skeleton mt-3 h-3 w-1/3" />
+          <div className="kr-skeleton mt-5 h-8 w-1/2" />
+          <div className="kr-skeleton mt-5 h-10 w-full" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Page ────────────────────────────────────────────────────────────────────
+
+export default function MandiPage() {
+  const [selection, setSelection] = useState<Selection | null>(null);
+  const [commodity, setCommodity] = useState('Apple');
+  const [geo, setGeo] = useState<{ status: 'idle' | 'locating' | 'error'; message?: string }>({
+    status: 'idle',
+  });
+
+  const catalogueQuery = useQuery({
+    queryKey: ['mandi', 'catalogue'],
+    queryFn: mandiApi.locations,
+    // The hub list is static reference data; no reason to re-ask on every mount.
+    staleTime: 5 * 60_000,
+  });
+
+  // Pick a starting market once the catalogue arrives, so the board has
+  // something to show before the grower touches anything. A live-coverage hub
+  // is preferred as the default, since that is the one guaranteed to have real
+  // published prices behind it.
+  useEffect(() => {
+    if (selection || !catalogueQuery.data) return;
+    const { locations, commodities } = catalogueQuery.data;
+    const preferred = locations.find((l) => l.coverage === 'live') ?? locations[0];
+    if (preferred) setSelection({ kind: 'hub', id: preferred.id });
+    if (!commodities.includes(commodity) && commodities[0]) {
+      setCommodity(commodities[0]);
+    }
+    // `commodity` is intentionally not a dependency: this effect only seeds the
+    // initial selection, and re-running it on a commodity change would fight
+    // the user's own choice.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalogueQuery.data, selection]);
+
+  const query = useMemo<MandiFeedQuery | null>(() => {
+    if (!selection) return null;
+    return selection.kind === 'hub'
+      ? { location: selection.id, commodity }
+      : { lat: selection.lat, lng: selection.lng, commodity };
+  }, [selection, commodity]);
+
+  const feedQuery = useQuery({
+    queryKey: ['mandi', 'feed', query],
+    enabled: query !== null,
+    queryFn: () => mandiApi.feed(query as MandiFeedQuery),
+    retry: 1,
+  });
+
+  const feed: LiveMandiFeed | undefined = feedQuery.data;
+
+  function useMyLocation() {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setGeo({
+        status: 'error',
+        message: 'This browser cannot share a location. Choose a market instead.',
+      });
+      return;
+    }
+
+    setGeo({ status: 'locating' });
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setGeo({ status: 'idle' });
+        setSelection({
+          kind: 'coords',
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      (error) => {
+        setGeo({
+          status: 'error',
+          message:
+            error.code === error.PERMISSION_DENIED
+              ? 'Location access was declined. Choose a market from the list instead.'
+              : 'Your location could not be determined. Choose a market from the list instead.',
+        });
+      },
+      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 5 * 60_000 },
+    );
+  }
+
+  function onMarketChange(event: ChangeEvent<HTMLSelectElement>) {
+    const value = event.target.value;
+    if (value === NEAR_ME) return;
+    setGeo({ status: 'idle' });
+    setSelection({ kind: 'hub', id: value });
+  }
+
+  const locations = catalogueQuery.data?.locations ?? [];
+  const liveLocations = locations.filter((l) => l.coverage === 'live');
+  const modelledLocations = locations.filter((l) => l.coverage === 'modelled');
+
+  const selectValue =
+    selection?.kind === 'hub' ? selection.id : selection ? NEAR_ME : '';
+
+  return (
+    <main id="main-content" className="kr-container py-6 md:py-10">
+      {/* ── Header ───────────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-h1 text-kr-text-primary">
+            Live mandi prices
+          </h1>
+          <p className="mt-1 max-w-2xl text-body text-kr-text-secondary">
+            Daily arrival rates from regulated market boards, resolved to the
+            market you choose or the one nearest you.
+          </p>
+        </div>
+
+        {/*
+          Provenance, reported rather than assumed. The feed says what it was
+          served from and this states it back, so a modelled price and a
+          published market price can never look the same on screen.
+        */}
+        {feed ? (
+          <div className="flex flex-col items-start gap-1 md:items-end">
+            <span
+              className={
+                feed.source === 'agmarknet'
+                  ? 'kr-badge kr-badge-published'
+                  : 'kr-badge kr-badge-draft'
+              }
+              title={feed.attribution}
+            >
+              {feed.source === 'agmarknet' ? (
+                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+              ) : (
+                <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />
+              )}
+              {feed.source === 'agmarknet' ? 'Agmarknet' : 'Modelled'}
+            </span>
+            <p className="text-caption text-kr-text-secondary">
+              {feed.attribution}
+            </p>
+          </div>
+        ) : null}
+      </div>
+
+      {/* ── Controls ─────────────────────────────────────────────────────── */}
+      <div className="mt-6 border border-kr-border-default bg-kr-bg-surface p-4 md:p-5">
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="min-w-[16rem] flex-1">
+            <label htmlFor="mandi-market" className="kr-label">
+              Market
+            </label>
+            <select
+              id="mandi-market"
+              className="kr-input"
+              value={selectValue}
+              onChange={onMarketChange}
+              disabled={catalogueQuery.isLoading}
+            >
+              {selection?.kind === 'coords' ? (
+                <option value={NEAR_ME}>
+                  Near me
+                  {feed ? ` — ${feed.location.label}` : ' — locating…'}
+                </option>
+              ) : null}
+
+              {liveLocations.length > 0 ? (
+                <optgroup label="Live Agmarknet coverage">
+                  {liveLocations.map((location) => (
+                    <option key={location.id} value={location.id}>
+                      {location.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+
+              {modelledLocations.length > 0 ? (
+                <optgroup label="Modelled — no upstream coverage">
+                  {modelledLocations.map((location) => (
+                    <option key={location.id} value={location.id}>
+                      {location.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+            </select>
+          </div>
+
+          <div className="min-w-[12rem] flex-1">
+            <label htmlFor="mandi-commodity" className="kr-label">
+              Commodity
+            </label>
+            <select
+              id="mandi-commodity"
+              className="kr-input"
+              value={commodity}
+              onChange={(event) => setCommodity(event.target.value)}
+              disabled={catalogueQuery.isLoading}
+            >
+              {(catalogueQuery.data?.commodities ?? [commodity]).map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            type="button"
+            className="kr-btn-secondary"
+            onClick={useMyLocation}
+            disabled={geo.status === 'locating'}
+            aria-busy={geo.status === 'locating'}
+          >
+            {geo.status === 'locating' ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <LocateFixed className="h-4 w-4" aria-hidden="true" />
+            )}
+            {geo.status === 'locating' ? 'Locating…' : 'Use my location'}
+          </button>
+
+          <button
+            type="button"
+            className="kr-btn-ghost"
+            onClick={() => feedQuery.refetch()}
+            disabled={feedQuery.isFetching || !query}
+            aria-busy={feedQuery.isFetching}
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${feedQuery.isFetching ? 'animate-spin' : ''}`}
+              aria-hidden="true"
+            />
+            Refresh
+          </button>
+        </div>
+
+        {geo.status === 'error' && geo.message ? (
+          <p className="kr-error-msg mt-3" role="status">
+            <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+            {geo.message}
+          </p>
+        ) : null}
+      </div>
+
+      {/* ── Board ────────────────────────────────────────────────────────── */}
+      <div className="mt-8">
+        {feedQuery.isLoading || catalogueQuery.isLoading ? (
+          <BoardSkeleton />
+        ) : feedQuery.isError ? (
+          <div className="kr-card kr-error-state" role="alert">
+            <h2 className="font-heading text-h4 text-kr-text-primary">
+              The price board could not be loaded
+            </h2>
+            <p className="mt-2 text-body-sm text-kr-text-secondary">
+              {feedQuery.error instanceof Error
+                ? feedQuery.error.message
+                : 'The request to the price service failed.'}
+            </p>
+            <button
+              type="button"
+              className="kr-btn-primary mt-4"
+              onClick={() => feedQuery.refetch()}
+            >
+              <RefreshCw className="h-4 w-4" aria-hidden="true" />
+              Try again
+            </button>
+          </div>
+        ) : feed ? (
+          <>
+            {/* Where the answer came from, in one line. */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-kr-text-secondary">
+              <span className="inline-flex items-center gap-1.5">
+                <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="font-medium text-kr-text-primary">
+                  {feed.location.label}
+                </span>
+              </span>
+              {feed.location.resolvedBy === 'coordinates' &&
+              feed.location.distanceKm !== null ? (
+                <span>· nearest hub, {feed.location.distanceKm} km away</span>
+              ) : null}
+              <span>·</span>
+              <span>
+                {feed.commodity} per {feed.unitOfSale}
+              </span>
+              {feed.asOf ? (
+                <>
+                  <span>·</span>
+                  <span>
+                    latest arrivals {formatArrival(feed.asOf)} ({formatAge(feed.asOf)})
                   </span>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-amber-700 bg-amber-100 px-2 py-1 rounded">
-                    Sample
-                  </span>
+                </>
+              ) : null}
+            </div>
+
+            {/*
+              Present only when the board could not be served as asked — an
+              upstream outage, or a state that publishes nothing for this
+              commodity. It explains an empty board; it is not a label on
+              filled-in numbers.
+            */}
+            {feed.note ? (
+              <p
+                role="status"
+                className="mt-4 flex items-start gap-2 border border-kr-border-default bg-kr-bg-sunken p-3 text-body-sm text-kr-text-secondary"
+              >
+                <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>{feed.note}</span>
+              </p>
+            ) : null}
+
+            {feed.prices.length > 0 ? (
+              <>
+                <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {feed.prices.map((quote) => (
+                    <PriceCard key={`${quote.market}-${quote.arrivalDate}`} quote={quote} />
+                  ))}
                 </div>
-                <h3 className="text-lg font-bold text-stone-900">{sample.crop}</h3>
-                <p className="text-2xl font-extrabold text-stone-900 mt-2">
-                  {sample.price} <span className="text-sm font-normal text-stone-500">{sample.unit}</span>
-                </p>
-                <div className="mt-4 pt-4 border-t border-stone-100 flex items-center justify-between text-sm text-stone-500">
-                  <span>{sample.note}</span>
-                  <span className="text-amber-700 font-medium">Not live</span>
+
+                {feed.history.length > 1 ? (
+                  <div className="mt-6">
+                    <PriceTrend
+                      points={feed.history}
+                      caption={`${feed.commodity} in ${feed.location.state} — daily average`}
+                    />
+                  </div>
+                ) : null}
+              </>
+            ) : !feed.note ? (
+              <div className="kr-card mt-6" role="status">
+                <div className="flex items-start gap-3">
+                  <CloudSun className="mt-0.5 h-5 w-5 shrink-0 text-kr-text-secondary" aria-hidden="true" />
+                  <div>
+                    <h2 className="font-heading text-h4 text-kr-text-primary">
+                      No arrivals reported
+                    </h2>
+                    <p className="mt-1 text-body-sm text-kr-text-secondary">
+                      No board in {feed.location.label} has published a{' '}
+                      {feed.commodity} arrival for this period.
+                    </p>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+            ) : null}
+          </>
+        ) : null}
+      </div>
+    </main>
   );
 }
