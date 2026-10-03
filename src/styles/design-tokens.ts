@@ -277,13 +277,24 @@ export const spacing = {
 
 // ─── BORDER RADIUS ────────────────────────────────────────────────────────────
 
+/*
+ * Rectangular geometry — a deliberate design decision, not an oversight.
+ *
+ * The interface uses strictly sharp rectangles: no rounded bubbles anywhere in
+ * the structural furniture (cards, panels, buttons, inputs, badges, modals).
+ * The only element allowed to be round is `full`, which exists for genuinely
+ * circular things — avatars, status dots, spinners.
+ *
+ * Every step maps to 0 rather than deleting the scale, so existing `rounded-*`
+ * call sites keep compiling and simply render square.
+ */
 export const borderRadius = {
-  sm:   '0.25rem',  // 4px — tags, badges
-  DEFAULT: '0.5rem', // 8px — inputs, buttons
-  md:   '0.75rem',  // 12px — cards
-  lg:   '1rem',     // 16px — panels
-  xl:   '1.5rem',   // 24px — modals
-  full: '9999px',   // pills
+  sm:   '0px',  // tags, badges
+  DEFAULT: '0px', // inputs, buttons
+  md:   '0px',  // cards
+  lg:   '0px',  // panels
+  xl:   '0px',  // modals
+  full: '9999px', // the one exception — circles only
 } as const;
 
 // ─── SHADOWS ──────────────────────────────────────────────────────────────────
