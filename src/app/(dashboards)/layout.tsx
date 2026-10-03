@@ -17,6 +17,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   if (segment === 'farmer') themeClass = 'theme-farmer';
   else if (segment === 'buyer') themeClass = 'theme-buyer';
   else if (segment === 'seller') themeClass = 'theme-seller';
+  else if (segment === 'dealer') themeClass = 'theme-dealer';
   else if (segment === 'provider') themeClass = 'theme-provider';
   
   return (

@@ -596,6 +596,28 @@
   --kr-fill-brand-subtle: #7C2D12; /* orange-900 */
 }
 
+.theme-dealer {
+  /* Purple for Dealer */
+  --kr-bg-page: #FAF5FF; /* purple-50 */
+  --kr-text-brand: #7E22CE; /* purple-700 */
+  --kr-border-brand: #A855F7; /* purple-500 */
+  --kr-border-focus: #9333EA; /* purple-600 */
+  --kr-fill-brand: #9333EA; 
+  --kr-fill-brand-hover: #7E22CE; 
+  --kr-fill-brand-active: #6B21A8; /* purple-800 */
+  --kr-fill-brand-subtle: #F3E8FF; /* purple-100 */
+}
+.dark .theme-dealer {
+  --kr-bg-page: #3B0764; /* purple-950 */
+  --kr-text-brand: #D8B4FE; /* purple-300 */
+  --kr-border-brand: #9333EA; /* purple-600 */
+  --kr-border-focus: #A855F7; 
+  --kr-fill-brand: #9333EA; 
+  --kr-fill-brand-hover: #A855F7;
+  --kr-fill-brand-active: #D8B4FE;
+  --kr-fill-brand-subtle: #581C87; /* purple-900 */
+}
+
 .theme-provider {
   /* Ocean Blue */
   --kr-bg-page: #EFF6FF; /* blue-50 */
