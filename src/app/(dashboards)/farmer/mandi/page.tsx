@@ -78,10 +78,10 @@ function formatAge(iso: string | null): string {
  * points, rather than drawing a flat line that would read as "no movement"
  * when the truth is "no data".
  */
-function PriceTrend({ points, caption }: { points: TrendPoint[]; caption: string }) {
+function PriceTrend({ points, caption, multiplier }: { points: TrendPoint[]; caption: string; multiplier: number }) {
   if (points.length < 2) return null;
 
-  const values = points.map((point) => point.modalPrice);
+  const values = points.map((point) => point.modalPrice * multiplier);
   const min = Math.min(...values);
   const max = Math.max(...values);
   const span = max - min || 1;
@@ -144,7 +144,12 @@ function PriceTrend({ points, caption }: { points: TrendPoint[]; caption: string
 }
 
 /** One market board's card. */
-function PriceCard({ quote }: { quote: MandiQuote }) {
+function PriceCard({ quote, multiplier, displayUnit }: { quote: MandiQuote; multiplier: number; displayUnit: string }) {
+  const modal = quote.modalPrice * multiplier;
+  const min = quote.minPrice * multiplier;
+  const max = quote.maxPrice * multiplier;
+  const unitLabel = displayUnit === 'box' ? 'Box (20kg)' : displayUnit === 'kg' ? 'Kg' : 'Quintal (100kg)';
+
   return (
     <article className="kr-card flex flex-col">
       <div className="flex items-start justify-between gap-3">
@@ -163,10 +168,10 @@ function PriceCard({ quote }: { quote: MandiQuote }) {
       </div>
 
       <p className="mt-4 kr-amount-lg text-kr-text-primary">
-        {inr.format(quote.modalPrice)}
+        {inr.format(modal)}
       </p>
       <p className="text-caption text-kr-text-secondary">
-        per {quote.unitOfSale} · {quote.commodity}
+        per {unitLabel} · {quote.commodity}
         {quote.variety ? ` (${quote.variety})` : ''}
       </p>
 
@@ -174,13 +179,13 @@ function PriceCard({ quote }: { quote: MandiQuote }) {
         <div>
           <dt className="text-caption text-kr-text-secondary">Low</dt>
           <dd className="kr-amount text-kr-text-primary">
-            {inr.format(quote.minPrice)}
+            {inr.format(min)}
           </dd>
         </div>
         <div>
           <dt className="text-caption text-kr-text-secondary">High</dt>
           <dd className="kr-amount text-kr-text-primary">
-            {inr.format(quote.maxPrice)}
+            {inr.format(max)}
           </dd>
         </div>
       </dl>
@@ -209,6 +214,7 @@ function BoardSkeleton() {
 export default function MandiPage() {
   const [selection, setSelection] = useState<Selection | null>(null);
   const [commodity, setCommodity] = useState('Apple');
+  const [displayUnit, setDisplayUnit] = useState<'quintal' | 'kg' | 'box'>('box');
   const [geo, setGeo] = useState<{ status: 'idle' | 'locating' | 'error'; message?: string }>({
     status: 'idle',
   });
@@ -229,6 +235,16 @@ export default function MandiPage() {
       setCommodity(commodities[0]);
     }
   }, [catalogueQuery.data, selection, selectedState]);
+
+  useEffect(() => {
+    if (['Apple', 'Cherry', 'Pear', 'Tomato'].includes(commodity)) {
+      setDisplayUnit('box');
+    } else if (['Saffron', 'Walnut'].includes(commodity)) {
+      setDisplayUnit('kg');
+    } else {
+      setDisplayUnit('quintal');
+    }
+  }, [commodity]);
 
   const query = useMemo<MandiFeedQuery | null>(() => {
     if (!selection) return null;
@@ -301,6 +317,16 @@ export default function MandiPage() {
 
   const selectValue =
     selection?.kind === 'hub' ? selection.id : selection ? NEAR_ME : '';
+
+  const baseUnit = feed?.unitOfSale || 'quintal';
+  let multiplier = 1;
+  if (baseUnit === 'quintal') {
+    if (displayUnit === 'kg') multiplier = 0.01;
+    else if (displayUnit === 'box') multiplier = 0.2; // 20kg box
+  } else if (baseUnit === 'kg') {
+    if (displayUnit === 'quintal') multiplier = 100;
+    else if (displayUnit === 'box') multiplier = 20; // 20kg box
+  }
 
   return (
     <main id="main-content" className="kr-container py-6 md:py-10">
@@ -405,6 +431,22 @@ export default function MandiPage() {
             </select>
           </div>
 
+          <div className="min-w-[8rem] flex-[0.5]">
+            <label htmlFor="mandi-unit" className="kr-label">
+              Unit
+            </label>
+            <select
+              id="mandi-unit"
+              className="kr-input"
+              value={displayUnit}
+              onChange={(event) => setDisplayUnit(event.target.value as any)}
+            >
+              <option value="box">Per Box (20kg)</option>
+              <option value="kg">Per Kg</option>
+              <option value="quintal">Per Quintal</option>
+            </select>
+          </div>
+
           <button
             type="button"
             className="kr-btn-secondary"
@@ -482,7 +524,7 @@ export default function MandiPage() {
               ) : null}
               <span>·</span>
               <span>
-                {feed.commodity} per {feed.unitOfSale}
+                {feed.commodity} per {displayUnit === 'box' ? 'Box (20kg)' : displayUnit === 'kg' ? 'Kg' : 'Quintal'}
               </span>
               {feed.asOf ? (
                 <>
@@ -514,7 +556,7 @@ export default function MandiPage() {
               <>
                 <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                   {feed.prices.map((quote) => (
-                    <PriceCard key={`${quote.market}-${quote.arrivalDate}`} quote={quote} />
+                    <PriceCard key={`${quote.market}-${quote.arrivalDate}`} quote={quote} multiplier={multiplier} displayUnit={displayUnit} />
                   ))}
                 </div>
 
@@ -523,6 +565,7 @@ export default function MandiPage() {
                     <PriceTrend
                       points={feed.history}
                       caption={`${feed.commodity} in ${feed.location.state} — daily average`}
+                      multiplier={multiplier}
                     />
                   </div>
                 ) : null}

@@ -148,7 +148,12 @@ export const mandiApi = {
       const loc = MOCK_JK_DISTRICTS.find(d => d.id === locId) || MOCK_JK_DISTRICTS[2];
       const commodity = params.commodity || 'Apple';
       
-      const basePrice = commodity === 'Apple' ? 5500 : commodity === 'Walnut' ? 14000 : 2000;
+      const basePrice = commodity === 'Apple' ? 10000 
+                      : commodity === 'Walnut' ? 25000 
+                      : commodity === 'Saffron' ? 250000 
+                      : commodity === 'Cherry' ? 15000
+                      : 2000;
+      const unit = commodity === 'Saffron' ? 'kg' : 'quintal';
       const today = new Date().toISOString().split('T')[0];
 
       return {
@@ -163,12 +168,14 @@ export const mandiApi = {
         commodity,
         source: 'simulated',
         attribution: 'Simulated based on historical ranges',
-        unitOfSale: 'quintal',
+        unitOfSale: unit as PriceUnit,
         currency: 'INR',
         fetchedAt: new Date().toISOString(),
         asOf: today,
         prices: loc.markets.map(m => {
-          const varPrice = basePrice + Math.floor(Math.random() * 500) - 250;
+          // Adjust variance relative to basePrice
+          const variance = basePrice * 0.1; 
+          const varPrice = basePrice + Math.floor(Math.random() * variance) - (variance / 2);
           return {
             market: m,
             district: loc.label,
@@ -176,10 +183,10 @@ export const mandiApi = {
             commodity,
             variety: 'Grade A',
             grade: 'Premium',
-            minPrice: varPrice - 200,
-            maxPrice: varPrice + 200,
+            minPrice: varPrice - (variance * 0.4),
+            maxPrice: varPrice + (variance * 0.4),
             modalPrice: varPrice,
-            unitOfSale: 'quintal',
+            unitOfSale: unit as PriceUnit,
             currency: 'INR',
             arrivalDate: today
           } as MandiQuote;
