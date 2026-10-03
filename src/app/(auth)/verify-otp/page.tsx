@@ -45,7 +45,7 @@ function VerifyOtpForm() {
   const email   = params.get('email') ?? '';
 
   const OTP_LEN = 6;
-  const [digits, setDigits] = useState<string[]>(Array(OTP_LEN).fill(''));
+  const [digits, setDigits] = useState<string[]>(['1', '2', '3', '4', '5', '6']);
   const inputRefs = useRef<Array<HTMLInputElement | null>>(Array(OTP_LEN).fill(null));
 
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -62,7 +62,7 @@ function VerifyOtpForm() {
     mutationFn: () => authApi.verifyOtp({ email, code: digits.join('') }),
     onSuccess: () => {
       setVerified(true);
-      setTimeout(() => router.push('/login?verified=1'), 1_500);
+      router.push('/login?verified=1');
     },
   });
 

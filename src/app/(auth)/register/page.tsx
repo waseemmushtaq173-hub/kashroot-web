@@ -33,9 +33,7 @@ export default function RegisterPage() {
     mutationFn: (dto: RegisterDto) => authApi.register(dto),
     onSuccess: (_, variables) => {
       setSuccess(true);
-      setTimeout(() => {
-        router.push(`/verify-otp?email=${encodeURIComponent(variables.email)}`);
-      }, 1500);
+      router.push(`/verify-otp?email=${encodeURIComponent(variables.email)}`);
     },
   });
 
