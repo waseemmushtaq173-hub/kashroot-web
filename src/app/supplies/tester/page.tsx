@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from 'react';
 import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
 import { ShieldAlert, ShieldCheck, Search, Loader2, FlaskConical, ScanLine, Camera, X, Upload } from 'lucide-react';
 
+import { verifyAgroInput } from '@/lib/agroguard';
+
 export default function FertilizerTesterPage() {
   const [batchCode, setBatchCode] = useState('');
   const [manufacturer, setManufacturer] = useState('');
@@ -50,20 +52,8 @@ export default function FertilizerTesterPage() {
 
   const runVerification = (m: string, b: string, n: string) => {
     if (!b || !m || !n) return;
-    
-    // Instant client-side verification
-    const isFake = b.toUpperCase().includes('X') || m.toLowerCase().includes('fake');
-    
-    setResult({
-      isOriginal: !isFake,
-      score: isFake ? 24 : 98,
-      matchDetails: isFake 
-        ? `NPK ratio (${n}) strongly deviates from official baseline for ${m || 'this brand'}. Batch code pattern mismatch.`
-        : `NPK ratio (${n}) matches manufacturer baseline. Batch code verified against central registry.`,
-      clearance: isFake 
-        ? "HIGH RISK COUNTERFEIT. Do not use. Report to local agriculture office."
-        : "VERIFIED ORIGINAL. Safe for agricultural application."
-    });
+    const verification = verifyAgroInput(m, b, n);
+    setResult(verification);
     setLoading(false);
   };
 
