@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { LogIn } from 'lucide-react';
-import { BrandMark } from '@/components/brand/ChinarLeaf';
+import { BrandMark } from '@/components/brand/Shikara';
 
 /**
  * Public site header, shared by the landing page and the supplies catalogue.

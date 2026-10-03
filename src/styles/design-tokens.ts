@@ -221,11 +221,25 @@ export const semanticTokens = {
 // ─── TYPOGRAPHY ───────────────────────────────────────────────────────────────
 
 export const typography = {
+  /*
+   * These reference the CSS variables next/font writes onto <html> in
+   * src/app/layout.tsx — not the bare family names.
+   *
+   * The variables carry next/font's metric-matched fallback next to the real
+   * family (`"Fraunces", "Fraunces Fallback"`), which is what keeps text from
+   * reflowing while the woff2 loads. Naming the family literally would drop
+   * that fallback out of the stack.
+   *
+   * Each `var()` carries a fallback so the declaration stays valid even if the
+   * variable is absent: a bare `var(--missing)` makes the whole `font-family`
+   * declaration invalid at computed-value time, which drops the element back to
+   * its *inherited* font rather than to the next family in the list.
+   */
   fontFamily: {
-    display:  ['Fraunces', 'Georgia', 'serif'],
-    heading:  ['Fraunces', 'Georgia', 'serif'],
-    body:     ['Inter', 'system-ui', 'sans-serif'],
-    mono:     ['JetBrains Mono', 'Menlo', 'monospace'],
+    display: ['var(--font-fraunces, Georgia)', 'Georgia', 'serif'],
+    heading: ['var(--font-fraunces, Georgia)', 'Georgia', 'serif'],
+    body:    ['var(--font-inter, system-ui)', 'system-ui', 'sans-serif'],
+    mono:    ['var(--font-jetbrains-mono, Menlo)', 'Menlo', 'monospace'],
   },
   fontSize: {
     'display-2xl': ['4.5rem',   { lineHeight: '1.1',  letterSpacing: '-0.02em', fontWeight: '700' }],

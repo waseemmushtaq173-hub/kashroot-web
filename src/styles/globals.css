@@ -155,16 +155,19 @@
   body {
     background-color: var(--kr-bg-page);
     color: var(--kr-text-primary);
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: var(--font-inter, system-ui), system-ui, sans-serif;
     font-size: 1rem;
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Headings use Fraunces */
+  /* Headings use Fraunces, via the variable next/font sets on <html> so the
+     metric-matched fallback travels with it. This line used to ask for a
+     literal 'Fraunces' while layout.tsx only loaded Geist — no such face was
+     ever emitted, so headings rendered in Georgia and nothing said so. */
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Fraunces', Georgia, serif;
+    font-family: var(--font-fraunces, Georgia), Georgia, serif;
     font-weight: 700;
     color: var(--kr-text-primary);
     line-height: 1.2;
@@ -201,7 +204,7 @@
 
   /* Mono content */
   code, kbd, pre, samp {
-    font-family: 'JetBrains Mono', Menlo, monospace;
+    font-family: var(--font-jetbrains-mono, Menlo), Menlo, monospace;
     font-size: 0.875em;
   }
 
@@ -269,7 +272,14 @@
     );
     background-size: 200% 100%;
     animation: kr-shimmer 1.5s infinite;
-    border-radius: 4px;
+    /*
+     * No border-radius here on purpose. This rule is emitted after Tailwind's
+     * own utilities, so any radius set here would beat the `rounded-*` class at
+     * the call site — which is exactly what used to happen: the avatar
+     * placeholders marked `rounded-full` were being squared off to 4px by this
+     * declaration. Let the call site decide; unmarked skeletons stay sharp,
+     * which is the house geometry anyway.
+     */
   }
 
   @keyframes kr-shimmer {
@@ -307,18 +317,17 @@
     color: var(--kr-text-danger);
     border: 1px solid var(--kr-border-danger);
     background: var(--kr-badge-rejected-bg);
-    border-radius: 0.75rem;
   }
 
   /* Amount / price display — monospaced for alignment */
   .kr-amount {
-    font-family: 'JetBrains Mono', Menlo, monospace;
+    font-family: var(--font-jetbrains-mono, Menlo), Menlo, monospace;
     font-variant-numeric: tabular-nums;
     font-size: 0.875rem;
   }
 
   .kr-amount-lg {
-    font-family: 'Fraunces', Georgia, serif;
+    font-family: var(--font-fraunces, Georgia), Georgia, serif;
     font-variant-numeric: tabular-nums;
     font-size: 1.5rem;
     font-weight: 700;
@@ -334,13 +343,14 @@
  * candidates found in the source, so a keyframe declared in there is dropped:
  * `kr-pulse` never appears as a className, so there is nothing to match it
  * against. At the top level these are emitted unconditionally, which is what
- * callers need — both of these are referenced as *animation values*, not
- * classes:
+ * callers need — they are referenced as *animation values*, not classes.
  *
- *   - VoiceAssistantButton sets `animation: 'kr-pulse 1s infinite'` inline.
- *   - TesterLayout uses `animate-[kr-pulse_1s_infinite]`, whose generated rule
- *     is `animation: 1s infinite kr-pulse` and therefore also needs the
- *     keyframes to exist somewhere in the bundle.
+ * The only remaining consumer is VoiceAssistantButton, which sets
+ * `animation: 'kr-pulse 1s infinite'` inline and defines its own copies of both
+ * keyframes in a scoped <style>. That file is itself unreferenced, so nothing
+ * live depends on these today; they are kept because the pulse/spin pair is the
+ * standard busy-state animation for this design system and the removal of the
+ * legacy layouts is not a reason to drop it.
  *
  * These moved here from src/theme/globals.css, which was never imported.
  */

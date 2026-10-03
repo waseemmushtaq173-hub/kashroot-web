@@ -12,7 +12,7 @@ import {
   Package,
   Store,
 } from 'lucide-react';
-import { ChinarLeaf } from '@/components/brand/ChinarLeaf';
+import { Shikara } from '@/components/brand/Shikara';
 import { SiteFooter, SiteHeader } from '@/components/layout/SiteHeader';
 
 export const metadata: Metadata = {
@@ -80,7 +80,7 @@ export default function Home() {
 
       <main id="main-content" className="flex-1">
         {/* ── Hero ─────────────────────────────────────────────────────────────
-            The Chinar carries the identity here rather than a large slogan:
+            The shikara carries the identity here rather than a large slogan:
             the mark says "Kashmir" faster than the word does, and the copy is
             kept to a single factual sentence. */}
         <section className="kr-container py-12 md:py-20">
@@ -111,9 +111,12 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Brand panel — a sharp rectangle, the leaf filling it. */}
+            {/* Brand panel — a sharp rectangle, the Dal scene filling it. */}
             <div className="relative flex min-h-[300px] items-center justify-center border border-kr-border-default bg-kr-primary-500 p-10">
-              <ChinarLeaf className="h-56 w-56 text-white md:h-64 md:w-64" />
+              <Shikara
+                strokeWidth={3}
+                className="h-56 w-72 text-white md:h-64 md:w-80"
+              />
               <div className="absolute inset-x-0 bottom-0 flex items-center justify-between border-t border-white/25 px-6 py-3">
                 <span className="text-caption font-semibold uppercase tracking-wide text-white/90">
                   Produce
