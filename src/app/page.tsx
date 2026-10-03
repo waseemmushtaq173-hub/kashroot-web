@@ -71,8 +71,8 @@ const CAPABILITIES = [
   },
   {
     icon: CloudSun,
-    title: 'Mandi & weather',
-    body: 'Daily rates from Parimpora and Sopore alongside harvest-window weather for the districts that supply them.',
+    title: 'Live mandi & weather',
+    body: 'Live rates from local hubs alongside the major terminal mandis — Azadpur, Jaipur and beyond — with harvest-window weather for the districts that supply them.',
     href: '/farmer/mandi',
   },
   {
@@ -136,10 +136,10 @@ export default function Home() {
               DOM, and this is positioned too, so it paints on top of them. */}
           <div className="kr-container relative w-full py-24 text-center md:py-32">
             <p className="text-overline uppercase tracking-[0.2em] text-white/80">
-              Verified Kashmiri horticulture
+              Farm-direct horticulture trade
             </p>
             <h1 className="mx-auto mt-5 max-w-4xl font-heading text-display-lg text-white md:text-display-xl">
-              Kashmir&rsquo;s harvest, traded direct.
+              The harvest, traded direct.
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-body-lg text-white/85">
               Sell produce straight to buyers with no middleman taking the
