@@ -39,50 +39,19 @@ export default function VerifyOtpPage() {
   );
 }
 
-function VerifyOtpForm() {
-  const params  = useSearchParams();
-  const router  = useRouter();
-  const email   = params.get('email') ?? '';
-  const phone   = params.get('phone') ?? '';
-
+function OtpInput({ label, value, onChange }: { label: string, value: string, onChange: (val: string) => void }) {
   const OTP_LEN = 6;
-  const [digits, setDigits] = useState<string[]>(['1', '2', '3', '4', '5', '6']);
+  const digits = value.padEnd(OTP_LEN, ' ').split('').map(d => d === ' ' ? '' : d);
   const inputRefs = useRef<Array<HTMLInputElement | null>>(Array(OTP_LEN).fill(null));
 
-  const [resendCooldown, setResendCooldown] = useState(0);
-  const [verified, setVerified] = useState(false);
-
-  // Cooldown timer for resend
-  useEffect(() => {
-    if (resendCooldown <= 0) return;
-    const id = setTimeout(() => setResendCooldown((c) => c - 1), 1_000);
-    return () => clearTimeout(id);
-  }, [resendCooldown]);
-
-  const verifyMutation = useMutation({
-    mutationFn: () => authApi.verifyOtp({ email, code: digits.join('') }),
-    onSuccess: () => {
-      setVerified(true);
-      router.push('/login?verified=1');
-    },
-  });
-
-  const resendMutation = useMutation({
-    mutationFn: () => authApi.resendOtp({ email }),
-    onSuccess: () => setResendCooldown(60),
-  });
-
-  function handleDigitChange(index: number, value: string) {
-    const digit = value.replace(/\D/g, '').slice(-1);
+  function handleDigitChange(index: number, val: string) {
+    const digit = val.replace(/\D/g, '').slice(-1);
     const next = [...digits];
     next[index] = digit;
-    setDigits(next);
+    const finalVal = next.join('');
+    onChange(finalVal);
     if (digit && index < OTP_LEN - 1) {
       inputRefs.current[index + 1]?.focus();
-    }
-    // Auto-submit when all 6 digits filled
-    if (next.every((d) => d !== '') && next.join('').length === OTP_LEN) {
-      verifyMutation.mutate();
     }
   }
 
@@ -96,15 +65,84 @@ function VerifyOtpForm() {
     e.preventDefault();
     const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, OTP_LEN);
     if (!pasted) return;
-    const next = [...digits];
-    pasted.split('').forEach((ch, i) => { if (i < OTP_LEN) next[i] = ch; });
-    setDigits(next);
+    onChange(pasted);
     const focusIdx = Math.min(pasted.length, OTP_LEN - 1);
     inputRefs.current[focusIdx]?.focus();
-    if (pasted.length === OTP_LEN) verifyMutation.mutate();
   }
 
-  const otp = digits.join('');
+  return (
+    <fieldset className="mb-6">
+      <legend className="text-body-sm font-medium text-kr-text-primary mb-2 text-center w-full">{label}</legend>
+      <div className="flex gap-2 sm:gap-3 justify-center" aria-label={`6-digit verification code for ${label}`}>
+        {digits.map((digit, i) => (
+          <input
+            key={i}
+            ref={(el) => { inputRefs.current[i] = el; }}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]"
+            maxLength={1}
+            value={digit}
+            aria-label={`Digit ${i + 1} of ${OTP_LEN}`}
+            className={`
+              w-11 h-14 sm:w-12 sm:h-16 text-center text-h3 font-heading
+              border rounded-md bg-kr-bg-surface text-kr-text-primary
+              transition-colors
+              focus:outline-none focus:border-kr-border-focus focus:shadow-kr-brand
+              ${digit ? 'border-kr-border-brand' : 'border-kr-border-default'}
+            `}
+            onChange={(e) => handleDigitChange(i, e.target.value)}
+            onKeyDown={(e) => handleKeyDown(i, e)}
+            onPaste={i === 0 ? handlePaste : undefined}
+          />
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+function VerifyOtpForm() {
+  const params  = useSearchParams();
+  const router  = useRouter();
+  const email   = params.get('email') ?? '';
+  const phone   = params.get('phone') ?? '';
+
+  const [emailCode, setEmailCode] = useState<string>('');
+  const [phoneCode, setPhoneCode] = useState<string>('');
+
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [verified, setVerified] = useState(false);
+
+  // Cooldown timer for resend
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const id = setTimeout(() => setResendCooldown((c) => c - 1), 1_000);
+    return () => clearTimeout(id);
+  }, [resendCooldown]);
+
+  const verifyMutation = useMutation({
+    // Modify mutationFn to pass both codes down, the backend/mock expects it
+    mutationFn: () => authApi.verifyOtp({ email, code: emailCode, phoneCode }),
+    onSuccess: () => {
+      setVerified(true);
+      router.push('/login?verified=1');
+    },
+  });
+
+  const resendMutation = useMutation({
+    mutationFn: () => authApi.resendOtp({ email, phone }),
+    onSuccess: () => setResendCooldown(60),
+  });
+
+  // Auto-submit when both 6 digits filled
+  useEffect(() => {
+    if (emailCode.length === OTP_LEN && phoneCode.length === OTP_LEN && !verifyMutation.isPending) {
+      verifyMutation.mutate();
+    }
+  }, [emailCode, phoneCode]);
+
+  const OTP_LEN = 6;
+
   const errorMsg = verifyMutation.error instanceof ApiError
     ? verifyMutation.error.messages[0]
     : verifyMutation.error ? 'Verification failed. Please try again.' : null;
@@ -149,49 +187,13 @@ function VerifyOtpForm() {
         </div>
       )}
 
-      {/* 6-cell OTP input */}
-      <fieldset>
-        <legend className="kr-sr-only">Enter the 6-digit verification code</legend>
-        <div
-          className="flex gap-2 sm:gap-3 justify-center mb-6"
-          aria-label="6-digit verification code"
-        >
-          {digits.map((digit, i) => (
-            <input
-              key={i}
-              ref={(el) => { inputRefs.current[i] = el; }}
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]"
-              maxLength={1}
-              value={digit}
-              aria-label={`Digit ${i + 1} of ${OTP_LEN}`}
-              autoFocus={i === 0}
-              className={`
-                w-11 h-14 sm:w-12 sm:h-16 text-center text-h3 font-heading
-                border rounded-md bg-kr-bg-surface text-kr-text-primary
-                transition-colors
-                focus:outline-none focus:border-kr-border-focus focus:shadow-kr-brand
-                ${
-                  errorMsg
-                    ? 'border-kr-border-danger'
-                    : digit
-                    ? 'border-kr-border-brand'
-                    : 'border-kr-border-default'
-                }
-              `}
-              onChange={(e) => handleDigitChange(i, e.target.value)}
-              onKeyDown={(e) => handleKeyDown(i, e)}
-              onPaste={i === 0 ? handlePaste : undefined}
-            />
-          ))}
-        </div>
-      </fieldset>
+      <OtpInput label="Verify Mobile" value={phoneCode} onChange={setPhoneCode} />
+      <OtpInput label="Verify Email" value={emailCode} onChange={setEmailCode} />
 
       <button
         type="button"
         onClick={() => verifyMutation.mutate()}
-        disabled={otp.length < OTP_LEN || verifyMutation.isPending}
+        disabled={emailCode.length < OTP_LEN || phoneCode.length < OTP_LEN || verifyMutation.isPending}
         aria-busy={verifyMutation.isPending}
         className="kr-btn-primary w-full kr-btn-lg mb-6"
       >

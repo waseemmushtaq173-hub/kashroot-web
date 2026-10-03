@@ -42,8 +42,8 @@ export interface LoginDto {
 
 export interface VerifyOtpDto {
   email: string;
-  /** Backend VerifyOtpDto field is `code` (validated @Length(6, 6)). */
   code:  string;
+  phoneCode?: string;
 }
 
 export interface ResendOtpDto {
