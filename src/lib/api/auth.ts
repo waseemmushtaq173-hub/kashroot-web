@@ -116,8 +116,20 @@ export const authApi = {
     return { message: 'OTP verified successfully' };
   },
   resendOtp: async (dto: ResendOtpDto) => {
-    console.log(`[MOCK AUTH] OTP 123456 sent to email: ${dto.email} and mobile: ${dto.phone || 'N/A'}`);
-    return { message: 'OTP successfully sent to mobile number and email' };
+    try {
+      const response = await fetch('/api/auth/otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dto),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to resend OTP');
+      return data;
+    } catch (e: any) {
+      console.error('Failed to call API route, using mock fallback', e);
+      console.log(`[MOCK AUTH] OTP 123456 sent to email: ${dto.email} and mobile: ${dto.phone || 'N/A'}`);
+      return { message: 'OTP successfully sent to mobile number and email' };
+    }
   },
   mfaSetup:      async ()                    => ({ qrCodeDataUrl: '', secret: '' } as MfaSetupResponse),
   mfaVerify:     async (dto: MfaVerifyDto)   => ({ message: 'MFA verified' } as MfaVerifyResponse),

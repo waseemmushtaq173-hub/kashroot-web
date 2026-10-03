@@ -23,7 +23,7 @@ export default function ForgotPasswordPage() {
       setSuccess(true);
       setTimeout(() => {
         if (typeof window !== 'undefined') {
-          window.location.href = `/verify-otp?email=${encodeURIComponent(email)}`;
+          window.location.href = `/verify-otp?email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phone)}`;
         }
       }, 2000);
     } catch (err: any) {
@@ -34,12 +34,12 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-stone-50 px-4">
+      <div className="min-h-screen flex items-center justify-center bg-stone-50 px-4">
       <div className="max-w-md w-full bg-white p-8 rounded-2xl border border-stone-200 shadow-sm space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-stone-900">Reset password</h1>
           <p className="text-stone-600 text-sm mt-1">
-            Enter your account email and we'll send you instructions to reset your password.
+            Enter your account email and mobile number and we'll send you instructions to reset your password.
           </p>
         </div>
 
@@ -53,7 +53,7 @@ export default function ForgotPasswordPage() {
           <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-center space-y-3">
             <p className="font-medium">OTP successfully sent to mobile number and email!</p>
             <p className="text-sm">We've sent a 6-digit verification code to <strong className="font-semibold">{phone}</strong> and <strong className="font-semibold">{email}</strong>.</p>
-            <Link href={`/verify-otp?email=${encodeURIComponent(email)}`} className="block w-full bg-emerald-600 text-white py-2 rounded-lg mt-4 hover:bg-emerald-700">
+            <Link href={`/verify-otp?email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phone)}`} className="block w-full bg-emerald-600 text-white py-2 rounded-lg mt-4 hover:bg-emerald-700">
               Go to Verification
             </Link>
           </div>

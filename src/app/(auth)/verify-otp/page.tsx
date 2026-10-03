@@ -43,6 +43,7 @@ function VerifyOtpForm() {
   const params  = useSearchParams();
   const router  = useRouter();
   const email   = params.get('email') ?? '';
+  const phone   = params.get('phone') ?? '';
 
   const OTP_LEN = 6;
   const [digits, setDigits] = useState<string[]>(['1', '2', '3', '4', '5', '6']);
@@ -112,7 +113,7 @@ function VerifyOtpForm() {
     return (
       <div role="status" aria-live="polite" className="text-center space-y-4 py-8">
         <CheckCircle2 className="w-12 h-12 text-kr-success-500 mx-auto" aria-hidden="true" />
-        <h2 className="font-heading text-h3 text-kr-text-primary">Email verified!</h2>
+        <h2 className="font-heading text-h3 text-kr-text-primary">Identity verified!</h2>
         <p className="text-body-sm text-kr-text-secondary">Redirecting to sign in…</p>
         <Loader2 className="w-5 h-5 animate-spin text-kr-primary-500 mx-auto" aria-hidden="true" />
       </div>
@@ -128,12 +129,16 @@ function VerifyOtpForm() {
       </div>
 
       <h1 className="font-heading text-h2 text-kr-text-primary text-center mb-1">
-        Check your email
+        Check your email and mobile device
       </h1>
       <p className="text-body-sm text-kr-text-secondary text-center mb-8">
         We sent a 6-digit code to{' '}
         <span className="font-medium text-kr-text-primary">
           {email || 'your email address'}
+        </span>
+        {' '}and{' '}
+        <span className="font-medium text-kr-text-primary">
+          {phone || 'your mobile number'}
         </span>.
       </p>
 
@@ -192,7 +197,7 @@ function VerifyOtpForm() {
       >
         {verifyMutation.isPending ? (
           <><Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> Verifying…</>
-        ) : 'Verify email'}
+        ) : 'Verify code'}
       </button>
 
       {/* Resend */}
