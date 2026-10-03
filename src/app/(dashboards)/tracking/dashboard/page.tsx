@@ -323,31 +323,55 @@ function TrackingSkeleton() {
 
 export default function TrackingPage() {
   const [plate, setPlate] = useState('');
+  const [vType, setVType] = useState('HCV');
+  
   /** The plate actually submitted. Distinct from `plate` so a half-typed
       registration never becomes a request — see the brief: fetch on submit. */
   const [submitted, setSubmitted] = useState('');
+  const [submittedClass, setSubmittedClass] = useState('HCV');
   const now = useNow();
 
   const trackQuery = useQuery({
-    queryKey: ['tracking', submitted],
+    queryKey: ['tracking', submitted, submittedClass],
     enabled: submitted.length > 0,
     queryFn: async () => {
       // Dynamic parsing based on state code
-      const stateCode = submitted.slice(0, 2).toUpperCase();
+      const cleanPlate = submitted.replace(/[^A-Z0-9]/ig, '').toUpperCase();
+      const stateCode = cleanPlate.slice(0, 2);
+      const districtCode = cleanPlate.slice(2, 4);
+
       let ownerName = 'National Freight Logistics';
       let driverName = 'Rajesh Kumar';
       let originName = 'Azadpur Mandi';
       let originState = 'DL';
       let originLat = 28.736;
       let originLng = 77.168;
+      
+      let posLat = originLat + 0.1;
+      let posLng = originLng + 0.1;
 
       if (stateCode === 'JK') {
         ownerName = 'Pir Panjal Freight Carriers';
         driverName = 'Ghulam Nabi Dar';
         originName = 'Shopian Mandi';
         originState = 'J&K';
-        originLat = 33.716;
-        originLng = 74.833;
+        
+        // District-level matching
+        if (districtCode === '05') { // Baramulla
+          originLat = 34.202; originLng = 74.343;
+          originName = 'Sopore Mandi';
+        } else if (districtCode === '01') { // Srinagar
+          originLat = 34.083; originLng = 74.797;
+          originName = 'Parimpora Mandi';
+        } else if (districtCode === '03') { // Anantnag
+          originLat = 33.731; originLng = 75.148;
+          originName = 'Jablipora Mandi';
+        } else { // Default to Shopian
+          originLat = 33.716; originLng = 74.833;
+        }
+        
+        posLat = originLat + 0.05;
+        posLng = originLng + 0.05;
       } else if (stateCode === 'HR') {
         ownerName = 'Haryana Agro Transport';
         driverName = 'Sandeep Singh';
@@ -389,17 +413,20 @@ export default function TrackingPage() {
       const mockContact = '+91 ' + Math.floor(6000000000 + Math.random() * 3999999999).toString();
       const mockOwnerContact = '+91 ' + Math.floor(6000000000 + Math.random() * 3999999999).toString();
 
-      // Determine Vehicle Class dynamically from a simple hash of the plate
-      let hash = 0;
-      for (let i = 0; i < submitted.length; i++) hash = submitted.charCodeAt(i) + ((hash << 5) - hash);
-      const vehicleClasses = [
-        { type: 'Heavy Commercial Vehicle (HCV)', capacity: 12 },
-        { type: 'Light Commercial Vehicle (LCV)', capacity: 4 },
-        { type: 'Personal Car', capacity: 0.5 },
-        { type: 'Agricultural Tractor', capacity: 2 },
-        { type: 'Two-Wheeler / Bike', capacity: 0.1 }
-      ];
-      const vClass = vehicleClasses[Math.abs(hash) % vehicleClasses.length];
+      const vehicleClasses: Record<string, { type: string, capacity: number }> = {
+        HCV: { type: 'Heavy Commercial Truck (HCV)', capacity: 12 },
+        LCV: { type: 'Light Load Carrier (LCV)', capacity: 4 },
+        CAR: { type: 'Personal Car (e.g., Maruti, Sedan, SUV)', capacity: 0.5 },
+        TRACTOR: { type: 'Tractor / Farm Equipment', capacity: 2 },
+        BIKE: { type: 'Two-Wheeler', capacity: 0.1 }
+      };
+      const vClass = vehicleClasses[submittedClass] || vehicleClasses.HCV;
+      
+      // Compute posLat based on final originLat if not overridden
+      if (posLat === 28.736 + 0.1) {
+          posLat = originLat + 0.1;
+          posLng = originLng + 0.1;
+      }
 
       const mockData = {
         vehicle: {
@@ -427,7 +454,7 @@ export default function TrackingPage() {
         status: 'in_transit' as ShipmentStatus,
         progress: { percent: 45, coveredKm: 380, remainingKm: 470 },
         position: {
-          lat: 30.5, lng: 75.5,
+          lat: posLat, lng: posLng,
           speedKmph: 45,
           headingDeg: 180,
           nearestLandmark: 'Live GPS Location',
@@ -463,6 +490,11 @@ export default function TrackingPage() {
         }
       }
 
+      const isCommercialFetch = submittedClass === 'HCV' || submittedClass === 'LCV';
+      if (!isCommercialFetch) {
+        mockData.route.path = [ { lat: mockData.position.lat, lng: mockData.position.lng, distanceFromOriginKm: 0 } ];
+      }
+
       return mockData;
     },
     staleTime: 20_000,
@@ -496,14 +528,16 @@ export default function TrackingPage() {
     // Re-submitting the same plate is a legitimate "refresh now" — the query
     // is keyed on the plate, so an identical value would be served from cache
     // and the button would appear dead. Nudge it explicitly.
-    if (value === submitted) {
+    if (value === submitted && vType === submittedClass) {
       void trackQuery.refetch();
       return;
     }
     setSubmitted(value);
+    setSubmittedClass(vType);
   }
 
   const errorText = trackQuery.isError ? errorMessage(trackQuery.error) : null;
+  const isCommercial = submittedClass === 'HCV' || submittedClass === 'LCV';
 
   return (
     <main id="main-content" className="kr-container py-6 md:py-10">
@@ -532,11 +566,31 @@ export default function TrackingPage() {
         onSubmit={onSubmit}
         className="mt-6 border border-kr-border-default bg-kr-bg-surface p-4 md:p-5"
       >
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="min-w-[16rem] flex-1">
-            <label htmlFor="vehicle-number" className="kr-label">
-              Vehicle registration number
+        <div className="flex flex-col gap-4">
+          <div className="w-full sm:w-1/2 md:w-1/3">
+            <label htmlFor="vehicle-class" className="kr-label">
+              Vehicle Class <span className="text-kr-danger-500">*</span>
             </label>
+            <select
+              id="vehicle-class"
+              className="kr-input mt-1"
+              value={vType}
+              onChange={(e) => setVType(e.target.value)}
+              required
+            >
+              <option value="HCV">Heavy Commercial Truck (HCV)</option>
+              <option value="LCV">Light Load Carrier (LCV)</option>
+              <option value="CAR">Personal Car (e.g., Maruti, Sedan, SUV)</option>
+              <option value="TRACTOR">Tractor / Farm Equipment</option>
+              <option value="BIKE">Two-Wheeler</option>
+            </select>
+          </div>
+          
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="min-w-[16rem] flex-1">
+              <label htmlFor="vehicle-number" className="kr-label">
+                Vehicle registration number <span className="text-kr-danger-500">*</span>
+              </label>
             <input
               id="vehicle-number"
               name="vehicleNumber"
@@ -592,6 +646,7 @@ export default function TrackingPage() {
           so <span className="kr-amount">JK05AB1234</span> works as well as{' '}
           <span className="kr-amount">JK-05-AB-1234</span>.
         </p>
+        </div>
       </form>
 
       {/* ── Result ───────────────────────────────────────────────────────── */}
@@ -625,75 +680,74 @@ export default function TrackingPage() {
           </div>
         ) : data ? (
           <div className="space-y-6">
-            <ProgressStrip data={data} now={now} />
+            {isCommercial && <ProgressStrip data={data} now={now} />}
 
             {/* ── Route ─────────────────────────────────────────────────── */}
-            <section
-              className="border border-kr-border-default bg-kr-bg-surface p-4 md:p-5"
-              aria-label="Route"
-            >
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                <div className="min-w-0 flex-1">
-                  <p className="text-caption uppercase tracking-wide text-kr-text-secondary">Origin</p>
-                  <p className="mt-0.5 font-heading text-h4 text-kr-text-primary">
-                    {data.route.origin.name}
-                  </p>
-                  <p className="text-body-sm text-kr-text-secondary">
-                    {data.route.origin.district}, {data.route.origin.state}
-                  </p>
+            {isCommercial && (
+              <section
+                className="border border-kr-border-default bg-kr-bg-surface p-4 md:p-5"
+                aria-label="Route"
+              >
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-caption uppercase tracking-wide text-kr-text-secondary">Origin</p>
+                    <p className="mt-0.5 font-heading text-h4 text-kr-text-primary">
+                      {data.route.origin.name}
+                    </p>
+                    <p className="text-body-sm text-kr-text-secondary">
+                      {data.route.origin.district}, {data.route.origin.state}
+                    </p>
+                  </div>
+
+                  <ArrowRight
+                    className="hidden h-5 w-5 shrink-0 text-kr-text-disabled sm:block"
+                    aria-hidden="true"
+                  />
+
+                  <div className="min-w-0 flex-1">
+                    <p className="text-caption uppercase tracking-wide text-kr-text-secondary">
+                      Destination mandi
+                    </p>
+                    <p className="mt-0.5 font-heading text-h4 text-kr-text-primary">
+                      {data.route.destination.name}
+                    </p>
+                    <p className="text-body-sm text-kr-text-secondary">
+                      {data.route.destination.district}, {data.route.destination.state}
+                    </p>
+                  </div>
                 </div>
 
-                <ArrowRight
-                  className="hidden h-5 w-5 shrink-0 text-kr-text-disabled sm:block"
-                  aria-hidden="true"
-                />
-
-                <div className="min-w-0 flex-1">
-                  <p className="text-caption uppercase tracking-wide text-kr-text-secondary">
-                    Destination mandi
-                  </p>
-                  <p className="mt-0.5 font-heading text-h4 text-kr-text-primary">
-                    {data.route.destination.name}
-                  </p>
-                  <p className="text-body-sm text-kr-text-secondary">
-                    {data.route.destination.district}, {data.route.destination.state}
-                  </p>
-                </div>
-              </div>
-
-              {/*
-                The last reported position, stated in words as well as plotted.
-                Someone reading this on a phone in an orchard should not have to
-                pinch a map to find out where the lorry is.
-              */}
-              <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-kr-border-default pt-4 text-body-sm text-kr-text-secondary">
-                <MapPin className="h-4 w-4 shrink-0 text-kr-primary-600" aria-hidden="true" />
-                <span>
-                  Last reported near{' '}
-                  <span className="font-medium text-kr-text-primary">
-                    {data.position.nearestLandmark}
+                <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-kr-border-default pt-4 text-body-sm text-kr-text-secondary">
+                  <MapPin className="h-4 w-4 shrink-0 text-kr-primary-600" aria-hidden="true" />
+                  <span>
+                    Last reported near{' '}
+                    <span className="font-medium text-kr-text-primary">
+                      {data.position.nearestLandmark}
+                    </span>
+                    , {data.position.distanceFromOriginKm} km from {data.route.origin.name} and{' '}
+                    {data.position.distanceToDestinationKm} km from {data.route.destination.name}.
                   </span>
-                  , {data.position.distanceFromOriginKm} km from {data.route.origin.name} and{' '}
-                  {data.position.distanceToDestinationKm} km from {data.route.destination.name}.
-                </span>
-              </p>
-            </section>
+                </p>
+              </section>
+            )}
 
             {/* ── Map ───────────────────────────────────────────────────── */}
             <section aria-label="Route map">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h2 className="font-heading text-h4 text-kr-text-primary">Route</h2>
-                <p className="text-caption text-kr-text-secondary">
-                  {data.route.path.length} plotted waypoints · drag to move,{' '}
-                  use the controls to zoom
-                </p>
+                <h2 className="font-heading text-h4 text-kr-text-primary">Live Location Map</h2>
+                {isCommercial && (
+                  <p className="text-caption text-kr-text-secondary">
+                    {data.route.path.length} plotted waypoints · drag to move,{' '}
+                    use the controls to zoom
+                  </p>
+                )}
               </div>
               <TrackingMap data={data} />
             </section>
 
             {/* ── Crew and consignment ──────────────────────────────────── */}
             <section aria-label="Vehicle and crew">
-              <h2 className="font-heading text-h4 text-kr-text-primary">Vehicle and crew</h2>
+              <h2 className="font-heading text-h4 text-kr-text-primary">Vehicle details</h2>
 
               <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <DetailCard icon={Truck} label="Vehicle">
@@ -708,8 +762,6 @@ export default function TrackingPage() {
                 <DetailCard icon={User} label="Driver">
                   <p className="text-body font-medium text-kr-text-primary">{data.driver.name}</p>
                   {data.driver.contact ? (
-                    // Rendered as text, never as a `tel:` link — this number is
-                    // generated to be un-dialable. See the file docblock.
                     <p className="kr-amount mt-0.5 text-body-sm text-kr-text-secondary">
                       {data.driver.contact}
                     </p>
@@ -725,15 +777,17 @@ export default function TrackingPage() {
                   </p>
                 </DetailCard>
 
-                <DetailCard icon={Package} label="Consignment">
-                  <p className="text-body font-medium text-kr-text-primary">
-                    {data.shipment.commodity}
-                  </p>
-                  <p className="mt-0.5 text-body-sm text-kr-text-secondary">
-                    {data.shipment.quantity.value} {data.shipment.quantity.unit} · reference{' '}
-                    <span className="kr-amount">{data.shipment.id}</span>
-                  </p>
-                </DetailCard>
+                {isCommercial && (
+                  <DetailCard icon={Package} label="Consignment">
+                    <p className="text-body font-medium text-kr-text-primary">
+                      {data.shipment.commodity}
+                    </p>
+                    <p className="mt-0.5 text-body-sm text-kr-text-secondary">
+                      {data.shipment.quantity.value} {data.shipment.quantity.unit} · reference{' '}
+                      <span className="kr-amount">{data.shipment.id}</span>
+                    </p>
+                  </DetailCard>
+                )}
 
                 <DetailCard icon={Gauge} label="Last reading">
                   <p className="kr-amount text-body font-medium text-kr-text-primary">
@@ -758,9 +812,7 @@ export default function TrackingPage() {
               </div>
             </section>
 
-            <Timeline events={data.events} now={now} />
-
-
+            {isCommercial && <Timeline events={data.events} now={now} />}
           </div>
         ) : null}
       </div>
