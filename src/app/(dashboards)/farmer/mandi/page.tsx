@@ -14,6 +14,7 @@ import {
   MapPin,
   RefreshCw,
 } from 'lucide-react';
+import { WeatherWidget } from '@/components/ui/WeatherWidget';
 
 import { mandiApi } from '@/lib/api/mandi';
 import type {
@@ -364,6 +365,10 @@ export default function MandiPage() {
             </p>
           </div>
         ) : null}
+      </div>
+      
+      <div className="mt-6">
+        <WeatherWidget />
       </div>
 
       {/* ── Controls ─────────────────────────────────────────────────────── */}

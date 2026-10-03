@@ -29,32 +29,48 @@ export function VoiceAssistant() {
     setIsPlaying(true);
     let textToRead = "Welcome to KashRoot. ";
 
-    // Basic heuristic to read page content
-    if (pathname.includes('/tracking')) {
-      textToRead += "You are on the Logistics and Tracking dashboard. Enter a vehicle registration number to get live GPS location and shipment details.";
-      const mainElement = document.getElementById('main-content');
-      if (mainElement) {
-        // Find visible text
-        const content = mainElement.innerText || mainElement.textContent;
-        if (content) {
-          textToRead = content.substring(0, 500); // Read a summary
+    try {
+      if (pathname.includes('/tracking')) {
+        textToRead = "You are on the Tracking dashboard. ";
+        const main = document.getElementById('main-content');
+        if (main) {
+          const trackData = main.innerText;
+          if (trackData.includes('Vehicle Registration')) {
+             textToRead += "Please enter a vehicle registration number to get live GPS location.";
+          } else {
+             // Summarize the tracking text
+             const words = trackData.replace(/\s+/g, ' ').substring(0, 400);
+             textToRead += "Here is the live status: " + words;
+          }
         }
+      } else if (pathname.includes('/mandi')) {
+        textToRead = "Live Mandi Rates and Weather. ";
+        const main = document.getElementById('main-content');
+        if (main) {
+           const text = main.innerText.replace(/\s+/g, ' ').substring(0, 400);
+           textToRead += "Here is the current market update: " + text;
+        }
+      } else if (pathname.includes('/tester')) {
+        textToRead = "AgroGuard Tester. Scan or enter a batch code to verify the product's authenticity against manufacturer records.";
+      } else if (pathname.includes('/agriculture')) {
+        textToRead = "Agriculture Portal. Here you can find seeds, fertilizers, and heavy machinery.";
+      } else if (pathname.includes('/horticulture')) {
+        textToRead = "Horticulture Portal. Here you can find orchard inventory, pruning tools, and cold storage logs.";
+      } else if (pathname.includes('/admin')) {
+        textToRead = "Admin Portal. Managing KYC, disputes, and analytics.";
+      } else {
+        textToRead = "This is the KashRoot dashboard.";
       }
-    } else if (pathname.includes('/mandi')) {
-      textToRead += "You are viewing the Mandi Prices. Here are the latest horticultural rates.";
-    } else if (pathname.includes('/tester')) {
-      textToRead += "You are on the AgroGuard Input Tester. Please scan or enter a batch code to verify the product.";
-    } else if (pathname.includes('/agriculture')) {
-      textToRead += "Agriculture Portal. Here you can find seeds, fertilizers, and heavy machinery.";
-    } else if (pathname.includes('/horticulture')) {
-      textToRead += "Horticulture Portal. Here you can find orchard inventory, pruning tools, and cold storage logs.";
-    } else if (pathname.includes('/admin')) {
-      textToRead += "Admin Portal. Managing KYC, disputes, and analytics.";
-    } else {
-      textToRead += "This is the KashRoot dashboard.";
+    } catch(e) {
+      console.error(e);
     }
 
     const utterance = new SpeechSynthesisUtterance(textToRead);
+    // Pick an English or Hindi voice if available
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoice = voices.find(v => v.lang.includes('en-IN') || v.lang.includes('hi-IN'));
+    if (preferredVoice) utterance.voice = preferredVoice;
+    
     utterance.lang = 'en-IN';
     utterance.rate = 0.9;
     
