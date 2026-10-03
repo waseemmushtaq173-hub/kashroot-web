@@ -224,7 +224,7 @@ function KycPanel() {
                   onClick={() => { setRejectingUserId(sub.userId); setRejectReason(''); }}
                   aria-label={`Reject KYC for ${sub.fullName}`}
                   className="kr-btn-ghost kr-btn-sm text-kr-text-danger
-                             hover:bg-kr-fill-danger-subtle"
+                             hover:bg-kr-danger-50"
                 >
                   <X className="w-3 h-3" aria-hidden="true" /> Reject
                 </button>
@@ -234,7 +234,7 @@ function KycPanel() {
             {/* Reject reason inline form */}
             {rejectingUserId === sub.userId && (
               <div
-                className="mt-4 pt-4 border-t border-kr-border-subtle space-y-3"
+                className="mt-4 pt-4 border-t border-kr-neutral-200 space-y-3"
                 role="dialog"
                 aria-label={`Reject KYC for ${sub.fullName}`}
               >
@@ -431,7 +431,7 @@ function DisputesPanel({ adminRole }: { adminRole: AdminRole }) {
           aria-modal="true"
           aria-label={`${actionType === 'recommend' ? 'Recommend' : 'Resolve'} dispute`}
         >
-          <div className="bg-kr-bg-surface rounded-xl p-6 w-full max-w-md shadow-kr-elevated space-y-4">
+          <div className="bg-kr-bg-surface rounded-xl p-6 w-full max-w-md shadow-kr-overlay space-y-4">
             <h2 className="font-heading text-h3 text-kr-text-primary">
               {actionType === 'recommend' ? 'Recommend outcome' : 'Resolve dispute'}
             </h2>
@@ -442,7 +442,7 @@ function DisputesPanel({ adminRole }: { adminRole: AdminRole }) {
 
             {actionType === 'resolve' && (
               <div role="note" className="flex items-start gap-2 p-3 rounded-md
-                                          bg-kr-fill-warning-subtle border border-kr-border-warning">
+                                          bg-kr-warning-50 border border-kr-warning-300">
                 <ShieldAlert className="w-4 h-4 text-kr-warning-600 mt-0.5 shrink-0" aria-hidden="true" />
                 <p className="text-caption text-kr-warning-800">
                   Resolving is final. This will close the dispute and notify both parties.

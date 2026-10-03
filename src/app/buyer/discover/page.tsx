@@ -418,7 +418,7 @@ export default function BuyerDiscoverPage() {
         href="#results"
         className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4
                    focus:z-50 focus:px-4 focus:py-2 focus:bg-kr-bg-surface
-                   focus:rounded focus:shadow-kr-elevated focus:text-body-sm"
+                   focus:rounded focus:shadow-kr-card-md focus:text-body-sm"
       >
         Skip to results
       </a>
@@ -637,7 +637,7 @@ export default function BuyerDiscoverPage() {
             aria-hidden="true"
           />
           <div className="relative ml-auto w-80 max-w-full h-full bg-kr-bg-surface
-                          overflow-y-auto shadow-kr-elevated p-4">
+                          overflow-y-auto shadow-kr-overlay p-4">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-heading text-h3 text-kr-text-primary">Filters</h2>
               <button

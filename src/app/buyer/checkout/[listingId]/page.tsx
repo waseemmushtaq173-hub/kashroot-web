@@ -167,7 +167,7 @@ function CustomsDisclosurePanel({
     <div
       role="note"
       aria-label="Cross-border customs disclosure"
-      className="border border-kr-border-warning bg-kr-fill-warning-subtle rounded-lg p-4"
+      className="border border-kr-warning-300 bg-kr-warning-50 rounded-lg p-4"
     >
       <div className="flex items-start gap-3">
         <Globe className="w-5 h-5 text-kr-warning-600 mt-0.5 shrink-0" aria-hidden="true" />
@@ -199,7 +199,7 @@ function RegionBlockedBanner({ detail }: { detail: string }) {
     <div
       role="alert"
       className="flex items-start gap-3 p-4 rounded-lg
-                 border border-kr-border-danger bg-kr-fill-danger-subtle"
+                 border border-kr-border-danger bg-kr-danger-50"
     >
       <ShieldAlert className="w-5 h-5 text-kr-danger-600 mt-0.5 shrink-0" aria-hidden="true" />
       <div>
@@ -501,7 +501,7 @@ export default function CheckoutPage() {
                       <span className="text-kr-text-secondary">Platform fee</span>
                       <span className="kr-amount">{fmt(estimateQ.data.platformFee, estimateQ.data.currency)}</span>
                     </div>
-                    <div className="flex justify-between pt-2 border-t border-kr-border-subtle font-semibold text-body">
+                    <div className="flex justify-between pt-2 border-t border-kr-neutral-200 font-semibold text-body">
                       <span className="text-kr-text-primary">Total</span>
                       <span className="kr-amount text-kr-text-primary">
                         {fmt(estimateQ.data.total, estimateQ.data.currency)}
@@ -609,7 +609,7 @@ export default function CheckoutPage() {
               <p className="text-kr-text-secondary">
                 {quantity} {listing.unit} × {fmt(listing.pricePerUnit, listing.currency)}
               </p>
-              <p className="font-semibold text-body text-kr-text-primary pt-2 border-t border-kr-border-subtle kr-amount">
+              <p className="font-semibold text-body text-kr-text-primary pt-2 border-t border-kr-neutral-200 kr-amount">
                 {fmt(listing.pricePerUnit * quantity, listing.currency)}
               </p>
               <p className="text-caption text-kr-text-secondary">+ shipping &amp; fees at next step</p>

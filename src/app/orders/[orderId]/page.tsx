@@ -209,7 +209,7 @@ function StatusTimeline({ order }: { order: OrderDetail }) {
                 {i < stages.length - 1 && (
                   <div
                     className={`w-0.5 flex-1 mt-1 ${
-                      done ? 'bg-kr-success-500' : 'bg-kr-border-subtle'
+                      done ? 'bg-kr-success-500' : 'bg-kr-neutral-200'
                     }`}
                     aria-hidden="true"
                   />
@@ -231,7 +231,7 @@ function StatusTimeline({ order }: { order: OrderDetail }) {
                   {active && isCustoms && (
                     <span
                       className="kr-badge kr-badge-cross-border text-kr-warning-700
-                                 bg-kr-fill-warning-subtle border border-kr-border-warning"
+                                 bg-kr-warning-50 border border-kr-warning-300"
                       aria-label="Customs clearance in progress"
                     >
                       <Globe className="w-3 h-3" aria-hidden="true" /> In progress
@@ -351,7 +351,7 @@ export default function OrderTrackingPage() {
         <div
           role="alert"
           className="flex items-start gap-3 p-4 rounded-lg
-                     border border-kr-border-danger bg-kr-fill-danger-subtle mb-6"
+                     border border-kr-border-danger bg-kr-danger-50 mb-6"
         >
           <XCircle className="w-5 h-5 text-kr-danger-600 mt-0.5 shrink-0" aria-hidden="true" />
           <div>
@@ -367,7 +367,7 @@ export default function OrderTrackingPage() {
         <div
           role="alert"
           className="flex items-start gap-3 p-4 rounded-lg
-                     border border-kr-border-warning bg-kr-fill-warning-subtle mb-6"
+                     border border-kr-warning-300 bg-kr-warning-50 mb-6"
         >
           <ShieldAlert className="w-5 h-5 text-kr-warning-600 mt-0.5 shrink-0" aria-hidden="true" />
           <div>
@@ -395,7 +395,7 @@ export default function OrderTrackingPage() {
           {/* Tracking number */}
           {order.trackingNumber && (
             <div
-              className="mt-6 pt-4 border-t border-kr-border-subtle
+              className="mt-6 pt-4 border-t border-kr-neutral-200
                          flex items-center justify-between gap-4"
             >
               <div>
@@ -457,7 +457,7 @@ export default function OrderTrackingPage() {
             <div
               role="note"
               className="flex items-start gap-2 p-3 rounded-md
-                         bg-kr-fill-warning-subtle border border-kr-border-warning"
+                         bg-kr-warning-50 border border-kr-warning-300"
             >
               <Globe className="w-4 h-4 text-kr-warning-600 mt-0.5 shrink-0" aria-hidden="true" />
               <p className="text-caption text-kr-warning-700">
@@ -468,7 +468,7 @@ export default function OrderTrackingPage() {
 
           {/* Actions */}
           {!isCancelled && !isDisputed && (
-            <div className="pt-2 border-t border-kr-border-subtle space-y-2">
+            <div className="pt-2 border-t border-kr-neutral-200 space-y-2">
               {order.status === 'DELIVERED' && (
                 // TODO: POST /orders/:id/complete once endpoint is confirmed
                 <button className="kr-btn-primary w-full kr-btn-sm">
@@ -478,7 +478,7 @@ export default function OrderTrackingPage() {
               {!['COMPLETED', 'CANCELLED', 'DISPUTED'].includes(order.status) && (
                 // TODO: POST /disputes once endpoint is confirmed (Module 4)
                 <button className="kr-btn-ghost w-full kr-btn-sm text-kr-text-danger
-                                   hover:bg-kr-fill-danger-subtle">
+                                   hover:bg-kr-danger-50">
                   Raise a dispute
                 </button>
               )}

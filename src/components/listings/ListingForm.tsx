@@ -365,7 +365,7 @@ export function ListingForm({
       {/* ── Product details ── */}
       <fieldset className="space-y-5">
         <legend className="font-heading text-h3 text-kr-text-primary
-                           border-b border-kr-border-subtle pb-2 w-full">
+                           border-b border-kr-neutral-200 pb-2 w-full">
           Product details
         </legend>
 
@@ -436,7 +436,7 @@ export function ListingForm({
       {/* ── Pricing ── */}
       <fieldset className="space-y-5">
         <legend className="font-heading text-h3 text-kr-text-primary
-                           border-b border-kr-border-subtle pb-2 w-full">
+                           border-b border-kr-neutral-200 pb-2 w-full">
           Pricing &amp; quantity
         </legend>
 
@@ -526,7 +526,7 @@ export function ListingForm({
       {/* ── Origin & harvest ── */}
       <fieldset className="space-y-5">
         <legend className="font-heading text-h3 text-kr-text-primary
-                           border-b border-kr-border-subtle pb-2 w-full">
+                           border-b border-kr-neutral-200 pb-2 w-full">
           Origin &amp; certifications
         </legend>
 
@@ -590,7 +590,7 @@ export function ListingForm({
       {/* ── Images ── */}
       <fieldset className="space-y-3">
         <legend className="font-heading text-h3 text-kr-text-primary
-                           border-b border-kr-border-subtle pb-2 w-full">
+                           border-b border-kr-neutral-200 pb-2 w-full">
           Photos
         </legend>
         <p className="text-body-sm text-kr-text-secondary">
@@ -628,7 +628,7 @@ export function ListingForm({
       </fieldset>
 
       {/* ── Actions ── */}
-      <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-kr-border-subtle">
+      <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-kr-neutral-200">
         {actions.filter((a) => !a.hidden).map((action) => (
           <button
             key={action.key}

@@ -106,7 +106,7 @@ function ListingsPanel() {
         </Link>
       </div>
 
-      <ul className="divide-y divide-kr-border-subtle" role="list">
+      <ul className="divide-y divide-kr-neutral-200" role="list">
         {listings.map((l) => (
           <li key={l.id} className="py-4 flex flex-col sm:flex-row sm:items-center gap-3">
             <div className="w-14 h-14 rounded-md bg-kr-bg-sunken shrink-0 overflow-hidden" aria-hidden="true">
@@ -190,7 +190,7 @@ function AppointmentsPanel() {
   }
 
   return (
-    <ul className="divide-y divide-kr-border-subtle" role="list">
+    <ul className="divide-y divide-kr-neutral-200" role="list">
       {appts.map((appt) => (
         <li key={appt.id} className="py-4 flex flex-col sm:flex-row sm:items-start gap-3">
           <div className="flex-1 min-w-0">
@@ -212,7 +212,7 @@ function AppointmentsPanel() {
               <button onClick={() => confirmMut.mutate(appt.id)} disabled={confirmMut.isPending} className="kr-btn-primary kr-btn-sm">
                 <Check className="w-3 h-3" aria-hidden="true" /> Confirm
               </button>
-              <button onClick={() => cancelMut.mutate(appt.id)} disabled={cancelMut.isPending} className="kr-btn-ghost kr-btn-sm text-kr-text-danger hover:bg-kr-fill-danger-subtle">
+              <button onClick={() => cancelMut.mutate(appt.id)} disabled={cancelMut.isPending} className="kr-btn-ghost kr-btn-sm text-kr-text-danger hover:bg-kr-danger-50">
                 <X className="w-3 h-3" aria-hidden="true" /> Decline
               </button>
             </div>
@@ -244,7 +244,7 @@ function OrdersPanel() {
   }
 
   return (
-    <ul className="divide-y divide-kr-border-subtle" role="list">
+    <ul className="divide-y divide-kr-neutral-200" role="list">
       {orders.map((order) => (
         <li key={order.id} className="py-4 flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex-1 min-w-0">
@@ -302,7 +302,7 @@ function PayoutsPanel() {
 
   return (
     <div>
-      <div className="flex items-start gap-2 p-3 rounded-md bg-kr-fill-warning-subtle border border-kr-border-warning mb-4" role="note">
+      <div className="flex items-start gap-2 p-3 rounded-md bg-kr-warning-50 border border-kr-warning-300 mb-4" role="note">
         <Info className="w-4 h-4 text-kr-warning-600 mt-0.5 shrink-0" aria-hidden="true" />
         <p className="text-caption text-kr-warning-700">
           Payout data is derived from completed orders (2.5% platform fee estimated).
@@ -317,7 +317,7 @@ function PayoutsPanel() {
         <p className="text-caption text-kr-text-secondary">From {entries.length} completed order{entries.length !== 1 ? 's' : ''}</p>
       </div>
 
-      <ul className="divide-y divide-kr-border-subtle" role="list">
+      <ul className="divide-y divide-kr-neutral-200" role="list">
         {entries.map((e) => (
           <li key={e.id} className="py-3 flex items-center gap-3">
             <div className="flex-1 min-w-0">
@@ -428,7 +428,7 @@ export default function FarmerDashboardPage() {
           <button
             key={card.id}
             onClick={() => setActiveTab(card.id as Tab)}
-            className={`kr-card text-left transition-shadow hover:shadow-kr-elevated
+            className={`kr-card text-left transition-shadow hover:shadow-kr-card-md
               ${ activeTab === card.id ? 'border-kr-border-brand ring-1 ring-kr-border-brand' : '' }`}
             aria-current={activeTab === card.id ? 'true' : undefined}
           >

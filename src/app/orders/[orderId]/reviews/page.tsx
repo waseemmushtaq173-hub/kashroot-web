@@ -195,7 +195,7 @@ function ReviewForm({
         role="status"
         aria-live="polite"
         className="flex items-center gap-3 p-4 rounded-lg
-                   border border-kr-border-success bg-kr-fill-success-subtle"
+                   border border-kr-success-300 bg-kr-success-50"
       >
         <CheckCircle2 className="w-5 h-5 text-kr-success-500 shrink-0" aria-hidden="true" />
         <div>
@@ -250,7 +250,7 @@ function ReviewForm({
       </div>
 
       {errMsg && (
-        <div id="review-error" role="alert" className="kr-error-inline">
+        <div id="review-error" role="alert" className="kr-error-msg">
           <AlertTriangle className="w-3 h-3" aria-hidden="true" /> {errMsg}
         </div>
       )}

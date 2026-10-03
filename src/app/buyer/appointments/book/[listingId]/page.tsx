@@ -382,7 +382,7 @@ export default function AppointmentBookPage() {
           </div>
 
           {/* Legend */}
-          <div className="flex items-center gap-4 mt-4 pt-3 border-t border-kr-border-subtle">
+          <div className="flex items-center gap-4 mt-4 pt-3 border-t border-kr-neutral-200">
             <span className="flex items-center gap-1.5 text-caption text-kr-text-secondary">
               <span className="w-3 h-3 rounded-full bg-kr-fill-brand-subtle border border-kr-primary-300" aria-hidden="true" />
               Available

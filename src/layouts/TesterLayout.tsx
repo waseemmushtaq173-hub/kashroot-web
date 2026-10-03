@@ -25,7 +25,7 @@ export function TesterLayout({ children }: { children: ReactNode }) {
             Tester
           </span>
           <span className="ml-2 flex items-center gap-1.5 text-xs text-slate-400">
-            <span aria-hidden className="inline-block h-2 w-2 animate-kr-pulse rounded-full bg-red-500" />
+            <span aria-hidden className="inline-block h-2 w-2 animate-[kr-pulse_1s_infinite] rounded-full bg-red-500" />
             Camera live
           </span>
           <div className="ml-auto flex items-center gap-3 text-sm text-slate-400">
