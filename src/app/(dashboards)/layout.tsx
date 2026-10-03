@@ -1,4 +1,5 @@
 'use client';
+export const dynamic = 'force-dynamic';
 
 import { useSelectedLayoutSegment } from 'next/navigation';
 import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';

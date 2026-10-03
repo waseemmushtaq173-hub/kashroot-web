@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 
+export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: { template: '%s | KashRoot', default: 'KashRoot' },
   description: 'Kashmir\'s global agri-trade platform — connecting farmers to buyers worldwide.',
