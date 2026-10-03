@@ -38,6 +38,16 @@ export interface PublicListing {
   originRegion: string;
   certifications: string[];
   isOrganic: boolean;
+  /**
+   * Harvest date as YYYY-MM-DD, or null when the farmer did not set one.
+   *
+   * Returned on this route too — the API maps one payload shape for buyers and
+   * farmers rather than maintaining two. A buyer-facing date input would need
+   * exactly this format for the same reason the farmer's edit form does.
+   */
+  harvestDate: string | null;
+  /** Listing.minOrderQty — a Decimal, converted to a number by the API mapper. */
+  minimumOrderQuantity: number;
   images: string[];
   farmerName: string;
   farmerRating: number | null;

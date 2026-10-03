@@ -27,6 +27,7 @@ export interface FarmerListing {
   id: string;
   title: string;
   commodity: string;
+  description: string;
   pricePerUnit: number;
   currency: string;
   unit: string;           // e.g. 'kg', 'tonne', 'box'
@@ -34,7 +35,18 @@ export interface FarmerListing {
   stockQuantity: number;
   originRegion: string;
   certifications: string[];
+  isOrganic: boolean;
   images: string[];
+  /**
+   * Harvest date as YYYY-MM-DD, or null when the farmer did not set one.
+   *
+   * The format is load-bearing, not cosmetic: the edit form binds this straight
+   * to an `<input type="date">`, which only honours a value in exactly this
+   * shape. A full ISO timestamp would leave the control blank.
+   */
+  harvestDate: string | null;
+  /** Listing.minOrderQty — a Decimal, converted to a number by the API mapper. */
+  minimumOrderQuantity: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -52,10 +64,54 @@ export interface ListingsQuery {
   status?: ListingStatus;
 }
 
+/**
+ * Body for PATCH /listings/:id (and POST /listings).
+ *
+ * Field names are the API's client-facing vocabulary, not the database's:
+ * `commodity`, `unit`, `stockQuantity`, `harvestDate` and `minimumOrderQuantity`
+ * are all translated server-side. The API rejects unknown keys outright (the
+ * global ValidationPipe runs with forbidNonWhitelisted), so this type is the
+ * contract — adding a field here without adding it to CreateListingDto is a 400.
+ *
+ * Every field is optional because PATCH is a partial update: a key left out is
+ * not touched. Note that `undefined` is therefore "leave alone", which is why a
+ * cleared harvest date is omitted rather than sent as null — see
+ * buildListingPayload.
+ */
+export interface UpdateListingDto {
+  title?: string;
+  commodity?: string;
+  description?: string;
+  pricePerUnit?: number;
+  currency?: string;
+  unit?: string;
+  stockQuantity?: number;
+  originRegion?: string;
+  harvestDate?: string;
+  minimumOrderQuantity?: number;
+  certifications?: string[];
+  isOrganic?: boolean;
+}
+
 export const listingsApi = {
   /** GET /listings/mine — farmer's own listings */
   myListings: (params: ListingsQuery = {}): Promise<ListingsPage> =>
     api.get('/listings/mine', { params }),
+
+  /**
+   * GET /listings/:id — one listing, drafts included.
+   *
+   * Works for an unpublished listing only because the caller is its owner: the
+   * route is public but identity-aware, and returns 404 to anyone else. The
+   * bearer token that makes the owner's own draft readable comes from the shared
+   * api client's interceptor.
+   */
+  getListing: (id: string): Promise<FarmerListing> =>
+    api.get(`/listings/${id}`),
+
+  /** PATCH /listings/:id — partial update, owner only */
+  updateListing: (id: string, dto: UpdateListingDto): Promise<FarmerListing> =>
+    api.patch(`/listings/${id}`, dto),
 
   /** DELETE /listings/:id — soft-delete a listing */
   deleteListing: (id: string): Promise<void> =>

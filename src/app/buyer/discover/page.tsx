@@ -11,6 +11,7 @@ import {
 import { buyerListingsApi } from '@/lib/api/buyer';
 import type { PublicListing, ListingSearchParams, TrustGate } from '@/lib/api/buyer';
 import { ApiError } from '@/lib/api/client';
+import { REGIONS } from '@/lib/listing-options';
 
 /**
  * BuyerDiscoverPage
@@ -39,11 +40,13 @@ import { ApiError } from '@/lib/api/client';
  *   Mobile: sidebar in an overlay drawer on sm, static aside on lg.
  */
 
-const REGIONS = [
-  'Jammu & Kashmir', 'Himachal Pradesh', 'Punjab', 'Uttarakhand',
-  'Maharashtra', 'Karnataka', 'Kerala', 'Tamil Nadu',
-  'West Bengal', 'Rajasthan', 'Gujarat', 'Madhya Pradesh',
-];
+/*
+ * REGIONS was declared here as a 12-state list while the farmer form declared a
+ * 14-state one, so Andhra Pradesh and Uttar Pradesh were selectable as a listing
+ * origin but not filterable by a buyer — listings a buyer could not surface. The
+ * list now comes from lib/listing-options so the two ends of the marketplace
+ * cannot drift apart again.
+ */
 
 const COMMON_CERTS = ['Organic', 'GlobalGAP', 'FSSAI', 'APEDA', 'ISO 22000', 'Fair Trade'];
 
