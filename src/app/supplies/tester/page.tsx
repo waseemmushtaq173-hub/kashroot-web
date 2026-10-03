@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
-import { ShieldAlert, ShieldCheck, Search, Loader2, FlaskConical, ScanLine, Camera, X } from 'lucide-react';
+import { ShieldAlert, ShieldCheck, Search, Loader2, FlaskConical, ScanLine, Camera, X, Upload } from 'lucide-react';
 
 export default function FertilizerTesterPage() {
   const [batchCode, setBatchCode] = useState('');
@@ -11,6 +11,9 @@ export default function FertilizerTesterPage() {
   
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
   const [result, setResult] = useState<null | {
     isOriginal: boolean;
     score: number;
@@ -18,15 +21,49 @@ export default function FertilizerTesterPage() {
     clearance: string;
   }>(null);
 
-  const simulateScan = () => {
+  const startCamera = async () => {
     setScanning(true);
-    // Simulate a 2.5 second camera scan delay
-    setTimeout(() => {
-      setManufacturer('IFFCO');
-      setBatchCode('BT-99234');
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } 
+      });
+      setStream(mediaStream);
+    } catch (err) {
+      console.error('Camera access denied or unsupported', err);
+      // Fallback is handled by the UI
+    }
+  };
+
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream]);
+
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    setScanning(false);
+  };
+
+  const captureScan = () => {
+    // Simulate successful batch code decode from video frame
+    setManufacturer('KashRoot Agro (Simulated)');
+    setBatchCode('KR-BATCH-2026-99');
+    setNpk('19:19:19');
+    stopCamera();
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Simulate file upload decode
+      setManufacturer('KashRoot Agro (File Upload)');
+      setBatchCode('KR-BATCH-2026-99');
       setNpk('19:19:19');
-      setScanning(false);
-    }, 2500);
+    }
   };
 
   const handleTest = (e?: React.FormEvent) => {
@@ -66,13 +103,23 @@ export default function FertilizerTesterPage() {
             Scan the QR code on the bottle, or enter the batch code manually to run a cross-reference check.
           </p>
 
-          <div className="mb-6 flex justify-end">
-             <button
-                onClick={simulateScan}
-                className="bg-emerald-600 text-white px-5 py-3 rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 shadow-sm"
-              >
-                <ScanLine className="w-5 h-5" /> Scan Bottle QR
-             </button>
+          <div className="mb-6 flex flex-wrap gap-4 justify-end">
+            <label className="kr-btn-secondary cursor-pointer flex justify-center items-center gap-2">
+              <Upload className="w-5 h-5" /> Upload QR Image
+              <input 
+                type="file" 
+                accept="image/*" 
+                capture="environment" 
+                className="hidden" 
+                onChange={handleFileUpload} 
+              />
+            </label>
+            <button
+              onClick={startCamera}
+              className="bg-emerald-600 text-white px-5 py-3 rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 shadow-sm"
+            >
+              <Camera className="w-5 h-5" /> Scan Bottle QR with Camera
+            </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -97,7 +144,7 @@ export default function FertilizerTesterPage() {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. BT-99234"
+                    placeholder="e.g. KR-BATCH-2026-99"
                     value={batchCode}
                     onChange={(e) => setBatchCode(e.target.value)}
                     className="kr-input w-full uppercase"
@@ -176,20 +223,42 @@ export default function FertilizerTesterPage() {
 
       {/* Camera Scanning Overlay */}
       {scanning && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center">
+        <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-4">
           <button 
-            onClick={() => setScanning(false)}
-            className="absolute top-6 right-6 text-white hover:text-gray-300"
+            onClick={stopCamera}
+            className="absolute top-6 right-6 text-white hover:text-gray-300 bg-black/50 p-2 rounded-full"
           >
             <X className="w-8 h-8" />
           </button>
-          <div className="relative w-64 h-64 border-4 border-emerald-500 rounded-2xl flex items-center justify-center overflow-hidden mb-6">
-            <Camera className="w-16 h-16 text-emerald-500 opacity-50" />
-            <div className="absolute top-0 left-0 w-full h-1 bg-emerald-400 shadow-[0_0_15px_3px_rgba(52,211,153,0.5)] animate-[scan_2s_ease-in-out_infinite]" />
+          
+          <div className="relative w-full max-w-md aspect-[3/4] border-4 border-emerald-500 rounded-2xl overflow-hidden mb-8 bg-black">
+            {stream ? (
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                muted 
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-white/50">
+                <Camera className="w-16 h-16 mb-4" />
+                <p>Requesting camera access...</p>
+              </div>
+            )}
+            
+            {/* Scanline animation overlay */}
+            <div className="absolute top-0 left-0 w-full h-1 bg-emerald-400 shadow-[0_0_15px_3px_rgba(52,211,153,0.5)] animate-[scan_2.5s_ease-in-out_infinite]" />
           </div>
-          <p className="text-emerald-400 font-medium text-lg flex items-center gap-2">
-            <Loader2 className="w-5 h-5 animate-spin" /> Scanning QR Code...
-          </p>
+          
+          <button 
+            onClick={captureScan}
+            disabled={!stream}
+            className="kr-btn-primary kr-btn-lg bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 text-lg w-full max-w-md flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
+          >
+            <ScanLine className="w-6 h-6" /> Capture / Scan QR
+          </button>
+          
           <style dangerouslySetInnerHTML={{__html: `
             @keyframes scan {
               0% { top: 0; }
