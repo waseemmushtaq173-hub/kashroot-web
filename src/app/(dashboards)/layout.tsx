@@ -50,6 +50,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     else if (segment === 'expert' && userRole !== 'EXPERT') { authorized = false; requiredRoleMsg = 'Agricultural Expert'; }
     else if (segment === 'admin' && userRole !== 'ADMIN') { authorized = false; requiredRoleMsg = 'Platform Admin'; }
     else if (segment === 'provider' && userRole !== 'PROVIDER') { authorized = false; requiredRoleMsg = 'Logistics & Provider'; }
+    else if (segment === 'agriculture' && userRole !== 'AGRICULTURE') { authorized = false; requiredRoleMsg = 'Agriculture'; }
+    else if (segment === 'horticulture' && userRole !== 'HORTICULTURE') { authorized = false; requiredRoleMsg = 'Horticulture'; }
   }
 
   if (!authorized) {

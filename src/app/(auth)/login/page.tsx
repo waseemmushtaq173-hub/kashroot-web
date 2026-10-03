@@ -32,10 +32,10 @@ function LoginForm() {
       const targetRole = selectedRole;
       let targetRoute = '/farmer/dashboard';
       if (targetRole === 'BUYER') targetRoute = '/buyer/dashboard';
-      else if (targetRole === 'SELLER') targetRoute = '/seller/dashboard';
-      else if (targetRole === 'PROVIDER') targetRoute = '/provider/dashboard';
       else if (targetRole === 'ADMIN') targetRoute = '/admin/dashboard';
       else if (targetRole === 'EXPERT') targetRoute = '/expert';
+      else if (targetRole === 'AGRICULTURE') targetRoute = '/agriculture/dashboard';
+      else if (targetRole === 'HORTICULTURE') targetRoute = '/horticulture/dashboard';
 
       if (data.accessToken) {
         tokenStore.setToken(data.accessToken, targetRole);
@@ -92,10 +92,11 @@ function LoginForm() {
             required
           >
             <option value="FARMER">Farmer</option>
+            <option value="ADMIN">Admin</option>
             <option value="BUYER">Buyer</option>
-            <option value="PROVIDER">Logistics & Provider</option>
-            <option value="EXPERT">Agricultural Expert</option>
-            <option value="ADMIN">Platform Admin</option>
+            <option value="EXPERT">Expert</option>
+            <option value="AGRICULTURE">Agriculture</option>
+            <option value="HORTICULTURE">Horticulture</option>
           </select>
         </div>
 
