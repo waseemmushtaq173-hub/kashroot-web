@@ -1,8 +1,28 @@
 'use client';
 
-import { BookOpen, ShieldAlert, CheckCircle2, MessageCircle, FileText, FlaskConical, Stethoscope } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { BookOpen, ShieldAlert, CheckCircle2, MessageCircle, FileText, FlaskConical, Stethoscope, Edit3, Lock } from 'lucide-react';
 
 export default function ExpertDashboard() {
+  const [isExpert, setIsExpert] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const role = localStorage.getItem('user_role');
+      setIsExpert(role === 'EXPERT');
+      
+      const appStr = localStorage.getItem('expert_application');
+      if (appStr) {
+        const app = JSON.parse(appStr);
+        setIsVerified(app.status === 'VERIFIED_EXPERT');
+      } else {
+        // Mock default verified state for non-new registrations
+        setIsVerified(true);
+      }
+    }
+  }, []);
+
   return (
     <div className="kr-container py-8 space-y-8">
       <header className="mb-8">
@@ -12,14 +32,37 @@ export default function ExpertDashboard() {
         </p>
       </header>
 
+      {isExpert && !isVerified && (
+        <div className="bg-kr-warning-50 border-l-4 border-kr-warning-500 p-4 mb-6 rounded-r-md flex gap-4">
+          <ShieldAlert className="w-6 h-6 text-kr-warning-600 flex-shrink-0" />
+          <div>
+            <h3 className="font-semibold text-kr-warning-800">Account Under Credential Verification</h3>
+            <p className="text-kr-warning-700 text-sm mt-1">
+              You will be able to publish advisories and answer farmer queries once your qualifications are approved by the Platform Admin.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Knowledge Base Section */}
         <div className="lg:col-span-2 space-y-6">
           <section className="kr-card p-6 border-l-4 border-l-kr-warning-500">
-            <div className="flex items-center gap-2 mb-4">
-              <ShieldAlert className="w-6 h-6 text-kr-warning-600" />
-              <h2 className="text-h3 font-heading">Disease Management Protocols</h2>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="w-6 h-6 text-kr-warning-600" />
+                <h2 className="text-h3 font-heading">Disease Management Protocols</h2>
+              </div>
+              {isExpert && (
+                <button 
+                  disabled={!isVerified} 
+                  className={`kr-btn-ghost kr-btn-sm flex items-center gap-2 ${!isVerified ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {!isVerified ? <Lock className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
+                  Publish Protocol
+                </button>
+              )}
             </div>
             
             <div className="space-y-4">
@@ -53,9 +96,20 @@ export default function ExpertDashboard() {
           </section>
 
           <section className="kr-card p-6 border-l-4 border-l-kr-success-500">
-            <div className="flex items-center gap-2 mb-4">
-              <CheckCircle2 className="w-6 h-6 text-kr-success-600" />
-              <h2 className="text-h3 font-heading">Best Practices & SOPs</h2>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-6 h-6 text-kr-success-600" />
+                <h2 className="text-h3 font-heading">Best Practices & SOPs</h2>
+              </div>
+              {isExpert && (
+                <button 
+                  disabled={!isVerified} 
+                  className={`kr-btn-ghost kr-btn-sm flex items-center gap-2 ${!isVerified ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {!isVerified ? <Lock className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
+                  Publish SOP
+                </button>
+              )}
             </div>
             
             <div className="space-y-4">
@@ -91,19 +145,37 @@ export default function ExpertDashboard() {
           <section className="kr-card p-6 bg-kr-bg-sunken">
             <div className="flex items-center gap-2 mb-4">
               <Stethoscope className="w-6 h-6 text-kr-primary-600" />
-              <h2 className="text-h3 font-heading">Expert Connect</h2>
+              <h2 className="text-h3 font-heading">{isExpert ? 'Expert Actions' : 'Expert Connect'}</h2>
             </div>
-            <p className="text-body-sm text-kr-text-secondary mb-4">
-              Consult with verified SKUAST agronomists and regional horticulture experts.
-            </p>
-            <button className="kr-btn-primary w-full flex items-center justify-center gap-2">
-              <MessageCircle className="w-4 h-4" />
-              Ask an Agronomist
-            </button>
-            <button className="kr-btn-secondary w-full mt-3 flex items-center justify-center gap-2">
-              <FileText className="w-4 h-4" />
-              Upload Crop Image
-            </button>
+            {isExpert ? (
+              <>
+                <p className="text-body-sm text-kr-text-secondary mb-4">
+                  Manage your consultations and farmer queries.
+                </p>
+                <button disabled={!isVerified} className={`kr-btn-primary w-full flex items-center justify-center gap-2 ${!isVerified ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                  {!isVerified ? <Lock className="w-4 h-4" /> : <MessageCircle className="w-4 h-4" />}
+                  Answer Farmer Queries
+                </button>
+                <button disabled={!isVerified} className={`kr-btn-secondary w-full mt-3 flex items-center justify-center gap-2 ${!isVerified ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                  {!isVerified ? <Lock className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
+                  Draft New Advisory
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-body-sm text-kr-text-secondary mb-4">
+                  Consult with verified SKUAST agronomists and regional horticulture experts.
+                </p>
+                <button className="kr-btn-primary w-full flex items-center justify-center gap-2">
+                  <MessageCircle className="w-4 h-4" />
+                  Ask an Agronomist
+                </button>
+                <button className="kr-btn-secondary w-full mt-3 flex items-center justify-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  Upload Crop Image
+                </button>
+              </>
+            )}
           </section>
 
           <section className="kr-card p-6">

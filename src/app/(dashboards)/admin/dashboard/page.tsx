@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Users, ShieldCheck, ShieldAlert, BarChart3,
@@ -45,7 +45,7 @@ import { ApiError } from '@/lib/api/client';
  */
 
 type AdminRole = 'REGIONAL_ADMIN' | 'PLATFORM_ADMIN';
-type Tab = 'kyc' | 'disputes' | 'analytics';
+
 
 const DISPUTE_STATUS_LABEL: Record<string, string> = {
   OPENED:        'Opened',
@@ -507,6 +507,108 @@ function DisputesPanel({ adminRole }: { adminRole: AdminRole }) {
   );
 }
 
+// ─── Expert Verification Panel ───
+
+function ExpertPanel() {
+  const [applications, setApplications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Read from our mock localStorage store
+    if (typeof window !== 'undefined') {
+      const appStr = localStorage.getItem('expert_application');
+      if (appStr) {
+        const app = JSON.parse(appStr);
+        if (app.status === 'PENDING_VERIFICATION') {
+          setApplications([app]);
+        }
+      }
+      setLoading(false);
+    }
+  }, []);
+
+  const handleApprove = (email: string) => {
+    if (typeof window !== 'undefined') {
+      const appStr = localStorage.getItem('expert_application');
+      if (appStr) {
+        const app = JSON.parse(appStr);
+        app.status = 'VERIFIED_EXPERT';
+        localStorage.setItem('expert_application', JSON.stringify(app));
+        setApplications([]);
+      }
+    }
+  };
+
+  const handleReject = (email: string) => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('expert_application');
+      setApplications([]);
+    }
+  };
+
+  if (loading) return <PanelSkeleton />;
+
+  if (applications.length === 0) {
+    return (
+      <div className="kr-empty-state">
+        <ShieldCheck className="w-10 h-10 text-kr-success-500 mx-auto" aria-hidden="true" />
+        <p className="text-body text-kr-text-secondary">Expert queue is empty</p>
+        <p className="text-body-sm text-kr-text-disabled">All expert applications have been reviewed.</p>
+      </div>
+    );
+  }
+
+  return (
+    <ul className="space-y-4" role="list">
+      {applications.map((sub, i) => (
+        <li key={i} className="kr-card">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap mb-2">
+                <p className="font-medium text-body text-kr-text-primary">{sub.fullName}</p>
+                <span className="kr-badge kr-badge-pending">PENDING</span>
+              </div>
+              <p className="text-body-sm text-kr-text-secondary mb-1">
+                <strong>Email:</strong> {sub.email}
+              </p>
+              <p className="text-body-sm text-kr-text-secondary mb-1">
+                <strong>Degree:</strong> {sub.degree}
+              </p>
+              <p className="text-body-sm text-kr-text-secondary mb-1">
+                <strong>Institution:</strong> {sub.institution}
+              </p>
+              <p className="text-body-sm text-kr-text-secondary mb-1">
+                <strong>License No:</strong> {sub.license}
+              </p>
+              <p className="text-body-sm text-kr-text-secondary mb-1">
+                <strong>Specialization:</strong> {sub.specialization}
+              </p>
+              <p className="text-body-sm text-kr-text-secondary mt-1">
+                <strong>Experience:</strong> {sub.experience} Years
+              </p>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={() => handleApprove(sub.email)}
+                className="kr-btn-primary kr-btn-sm"
+              >
+                <Check className="w-3 h-3" aria-hidden="true" /> Approve
+              </button>
+              <button
+                onClick={() => handleReject(sub.email)}
+                className="kr-btn-ghost kr-btn-sm text-kr-text-danger hover:bg-kr-danger-50"
+              >
+                <X className="w-3 h-3" aria-hidden="true" /> Reject
+              </button>
+            </div>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+
 // ─── Analytics Panel ───
 
 function AnalyticsPanel({ adminRole }: { adminRole: AdminRole }) {
@@ -712,8 +814,11 @@ function AnalyticsPanel({ adminRole }: { adminRole: AdminRole }) {
 
 // ─── Page ───
 
-const TABS: { id: Tab; label: string; Icon: typeof Users }[] = [
+type Tab = 'kyc' | 'expert' | 'disputes' | 'analytics';
+
+const TABS: { id: Tab; label: string; Icon: any }[] = [
   { id: 'kyc',       label: 'KYC Queue',  Icon: Users       },
+  { id: 'expert',    label: 'Expert KYC', Icon: ShieldCheck },
   { id: 'disputes',  label: 'Disputes',   Icon: ShieldAlert },
   { id: 'analytics', label: 'Analytics',  Icon: BarChart3   },
 ];
@@ -810,6 +915,7 @@ export default function AdminConsolePage() {
           hidden={activeTab !== id}
         >
           {id === 'kyc'       && <KycPanel />}
+          {id === 'expert'    && <ExpertPanel />}
           {id === 'disputes'  && <DisputesPanel adminRole={adminRole} />}
           {id === 'analytics' && <AnalyticsPanel adminRole={adminRole} />}
         </div>
