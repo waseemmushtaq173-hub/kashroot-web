@@ -187,6 +187,7 @@ const config: Config = {
  *
  * Classes defined:
  *   .kr-btn-primary    .kr-btn-secondary    .kr-btn-ghost    .kr-btn-danger
+ *   .kr-btn-inverse
  *   .kr-btn-loading    .kr-btn-sm           .kr-btn-lg
  *   .kr-input          .kr-input-error
  *   .kr-label          .kr-hint             .kr-error-msg
@@ -255,6 +256,16 @@ function componentStatesPlugin() {
         border: '1px solid var(--kr-border-brand)',
         '&:hover:not(:disabled)': { backgroundColor: 'var(--kr-fill-brand-subtle)' },
         '&:active:not(:disabled)': { opacity: '0.85' },
+      },
+      '.kr-btn-inverse': {
+        '@apply kr-btn-base': {},
+        backgroundColor: 'transparent',
+        color: '#FFFFFF',
+        border: '1px solid rgba(255, 255, 255, 0.7)',
+        '&:hover:not(:disabled)': { backgroundColor: 'rgba(255, 255, 255, 0.12)' },
+        '&:active:not(:disabled)': { backgroundColor: 'rgba(255, 255, 255, 0.2)' },
+        // Focus ring is inherited from kr-btn-base: --kr-border-focus is
+        // #F5A623, which reads on both the light and the dark surface.
       },
       '.kr-btn-ghost': {
         '@apply kr-btn-base': {},
