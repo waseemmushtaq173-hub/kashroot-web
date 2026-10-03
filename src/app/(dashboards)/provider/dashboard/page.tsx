@@ -4,12 +4,14 @@ import Link from 'next/link';
 export default function ProviderDashboardPage() {
   return (
     <main className="kr-container py-6 md:py-10">
-      <h1 className="font-heading text-h1 text-kr-text-primary mb-1">
-        Rental & Service Provider Dashboard
-      </h1>
-      <p className="text-body text-kr-text-secondary mb-6">
-        Manage your rental equipment calendar and service requests.
-      </p>
+      <div className="bg-blue-600 text-blue-50 p-6 md:p-8 mb-8 border-l-8 border-blue-900 shadow-md">
+        <h1 className="font-heading text-display text-white mb-2">
+          Service Provider Dashboard
+        </h1>
+        <p className="text-body-lg text-blue-100">
+          Manage your rental equipment calendar and service requests.
+        </p>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
         <div className="kr-card bg-kr-bg-surface flex items-center gap-3 p-4">

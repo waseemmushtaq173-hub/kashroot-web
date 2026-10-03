@@ -4,12 +4,14 @@ import Link from 'next/link';
 export default function SellerDashboardPage() {
   return (
     <main className="kr-container py-6 md:py-10">
-      <h1 className="font-heading text-h1 text-kr-text-primary mb-1">
-        Hardware Seller Dashboard
-      </h1>
-      <p className="text-body text-kr-text-secondary mb-6">
-        Manage your tools, machinery inventory, and hardware sales.
-      </p>
+      <div className="bg-orange-800 text-orange-50 p-6 md:p-8 mb-8 border-l-8 border-orange-950 shadow-md">
+        <h1 className="font-heading text-display text-white mb-2">
+          Hardware Seller Dashboard
+        </h1>
+        <p className="text-body-lg text-orange-100">
+          Manage your tools, machinery inventory, and hardware sales.
+        </p>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
         <div className="kr-card bg-kr-bg-surface flex items-center gap-3 p-4">

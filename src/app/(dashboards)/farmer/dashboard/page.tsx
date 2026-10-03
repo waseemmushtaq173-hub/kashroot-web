@@ -385,12 +385,14 @@ export default function FarmerDashboardPage() {
 
   return (
     <main id="main-content" className="kr-container py-6 md:py-10">
-      <h1 className="font-heading text-h1 text-kr-text-primary mb-1">
-        Dashboard
-      </h1>
-      <p className="text-body text-kr-text-secondary mb-6">
-        Manage your listings, appointments, and sales from one place.
-      </p>
+      <div className="bg-emerald-600 text-white p-6 md:p-8 mb-8 border-l-8 border-emerald-900 shadow-md">
+        <h1 className="font-heading text-display text-white mb-2">
+          Farmer Dashboard
+        </h1>
+        <p className="text-body-lg text-emerald-50">
+          Manage your listings, appointments, and sales from one place.
+        </p>
+      </div>
 
       {/* Quick Tools Access Bar */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">

@@ -531,65 +531,111 @@
 /* ─── ROLE-BASED THEME OVERRIDES ──────────────────────────────────────────── */
 
 .theme-farmer {
-  /* Orchard Green */
-  --kr-text-brand: #3A8C52;
-  --kr-border-brand: #43C484;
-  --kr-border-focus: #3A8C52;
-  --kr-fill-brand: #3A8C52;
-  --kr-fill-brand-hover: #2E7041;
-  --kr-fill-brand-active: #225531;
-  --kr-fill-brand-subtle: #EDFAF3;
+  /* Orchard Green (Vibrant Emerald) */
+  --kr-bg-page: #F0FDF4; /* green-50 */
+  --kr-text-brand: #059669; /* emerald-600 */
+  --kr-border-brand: #34D399; /* emerald-400 */
+  --kr-border-focus: #059669; 
+  --kr-fill-brand: #059669; 
+  --kr-fill-brand-hover: #047857; /* emerald-700 */
+  --kr-fill-brand-active: #065F46; /* emerald-800 */
+  --kr-fill-brand-subtle: #D1FAE5; /* emerald-100 */
 }
 .dark .theme-farmer {
-  --kr-text-brand: #6DD9A4;
-  --kr-border-brand: #3A8C52;
-  --kr-border-focus: #43C484;
-  --kr-fill-brand: #3A8C52;
-  --kr-fill-brand-hover: #43C484;
-  --kr-fill-brand-active: #6DD9A4;
-  --kr-fill-brand-subtle: #061009;
+  --kr-bg-page: #064E3B; /* emerald-900 */
+  --kr-text-brand: #6EE7B7; /* emerald-300 */
+  --kr-border-brand: #10B981; /* emerald-500 */
+  --kr-border-focus: #34D399; 
+  --kr-fill-brand: #10B981; 
+  --kr-fill-brand-hover: #34D399;
+  --kr-fill-brand-active: #6EE7B7;
+  --kr-fill-brand-subtle: #065F46; /* emerald-800 */
 }
 
 .theme-buyer {
-  /* Default Saffron Gold */
+  /* Vibrant Saffron Gold */
+  --kr-bg-page: #FFFBEB; /* amber-50 */
+  --kr-text-brand: #D97706; /* amber-600 */
+  --kr-border-brand: #FBBF24; /* amber-400 */
+  --kr-border-focus: #D97706; 
+  --kr-fill-brand: #D97706; 
+  --kr-fill-brand-hover: #B45309; /* amber-700 */
+  --kr-fill-brand-active: #92400E; /* amber-800 */
+  --kr-fill-brand-subtle: #FEF3C7; /* amber-100 */
+}
+.dark .theme-buyer {
+  --kr-bg-page: #78350F; /* amber-900 */
+  --kr-text-brand: #FCD34D; /* amber-300 */
+  --kr-border-brand: #F59E0B; /* amber-500 */
+  --kr-border-focus: #FBBF24; 
+  --kr-fill-brand: #F59E0B; 
+  --kr-fill-brand-hover: #FBBF24;
+  --kr-fill-brand-active: #FCD34D;
+  --kr-fill-brand-subtle: #92400E; /* amber-800 */
 }
 
-.theme-seller, .theme-provider {
-  /* Walnut Brown */
-  --kr-text-brand: #8B5E3C;
-  --kr-border-brand: #A47A55;
-  --kr-border-focus: #8B5E3C;
-  --kr-fill-brand: #8B5E3C;
-  --kr-fill-brand-hover: #724B2F;
-  --kr-fill-brand-active: #5A3A23;
-  --kr-fill-brand-subtle: #F8F3EF;
+.theme-seller {
+  /* Walnut Brown / Terracotta */
+  --kr-bg-page: #FDF8F6; /* orange-50 tinted */
+  --kr-text-brand: #9A3412; /* orange-800 */
+  --kr-border-brand: #F97316; /* orange-500 */
+  --kr-border-focus: #C2410C; /* orange-700 */
+  --kr-fill-brand: #9A3412; 
+  --kr-fill-brand-hover: #7C2D12; /* orange-900 */
+  --kr-fill-brand-active: #431407; /* orange-950 */
+  --kr-fill-brand-subtle: #FFEDD5; /* orange-100 */
 }
-.dark .theme-seller, .dark .theme-provider {
-  --kr-text-brand: #C09D7B;
-  --kr-border-brand: #8B5E3C;
-  --kr-border-focus: #A47A55;
-  --kr-fill-brand: #8B5E3C;
-  --kr-fill-brand-hover: #A47A55;
-  --kr-fill-brand-active: #C09D7B;
-  --kr-fill-brand-subtle: #150D07;
+.dark .theme-seller {
+  --kr-bg-page: #431407; /* orange-950 */
+  --kr-text-brand: #FDBA74; /* orange-300 */
+  --kr-border-brand: #F97316; /* orange-500 */
+  --kr-border-focus: #FB923C; /* orange-400 */
+  --kr-fill-brand: #F97316; 
+  --kr-fill-brand-hover: #FB923C;
+  --kr-fill-brand-active: #FDBA74;
+  --kr-fill-brand-subtle: #7C2D12; /* orange-900 */
+}
+
+.theme-provider {
+  /* Ocean Blue */
+  --kr-bg-page: #EFF6FF; /* blue-50 */
+  --kr-text-brand: #2563EB; /* blue-600 */
+  --kr-border-brand: #60A5FA; /* blue-400 */
+  --kr-border-focus: #2563EB; 
+  --kr-fill-brand: #2563EB; 
+  --kr-fill-brand-hover: #1D4ED8; /* blue-700 */
+  --kr-fill-brand-active: #1E3A8A; /* blue-900 */
+  --kr-fill-brand-subtle: #DBEAFE; /* blue-100 */
+}
+.dark .theme-provider {
+  --kr-bg-page: #1E3A8A; /* blue-900 */
+  --kr-text-brand: #93C5FD; /* blue-300 */
+  --kr-border-brand: #3B82F6; /* blue-500 */
+  --kr-border-focus: #60A5FA; /* blue-400 */
+  --kr-fill-brand: #3B82F6; 
+  --kr-fill-brand-hover: #60A5FA;
+  --kr-fill-brand-active: #93C5FD;
+  --kr-fill-brand-subtle: #1E40AF; /* blue-800 */
 }
 
 .theme-neutral {
   /* Deep Slate (Admin) */
-  --kr-text-brand: #4A5568;
-  --kr-border-brand: #636B80;
-  --kr-border-focus: #4A5568;
-  --kr-fill-brand: #4A5568;
-  --kr-fill-brand-hover: #374151;
-  --kr-fill-brand-active: #1F2937;
-  --kr-fill-brand-subtle: #F7F8FA;
+  --kr-bg-page: #F8FAFC; /* slate-50 */
+  --kr-text-brand: #475569; /* slate-600 */
+  --kr-border-brand: #94A3B8; /* slate-400 */
+  --kr-border-focus: #475569; 
+  --kr-fill-brand: #475569; 
+  --kr-fill-brand-hover: #334155; /* slate-700 */
+  --kr-fill-brand-active: #1E293B; /* slate-800 */
+  --kr-fill-brand-subtle: #E2E8F0; /* slate-200 */
 }
 .dark .theme-neutral {
-  --kr-text-brand: #8E94A6;
-  --kr-border-brand: #4A5568;
-  --kr-border-focus: #636B80;
-  --kr-fill-brand: #4A5568;
-  --kr-fill-brand-hover: #636B80;
-  --kr-fill-brand-active: #8E94A6;
-  --kr-fill-brand-subtle: #030712;
+  --kr-bg-page: #0F172A; /* slate-900 */
+  --kr-text-brand: #CBD5E1; /* slate-300 */
+  --kr-border-brand: #64748B; /* slate-500 */
+  --kr-border-focus: #94A3B8; /* slate-400 */
+  --kr-fill-brand: #64748B; 
+  --kr-fill-brand-hover: #94A3B8;
+  --kr-fill-brand-active: #CBD5E1;
+  --kr-fill-brand-subtle: #1E293B; /* slate-800 */
 }

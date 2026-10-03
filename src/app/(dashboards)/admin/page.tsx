@@ -737,20 +737,22 @@ export default function AdminConsolePage() {
 
   return (
     <main id="main-content" className="kr-container py-6 md:py-10">
-      <div className="flex items-center gap-3 mb-1">
-        <h1 className="font-heading text-h1 text-kr-text-primary">Admin console</h1>
-        <span
-          className={`kr-badge ${
-            adminRole === 'PLATFORM_ADMIN' ? 'kr-badge-published' : 'kr-badge-draft'
-          }`}
-          aria-label={`Admin role: ${adminRole.replace('_', ' ').toLowerCase()}`}
-        >
-          {adminRole === 'PLATFORM_ADMIN' ? 'Platform Admin' : 'Regional Admin'}
-        </span>
+      <div className="bg-slate-800 text-slate-50 p-6 md:p-8 mb-8 border-l-8 border-slate-950 shadow-md">
+        <div className="flex items-center gap-3 mb-2">
+          <h1 className="font-heading text-display text-white">Admin console</h1>
+          <span
+            className={`kr-badge ${
+              adminRole === 'PLATFORM_ADMIN' ? 'bg-slate-700 text-slate-100 border-none' : 'kr-badge-draft'
+            }`}
+            aria-label={`Admin role: ${adminRole.replace('_', ' ').toLowerCase()}`}
+          >
+            {adminRole === 'PLATFORM_ADMIN' ? 'Platform Admin' : 'Regional Admin'}
+          </span>
+        </div>
+        <p className="text-body-lg text-slate-300">
+          Review KYC submissions, manage disputes, and monitor region analytics.
+        </p>
       </div>
-      <p className="text-body text-kr-text-secondary mb-8">
-        Review KYC submissions, manage disputes, and monitor region analytics.
-      </p>
 
       {/* Tab strip */}
       <div
