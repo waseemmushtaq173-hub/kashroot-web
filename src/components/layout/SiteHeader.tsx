@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { LogIn } from 'lucide-react';
 import { BrandMark } from '@/components/brand/Shikara';
+import { RoleSwitcher } from './RoleSwitcher';
 
 /**
  * Public site header, shared by the landing page and the supplies catalogue.
@@ -42,14 +43,7 @@ export function SiteHeader() {
 
         <div className="flex items-center gap-2">
           <div className="hidden sm:block mr-2 border-r border-kr-border-default pr-4">
-            <select className="kr-input kr-input-sm bg-kr-bg-sunken border-transparent text-caption text-kr-text-secondary" onChange={(e) => window.location.href = e.target.value}>
-              <option value="">Switch Role...</option>
-              <option value="/farmer/dashboard">Farmer</option>
-              <option value="/buyer/dashboard">Buyer</option>
-              <option value="/seller/dashboard">Hardware Seller</option>
-              <option value="/provider/dashboard">Rental Provider</option>
-              <option value="/admin">Admin</option>
-            </select>
+            <RoleSwitcher />
           </div>
           <Link href="/supplies" className="kr-btn-ghost kr-btn-sm sm:hidden">
             Supplies
