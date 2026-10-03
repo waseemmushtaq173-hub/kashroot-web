@@ -58,9 +58,9 @@ export default function FertilizerTesterPage() {
   };
 
   const captureScan = () => {
-    const m = 'Bayer CropScience (Simulated)';
+    const m = 'Bayer';
     const b = 'GR053118';
-    const n = '19:19:19';
+    const n = 'Imidacloprid 17.8% SL';
     setManufacturer(m);
     setBatchCode(b);
     setNpk(n);
@@ -71,9 +71,9 @@ export default function FertilizerTesterPage() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const m = 'IFFCO (File Upload)';
-      const b = 'KR-BATCH-2026-99';
-      const n = '19:19:19';
+      const m = 'IFFCO';
+      const b = 'IFN123456';
+      const n = '46:0:0';
       setManufacturer(m);
       setBatchCode(b);
       setNpk(n);
