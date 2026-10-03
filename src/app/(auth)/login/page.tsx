@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+export const dynamic = 'force-dynamic';import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { LogIn, Loader2, Eye, EyeOff } from 'lucide-react';
