@@ -18,7 +18,9 @@ export function RoleSwitcher() {
       <option value="/seller/dashboard">Hardware Seller</option>
       <option value="/dealer/dashboard">Fertilizer Dealer</option>
       <option value="/provider/dashboard">Rental Provider</option>
-      <option value="/horticulture/dashboard">Horticulture Admin</option>
+      <option value="/admin/dashboard">Admin Portal</option>
+      <option value="/agriculture/dashboard">Agriculture Portal</option>
+      <option value="/horticulture/dashboard">Horticulture Portal</option>
     </select>
   );
 }
