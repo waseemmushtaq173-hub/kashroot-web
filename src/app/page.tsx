@@ -32,9 +32,9 @@ const HERO_IMAGE =
   'https://images.unsplash.com/photo-1715457573748-8e8a70b2c1be?auto=format&fit=crop&w=2400&q=80';
 
 export const metadata: Metadata = {
-  title: "KashRoot — Kashmir's horticulture trade platform",
+  title: "KashRoot — Horticulture trade platform",
   description:
-    'Trade produce direct from verified Kashmiri growers, and source the packaging, machinery and inputs to get it to market.',
+    'Trade produce direct from verified agricultural growers, and source the packaging, machinery and inputs to get it to market.',
 };
 
 /**
@@ -139,7 +139,7 @@ export default function Home() {
               Farm-direct horticulture trade
             </p>
             <h1 className="mx-auto mt-5 max-w-4xl font-heading font-bold text-5xl md:text-6xl text-white">
-              Where harvest meets opportunity.
+              The smarter way to move what you grow.
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-body-lg text-white/85">
               Sell produce straight to buyers with no middleman taking the

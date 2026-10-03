@@ -52,27 +52,12 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         {/* Hero text */}
         <div className="space-y-6">
           <h1 className="font-heading text-h1 text-white leading-tight">
-            Kashmir&rsquo;s produce,
-            <br />
-            <span className="text-kr-primary-400">the world&rsquo;s table.</span>
+            <strong>The smarter way to move what you grow</strong>
           </h1>
           <p className="text-kr-neutral-300 text-body-lg max-w-sm">
-            Connect directly with verified Kashmiri farmers. No middlemen,
+            Connect directly with verified agricultural buyers and sellers. No middlemen,
             transparent pricing, and end-to-end trade compliance.
           </p>
-          {/* Trust stats */}
-          <div className="grid grid-cols-3 gap-6 pt-4 border-t border-kr-secondary-700">
-            {[
-              { value: '2,400+', label: 'Verified farmers' },
-              { value: '48', label: 'Export regions' },
-              { value: '₹0', label: 'Middleman fee' },
-            ].map((stat) => (
-              <div key={stat.label}>
-                <p className="font-heading text-h3 text-kr-primary-400">{stat.value}</p>
-                <p className="text-caption text-kr-neutral-400">{stat.label}</p>
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* Footer */}
