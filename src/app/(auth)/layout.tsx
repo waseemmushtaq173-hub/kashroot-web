@@ -52,7 +52,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         {/* Hero text */}
         <div className="space-y-6">
           <h1 className="font-heading text-h1 text-white leading-tight">
-            <strong>Where HARVEST MEETS OPPURTUNITY</strong>
+            <strong>Where Harvest Meets Oppurtunity</strong>
           </h1>
           <p className="text-kr-neutral-300 text-body-lg max-w-sm">
             Connect directly with verified agricultural buyers and sellers. No middlemen,
