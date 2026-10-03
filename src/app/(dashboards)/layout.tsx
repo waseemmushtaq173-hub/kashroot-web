@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 
 import { useSelectedLayoutSegment, useRouter } from 'next/navigation';
 import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 
 import { VoiceAssistant } from '@/components/ui/VoiceAssistant';
 
@@ -15,13 +15,29 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const segment = useSelectedLayoutSegment();
   const router = useRouter();
 
+  const [isMounted, setIsMounted] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
   useEffect(() => {
-    // Client-side guard: verify auth_token exists
-    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
-    if (!token) {
-      router.push('/login');
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        router.push('/login');
+      } else {
+        setIsAuthenticated(true);
+      }
+      setIsMounted(true);
     }
   }, [router]);
+
+  if (!isMounted || !isAuthenticated) {
+    // Prevent flicker and layout shift while checking credentials
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-kr-bg-page">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-kr-primary-600 border-t-transparent" />
+      </div>
+    );
+  }
 
   
   // Map segments to theme classes that override CSS variables in globals.css

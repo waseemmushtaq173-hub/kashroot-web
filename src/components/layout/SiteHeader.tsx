@@ -1,21 +1,33 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { LogIn } from 'lucide-react';
+import { LogIn, LogOut, User } from 'lucide-react';
 import { BrandMark } from '@/components/brand/Shikara';
 import { RoleSwitcher } from './RoleSwitcher';
+import { useRouter } from 'next/navigation';
+import { tokenStore } from '@/lib/api/client';
 
-/**
- * Public site header, shared by the landing page and the supplies catalogue.
- *
- * Extracted so the two verticals cannot drift apart in nav or spacing — the
- * moment Supplies became a first-class section rather than a landing-page
- * subsection, it needed to appear in the same nav on every public page.
- *
- * Deliberately a server component: nothing here is interactive, so there is no
- * reason to ship it to the client. That rules out an active-link highlight
- * (which needs `usePathname`), so the nav stays neutral rather than pulling the
- * whole header across the client boundary for a colour change.
- */
 export function SiteHeader() {
+  const [isAuth, setIsAuth] = useState(false);
+  const [role, setRole] = useState<string | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('auth_token');
+      setIsAuth(!!token);
+      setRole(localStorage.getItem('user_role') || 'User');
+    }
+  }, []);
+
+  const handleSignOut = () => {
+    tokenStore.clear();
+    setIsAuth(false);
+    setRole(null);
+    router.push('/');
+  };
+
   return (
     <header className="sticky top-0 z-40 border-b border-kr-border-default bg-kr-bg-surface">
       <nav
@@ -48,9 +60,20 @@ export function SiteHeader() {
           <Link href="/supplies" className="kr-btn-ghost kr-btn-sm sm:hidden">
             Supplies
           </Link>
-          <Link href="/login" className="kr-btn-primary kr-btn-sm">
-            <LogIn className="h-4 w-4" aria-hidden="true" /> Sign in
-          </Link>
+          {isAuth ? (
+            <div className="flex items-center gap-2">
+              <span className="kr-badge kr-badge-published flex items-center gap-1">
+                <User className="w-3 h-3" /> {role}
+              </span>
+              <button onClick={handleSignOut} className="kr-btn-ghost kr-btn-sm text-kr-text-danger">
+                <LogOut className="h-4 w-4" aria-hidden="true" /> Sign out
+              </button>
+            </div>
+          ) : (
+            <Link href="/login" className="kr-btn-primary kr-btn-sm">
+              <LogIn className="h-4 w-4" aria-hidden="true" /> Sign in
+            </Link>
+          )}
         </div>
       </nav>
     </header>
