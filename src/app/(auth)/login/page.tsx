@@ -30,6 +30,9 @@ function LoginForm() {
       
       if (data.accessToken) {
         tokenStore.setToken(data.accessToken, data.user?.role);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('auth_email', email);
+        }
       }
 
       if (data.user?.role === 'FARMER') router.push('/farmer/dashboard');

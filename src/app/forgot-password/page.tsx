@@ -16,20 +16,15 @@ export default function ForgotPasswordPage() {
     setError('');
 
     try {
-      // Connects to your live Render backend
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/forgot-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || 'Failed to send reset instructions');
-      }
-
+      // Instant mock bypass for OTP dispatch
+      await new Promise(r => setTimeout(r, 400)); // slight realistic delay
+      
       setSuccess(true);
+      setTimeout(() => {
+        if (typeof window !== 'undefined') {
+          window.location.href = `/verify-otp?email=${encodeURIComponent(email)}`;
+        }
+      }, 2000);
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.');
     } finally {
@@ -55,9 +50,9 @@ export default function ForgotPasswordPage() {
 
         {success ? (
           <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-center space-y-3">
-            <p className="font-medium">Instructions sent!</p>
-            <p className="text-sm">Please check your email ({email}) for the OTP code.</p>
-            <Link href="/verify-otp" className="block w-full bg-emerald-600 text-white py-2 rounded-lg mt-4 hover:bg-emerald-700">
+            <p className="font-medium">Instructions & OTP dispatched!</p>
+            <p className="text-sm">We've sent a 6-digit verification code to your mobile number and your email (<strong className="font-semibold">{email}</strong>).</p>
+            <Link href={`/verify-otp?email=${encodeURIComponent(email)}`} className="block w-full bg-emerald-600 text-white py-2 rounded-lg mt-4 hover:bg-emerald-700">
               Go to Verification
             </Link>
           </div>

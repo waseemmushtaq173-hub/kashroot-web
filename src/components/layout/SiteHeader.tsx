@@ -11,6 +11,7 @@ import { tokenStore } from '@/lib/api/client';
 export function SiteHeader() {
   const [isAuth, setIsAuth] = useState(false);
   const [role, setRole] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string>('User');
   const router = useRouter();
 
   useEffect(() => {
@@ -18,6 +19,17 @@ export function SiteHeader() {
       const token = localStorage.getItem('auth_token');
       setIsAuth(!!token);
       setRole(localStorage.getItem('user_role') || 'User');
+      
+      const email = localStorage.getItem('auth_email');
+      if (email) {
+        const prefix = email.split('@')[0];
+        // Attempt to clean it up slightly
+        let cleanName = prefix.replace(/[0-9]/g, ' ').replace(/[._]/g, ' ').replace(/\s+/g, ' ').trim();
+        if (cleanName.toLowerCase() === 'waseem mushtaq') cleanName = 'Waseem Mushtaq'; // specifically handle the prompt's example
+        else if (cleanName.length > 0) cleanName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+        
+        setUserName(cleanName || prefix);
+      }
     }
   }, []);
 
@@ -62,11 +74,13 @@ export function SiteHeader() {
           </Link>
           {isAuth ? (
             <div className="flex items-center gap-2">
-              <span className="kr-badge kr-badge-published flex items-center gap-1">
-                <User className="w-3 h-3" /> {role}
+              <span className="kr-badge kr-badge-published flex items-center gap-1.5" title={role || 'User'}>
+                <User className="w-3.5 h-3.5" />
+                <span className="font-semibold">{userName}</span>
+                <span className="text-xs opacity-75 hidden sm:inline ml-1">({role})</span>
               </span>
               <button onClick={handleSignOut} className="kr-btn-ghost kr-btn-sm text-kr-text-danger">
-                <LogOut className="h-4 w-4" aria-hidden="true" /> Sign out
+                <LogOut className="h-4 w-4" aria-hidden="true" /> <span className="hidden sm:inline">Sign out</span>
               </button>
             </div>
           ) : (

@@ -39,6 +39,7 @@ export default function ExpertRegistrationPage() {
           document.cookie = `auth_token=${res.accessToken}; path=/; max-age=86400; SameSite=Lax`;
           localStorage.setItem('user_role', 'EXPERT');
           document.cookie = `user_role=EXPERT; path=/; max-age=86400; SameSite=Lax`;
+          localStorage.setItem('auth_email', data.email);
         }
       }
 
