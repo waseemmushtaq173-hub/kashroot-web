@@ -92,14 +92,30 @@ export interface RefreshResponse {
 // ── API calls ─────────────────────────────────────────────────────────────
 export const authApi = {
   register: async (dto: RegisterDto) => {
-    // Zero-delay instantaneous mockup
-    return { message: 'Verification email sent. Please check your inbox.' };
+    // Call the real OTP API to trigger live gateways instead of mocking
+    try {
+      const response = await fetch('/api/auth/otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: dto.email, phone: dto.phone || '+10000000000' }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to trigger OTP');
+      // Store the OTPs in localStorage temporarily so our frontend mock can verify them later if needed
+      if (typeof window !== 'undefined') {
+        if (data.emailOtp) localStorage.setItem('mock_expected_email_otp', data.emailOtp);
+        if (data.phoneOtp) localStorage.setItem('mock_expected_phone_otp', data.phoneOtp);
+      }
+      return { message: 'Verification email sent. Please check your inbox.' };
+    } catch (e: any) {
+      console.error('Failed to trigger OTP API on register:', e);
+      throw e;
+    }
   },
   login: async (dto: LoginDto) => {
-    // Zero-delay instantaneous mockup
     const mockRole = (typeof window !== 'undefined' && localStorage.getItem('kr_mock_role')) as UserRole || 'FARMER';
     return {
-      accessToken: 'mock_jwt_token_for_demo_purposes_only_12345',
+      accessToken: 'mock_jwt_token',
       requiresMfa: false,
       user: {
         id: 'mock-user-1',
@@ -112,28 +128,36 @@ export const authApi = {
     } as LoginResponse;
   },
   verifyOtp: async (dto: VerifyOtpDto) => {
-    // Zero-delay instantaneous mockup
+    if (typeof window !== 'undefined') {
+      const expectedEmail = localStorage.getItem('mock_expected_email_otp');
+      const expectedPhone = localStorage.getItem('mock_expected_phone_otp');
+      // If we have stored OTPs, verify against them
+      if (expectedEmail && expectedPhone) {
+        if (dto.code !== expectedEmail || dto.phoneCode !== expectedPhone) {
+          throw new Error('Invalid verification codes. Please try again.');
+        }
+      }
+    }
     return { message: 'OTP verified successfully' };
   },
   resendOtp: async (dto: ResendOtpDto) => {
-    try {
-      const response = await fetch('/api/auth/otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dto),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Failed to resend OTP');
-      return data;
-    } catch (e: any) {
-      console.error('Failed to call API route, using mock fallback', e);
-      console.log(`[MOCK AUTH] OTP 123456 sent to email: ${dto.email} and mobile: ${dto.phone || 'N/A'}`);
-      return { message: 'OTP successfully sent to mobile number and email' };
+    const response = await fetch('/api/auth/otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: dto.email, phone: dto.phone || '+10000000000' }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Failed to resend OTP');
+    
+    if (typeof window !== 'undefined') {
+      if (data.emailOtp) localStorage.setItem('mock_expected_email_otp', data.emailOtp);
+      if (data.phoneOtp) localStorage.setItem('mock_expected_phone_otp', data.phoneOtp);
     }
+    return data;
   },
   mfaSetup:      async ()                    => ({ qrCodeDataUrl: '', secret: '' } as MfaSetupResponse),
   mfaVerify:     async (dto: MfaVerifyDto)   => ({ message: 'MFA verified' } as MfaVerifyResponse),
-  refresh:       async ()                    => ({ accessToken: 'mock_jwt_token_for_demo_purposes_only_12345' }),
+  refresh:       async ()                    => ({ accessToken: 'mock_jwt_token' }),
   logout:        async ()                    => { tokenStore.removeToken(); },
 };
 export const tokenStore = {

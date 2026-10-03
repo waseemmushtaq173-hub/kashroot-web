@@ -97,7 +97,7 @@ apiClient.interceptors.response.use(
       if (url.includes('/admin/regions')) {
         return Promise.resolve({ data: [{ id: 'kashmir', name: 'Kashmir Valley' }, { id: 'jammu', name: 'Jammu Division' }]});
       }
-      if (error.response?.status === 401 && localStorage.getItem('auth_token') === 'mock_jwt_token_for_demo_purposes_only_12345') {
+      if (error.response?.status === 401 && localStorage.getItem('auth_token') === 'mock_jwt_token') {
         return Promise.resolve({ data: {} });
       }
     }
@@ -135,7 +135,7 @@ apiClient.interceptors.response.use(
     } catch(error) {
       // If we are using the mock token, do not redirect on refresh failure
       // This prevents the infinite redirect loop when the real backend is unreachable
-      if (typeof window !== 'undefined' && localStorage.getItem('auth_token') === 'mock_jwt_token_for_demo_purposes_only_12345') {
+      if (typeof window !== 'undefined' && localStorage.getItem('auth_token') === 'mock_jwt_token') {
         return Promise.reject(toApiError(error as any));
       }
 
