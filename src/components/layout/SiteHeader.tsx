@@ -4,18 +4,18 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { LogIn, LogOut, User } from 'lucide-react';
 import { BrandMark } from '@/components/brand/Shikara';
-import { RoleSwitcher } from './RoleSwitcher';
 import { usePathname, useRouter } from 'next/navigation';
 import { tokenStore } from '@/lib/api/client';
 
 export function SiteHeader() {
   const [isAuth, setIsAuth] = useState(false);
   const [userName, setUserName] = useState<string>('User');
+  const [sessionRole, setSessionRole] = useState<string>('USER');
   const pathname = usePathname();
   const router = useRouter();
 
   // Dynamic Role based on URL
-  let dynamicRole = 'USER';
+  let dynamicRole = '';
   if (pathname) {
     if (pathname.startsWith('/admin')) dynamicRole = 'ADMIN';
     else if (pathname.startsWith('/expert')) dynamicRole = 'EXPERT';
@@ -29,10 +29,13 @@ export function SiteHeader() {
     else if (pathname.startsWith('/provider')) dynamicRole = 'PROVIDER';
   }
 
+  const displayRole = dynamicRole || sessionRole;
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('auth_token');
       setIsAuth(!!token);
+      setSessionRole(localStorage.getItem('user_role') || 'USER');
       
       const email = localStorage.getItem('auth_email');
       if (email) {
@@ -85,18 +88,15 @@ export function SiteHeader() {
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="hidden sm:block mr-2 border-r border-kr-border-default pr-4">
-            <RoleSwitcher />
-          </div>
           <Link href="/supplies" className="kr-btn-ghost kr-btn-sm sm:hidden">
             Supplies
           </Link>
           {isAuth ? (
             <div className="flex items-center gap-2">
-              <span className="kr-badge kr-badge-published flex items-center gap-1.5" title={dynamicRole || 'User'}>
+              <span className="kr-badge kr-badge-published flex items-center gap-1.5" title={displayRole || 'User'}>
                 <User className="w-3.5 h-3.5" />
                 <span className="font-semibold">{userName}</span>
-                <span className="text-xs opacity-75 hidden sm:inline ml-1">({dynamicRole})</span>
+                <span className="text-xs opacity-75 hidden sm:inline ml-1">({displayRole})</span>
               </span>
               <button onClick={handleSignOut} className="kr-btn-ghost kr-btn-sm text-kr-text-danger">
                 <LogOut className="h-4 w-4" aria-hidden="true" /> <span className="hidden sm:inline">Sign out</span>

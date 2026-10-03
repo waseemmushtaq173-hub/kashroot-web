@@ -18,12 +18,15 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [isMounted, setIsMounted] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+  const [userRole, setUserRole] = useState<string | null>(null);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('auth_token');
       if (!token) {
         router.push('/login?returnTo=' + encodeURIComponent(window.location.pathname));
       } else {
+        setUserRole(localStorage.getItem('user_role'));
         setIsAuthenticated(true);
       }
       setIsMounted(true);
@@ -35,6 +38,35 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-kr-bg-page">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-kr-primary-600 border-t-transparent" />
+      </div>
+    );
+  }
+
+  let authorized = true;
+  let requiredRoleMsg = '';
+  if (userRole) {
+    if (segment === 'farmer' && userRole !== 'FARMER') { authorized = false; requiredRoleMsg = 'Farmer'; }
+    else if (segment === 'buyer' && userRole !== 'BUYER') { authorized = false; requiredRoleMsg = 'Buyer'; }
+    else if (segment === 'expert' && userRole !== 'EXPERT') { authorized = false; requiredRoleMsg = 'Agricultural Expert'; }
+    else if (segment === 'admin' && userRole !== 'ADMIN') { authorized = false; requiredRoleMsg = 'Platform Admin'; }
+    else if (segment === 'provider' && userRole !== 'PROVIDER') { authorized = false; requiredRoleMsg = 'Logistics & Provider'; }
+  }
+
+  if (!authorized) {
+    return (
+      <div className="flex min-h-screen flex-col bg-kr-bg-page">
+        <SiteHeader />
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+          <div className="kr-card kr-error-state p-8 max-w-lg">
+            <h2 className="font-heading text-h3 text-kr-danger-700">Unauthorized Access</h2>
+            <p className="mt-4 text-body text-kr-text-secondary">
+              Your current session is tagged as <strong>{userRole}</strong>.
+            </p>
+            <p className="mt-2 text-body text-kr-text-secondary">
+              Please sign in with a <strong>{requiredRoleMsg}</strong> account to view this dashboard.
+            </p>
+          </div>
+        </div>
       </div>
     );
   }

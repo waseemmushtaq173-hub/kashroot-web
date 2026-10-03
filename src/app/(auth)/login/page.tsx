@@ -14,6 +14,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const verified = searchParams.get('verified') === '1';
   
+  const [selectedRole, setSelectedRole] = useState('FARMER');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -27,29 +28,14 @@ function LoginForm() {
 
     try {
       const data = await authApi.login({ email, password });
-      
+      // The login function must bind the selected role directly.
+      const targetRole = selectedRole;
       let targetRoute = '/farmer/dashboard';
-      let targetRole: string = data.user?.role || 'FARMER';
-      
-      const returnTo = searchParams.get('returnTo');
-      if (returnTo) {
-        targetRoute = returnTo;
-        if (returnTo.includes('/admin')) targetRole = 'ADMIN';
-        else if (returnTo.includes('/expert')) targetRole = 'EXPERT';
-        else if (returnTo.includes('/buyer')) targetRole = 'BUYER';
-        else if (returnTo.includes('/seller')) targetRole = 'SELLER';
-        else if (returnTo.includes('/dealer')) targetRole = 'DEALER';
-        else if (returnTo.includes('/agriculture')) targetRole = 'AGRICULTURE';
-        else if (returnTo.includes('/horticulture')) targetRole = 'HORTICULTURE';
-        else if (returnTo.includes('/tracking')) targetRole = 'LOGISTICS';
-        else if (returnTo.includes('/provider')) targetRole = 'PROVIDER';
-      } else {
-        if (targetRole === 'BUYER') targetRoute = '/buyer/dashboard';
-        else if (targetRole === 'SELLER') targetRoute = '/seller/dashboard';
-        else if (targetRole === 'PROVIDER') targetRoute = '/provider/dashboard';
-        else if (targetRole === 'ADMIN') targetRoute = '/admin/dashboard';
-        else if (targetRole === 'EXPERT') targetRoute = '/expert';
-      }
+      if (targetRole === 'BUYER') targetRoute = '/buyer/dashboard';
+      else if (targetRole === 'SELLER') targetRoute = '/seller/dashboard';
+      else if (targetRole === 'PROVIDER') targetRoute = '/provider/dashboard';
+      else if (targetRole === 'ADMIN') targetRoute = '/admin/dashboard';
+      else if (targetRole === 'EXPERT') targetRoute = '/expert';
 
       if (data.accessToken) {
         tokenStore.setToken(data.accessToken, targetRole);
@@ -97,6 +83,22 @@ function LoginForm() {
       )}
 
       <form onSubmit={handleLogin} className="space-y-4">
+        <div>
+          <label className="block text-label text-kr-text-primary mb-1">Account Type <span className="text-kr-danger-500">*</span></label>
+          <select
+            className="kr-input w-full mb-4"
+            value={selectedRole}
+            onChange={(e) => setSelectedRole(e.target.value)}
+            required
+          >
+            <option value="FARMER">Farmer</option>
+            <option value="BUYER">Buyer</option>
+            <option value="PROVIDER">Logistics & Provider</option>
+            <option value="EXPERT">Agricultural Expert</option>
+            <option value="ADMIN">Platform Admin</option>
+          </select>
+        </div>
+
         <div>
           <label className="block text-label text-kr-text-primary mb-1">Email address</label>
           <input
