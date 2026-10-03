@@ -48,46 +48,62 @@ export default function FertilizerTesterPage() {
     setScanning(false);
   };
 
+  const runVerification = (m: string, b: string, n: string) => {
+    if (!b || !m || !n) return;
+    
+    // Instant client-side verification
+    const isFake = b.toUpperCase().includes('X') || m.toLowerCase().includes('fake');
+    
+    setResult({
+      isOriginal: !isFake,
+      score: isFake ? 24 : 98,
+      matchDetails: isFake 
+        ? `NPK ratio (${n}) strongly deviates from official baseline for ${m || 'this brand'}. Batch code pattern mismatch.`
+        : `NPK ratio (${n}) matches manufacturer baseline. Batch code verified against central registry.`,
+      clearance: isFake 
+        ? "HIGH RISK COUNTERFEIT. Do not use. Report to local agriculture office."
+        : "VERIFIED ORIGINAL. Safe for agricultural application."
+    });
+    setLoading(false);
+  };
+
   const captureScan = () => {
-    // Simulate successful batch code decode from video frame
-    setManufacturer('KashRoot Agro (Simulated)');
-    setBatchCode('KR-BATCH-2026-99');
-    setNpk('19:19:19');
+    const m = 'Bayer CropScience (Simulated)';
+    const b = 'GR053118';
+    const n = '19:19:19';
+    setManufacturer(m);
+    setBatchCode(b);
+    setNpk(n);
     stopCamera();
+    runVerification(m, b, n);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Simulate file upload decode
-      setManufacturer('KashRoot Agro (File Upload)');
-      setBatchCode('KR-BATCH-2026-99');
-      setNpk('19:19:19');
+      const m = 'IFFCO (File Upload)';
+      const b = 'KR-BATCH-2026-99';
+      const n = '19:19:19';
+      setManufacturer(m);
+      setBatchCode(b);
+      setNpk(n);
+      runVerification(m, b, n);
     }
   };
 
   const handleTest = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!batchCode || !manufacturer || !npk) return;
-    setLoading(true);
-    
-    // Simulate verification check against baselines
-    setTimeout(() => {
-      const isFake = batchCode.toUpperCase().includes('X') || manufacturer.toLowerCase().includes('fake');
-      
-      setResult({
-        isOriginal: !isFake,
-        score: isFake ? 24 : 98,
-        matchDetails: isFake 
-          ? `NPK ratio (${npk}) strongly deviates from official baseline for ${manufacturer || 'this brand'}. Batch code pattern mismatch.`
-          : `NPK ratio (${npk}) matches manufacturer baseline. Batch code verified against central registry.`,
-        clearance: isFake 
-          ? "HIGH RISK COUNTERFEIT. Do not use. Report to local agriculture office."
-          : "VERIFIED ORIGINAL. Safe for agricultural application."
-      });
-      setLoading(false);
-    }, 1500);
+    runVerification(manufacturer, batchCode, npk);
   };
+
+  useEffect(() => {
+    if (batchCode.length >= 6 && manufacturer.length >= 2 && npk.length >= 2) {
+      runVerification(manufacturer, batchCode, npk);
+    } else {
+      setResult(null); // Clear result if they backspace
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batchCode, manufacturer, npk]);
 
   return (
     <div className="min-h-screen flex flex-col bg-kr-bg-page">
