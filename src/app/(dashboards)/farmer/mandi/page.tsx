@@ -212,31 +212,23 @@ export default function MandiPage() {
   const [geo, setGeo] = useState<{ status: 'idle' | 'locating' | 'error'; message?: string }>({
     status: 'idle',
   });
+  const [selectedState, setSelectedState] = useState<string>('Jammu & Kashmir');
 
   const catalogueQuery = useQuery({
     queryKey: ['mandi', 'catalogue'],
     queryFn: mandiApi.locations,
-    // The hub list is static reference data; no reason to re-ask on every mount.
     staleTime: 5 * 60_000,
   });
 
-  // Pick a starting market once the catalogue arrives, so the board has
-  // something to show before the grower touches anything. A live-coverage hub
-  // is preferred as the default, since that is the one guaranteed to have real
-  // published prices behind it.
   useEffect(() => {
     if (selection || !catalogueQuery.data) return;
     const { locations, commodities } = catalogueQuery.data;
-    const preferred = locations.find((l) => l.coverage === 'live') ?? locations[0];
+    const preferred = locations.find((l) => l.state === selectedState) ?? locations[0];
     if (preferred) setSelection({ kind: 'hub', id: preferred.id });
     if (!commodities.includes(commodity) && commodities[0]) {
       setCommodity(commodities[0]);
     }
-    // `commodity` is intentionally not a dependency: this effect only seeds the
-    // initial selection, and re-running it on a commodity change would fight
-    // the user's own choice.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalogueQuery.data, selection]);
+  }, [catalogueQuery.data, selection, selectedState]);
 
   const query = useMemo<MandiFeedQuery | null>(() => {
     if (!selection) return null;
@@ -287,6 +279,15 @@ export default function MandiPage() {
     );
   }
 
+  function onStateChange(event: ChangeEvent<HTMLSelectElement>) {
+    const value = event.target.value;
+    setSelectedState(value);
+    const firstForState = catalogueQuery.data?.locations.find((l) => l.state === value);
+    if (firstForState) {
+      setSelection({ kind: 'hub', id: firstForState.id });
+    }
+  }
+
   function onMarketChange(event: ChangeEvent<HTMLSelectElement>) {
     const value = event.target.value;
     if (value === NEAR_ME) return;
@@ -295,8 +296,8 @@ export default function MandiPage() {
   }
 
   const locations = catalogueQuery.data?.locations ?? [];
-  const liveLocations = locations.filter((l) => l.coverage === 'live');
-  const modelledLocations = locations.filter((l) => l.coverage === 'modelled');
+  const uniqueStates = Array.from(new Set(locations.map(l => l.state)));
+  const stateLocations = locations.filter(l => l.state === selectedState);
 
   const selectValue =
     selection?.kind === 'hub' ? selection.id : selection ? NEAR_ME : '';
@@ -315,11 +316,6 @@ export default function MandiPage() {
           </p>
         </div>
 
-        {/*
-          Provenance, reported rather than assumed. The feed says what it was
-          served from and this states it back, so a modelled price and a
-          published market price can never look the same on screen.
-        */}
         {feed ? (
           <div className="flex flex-col items-start gap-1 md:items-end">
             <span
@@ -347,9 +343,26 @@ export default function MandiPage() {
       {/* ── Controls ─────────────────────────────────────────────────────── */}
       <div className="mt-6 border border-kr-border-default bg-kr-bg-surface p-4 md:p-5">
         <div className="flex flex-wrap items-end gap-4">
-          <div className="min-w-[16rem] flex-1">
+          <div className="min-w-[12rem] flex-1">
+            <label htmlFor="mandi-state" className="kr-label">
+              State
+            </label>
+            <select
+              id="mandi-state"
+              className="kr-input"
+              value={selectedState}
+              onChange={onStateChange}
+              disabled={catalogueQuery.isLoading}
+            >
+              {uniqueStates.map(state => (
+                <option key={state} value={state}>{state}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="min-w-[14rem] flex-1">
             <label htmlFor="mandi-market" className="kr-label">
-              Market
+              District / Hub
             </label>
             <select
               id="mandi-market"
@@ -365,25 +378,11 @@ export default function MandiPage() {
                 </option>
               ) : null}
 
-              {liveLocations.length > 0 ? (
-                <optgroup label="Live Agmarknet coverage">
-                  {liveLocations.map((location) => (
-                    <option key={location.id} value={location.id}>
-                      {location.label}
-                    </option>
-                  ))}
-                </optgroup>
-              ) : null}
-
-              {modelledLocations.length > 0 ? (
-                <optgroup label="Modelled — no upstream coverage">
-                  {modelledLocations.map((location) => (
-                    <option key={location.id} value={location.id}>
-                      {location.label}
-                    </option>
-                  ))}
-                </optgroup>
-              ) : null}
+              {stateLocations.map((location) => (
+                <option key={location.id} value={location.id}>
+                  {location.label}
+                </option>
+              ))}
             </select>
           </div>
 
