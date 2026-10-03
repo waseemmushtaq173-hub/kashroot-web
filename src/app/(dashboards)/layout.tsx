@@ -1,9 +1,9 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import { useSelectedLayoutSegment } from 'next/navigation';
+import { useSelectedLayoutSegment, useRouter } from 'next/navigation';
 import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 
 import { VoiceAssistant } from '@/components/ui/VoiceAssistant';
 
@@ -13,6 +13,16 @@ import { VoiceAssistant } from '@/components/ui/VoiceAssistant';
  */
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const segment = useSelectedLayoutSegment();
+  const router = useRouter();
+
+  useEffect(() => {
+    // Client-side guard: verify auth_token exists
+    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+    if (!token) {
+      router.push('/login');
+    }
+  }, [router]);
+
   
   // Map segments to theme classes that override CSS variables in globals.css
   let themeClass = 'theme-neutral'; // Default to admin/neutral

@@ -26,9 +26,31 @@ import axios, { AxiosError, type AxiosInstance } from 'axios';
 // ── In-memory token store (not localStorage — avoids XSS exposure) ────────
 let _accessToken: string | null = null;
 export const tokenStore = {
-  get: () => _accessToken,
-  set: (t: string | null) => { _accessToken = t; },
-  clear: () => { _accessToken = null; },
+  get: () => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('auth_token') || _accessToken;
+    }
+    return _accessToken;
+  },
+  set: (t: string | null) => { 
+    _accessToken = t; 
+    if (typeof window !== 'undefined') {
+      if (t) {
+        localStorage.setItem('auth_token', t);
+        document.cookie = `auth_token=${t}; path=/; max-age=86400; SameSite=Lax`;
+      } else {
+        localStorage.removeItem('auth_token');
+        document.cookie = 'auth_token=; path=/; max-age=0; SameSite=Lax';
+      }
+    }
+  },
+  clear: () => { 
+    _accessToken = null; 
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('auth_token');
+      document.cookie = 'auth_token=; path=/; max-age=0; SameSite=Lax';
+    }
+  },
 };
 
 // ── Axios instance ────────────────────────────────────────────────────────
@@ -86,6 +108,12 @@ apiClient.interceptors.response.use(
       original.headers.Authorization = `Bearer ${data.accessToken}`;
       return apiClient(original);
     } catch(error) {
+      // If we are using the mock token, do not redirect on refresh failure
+      // This prevents the infinite redirect loop when the real backend is unreachable
+      if (typeof window !== 'undefined' && localStorage.getItem('auth_token') === 'mock_jwt_token_for_demo_purposes_only_12345') {
+        return Promise.reject(toApiError(error as any));
+      }
+
       tokenStore.clear();
       _refreshQueue.forEach((cb) => cb(null));
       _refreshQueue = [];

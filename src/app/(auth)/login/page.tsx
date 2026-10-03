@@ -29,7 +29,7 @@ function LoginForm() {
       const data = await authApi.login({ email, password });
       
       if (data.accessToken) {
-        tokenStore.setToken(data.accessToken);
+        tokenStore.setToken(data.accessToken, data.user?.role);
       }
 
       if (data.user?.role === 'FARMER') router.push('/farmer/dashboard');

@@ -118,14 +118,26 @@ export const authApi = {
   mfaSetup:      async ()                    => ({ qrCodeDataUrl: '', secret: '' } as MfaSetupResponse),
   mfaVerify:     async (dto: MfaVerifyDto)   => ({ message: 'MFA verified' } as MfaVerifyResponse),
   refresh:       async ()                    => ({ accessToken: 'mock_jwt_token_for_demo_purposes_only_12345' }),
-  logout:        async ()                    => { /* no-op */ },
+  logout:        async ()                    => { tokenStore.removeToken(); },
 };
 export const tokenStore = {
-  getToken: () => (typeof window !== 'undefined' ? localStorage.getItem('token') : null),
-  setToken: (token: string) => {
-    if (typeof window !== 'undefined') localStorage.setItem('token', token);
+  getToken: () => (typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null),
+  setToken: (token: string, role?: string) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('auth_token', token);
+      document.cookie = `auth_token=${token}; path=/; max-age=86400; SameSite=Lax`;
+      if (role) {
+        localStorage.setItem('user_role', role);
+        document.cookie = `user_role=${role}; path=/; max-age=86400; SameSite=Lax`;
+      }
+    }
   },
   removeToken: () => {
-    if (typeof window !== 'undefined') localStorage.removeItem('token');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_role');
+      document.cookie = 'auth_token=; path=/; max-age=0; SameSite=Lax';
+      document.cookie = 'user_role=; path=/; max-age=0; SameSite=Lax';
+    }
   },
 };
