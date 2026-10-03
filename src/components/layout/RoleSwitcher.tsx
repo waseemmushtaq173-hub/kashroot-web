@@ -13,12 +13,12 @@ export function RoleSwitcher() {
       }}
     >
       <option value="">Switch Role...</option>
+      <option value="/admin/dashboard">Admin Portal</option>
       <option value="/farmer/dashboard">Farmer</option>
       <option value="/buyer/dashboard">Buyer</option>
       <option value="/seller/dashboard">Hardware Seller</option>
       <option value="/dealer/dashboard">Fertilizer Dealer</option>
       <option value="/provider/dashboard">Rental Provider</option>
-      <option value="/admin/dashboard">Admin Portal</option>
       <option value="/agriculture/dashboard">Agriculture Portal</option>
       <option value="/horticulture/dashboard">Horticulture Portal</option>
       <option value="/tracking/dashboard">Logistics & Tracking</option>

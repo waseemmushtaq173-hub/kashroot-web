@@ -5,6 +5,8 @@ import { useSelectedLayoutSegment } from 'next/navigation';
 import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
 import { ReactNode } from 'react';
 
+import { VoiceAssistant } from '@/components/ui/VoiceAssistant';
+
 /**
  * Role-Adaptive Dashboard Layout
  * Injects CSS thematic variables based on the active route segment.
@@ -26,6 +28,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <div className="flex-1 flex flex-col">
         {children}
       </div>
+      <VoiceAssistant />
       <SiteFooter />
     </div>
   );

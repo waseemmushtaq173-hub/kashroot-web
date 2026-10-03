@@ -376,18 +376,37 @@ export default function TrackingPage() {
         originState = 'PB';
         originLat = 30.900;
         originLng = 75.857;
+      } else if (stateCode === 'KA') {
+        ownerName = 'Karnataka Logistics';
+        driverName = 'Venkatesh Rao';
+        originName = 'Bengaluru APMC';
+        originState = 'KA';
+        originLat = 12.971;
+        originLng = 77.594;
       }
 
       // Generate a believable contact number
       const mockContact = '+91 ' + Math.floor(6000000000 + Math.random() * 3999999999).toString();
       const mockOwnerContact = '+91 ' + Math.floor(6000000000 + Math.random() * 3999999999).toString();
 
+      // Determine Vehicle Class dynamically from a simple hash of the plate
+      let hash = 0;
+      for (let i = 0; i < submitted.length; i++) hash = submitted.charCodeAt(i) + ((hash << 5) - hash);
+      const vehicleClasses = [
+        { type: 'Heavy Commercial Vehicle (HCV)', capacity: 12 },
+        { type: 'Light Commercial Vehicle (LCV)', capacity: 4 },
+        { type: 'Personal Car', capacity: 0.5 },
+        { type: 'Agricultural Tractor', capacity: 2 },
+        { type: 'Two-Wheeler / Bike', capacity: 0.1 }
+      ];
+      const vClass = vehicleClasses[Math.abs(hash) % vehicleClasses.length];
+
       const mockData = {
         vehicle: {
           registrationNumber: submitted,
           displayNumber: submitted.toUpperCase(),
-          type: 'Heavy Commercial Vehicle (HCV)',
-          capacityTonnes: 12
+          type: vClass.type,
+          capacityTonnes: vClass.capacity
         },
         shipment: {
           id: 'KR-SHP-' + Math.floor(Math.random() * 10000),
