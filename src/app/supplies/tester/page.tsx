@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
-import { ShieldAlert, ShieldCheck, Search, Loader2, FlaskConical } from 'lucide-react';
+import { ShieldAlert, ShieldCheck, Search, Loader2, FlaskConical, ScanLine, Camera, X } from 'lucide-react';
 
 export default function FertilizerTesterPage() {
   const [batchCode, setBatchCode] = useState('');
@@ -10,6 +10,7 @@ export default function FertilizerTesterPage() {
   const [npk, setNpk] = useState('');
   
   const [loading, setLoading] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState<null | {
     isOriginal: boolean;
     score: number;
@@ -17,8 +18,20 @@ export default function FertilizerTesterPage() {
     clearance: string;
   }>(null);
 
-  const handleTest = (e: React.FormEvent) => {
-    e.preventDefault();
+  const simulateScan = () => {
+    setScanning(true);
+    // Simulate a 2.5 second camera scan delay
+    setTimeout(() => {
+      setManufacturer('IFFCO');
+      setBatchCode('BT-99234');
+      setNpk('19:19:19');
+      setScanning(false);
+    }, 2500);
+  };
+
+  const handleTest = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!batchCode || !manufacturer || !npk) return;
     setLoading(true);
     
     // Simulate verification check against baselines
@@ -42,7 +55,7 @@ export default function FertilizerTesterPage() {
   return (
     <div className="min-h-screen flex flex-col bg-kr-bg-page">
       <SiteHeader />
-      <main className="flex-1 kr-container py-10">
+      <main className="flex-1 kr-container py-10 relative">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center gap-3 mb-2">
             <FlaskConical className="w-8 h-8 text-kr-text-brand" />
@@ -50,8 +63,17 @@ export default function FertilizerTesterPage() {
           </div>
           <p className="text-body-lg text-kr-text-secondary mb-10">
             Verify the authenticity of your fertilizers and agricultural inputs before applying them to your orchards. 
-            Enter the batch code, manufacturer, and NPK ratio to run a simulated cross-reference check against official baselines.
+            Scan the QR code on the bottle, or enter the batch code manually to run a cross-reference check.
           </p>
+
+          <div className="mb-6 flex justify-end">
+             <button
+                onClick={simulateScan}
+                className="bg-emerald-600 text-white px-5 py-3 rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 shadow-sm"
+              >
+                <ScanLine className="w-5 h-5" /> Scan Bottle QR
+             </button>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="kr-card bg-white p-6 shadow-sm">
@@ -94,7 +116,7 @@ export default function FertilizerTesterPage() {
                 </div>
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || !batchCode}
                   className="kr-btn-primary w-full flex justify-center items-center gap-2 mt-4"
                 >
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <FlaskConical className="w-5 h-5" />}
@@ -107,7 +129,7 @@ export default function FertilizerTesterPage() {
               {!result && !loading && (
                 <div className="text-center text-kr-text-secondary">
                   <ShieldCheck className="w-16 h-16 mx-auto mb-4 opacity-20" />
-                  <p>Awaiting input data. Fill the form to generate the authenticity report.</p>
+                  <p>Awaiting input data. Scan a QR code or fill the form to generate the authenticity report.</p>
                 </div>
               )}
               
@@ -151,6 +173,33 @@ export default function FertilizerTesterPage() {
           </div>
         </div>
       </main>
+
+      {/* Camera Scanning Overlay */}
+      {scanning && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center">
+          <button 
+            onClick={() => setScanning(false)}
+            className="absolute top-6 right-6 text-white hover:text-gray-300"
+          >
+            <X className="w-8 h-8" />
+          </button>
+          <div className="relative w-64 h-64 border-4 border-emerald-500 rounded-2xl flex items-center justify-center overflow-hidden mb-6">
+            <Camera className="w-16 h-16 text-emerald-500 opacity-50" />
+            <div className="absolute top-0 left-0 w-full h-1 bg-emerald-400 shadow-[0_0_15px_3px_rgba(52,211,153,0.5)] animate-[scan_2s_ease-in-out_infinite]" />
+          </div>
+          <p className="text-emerald-400 font-medium text-lg flex items-center gap-2">
+            <Loader2 className="w-5 h-5 animate-spin" /> Scanning QR Code...
+          </p>
+          <style dangerouslySetInnerHTML={{__html: `
+            @keyframes scan {
+              0% { top: 0; }
+              50% { top: 100%; }
+              100% { top: 0; }
+            }
+          `}} />
+        </div>
+      )}
+      
       <SiteFooter />
     </div>
   );

@@ -410,18 +410,25 @@ export default function FarmerDashboardPage() {
             <p className="text-caption text-emerald-700">Kashmiri, Urdu & English</p>
           </div>
         </Link>
-        <Link href="/farmer/tester" className="kr-card bg-purple-50/50 hover:bg-purple-50 border-purple-200 flex items-center gap-3 p-4 transition-colors">
+        <Link href="/supplies/tester" className="kr-card bg-purple-50/50 hover:bg-purple-50 border-purple-200 flex items-center gap-3 p-4 transition-colors">
           <Microscope className="w-5 h-5 text-purple-600 shrink-0" />
           <div>
             <p className="text-body-sm font-medium text-purple-900">AgroGuard Tester</p>
             <p className="text-caption text-purple-700">Scan QR codes & batches</p>
           </div>
         </Link>
-        <Link href="/farmer/tracking" className="kr-card bg-amber-50/50 hover:bg-amber-50 border-amber-200 flex items-center gap-3 p-4 transition-colors">
+        <Link href="/tracking" className="kr-card bg-amber-50/50 hover:bg-amber-50 border-amber-200 flex items-center gap-3 p-4 transition-colors">
           <Truck className="w-5 h-5 text-amber-600 shrink-0" />
           <div>
             <p className="text-body-sm font-medium text-amber-900">Track a Vehicle</p>
             <p className="text-caption text-amber-700">Live route & ETA by plate</p>
+          </div>
+        </Link>
+        <Link href="/expert" className="kr-card bg-orange-50/50 hover:bg-orange-50 border-orange-200 flex items-center gap-3 p-4 transition-colors">
+          <Info className="w-5 h-5 text-orange-600 shrink-0" />
+          <div>
+            <p className="text-body-sm font-medium text-orange-900">Expert Panel</p>
+            <p className="text-caption text-orange-700">Advisory & Knowledge Hub</p>
           </div>
         </Link>
       </div>

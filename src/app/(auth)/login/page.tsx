@@ -36,7 +36,7 @@ function LoginForm() {
       else if (data.user?.role === 'BUYER') router.push('/buyer/dashboard');
       else if (data.user?.role === 'SELLER') router.push('/seller/dashboard');
       else if (data.user?.role === 'PROVIDER') router.push('/provider/dashboard');
-      else router.push('/admin');
+      else router.push('/horticulture/dashboard');
     } catch (err: unknown) {
       if (err instanceof ApiError) {
         setError(err.messages[0] ?? 'Invalid email or password');
