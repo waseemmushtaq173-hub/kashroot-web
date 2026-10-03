@@ -1,12 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { LogIn, Loader2, Eye, EyeOff } from 'lucide-react';
+import { authApi, tokenStore } from '@/lib/api/auth';
+import { ApiError } from '@/lib/api/client';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const verified = searchParams.get('verified') === '1';
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -19,70 +24,73 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || 'Invalid email or password');
-      }
-
+      const data = await authApi.login({ email, password });
+      
       // Save token to localStorage for authenticated requests
-      const token = data.access_token || data.token || data.accessToken;
-      if (token) {
-        localStorage.setItem('token', token);
-        localStorage.setItem('accessToken', token);
+      if (data.accessToken) {
+        tokenStore.setToken(data.accessToken);
       }
 
-      // Redirect based on user role or default to farmer dashboard
-      router.push('/farmer/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Failed to sign in. Please check your connection.');
+      // Redirect based on user role
+      if (data.user?.role === 'FARMER') router.push('/farmer/dashboard');
+      else if (data.user?.role === 'BUYER') router.push('/buyer/dashboard');
+      else if (data.user?.role === 'SELLER') router.push('/seller/dashboard');
+      else if (data.user?.role === 'PROVIDER') router.push('/provider/dashboard');
+      else router.push('/admin');
+
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setError(err.messages[0] ?? 'Invalid email or password');
+      } else {
+        setError('Failed to sign in. Please check your connection.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-stone-50 px-4">
-      <div className="max-w-md w-full bg-white p-8 rounded-2xl border border-stone-200 shadow-sm space-y-6">
+    <div className="min-h-screen flex items-center justify-center bg-kr-bg-page px-4">
+      <div className="max-w-md w-full bg-kr-bg-surface p-8 border border-kr-border-default shadow-kr-card-md space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-stone-900">Welcome back</h1>
-          <p className="text-stone-600 text-sm mt-1">
+          <h1 className="font-heading text-h1 text-kr-text-primary">Welcome back</h1>
+          <p className="text-body-sm text-kr-text-secondary mt-1">
             Don&apos;t have an account?{' '}
-            <Link href="/register" className="text-emerald-600 font-medium hover:underline">
+            <Link href="/register" className="text-kr-text-brand font-medium hover:underline">
               Create one free
             </Link>
           </p>
         </div>
 
+        {verified && (
+          <div className="p-3 bg-kr-fill-brand-subtle border border-kr-border-brand text-kr-text-brand text-sm">
+            Email verified successfully! You can now log in.
+          </div>
+        )}
+
         {error && (
-          <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+          <div className="kr-error-state p-3 text-sm">
             {error}
           </div>
         )}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-stone-700 mb-1">Email address</label>
+            <label className="block text-label text-kr-text-primary mb-1">Email address</label>
             <input
               type="email"
               placeholder="farmer@kashroot.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 bg-white border border-stone-300 rounded-lg text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900"
+              className="kr-input w-full"
               required
             />
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-sm font-medium text-stone-700">Password</label>
-              <Link href="/forgot-password" className="text-sm text-stone-500 hover:text-stone-900">
+              <label className="text-label text-kr-text-primary">Password</label>
+              <Link href="/forgot-password" className="text-caption text-kr-text-secondary hover:text-kr-text-primary">
                 Forgot password?
               </Link>
             </div>
@@ -92,13 +100,13 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 bg-white border border-stone-300 rounded-lg text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900 pr-10"
+                className="kr-input w-full pr-10"
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3.5 text-stone-400 hover:text-stone-600"
+                className="absolute right-3 top-2.5 text-kr-text-disabled hover:text-kr-text-secondary"
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
@@ -108,7 +116,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-stone-900 text-white py-3 px-4 rounded-lg font-medium hover:bg-black transition-colors flex items-center justify-center gap-2 mt-2"
+            className="kr-btn-primary w-full flex items-center justify-center gap-2 mt-4"
           >
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogIn className="w-5 h-5" />}
             Sign in

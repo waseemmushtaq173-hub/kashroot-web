@@ -21,6 +21,8 @@ import { api } from './client';
 export type UserRole =
   | 'FARMER'
   | 'BUYER'
+  | 'SELLER'
+  | 'PROVIDER'
   | 'REGIONAL_ADMIN'
   | 'PLATFORM_ADMIN';
 
