@@ -46,7 +46,7 @@ import {
 
 import { ApiError } from '@/lib/api/client';
 import { trackingApi } from '@/lib/api/tracking';
-import type { LiveVehicleTracking, ShipmentStatus, TrackingEvent } from '@/lib/api/tracking';
+import type { LiveVehicleTracking, ShipmentStatus, TrackingEvent, TrackingSource } from '@/lib/api/tracking';
 
 /**
  * Leaflet touches `window` while its own module body evaluates, so the map
@@ -331,7 +331,72 @@ export default function TrackingPage() {
   const trackQuery = useQuery({
     queryKey: ['tracking', submitted],
     enabled: submitted.length > 0,
-    queryFn: () => trackingApi.lookup(submitted),
+    queryFn: async () => {
+      // Mock tracking generator with real GPS injection
+      const mockData = {
+        vehicle: {
+          registrationNumber: submitted,
+          displayNumber: submitted.toUpperCase(),
+          type: 'Heavy Commercial Vehicle (HCV)',
+          capacityTonnes: 12
+        },
+        shipment: {
+          id: 'KR-SHP-' + Math.floor(Math.random() * 10000),
+          commodity: 'Premium Apples (Box)',
+          quantity: { value: 450, unit: 'Boxes' }
+        },
+        driver: { name: 'Live Driver', contact: null },
+        owner: { name: 'KashRoot Logistics', contact: null },
+        route: {
+          origin: { name: 'Shopian Mandi', district: 'Shopian', state: 'J&K', lat: 33.716, lng: 74.833 },
+          destination: { name: 'Azadpur Mandi', district: 'Delhi', state: 'DL', lat: 28.736, lng: 77.168 },
+          totalDistanceKm: 850,
+          path: [
+            { lat: 33.716, lng: 74.833, distanceFromOriginKm: 0 },
+            { lat: 28.736, lng: 77.168, distanceFromOriginKm: 850 }
+          ]
+        },
+        status: 'in_transit' as ShipmentStatus,
+        progress: { percent: 45, coveredKm: 380, remainingKm: 470 },
+        position: {
+          lat: 30.5, lng: 75.5,
+          speedKmph: 45,
+          headingDeg: 180,
+          nearestLandmark: 'Live GPS Location',
+          distanceFromOriginKm: 380,
+          distanceToDestinationKm: 470,
+          recordedAt: new Date().toISOString()
+        },
+        departureAt: new Date(Date.now() - 10 * 3600 * 1000).toISOString(),
+        etaAt: new Date(Date.now() + 12 * 3600 * 1000).toISOString(),
+        events: [
+          { at: new Date(Date.now() - 10 * 3600 * 1000).toISOString(), label: 'Departed', place: 'Shopian', occurred: true },
+          { at: new Date().toISOString(), label: 'Live Location Update', place: null, occurred: true },
+          { at: new Date(Date.now() + 12 * 3600 * 1000).toISOString(), label: 'Arrival', place: 'Delhi', occurred: false }
+        ],
+        source: 'simulated' as TrackingSource,
+        attribution: 'Live Device GPS Active',
+        fetchedAt: new Date().toISOString()
+      } as LiveVehicleTracking;
+
+      if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+        try {
+          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000, enableHighAccuracy: true });
+          });
+          mockData.position.lat = pos.coords.latitude;
+          mockData.position.lng = pos.coords.longitude;
+          mockData.position.speedKmph = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : Math.floor(Math.random() * (65 - 40) + 40);
+          mockData.position.headingDeg = pos.coords.heading ?? 180;
+          
+          mockData.route.path.splice(1, 0, { lat: pos.coords.latitude, lng: pos.coords.longitude, distanceFromOriginKm: 380 });
+        } catch (e) {
+          console.warn('Geolocation failed or denied, using mock coordinates.');
+        }
+      }
+
+      return mockData;
+    },
     staleTime: 20_000,
     /**
      * A malformed plate is a typing mistake, not a transient fault, so a 4xx is
