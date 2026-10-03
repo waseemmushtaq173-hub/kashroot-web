@@ -28,18 +28,39 @@ function LoginForm() {
     try {
       const data = await authApi.login({ email, password });
       
+      let targetRoute = '/farmer/dashboard';
+      let targetRole: string = data.user?.role || 'FARMER';
+      
+      const returnTo = searchParams.get('returnTo');
+      if (returnTo) {
+        targetRoute = returnTo;
+        if (returnTo.includes('/admin')) targetRole = 'ADMIN';
+        else if (returnTo.includes('/expert')) targetRole = 'EXPERT';
+        else if (returnTo.includes('/buyer')) targetRole = 'BUYER';
+        else if (returnTo.includes('/seller')) targetRole = 'SELLER';
+        else if (returnTo.includes('/dealer')) targetRole = 'DEALER';
+        else if (returnTo.includes('/agriculture')) targetRole = 'AGRICULTURE';
+        else if (returnTo.includes('/horticulture')) targetRole = 'HORTICULTURE';
+        else if (returnTo.includes('/tracking')) targetRole = 'LOGISTICS';
+        else if (returnTo.includes('/provider')) targetRole = 'PROVIDER';
+      } else {
+        if (targetRole === 'BUYER') targetRoute = '/buyer/dashboard';
+        else if (targetRole === 'SELLER') targetRoute = '/seller/dashboard';
+        else if (targetRole === 'PROVIDER') targetRoute = '/provider/dashboard';
+        else if (targetRole === 'ADMIN') targetRoute = '/admin/dashboard';
+        else if (targetRole === 'EXPERT') targetRoute = '/expert';
+      }
+
       if (data.accessToken) {
-        tokenStore.setToken(data.accessToken, data.user?.role);
+        tokenStore.setToken(data.accessToken, targetRole);
         if (typeof window !== 'undefined') {
           localStorage.setItem('auth_email', email);
+          localStorage.setItem('user_role', targetRole);
+          document.cookie = `user_role=${targetRole}; path=/; max-age=86400; SameSite=Lax`;
         }
       }
 
-      if (data.user?.role === 'FARMER') router.push('/farmer/dashboard');
-      else if (data.user?.role === 'BUYER') router.push('/buyer/dashboard');
-      else if (data.user?.role === 'SELLER') router.push('/seller/dashboard');
-      else if (data.user?.role === 'PROVIDER') router.push('/provider/dashboard');
-      else router.push('/horticulture/dashboard');
+      router.push(targetRoute);
     } catch (err: unknown) {
       if (err instanceof ApiError) {
         setError(err.messages[0] ?? 'Invalid email or password');

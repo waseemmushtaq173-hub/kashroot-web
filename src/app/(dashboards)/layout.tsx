@@ -22,7 +22,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('auth_token');
       if (!token) {
-        router.push('/login');
+        router.push('/login?returnTo=' + encodeURIComponent(window.location.pathname));
       } else {
         setIsAuthenticated(true);
       }
