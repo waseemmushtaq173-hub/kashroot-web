@@ -138,7 +138,7 @@ export default function Home() {
             <p className="text-overline uppercase tracking-[0.2em] text-white/80">
               Farm-direct horticulture trade
             </p>
-            <h1 className="mx-auto mt-5 max-w-4xl font-heading text-display-lg font-bold text-white md:text-display-xl">
+            <h1 className="mx-auto mt-5 max-w-4xl font-heading font-bold text-5xl md:text-6xl text-white">
               Where harvest meets opportunity.
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-body-lg text-white/85">
