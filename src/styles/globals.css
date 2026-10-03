@@ -372,3 +372,224 @@
     transform: rotate(360deg);
   }
 }
+
+/* ─── LEAFLET MAP (vehicle tracking) ──────────────────────────────────────── */
+
+/*
+ * Written as plain CSS outside any @layer, for the same reason the keyframes
+ * above are: these rules have to land after leaflet.css, which is imported from
+ * inside the map component rather than from this file.
+ *
+ * Every selector is scoped under `.kr-map-panel`. Leaflet's own rules are
+ * single-class (`.leaflet-tooltip`, `.leaflet-container`), so a two-class
+ * descendant selector beats them on specificity — and therefore does not depend
+ * on which of the two stylesheets Next.js happens to emit first. That ordering
+ * is exactly the thing the CSS docs warn will surprise you in production, so
+ * leaning on specificity instead of order is deliberate.
+ *
+ * The panel also establishes a stacking context. Leaflet gives its panes and
+ * controls z-indexes in the 400–1000 range, which will happily paint over a
+ * sticky header or a dropdown that sits at a lower value. `isolation: isolate`
+ * keeps the whole map inside its own layer.
+ */
+.kr-map-panel {
+  /* Truck colours, which are Leaflet path/inline-SVG values and so cannot come
+     from the `kr-*` semantic tokens. Copied from design-tokens.ts. */
+  --kr-map-truck: #f5a623; /* primary-500 */
+  --kr-map-truck-ink: #2b1504; /* primary-950 */
+
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  border: 1px solid var(--kr-border-default);
+  background: var(--kr-bg-sunken);
+  overflow: hidden;
+}
+
+.kr-map-panel .leaflet-container {
+  font-family: inherit;
+  background: var(--kr-bg-sunken);
+}
+
+/* House geometry is square throughout; Leaflet rounds everything by default. */
+.kr-map-panel .leaflet-tooltip,
+.kr-map-panel .leaflet-popup-content-wrapper,
+.kr-map-panel .leaflet-bar,
+.kr-map-panel .leaflet-bar a {
+  border-radius: 0;
+}
+
+.kr-map-panel .leaflet-tooltip {
+  background: var(--kr-bg-surface);
+  color: var(--kr-text-primary);
+  border: 1px solid var(--kr-border-default);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.18);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  padding: 0.4rem 0.55rem;
+}
+
+.kr-map-panel .leaflet-tooltip strong {
+  font-weight: 600;
+}
+
+/* Drop the little pointer triangle: with a square tooltip it reads as a notch. */
+.kr-map-panel .leaflet-tooltip-top::before,
+.kr-map-panel .leaflet-tooltip-bottom::before,
+.kr-map-panel .leaflet-tooltip-left::before,
+.kr-map-panel .leaflet-tooltip-right::before {
+  display: none;
+}
+
+.kr-map-panel .leaflet-bar a {
+  color: var(--kr-text-primary);
+  background: var(--kr-bg-surface);
+  border-bottom-color: var(--kr-border-default);
+}
+
+.kr-map-panel .leaflet-bar a:hover {
+  background: var(--kr-bg-sunken);
+}
+
+/*
+ * Attribution is a licence condition of the tile service, not decoration — it
+ * stays legible. Only the chrome around it is toned down.
+ */
+.kr-map-panel .leaflet-control-attribution {
+  background: rgb(255 255 255 / 0.86);
+  color: var(--kr-text-secondary);
+  font-size: 0.6875rem;
+  padding: 1px 6px;
+}
+
+.kr-map-panel .leaflet-control-attribution a {
+  color: var(--kr-text-brand);
+}
+
+/* ── The truck ─────────────────────────────────────────────────────────────── */
+
+.kr-map-panel .kr-truck-marker {
+  /* Replaces Leaflet's `leaflet-div-icon` default, whose white box and border
+     would otherwise frame the marker. */
+  background: transparent;
+  border: 0;
+}
+
+.kr-map-panel .kr-truck-marker__body {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--kr-map-truck);
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 5px rgb(0 0 0 / 0.4);
+  color: var(--kr-map-truck-ink);
+}
+
+.kr-map-panel .kr-truck-marker__body svg {
+  width: 18px;
+  height: 18px;
+}
+
+/*
+ * The pulse marks the reading as a live one rather than a pin dropped on a
+ * fixed point. It is decorative, and hidden from assistive tech in the markup.
+ */
+.kr-map-panel .kr-truck-marker__pulse {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--kr-map-truck);
+  animation: kr-truck-pulse 2.2s ease-out infinite;
+}
+
+@keyframes kr-truck-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+/* Respect a reduced-motion preference: the marker stays, the pulse does not. */
+@media (prefers-reduced-motion: reduce) {
+  .kr-map-panel .kr-truck-marker__pulse {
+    animation: none;
+    opacity: 0.35;
+  }
+}
+
+.dark .kr-map-panel .leaflet-control-attribution {
+  background: rgb(17 24 39 / 0.86);
+}
+
+
+
+/* ─── ROLE-BASED THEME OVERRIDES ──────────────────────────────────────────── */
+
+.theme-farmer {
+  /* Orchard Green */
+  --kr-text-brand: #3A8C52;
+  --kr-border-brand: #43C484;
+  --kr-border-focus: #3A8C52;
+  --kr-fill-brand: #3A8C52;
+  --kr-fill-brand-hover: #2E7041;
+  --kr-fill-brand-active: #225531;
+  --kr-fill-brand-subtle: #EDFAF3;
+}
+.dark .theme-farmer {
+  --kr-text-brand: #6DD9A4;
+  --kr-border-brand: #3A8C52;
+  --kr-border-focus: #43C484;
+  --kr-fill-brand: #3A8C52;
+  --kr-fill-brand-hover: #43C484;
+  --kr-fill-brand-active: #6DD9A4;
+  --kr-fill-brand-subtle: #061009;
+}
+
+.theme-buyer {
+  /* Default Saffron Gold */
+}
+
+.theme-seller, .theme-provider {
+  /* Walnut Brown */
+  --kr-text-brand: #8B5E3C;
+  --kr-border-brand: #A47A55;
+  --kr-border-focus: #8B5E3C;
+  --kr-fill-brand: #8B5E3C;
+  --kr-fill-brand-hover: #724B2F;
+  --kr-fill-brand-active: #5A3A23;
+  --kr-fill-brand-subtle: #F8F3EF;
+}
+.dark .theme-seller, .dark .theme-provider {
+  --kr-text-brand: #C09D7B;
+  --kr-border-brand: #8B5E3C;
+  --kr-border-focus: #A47A55;
+  --kr-fill-brand: #8B5E3C;
+  --kr-fill-brand-hover: #A47A55;
+  --kr-fill-brand-active: #C09D7B;
+  --kr-fill-brand-subtle: #150D07;
+}
+
+.theme-neutral {
+  /* Deep Slate (Admin) */
+  --kr-text-brand: #4A5568;
+  --kr-border-brand: #636B80;
+  --kr-border-focus: #4A5568;
+  --kr-fill-brand: #4A5568;
+  --kr-fill-brand-hover: #374151;
+  --kr-fill-brand-active: #1F2937;
+  --kr-fill-brand-subtle: #F7F8FA;
+}
+.dark .theme-neutral {
+  --kr-text-brand: #8E94A6;
+  --kr-border-brand: #4A5568;
+  --kr-border-focus: #636B80;
+  --kr-fill-brand: #4A5568;
+  --kr-fill-brand-hover: #636B80;
+  --kr-fill-brand-active: #8E94A6;
+  --kr-fill-brand-subtle: #030712;
+}

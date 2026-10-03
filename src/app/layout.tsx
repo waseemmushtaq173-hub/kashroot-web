@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     "Trade produce direct from verified Kashmiri growers, and source the packaging, machinery and inputs to get it to market.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en"

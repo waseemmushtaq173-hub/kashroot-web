@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Package, Calendar, ShoppingBag, Wallet,
   PlusCircle, AlertTriangle, Loader2, RefreshCw,
-  ChevronRight, Check, X, Info, CloudSun, Bot, Microscope,
+  ChevronRight, Check, X, Info, CloudSun, Bot, Microscope, Truck,
 } from 'lucide-react';
 import { listingsApi, appointmentsApi, ordersApi, payoutsApi } from '@/lib/api/farmer';
 import type { FarmerListing, Appointment, FarmerOrder, ListingStatus } from '@/lib/api/farmer';
@@ -393,7 +393,7 @@ export default function FarmerDashboardPage() {
       </p>
 
       {/* Quick Tools Access Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
         <Link href="/farmer/mandi" className="kr-card bg-blue-50/50 hover:bg-blue-50 border-blue-200 flex items-center gap-3 p-4 transition-colors">
           <CloudSun className="w-5 h-5 text-blue-600 shrink-0" />
           <div>
@@ -413,6 +413,13 @@ export default function FarmerDashboardPage() {
           <div>
             <p className="text-body-sm font-medium text-purple-900">AgroGuard Tester</p>
             <p className="text-caption text-purple-700">Scan QR codes & batches</p>
+          </div>
+        </Link>
+        <Link href="/farmer/tracking" className="kr-card bg-amber-50/50 hover:bg-amber-50 border-amber-200 flex items-center gap-3 p-4 transition-colors">
+          <Truck className="w-5 h-5 text-amber-600 shrink-0" />
+          <div>
+            <p className="text-body-sm font-medium text-amber-900">Track a Vehicle</p>
+            <p className="text-caption text-amber-700">Live route & ETA by plate</p>
           </div>
         </Link>
       </div>

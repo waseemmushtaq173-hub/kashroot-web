@@ -41,6 +41,16 @@ export function SiteHeader() {
         </div>
 
         <div className="flex items-center gap-2">
+          <div className="hidden sm:block mr-2 border-r border-kr-border-default pr-4">
+            <select className="kr-input kr-input-sm bg-kr-bg-sunken border-transparent text-caption text-kr-text-secondary" onChange={(e) => window.location.href = e.target.value}>
+              <option value="">Switch Role...</option>
+              <option value="/farmer/dashboard">Farmer</option>
+              <option value="/buyer/dashboard">Buyer</option>
+              <option value="/seller/dashboard">Hardware Seller</option>
+              <option value="/provider/dashboard">Rental Provider</option>
+              <option value="/admin">Admin</option>
+            </select>
+          </div>
           <Link href="/supplies" className="kr-btn-ghost kr-btn-sm sm:hidden">
             Supplies
           </Link>
