@@ -21,6 +21,7 @@ export default function FertilizerTesterPage() {
     score: number;
     matchDetails: string;
     clearance: string;
+    dbData?: any;
   }>(null);
 
   const startCamera = async () => {
@@ -50,10 +51,44 @@ export default function FertilizerTesterPage() {
     setScanning(false);
   };
 
-  const runVerification = (m: string, b: string, n: string) => {
-    if (!b || !m || !n) return;
-    const verification = verifyAgroInput(m, b, n);
-    setResult(verification);
+  const runVerification = async (m: string, b: string, n: string) => {
+    if (!b) return;
+    setLoading(true);
+    try {
+      const response = await fetch('/api/agroguard/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ batchCode: b })
+      });
+      
+      if (!response.ok) {
+        // 404 or Error -> Counterfeit
+        setResult({
+          isOriginal: false,
+          score: 0,
+          matchDetails: 'INVALID BATCH - POTENTIAL COUNTERFEIT. Batch code not found in official registry.',
+          clearance: 'COUNTERFEIT RISK / SPECIFICATION MISMATCH. Do not use. Report to local agriculture office.',
+          dbData: null
+        });
+      } else {
+        const data = await response.json();
+        setResult({
+          isOriginal: true,
+          score: 100, // Strict authentic
+          matchDetails: `Verified Authentic. Manufacturer: ${data.data.manufacturer}, NPK: ${data.data.npkRatio}.`,
+          clearance: `VERIFIED ORIGINAL. Mfg: ${data.data.productionDate} | Exp: ${data.data.expiryDate} | Status: ${data.data.complianceStatus}`,
+          dbData: data.data
+        });
+      }
+    } catch (error) {
+      setResult({
+        isOriginal: false,
+        score: 0,
+        matchDetails: 'System error during verification.',
+        clearance: 'UNVERIFIED.',
+        dbData: null
+      });
+    }
     setLoading(false);
   };
 
@@ -85,15 +120,6 @@ export default function FertilizerTesterPage() {
     if (e) e.preventDefault();
     runVerification(manufacturer, batchCode, npk);
   };
-
-  useEffect(() => {
-    if (batchCode.length >= 6 && manufacturer.length >= 2 && npk.length >= 2) {
-      runVerification(manufacturer, batchCode, npk);
-    } else {
-      setResult(null); // Clear result if they backspace
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [batchCode, manufacturer, npk]);
 
   return (
     <div className="min-h-screen flex flex-col bg-kr-bg-page">
