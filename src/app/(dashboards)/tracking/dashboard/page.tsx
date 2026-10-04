@@ -323,7 +323,7 @@ function TrackingSkeleton() {
 
 export default function TrackingPage() {
   const [plate, setPlate] = useState('');
-  const [vType, setVType] = useState('HCV');
+  const [vType, setVType] = useState('');
   
   /** The plate actually submitted. Distinct from `plate` so a half-typed
       registration never becomes a request — see the brief: fetch on submit. */
@@ -335,167 +335,7 @@ export default function TrackingPage() {
     queryKey: ['tracking', submitted, submittedClass],
     enabled: submitted.length > 0,
     queryFn: async () => {
-      // Dynamic parsing based on state code
-      const cleanPlate = submitted.replace(/[^A-Z0-9]/ig, '').toUpperCase();
-      const stateCode = cleanPlate.slice(0, 2);
-      const districtCode = cleanPlate.slice(2, 4);
-
-      let ownerName = 'National Freight Logistics';
-      let driverName = 'Rajesh Kumar';
-      let originName = 'Azadpur Mandi';
-      let originState = 'DL';
-      let originLat = 28.736;
-      let originLng = 77.168;
-      
-      let posLat = originLat + 0.1;
-      let posLng = originLng + 0.1;
-
-      if (stateCode === 'JK') {
-        ownerName = 'Pir Panjal Freight Carriers';
-        driverName = 'Ghulam Nabi Dar';
-        originName = 'Shopian Mandi';
-        originState = 'J&K';
-        
-        // District-level matching
-        if (districtCode === '05') { // Baramulla
-          originLat = 34.202; originLng = 74.343;
-          originName = 'Sopore Mandi';
-        } else if (districtCode === '01') { // Srinagar
-          originLat = 34.083; originLng = 74.797;
-          originName = 'Parimpora Mandi';
-        } else if (districtCode === '03') { // Anantnag
-          originLat = 33.731; originLng = 75.148;
-          originName = 'Jablipora Mandi';
-        } else { // Default to Shopian
-          originLat = 33.716; originLng = 74.833;
-        }
-        
-        posLat = originLat + 0.05;
-        posLng = originLng + 0.05;
-      } else if (stateCode === 'HR') {
-        ownerName = 'Haryana Agro Transport';
-        driverName = 'Sandeep Singh';
-        originName = 'Karnal Mandi';
-        originState = 'HR';
-        originLat = 29.685;
-        originLng = 76.990;
-      } else if (stateCode === 'DL') {
-        ownerName = 'Delhi Metro Logistics';
-        driverName = 'Mohammad Altaf Rather';
-        originName = 'Okhla Sabzi Mandi';
-        originState = 'DL';
-        originLat = 28.560;
-        originLng = 77.280;
-      } else if (stateCode === 'KL') {
-        ownerName = 'Kerala Spices Transport Co.';
-        driverName = 'Farooq Ahmed Malik';
-        originName = 'Kochi Spices Hub';
-        originState = 'KL';
-        originLat = 9.931;
-        originLng = 76.267;
-      } else if (stateCode === 'PB') {
-        ownerName = 'Punjab Freight Syndicate';
-        driverName = 'Harpreet Singh';
-        originName = 'Ludhiana Mandi';
-        originState = 'PB';
-        originLat = 30.900;
-        originLng = 75.857;
-      } else if (stateCode === 'KA') {
-        ownerName = 'Karnataka Logistics';
-        driverName = 'Venkatesh Rao';
-        originName = 'Bengaluru APMC';
-        originState = 'KA';
-        originLat = 12.971;
-        originLng = 77.594;
-      }
-
-      // Generate a believable contact number
-      const mockContact = '+91 ' + Math.floor(6000000000 + Math.random() * 3999999999).toString();
-      const mockOwnerContact = '+91 ' + Math.floor(6000000000 + Math.random() * 3999999999).toString();
-
-      const vehicleClasses: Record<string, { type: string, capacity: number }> = {
-        HCV: { type: 'Heavy Commercial Truck (HCV)', capacity: 12 },
-        LCV: { type: 'Light Load Carrier (LCV)', capacity: 4 },
-        CAR: { type: 'Personal Car (e.g., Maruti, Sedan, SUV)', capacity: 0.5 },
-        TRACTOR: { type: 'Tractor / Farm Equipment', capacity: 2 },
-        BIKE: { type: 'Two-Wheeler', capacity: 0.1 }
-      };
-      const vClass = vehicleClasses[submittedClass] || vehicleClasses.HCV;
-      
-      // Compute posLat based on final originLat if not overridden
-      if (posLat === 28.736 + 0.1) {
-          posLat = originLat + 0.1;
-          posLng = originLng + 0.1;
-      }
-
-      const mockData = {
-        vehicle: {
-          registrationNumber: submitted,
-          displayNumber: submitted.toUpperCase(),
-          type: vClass.type,
-          capacityTonnes: vClass.capacity
-        },
-        shipment: {
-          id: 'KR-SHP-' + Math.floor(Math.random() * 10000),
-          commodity: 'Premium Apples (Box)',
-          quantity: { value: 450, unit: 'Boxes' }
-        },
-        driver: { name: driverName, contact: mockContact },
-        owner: { name: ownerName, contact: mockOwnerContact },
-        route: {
-          origin: { name: originName, district: originName.split(' ')[0], state: originState, lat: originLat, lng: originLng },
-          destination: { name: 'Azadpur Mandi', district: 'Delhi', state: 'DL', lat: 28.736, lng: 77.168 },
-          totalDistanceKm: 850,
-          path: [
-            { lat: originLat, lng: originLng, distanceFromOriginKm: 0 },
-            { lat: 28.736, lng: 77.168, distanceFromOriginKm: 850 }
-          ]
-        },
-        status: 'in_transit' as ShipmentStatus,
-        progress: { percent: 45, coveredKm: 380, remainingKm: 470 },
-        position: {
-          lat: posLat, lng: posLng,
-          speedKmph: 45,
-          headingDeg: 180,
-          nearestLandmark: 'Live GPS Location',
-          distanceFromOriginKm: 380,
-          distanceToDestinationKm: 470,
-          recordedAt: new Date().toISOString()
-        },
-        departureAt: new Date(Date.now() - 10 * 3600 * 1000).toISOString(),
-        etaAt: new Date(Date.now() + 12 * 3600 * 1000).toISOString(),
-        events: [
-          { at: new Date(Date.now() - 10 * 3600 * 1000).toISOString(), label: 'Departed', place: originName.split(' ')[0], occurred: true },
-          { at: new Date().toISOString(), label: 'Live Location Update', place: null, occurred: true },
-          { at: new Date(Date.now() + 12 * 3600 * 1000).toISOString(), label: 'Arrival', place: 'Delhi', occurred: false }
-        ],
-        source: 'simulated' as TrackingSource,
-        attribution: 'Live Device GPS Active',
-        fetchedAt: new Date().toISOString()
-      } as LiveVehicleTracking;
-
-      if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
-        try {
-          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000, enableHighAccuracy: true });
-          });
-          mockData.position.lat = pos.coords.latitude;
-          mockData.position.lng = pos.coords.longitude;
-          mockData.position.speedKmph = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : Math.floor(Math.random() * (65 - 40) + 40);
-          mockData.position.headingDeg = pos.coords.heading ?? 180;
-          
-          mockData.route.path.splice(1, 0, { lat: pos.coords.latitude, lng: pos.coords.longitude, distanceFromOriginKm: 380 });
-        } catch (e) {
-          console.warn('Geolocation failed or denied, using mock coordinates.');
-        }
-      }
-
-      const isCommercialFetch = submittedClass === 'HCV' || submittedClass === 'LCV';
-      if (!isCommercialFetch) {
-        mockData.route.path = [ { lat: mockData.position.lat, lng: mockData.position.lng, distanceFromOriginKm: 0 } ];
-      }
-
-      return mockData;
+      return trackingApi.lookup(submitted);
     },
     staleTime: 20_000,
     /**
@@ -578,10 +418,10 @@ export default function TrackingPage() {
               onChange={(e) => setVType(e.target.value)}
               required
             >
-              <option value="HCV">Heavy Commercial Truck (HCV)</option>
-              <option value="LCV">Light Load Carrier (LCV)</option>
-              <option value="CAR">Personal Car (e.g., Maruti, Sedan, SUV)</option>
-              <option value="TRACTOR">Tractor / Farm Equipment</option>
+              <option value="" disabled>Select Vehicle Type</option>
+              <option value="CAR">Personal Car / Maruti</option>
+              <option value="HCV">Heavy Commercial Truck</option>
+              <option value="LCV">Light Commercial</option>
               <option value="BIKE">Two-Wheeler</option>
             </select>
           </div>
@@ -614,7 +454,7 @@ export default function TrackingPage() {
           <button
             type="submit"
             className="kr-btn-primary"
-            disabled={plate.trim().length === 0 || trackQuery.isFetching}
+            disabled={plate.trim().length === 0 || !vType || trackQuery.isFetching}
             aria-busy={trackQuery.isFetching}
           >
             {trackQuery.isFetching ? (
