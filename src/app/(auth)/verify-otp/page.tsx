@@ -119,23 +119,12 @@ function VerifyOtpForm() {
   const [emailVerified, setEmailVerified] = useState(false);
   const [phoneVerified, setPhoneVerified] = useState(false);
   
-  const [devOtps, setDevOtps] = useState<{ emailOtp: string | null; phoneOtp: string | null } | null>(null);
-
   // Cooldown timer for resend
   useEffect(() => {
     if (resendCooldown <= 0) return;
     const id = setTimeout(() => setResendCooldown((c) => c - 1), 1_000);
     return () => clearTimeout(id);
   }, [resendCooldown]);
-  
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setDevOtps({
-        emailOtp: localStorage.getItem('mock_expected_email_otp'),
-        phoneOtp: localStorage.getItem('mock_expected_phone_otp'),
-      });
-    }
-  }, []);
 
   const verifyEmailMutation = useMutation({
     mutationFn: () => authApi.verifyEmailOtp(email, emailCode),
@@ -207,16 +196,6 @@ function VerifyOtpForm() {
           {phone || 'your mobile number'}
         </span>.
       </p>
-      
-      {devOtps && (devOtps.emailOtp || devOtps.phoneOtp) && (
-        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg shadow-sm text-amber-900 text-sm font-medium flex gap-2 items-start">
-          <AlertCircle className="w-5 h-5 shrink-0 text-amber-600" />
-          <div>
-            <p className="mb-1 font-bold text-amber-700 uppercase tracking-wide text-xs">Dev Mode Active</p>
-            <p>Mobile OTP is <span className="font-mono text-base font-bold bg-amber-100 px-1 rounded">{devOtps.phoneOtp}</span> | Email OTP is <span className="font-mono text-base font-bold bg-amber-100 px-1 rounded">{devOtps.emailOtp}</span></p>
-          </div>
-        </div>
-      )}
 
       {/* MOBILE VERIFICATION */}
       <div className="mb-8 p-6 bg-kr-bg-surface border border-kr-border-default rounded-xl">
