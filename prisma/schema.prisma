@@ -1,0 +1,42 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id                      String                  @id @default(uuid())
+  email                   String                  @unique
+  notifications           Notification[]
+  notificationPreferences NotificationPreference?
+}
+
+model Notification {
+  id                  String   @id @default(uuid())
+  user_id             String
+  type                String
+  title               String
+  message             String
+  channel             String   // SMS, EMAIL, IN_APP
+  status              String   // PENDING, SENT, FAILED, READ
+  provider_message_id String?
+  created_at          DateTime @default(now())
+  sent_at             DateTime?
+
+  user User @relation(fields: [user_id], references: [id])
+}
+
+model NotificationPreference {
+  id                       String  @id @default(uuid())
+  user_id                  String  @unique
+  sms_enabled              Boolean @default(true)
+  email_enabled            Boolean @default(true)
+  order_notifications      Boolean @default(true)
+  security_notifications   Boolean @default(true)
+  marketing_notifications  Boolean @default(false)
+
+  user User @relation(fields: [user_id], references: [id])
+}
