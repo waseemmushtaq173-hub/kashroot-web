@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   // In a real app, parse the session/JWT.
   // For demo, we assume user_id is passed in headers or query.
