@@ -39,12 +39,13 @@ export default function VerifyOtpPage() {
   );
 }
 
-function OtpInput({ label, value, onChange }: { label: string, value: string, onChange: (val: string) => void }) {
+function OtpInput({ label, value, onChange, disabled }: { label: string, value: string, onChange: (val: string) => void, disabled?: boolean }) {
   const OTP_LEN = 6;
   const digits = value.padEnd(OTP_LEN, ' ').split('').map(d => d === ' ' ? '' : d);
   const inputRefs = useRef<Array<HTMLInputElement | null>>(Array(OTP_LEN).fill(null));
 
   function handleDigitChange(index: number, val: string) {
+    if (disabled) return;
     const digit = val.replace(/\D/g, '').slice(-1);
     const next = [...digits];
     next[index] = digit;
@@ -56,6 +57,7 @@ function OtpInput({ label, value, onChange }: { label: string, value: string, on
   }
 
   function handleKeyDown(index: number, e: React.KeyboardEvent<HTMLInputElement>) {
+    if (disabled) return;
     if (e.key === 'Backspace' && !digits[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
@@ -63,6 +65,7 @@ function OtpInput({ label, value, onChange }: { label: string, value: string, on
 
   function handlePaste(e: React.ClipboardEvent<HTMLInputElement>) {
     e.preventDefault();
+    if (disabled) return;
     const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, OTP_LEN);
     if (!pasted) return;
     onChange(pasted);
@@ -83,13 +86,15 @@ function OtpInput({ label, value, onChange }: { label: string, value: string, on
             pattern="[0-9]"
             maxLength={1}
             value={digit}
+            disabled={disabled}
             aria-label={`Digit ${i + 1} of ${OTP_LEN}`}
             className={`
               w-11 h-14 sm:w-12 sm:h-16 text-center text-h3 font-heading
-              border rounded-md bg-kr-bg-surface text-kr-text-primary
+              border rounded-md text-kr-text-primary
               transition-colors
               focus:outline-none focus:border-kr-border-focus focus:shadow-kr-brand
-              ${digit ? 'border-kr-border-brand' : 'border-kr-border-default'}
+              ${disabled ? 'bg-kr-bg-sunken text-kr-text-disabled border-kr-border-default' : 'bg-kr-bg-surface'}
+              ${!disabled && digit ? 'border-kr-border-brand' : 'border-kr-border-default'}
             `}
             onChange={(e) => handleDigitChange(i, e.target.value)}
             onKeyDown={(e) => handleKeyDown(i, e)}
@@ -111,7 +116,10 @@ function VerifyOtpForm() {
   const [phoneCode, setPhoneCode] = useState<string>('');
 
   const [resendCooldown, setResendCooldown] = useState(0);
-  const [verified, setVerified] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  
+  const [devOtps, setDevOtps] = useState<{ emailOtp: string | null; phoneOtp: string | null } | null>(null);
 
   // Cooldown timer for resend
   useEffect(() => {
@@ -119,13 +127,27 @@ function VerifyOtpForm() {
     const id = setTimeout(() => setResendCooldown((c) => c - 1), 1_000);
     return () => clearTimeout(id);
   }, [resendCooldown]);
+  
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setDevOtps({
+        emailOtp: localStorage.getItem('mock_expected_email_otp'),
+        phoneOtp: localStorage.getItem('mock_expected_phone_otp'),
+      });
+    }
+  }, []);
 
-  const verifyMutation = useMutation({
-    // Modify mutationFn to pass both codes down, the backend/mock expects it
-    mutationFn: () => authApi.verifyOtp({ email, code: emailCode, phoneCode }),
+  const verifyEmailMutation = useMutation({
+    mutationFn: () => authApi.verifyEmailOtp(email, emailCode),
     onSuccess: () => {
-      setVerified(true);
-      router.push('/login?verified=1');
+      setEmailVerified(true);
+    },
+  });
+
+  const verifyPhoneMutation = useMutation({
+    mutationFn: () => authApi.verifyMobileOtp(phone, phoneCode),
+    onSuccess: () => {
+      setPhoneVerified(true);
     },
   });
 
@@ -134,20 +156,26 @@ function VerifyOtpForm() {
     onSuccess: () => setResendCooldown(60),
   });
 
-  // Auto-submit when both 6 digits filled
+  // Proceed when both are verified
   useEffect(() => {
-    if (emailCode.length === OTP_LEN && phoneCode.length === OTP_LEN && !verifyMutation.isPending) {
-      verifyMutation.mutate();
+    if (emailVerified && phoneVerified) {
+      setTimeout(() => {
+        router.push('/login?verified=1');
+      }, 1000);
     }
-  }, [emailCode, phoneCode]);
+  }, [emailVerified, phoneVerified, router]);
 
   const OTP_LEN = 6;
 
-  const errorMsg = verifyMutation.error instanceof ApiError
-    ? verifyMutation.error.messages[0]
-    : verifyMutation.error ? 'Verification failed. Please try again.' : null;
+  const emailError = verifyEmailMutation.error instanceof ApiError
+    ? verifyEmailMutation.error.messages[0]
+    : verifyEmailMutation.error ? 'Email verification failed.' : null;
+    
+  const phoneError = verifyPhoneMutation.error instanceof ApiError
+    ? verifyPhoneMutation.error.messages[0]
+    : verifyPhoneMutation.error ? 'Mobile verification failed.' : null;
 
-  if (verified) {
+  if (emailVerified && phoneVerified) {
     return (
       <div role="status" aria-live="polite" className="text-center space-y-4 py-8">
         <CheckCircle2 className="w-12 h-12 text-kr-success-500 mx-auto" aria-hidden="true" />
@@ -169,7 +197,7 @@ function VerifyOtpForm() {
       <h1 className="font-heading text-h2 text-kr-text-primary text-center mb-1">
         Check your email and mobile device
       </h1>
-      <p className="text-body-sm text-kr-text-secondary text-center mb-8">
+      <p className="text-body-sm text-kr-text-secondary text-center mb-4">
         We sent a 6-digit code to{' '}
         <span className="font-medium text-kr-text-primary">
           {email || 'your email address'}
@@ -179,28 +207,70 @@ function VerifyOtpForm() {
           {phone || 'your mobile number'}
         </span>.
       </p>
-
-      {errorMsg && (
-        <div role="alert" aria-live="polite" className="kr-error-state mb-6 flex items-start gap-3 text-left">
-          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
-          <p className="text-body-sm">{errorMsg}</p>
+      
+      {devOtps && (devOtps.emailOtp || devOtps.phoneOtp) && (
+        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg shadow-sm text-amber-900 text-sm font-medium flex gap-2 items-start">
+          <AlertCircle className="w-5 h-5 shrink-0 text-amber-600" />
+          <div>
+            <p className="mb-1 font-bold text-amber-700 uppercase tracking-wide text-xs">Dev Mode Active</p>
+            <p>Mobile OTP is <span className="font-mono text-base font-bold bg-amber-100 px-1 rounded">{devOtps.phoneOtp}</span> | Email OTP is <span className="font-mono text-base font-bold bg-amber-100 px-1 rounded">{devOtps.emailOtp}</span></p>
+          </div>
         </div>
       )}
 
-      <OtpInput label="Verify Mobile" value={phoneCode} onChange={setPhoneCode} />
-      <OtpInput label="Verify Email" value={emailCode} onChange={setEmailCode} />
+      {/* MOBILE VERIFICATION */}
+      <div className="mb-8 p-6 bg-kr-bg-surface border border-kr-border-default rounded-xl">
+        {phoneError && (
+          <div role="alert" aria-live="polite" className="kr-error-state mb-4 flex items-start gap-3 text-left">
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+            <p className="text-body-sm">{phoneError}</p>
+          </div>
+        )}
+        <OtpInput label="Verify Mobile" value={phoneCode} onChange={setPhoneCode} disabled={phoneVerified} />
+        {phoneVerified ? (
+          <div className="flex items-center justify-center gap-2 text-kr-success-600 font-medium py-3">
+            <CheckCircle2 className="w-5 h-5" /> Mobile Verified
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => verifyPhoneMutation.mutate()}
+            disabled={phoneCode.length < OTP_LEN || verifyPhoneMutation.isPending}
+            className="kr-btn-primary w-full"
+          >
+            {verifyPhoneMutation.isPending ? (
+              <><Loader2 className="w-4 h-4 animate-spin inline mr-2" aria-hidden="true" /> Verifying…</>
+            ) : 'Verify Mobile'}
+          </button>
+        )}
+      </div>
 
-      <button
-        type="button"
-        onClick={() => verifyMutation.mutate()}
-        disabled={emailCode.length < OTP_LEN || phoneCode.length < OTP_LEN || verifyMutation.isPending}
-        aria-busy={verifyMutation.isPending}
-        className="kr-btn-primary w-full kr-btn-lg mb-6"
-      >
-        {verifyMutation.isPending ? (
-          <><Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> Verifying…</>
-        ) : 'Verify code'}
-      </button>
+      {/* EMAIL VERIFICATION */}
+      <div className="mb-8 p-6 bg-kr-bg-surface border border-kr-border-default rounded-xl">
+        {emailError && (
+          <div role="alert" aria-live="polite" className="kr-error-state mb-4 flex items-start gap-3 text-left">
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+            <p className="text-body-sm">{emailError}</p>
+          </div>
+        )}
+        <OtpInput label="Verify Email" value={emailCode} onChange={setEmailCode} disabled={emailVerified} />
+        {emailVerified ? (
+          <div className="flex items-center justify-center gap-2 text-kr-success-600 font-medium py-3">
+            <CheckCircle2 className="w-5 h-5" /> Email Verified
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => verifyEmailMutation.mutate()}
+            disabled={emailCode.length < OTP_LEN || verifyEmailMutation.isPending}
+            className="kr-btn-primary w-full"
+          >
+            {verifyEmailMutation.isPending ? (
+              <><Loader2 className="w-4 h-4 animate-spin inline mr-2" aria-hidden="true" /> Verifying…</>
+            ) : 'Verify Email'}
+          </button>
+        )}
+      </div>
 
       {/* Resend */}
       <p className="text-center text-body-sm text-kr-text-secondary">

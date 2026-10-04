@@ -127,6 +127,24 @@ export const authApi = {
       }
     } as LoginResponse;
   },
+  verifyEmailOtp: async (email: string, code: string) => {
+    if (typeof window !== 'undefined') {
+      const expectedEmail = localStorage.getItem('mock_expected_email_otp');
+      if (expectedEmail && code !== expectedEmail) {
+        throw new Error('Invalid email verification code.');
+      }
+    }
+    return { message: 'Email OTP verified successfully' };
+  },
+  verifyMobileOtp: async (phone: string, code: string) => {
+    if (typeof window !== 'undefined') {
+      const expectedPhone = localStorage.getItem('mock_expected_phone_otp');
+      if (expectedPhone && code !== expectedPhone) {
+        throw new Error('Invalid mobile verification code.');
+      }
+    }
+    return { message: 'Mobile OTP verified successfully' };
+  },
   verifyOtp: async (dto: VerifyOtpDto) => {
     if (typeof window !== 'undefined') {
       const expectedEmail = localStorage.getItem('mock_expected_email_otp');
