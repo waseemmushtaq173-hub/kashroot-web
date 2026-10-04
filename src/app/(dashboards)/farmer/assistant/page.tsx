@@ -9,6 +9,7 @@ export default function AssistantPage() {
   const [reply, setReply] = useState('');
   const [loading, setLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [lang, setLang] = useState('en-IN');
   
   const recognitionRef = useRef<any>(null);
 
@@ -19,41 +20,39 @@ export default function AssistantPage() {
         recognitionRef.current = new SpeechRecognition();
         recognitionRef.current.continuous = false;
         recognitionRef.current.interimResults = false;
-        recognitionRef.current.lang = 'en-US';
-
-        recognitionRef.current.onresult = (event: any) => {
-          const transcript = event.results[0][0].transcript;
-          setQuery(transcript);
-          setIsListening(false);
-        };
-
-        recognitionRef.current.onerror = (event: any) => {
-          console.error('Speech recognition error', event.error);
-          setIsListening(false);
-        };
-
-        recognitionRef.current.onend = () => {
-          setIsListening(false);
-        };
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.lang = lang;
+      
+      recognitionRef.current.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setQuery(transcript);
+        setIsListening(false);
+      };
+
+      recognitionRef.current.onerror = (event: any) => {
+        console.error('Speech recognition error', event.error);
+        setIsListening(false);
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+      };
+    }
+  }, [lang]);
 
   const toggleListening = () => {
     if (isListening) {
       recognitionRef.current?.stop();
       setIsListening(false);
     } else {
+      // It uses the latest language because we update `recognitionRef.current.lang` in the useEffect
       recognitionRef.current?.start();
       setIsListening(true);
-    }
-  };
-
-  const speakText = (text: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      window.speechSynthesis.speak(utterance);
     }
   };
 
@@ -61,14 +60,11 @@ export default function AssistantPage() {
     e.preventDefault();
     if (!query.trim()) return;
     setLoading(true);
+    setReply(''); // Clear old reply
     try {
-      const token = tokenStore.getToken();
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/assistant/voice`, {
+      const res = await fetch(`/api/ai`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query }),
       });
       
@@ -77,17 +73,27 @@ export default function AssistantPage() {
       }
       
       const data = await res.json();
-      const answer = data.reply || data.message || 'Received response from AI module.';
+      const answer = data.reply || 'No response';
       setReply(answer);
-      speakText(answer);
+      // Removed the auto-speak here to avoid browser autoplay blocking.
     } catch (err) {
       console.error('AI error:', err);
-      // Fallback expert system / guest mode response
-      const fallbackMsg = "It seems you are offline or your session expired. As a fallback expert tip: Apple scab disease thrives in wet conditions. Ensure proper pruning for air circulation and apply a protective fungicide before expected rainfall.";
-      setReply(fallbackMsg);
-      speakText(fallbackMsg);
+      setReply("Connection to AI failed. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSpeak = () => {
+    if ('speechSynthesis' in window && reply) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(reply);
+      // Try to find a voice matching the selected language
+      const voices = window.speechSynthesis.getVoices();
+      const preferred = voices.find(v => v.lang === lang || v.lang.startsWith(lang.split('-')[0]));
+      if (preferred) utterance.voice = preferred;
+      utterance.lang = lang;
+      window.speechSynthesis.speak(utterance);
     }
   };
 
@@ -101,31 +107,48 @@ export default function AssistantPage() {
       </div>
 
       <div className="bg-white p-6 rounded-xl border border-emerald-200 shadow-sm space-y-4">
-        <form onSubmit={handleAsk} className="flex gap-2">
-          <button
-            type="button"
-            onClick={toggleListening}
-            className={`p-3 rounded-lg flex items-center justify-center transition-colors ${
-              isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-            }`}
-            title="Toggle Voice Input"
-          >
-            {isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
-          </button>
-          <input
-            type="text"
-            placeholder="Tap the mic or type here..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="flex-1 px-4 py-3 border border-emerald-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-600 text-emerald-900"
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="bg-emerald-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2"
-          >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-          </button>
+        <form onSubmit={handleAsk} className="flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <label htmlFor="lang-select" className="text-sm font-medium text-emerald-900">Language:</label>
+            <select
+              id="lang-select"
+              value={lang}
+              onChange={(e) => setLang(e.target.value)}
+              className="text-sm px-2 py-1 border border-emerald-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-600"
+            >
+              <option value="en-IN">English (India)</option>
+              <option value="hi-IN">Hindi (India)</option>
+              <option value="ur-IN">Urdu (India)</option>
+              <option value="pa-IN">Punjabi (India)</option>
+            </select>
+          </div>
+          
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={toggleListening}
+              className={`p-3 rounded-lg flex items-center justify-center transition-colors ${
+                isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+              }`}
+              title="Toggle Voice Input"
+            >
+              {isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+            </button>
+            <input
+              type="text"
+              placeholder="Tap the mic or type here..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="flex-1 px-4 py-3 border border-emerald-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-600 text-emerald-900"
+            />
+            <button
+              type="submit"
+              disabled={loading}
+              className="bg-emerald-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2"
+            >
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+            </button>
+          </div>
         </form>
 
         {reply && (
@@ -133,11 +156,12 @@ export default function AssistantPage() {
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-semibold text-emerald-900">Assistant Response:</h3>
               <button 
-                onClick={() => speakText(reply)}
-                className="text-emerald-600 hover:text-emerald-800"
+                type="button"
+                onClick={handleSpeak}
+                className="text-emerald-600 hover:text-emerald-800 p-2 rounded-full hover:bg-emerald-100 transition-colors"
                 title="Read aloud"
               >
-                <Volume2 className="w-5 h-5" />
+                <Volume2 className="w-6 h-6" />
               </button>
             </div>
             <p className="text-emerald-800 leading-relaxed">{reply}</p>
