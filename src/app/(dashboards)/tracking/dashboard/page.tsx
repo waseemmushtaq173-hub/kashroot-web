@@ -335,7 +335,7 @@ export default function TrackingPage() {
     queryKey: ['tracking', submitted, submittedClass],
     enabled: submitted.length > 0,
     queryFn: async () => {
-      return trackingApi.lookup(submitted);
+      return trackingApi.lookup(submitted, submittedClass);
     },
     staleTime: 20_000,
     /**
@@ -419,10 +419,12 @@ export default function TrackingPage() {
               required
             >
               <option value="" disabled>Select Vehicle Type</option>
+              <option value="HCV">Heavy Commercial Truck (HCV)</option>
+              <option value="LCV">Light Load Carrier (LCV)</option>
               <option value="CAR">Personal Car / Maruti</option>
-              <option value="HCV">Heavy Commercial Truck</option>
-              <option value="LCV">Light Commercial</option>
+              <option value="TRACTOR">Tractor / Farm Equipment</option>
               <option value="BIKE">Two-Wheeler</option>
+              <option value="UNKNOWN">Don't Know</option>
             </select>
           </div>
           
