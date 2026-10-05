@@ -102,11 +102,11 @@ export function SiteHeader() {
                 <LogOut className="h-4 w-4" aria-hidden="true" /> <span className="hidden sm:inline">Sign out</span>
               </button>
             </div>
-          ) : (
+          ) : pathname !== '/' ? (
             <Link href="/login" className="kr-btn-primary kr-btn-sm">
               <LogIn className="h-4 w-4" aria-hidden="true" /> Sign in
             </Link>
-          )}
+          ) : null}
         </div>
       </nav>
     </header>
