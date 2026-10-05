@@ -87,6 +87,7 @@ export default function RegisterPage() {
     }
     setIsSendingEmail(true);
     try {
+      console.log('Frontend sending OTP request for:', emailValue);
       const res = await axios.post('/api/auth/otp/email', { email: emailValue });
       if (res.data.emailOtp) {
         setExpectedEmailOtp(res.data.emailOtp);
