@@ -119,11 +119,11 @@ export default function TesterPage() {
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
       <div className="flex items-center gap-3 mb-2">
         <FlaskConical className="w-8 h-8 text-kr-text-brand" />
-        <h1 className="font-heading text-h1 text-kr-text-primary">AgroGuard Input Tester</h1>
+        <h1 className="font-heading text-h1 text-kr-text-primary">Fertilizer & Pesticide Compliance Tester</h1>
       </div>
       <p className="text-body-lg text-kr-text-secondary mb-10">
-        Verify the authenticity of your fertilizers and agricultural inputs before applying them to your orchards. 
-        Scan the QR code on the bottle, or enter the batch code manually to run a cross-reference check.
+        Verify the authenticity of your chemical fertilizers (Urea, DAP, MOP) and pesticides/fungicides before applying them to your orchards. 
+        Scan the QR code on the bottle, or enter the batch code manually to validate against the official CIB&RC registry and manufacturer baselines.
       </p>
 
       <div className="mb-6 flex flex-wrap gap-4 justify-end">
@@ -174,11 +174,11 @@ export default function TesterPage() {
               />
             </div>
             <div>
-              <label className="kr-label mb-1">Stated NPK Ratio</label>
+              <label className="kr-label mb-1">Composition / NPK Ratio</label>
               <input
                 type="text"
                 required
-                placeholder="e.g. 19:19:19"
+                placeholder="e.g. 19:19:19 or Imidacloprid 17.8% SL"
                 value={npk}
                 onChange={(e) => setNpk(e.target.value)}
                 className="kr-input w-full"

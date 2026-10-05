@@ -50,8 +50,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     else if (segment === 'expert' && userRole !== 'EXPERT') { authorized = false; requiredRoleMsg = 'Agricultural Expert'; }
     else if (segment === 'admin' && userRole !== 'ADMIN') { authorized = false; requiredRoleMsg = 'Platform Admin'; }
     else if (segment === 'provider' && userRole !== 'PROVIDER') { authorized = false; requiredRoleMsg = 'Logistics & Provider'; }
-    else if (segment === 'agriculture' && userRole !== 'AGRICULTURE') { authorized = false; requiredRoleMsg = 'Agriculture'; }
-    else if (segment === 'horticulture' && userRole !== 'HORTICULTURE') { authorized = false; requiredRoleMsg = 'Horticulture'; }
+    else if (segment === 'kissan-tools' && userRole !== 'KISSAN_PARTNER') { authorized = false; requiredRoleMsg = 'Kissan Partner'; }
   }
 
   if (!authorized) {
@@ -59,14 +58,24 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <div className="flex min-h-screen flex-col bg-kr-bg-page">
         <SiteHeader />
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-          <div className="kr-card kr-error-state p-8 max-w-lg">
-            <h2 className="font-heading text-h3 text-kr-danger-700">Unauthorized Access</h2>
-            <p className="mt-4 text-body text-kr-text-secondary">
-              Your current session is tagged as <strong>{userRole}</strong>.
+          <div className="bg-white border-2 border-amber-200 shadow-xl rounded-2xl p-8 max-w-lg">
+            <h2 className="font-heading text-3xl font-bold text-amber-600 mb-4">Unauthorized Access</h2>
+            <p className="text-gray-700 text-lg mb-2">
+              Your current active session is scoped to <strong className="bg-gray-100 px-2 py-1 rounded">{userRole}</strong>.
             </p>
-            <p className="mt-2 text-body text-kr-text-secondary">
-              Please sign in with a <strong>{requiredRoleMsg}</strong> account to view this dashboard.
+            <p className="text-gray-600 mb-8">
+              Please sign in with a <strong>{requiredRoleMsg}</strong> account to access this specific portal.
             </p>
+            <button 
+              onClick={() => {
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('user_role');
+                router.push('/login');
+              }}
+              className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-6 rounded-lg transition-colors w-full"
+            >
+              Switch Account
+            </button>
           </div>
         </div>
       </div>

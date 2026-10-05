@@ -12,7 +12,7 @@ import { listingsApi, appointmentsApi, ordersApi, payoutsApi } from '@/lib/api/f
 import type { FarmerListing, Appointment, FarmerOrder, ListingStatus } from '@/lib/api/farmer';
 import { ApiError } from '@/lib/api/client';
 
-type Tab = 'listings' | 'appointments' | 'orders' | 'payouts';
+type Tab = 'profile' | 'listings' | 'appointments' | 'orders' | 'payouts' | 'knowledge';
 
 const LISTING_STATUS_LABEL: Record<ListingStatus, string> = {
   DRAFT:     'Draft',
@@ -59,6 +59,91 @@ function fmtDate(iso: string) {
 // Sub-panels
 // ---------------------------------------------------------------------------
 
+function ProfilePanel() {
+  return (
+    <div className="space-y-6">
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-emerald-100">
+        <h2 className="font-heading text-2xl font-bold text-emerald-900 mb-4">Farmer Profile</h2>
+        <div className="grid sm:grid-cols-2 gap-4 text-gray-700">
+          <div><strong className="text-gray-900">Kissan ID:</strong> K-98234-JK</div>
+          <div><strong className="text-gray-900">Status:</strong> <span className="text-green-600 font-bold">Verified ✅</span></div>
+          <div><strong className="text-gray-900">Tehsil:</strong> Sopore</div>
+          <div><strong className="text-gray-900">Village:</strong> Doabgah</div>
+        </div>
+      </div>
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-emerald-100">
+        <h2 className="font-heading text-2xl font-bold text-emerald-900 mb-4">Orchard Details</h2>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 text-gray-700 mb-6">
+          <div className="bg-emerald-50 p-4 rounded-xl">
+            <div className="text-sm text-emerald-800">Total Area</div>
+            <div className="text-2xl font-bold text-emerald-900">45 Kanals</div>
+          </div>
+          <div className="bg-emerald-50 p-4 rounded-xl">
+            <div className="text-sm text-emerald-800">Apple Trees</div>
+            <div className="text-2xl font-bold text-emerald-900">1,250</div>
+          </div>
+          <div className="bg-emerald-50 p-4 rounded-xl">
+            <div className="text-sm text-emerald-800">Walnut Trees</div>
+            <div className="text-2xl font-bold text-emerald-900">35</div>
+          </div>
+          <div className="bg-emerald-50 p-4 rounded-xl">
+            <div className="text-sm text-emerald-800">Varieties</div>
+            <div className="text-xl font-bold text-emerald-900 leading-tight">Delicious, Kulu, Gala</div>
+          </div>
+        </div>
+      </div>
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-emerald-100">
+        <h2 className="font-heading text-2xl font-bold text-emerald-900 mb-4">Orchard Activity Log</h2>
+        <ul className="space-y-4">
+          <li className="flex gap-4 items-start border-l-2 border-emerald-500 pl-4">
+            <div className="text-sm text-gray-500 w-24 shrink-0">Oct 02</div>
+            <div>
+              <strong className="text-gray-900 block">Harvest Forecasting</strong>
+              <span className="text-gray-600 text-sm">Estimated 4,500 boxes of Grade-A Delicious for mid-October.</span>
+            </div>
+          </li>
+          <li className="flex gap-4 items-start border-l-2 border-emerald-500 pl-4">
+            <div className="text-sm text-gray-500 w-24 shrink-0">Sep 28</div>
+            <div>
+              <strong className="text-gray-900 block">Irrigation Cycle</strong>
+              <span className="text-gray-600 text-sm">Drip lines flushed and activated for Sector B.</span>
+            </div>
+          </li>
+          <li className="flex gap-4 items-start border-l-2 border-emerald-500 pl-4">
+            <div className="text-sm text-gray-500 w-24 shrink-0">Sep 15</div>
+            <div>
+              <strong className="text-gray-900 block">Pre-Harvest Spray</strong>
+              <span className="text-gray-600 text-sm">Applied Mancozeb as per SKUAST guidelines.</span>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function KnowledgePanel() {
+  return (
+    <div className="grid md:grid-cols-2 gap-6">
+      <div className="bg-amber-50 p-6 rounded-2xl border border-amber-200">
+        <h3 className="font-bold text-amber-900 text-lg mb-2">SKUAST Spray Schedule</h3>
+        <p className="text-sm text-amber-800 mb-4">Official 2026 guidelines for Apple Scab and San Jose Scale prevention.</p>
+        <button className="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-bold">Download PDF</button>
+      </div>
+      <div className="bg-blue-50 p-6 rounded-2xl border border-blue-200">
+        <h3 className="font-bold text-blue-900 text-lg mb-2">Disease Identification</h3>
+        <p className="text-sm text-blue-800 mb-4">AI-powered handbook for identifying Alternaria and Powdery Mildew.</p>
+        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold">Open Handbook</button>
+      </div>
+      <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-200">
+        <h3 className="font-bold text-emerald-900 text-lg mb-2">Pruning Techniques</h3>
+        <p className="text-sm text-emerald-800 mb-4">Video tutorials for high-density trellis systems and traditional canopy management.</p>
+        <button className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold">Watch Videos</button>
+      </div>
+    </div>
+  );
+}
+
 function ListingsPanel() {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
@@ -97,6 +182,34 @@ function ListingsPanel() {
 
   return (
     <div>
+      {/* Real-Time Product Upload Panel */}
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-kr-border-brand mb-8 relative overflow-hidden">
+        <div className="absolute top-0 right-0 bg-kr-primary-100 text-kr-primary-800 px-3 py-1 rounded-bl-lg text-xs font-bold flex items-center gap-1">
+          <span className="w-2 h-2 rounded-full bg-kr-primary-500 animate-pulse"></span>
+          Live Sync Active
+        </div>
+        <h3 className="font-heading text-xl font-bold text-kr-text-primary mb-4">Fast Listing / Add Produce</h3>
+        <form className="grid sm:grid-cols-2 md:grid-cols-4 gap-4" onSubmit={(e) => { e.preventDefault(); alert('Produce listed and synced to Buyer Portal in real-time via Supabase!'); }}>
+          <select className="kr-input" required defaultValue="">
+            <option value="" disabled>Crop Type</option>
+            <option>Apples (Delicious)</option>
+            <option>Walnuts (Kagzi)</option>
+            <option>Saffron (Mongra)</option>
+          </select>
+          <select className="kr-input" required defaultValue="">
+            <option value="" disabled>Grade</option>
+            <option>Grade A</option>
+            <option>Grade B</option>
+            <option>Grade C</option>
+          </select>
+          <input type="number" placeholder="Box Count" className="kr-input" required />
+          <input type="text" placeholder="Expected Price (₹)" className="kr-input" required />
+          <div className="md:col-span-4">
+            <button type="submit" className="kr-btn-primary w-full sm:w-auto">List Instantly</button>
+          </div>
+        </form>
+      </div>
+
       <div className="flex items-center justify-between mb-4">
         <p className="text-body-sm text-kr-text-secondary">
           {data?.total ?? 0} listing{data?.total !== 1 ? 's' : ''}
@@ -370,10 +483,12 @@ function apiMsg(err: unknown): string {
 }
 
 const TABS: { id: Tab; label: string; Icon: typeof Package }[] = [
-  { id: 'listings',     label: 'Listings',     Icon: Package     },
-  { id: 'appointments', label: 'Appointments', Icon: Calendar    },
-  { id: 'orders',       label: 'Orders',       Icon: ShoppingBag },
-  { id: 'payouts',      label: 'Payouts',      Icon: Wallet      },
+  { id: 'profile',      label: 'Profile & Orchard', Icon: Info        },
+  { id: 'listings',     label: 'Listings',          Icon: Package     },
+  { id: 'appointments', label: 'Appointments',      Icon: Calendar    },
+  { id: 'orders',       label: 'Orders',            Icon: ShoppingBag },
+  { id: 'payouts',      label: 'Payouts',           Icon: Wallet      },
+  { id: 'knowledge',    label: 'Knowledge Hub',     Icon: Info        },
 ];
 
 export default function FarmerDashboardPage() {
@@ -487,10 +602,12 @@ export default function FarmerDashboardPage() {
           aria-labelledby={`tab-${id}`}
           hidden={activeTab !== id}
         >
+          {id === 'profile'     && <ProfilePanel />}
           {id === 'listings'    && <ListingsPanel />}
           {id === 'appointments' && <AppointmentsPanel />}
           {id === 'orders'      && <OrdersPanel />}
           {id === 'payouts'     && <PayoutsPanel />}
+          {id === 'knowledge'   && <KnowledgePanel />}
         </div>
       ))}
     </main>

@@ -34,8 +34,7 @@ function LoginForm() {
       if (targetRole === 'BUYER') targetRoute = '/buyer/dashboard';
       else if (targetRole === 'ADMIN') targetRoute = '/admin/dashboard';
       else if (targetRole === 'EXPERT') targetRoute = '/expert';
-      else if (targetRole === 'AGRICULTURE') targetRoute = '/agriculture/dashboard';
-      else if (targetRole === 'HORTICULTURE') targetRoute = '/horticulture/dashboard';
+      else if (targetRole === 'KISSAN_PARTNER') targetRoute = '/kissan-tools/dashboard';
 
       if (data.accessToken) {
         tokenStore.setToken(data.accessToken, targetRole);
@@ -59,7 +58,7 @@ function LoginForm() {
   };
 
   return (
-    <div className="max-w-md w-full bg-kr-bg-surface p-8 border border-kr-border-default shadow-kr-card-md space-y-6">
+    <div className="max-w-md w-full bg-kr-bg-surface p-8 border border-kr-border-default shadow-kr-card-md space-y-6 z-10 relative">
       <div>
         <h1 className="font-heading text-h1 text-kr-text-primary">Welcome back</h1>
         <p className="text-body-sm text-kr-text-secondary mt-1">
@@ -95,8 +94,7 @@ function LoginForm() {
             <option value="ADMIN">Admin</option>
             <option value="BUYER">Buyer</option>
             <option value="EXPERT">Expert</option>
-            <option value="AGRICULTURE">Agriculture</option>
-            <option value="HORTICULTURE">Horticulture</option>
+            <option value="KISSAN_PARTNER">Kissan Partner (Agri/Horti)</option>
           </select>
         </div>
 

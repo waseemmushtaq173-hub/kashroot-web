@@ -584,7 +584,18 @@ export default function TrackingPage() {
                   </p>
                 )}
               </div>
-              <TrackingMap data={data} />
+              
+              {data.source === 'simulated' || !isCommercial ? (
+                <div className="bg-kr-bg-sunken border border-kr-border-default h-[26rem] flex flex-col items-center justify-center text-center p-6 rounded-lg">
+                  <MapPin className="w-16 h-16 text-kr-text-disabled mb-4" />
+                  <h3 className="font-heading text-h3 text-kr-text-primary mb-2">Location Unavailable</h3>
+                  <p className="text-body text-kr-text-secondary max-w-md">
+                    No active GPS or mobile tracking signal detected for this vehicle.
+                  </p>
+                </div>
+              ) : (
+                <TrackingMap data={data} />
+              )}
             </section>
 
             {/* ── Crew and consignment ──────────────────────────────────── */}

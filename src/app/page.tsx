@@ -1,267 +1,149 @@
+'use client';
+
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { useState } from 'react';
 import {
   ArrowRight,
-  Cog,
-  CloudSun,
-  FlaskConical,
-  LayoutDashboard,
-  Lock,
-  Mic,
-  Microscope,
-  Package,
+  Tractor,
+  Sprout,
   Store,
+  ShoppingCart,
+  ShieldCheck,
+  PackageSearch,
+  X
 } from 'lucide-react';
 import { SiteFooter, SiteHeader } from '@/components/layout/SiteHeader';
 
-/**
- * Hero background — a shikara on Dal Lake, hot-linked from Unsplash.
- *
- * PLACEHOLDER. This is a stock photograph at a third-party URL, not an asset we
- * host. Before launch it should be replaced with a licensed or commissioned
- * image served from our own CDN, so the landing page cannot break on someone
- * else's URL change and so the licence is ours. `w=2400` is the widest the
- * banner is ever asked to render; `auto=format` lets the CDN pick webp/avif.
- *
- * Other frames from the same search, if this one is ever swapped out:
- *   photo-1564329494258-3f72215ba175  single shikara, calmer and emptier —
- *                                     the easier background for centred text
- *   photo-1685716271205-83a5ac2ba63b  moored shikaras at a ghat, busier
- */
-const HERO_IMAGE =
-  'https://images.unsplash.com/photo-1715457573748-8e8a70b2c1be?auto=format&fit=crop&w=2400&q=80';
-
-export const metadata: Metadata = {
-  title: "KashRoot — Horticulture trade platform",
-  description:
-    'Trade produce direct from verified agricultural growers, and source the packaging, machinery and inputs to get it to market.',
-};
-
-/**
- * The two halves of the platform. Kept as data so the hero's structure and the
- * section below it cannot describe the verticals differently.
- */
-const VERTICALS = [
-  {
-    name: 'Produce',
-    href: '/buyer/discover',
-    body: 'Saffron, apples, walnuts and more, listed directly by verified growers with origin and harvest date on every lot.',
-    cta: 'Browse the marketplace',
-  },
-  {
-    name: 'Supplies',
-    href: '/supplies',
-    body: 'Packaging, machinery and inputs from competing suppliers, priced side by side so the cheapest option is visible.',
-    cta: 'Compare suppliers',
-  },
-];
-
-const CAPABILITIES = [
-  {
-    icon: Lock,
-    title: 'Secure escrow',
-    body: 'Funds are held until the buyer confirms the consignment, so neither side carries the other’s risk.',
-    href: '/farmer/dashboard',
-  },
-  {
-    icon: Mic,
-    title: 'Voice assistant',
-    body: 'Receipts and advisories spoken aloud in Kashmiri and Urdu, for growers who would rather not read a screen.',
-    href: '/farmer/assistant',
-  },
-  {
-    icon: CloudSun,
-    title: 'Live mandi & weather',
-    body: 'Live rates from local hubs alongside the major terminal mandis — Azadpur, Jaipur and beyond — with harvest-window weather for the districts that supply them.',
-    href: '/farmer/mandi',
-  },
-  {
-    icon: Microscope,
-    title: 'Input verification',
-    body: 'Scan a QR code to check a pesticide or fertiliser is genuine before it reaches the orchard.',
-    href: '/farmer/tester',
-  },
-];
-
-const SUPPLY_CATEGORIES = [
-  { icon: Package, name: 'Packaging', body: 'Jute sacks, CFB cartons, trays and pallet wrap.' },
-  { icon: Cog, name: 'Machinery', body: 'Secateurs, sprayers, grading tables and small tools.' },
-  { icon: FlaskConical, name: 'Inputs', body: 'Foliar micronutrients, neem oil and compost.' },
-];
+const HERO_IMAGE = 'https://images.unsplash.com/photo-1715457573748-8e8a70b2c1be?auto=format&fit=crop&w=2400&q=80';
 
 export default function Home() {
+  const [isPortalModalOpen, setPortalModalOpen] = useState(false);
+
   return (
-    <div className="flex min-h-screen flex-col bg-kr-bg-page">
+    <div className="flex min-h-screen flex-col bg-[#F9F7F1]">
       <SiteHeader />
 
-      <main id="main-content" className="flex-1">
-        {/*
-          The hero image is a CSS background, so the browser does not discover
-          it until the stylesheet is parsed — late enough to hurt Largest
-          Contentful Paint on the page's biggest element. React 19 hoists this
-          to <head>, starting the fetch alongside the HTML.
-        */}
-        <link rel="preload" as="image" href={HERO_IMAGE} fetchPriority="high" />
+      {/* PORTAL SELECTION MODAL */}
+      {isPortalModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1B4332]/80 backdrop-blur-sm">
+          <div className="bg-[#F9F7F1] w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden relative animate-in fade-in zoom-in duration-200">
+            <button 
+              onClick={() => setPortalModalOpen(false)}
+              className="absolute top-4 right-4 p-2 text-[#1B4332] hover:bg-[#1B4332]/10 rounded-full transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            
+            <div className="p-8 text-center bg-[#1B4332] text-white">
+              <h2 className="font-heading text-3xl font-bold mb-2">Choose Your Portal</h2>
+              <p className="text-white/80">Select your destination to sign in or access tools directly.</p>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 p-8">
+              <Link href="/farmer/dashboard" className="flex flex-col items-center p-6 bg-white border-2 border-[#1B4332]/10 rounded-xl hover:border-[#E76F51] hover:shadow-lg transition-all group">
+                <Sprout className="w-12 h-12 text-[#1B4332] group-hover:text-[#E76F51] mb-4 transition-colors" />
+                <h3 className="font-heading text-xl font-bold text-[#1B4332] mb-1">Farmer Portal</h3>
+                <p className="text-sm text-center text-gray-600">Manage orchards, listings & advisory.</p>
+              </Link>
+              
+              <Link href="/buyer/dashboard" className="flex flex-col items-center p-6 bg-white border-2 border-[#1B4332]/10 rounded-xl hover:border-[#E76F51] hover:shadow-lg transition-all group">
+                <ShoppingCart className="w-12 h-12 text-[#1B4332] group-hover:text-[#E76F51] mb-4 transition-colors" />
+                <h3 className="font-heading text-xl font-bold text-[#1B4332] mb-1">Buyer Portal</h3>
+                <p className="text-sm text-center text-gray-600">Source authentic Kashmiri produce.</p>
+              </Link>
+              
+              <Link href="/kissan-tools/dashboard" className="flex flex-col items-center p-6 bg-white border-2 border-[#1B4332]/10 rounded-xl hover:border-[#E76F51] hover:shadow-lg transition-all group">
+                <Tractor className="w-12 h-12 text-[#1B4332] group-hover:text-[#E76F51] mb-4 transition-colors" />
+                <h3 className="font-heading text-xl font-bold text-[#1B4332] mb-1">Kissan Tools</h3>
+                <p className="text-sm text-center text-gray-600">Agri & Horti supplies and equipment.</p>
+              </Link>
+              
+              <Link href="/compare-prices" className="flex flex-col items-center p-6 bg-white border-2 border-[#1B4332]/10 rounded-xl hover:border-[#E76F51] hover:shadow-lg transition-all group">
+                <PackageSearch className="w-12 h-12 text-[#1B4332] group-hover:text-[#E76F51] mb-4 transition-colors" />
+                <h3 className="font-heading text-xl font-bold text-[#1B4332] mb-1">Price Comparison</h3>
+                <p className="text-sm text-center text-gray-600">Compare market rates for farm essentials.</p>
+              </Link>
+              
+              <Link href="/rental" className="flex flex-col items-center p-6 bg-white border-2 border-[#1B4332]/10 rounded-xl hover:border-[#E76F51] hover:shadow-lg transition-all group">
+                <Store className="w-12 h-12 text-[#1B4332] group-hover:text-[#E76F51] mb-4 transition-colors" />
+                <h3 className="font-heading text-xl font-bold text-[#1B4332] mb-1">Rental Marketplace</h3>
+                <p className="text-sm text-center text-gray-600">Rent machinery, cold storage & equipment.</p>
+              </Link>
+              
+              <Link href="/admin/dashboard" className="flex flex-col items-center p-6 bg-white border-2 border-[#1B4332]/10 rounded-xl hover:border-[#E76F51] hover:shadow-lg transition-all group">
+                <ShieldCheck className="w-12 h-12 text-[#1B4332] group-hover:text-[#E76F51] mb-4 transition-colors" />
+                <h3 className="font-heading text-xl font-bold text-[#1B4332] mb-1">Admin Portal</h3>
+                <p className="text-sm text-center text-gray-600">System oversight and user management.</p>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
-        {/* ── Hero ─────────────────────────────────────────────────────────────
-            A full-bleed photograph rather than a slogan. The lake carries the
-            "Kashmir" signal on its own, so the copy sits centred on a darkened
-            overlay and is kept to a single factual sentence. */}
-        <section className="relative isolate flex min-h-[30rem] items-center overflow-hidden md:min-h-[38rem]">
-          {/*
-            The photograph. Decorative — the heading carries the meaning, so
-            this is hidden from assistive tech. `bg-kr-primary-900` is the
-            fallback colour: it shows while the file loads and keeps the hero
-            dark and readable rather than flashing white if the URL ever fails.
-          */}
+      <main id="main-content" className="flex-1">
+        <section className="relative isolate flex min-h-[40rem] items-center overflow-hidden md:min-h-[45rem]">
           <div
             aria-hidden="true"
-            className="absolute inset-0 bg-kr-primary-900 bg-cover bg-center"
+            className="absolute inset-0 bg-[#1B4332] bg-cover bg-center"
             style={{ backgroundImage: `url('${HERO_IMAGE}')` }}
           />
-
-          {/*
-            Legibility overlay. One gradient instead of a flat wash: darker at
-            the top and bottom, where the photograph is brightest (sky and
-            water), and lighter across the middle so the lake still reads.
-            Worst case anywhere is 60% black, which holds white body text at
-            well past WCAG AA.
-          */}
           <div
             aria-hidden="true"
-            className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/60 to-black/85"
+            className="absolute inset-0 bg-gradient-to-r from-[#1B4332]/95 via-[#1B4332]/80 to-transparent"
           />
 
-          {/* No z-index needed: the positioned layers above come first in the
-              DOM, and this is positioned too, so it paints on top of them. */}
-          <div className="kr-container relative w-full py-24 text-center md:py-32">
-            <p className="text-overline uppercase tracking-[0.2em] text-white/80">
-              Farm-direct horticulture trade
-            </p>
-            <h1 className="mx-auto mt-5 max-w-4xl font-heading font-bold text-5xl md:text-6xl text-white">
-              Where Harvest Meets Oppurtunity
+          <div className="kr-container relative w-full py-24 md:py-32 flex flex-col items-start text-left">
+            <span className="inline-block py-1 px-3 rounded-full bg-[#D4A373]/20 border border-[#D4A373]/50 text-[#D4A373] text-sm font-semibold tracking-wider mb-6">
+              KASHMIR'S PREMIER AGRI-NETWORK
+            </span>
+            <h1 className="max-w-4xl font-heading font-extrabold text-5xl md:text-7xl text-white leading-tight drop-shadow-lg">
+              Where Harvest Meets <span className="text-[#E76F51]">Opportunity.</span>
             </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-body-lg text-white/85">
-              Sell produce straight to buyers with no middleman taking the
-              margin — and source the packaging, machinery and inputs that get
-              it to market.
+            <p className="mt-6 max-w-2xl text-xl text-white/90 font-light leading-relaxed drop-shadow-md">
+              Trade authentic Kashmiri produce direct from verified growers. Access vital tools, compare input prices, and track your consignments seamlessly.
             </p>
 
-            <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Link href="/register" className="kr-btn-primary kr-btn-lg">
-                <Store className="h-4 w-4" aria-hidden="true" />
-                Create buyer account
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </Link>
-              {/* kr-btn-inverse, not kr-btn-secondary: the secondary button
-                  colours its label with --kr-fill-brand, a dark green that
-                  vanishes against a photograph. */}
-              <Link
-                href="/farmer/dashboard"
-                className="kr-btn-inverse kr-btn-lg"
+            <div className="mt-10 flex flex-col sm:flex-row gap-4 w-full max-w-md">
+              <button 
+                onClick={() => setPortalModalOpen(true)}
+                className="w-full justify-center flex items-center gap-2 bg-[#E76F51] hover:bg-[#D4A373] text-white py-4 px-8 rounded-xl font-bold text-lg shadow-xl shadow-[#E76F51]/20 transition-all hover:scale-[1.02]"
               >
-                <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
-                Sell as a farmer
-              </Link>
+                Sign In / Choose Portal
+                <ArrowRight className="w-5 h-5" />
+              </button>
             </div>
           </div>
         </section>
 
-        {/* ── The two verticals ─────────────────────────────────────────────── */}
-        <section className="kr-container pb-14" aria-labelledby="verticals-heading">
-          <h2 id="verticals-heading" className="kr-sr-only">
-            What you can do on KashRoot
-          </h2>
-          <div className="grid border border-kr-border-default md:grid-cols-2">
-            {VERTICALS.map((v, i) => (
-              <Link
-                key={v.name}
-                href={v.href}
-                className={`group flex flex-col justify-between gap-6 bg-kr-bg-surface p-6 transition-colors hover:bg-kr-bg-sunken md:p-8 ${
-                  i > 0 ? 'border-t border-kr-border-default md:border-l md:border-t-0' : ''
-                }`}
-              >
-                <div>
-                  <p className="text-overline uppercase text-kr-text-brand">{v.name}</p>
-                  <p className="mt-3 max-w-md text-body text-kr-text-secondary">{v.body}</p>
+        {/* Feature Grid with rich aesthetic */}
+        <section className="py-20 bg-[#F9F7F1] relative overflow-hidden">
+          {/* Subtle Chinar Motif Background */}
+          <div className="absolute top-0 right-0 opacity-5 pointer-events-none transform translate-x-1/4 -translate-y-1/4">
+            <svg width="600" height="600" viewBox="0 0 24 24" fill="none" stroke="#1B4332" strokeWidth="0.5">
+              <path d="M12 2L9 8h6L12 2z M12 22l3-6H9l3 6z M2 12l6-3v6L2 12z M22 12l-6-3v6l6-3z M6.5 6.5L10 10V6H6.5z M17.5 6.5L14 10V6h3.5z M6.5 17.5L10 14v4H6.5z M17.5 17.5L14 14v4h3.5z" />
+            </svg>
+          </div>
+          
+          <div className="kr-container relative">
+            <div className="text-center mb-16">
+              <h2 className="font-heading text-4xl text-[#1B4332] font-bold">An Ecosystem for Growth</h2>
+              <p className="mt-4 text-gray-600 text-lg max-w-2xl mx-auto">Everything from seed to sale, built specifically for the needs of Kashmiri agriculture.</p>
+            </div>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {[
+                { title: 'Secure Escrow', desc: 'Funds held safely until consignments are verified.', icon: ShieldCheck },
+                { title: 'Live Mandi Sync', desc: 'Real-time rates from Sopore, Shopian, and Azadpur.', icon: Store },
+                { title: 'Equipment Rental', desc: 'Rent machinery and storage directly from local owners.', icon: Tractor },
+              ].map((feature, i) => (
+                <div key={i} className="bg-white p-8 rounded-2xl shadow-sm border border-[#1B4332]/10 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                  <div className="w-14 h-14 bg-[#1B4332]/5 rounded-xl flex items-center justify-center mb-6">
+                    <feature.icon className="w-7 h-7 text-[#E76F51]" />
+                  </div>
+                  <h3 className="text-xl font-bold text-[#1B4332] mb-3">{feature.title}</h3>
+                  <p className="text-gray-600 leading-relaxed">{feature.desc}</p>
                 </div>
-                <span className="inline-flex items-center gap-2 text-label font-medium text-kr-text-primary group-hover:text-kr-text-brand">
-                  {v.cta}
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-                </span>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        {/* ── Capabilities ──────────────────────────────────────────────────── */}
-        <section className="kr-container pb-14" aria-labelledby="capabilities-heading">
-          <h2
-            id="capabilities-heading"
-            className="font-heading text-h2 text-kr-text-primary"
-          >
-            Built for the trade
-          </h2>
-          <p className="mt-2 max-w-2xl text-body text-kr-text-secondary">
-            Four things that decide whether a grower gets paid fairly and on
-            time.
-          </p>
-
-          {/* Hairline grid: gap-px over a border-coloured background draws the rules. */}
-          <div className="mt-6 grid gap-px border border-kr-border-default bg-kr-border-default sm:grid-cols-2 lg:grid-cols-4">
-            {CAPABILITIES.map((c) => (
-              <Link
-                key={c.title}
-                href={c.href}
-                className="group flex flex-col gap-3 bg-kr-bg-surface p-6 transition-colors hover:bg-kr-bg-sunken"
-              >
-                <c.icon className="h-5 w-5 text-kr-primary-600" aria-hidden="true" />
-                <h3 className="font-heading text-h4 text-kr-text-primary">{c.title}</h3>
-                <p className="text-body-sm text-kr-text-secondary">{c.body}</p>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        {/* ── Supplies highlight ────────────────────────────────────────────────
-            The new vertical gets its own band on the landing page, since it is
-            a section of the product rather than a footnote to produce. */}
-        <section className="border-y border-kr-border-default bg-kr-bg-surface" aria-labelledby="supplies-heading">
-          <div className="kr-container py-14">
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <p className="text-overline uppercase text-kr-text-brand">
-                  New vertical
-                </p>
-                <h2
-                  id="supplies-heading"
-                  className="mt-3 font-heading text-h2 text-kr-text-primary"
-                >
-                  Horticulture supplies
-                </h2>
-                <p className="mt-2 max-w-2xl text-body text-kr-text-secondary">
-                  Everything the harvest needs before it leaves the orchard —
-                  with every supplier&rsquo;s price for the same item on one
-                  screen.
-                </p>
-              </div>
-              <Link href="/supplies" className="kr-btn-primary">
-                Compare prices
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </Link>
-            </div>
-
-            <div className="mt-8 grid gap-px border border-kr-border-default bg-kr-border-default sm:grid-cols-3">
-              {SUPPLY_CATEGORIES.map((c) => (
-                <Link
-                  key={c.name}
-                  href="/supplies"
-                  className="group flex flex-col gap-3 bg-kr-bg-page p-6 transition-colors hover:bg-kr-bg-sunken"
-                >
-                  <c.icon className="h-5 w-5 text-kr-primary-600" aria-hidden="true" />
-                  <h3 className="font-heading text-h4 text-kr-text-primary">{c.name}</h3>
-                  <p className="text-body-sm text-kr-text-secondary">{c.body}</p>
-                </Link>
               ))}
             </div>
           </div>
