@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 
 export async function POST(request: Request) {
@@ -11,21 +11,22 @@ export async function POST(request: Request) {
     }
 
     const emailOtp = crypto.randomInt(100000, 999999).toString();
-    console.log(`[Email Gateway] Dispatching OTP to Resend for ${email}...`);
+    console.log(`[Email Gateway] Dispatching OTP to Nodemailer for ${email}...`);
 
-    const apiKey = process.env.RESEND_API_KEY?.trim();
-    const resend = new Resend(apiKey || 're_dummy');
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD
+      }
+    });
 
-    const { data, error } = await resend.emails.send({
-      from: 'KashRoot <onboarding@resend.dev>',
-      to: email,
+    await transporter.sendMail({
+      from: `"Kashroot Security" <${process.env.GMAIL_USER}>`,
+      to: email, // The user's requested email address
       subject: 'Your Kashroot Verification Code',
       html: `<h2>Your Kashroot OTP is: <strong>${emailOtp}</strong></h2><p>Do not share this code with anyone.</p>`
     });
-
-    if (error) {
-      return NextResponse.json({ message: error.message }, { status: 400 });
-    }
 
     return NextResponse.json({ message: 'OTP sent to email', emailOtp }, { status: 200 });
 
