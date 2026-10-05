@@ -34,51 +34,51 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50 px-4">
-      <div className="max-w-md w-full bg-white p-8 rounded-2xl border border-stone-200 shadow-sm space-y-6">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="max-w-md w-full bg-white shadow-2xl shadow-gray-200/50 rounded-[2rem] p-8 sm:p-10 border border-gray-100 space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-stone-900">Reset password</h1>
-          <p className="text-stone-600 text-sm mt-1">
+          <h1 className="text-4xl font-extrabold text-[#1B4332] tracking-tight mb-2">Reset password</h1>
+          <p className="text-sm text-gray-600">
             Enter your account email and mobile number and we'll send you instructions to reset your password.
           </p>
         </div>
 
         {error && (
-          <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+          <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl text-sm font-medium">
             {error}
           </div>
         )}
 
         {success ? (
-          <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-center space-y-3">
-            <p className="font-medium">OTP successfully sent to mobile number and email!</p>
+          <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-center space-y-3">
+            <p className="font-bold">OTP successfully sent to mobile number and email!</p>
             <p className="text-sm">We've sent a 6-digit verification code to <strong className="font-semibold">{phone}</strong> and <strong className="font-semibold">{email}</strong>.</p>
-            <Link href={`/verify-otp?email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phone)}`} className="block w-full bg-emerald-600 text-white py-2 rounded-lg mt-4 hover:bg-emerald-700">
+            <Link href={`/verify-otp?email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phone)}`} className="block w-full py-3.5 px-4 bg-gradient-to-r from-[#E76F51] to-[#F4A261] hover:from-[#D65A3D] hover:to-[#E76F51] text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all mt-4">
               Go to Verification
             </Link>
           </div>
         ) : (
           <form onSubmit={handleResetPassword} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-stone-700 mb-1">Email address</label>
+              <label className="text-sm font-semibold text-gray-700 mb-1 block">Email address</label>
               <input
                 type="email"
                 placeholder="waseem@gmail.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 bg-white border border-stone-300 rounded-lg text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900 mb-4"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none mb-4"
                 required
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-stone-700 mb-1">Mobile Number</label>
+              <label className="text-sm font-semibold text-gray-700 mb-1 block">Mobile Number</label>
               <input
                 type="tel"
                 placeholder="+91 9999999999"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-4 py-3 bg-white border border-stone-300 rounded-lg text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none"
                 required
               />
             </div>
@@ -86,14 +86,14 @@ export default function ForgotPasswordPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-stone-900 text-white py-3 px-4 rounded-lg font-medium hover:bg-black transition-colors flex items-center justify-center gap-2 mt-2"
+              className="w-full py-4 mt-2 bg-gradient-to-r from-[#E76F51] to-[#F4A261] hover:from-[#D65A3D] hover:to-[#E76F51] text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Key className="w-5 h-5" />}
               Send reset instructions
             </button>
 
             <div className="text-center pt-2">
-              <Link href="/login" className="text-sm text-stone-500 hover:text-stone-900 font-medium">
+              <Link href="/login" className="text-sm text-[#E76F51] font-semibold hover:text-[#D65A3D] transition-colors">
                 ← Back to sign in
               </Link>
             </div>

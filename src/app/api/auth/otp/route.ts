@@ -17,17 +17,30 @@ export async function POST(request: Request) {
     // 1. Enforce strict presence of live API keys
     const missingKeys = !process.env.RESEND_API_KEY || !process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_PHONE_NUMBER;
     
-    if (missingKeys) {
-      console.error('[Gateway Error] Live API keys missing from environment');
-      return NextResponse.json(
-        { message: 'CONFIGURATION ERROR: Telecom/Email Gateway API keys are missing from the server environment.' },
-        { status: 500 }
-      );
-    }
-
     // 2. Generate separate cryptographic OTPs
     const emailOtp = crypto.randomInt(100000, 999999).toString();
     const phoneOtp = crypto.randomInt(100000, 999999).toString();
+
+    if (missingKeys) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('\n=============================');
+        console.log('      --- DEV MODE OTP ---   ');
+        console.log(`      Email OTP: ${emailOtp} `);
+        console.log(`      Phone OTP: ${phoneOtp} `);
+        console.log('=============================\n');
+        return NextResponse.json({
+          message: 'DEV MODE: OTPs printed to console.',
+          emailOtp,
+          phoneOtp
+        }, { status: 200 });
+      } else {
+        console.error('[Gateway Error] Live API keys missing from environment');
+        return NextResponse.json(
+          { message: 'CONFIGURATION ERROR: Telecom/Email Gateway API keys are missing from the server environment.' },
+          { status: 500 }
+        );
+      }
+    }
 
     const errors: string[] = [];
     const resend = new Resend(process.env.RESEND_API_KEY);
