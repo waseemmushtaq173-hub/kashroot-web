@@ -108,6 +108,9 @@ export default function RegisterPage() {
         setExpectedPhoneOtp(res.data.phoneOtp);
         setPhoneOtpSent(true);
         setPhoneTimer(30);
+        if (res.data.isMock) {
+          alert('Dev Mode: Check terminal for SMS OTP');
+        }
       }
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to send SMS OTP');
