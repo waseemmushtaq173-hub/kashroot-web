@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     }
 
     const phoneOtp = crypto.randomInt(100000, 999999).toString();
-    const cleanPhone = phone.replace('+91', '').trim();
+    const cleanPhone = phone.replace(/\D/g, '').slice(-10);
 
     if (process.env.USE_REAL_SMS !== 'true') {
       console.log('\n=============================');
@@ -30,22 +30,22 @@ export async function POST(request: Request) {
     
     console.log(`[SMS Gateway] Dispatching OTP to Fast2SMS for ${cleanPhone}...`);
 
-    if (!process.env.FAST2SMS_API_KEY) {
-      return NextResponse.json({ message: 'CONFIGURATION ERROR: Fast2SMS API key missing.' }, { status: 500 });
+    const apiKey = process.env.FAST2SMS_API_KEY?.trim();
+    if (!apiKey) {
+      return NextResponse.json({ message: 'CONFIGURATION ERROR: Fast2SMS API key missing.' }, { status: 400 });
     }
 
     const response = await axios.post(
       'https://www.fast2sms.com/dev/bulkV2',
       {
-        route: 'q',
-        message: 'Your Kashroot verification code is ' + phoneOtp,
-        language: 'english',
-        flash: 0,
+        route: 'otp',
+        variables_values: phoneOtp,
         numbers: cleanPhone
       },
       {
         headers: {
-          authorization: process.env.FAST2SMS_API_KEY
+          'authorization': apiKey,
+          'Content-Type': 'application/json'
         }
       }
     );

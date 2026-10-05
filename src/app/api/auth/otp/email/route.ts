@@ -2,8 +2,6 @@ import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import crypto from 'crypto';
 
-const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy');
-
 export async function POST(request: Request) {
   try {
     const { email } = await request.json();
@@ -15,8 +13,11 @@ export async function POST(request: Request) {
     const emailOtp = crypto.randomInt(100000, 999999).toString();
     console.log(`[Email Gateway] Dispatching OTP to Resend for ${email}...`);
 
+    const apiKey = process.env.RESEND_API_KEY?.trim();
+    const resend = new Resend(apiKey || 're_dummy');
+
     const { data, error } = await resend.emails.send({
-      from: 'Kashroot Security <onboarding@resend.dev>',
+      from: 'KashRoot <onboarding@resend.dev>',
       to: email,
       subject: 'Your Kashroot Verification Code',
       html: `<h2>Your Kashroot OTP is: <strong>${emailOtp}</strong></h2><p>Do not share this code with anyone.</p>`
