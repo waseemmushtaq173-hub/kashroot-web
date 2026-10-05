@@ -510,14 +510,7 @@ export default function FarmerDashboardPage() {
       </div>
 
       {/* Quick Tools Access Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
-        <Link href="/farmer/mandi" className="kr-card bg-blue-50/50 hover:bg-blue-50 border-blue-200 flex items-center gap-3 p-4 transition-colors">
-          <CloudSun className="w-5 h-5 text-blue-600 shrink-0" />
-          <div>
-            <p className="text-body-sm font-medium text-blue-900">Live Mandi & Weather</p>
-            <p className="text-caption text-blue-700">Local hubs + Azadpur, Jaipur</p>
-          </div>
-        </Link>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
         <Link href="/farmer/assistant" className="kr-card bg-emerald-50/50 hover:bg-emerald-50 border-emerald-200 flex items-center gap-3 p-4 transition-colors">
           <Bot className="w-5 h-5 text-emerald-600 shrink-0" />
           <div>

@@ -1,4 +1,5 @@
 import { Tractor, Calendar, MapPin, Search } from 'lucide-react';
+import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
 
 const RENTALS = [
   {
@@ -29,8 +30,10 @@ const RENTALS = [
 
 export default function RentalMarketplacePage() {
   return (
-    <main className="kr-container py-10">
-      <div className="bg-[#E76F51] text-white p-8 md:p-10 rounded-2xl mb-8 shadow-xl relative overflow-hidden">
+    <div className="flex min-h-screen flex-col bg-[#F9F7F1]">
+      <SiteHeader hideSignIn={false} />
+      <main className="kr-container py-10 flex-1">
+        <div className="bg-[#E76F51] text-white p-8 md:p-10 rounded-2xl mb-8 shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 opacity-20 pointer-events-none transform translate-x-1/4 -translate-y-1/4">
           <Tractor className="w-96 h-96" />
         </div>
@@ -97,6 +100,8 @@ export default function RentalMarketplacePage() {
           </div>
         ))}
       </div>
-    </main>
+      </main>
+      <SiteFooter />
+    </div>
   );
 }

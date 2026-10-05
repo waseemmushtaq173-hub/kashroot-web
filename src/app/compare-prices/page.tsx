@@ -1,4 +1,5 @@
 import { BadgeCheck, MapPin, TrendingDown, Clock } from 'lucide-react';
+import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
 
 const COMPARISONS = [
   {
@@ -23,8 +24,10 @@ const COMPARISONS = [
 
 export default function ComparePricesPage() {
   return (
-    <main className="kr-container py-10">
-      <div className="bg-gradient-to-r from-blue-900 to-blue-800 text-white p-8 md:p-10 rounded-2xl mb-8 shadow-xl">
+    <div className="flex min-h-screen flex-col bg-[#F9F7F1]">
+      <SiteHeader hideSignIn={false} />
+      <main className="kr-container py-10 flex-1">
+        <div className="bg-gradient-to-r from-blue-900 to-blue-800 text-white p-8 md:p-10 rounded-2xl mb-8 shadow-xl">
         <h1 className="font-heading text-4xl font-bold mb-3">Price Comparison Hub</h1>
         <p className="text-xl text-blue-100 max-w-2xl font-light">
           Compare real-time rates for farm essentials across authorized dealers in your district.
@@ -73,7 +76,8 @@ export default function ComparePricesPage() {
             </div>
           </section>
         ))}
-      </div>
-    </main>
+      </main>
+      <SiteFooter />
+    </div>
   );
 }

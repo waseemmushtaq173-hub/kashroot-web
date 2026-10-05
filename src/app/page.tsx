@@ -131,18 +131,19 @@ export default function Home() {
               <p className="mt-4 text-gray-600 text-lg max-w-2xl mx-auto">Everything from seed to sale, built specifically for the needs of Kashmiri agriculture.</p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
               {[
-                { title: 'Secure Escrow', desc: 'Funds held safely until consignments are verified.', icon: ShieldCheck },
-                { title: 'Live Mandi Sync', desc: 'Real-time rates from Sopore, Shopian, and Azadpur.', icon: Store },
-                { title: 'Equipment Rental', desc: 'Rent machinery and storage directly from local owners.', icon: Tractor },
+                { title: 'Secure Escrow', desc: 'Funds held safely until consignments are verified.', icon: ShieldCheck, href: '/escrow' },
+                { title: 'Live Mandi Sync', desc: 'Real-time rates from Sopore, Shopian, and Azadpur.', icon: Store, href: '/mandi-weather' },
+                { title: 'Equipment Rental', desc: 'Rent machinery and storage directly from local owners.', icon: Tractor, href: '/rental' },
+                { title: 'Price Comparison', desc: 'Compare market rates for farm essentials.', icon: PackageSearch, href: '/compare-prices' },
               ].map((feature, i) => (
-                <Link href="/login" key={i} className="block bg-white p-8 rounded-2xl shadow-sm border border-[#1B4332]/10 cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-xl hover:border-[#E76F51]/50 group">
+                <Link href={feature.href} key={i} className="block bg-white p-6 rounded-2xl shadow-sm border border-[#1B4332]/10 cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-xl hover:border-[#E76F51]/50 group">
                   <div className="w-14 h-14 bg-[#1B4332]/5 rounded-xl flex items-center justify-center mb-6 group-hover:bg-[#E76F51]/10 transition-colors">
                     <feature.icon className="w-7 h-7 text-[#E76F51]" />
                   </div>
                   <h3 className="text-xl font-bold text-[#1B4332] mb-3 group-hover:text-[#E76F51] transition-colors">{feature.title}</h3>
-                  <p className="text-gray-600 leading-relaxed">{feature.desc}</p>
+                  <p className="text-gray-600 leading-relaxed text-sm">{feature.desc}</p>
                 </Link>
               ))}
             </div>

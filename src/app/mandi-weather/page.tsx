@@ -15,6 +15,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { WeatherWidget } from '@/components/ui/WeatherWidget';
+import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
 
 import { mandiApi } from '@/lib/api/mandi';
 import type {
@@ -330,8 +331,10 @@ export default function MandiPage() {
   }
 
   return (
-    <main id="main-content" className="kr-container py-6 md:py-10">
-      {/* ── Header ───────────────────────────────────────────────────────── */}
+    <div className="flex min-h-screen flex-col bg-[#F9F7F1]">
+      <SiteHeader hideSignIn={false} />
+      <main id="main-content" className="kr-container py-6 md:py-10 flex-1">
+        {/* ── Header ───────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-heading text-h1 text-kr-text-primary">
@@ -594,6 +597,8 @@ export default function MandiPage() {
           </>
         ) : null}
       </div>
-    </main>
+      </main>
+      <SiteFooter />
+    </div>
   );
 }
