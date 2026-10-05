@@ -61,34 +61,34 @@ function LoginForm() {
   };
 
   return (
-    <div className="max-w-md w-full bg-kr-bg-surface p-8 border border-kr-border-default shadow-kr-card-md space-y-6 z-10 relative">
+    <div className="max-w-md w-full bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl p-8 sm:p-10 border border-white/20 space-y-6 z-10 relative">
       <div>
-        <h1 className="font-heading text-h1 text-kr-text-primary">Welcome back</h1>
-        <p className="text-body-sm text-kr-text-secondary mt-1">
+        <h1 className="text-4xl font-extrabold text-[#1B4332] tracking-tight">Welcome back</h1>
+        <p className="text-sm text-gray-600 mt-2">
           Don&apos;t have an account?{' '}
-          <Link href="/register" className="text-kr-text-brand font-medium hover:underline">
+          <Link href="/register" className="text-[#E76F51] font-semibold hover:text-[#D65A3D] transition-colors">
             Create one free
           </Link>
         </p>
       </div>
 
       {verified && (
-        <div className="p-3 bg-kr-fill-brand-subtle border border-kr-border-brand text-kr-text-brand text-sm">
+        <div className="p-3 bg-kr-fill-brand-subtle border border-kr-border-brand text-kr-text-brand text-sm rounded-xl">
           Email verified successfully! You can now log in.
         </div>
       )}
 
       {error && (
-        <div className="kr-error-state p-3 text-sm">
+        <div className="kr-error-state p-3 text-sm rounded-xl">
           {error}
         </div>
       )}
 
       <form onSubmit={handleLogin} className="space-y-4">
         <div>
-          <label className="block text-label text-kr-text-primary mb-1">Account Type <span className="text-kr-danger-500">*</span></label>
+          <label className="text-sm font-semibold text-gray-700 mb-1 block">Account Type <span className="text-red-500">*</span></label>
           <select
-            className="kr-input w-full mb-4"
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none mb-4"
             value={selectedRole}
             onChange={(e) => setSelectedRole(e.target.value)}
             required
@@ -103,21 +103,21 @@ function LoginForm() {
         </div>
 
         <div>
-          <label className="block text-label text-kr-text-primary mb-1">Email address</label>
+          <label className="text-sm font-semibold text-gray-700 mb-1 block">Email address</label>
           <input
             type="email"
             placeholder="farmer@kashroot.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="kr-input w-full"
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none"
             required
           />
         </div>
 
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label className="text-label text-kr-text-primary">Password</label>
-            <Link href="/forgot-password" className="text-caption text-kr-text-secondary hover:text-kr-text-primary">
+            <label className="text-sm font-semibold text-gray-700 block">Password</label>
+            <Link href="/forgot-password" className="text-sm text-[#E76F51] font-semibold hover:text-[#D65A3D] transition-colors">
               Forgot password?
             </Link>
           </div>
@@ -127,13 +127,13 @@ function LoginForm() {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="kr-input w-full pr-10"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none pr-10"
               required
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-2.5 text-kr-text-disabled hover:text-kr-text-secondary"
+              className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 transition-colors"
             >
               {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
@@ -143,7 +143,7 @@ function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="kr-btn-primary w-full flex items-center justify-center gap-2 mt-4"
+          className="w-full py-3.5 px-4 bg-gradient-to-r from-[#E76F51] to-[#F4A261] hover:from-[#D65A3D] hover:to-[#E76F51] text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2 text-lg mt-6"
         >
           {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogIn className="w-5 h-5" />}
           Sign in
