@@ -135,7 +135,7 @@ export default function Home() {
               {[
                 { title: 'Secure Escrow', desc: 'Funds held safely until consignments are verified.', icon: ShieldCheck, href: '/escrow' },
                 { title: 'Live Mandi Sync', desc: 'Real-time rates from Sopore, Shopian, and Azadpur.', icon: Store, href: '/mandi-weather' },
-                { title: 'Equipment Rental', desc: 'Rent machinery and storage directly from local owners.', icon: Tractor, href: '/rental' },
+                { title: 'Equipment Rental', desc: 'Rent machinery and storage directly from local owners.', icon: Tractor, href: '/login?returnTo=/rental' },
                 { title: 'Price Comparison', desc: 'Compare market rates for farm essentials.', icon: PackageSearch, href: '/compare-prices' },
               ].map((feature, i) => (
                 <Link href={feature.href} key={i} className="block bg-white p-6 rounded-2xl shadow-sm border border-[#1B4332]/10 cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-xl hover:border-[#E76F51]/50 group">
