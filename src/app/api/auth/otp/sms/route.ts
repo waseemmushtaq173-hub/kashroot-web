@@ -35,21 +35,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'CONFIGURATION ERROR: Fast2SMS API key missing.' }, { status: 400 });
     }
 
-    const response = await axios.post(
-      'https://www.fast2sms.com/dev/bulkV2',
-      {
-        route: 'q',
-        message: 'Your KashRoot Verification Code is: ' + phoneOtp,
-        flash: 0,
-        numbers: cleanPhone
-      },
-      {
-        headers: {
-          'authorization': apiKey,
-          'Content-Type': 'application/json'
-        }
+    const response = await axios.post('https://www.fast2sms.com/dev/bulkV2', {
+      route: 'q',
+      message: 'Your KashRoot Verification Code is: ' + phoneOtp,
+      flash: 0,
+      numbers: cleanPhone
+    }, {
+      headers: {
+        'authorization': process.env.FAST2SMS_API_KEY?.trim(),
+        'Content-Type': 'application/json'
       }
-    );
+    });
 
     if (response.data.return === false) {
       return NextResponse.json({ message: response.data.message }, { status: 400 });
