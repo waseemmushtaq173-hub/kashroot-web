@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     if (missingKeys) {
       console.error('[Gateway Error] Live API keys missing from environment');
       return NextResponse.json(
-        { message: 'Live API keys missing from environment' },
+        { message: 'CONFIGURATION ERROR: Telecom/Email Gateway API keys are missing from the server environment.' },
         { status: 500 }
       );
     }

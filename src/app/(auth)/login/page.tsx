@@ -49,6 +49,8 @@ function LoginForm() {
     } catch (err: unknown) {
       if (err instanceof ApiError) {
         setError(err.messages[0] ?? 'Invalid email or password');
+      } else if (err instanceof Error) {
+        setError(err.message);
       } else {
         setError('Failed to sign in. Please check your connection.');
       }

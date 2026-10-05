@@ -16,6 +16,11 @@
  */
 
 import { api } from './client';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // ── Role enum (mirrors Module 1 UserRole) ─────────────────────────────────
 export type UserRole =
@@ -113,14 +118,23 @@ export const authApi = {
     }
   },
   login: async (dto: LoginDto) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: dto.email,
+      password: dto.password,
+    });
+
+    if (error) {
+      throw new Error('Invalid email or password');
+    }
+
     const mockRole = (typeof window !== 'undefined' && localStorage.getItem('kr_mock_role')) as UserRole || 'FARMER';
     return {
-      accessToken: 'mock_jwt_token',
+      accessToken: data.session.access_token,
       requiresMfa: false,
       user: {
-        id: 'mock-user-1',
+        id: data.user.id,
         email: dto.email,
-        fullName: 'Demo User',
+        fullName: data.user.user_metadata?.full_name || 'Verified User',
         role: mockRole,
         kycStatus: 'VERIFIED',
         mfaEnabled: false
