@@ -1,0 +1,5 @@
+
+/* Force hide signin button on landing page to prevent hydration mismatch flashes */
+.landing-page-root .header-signin-btn {
+  display: none !important;
+}

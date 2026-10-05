@@ -7,7 +7,7 @@ import { BrandMark } from '@/components/brand/Shikara';
 import { usePathname, useRouter } from 'next/navigation';
 import { tokenStore } from '@/lib/api/client';
 
-export function SiteHeader() {
+export function SiteHeader({ hideSignIn = false }: { hideSignIn?: boolean }) {
   const [isAuth, setIsAuth] = useState(false);
   const [userName, setUserName] = useState<string>('User');
   const [sessionRole, setSessionRole] = useState<string>('USER');
@@ -102,8 +102,8 @@ export function SiteHeader() {
                 <LogOut className="h-4 w-4" aria-hidden="true" /> <span className="hidden sm:inline">Sign out</span>
               </button>
             </div>
-          ) : pathname !== '/' ? (
-            <Link href="/login" className="kr-btn-primary kr-btn-sm">
+          ) : !hideSignIn && pathname !== '/' ? (
+            <Link href="/login" className="kr-btn-primary kr-btn-sm header-signin-btn">
               <LogIn className="h-4 w-4" aria-hidden="true" /> Sign in
             </Link>
           ) : null}

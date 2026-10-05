@@ -21,8 +21,8 @@ export default function Home() {
   const [isPortalModalOpen, setPortalModalOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F9F7F1]">
-      <SiteHeader />
+    <div className="flex min-h-screen flex-col bg-[#F9F7F1] landing-page-root">
+      <SiteHeader hideSignIn={true} />
 
       {/* PORTAL SELECTION MODAL */}
       {isPortalModalOpen && (
