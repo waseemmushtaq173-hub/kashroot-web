@@ -151,23 +151,8 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex flex-col md:flex-row">
-      <div className="hidden md:flex flex-1 relative bg-cover bg-center" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1590487988256-9ed24133863e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80')" }}>
-        <div className="absolute inset-0 bg-gradient-to-b from-[#1B4332]/80 to-[#0A2617]/95" />
-        <div className="relative z-10 flex flex-col justify-center px-12 lg:px-24">
-          <h1 className="text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
-            Where Harvest Meets Opportunity.
-          </h1>
-          <p className="text-xl text-emerald-50 max-w-lg font-light leading-relaxed">
-            Join the digital hub connecting Kashmiri farmers to buyers, modern tools, and intelligent agricultural insights.
-          </p>
-        </div>
-      </div>
-      <div className="flex-1 flex items-center justify-center bg-kr-bg-page px-4 py-12">
-        <Suspense fallback={<div className="flex items-center justify-center p-8"><Loader2 className="w-8 h-8 animate-spin text-emerald-600" /></div>}>
-          <LoginForm />
-        </Suspense>
-      </div>
-    </div>
+    <Suspense fallback={<div className="flex items-center justify-center p-8"><Loader2 className="w-8 h-8 animate-spin text-emerald-600" /></div>}>
+      <LoginForm />
+    </Suspense>
   );
 }
