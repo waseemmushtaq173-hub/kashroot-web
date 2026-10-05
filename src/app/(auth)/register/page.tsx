@@ -44,6 +44,8 @@ export default function RegisterPage() {
 
   const errorMsg = registerMutation.error instanceof ApiError
     ? registerMutation.error.messages[0]
+    : registerMutation.error instanceof Error 
+    ? registerMutation.error.message 
     : registerMutation.error ? 'Registration failed. Please try again.' : null;
 
   if (success) {
@@ -58,27 +60,28 @@ export default function RegisterPage() {
   }
 
   return (
-    <div style={{ width: '100%', maxWidth: '440px', margin: '0 auto' }}>
-      <h1 style={{ fontSize: '1.875rem', fontWeight: 'bold', color: '#111827', marginBottom: '0.25rem' }}>Create your account</h1>
-      <p style={{ fontSize: '0.875rem', color: '#4b5563', marginBottom: '2rem' }}>
+  return (
+    <div className="bg-white shadow-2xl shadow-gray-200/50 rounded-[2rem] p-8 sm:p-10 border border-gray-100 max-w-md w-full mx-auto relative z-10">
+      <h1 className="text-4xl font-extrabold text-[#1B4332] tracking-tight mb-2">Create your account</h1>
+      <p className="text-sm text-gray-600 mb-8">
         Already have an account?{' '}
-        <Link href="/login" style={{ color: '#d97706', fontWeight: 600, textDecoration: 'underline' }}>
+        <Link href="/login" className="text-[#E76F51] font-semibold hover:text-[#D65A3D] transition-colors">
           Sign in
         </Link>
       </p>
 
       {errorMsg && (
-        <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', padding: '0.75rem', borderRadius: '0.375rem', marginBottom: '1.5rem', display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
-          <AlertCircle style={{ width: '1rem', height: '1rem', marginTop: '0.125rem', flexShrink: 0 }} />
-          <p style={{ fontSize: '0.875rem', margin: 0 }}>{errorMsg}</p>
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2 text-sm font-medium mb-6">
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <p className="m-0">{errorMsg}</p>
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
         {/* Role selector */}
         <div>
-          <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#374151', marginBottom: '0.5rem' }}>I am a</label>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          <label className="text-sm font-semibold text-gray-700 mb-1.5 block">I am a</label>
+          <div className="grid grid-cols-2 gap-3">
             {(['FARMER', 'BUYER'] as const).map((r) => {
               const isSelected = selectedRole === r;
               return (
@@ -88,22 +91,15 @@ export default function RegisterPage() {
                     setSelectedRole(r);
                     setValue('role', r);
                   }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    padding: '0.75rem',
-                    border: isSelected ? '2px solid #d97706' : '1px solid #d1d5db',
-                    borderRadius: '0.5rem',
-                    cursor: 'pointer',
-                    backgroundColor: isSelected ? '#fffbeb' : '#ffffff',
-                    boxShadow: isSelected ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                    transition: 'all 0.2s ease',
-                  }}
+                  className={`border-2 rounded-xl p-4 font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                    isSelected
+                      ? 'bg-[#1B4332]/5 border-[#1B4332] text-[#1B4332] shadow-sm ring-1 ring-[#1B4332]'
+                      : 'bg-white border-gray-100 text-gray-500 hover:border-[#1B4332]/30 hover:shadow-md'
+                  }`}
                 >
-                  <span style={{ fontSize: '1.5rem' }}>{r === 'FARMER' ? '🌾' : '🛒'}</span>
-                  <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>
-                    {r === 'FARMER' ? 'Farmer / Grower' : 'Buyer / Importer'}
+                  <span className="text-2xl">{r === 'FARMER' ? '🌾' : '🛒'}</span>
+                  <span className="text-sm">
+                    {r === 'FARMER' ? 'Farmer' : 'Buyer'}
                   </span>
                 </div>
               );
@@ -113,61 +109,60 @@ export default function RegisterPage() {
 
         {/* Full name */}
         <div>
-          <label htmlFor="fullName" style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#374151', marginBottom: '0.375rem' }}>Full name</label>
+          <label htmlFor="fullName" className="text-sm font-semibold text-gray-700 mb-1.5 block">Full name</label>
           <input
             id="fullName"
             type="text"
             autoComplete="name"
-            style={{ width: '100%', padding: '0.625rem 0.875rem', border: errors.fullName ? '1px solid #ef4444' : '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.95rem', backgroundColor: '#ffffff', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
+            className="w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none"
             {...register('fullName', {
               required: 'Full name is required',
               minLength: { value: 2, message: 'Name must be at least 2 characters' },
             })}
           />
-          {errors.fullName && <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.fullName.message}</p>}
+          {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName.message}</p>}
         </div>
 
         {/* Email */}
         <div>
-          <label htmlFor="reg-email" style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#374151', marginBottom: '0.375rem' }}>Email address</label>
+          <label htmlFor="reg-email" className="text-sm font-semibold text-gray-700 mb-1.5 block">Email address</label>
           <input
             id="reg-email"
             type="email"
             autoComplete="email"
-            style={{ width: '100%', padding: '0.625rem 0.875rem', border: errors.email ? '1px solid #ef4444' : '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.95rem', backgroundColor: '#ffffff', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
+            className="w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none"
             {...register('email', {
               required: 'Email is required',
               pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Enter a valid email' },
             })}
           />
-          {errors.email && <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.email.message}</p>}
+          {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
         </div>
 
         {/* Phone */}
         <div>
-          <label htmlFor="phone" style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#374151', marginBottom: '0.375rem' }}>
-            Phone number <span style={{ color: '#9ca3af', fontWeight: 'normal' }}>(optional)</span>
+          <label htmlFor="phone" className="text-sm font-semibold text-gray-700 mb-1.5 block">
+            Phone number <span className="text-gray-400 font-normal">(optional)</span>
           </label>
           <input
             id="phone"
             type="tel"
             autoComplete="tel"
             placeholder="+91 98765 43210"
-            style={{ width: '100%', padding: '0.625rem 0.875rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.95rem', backgroundColor: '#ffffff', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
+            className="w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none"
             {...register('phone')}
           />
-          <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>Used for SMS notifications. We never share your number.</p>
         </div>
 
         {/* Password */}
         <div>
-          <label htmlFor="reg-password" style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#374151', marginBottom: '0.375rem' }}>Password</label>
-          <div style={{ position: 'relative' }}>
+          <label htmlFor="reg-password" className="text-sm font-semibold text-gray-700 mb-1.5 block">Password</label>
+          <div className="relative">
             <input
               id="reg-password"
               type={showPw ? 'text' : 'password'}
               autoComplete="new-password"
-              style={{ width: '100%', padding: '0.625rem 2.5rem 0.625rem 0.875rem', border: errors.password ? '1px solid #ef4444' : '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.95rem', backgroundColor: '#ffffff', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
+              className="w-full px-4 py-3.5 pr-10 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none"
               {...register('password', {
                 required: 'Password is required',
                 minLength: { value: 8, message: 'At least 8 characters' },
@@ -180,59 +175,37 @@ export default function RegisterPage() {
             <button
               type="button"
               onClick={() => setShowPw((v) => !v)}
-              style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
+              className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 transition-colors"
             >
-              {showPw ? <EyeOff style={{ width: '1.1rem', height: '1.1rem' }} /> : <Eye style={{ width: '1.1rem', height: '1.1rem' }} />}
+              {showPw ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
           </div>
-          <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>Min. 8 characters with uppercase, lowercase, and a number.</p>
-          {errors.password && <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.password.message}</p>}
+          {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
         </div>
 
         {/* Confirm password */}
         <div>
-          <label htmlFor="confirm-password" style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#374151', marginBottom: '0.375rem' }}>Confirm password</label>
+          <label htmlFor="confirm-password" className="text-sm font-semibold text-gray-700 mb-1.5 block">Confirm password</label>
           <input
             id="confirm-password"
             type={showPw ? 'text' : 'password'}
             autoComplete="new-password"
-            style={{ width: '100%', padding: '0.625rem 0.875rem', border: errors.confirmPassword ? '1px solid #ef4444' : '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.95rem', backgroundColor: '#ffffff', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
+            className="w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none"
             {...register('confirmPassword', {
               required: 'Please confirm your password',
               validate: (v) => v === password || 'Passwords do not match',
             })}
           />
-          {errors.confirmPassword && <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.confirmPassword.message}</p>}
+          {errors.confirmPassword && <p className="text-red-500 text-xs mt-1">{errors.confirmPassword.message}</p>}
         </div>
-
-        <p style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-          By creating an account you agree to our{' '}
-          <Link href="/terms" style={{ color: '#d97706', textDecoration: 'underline' }}>Terms of Service</Link>
-          {' '}and{' '}
-          <Link href="/privacy" style={{ color: '#d97706', textDecoration: 'underline' }}>Privacy Policy</Link>.
-        </p>
 
         <button
           type="submit"
           disabled={registerMutation.isPending}
-          style={{
-            width: '100%',
-            padding: '0.75rem 1rem',
-            backgroundColor: '#d97706',
-            color: '#ffffff',
-            fontWeight: 600,
-            borderRadius: '0.375rem',
-            border: 'none',
-            cursor: 'pointer',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            gap: '0.5rem',
-            fontSize: '1rem',
-          }}
+          className="w-full py-4 mt-4 bg-gradient-to-r from-[#E76F51] to-[#F4A261] hover:from-[#D65A3D] hover:to-[#E76F51] text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 text-lg flex items-center justify-center gap-2"
         >
           {registerMutation.isPending ? (
-            <><Loader2 className="animate-spin" style={{ width: '1.2rem', height: '1.2rem' }} /> Creating account…</>
+            <><Loader2 className="w-5 h-5 animate-spin" /> Creating account…</>
           ) : 'Create account'}
         </button>
       </form>

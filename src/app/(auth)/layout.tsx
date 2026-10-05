@@ -61,7 +61,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       {/* Form container — exactly 50% width on desktop, 100% on mobile */}
       <main
         id="auth-main"
-        className="flex w-full lg:w-1/2 items-center justify-center bg-kr-bg-page px-4 py-12 sm:px-8"
+        className="flex w-full lg:w-1/2 items-center justify-center bg-gray-50 px-4 py-12 sm:px-8"
       >
         <div className="w-full max-w-md mx-auto flex flex-col items-center">
           {/* Mobile-only logo */}
