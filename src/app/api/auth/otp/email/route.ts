@@ -2,15 +2,15 @@ import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const { email } = await request.json();
+    const { email, otp: clientOtp } = await req.json();
 
     if (!email) {
-      return NextResponse.json({ message: 'Email is required.' }, { status: 400 });
+      return Response.json({ error: 'Email is required' }, { status: 400 });
     }
 
-    const emailOtp = crypto.randomInt(100000, 999999).toString();
+    const otp = clientOtp || crypto.randomInt(100000, 999999).toString();
     console.log(`[Email Gateway] Dispatching OTP to Nodemailer for ${email}...`);
 
     const transporter = nodemailer.createTransport({
@@ -22,13 +22,13 @@ export async function POST(request: Request) {
     });
 
     await transporter.sendMail({
-      from: `"Kashroot Security" <${process.env.GMAIL_USER}>`,
-      to: email, // The user's requested email address
+      from: `'Kashroot Security' <${process.env.GMAIL_USER}>`,
+      to: email, 
       subject: 'Your Kashroot Verification Code',
-      html: `<h2>Your Kashroot OTP is: <strong>${emailOtp}</strong></h2><p>Do not share this code with anyone.</p>`
+      html: `<h2>Your Kashroot OTP is: <strong>${otp}</strong></h2><p>Do not share this code with anyone.</p>`
     });
 
-    return NextResponse.json({ message: 'OTP sent to email', emailOtp }, { status: 200 });
+    return NextResponse.json({ message: 'OTP sent to email', emailOtp: otp }, { status: 200 });
 
   } catch (error: any) {
     console.error('Failed to send email OTP:', error);
