@@ -23,6 +23,7 @@ export default function RegisterPage() {
   const [expectedEmailOtp, setExpectedEmailOtp] = useState('');
   const [emailOtpInput, setEmailOtpInput] = useState('');
   const [emailTimer, setEmailTimer] = useState(0);
+  const [emailError, setEmailError] = useState('');
 
   const [phoneOtpSent, setPhoneOtpSent] = useState(false);
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
@@ -30,6 +31,8 @@ export default function RegisterPage() {
   const [expectedPhoneOtp, setExpectedPhoneOtp] = useState('');
   const [phoneOtpInput, setPhoneOtpInput] = useState('');
   const [phoneTimer, setPhoneTimer] = useState(0);
+  const [phoneError, setPhoneError] = useState('');
+  const [phoneDevMode, setPhoneDevMode] = useState(false);
 
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
@@ -77,8 +80,9 @@ export default function RegisterPage() {
   };
 
   const handleSendEmailOtp = async () => {
+    setEmailError('');
     if (!emailValue || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
-      alert('Please enter a valid email address first.');
+      setEmailError('Please enter a valid email address first.');
       return;
     }
     setIsSendingEmail(true);
@@ -90,15 +94,17 @@ export default function RegisterPage() {
         setEmailTimer(30);
       }
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to send email OTP');
+      setEmailError(err.response?.data?.message || 'Failed to send email OTP');
     } finally {
       setIsSendingEmail(false);
     }
   };
 
   const handleSendPhoneOtp = async () => {
+    setPhoneError('');
+    setPhoneDevMode(false);
     if (!phoneValue || phoneValue.length < 10) {
-      alert('Please enter a valid mobile number first.');
+      setPhoneError('Please enter a valid mobile number first.');
       return;
     }
     setIsSendingPhone(true);
@@ -109,11 +115,11 @@ export default function RegisterPage() {
         setPhoneOtpSent(true);
         setPhoneTimer(30);
         if (res.data.isMock) {
-          alert('Dev Mode: Check terminal for SMS OTP');
+          setPhoneDevMode(true);
         }
       }
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to send SMS OTP');
+      setPhoneError(err.response?.data?.message || 'Failed to send SMS OTP');
     } finally {
       setIsSendingPhone(false);
     }
@@ -233,6 +239,7 @@ export default function RegisterPage() {
             )}
           </div>
           {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
+          {emailError && <p className="text-red-500 text-xs mt-1">{emailError}</p>}
           
           {emailOtpSent && !isEmailVerified && (
             <div className="mt-3 flex gap-2">
@@ -246,8 +253,12 @@ export default function RegisterPage() {
               <button
                 type="button"
                 onClick={() => {
-                  if (emailOtpInput === expectedEmailOtp) setIsEmailVerified(true);
-                  else alert('Invalid Email OTP');
+                  if (emailOtpInput === expectedEmailOtp) {
+                    setIsEmailVerified(true);
+                    setEmailError('');
+                  } else {
+                    setEmailError('Invalid Email OTP');
+                  }
                 }}
                 className="px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition-colors"
               >
@@ -290,26 +301,38 @@ export default function RegisterPage() {
             )}
           </div>
           {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>}
+          {phoneError && <p className="text-red-500 text-xs mt-1">{phoneError}</p>}
 
           {phoneOtpSent && !isPhoneVerified && (
-            <div className="mt-3 flex gap-2">
-              <input
-                type="text"
-                placeholder="Enter Mobile OTP"
-                value={phoneOtpInput}
-                onChange={(e) => setPhoneOtpInput(e.target.value)}
-                className="flex-1 px-4 py-3.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-900 placeholder-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  if (phoneOtpInput === expectedPhoneOtp) setIsPhoneVerified(true);
-                  else alert('Invalid Mobile OTP');
-                }}
-                className="px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition-colors"
-              >
-                Verify
-              </button>
+            <div className="mt-3 flex flex-col gap-2">
+              {phoneDevMode && (
+                <div className="text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg font-medium border border-blue-100">
+                  Dev Mode Active: Check terminal for OTP code.
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Enter Mobile OTP"
+                  value={phoneOtpInput}
+                  onChange={(e) => setPhoneOtpInput(e.target.value)}
+                  className="flex-1 px-4 py-3.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-900 placeholder-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (phoneOtpInput === expectedPhoneOtp) {
+                      setIsPhoneVerified(true);
+                      setPhoneError('');
+                    } else {
+                      setPhoneError('Invalid Mobile OTP');
+                    }
+                  }}
+                  className="px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition-colors"
+                >
+                  Verify
+                </button>
+              </div>
             </div>
           )}
         </div>
