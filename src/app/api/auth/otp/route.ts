@@ -3,7 +3,7 @@ import { Resend } from 'resend';
 import twilio from 'twilio';
 import crypto from 'crypto';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy');
 
 export async function POST(request: Request) {
   try {
