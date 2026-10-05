@@ -5,13 +5,14 @@ import { Bot, Send, Loader2, Mic, MicOff, Volume2 } from 'lucide-react';
 import { tokenStore } from '@/lib/api/auth';
 
 export default function AssistantPage() {
-  const [query, setQuery] = useState('');
+  const [inputText, setInputText] = useState('');
   const [reply, setReply] = useState('');
   const [loading, setLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [lang, setLang] = useState('en-IN');
+  const [lang, setLang] = useState('ks-IN'); // Default to Kashmiri
   
   const recognitionRef = useRef<any>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -30,8 +31,12 @@ export default function AssistantPage() {
       
       recognitionRef.current.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
-        setQuery(transcript);
+        setInputText(transcript);
         setIsListening(false);
+        // Automatically trigger form submission
+        setTimeout(() => {
+          formRef.current?.requestSubmit();
+        }, 100);
       };
 
       recognitionRef.current.onerror = (event: any) => {
@@ -45,27 +50,26 @@ export default function AssistantPage() {
     }
   }, [lang]);
 
-  const toggleListening = () => {
+  const handleMicClick = () => {
     if (isListening) {
       recognitionRef.current?.stop();
       setIsListening(false);
     } else {
-      // It uses the latest language because we update `recognitionRef.current.lang` in the useEffect
       recognitionRef.current?.start();
       setIsListening(true);
     }
   };
 
-  const handleAsk = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim()) return;
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!inputText.trim()) return;
     setLoading(true);
-    setReply(''); // Clear old reply
+    setReply(''); 
     try {
       const res = await fetch(`/api/ai`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query: inputText }),
       });
       
       if (!res.ok) {
@@ -73,9 +77,7 @@ export default function AssistantPage() {
       }
       
       const data = await res.json();
-      const answer = data.reply || 'No response';
-      setReply(answer);
-      // Removed the auto-speak here to avoid browser autoplay blocking.
+      setReply(data.reply || 'No response');
     } catch (err) {
       console.error('AI error:', err);
       setReply("Connection to AI failed. Please try again.");
@@ -88,9 +90,15 @@ export default function AssistantPage() {
     if ('speechSynthesis' in window && reply) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(reply);
-      // Try to find a voice matching the selected language
       const voices = window.speechSynthesis.getVoices();
-      const preferred = voices.find(v => v.lang === lang || v.lang.startsWith(lang.split('-')[0]));
+      
+      let preferred = voices.find(v => v.lang === lang);
+      
+      // Fallback logic for Kashmiri/Urdu
+      if (!preferred && (lang === 'ks-IN' || lang === 'ur-IN')) {
+        preferred = voices.find(v => v.lang === 'ur-IN' || v.lang === 'hi-IN');
+      }
+      
       if (preferred) utterance.voice = preferred;
       utterance.lang = lang;
       window.speechSynthesis.speak(utterance);
@@ -107,7 +115,7 @@ export default function AssistantPage() {
       </div>
 
       <div className="bg-white p-6 rounded-xl border border-emerald-200 shadow-sm space-y-4">
-        <form onSubmit={handleAsk} className="flex flex-col gap-3">
+        <form ref={formRef} onSubmit={handleSendMessage} className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <label htmlFor="lang-select" className="text-sm font-medium text-emerald-900">Language:</label>
             <select
@@ -116,19 +124,19 @@ export default function AssistantPage() {
               onChange={(e) => setLang(e.target.value)}
               className="text-sm px-2 py-1 border border-emerald-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-600"
             >
-              <option value="en-IN">English (India)</option>
-              <option value="hi-IN">Hindi (India)</option>
+              <option value="ks-IN">Kashmiri (India) - کٲشُر</option>
               <option value="ur-IN">Urdu (India)</option>
-              <option value="pa-IN">Punjabi (India)</option>
+              <option value="hi-IN">Hindi (India)</option>
+              <option value="en-IN">English (India)</option>
             </select>
           </div>
           
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={toggleListening}
+              onClick={handleMicClick}
               className={`p-3 rounded-lg flex items-center justify-center transition-colors ${
-                isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                isListening ? 'bg-green-500 text-white animate-pulse' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
               }`}
               title="Toggle Voice Input"
             >
@@ -137,8 +145,8 @@ export default function AssistantPage() {
             <input
               type="text"
               placeholder="Tap the mic or type here..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
               className="flex-1 px-4 py-3 border border-emerald-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-600 text-emerald-900"
             />
             <button
