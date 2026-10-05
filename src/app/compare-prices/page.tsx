@@ -76,6 +76,7 @@ export default function ComparePricesPage() {
             </div>
           </section>
         ))}
+        </div>
       </main>
       <SiteFooter />
     </div>
