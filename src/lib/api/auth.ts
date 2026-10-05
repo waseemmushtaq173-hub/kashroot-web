@@ -97,25 +97,24 @@ export interface RefreshResponse {
 // ── API calls ─────────────────────────────────────────────────────────────
 export const authApi = {
   register: async (dto: RegisterDto) => {
-    // Call the real OTP API to trigger live gateways instead of mocking
-    try {
-      const response = await fetch('/api/auth/otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: dto.email, phone: dto.phone || '+10000000000' }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Failed to trigger OTP');
-      // Store the OTPs in localStorage temporarily so our frontend mock can verify them later if needed
-      if (typeof window !== 'undefined') {
-        if (data.emailOtp) localStorage.setItem('mock_expected_email_otp', data.emailOtp);
-        if (data.phoneOtp) localStorage.setItem('mock_expected_phone_otp', data.phoneOtp);
+    // With inline OTP verification, this endpoint is just for final account creation
+    const { data, error } = await supabase.auth.signUp({
+      email: dto.email,
+      password: dto.password,
+      options: {
+        data: {
+          full_name: dto.fullName,
+          phone: dto.phone,
+          role: dto.role,
+        }
       }
-      return { message: 'Verification email sent. Please check your inbox.' };
-    } catch (e: any) {
-      console.error('Failed to trigger OTP API on register:', e);
-      throw e;
+    });
+
+    if (error) {
+      throw new Error(error.message);
     }
+    
+    return { message: 'Registration successful.' };
   },
   login: async (dto: LoginDto) => {
     const { data, error } = await supabase.auth.signInWithPassword({

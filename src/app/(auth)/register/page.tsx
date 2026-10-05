@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMutation } from '@tanstack/react-query';
@@ -8,12 +8,42 @@ import { useForm } from 'react-hook-form';
 import { AlertCircle, Loader2, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import { authApi, type RegisterDto } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
+import axios from 'axios';
 
 export default function RegisterPage() {
   const router = useRouter();
   const [showPw, setShowPw] = useState(false);
   const [success, setSuccess] = useState(false);
   const [selectedRole, setSelectedRole] = useState<'FARMER' | 'BUYER'>('FARMER');
+
+  // Dual OTP States
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [expectedEmailOtp, setExpectedEmailOtp] = useState('');
+  const [emailOtpInput, setEmailOtpInput] = useState('');
+  const [emailTimer, setEmailTimer] = useState(0);
+
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
+  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
+  const [isSendingPhone, setIsSendingPhone] = useState(false);
+  const [expectedPhoneOtp, setExpectedPhoneOtp] = useState('');
+  const [phoneOtpInput, setPhoneOtpInput] = useState('');
+  const [phoneTimer, setPhoneTimer] = useState(0);
+
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+
+  useEffect(() => {
+    let interval: any;
+    if (emailTimer > 0) interval = setInterval(() => setEmailTimer((t) => t - 1), 1000);
+    return () => clearInterval(interval);
+  }, [emailTimer]);
+
+  useEffect(() => {
+    let interval: any;
+    if (phoneTimer > 0) interval = setInterval(() => setPhoneTimer((t) => t - 1), 1000);
+    return () => clearInterval(interval);
+  }, [phoneTimer]);
 
   const {
     register,
@@ -27,19 +57,63 @@ export default function RegisterPage() {
     },
   });
 
+  const emailValue = watch('email', '');
+  const phoneValue = watch('phone', '');
   const password = watch('password', '');
 
   const registerMutation = useMutation({
     mutationFn: (dto: RegisterDto) => authApi.register(dto),
     onSuccess: (_, variables) => {
       setSuccess(true);
-      router.push(`/verify-otp?email=${encodeURIComponent(variables.email)}`);
+      setTimeout(() => {
+        router.push('/login');
+      }, 2000);
     },
   });
 
   const onSubmit = ({ confirmPassword, ...dto }: RegisterDto & { confirmPassword: string }) => {
     dto.role = selectedRole;
     registerMutation.mutate(dto);
+  };
+
+  const handleSendEmailOtp = async () => {
+    if (!emailValue || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+      alert('Please enter a valid email address first.');
+      return;
+    }
+    setIsSendingEmail(true);
+    try {
+      const res = await axios.post('/api/auth/otp/email', { email: emailValue });
+      if (res.data.emailOtp) {
+        setExpectedEmailOtp(res.data.emailOtp);
+        setEmailOtpSent(true);
+        setEmailTimer(30);
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to send email OTP');
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  const handleSendPhoneOtp = async () => {
+    if (!phoneValue || phoneValue.length < 10) {
+      alert('Please enter a valid mobile number first.');
+      return;
+    }
+    setIsSendingPhone(true);
+    try {
+      const res = await axios.post('/api/auth/otp/sms', { phone: phoneValue });
+      if (res.data.phoneOtp) {
+        setExpectedPhoneOtp(res.data.phoneOtp);
+        setPhoneOtpSent(true);
+        setPhoneTimer(30);
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to send SMS OTP');
+    } finally {
+      setIsSendingPhone(false);
+    }
   };
 
   const errorMsg = registerMutation.error instanceof ApiError
@@ -53,11 +127,13 @@ export default function RegisterPage() {
       <div style={{ textAlign: 'center', padding: '2rem 0' }}>
         <CheckCircle2 style={{ width: '3rem', height: '3rem', color: '#16a34a', margin: '0 auto 1rem' }} />
         <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#111827' }}>Account created!</h2>
-        <p style={{ color: '#4b5563', marginTop: '0.5rem' }}>We've sent a verification code to your email. Redirecting…</p>
+        <p style={{ color: '#4b5563', marginTop: '0.5rem' }}>You have successfully registered. Redirecting to login…</p>
         <Loader2 className="animate-spin" style={{ width: '1.25rem', height: '1.25rem', color: '#d97706', margin: '1rem auto 0' }} />
       </div>
     );
   }
+
+  const isFormValid = isEmailVerified && isPhoneVerified && agreedToTerms;
 
   return (
     <div className="bg-white shadow-2xl shadow-gray-200/50 rounded-[2rem] p-8 sm:p-10 border border-gray-100 max-w-md w-full mx-auto relative z-10">
@@ -125,32 +201,114 @@ export default function RegisterPage() {
         {/* Email */}
         <div>
           <label htmlFor="reg-email" className="text-sm font-semibold text-gray-700 mb-1.5 block">Email address</label>
-          <input
-            id="reg-email"
-            type="email"
-            autoComplete="email"
-            className="w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none"
-            {...register('email', {
-              required: 'Email is required',
-              pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Enter a valid email' },
-            })}
-          />
+          <div className="flex gap-2">
+            <input
+              id="reg-email"
+              type="email"
+              autoComplete="email"
+              disabled={isEmailVerified}
+              className="flex-1 px-4 py-3.5 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none disabled:opacity-70"
+              {...register('email', {
+                required: 'Email is required',
+                pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Enter a valid email' },
+              })}
+            />
+            {!isEmailVerified && (
+              <button
+                type="button"
+                onClick={handleSendEmailOtp}
+                disabled={isSendingEmail || emailTimer > 0}
+                className="px-4 py-3.5 bg-gray-900 hover:bg-gray-800 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 whitespace-nowrap"
+              >
+                {isSendingEmail ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : emailTimer > 0 ? `Wait ${emailTimer}s` : 'Send OTP'}
+              </button>
+            )}
+            {isEmailVerified && (
+              <div className="px-4 py-3.5 bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold rounded-xl flex items-center justify-center whitespace-nowrap">
+                <CheckCircle2 className="w-5 h-5 mr-1" /> Verified
+              </div>
+            )}
+          </div>
           {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
+          
+          {emailOtpSent && !isEmailVerified && (
+            <div className="mt-3 flex gap-2">
+              <input
+                type="text"
+                placeholder="Enter Email OTP"
+                value={emailOtpInput}
+                onChange={(e) => setEmailOtpInput(e.target.value)}
+                className="flex-1 px-4 py-3.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-900 placeholder-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (emailOtpInput === expectedEmailOtp) setIsEmailVerified(true);
+                  else alert('Invalid Email OTP');
+                }}
+                className="px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition-colors"
+              >
+                Verify
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Phone */}
         <div>
-          <label htmlFor="phone" className="text-sm font-semibold text-gray-700 mb-1.5 block">
-            Phone number <span className="text-gray-400 font-normal">(optional)</span>
-          </label>
-          <input
-            id="phone"
-            type="tel"
-            autoComplete="tel"
-            placeholder="+91 98765 43210"
-            className="w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none"
-            {...register('phone')}
-          />
+          <label htmlFor="phone" className="text-sm font-semibold text-gray-700 mb-1.5 block">Mobile Number</label>
+          <div className="flex gap-2">
+            <div className="flex-1 flex items-center border border-gray-200 bg-gray-50 rounded-xl overflow-hidden focus-within:bg-white focus-within:ring-2 focus-within:ring-[#1B4332]/50 focus-within:border-[#1B4332] transition-all duration-200">
+              <span className="pl-4 pr-2 text-gray-500 font-medium">+91</span>
+              <input
+                id="phone"
+                type="tel"
+                autoComplete="tel"
+                disabled={isPhoneVerified}
+                placeholder="9876543210"
+                className="w-full py-3.5 pr-4 bg-transparent text-gray-800 placeholder-gray-400 outline-none disabled:opacity-70"
+                {...register('phone', { required: 'Mobile number is required' })}
+              />
+            </div>
+            {!isPhoneVerified && (
+              <button
+                type="button"
+                onClick={handleSendPhoneOtp}
+                disabled={isSendingPhone || phoneTimer > 0}
+                className="px-4 py-3.5 bg-gray-900 hover:bg-gray-800 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 whitespace-nowrap"
+              >
+                {isSendingPhone ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : phoneTimer > 0 ? `Wait ${phoneTimer}s` : 'Send OTP'}
+              </button>
+            )}
+            {isPhoneVerified && (
+              <div className="px-4 py-3.5 bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold rounded-xl flex items-center justify-center whitespace-nowrap">
+                <CheckCircle2 className="w-5 h-5 mr-1" /> Verified
+              </div>
+            )}
+          </div>
+          {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>}
+
+          {phoneOtpSent && !isPhoneVerified && (
+            <div className="mt-3 flex gap-2">
+              <input
+                type="text"
+                placeholder="Enter Mobile OTP"
+                value={phoneOtpInput}
+                onChange={(e) => setPhoneOtpInput(e.target.value)}
+                className="flex-1 px-4 py-3.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-900 placeholder-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (phoneOtpInput === expectedPhoneOtp) setIsPhoneVerified(true);
+                  else alert('Invalid Mobile OTP');
+                }}
+                className="px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition-colors"
+              >
+                Verify
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Password */}
@@ -198,14 +356,28 @@ export default function RegisterPage() {
           {errors.confirmPassword && <p className="text-red-500 text-xs mt-1">{errors.confirmPassword.message}</p>}
         </div>
 
+        {/* T&C Checkbox */}
+        <div className="flex items-center mt-4">
+          <input
+            type="checkbox"
+            id="terms"
+            checked={agreedToTerms}
+            onChange={(e) => setAgreedToTerms(e.target.checked)}
+            className="w-4 h-4 text-[#1B4332] border-gray-300 rounded focus:ring-[#1B4332]"
+          />
+          <label htmlFor="terms" className="ml-2 block text-sm text-gray-700">
+            I agree to the <Link href="/terms" className="text-[#E76F51] hover:underline">Terms & Conditions</Link> & <Link href="/privacy" className="text-[#E76F51] hover:underline">Privacy Policy</Link>
+          </label>
+        </div>
+
         <button
           type="submit"
-          disabled={registerMutation.isPending}
-          className="w-full py-4 mt-4 bg-gradient-to-r from-[#E76F51] to-[#F4A261] hover:from-[#D65A3D] hover:to-[#E76F51] text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 text-lg flex items-center justify-center gap-2"
+          disabled={!isFormValid || registerMutation.isPending}
+          className="w-full py-4 mt-4 bg-gradient-to-r from-[#E76F51] to-[#F4A261] hover:from-[#D65A3D] hover:to-[#E76F51] text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:-translate-y-0 disabled:hover:shadow-lg"
         >
           {registerMutation.isPending ? (
             <><Loader2 className="w-5 h-5 animate-spin" /> Creating account…</>
-          ) : 'Create account'}
+          ) : 'Signup'}
         </button>
       </form>
     </div>
