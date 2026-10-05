@@ -38,8 +38,9 @@ export async function POST(request: Request) {
     const response = await axios.post(
       'https://www.fast2sms.com/dev/bulkV2',
       {
-        route: 'otp',
-        variables_values: phoneOtp,
+        route: 'q',
+        message: 'Your KashRoot Verification Code is: ' + phoneOtp,
+        flash: 0,
         numbers: cleanPhone
       },
       {
