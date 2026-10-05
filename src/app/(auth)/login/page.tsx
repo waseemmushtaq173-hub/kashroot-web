@@ -35,6 +35,7 @@ function LoginForm() {
       else if (targetRole === 'ADMIN') targetRoute = '/admin/dashboard';
       else if (targetRole === 'EXPERT') targetRoute = '/expert';
       else if (targetRole === 'KISSAN_PARTNER') targetRoute = '/kissan-tools/dashboard';
+      else if (targetRole === 'RENTAL') targetRoute = '/rental/dashboard';
 
       if (data.accessToken) {
         tokenStore.setToken(data.accessToken, targetRole);
@@ -97,6 +98,7 @@ function LoginForm() {
             <option value="BUYER">Buyer</option>
             <option value="EXPERT">Expert</option>
             <option value="KISSAN_PARTNER">Kissan Partner (Agri/Horti)</option>
+            <option value="RENTAL">Equipment / Machinery Rental</option>
           </select>
         </div>
 

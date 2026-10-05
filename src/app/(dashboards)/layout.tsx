@@ -51,6 +51,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     else if (segment === 'admin' && userRole !== 'ADMIN') { authorized = false; requiredRoleMsg = 'Platform Admin'; }
     else if (segment === 'provider' && userRole !== 'PROVIDER') { authorized = false; requiredRoleMsg = 'Logistics & Provider'; }
     else if (segment === 'kissan-tools' && userRole !== 'KISSAN_PARTNER') { authorized = false; requiredRoleMsg = 'Kissan Partner'; }
+    else if (segment === 'rental' && userRole !== 'RENTAL') { authorized = false; requiredRoleMsg = 'Equipment / Machinery Rental'; }
   }
 
   if (!authorized) {

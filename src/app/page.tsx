@@ -131,11 +131,10 @@ export default function Home() {
               <p className="mt-4 text-gray-600 text-lg max-w-2xl mx-auto">Everything from seed to sale, built specifically for the needs of Kashmiri agriculture.</p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[
                 { title: 'Secure Escrow', desc: 'Funds held safely until consignments are verified.', icon: ShieldCheck, href: '/escrow' },
                 { title: 'Live Mandi Sync', desc: 'Real-time rates from Sopore, Shopian, and Azadpur.', icon: Store, href: '/mandi-weather' },
-                { title: 'Equipment Rental', desc: 'Rent machinery and storage directly from local owners.', icon: Tractor, href: '/login?returnTo=/rental' },
                 { title: 'Price Comparison', desc: 'Compare market rates for farm essentials.', icon: PackageSearch, href: '/compare-prices' },
               ].map((feature, i) => (
                 <Link href={feature.href} key={i} className="block bg-white p-6 rounded-2xl shadow-sm border border-[#1B4332]/10 cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-xl hover:border-[#E76F51]/50 group">
