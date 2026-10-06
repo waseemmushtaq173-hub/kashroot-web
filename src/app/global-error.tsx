@@ -1,15 +1,9 @@
 'use client';
 
 import { useEffect } from 'react';
+import { ShieldCheck, RefreshCw } from 'lucide-react';
+import './globals.css';
 
-/**
- * GlobalError — last-resort boundary for errors thrown in the ROOT layout.
- *
- * When this renders, the root layout (and its globals.css) has NOT mounted,
- * so it must supply its own <html>/<body> and use inline styles only.
- * Catches render-time crashes that would otherwise surface on Vercel as a
- * raw FUNCTION_INVOCATION_FAILED, and logs the error for the runtime logs.
- */
 export default function GlobalError({
   error,
   reset,
@@ -23,22 +17,36 @@ export default function GlobalError({
 
   return (
     <html lang="en">
-      <body style={{ margin: 0, fontFamily: 'system-ui, -apple-system, sans-serif', background: '#faf9f7', color: '#1a1a1a' }}>
-        <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem', textAlign: 'center', gap: '1rem' }}>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Something went wrong</h1>
-          <p style={{ maxWidth: '28rem', color: '#666', margin: 0, lineHeight: 1.5 }}>
-            The page failed to load. This is usually temporary — please try again.
-          </p>
-          {error.digest && (
-            <p style={{ fontSize: '0.75rem', color: '#999', margin: 0 }}>Reference: {error.digest}</p>
-          )}
-          <button
-            onClick={reset}
-            style={{ marginTop: '0.5rem', padding: '0.625rem 1.25rem', borderRadius: '0.5rem', border: 'none', background: '#f5a623', color: '#fff', fontWeight: 600, cursor: 'pointer' }}
-          >
-            Try again
-          </button>
-        </main>
+      <body className="antialiased font-sans">
+        <div className="flex min-h-screen flex-col items-center justify-center bg-[#F9F7F1] p-4 text-center">
+          <div className="bg-white rounded-3xl shadow-xl border border-gray-100 max-w-lg w-full p-8 md:p-12">
+            <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+              <ShieldCheck className="w-10 h-10 text-[#E76F51]" />
+            </div>
+            
+            <h1 className="text-3xl font-extrabold text-[#1B4332] mb-3 font-heading tracking-tight">
+              Something went wrong on our end
+            </h1>
+            
+            <p className="text-gray-600 mb-8 max-w-sm mx-auto">
+              We encountered an unexpected server error while trying to process your request. Our engineering team has been notified.
+            </p>
+            
+            <button
+              onClick={() => reset()}
+              className="bg-[#E76F51] hover:bg-[#D4A373] text-white font-bold py-4 px-8 rounded-xl transition-colors shadow-lg flex items-center justify-center gap-2 w-full sm:w-auto mx-auto"
+            >
+              <RefreshCw className="w-5 h-5" />
+              Try Again
+            </button>
+
+            {process.env.NODE_ENV === 'development' && error?.message && (
+              <div className="mt-8 text-left bg-gray-50 p-4 rounded-xl border border-gray-200 overflow-auto max-h-40">
+                <p className="text-sm font-mono text-red-600">{error.message}</p>
+              </div>
+            )}
+          </div>
+        </div>
       </body>
     </html>
   );
