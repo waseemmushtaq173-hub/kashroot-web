@@ -114,6 +114,10 @@ const MOCK_JK_DISTRICTS: MandiLocationOption[] = [
   { id: 'jk-jammu', label: 'Jammu', state: 'Jammu & Kashmir', coverage: 'live', markets: ['Narwal Mandi'] },
 ];
 
+
+const apiCache = new Map<string, { timestamp: number, data: any }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 export const mandiApi = {
   /** Hubs and commodities the feed supports. */
   locations: async () => {
@@ -137,11 +141,20 @@ export const mandiApi = {
 
   /** The price board for a named hub or a coordinate pair. */
   feed: async (params: MandiFeedQuery) => {
+    const cacheKey = JSON.stringify(params);
+    const cached = apiCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      return cached.data;
+    }
+    
+    let result: any;
     try {
       // Fallback if the requested location is one of our new local mock ones
       const isMockHub = 'location' in params && params.location?.startsWith('jk-');
       if (!isMockHub) {
-        return await api.get<LiveMandiFeed>('/mandi', { params });
+        result = await api.get<LiveMandiFeed>('/mandi', { params });
+        apiCache.set(cacheKey, { timestamp: Date.now(), data: result });
+        return result;
       }
       throw new Error("Mocking new hub");
     } catch (e) {
@@ -213,7 +226,7 @@ export const mandiApi = {
       const unit = commodity === 'Saffron' ? 'kg' : 'quintal';
       const today = new Date().toISOString().split('T')[0];
 
-      return {
+      result = {
         location: {
           id: loc.id,
           label: loc.label,
@@ -263,5 +276,7 @@ export const mandiApi = {
         note: null
       } as LiveMandiFeed;
     }
+    apiCache.set(cacheKey, { timestamp: Date.now(), data: result });
+    return result;
   },
 };
