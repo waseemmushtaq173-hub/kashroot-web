@@ -207,7 +207,7 @@ export default function ComparePricesPage() {
               <button 
                 onClick={() => {
                   localStorage.setItem('user_role', 'BUYER');
-                  router.push('/login?role=BUYER');
+                  router.push('/marketplace/auth?role=BUYER');
                 }}
                 className="w-full bg-[#1B4332] hover:bg-[#153424] text-white font-bold py-3 px-4 rounded-xl transition-colors"
               >
@@ -216,7 +216,7 @@ export default function ComparePricesPage() {
               <button 
                 onClick={() => {
                   localStorage.setItem('user_role', 'SELLER');
-                  router.push('/login?role=SELLER');
+                  router.push('/marketplace/auth?role=SELLER');
                 }}
                 className="w-full border-2 border-[#1B4332] text-[#1B4332] hover:bg-gray-50 font-bold py-3 px-4 rounded-xl transition-colors"
               >
