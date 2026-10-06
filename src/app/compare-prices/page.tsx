@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BadgeCheck, MapPin, TrendingDown, Clock, Plus, ShieldCheck, Truck, CreditCard, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { BadgeCheck, MapPin, TrendingDown, Clock, Plus, ShieldCheck, Truck, CreditCard, CheckCircle2 } from 'lucide-react';
 import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
 import { useRouter } from 'next/navigation';
 
@@ -50,6 +50,7 @@ export default function ComparePricesPage() {
   useEffect(() => {
     // Load auth state
     const token = localStorage.getItem('auth_token');
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsAuth(!!token);
     setUserRole(localStorage.getItem('user_role') || '');
     setUserName(localStorage.getItem('auth_email') || 'User');
