@@ -221,6 +221,7 @@ export default function MandiPage() {
     status: 'idle',
   });
   const [selectedState, setSelectedState] = useState<string>('Jammu & Kashmir');
+  const [detectedDistrict, setDetectedDistrict] = useState<string>('');
 
   const catalogueQuery = useQuery({
     queryKey: ['mandi', 'catalogue'],
@@ -273,6 +274,7 @@ export default function MandiPage() {
 
   function useMyLocation() {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      console.warn('Geolocation not supported by browser.');
       setGeo({
         status: 'error',
         message: 'This browser cannot share a location. Choose a market instead.',
@@ -283,15 +285,31 @@ export default function MandiPage() {
     setGeo({ status: 'locating' });
 
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+          const data = await res.json();
+          const state = data.address?.state;
+          const district = data.address?.state_district || data.address?.county || data.address?.city;
+          
+          if (state) setSelectedState(state);
+          if (district) setDetectedDistrict(district);
+        } catch (err) {
+          console.warn('Reverse geocoding failed:', err);
+        }
+
         setGeo({ status: 'idle' });
         setSelection({
           kind: 'coords',
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
+          lat,
+          lng,
         });
       },
       (error) => {
+        console.warn('Geolocation error:', error);
         setGeo({
           status: 'error',
           message:
@@ -321,7 +339,10 @@ export default function MandiPage() {
   }
 
   const locations = catalogueQuery.data?.locations ?? [];
-  const uniqueStates = Array.from(new Set(locations.map(l => l.state)));
+  let uniqueStates = Array.from(new Set(locations.map(l => l.state)));
+  if (selectedState && !uniqueStates.includes(selectedState)) {
+    uniqueStates = [selectedState, ...uniqueStates];
+  }
   const stateLocations = locations.filter(l => l.state === selectedState);
 
   const selectValue =
@@ -415,7 +436,9 @@ export default function MandiPage() {
               {selection?.kind === 'coords' ? (
                 <option value={NEAR_ME}>
                   Near me
-                  {feed ? ` — ${feed.location.label}` : ' — locating…'}
+                  {detectedDistrict 
+                    ? ` — ${detectedDistrict}` 
+                    : (feed ? ` — ${feed.location.label}` : ' — locating…')}
                 </option>
               ) : null}
 
