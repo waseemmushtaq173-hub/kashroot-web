@@ -97,24 +97,19 @@ export interface RefreshResponse {
 // ── API calls ─────────────────────────────────────────────────────────────
 export const authApi = {
   register: async (dto: RegisterDto) => {
-    // With inline OTP verification, this endpoint is just for final account creation
-    const { data, error } = await supabase.auth.signUp({
-      email: dto.email,
-      password: dto.password,
-      options: {
-        data: {
-          full_name: dto.fullName,
-          phone: dto.phone,
-          role: dto.role,
-        }
-      }
+    // Call the dedicated backend API route for registration
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dto),
     });
-
-    if (error) {
-      throw new Error(error.message);
+    
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to register account');
     }
     
-    return { message: 'Registration successful.' };
+    return await res.json();
   },
   login: async (dto: LoginDto) => {
     const { data, error } = await supabase.auth.signInWithPassword({
