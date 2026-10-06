@@ -39,6 +39,7 @@ export default function ComparePricesPage() {
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<DealerListing | null>(null);
+  const [lowestFilter, setLowestFilter] = useState<Record<string, boolean>>({});
 
   // Escrow & Order State
   const [orderStatus, setOrderStatus] = useState<'IDLE' | 'DELIVERY_FORM' | 'ESCROW_LOCKED' | 'COMPLETED'>('IDLE');
@@ -145,6 +146,17 @@ export default function ComparePricesPage() {
         <div className="space-y-8">
           {Object.entries(groupedListings).map(([key, groupDealers], i) => {
             const [category, item] = key.split(':::');
+            const isLowestFiltered = lowestFilter[key];
+            
+            let displayDealers = [...groupDealers];
+            if (isLowestFiltered) {
+              displayDealers.sort((a, b) => {
+                const priceA = parseFloat(a.price.replace(/[^\d.]/g, '')) || 0;
+                const priceB = parseFloat(b.price.replace(/[^\d.]/g, '')) || 0;
+                return priceA - priceB;
+              });
+            }
+
             return (
               <section key={i} className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                 <div className="bg-gray-50 border-b border-gray-200 px-6 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -152,13 +164,20 @@ export default function ComparePricesPage() {
                     <span className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-1 block">{category}</span>
                     <h2 className="text-xl font-bold text-gray-900">{item}</h2>
                   </div>
-                  <button className="flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                    <TrendingDown className="w-4 h-4" /> Filter Lowest
+                  <button 
+                    onClick={() => setLowestFilter(prev => ({ ...prev, [key]: !prev[key] }))}
+                    className={`flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      isLowestFiltered 
+                        ? 'bg-blue-50 border-blue-300 text-blue-700' 
+                        : 'bg-white border-gray-300 hover:bg-gray-50 text-gray-700'
+                    }`}
+                  >
+                    <TrendingDown className="w-4 h-4" /> {isLowestFiltered ? 'Unfilter Lowest' : 'Filter Lowest'}
                   </button>
                 </div>
                 
                 <div className="divide-y divide-gray-100">
-                  {groupDealers.map((dealer) => (
+                  {displayDealers.map((dealer) => (
                     <div key={dealer.id} className="p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 hover:bg-blue-50/50 transition-colors">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
