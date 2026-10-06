@@ -19,7 +19,8 @@ export function WeatherWidget() {
 
   // Define hubs with approximate lat/lng
   const hubs = [
-    { id: 'srinagar', name: 'Srinagar / Shopian', lat: 34.0837, lng: 74.7973 },
+    { id: 'srinagar', name: 'Srinagar', lat: 34.0837, lng: 74.7973 },
+    { id: 'shopian', name: 'Shopian', lat: 33.7223, lng: 74.8341 },
     { id: 'azadpur', name: 'Delhi (Azadpur)', lat: 28.7373, lng: 77.1726 },
   ];
 
@@ -67,7 +68,7 @@ export function WeatherWidget() {
         <CloudSun className="w-5 h-5 text-blue-600" />
         <h2 className="font-heading text-h3 text-blue-900">Live Logistics Weather</h2>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-kr-border-default">
+      <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-kr-border-default">
         {hubs.map(hub => {
           const w = data[hub.id];
           if (!w) return null;
@@ -81,15 +82,15 @@ export function WeatherWidget() {
                 {w.temp}°C
               </div>
               <div className="grid grid-cols-3 gap-2 text-caption text-kr-text-secondary bg-kr-bg-sunken p-2 rounded">
-                <div className="flex flex-col items-center" title="Min/Max">
+                <div className="flex flex-col items-center text-center" title="Min/Max">
                   <Thermometer className="w-4 h-4 mb-1" />
                   <span>{w.min}° - {w.max}°</span>
                 </div>
-                <div className="flex flex-col items-center border-l border-r border-kr-border-default" title="Precipitation">
+                <div className="flex flex-col items-center text-center border-l border-r border-kr-border-default" title="Precipitation">
                   <Droplets className="w-4 h-4 mb-1" />
                   <span>{w.precip}mm</span>
                 </div>
-                <div className="flex flex-col items-center" title="Wind Speed">
+                <div className="flex flex-col items-center text-center" title="Wind Speed">
                   <Wind className="w-4 h-4 mb-1" />
                   <span>{w.wind}km/h</span>
                 </div>

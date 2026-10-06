@@ -93,11 +93,15 @@ export function SiteHeader({ hideSignIn = false }: { hideSignIn?: boolean }) {
           </Link>
           {isAuth ? (
             <div className="flex items-center gap-2">
-              <span className="kr-badge kr-badge-published flex items-center gap-1.5" title={displayRole || 'User'}>
+              <Link 
+                href={`/${displayRole.toLowerCase()}/dashboard`}
+                className="kr-badge kr-badge-published flex items-center gap-1.5 hover:bg-emerald-50 transition-colors" 
+                title={displayRole || 'User'}
+              >
                 <User className="w-3.5 h-3.5" />
                 <span className="font-semibold">{userName}</span>
                 <span className="text-xs opacity-75 hidden sm:inline ml-1">({displayRole})</span>
-              </span>
+              </Link>
               <button onClick={handleSignOut} className="kr-btn-ghost kr-btn-sm text-kr-text-danger">
                 <LogOut className="h-4 w-4" aria-hidden="true" /> <span className="hidden sm:inline">Sign out</span>
               </button>
