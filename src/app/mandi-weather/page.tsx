@@ -31,7 +31,8 @@ const NEAR_ME = '__near_me__';
 /** How the page is asking for prices right now. */
 type Selection =
   | { kind: 'hub'; id: string }
-  | { kind: 'coords'; lat: number; lng: number };
+  | { kind: 'coords'; lat: number; lng: number }
+  | { kind: 'empty' };
 
 // ── Formatting ──────────────────────────────────────────────────────────────
 // Arrival dates are plain calendar dates with no time component, so everything
@@ -250,7 +251,7 @@ export default function MandiPage() {
   }, [commodity]);
 
   const query = useMemo<MandiFeedQuery | null>(() => {
-    if (!selection) return null;
+    if (!selection || selection.kind === 'empty') return null;
     return selection.kind === 'hub'
       ? { location: selection.id, commodity }
       : { lat: selection.lat, lng: selection.lng, commodity };
@@ -297,6 +298,15 @@ export default function MandiPage() {
           
           if (state) setSelectedState(state);
           if (district) setDetectedDistrict(district);
+
+          const locations = catalogueQuery.data?.locations ?? [];
+          const hasState = locations.some((l) => l.state === state);
+
+          setGeo({ status: 'idle' });
+          if (state && !hasState) {
+            setSelection({ kind: 'empty' });
+            return;
+          }
         } catch (err) {
           console.warn('Reverse geocoding failed:', err);
         }
@@ -328,6 +338,8 @@ export default function MandiPage() {
     const firstForState = catalogueQuery.data?.locations.find((l) => l.state === value);
     if (firstForState) {
       setSelection({ kind: 'hub', id: firstForState.id });
+    } else {
+      setSelection({ kind: 'empty' });
     }
   }
 
@@ -525,7 +537,15 @@ export default function MandiPage() {
 
       {/* ── Board ────────────────────────────────────────────────────────── */}
       <div className="mt-8">
-        {feedQuery.isLoading || catalogueQuery.isLoading ? (
+        {selection?.kind === 'empty' ? (
+          <div className="kr-card bg-gray-50 border border-gray-100 flex flex-col items-center justify-center p-12 text-center" role="alert">
+            <FlaskConical className="h-12 w-12 text-gray-400 mb-4" aria-hidden="true" />
+            <h2 className="font-heading text-h4 text-gray-800">No mandi data available for this region</h2>
+            <p className="mt-2 text-body-sm text-gray-500">
+              We do not have market hubs registered in {selectedState} yet.
+            </p>
+          </div>
+        ) : feedQuery.isLoading || catalogueQuery.isLoading ? (
           <BoardSkeleton />
         ) : feedQuery.isError ? (
           <div className="kr-card kr-error-state" role="alert">
