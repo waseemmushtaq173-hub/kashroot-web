@@ -309,6 +309,16 @@ export default function MandiPage() {
           const hasState = locations.some((l) => l.state === state);
 
           setGeo({ status: 'idle' });
+          
+          if (state && hasState) {
+            // Try to find an exact district match, else pick the first hub in that state
+            const hubForState = locations.find(l => l.state === state && (district && l.label.includes(district))) || locations.find(l => l.state === state);
+            if (hubForState) {
+              setSelection({ kind: 'hub', id: hubForState.id });
+              return;
+            }
+          }
+
           if (state && !hasState) {
             setSelection({ kind: 'empty' });
             return;

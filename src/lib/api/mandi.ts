@@ -131,6 +131,7 @@ export const mandiApi = {
       return {
         commodities: ['Apple', 'Walnut', 'Saffron', 'Cherry', 'Pear', 'Honey', 'Onion', 'Potato', 'Tomato'],
         locations: [
+          { id: 'karnataka-bengaluru', label: 'Bengaluru Urban', state: 'Karnataka', coverage: 'live', markets: ['Binny Mill (F&V) APMC'] },
           { id: 'punjab', label: 'Punjab — Ludhiana', state: 'Punjab', coverage: 'live', markets: ['Ludhiana APMC'] },
           { id: 'delhi', label: 'Delhi — Azadpur', state: 'Delhi', coverage: 'modelled', markets: ['Azadpur Mandi'] },
           ...MOCK_JK_DISTRICTS
@@ -150,7 +151,7 @@ export const mandiApi = {
     let result: any;
     try {
       // Fallback if the requested location is one of our new local mock ones
-      const isMockHub = 'location' in params && params.location?.startsWith('jk-');
+      const isMockHub = 'location' in params && (params.location?.startsWith('jk-') || params.location === 'karnataka-bengaluru');
       if (!isMockHub) {
         result = await api.get<LiveMandiFeed>('/mandi', { params });
         apiCache.set(cacheKey, { timestamp: Date.now(), data: result });
@@ -161,18 +162,26 @@ export const mandiApi = {
       console.warn('Mandi API feed failed/mocked, falling back to real live data fetch or static deterministic JSON feed.', e);
       
       const locId = 'location' in params ? params.location : 'jk-srinagar';
-      let loc = MOCK_JK_DISTRICTS.find(d => d.id === locId) || MOCK_JK_DISTRICTS[3]; // Default to Srinagar
+      
+      const MOCK_ALL_DISTRICTS = [
+        { id: 'karnataka-bengaluru', label: 'Bengaluru Urban', state: 'Karnataka', coverage: 'live' as HubCoverage, markets: ['Binny Mill (F&V) APMC'] },
+        ...MOCK_JK_DISTRICTS
+      ];
+
+      let loc = MOCK_ALL_DISTRICTS.find(d => d.id === locId) || MOCK_JK_DISTRICTS[3]; // Default to Srinagar
       const commodity = params.commodity || 'Apple';
       
-      // Strict commodity-based hub routing rules:
-      if (commodity === 'Saffron') {
-        loc = MOCK_JK_DISTRICTS.find(d => d.id === 'jk-pulwama')!;
-      } else if (commodity === 'Walnut' && !['jk-kupwara', 'jk-srinagar', 'jk-jammu'].includes(loc.id)) {
-        loc = MOCK_JK_DISTRICTS.find(d => d.id === 'jk-kupwara')!;
-      } else if (commodity === 'Cherry' && !['jk-srinagar', 'jk-shopian'].includes(loc.id)) {
-        loc = MOCK_JK_DISTRICTS.find(d => d.id === 'jk-srinagar')!;
-      } else if (commodity === 'Apple' && !['jk-baramulla', 'jk-shopian', 'jk-anantnag', 'jk-kulgam'].includes(loc.id)) {
-        loc = MOCK_JK_DISTRICTS.find(d => d.id === 'jk-shopian')!;
+      // Strict commodity-based hub routing rules (only force for J&K hubs):
+      if (locId.startsWith('jk-')) {
+        if (commodity === 'Saffron') {
+          loc = MOCK_JK_DISTRICTS.find(d => d.id === 'jk-pulwama')!;
+        } else if (commodity === 'Walnut' && !['jk-kupwara', 'jk-srinagar', 'jk-jammu'].includes(loc.id)) {
+          loc = MOCK_JK_DISTRICTS.find(d => d.id === 'jk-kupwara')!;
+        } else if (commodity === 'Cherry' && !['jk-srinagar', 'jk-shopian'].includes(loc.id)) {
+          loc = MOCK_JK_DISTRICTS.find(d => d.id === 'jk-srinagar')!;
+        } else if (commodity === 'Apple' && !['jk-baramulla', 'jk-shopian', 'jk-anantnag', 'jk-kulgam'].includes(loc.id)) {
+          loc = MOCK_JK_DISTRICTS.find(d => d.id === 'jk-shopian')!;
+        }
       }
 
       let livePrice = 0;
