@@ -9,6 +9,7 @@ import { tokenStore } from '@/lib/api/client';
 
 export function SiteHeader({ hideSignIn = false }: { hideSignIn?: boolean }) {
   const [isAuth, setIsAuth] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const [userName, setUserName] = useState<string>('User');
   const [sessionRole, setSessionRole] = useState<string>('USER');
   const pathname = usePathname();
@@ -50,6 +51,7 @@ export function SiteHeader({ hideSignIn = false }: { hideSignIn?: boolean }) {
         
         setUserName(cleanName || prefix);
       }
+      setIsMounted(true);
     }
   }, []);
 
@@ -91,7 +93,9 @@ export function SiteHeader({ hideSignIn = false }: { hideSignIn?: boolean }) {
           <Link href="/supplies" className="kr-btn-ghost kr-btn-sm sm:hidden">
             Supplies
           </Link>
-          {isAuth ? (
+          {!isMounted ? (
+            <div className="w-20 h-8"></div>
+          ) : isAuth ? (
             <div className="flex items-center gap-2">
               <Link 
                 href={`/${displayRole.toLowerCase()}/dashboard`}
