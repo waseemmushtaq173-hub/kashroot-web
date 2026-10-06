@@ -110,10 +110,6 @@ export function SiteHeader({ hideSignIn = false }: { hideSignIn?: boolean }) {
                 <LogOut className="h-4 w-4" aria-hidden="true" /> <span className="hidden sm:inline">Sign out</span>
               </button>
             </div>
-          ) : !hideSignIn && pathname !== '/' ? (
-            <Link href="/login" className="kr-btn-primary kr-btn-sm header-signin-btn">
-              <LogIn className="h-4 w-4" aria-hidden="true" /> Sign in
-            </Link>
           ) : null}
         </div>
       </nav>
@@ -153,12 +149,6 @@ export function SiteFooter() {
             className="text-kr-text-secondary transition-colors hover:text-kr-text-brand"
           >
             For farmers
-          </Link>
-          <Link
-            href="/login"
-            className="text-kr-text-secondary transition-colors hover:text-kr-text-brand"
-          >
-            Sign in
           </Link>
         </div>
       </div>
