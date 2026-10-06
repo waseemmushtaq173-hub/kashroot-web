@@ -13,8 +13,9 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const verified = searchParams.get('verified') === '1';
+  const initialRole = searchParams.get('role') || 'FARMER';
   
-  const [selectedRole, setSelectedRole] = useState('FARMER');
+  const [selectedRole, setSelectedRole] = useState(initialRole);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);

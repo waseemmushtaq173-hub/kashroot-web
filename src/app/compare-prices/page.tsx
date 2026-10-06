@@ -111,7 +111,7 @@ export default function ComparePricesPage() {
     return acc;
   }, {} as Record<string, DealerListing[]>);
 
-  const canAddProduct = isAuth && (userRole === 'SELLER' || userRole === 'DEALER' || userRole === 'ADMIN');
+  const canAddProduct = isAuth && (userRole === 'SELLER' || userRole === 'DEALER');
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F9F7F1]">
@@ -125,14 +125,21 @@ export default function ComparePricesPage() {
               Compare real-time rates for farm essentials across authorized dealers. Direct home delivery guaranteed with Escrow protection.
             </p>
           </div>
-          {canAddProduct && (
+          {canAddProduct ? (
             <button 
               onClick={() => setShowAddModal(true)}
               className="bg-[#E76F51] hover:bg-[#D4A373] text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-colors whitespace-nowrap"
             >
-              <Plus className="w-5 h-5" /> Add Product Listing
+              <Plus className="w-5 h-5" /> Add New Product
             </button>
-          )}
+          ) : !isAuth ? (
+            <button 
+              onClick={() => setShowAuthPrompt(true)}
+              className="bg-white hover:bg-gray-100 text-blue-900 px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-colors whitespace-nowrap"
+            >
+              List Your Products
+            </button>
+          ) : null}
         </div>
 
         <div className="space-y-8">
@@ -189,23 +196,35 @@ export default function ComparePricesPage() {
       </main>
       <SiteFooter />
 
-      {/* Auth Prompt Modal */}
+      {/* Role-Based Auth Panel Modal */}
       {showAuthPrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-2xl relative text-center">
             <ShieldCheck className="w-16 h-16 text-[#E76F51] mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Sign in to Order</h2>
-            <p className="text-gray-600 mb-6">Please sign in or create an account to place this order using KashRoot Escrow.</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Are you here to Buy or Sell?</h2>
+            <p className="text-gray-600 mb-6">Choose your account type to proceed with KashRoot Escrow.</p>
             <div className="flex flex-col gap-3">
               <button 
-                onClick={() => router.push('/login')}
+                onClick={() => {
+                  localStorage.setItem('user_role', 'BUYER');
+                  router.push('/login?role=BUYER');
+                }}
                 className="w-full bg-[#1B4332] hover:bg-[#153424] text-white font-bold py-3 px-4 rounded-xl transition-colors"
               >
-                Sign In / Register
+                I am a Buyer
+              </button>
+              <button 
+                onClick={() => {
+                  localStorage.setItem('user_role', 'SELLER');
+                  router.push('/login?role=SELLER');
+                }}
+                className="w-full border-2 border-[#1B4332] text-[#1B4332] hover:bg-gray-50 font-bold py-3 px-4 rounded-xl transition-colors"
+              >
+                I am a Dealer/Seller
               </button>
               <button 
                 onClick={() => setShowAuthPrompt(false)}
-                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3 px-4 rounded-xl transition-colors"
+                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3 px-4 rounded-xl transition-colors mt-2"
               >
                 Cancel
               </button>
