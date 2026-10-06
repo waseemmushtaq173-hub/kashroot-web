@@ -272,7 +272,7 @@ export default function ComparePricesPage() {
                       <ShieldCheck className="w-8 h-8 text-amber-600" />
                     </div>
                     <h3 className="text-2xl font-bold text-gray-900">ESCROW_LOCKED</h3>
-                    <p className="text-gray-500">Your funds are safe. Order ID: #KR-{Math.floor(Math.random()*90000)+10000}</p>
+                    <p className="text-gray-500">Your funds are safe. Order ID: #KR-{selectedProduct?.id}</p>
                   </div>
 
                   <div className="space-y-4 max-w-md mx-auto relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent">

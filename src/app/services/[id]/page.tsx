@@ -92,7 +92,7 @@ export default function ServiceDetailsPage({ params }: { params: { id: string } 
                   >
                     <Calendar className="w-4 h-4" /> Request Booking
                   </button>
-                  <p className="text-caption text-center text-kr-text-secondary">You won't be charged yet.</p>
+                  <p className="text-caption text-center text-kr-text-secondary">You won&apos;t be charged yet.</p>
                 </div>
               )}
             </div>

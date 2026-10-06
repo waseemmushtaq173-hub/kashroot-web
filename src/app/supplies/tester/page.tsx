@@ -21,7 +21,7 @@ export default function FertilizerTesterPage() {
     score: number;
     matchDetails: string;
     clearance: string;
-    dbData?: any;
+    dbData?: Record<string, unknown> | null;
   }>(null);
 
   const startCamera = async () => {

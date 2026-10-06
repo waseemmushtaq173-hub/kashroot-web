@@ -252,7 +252,7 @@ function StatusTimeline({ order }: { order: OrderDetail }) {
                 )}
 
                 {entry?.note && (
-                  <p className="text-caption text-kr-text-secondary mt-1 italic">"{entry.note}"</p>
+                  <p className="text-caption text-kr-text-secondary mt-1 italic">&quot;{entry.note}&quot;</p>
                 )}
               </div>
             </li>

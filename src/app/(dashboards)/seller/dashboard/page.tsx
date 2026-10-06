@@ -1,3 +1,4 @@
+'use client';
 import { Package, Truck, PenTool, LayoutDashboard } from 'lucide-react';
 import Link from 'next/link';
 

@@ -1,3 +1,4 @@
+'use client';
 import { FlaskConical, ClipboardCheck, AlertTriangle, PackageSearch } from 'lucide-react';
 import Link from 'next/link';
 

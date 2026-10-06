@@ -95,7 +95,7 @@ export default function Home() {
 
           <div className="kr-container relative w-full py-24 md:py-32 flex flex-col items-start text-left">
             <span className="inline-block py-1 px-3 rounded-full bg-[#D4A373]/20 border border-[#D4A373]/50 text-[#D4A373] text-sm font-semibold tracking-wider mb-6">
-              KASHMIR'S PREMIER AGRI-NETWORK
+              KASHMIR&apos;S PREMIER AGRI-NETWORK
             </span>
             <h1 className="max-w-4xl font-heading font-extrabold text-5xl md:text-7xl text-white leading-tight drop-shadow-lg">
               Where Harvest Meets <span className="text-[#E76F51]">Opportunity.</span>
