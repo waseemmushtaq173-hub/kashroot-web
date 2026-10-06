@@ -39,7 +39,7 @@ export default function VerifyOtpPage() {
   );
 }
 
-function OtpInput({ label, value, onChange, disabled }: { label: string, value: string, onChange: (val: string) => void, disabled?: boolean }) {
+function OtpInput({ label, value, onChange, disabled, action }: { label: string, value: string, onChange: (val: string) => void, disabled?: boolean, action?: React.ReactNode }) {
   const OTP_LEN = 6;
   const digits = value.padEnd(OTP_LEN, ' ').split('').map(d => d === ' ' ? '' : d);
   const inputRefs = useRef<Array<HTMLInputElement | null>>(Array(OTP_LEN).fill(null));
@@ -74,33 +74,36 @@ function OtpInput({ label, value, onChange, disabled }: { label: string, value: 
   }
 
   return (
-    <fieldset className="mb-6">
+    <fieldset className="mb-2 w-full">
       <legend className="text-body-sm font-medium text-kr-text-primary mb-2 text-center w-full">{label}</legend>
-      <div className="flex gap-2 sm:gap-3 justify-center" aria-label={`6-digit verification code for ${label}`}>
-        {digits.map((digit, i) => (
-          <input
-            key={i}
-            ref={(el) => { inputRefs.current[i] = el; }}
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]"
-            maxLength={1}
-            value={digit}
-            disabled={disabled}
-            aria-label={`Digit ${i + 1} of ${OTP_LEN}`}
-            className={`
-              w-11 h-14 sm:w-12 sm:h-16 text-center text-h3 font-heading
-              border rounded-md text-kr-text-primary
-              transition-colors
-              focus:outline-none focus:border-kr-border-focus focus:shadow-kr-brand
-              ${disabled ? 'bg-kr-bg-sunken text-kr-text-disabled border-kr-border-default' : 'bg-kr-bg-surface'}
-              ${!disabled && digit ? 'border-kr-border-brand' : 'border-kr-border-default'}
-            `}
-            onChange={(e) => handleDigitChange(i, e.target.value)}
-            onKeyDown={(e) => handleKeyDown(i, e)}
-            onPaste={i === 0 ? handlePaste : undefined}
-          />
-        ))}
+      <div className="flex flex-row items-center justify-center gap-4">
+        <div className="flex gap-2 sm:gap-3" aria-label={`6-digit verification code for ${label}`}>
+          {digits.map((digit, i) => (
+            <input
+              key={i}
+              ref={(el) => { inputRefs.current[i] = el; }}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]"
+              maxLength={1}
+              value={digit}
+              disabled={disabled}
+              aria-label={`Digit ${i + 1} of ${OTP_LEN}`}
+              className={`
+                w-10 h-12 sm:w-12 sm:h-14 text-center text-h3 font-heading
+                border rounded-md text-kr-text-primary
+                transition-colors
+                focus:outline-none focus:border-kr-border-focus focus:shadow-kr-brand
+                ${disabled ? 'bg-kr-bg-sunken text-kr-text-disabled border-kr-border-default' : 'bg-kr-bg-surface'}
+                ${!disabled && digit ? 'border-kr-border-brand' : 'border-kr-border-default'}
+              `}
+              onChange={(e) => handleDigitChange(i, e.target.value)}
+              onKeyDown={(e) => handleKeyDown(i, e)}
+              onPaste={i === 0 ? handlePaste : undefined}
+            />
+          ))}
+        </div>
+        {action}
       </div>
     </fieldset>
   );
@@ -205,23 +208,29 @@ function VerifyOtpForm() {
             <p className="text-body-sm">{phoneError}</p>
           </div>
         )}
-        <OtpInput label="Verify Mobile" value={phoneCode} onChange={setPhoneCode} disabled={phoneVerified} />
-        {phoneVerified ? (
-          <div className="flex items-center justify-center gap-2 text-kr-success-600 font-medium py-3">
-            <CheckCircle2 className="w-5 h-5" /> Mobile Verified
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => verifyPhoneMutation.mutate()}
-            disabled={phoneCode.length < OTP_LEN || verifyPhoneMutation.isPending}
-            className="kr-btn-primary w-full"
-          >
-            {verifyPhoneMutation.isPending ? (
-              <><Loader2 className="w-4 h-4 animate-spin inline mr-2" aria-hidden="true" /> Verifying…</>
-            ) : 'Verify Mobile'}
-          </button>
-        )}
+        <OtpInput 
+          label="Verify Mobile" 
+          value={phoneCode} 
+          onChange={setPhoneCode} 
+          disabled={phoneVerified} 
+          action={
+            phoneVerified ? (
+              <div className="flex flex-col sm:flex-row items-center gap-1 text-kr-success-600 font-medium whitespace-nowrap pl-2">
+                <CheckCircle2 className="w-5 h-5 shrink-0" />
+                <span className="text-sm hidden sm:inline">Verified</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => verifyPhoneMutation.mutate()}
+                disabled={phoneCode.length < 6 || verifyPhoneMutation.isPending}
+                className="kr-btn-ghost text-kr-primary-600 hover:text-kr-primary-700 hover:bg-kr-fill-brand-subtle font-bold whitespace-nowrap px-4 py-2 shrink-0 h-12 sm:h-14 disabled:opacity-50 transition-colors"
+              >
+                {verifyPhoneMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" /> : 'Verify'}
+              </button>
+            )
+          }
+        />
       </div>
 
       {/* EMAIL VERIFICATION */}
@@ -232,23 +241,29 @@ function VerifyOtpForm() {
             <p className="text-body-sm">{emailError}</p>
           </div>
         )}
-        <OtpInput label="Verify Email" value={emailCode} onChange={setEmailCode} disabled={emailVerified} />
-        {emailVerified ? (
-          <div className="flex items-center justify-center gap-2 text-kr-success-600 font-medium py-3">
-            <CheckCircle2 className="w-5 h-5" /> Email Verified
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => verifyEmailMutation.mutate()}
-            disabled={emailCode.length < OTP_LEN || verifyEmailMutation.isPending}
-            className="kr-btn-primary w-full"
-          >
-            {verifyEmailMutation.isPending ? (
-              <><Loader2 className="w-4 h-4 animate-spin inline mr-2" aria-hidden="true" /> Verifying…</>
-            ) : 'Verify Email'}
-          </button>
-        )}
+        <OtpInput 
+          label="Verify Email" 
+          value={emailCode} 
+          onChange={setEmailCode} 
+          disabled={emailVerified} 
+          action={
+            emailVerified ? (
+              <div className="flex flex-col sm:flex-row items-center gap-1 text-kr-success-600 font-medium whitespace-nowrap pl-2">
+                <CheckCircle2 className="w-5 h-5 shrink-0" />
+                <span className="text-sm hidden sm:inline">Verified</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => verifyEmailMutation.mutate()}
+                disabled={emailCode.length < 6 || verifyEmailMutation.isPending}
+                className="kr-btn-ghost text-kr-primary-600 hover:text-kr-primary-700 hover:bg-kr-fill-brand-subtle font-bold whitespace-nowrap px-4 py-2 shrink-0 h-12 sm:h-14 disabled:opacity-50 transition-colors"
+              >
+                {verifyEmailMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" /> : 'Verify'}
+              </button>
+            )
+          }
+        />
       </div>
 
       {/* Resend */}
