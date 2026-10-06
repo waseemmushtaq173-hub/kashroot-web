@@ -145,39 +145,51 @@ function MarketplaceAuthContent() {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">Mobile Number</label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                      <input 
-                        type="tel" 
-                        required 
-                        className="kr-input w-full pl-10" 
-                        placeholder="10-digit number"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                      />
+                    <div className="flex flex-row items-center gap-3">
+                      <div className="relative flex-1">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <input 
+                          type="tel" 
+                          required 
+                          className="kr-input w-full pl-10" 
+                          placeholder="10-digit number"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                        />
+                      </div>
+                      <button 
+                        type="submit" 
+                        disabled={loading || !phone} 
+                        className="kr-btn-ghost text-kr-primary-600 hover:text-kr-primary-700 hover:bg-kr-fill-brand-subtle font-bold whitespace-nowrap px-4 py-2 shrink-0 disabled:opacity-50 transition-colors"
+                      >
+                        {loading ? 'Sending...' : 'Send OTP'}
+                      </button>
                     </div>
                   </div>
                   
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">Email Address</label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                      <input 
-                        type="email" 
-                        required 
-                        className="kr-input w-full pl-10" 
-                        placeholder="your@email.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                      />
+                    <div className="flex flex-row items-center gap-3">
+                      <div className="relative flex-1">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <input 
+                          type="email" 
+                          required 
+                          className="kr-input w-full pl-10" 
+                          placeholder="your@email.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                        />
+                      </div>
+                      <button 
+                        type="submit" 
+                        disabled={loading || !email} 
+                        className="kr-btn-ghost text-kr-primary-600 hover:text-kr-primary-700 hover:bg-kr-fill-brand-subtle font-bold whitespace-nowrap px-4 py-2 shrink-0 disabled:opacity-50 transition-colors"
+                      >
+                        {loading ? 'Sending...' : 'Send OTP'}
+                      </button>
                     </div>
                   </div>
-                </div>
-
-                <div className="pt-4 border-t border-gray-100">
-                  <button type="submit" disabled={loading} className="w-full bg-[#E76F51] hover:bg-[#D4A373] text-white py-4 px-4 rounded-xl font-bold transition-colors shadow-lg disabled:opacity-50">
-                    {loading ? 'Sending Codes...' : 'Send OTP Codes'}
-                  </button>
                 </div>
               </form>
             )}

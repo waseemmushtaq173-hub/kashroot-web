@@ -228,7 +228,7 @@ export default function RegisterPage() {
                 type="button"
                 onClick={handleSendEmailOtp}
                 disabled={isSendingEmail || emailTimer > 0}
-                className="px-4 py-3.5 bg-gray-900 hover:bg-gray-800 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 whitespace-nowrap"
+                className="kr-btn-ghost text-kr-primary-600 hover:text-kr-primary-700 hover:bg-kr-fill-brand-subtle font-bold whitespace-nowrap px-4 py-3.5 rounded-xl shrink-0 disabled:opacity-50 transition-colors"
               >
                 {isSendingEmail ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : emailTimer > 0 ? `Wait ${emailTimer}s` : 'Send OTP'}
               </button>
@@ -290,7 +290,7 @@ export default function RegisterPage() {
                 type="button"
                 onClick={handleSendPhoneOtp}
                 disabled={isSendingPhone || phoneTimer > 0}
-                className="px-4 py-3.5 bg-gray-900 hover:bg-gray-800 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 whitespace-nowrap"
+                className="kr-btn-ghost text-kr-primary-600 hover:text-kr-primary-700 hover:bg-kr-fill-brand-subtle font-bold whitespace-nowrap px-4 py-3.5 rounded-xl shrink-0 disabled:opacity-50 transition-colors"
               >
                 {isSendingPhone ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : phoneTimer > 0 ? `Wait ${phoneTimer}s` : 'Send OTP'}
               </button>
