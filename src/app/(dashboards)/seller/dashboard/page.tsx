@@ -37,12 +37,41 @@ export default function SellerDashboardPage() {
         </div>
       </div>
       
-      <div className="kr-empty-state bg-kr-bg-surface border border-kr-border-default">
+      <div className="kr-empty-state bg-kr-bg-surface border border-kr-border-default mb-8">
         <PenTool className="w-10 h-10 text-kr-text-disabled mx-auto" aria-hidden="true" />
         <p className="text-body text-kr-text-secondary">No hardware listings yet.</p>
         <button className="kr-btn-primary kr-btn-sm">
           List Machinery
         </button>
+      </div>
+
+      <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-200">
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Payout Settings (Escrow)</h2>
+        <p className="text-sm text-gray-600 mb-6">Securely configure your bank details to receive automatic escrow payouts when buyers confirm delivery.</p>
+        
+        <form className="max-w-2xl grid grid-cols-1 md:grid-cols-2 gap-6" onSubmit={(e) => { e.preventDefault(); alert("Payout settings updated securely."); }}>
+          <div className="col-span-1 md:col-span-2">
+            <label className="block text-sm font-bold text-gray-700 mb-1">Account Holder Name</label>
+            <input required type="text" className="kr-input w-full" placeholder="As per bank records" />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Bank Account Number</label>
+            <input required type="password" text-security="disc" className="kr-input w-full" placeholder="••••••••••••" />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">IFSC Code</label>
+            <input required type="text" className="kr-input w-full uppercase" placeholder="e.g. SBIN0001234" />
+          </div>
+          <div className="col-span-1 md:col-span-2">
+            <label className="block text-sm font-bold text-gray-700 mb-1">UPI ID (Optional)</label>
+            <input type="text" className="kr-input w-full" placeholder="yourname@bank" />
+          </div>
+          <div className="col-span-1 md:col-span-2 mt-2 border-t border-gray-100 pt-6">
+            <button type="submit" className="bg-[#1B4332] hover:bg-[#153424] text-white px-6 py-3 rounded-xl font-bold transition-colors">
+              Save Payout Configuration
+            </button>
+          </div>
+        </form>
       </div>
     </main>
   );
