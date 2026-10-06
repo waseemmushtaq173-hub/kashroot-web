@@ -264,6 +264,13 @@ export default function MandiPage() {
 
   const feed: LiveMandiFeed | undefined = feedQuery.data;
 
+  useEffect(() => {
+    if (feed?.location?.resolvedBy === 'coordinates' && feed.location.state && feed.location.state !== selectedState) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedState(feed.location.state);
+    }
+  }, [feed, selectedState]);
+
   function useMyLocation() {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
       setGeo({
