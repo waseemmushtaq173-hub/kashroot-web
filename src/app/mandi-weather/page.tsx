@@ -221,7 +221,7 @@ export default function MandiPage() {
   const [geo, setGeo] = useState<{ status: 'idle' | 'locating' | 'error'; message?: string }>({
     status: 'idle',
   });
-  const [selectedState, setSelectedState] = useState<string>('Jammu & Kashmir');
+  const [selectedState, setSelectedState] = useState<string>('');
   const [detectedDistrict, setDetectedDistrict] = useState<string>('');
 
   const catalogueQuery = useQuery({
@@ -233,8 +233,14 @@ export default function MandiPage() {
   useEffect(() => {
     if (selection || !catalogueQuery.data) return;
     const { locations, commodities } = catalogueQuery.data;
-    const preferred = locations.find((l) => l.state === selectedState) ?? locations[0];
-    if (preferred) setSelection({ kind: 'hub', id: preferred.id });
+    const preferred = selectedState 
+      ? locations.find((l) => l.state === selectedState) 
+      : locations[0];
+    
+    if (preferred) {
+      if (!selectedState) setSelectedState(preferred.state);
+      setSelection({ kind: 'hub', id: preferred.id });
+    }
     if (!commodities.includes(commodity) && commodities[0]) {
       setCommodity(commodities[0]);
     }
@@ -540,9 +546,9 @@ export default function MandiPage() {
         {selection?.kind === 'empty' ? (
           <div className="kr-card bg-gray-50 border border-gray-100 flex flex-col items-center justify-center p-12 text-center" role="alert">
             <FlaskConical className="h-12 w-12 text-gray-400 mb-4" aria-hidden="true" />
-            <h2 className="font-heading text-h4 text-gray-800">No mandi data available for this region</h2>
+            <h2 className="font-heading text-h4 text-gray-800">Awaiting live data for {selectedState}</h2>
             <p className="mt-2 text-body-sm text-gray-500">
-              We do not have market hubs registered in {selectedState} yet.
+              We are actively integrating pan-India market hubs (such as Agmarknet). Live Mandi prices for this region will be available soon.
             </p>
           </div>
         ) : feedQuery.isLoading || catalogueQuery.isLoading ? (
