@@ -76,7 +76,7 @@ export default function EscrowPage() {
             <Lock className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Sign in to view your Escrow Wallet</h2>
             <p className="text-gray-600 mb-6">You must be logged in to manage your secure transactions and release payments.</p>
-            <Link href="/login" className="inline-block bg-[#1B4332] hover:bg-[#153424] text-white px-8 py-3 rounded-xl font-bold transition-colors">
+            <Link href="/escrow/auth" className="inline-block bg-[#1B4332] hover:bg-[#153424] text-white px-8 py-3 rounded-xl font-bold transition-colors">
               Sign In
             </Link>
           </div>
