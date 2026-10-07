@@ -158,7 +158,7 @@ export default function Home() {
         </section>
 
         {/* AN ECOSYSTEM FOR GROWTH - Kashmiri Heritage Section */}
-        <section className="relative py-28 px-6 bg-gradient-to-b from-[#071710] via-[#05110B] to-[#040C08] overflow-hidden">
+        <section className="relative py-28 px-6 bg-gradient-to-b from-[#063b27] via-[#094731] to-[#04281a]">
           
           {/* Subtle Golden Chinar watermark in the corner */}
           <div className="absolute top-8 right-8 opacity-10 pointer-events-none">
@@ -176,9 +176,6 @@ export default function Home() {
               <h2 className="text-4xl sm:text-5xl font-serif font-black text-[#FFFDF8] tracking-tight mb-4">
                 An Ecosystem for Growth
               </h2>
-              <p className="text-[#D2C5B0] text-base sm:text-lg leading-relaxed font-light">
-                Built specifically for growers, traders, and aggregators across Shopian, Sopore, Pulwama, and Srinagar.
-              </p>
               <div className="mt-6 flex items-center justify-center gap-2">
                 <span className="h-[1px] w-12 bg-gradient-to-r from-transparent to-[#D4AF37]" />
                 <Sparkles className="w-4 h-4 text-[#D4AF37]" />
@@ -190,61 +187,61 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               
               {/* Box 1: Kashmiri Emerald (Pashmina Forest) */}
-              <div className="relative group rounded-3xl p-8 bg-gradient-to-b from-[#0F3524] via-[#092318] to-[#05150E] border-2 border-[#2ECC71]/30 hover:border-[#D4AF37] shadow-[0_15px_40px_rgba(0,0,0,0.5)] transition-all duration-300 hover:-translate-y-2">
+              <Link href="/escrow" className="block relative group rounded-3xl p-8 bg-gradient-to-b from-[#0F3524] via-[#092318] to-[#05150E] border-2 border-[#2ECC71]/30 hover:border-[#D4AF37] shadow-[0_15px_40px_rgba(0,0,0,0.5)] transition-all duration-300 hover:-translate-y-2">
                 <div className="absolute top-4 right-4 opacity-20 group-hover:opacity-40 transition-opacity">
                   <ChinarLeaf className="w-12 h-12" color="#2ECC71" />
                 </div>
                 <div className="w-16 h-16 rounded-2xl bg-[#09291C] border border-[#2ECC71]/50 flex items-center justify-center mb-7 shadow-[0_0_25px_rgba(46,204,113,0.25)]">
                   <ShieldCheck className="w-8 h-8 text-[#4ADE80]" />
                 </div>
-                <h3 className="font-serif text-2xl font-bold text-[#FFFDF8] mb-3 group-hover:text-[#D4AF37] transition-colors">
+                <h3 className="font-serif text-2xl font-bold text-[#FFFDF8] mb-3 group-hover:text-[#D4AF37] transition-colors break-words">
                   Secure Escrow
                 </h3>
-                <p className="text-[#C5BAA8] text-sm leading-relaxed">
+                <p className="text-[#C5BAA8] text-sm leading-relaxed break-words">
                   Consignment payments are locked safely in escrow and disbursed directly to farmers upon digital gate-pass verification at terminal mandis.
                 </p>
-                <div className="mt-8 pt-4 border-t border-[#D4AF37]/15 flex items-center text-xs font-serif font-bold text-[#D4AF37] tracking-wider uppercase">
+                <div className="mt-8 pt-4 border-t border-[#D4AF37]/15 flex items-center text-xs font-serif font-bold text-[#D4AF37] tracking-wider uppercase break-words">
                   Verified Trust Protocol →
                 </div>
-              </div>
+              </Link>
 
               {/* Box 2: Zaffran Saffron / Burgundy */}
-              <div className="relative group rounded-3xl p-8 bg-gradient-to-b from-[#3B141C] via-[#240A10] to-[#120408] border-2 border-[#E76F51]/30 hover:border-[#D4AF37] shadow-[0_15px_40px_rgba(0,0,0,0.5)] transition-all duration-300 hover:-translate-y-2">
+              <Link href="/mandi-weather" className="block relative group rounded-3xl p-8 bg-gradient-to-b from-[#3B141C] via-[#240A10] to-[#120408] border-2 border-[#E76F51]/30 hover:border-[#D4AF37] shadow-[0_15px_40px_rgba(0,0,0,0.5)] transition-all duration-300 hover:-translate-y-2">
                 <div className="absolute top-4 right-4 opacity-20 group-hover:opacity-40 transition-opacity">
                   <ChinarLeaf className="w-12 h-12" color="#E76F51" />
                 </div>
                 <div className="w-16 h-16 rounded-2xl bg-[#290B12] border border-[#E76F51]/50 flex items-center justify-center mb-7 shadow-[0_0_25px_rgba(231,111,81,0.25)]">
                   <Store className="w-8 h-8 text-[#FB7185]" />
                 </div>
-                <h3 className="font-serif text-2xl font-bold text-[#FFFDF8] mb-3 group-hover:text-[#D4AF37] transition-colors">
+                <h3 className="font-serif text-2xl font-bold text-[#FFFDF8] mb-3 group-hover:text-[#D4AF37] transition-colors break-words">
                   Live Mandi Sync
                 </h3>
-                <p className="text-[#C5BAA8] text-sm leading-relaxed">
+                <p className="text-[#C5BAA8] text-sm leading-relaxed break-words">
                   Real-time price feeds directly from Fruit Mandi Sopore, Parimpora Srinagar, Shopian, and Azadpur Delhi with daily trend projections.
                 </p>
-                <div className="mt-8 pt-4 border-t border-[#D4AF37]/15 flex items-center text-xs font-serif font-bold text-[#D4AF37] tracking-wider uppercase">
+                <div className="mt-8 pt-4 border-t border-[#D4AF37]/15 flex items-center text-xs font-serif font-bold text-[#D4AF37] tracking-wider uppercase break-words">
                   Live Daily Rates →
                 </div>
-              </div>
+              </Link>
 
               {/* Box 3: Kashmiri Walnut Amber */}
-              <div className="relative group rounded-3xl p-8 bg-gradient-to-b from-[#3A2610] via-[#221609] to-[#120B04] border-2 border-[#D4AF37]/30 hover:border-[#D4AF37] shadow-[0_15px_40px_rgba(0,0,0,0.5)] transition-all duration-300 hover:-translate-y-2">
+              <Link href="/compare-prices" className="block relative group rounded-3xl p-8 bg-gradient-to-b from-[#3A2610] via-[#221609] to-[#120B04] border-2 border-[#D4AF37]/30 hover:border-[#D4AF37] shadow-[0_15px_40px_rgba(0,0,0,0.5)] transition-all duration-300 hover:-translate-y-2">
                 <div className="absolute top-4 right-4 opacity-20 group-hover:opacity-40 transition-opacity">
                   <ChinarLeaf className="w-12 h-12" color="#D4AF37" />
                 </div>
                 <div className="w-16 h-16 rounded-2xl bg-[#261807] border border-[#D4AF37]/50 flex items-center justify-center mb-7 shadow-[0_0_25px_rgba(212,175,55,0.25)]">
                   <PackageSearch className="w-8 h-8 text-[#FBBF24]" />
                 </div>
-                <h3 className="font-serif text-2xl font-bold text-[#FFFDF8] mb-3 group-hover:text-[#D4AF37] transition-colors">
+                <h3 className="font-serif text-2xl font-bold text-[#FFFDF8] mb-3 group-hover:text-[#D4AF37] transition-colors break-words">
                   Input Price Match
                 </h3>
-                <p className="text-[#C5BAA8] text-sm leading-relaxed">
+                <p className="text-[#C5BAA8] text-sm leading-relaxed break-words">
                   Compare rates on genuine fungicides, orchard spray oils, pruning shears, and universal cardboard apple packaging boxes.
                 </p>
-                <div className="mt-8 pt-4 border-t border-[#D4AF37]/15 flex items-center text-xs font-serif font-bold text-[#D4AF37] tracking-wider uppercase">
+                <div className="mt-8 pt-4 border-t border-[#D4AF37]/15 flex items-center text-xs font-serif font-bold text-[#D4AF37] tracking-wider uppercase break-words">
                   Orchard Essentials →
                 </div>
-              </div>
+              </Link>
 
             </div>
           </div>
