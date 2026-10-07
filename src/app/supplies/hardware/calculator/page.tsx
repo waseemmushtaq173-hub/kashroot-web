@@ -76,7 +76,7 @@ function CalculatorLogic() {
           </div>
         </div>
 
-        <div className={`p-4 border-l-4 ${isBuyingBetter ? 'bg-kr-fill-brand-subtle border-kr-border-brand' : 'bg-kr-warning-50 border-kr-warning-500'}`}>
+        <div className={`p-4 border-l-4 ${isBuyingBetter ? 'bg-kr-fill-brand-subtle border-kr-border-brand' : 'bg-kr-badge-pending-bg border-kr-warning-500'}`}>
           <p className="text-body-lg font-medium text-kr-text-primary flex items-center gap-2">
             {isBuyingBetter ? 'Recommendation: BUY' : 'Recommendation: RENT'}
           </p>

@@ -18,9 +18,9 @@ export default function GlobalError({
   return (
     <html lang="en">
       <body className="antialiased font-sans">
-        <div className="flex min-h-screen flex-col items-center justify-center bg-[#F9F7F1] p-4 text-center">
-          <div className="bg-white rounded-3xl shadow-xl border border-gray-100 max-w-lg w-full p-8 md:p-12">
-            <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+        <div className="flex min-h-screen flex-col items-center justify-center bg-transparent p-4 text-center">
+          <div className="kr-glass rounded-3xl shadow-xl border border-kr-border-default max-w-lg w-full p-8 md:p-12">
+            <div className="w-20 h-20 bg-kr-badge-rejected-bg rounded-full flex items-center justify-center mx-auto mb-6">
               <ShieldCheck className="w-10 h-10 text-[#E76F51]" />
             </div>
             
@@ -28,7 +28,7 @@ export default function GlobalError({
               Something went wrong on our end
             </h1>
             
-            <p className="text-gray-600 mb-8 max-w-sm mx-auto">
+            <p className="text-kr-text-secondary mb-8 max-w-sm mx-auto">
               We encountered an unexpected server error while trying to process your request. Our engineering team has been notified.
             </p>
             
@@ -41,8 +41,8 @@ export default function GlobalError({
             </button>
 
             {process.env.NODE_ENV === 'development' && error?.message && (
-              <div className="mt-8 text-left bg-gray-50 p-4 rounded-xl border border-gray-200 overflow-auto max-h-40">
-                <p className="text-sm font-mono text-red-600">{error.message}</p>
+              <div className="mt-8 text-left bg-kr-bg-sunken p-4 rounded-xl border border-kr-border-default overflow-auto max-h-40">
+                <p className="text-sm font-mono text-kr-badge-rejected-text">{error.message}</p>
               </div>
             )}
           </div>

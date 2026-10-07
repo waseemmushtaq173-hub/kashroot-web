@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Inter, JetBrains_Mono } from "next/font/google";
 import "@/styles/globals.css";
 import { Providers } from "./providers";
+import { AppWallpaper } from "@/components/layout/AppWallpaper";
 
 /*
  * The three faces the design system in src/styles/globals.css is written
@@ -50,7 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="en"
       className={`${fraunces.variable} ${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col"><Providers>{children}</Providers></body>
+      <body className="min-h-full flex flex-col theme-default kr-app-shell text-kr-text-primary"><AppWallpaper /><Providers>{children}</Providers></body>
     </html>
   );
 }

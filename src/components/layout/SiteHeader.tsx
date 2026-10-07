@@ -5,7 +5,7 @@ import { BrandMark } from '@/components/brand/Shikara';
 
 export function SiteHeader({ hideSignIn = false }: { hideSignIn?: boolean }) {
   return (
-    <header className="sticky top-0 z-40 border-b border-kr-border-default bg-kr-bg-surface">
+    <header className="sticky top-0 z-40 border-b border-white/25 bg-kr-bg-surface/75 backdrop-blur-xl supports-[backdrop-filter]:bg-kr-bg-surface/65 shadow-[0_8px_30px_-12px_rgba(7,11,26,0.35)]">
       <nav
         className="kr-container flex items-center justify-between gap-4 py-3"
         aria-label="Primary"
@@ -17,13 +17,13 @@ export function SiteHeader({ hideSignIn = false }: { hideSignIn?: boolean }) {
         <div className="hidden items-center gap-1 sm:flex">
           <Link
             href="/buyer/discover"
-            className="px-3 py-2 text-label text-kr-text-secondary transition-colors hover:bg-kr-bg-sunken hover:text-kr-text-primary"
+            className="rounded-lg px-3 py-2 text-label text-kr-text-secondary transition-colors hover:kr-glass/40 hover:text-kr-text-primary"
           >
             Produce
           </Link>
           <Link
             href="/supplies"
-            className="px-3 py-2 text-label text-kr-text-secondary transition-colors hover:bg-kr-bg-sunken hover:text-kr-text-primary"
+            className="rounded-lg px-3 py-2 text-label text-kr-text-secondary transition-colors hover:kr-glass/40 hover:text-kr-text-primary"
           >
             Supplies
           </Link>
@@ -45,7 +45,7 @@ export function SiteHeader({ hideSignIn = false }: { hideSignIn?: boolean }) {
  */
 export function SiteFooter() {
   return (
-    <footer className="border-t border-kr-border-default bg-kr-bg-surface">
+    <footer className="border-t border-white/25 bg-kr-bg-surface/70 backdrop-blur-xl supports-[backdrop-filter]:bg-kr-bg-surface/60">
       <div className="kr-container flex flex-col items-start justify-between gap-4 py-8 sm:flex-row sm:items-center">
         <div>
           <BrandMark size="sm" />

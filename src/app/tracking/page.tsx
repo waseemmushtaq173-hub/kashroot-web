@@ -44,11 +44,11 @@ export default function TrackingPortalPage() {
           </form>
 
           {tracking && (
-            <div className="bg-white rounded-xl shadow-md border border-kr-border-default overflow-hidden">
+            <div className="kr-glass rounded-xl shadow-md border border-kr-border-default overflow-hidden">
               {/* Top status bar */}
               <div className="bg-kr-text-brand text-white p-4 flex flex-wrap gap-4 items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="bg-white/20 px-3 py-1 rounded text-sm font-semibold tracking-wide">EN ROUTE</span>
+                  <span className="kr-glass/20 px-3 py-1 rounded text-sm font-semibold tracking-wide">EN ROUTE</span>
                   <span className="font-medium text-lg uppercase">{vehicleNo}</span>
                 </div>
                 <div className="flex gap-4 text-sm opacity-90">
@@ -98,7 +98,7 @@ export default function TrackingPortalPage() {
                 </div>
 
                 {/* Right panel: Map */}
-                <div className="col-span-2 relative bg-stone-100 min-h-[400px]">
+                <div className="col-span-2 relative bg-kr-bg-sunken min-h-[400px]">
                   {/* Fake map using an iframe to OpenStreetMap */}
                   <iframe 
                     width="100%" 
@@ -112,12 +112,12 @@ export default function TrackingPortalPage() {
                     title="Live Tracking Map"
                   />
                   
-                  <div className="absolute top-4 right-4 bg-white px-3 py-2 rounded-lg shadow-md flex items-center gap-2 text-sm font-medium text-emerald-700 border border-emerald-100">
+                  <div className="absolute top-4 right-4 kr-glass px-3 py-2 rounded-lg shadow-md flex items-center gap-2 text-sm font-medium text-emerald-700 border border-kr-border-default">
                     <Navigation className="w-4 h-4" /> Live GPS Active
                   </div>
                   
                   {/* Status overlay bar at bottom */}
-                  <div className="absolute bottom-4 left-4 right-4 bg-white/95 backdrop-blur px-4 py-3 rounded-lg shadow-lg border border-kr-border-default flex justify-between items-center">
+                  <div className="absolute bottom-4 left-4 right-4 kr-glass/95 backdrop-blur px-4 py-3 rounded-lg shadow-lg border border-kr-border-default flex justify-between items-center">
                     <div className="flex items-center gap-3">
                       <Clock className="w-5 h-5 text-kr-text-brand" />
                       <div>

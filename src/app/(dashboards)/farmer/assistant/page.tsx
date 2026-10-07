@@ -114,7 +114,7 @@ export default function AssistantPage() {
         <p className="text-emerald-800 mt-1">Ask questions regarding crop disease, localized weather forecasts, or market trends using your voice.</p>
       </div>
 
-      <div className="bg-white p-6 rounded-xl border border-emerald-200 shadow-sm space-y-4">
+      <div className="kr-glass p-6 rounded-xl border border-kr-border-default shadow-sm space-y-4">
         <form ref={formRef} onSubmit={handleSendMessage} className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <label htmlFor="lang-select" className="text-sm font-medium text-emerald-900">Language:</label>
@@ -136,7 +136,7 @@ export default function AssistantPage() {
               type="button"
               onClick={handleMicClick}
               className={`p-3 rounded-lg flex items-center justify-center transition-colors ${
-                isListening ? 'bg-green-500 text-white animate-pulse' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                isListening ? 'bg-green-500 text-white animate-pulse' : 'bg-kr-fill-success text-emerald-700 hover:bg-kr-fill-success'
               }`}
               title="Toggle Voice Input"
             >
@@ -160,13 +160,13 @@ export default function AssistantPage() {
         </form>
 
         {reply && (
-          <div className="mt-6 p-5 bg-emerald-50 rounded-xl border border-emerald-200">
+          <div className="mt-6 p-5 kr-glass rounded-xl border border-kr-border-default">
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-semibold text-emerald-900">Assistant Response:</h3>
               <button 
                 type="button"
                 onClick={handleSpeak}
-                className="text-emerald-600 hover:text-emerald-800 p-2 rounded-full hover:bg-emerald-100 transition-colors"
+                className="text-emerald-600 hover:text-emerald-800 p-2 rounded-full hover:bg-kr-fill-success transition-colors"
                 title="Read aloud"
               >
                 <Volume2 className="w-6 h-6" />

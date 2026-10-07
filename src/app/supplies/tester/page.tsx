@@ -155,7 +155,7 @@ export default function FertilizerTesterPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="kr-card bg-white p-6 shadow-sm">
+            <div className="kr-card kr-glass p-6 shadow-sm">
               <h2 className="font-heading text-h3 mb-6 flex items-center gap-2">
                 <Search className="w-5 h-5 text-kr-text-brand" /> Input Details
               </h2>
@@ -220,7 +220,7 @@ export default function FertilizerTesterPage() {
               )}
 
               {result && !loading && (
-                <div className={`p-6 rounded-xl border-2 ${result.isOriginal ? 'bg-kr-success-50 border-kr-success-500' : 'bg-kr-danger-50 border-kr-danger-500'}`}>
+                <div className={`p-6 rounded-xl border-2 ${result.isOriginal ? 'bg-kr-badge-published-bg border-kr-success-500' : 'bg-kr-badge-rejected-bg border-kr-danger-500'}`}>
                   <div className="flex items-center gap-3 mb-4">
                     {result.isOriginal ? (
                       <ShieldCheck className="w-8 h-8 text-kr-success-600" />
@@ -258,7 +258,7 @@ export default function FertilizerTesterPage() {
         <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-4">
           <button 
             onClick={stopCamera}
-            className="absolute top-6 right-6 text-white hover:text-gray-300 bg-black/50 p-2 rounded-full"
+            className="absolute top-6 right-6 text-white hover:text-kr-text-disabled bg-black/50 p-2 rounded-full"
           >
             <X className="w-8 h-8" />
           </button>

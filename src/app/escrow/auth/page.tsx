@@ -98,11 +98,11 @@ export default function EscrowAuthPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F9F7F1]">
+    <div className="flex min-h-screen flex-col bg-transparent">
       <SiteHeader hideSignIn={true} />
       
       <main className="flex-1 flex items-center justify-center py-12 px-4">
-        <div className="w-full max-w-xl bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
+        <div className="w-full max-w-xl kr-glass rounded-3xl shadow-xl overflow-hidden border border-kr-border-default">
           <div className="bg-gradient-to-r from-[#1B4332] to-[#153424] p-8 text-white text-center">
             <ShieldCheck className="w-16 h-16 text-[#E76F51] mx-auto mb-4" />
             <h1 className="text-3xl font-heading font-bold mb-2">Escrow Authentication</h1>
@@ -111,7 +111,7 @@ export default function EscrowAuthPage() {
 
           <div className="p-8 md:p-10">
             {error && (
-              <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm font-medium mb-6 text-center border border-red-100">
+              <div className="bg-kr-badge-rejected-bg text-kr-badge-rejected-text p-4 rounded-xl text-sm font-medium mb-6 text-center border border-red-100">
                 {error}
               </div>
             )}
@@ -120,18 +120,18 @@ export default function EscrowAuthPage() {
               <div className="space-y-4">
                 <Link 
                   href="/login"
-                  className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-gray-200 hover:border-[#1B4332] hover:bg-gray-50 transition-all group"
+                  className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-kr-border-default hover:border-[#1B4332] hover:bg-kr-bg-sunken transition-all group"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center group-hover:bg-[#1B4332]/10">
-                      <User className="w-6 h-6 text-gray-600 group-hover:text-[#1B4332]" />
+                    <div className="w-12 h-12 bg-kr-bg-sunken rounded-full flex items-center justify-center group-hover:bg-[#1B4332]/10">
+                      <User className="w-6 h-6 text-kr-text-secondary group-hover:text-[#1B4332]" />
                     </div>
                     <div className="text-left">
-                      <h3 className="font-bold text-gray-900 text-lg">Login to Existing Account</h3>
-                      <p className="text-sm text-gray-500">Sign in using your standard KashRoot credentials</p>
+                      <h3 className="font-bold text-kr-text-primary text-lg">Login to Existing Account</h3>
+                      <p className="text-sm text-kr-text-secondary">Sign in using your standard KashRoot credentials</p>
                     </div>
                   </div>
-                  <ChevronRight className="text-gray-400 group-hover:text-[#1B4332]" />
+                  <ChevronRight className="text-kr-text-disabled group-hover:text-[#1B4332]" />
                 </Link>
 
                 <button 
@@ -155,16 +155,16 @@ export default function EscrowAuthPage() {
             {step === 2 && (
               <form onSubmit={handleRequestOtps} className="space-y-6">
                 <div className="text-center mb-6">
-                  <h3 className="text-xl font-bold text-gray-900">Step 1: Contact Verification</h3>
-                  <p className="text-sm text-gray-500 mt-2">Enter your active mobile and email. We will send strict verification codes to both.</p>
+                  <h3 className="text-xl font-bold text-kr-text-primary">Step 1: Contact Verification</h3>
+                  <p className="text-sm text-kr-text-secondary mt-2">Enter your active mobile and email. We will send strict verification codes to both.</p>
                 </div>
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Mobile Number</label>
+                    <label className="block text-sm font-bold text-kr-text-primary mb-2">Mobile Number</label>
                     <div className="flex flex-row items-center gap-3">
                       <div className="relative flex-1">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-kr-text-disabled" />
                         <input 
                           type="tel" 
                           required 
@@ -185,10 +185,10 @@ export default function EscrowAuthPage() {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Email Address</label>
+                    <label className="block text-sm font-bold text-kr-text-primary mb-2">Email Address</label>
                     <div className="flex flex-row items-center gap-3">
                       <div className="relative flex-1">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-kr-text-disabled" />
                         <input 
                           type="email" 
                           required 
@@ -209,8 +209,8 @@ export default function EscrowAuthPage() {
                   </div>
                 </div>
 
-                <div className="flex gap-3 pt-4 border-t border-gray-100">
-                  <button type="button" onClick={() => setStep(1)} className="w-full py-3 px-4 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">
+                <div className="flex gap-3 pt-4 border-t border-kr-border-default">
+                  <button type="button" onClick={() => setStep(1)} className="w-full py-3 px-4 rounded-xl font-bold text-kr-text-secondary bg-kr-bg-sunken hover:bg-kr-bg-sunken transition-colors">
                     Back
                   </button>
                 </div>
@@ -220,19 +220,19 @@ export default function EscrowAuthPage() {
             {step === 3 && (
               <form onSubmit={handleVerifyOtps} className="space-y-6">
                 <div className="text-center mb-6">
-                  <h3 className="text-xl font-bold text-gray-900">Step 2: Dual Verification</h3>
-                  <p className="text-sm text-gray-500 mt-2">Enter the distinct codes sent to your phone and email.</p>
+                  <h3 className="text-xl font-bold text-kr-text-primary">Step 2: Dual Verification</h3>
+                  <p className="text-sm text-kr-text-secondary mt-2">Enter the distinct codes sent to your phone and email.</p>
                 </div>
 
                 <div className="space-y-5">
-                  <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                  <div className="kr-glass p-4 rounded-xl border border-kr-border-default">
                     <label className="block text-sm font-bold text-blue-900 mb-2">SMS OTP (sent to {phone})</label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-400" />
                       <input 
                         type="text" 
                         required 
-                        className="kr-input w-full pl-10 bg-white" 
+                        className="kr-input w-full pl-10 kr-glass" 
                         placeholder="••••"
                         value={smsOtp}
                         onChange={(e) => setSmsOtp(e.target.value)}
@@ -240,14 +240,14 @@ export default function EscrowAuthPage() {
                     </div>
                   </div>
                   
-                  <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
+                  <div className="kr-glass p-4 rounded-xl border border-purple-100">
                     <label className="block text-sm font-bold text-purple-900 mb-2">Email OTP (sent to {email})</label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-purple-400" />
                       <input 
                         type="text" 
                         required 
-                        className="kr-input w-full pl-10 bg-white" 
+                        className="kr-input w-full pl-10 kr-glass" 
                         placeholder="••••"
                         value={emailOtp}
                         onChange={(e) => setEmailOtp(e.target.value)}
@@ -256,7 +256,7 @@ export default function EscrowAuthPage() {
                   </div>
                 </div>
 
-                <div className="flex gap-3 pt-4 border-t border-gray-100">
+                <div className="flex gap-3 pt-4 border-t border-kr-border-default">
                   <button type="submit" disabled={loading} className="w-full bg-[#1B4332] hover:bg-[#153424] text-white py-3.5 px-4 rounded-xl font-bold transition-colors shadow-lg flex justify-center items-center gap-2">
                     {loading ? 'Verifying...' : <><CheckCircle2 className="w-5 h-5" /> Verify & Continue</>}
                   </button>
@@ -267,15 +267,15 @@ export default function EscrowAuthPage() {
             {step === 4 && (
               <form onSubmit={handleCompleteRegistration} className="space-y-5">
                 <div className="text-center mb-6">
-                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <div className="w-12 h-12 bg-kr-badge-published-bg rounded-full flex items-center justify-center mx-auto mb-3">
                     <CheckCircle2 className="w-6 h-6 text-green-600" />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900">Step 3: Account Details</h3>
-                  <p className="text-sm text-gray-500 mt-1">Identity verified. Finalize your Escrow profile.</p>
+                  <h3 className="text-xl font-bold text-kr-text-primary">Step 3: Account Details</h3>
+                  <p className="text-sm text-kr-text-secondary mt-1">Identity verified. Finalize your Escrow profile.</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Full Legal Name</label>
+                  <label className="block text-sm font-bold text-kr-text-primary mb-2">Full Legal Name</label>
                   <input 
                     type="text" 
                     required 
@@ -287,7 +287,7 @@ export default function EscrowAuthPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Account Role</label>
+                  <label className="block text-sm font-bold text-kr-text-primary mb-2">Account Role</label>
                   <select 
                     className="kr-input w-full" 
                     value={role}
@@ -299,21 +299,21 @@ export default function EscrowAuthPage() {
                   </select>
                 </div>
 
-                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                  <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2">
+                <div className="bg-kr-bg-sunken p-4 rounded-xl border border-kr-border-default">
+                  <label className="flex items-center gap-2 text-sm font-bold text-kr-text-primary mb-2">
                     <Banknote className="w-4 h-4 text-[#1B4332]" /> Escrow Payout Account
                   </label>
                   <input 
                     type="password" 
-                    className="kr-input w-full bg-white" 
+                    className="kr-input w-full kr-glass" 
                     placeholder="Bank Account Number"
                     value={bankAccount}
                     onChange={(e) => setBankAccount(e.target.value)}
                   />
-                  <p className="text-xs text-gray-500 mt-2">Required for sellers to receive funds. Buyers can add this later.</p>
+                  <p className="text-xs text-kr-text-secondary mt-2">Required for sellers to receive funds. Buyers can add this later.</p>
                 </div>
 
-                <div className="pt-4 border-t border-gray-100">
+                <div className="pt-4 border-t border-kr-border-default">
                   <button type="submit" disabled={loading} className="w-full bg-[#E76F51] hover:bg-[#D4A373] text-white py-4 px-4 rounded-xl font-bold transition-colors shadow-lg">
                     {loading ? 'Creating Account...' : 'Complete Registration'}
                   </button>

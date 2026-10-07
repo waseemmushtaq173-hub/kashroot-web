@@ -35,22 +35,22 @@ export default function RentalDashboardPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-gray-200 mb-8 overflow-x-auto">
+      <div className="flex gap-2 border-b border-kr-border-default mb-8 overflow-x-auto">
         <button
           onClick={() => setActiveTab('discovery')}
-          className={`flex items-center gap-2 px-4 py-3 font-medium border-b-2 transition-colors ${activeTab === 'discovery' ? 'border-[#E76F51] text-[#E76F51]' : 'border-transparent text-gray-500 hover:text-gray-900'}`}
+          className={`flex items-center gap-2 px-4 py-3 font-medium border-b-2 transition-colors ${activeTab === 'discovery' ? 'border-[#E76F51] text-[#E76F51]' : 'border-transparent text-kr-text-secondary hover:text-kr-text-primary'}`}
         >
           <Search className="w-5 h-5" /> Renter Discovery Portal
         </button>
         <button
           onClick={() => setActiveTab('owner')}
-          className={`flex items-center gap-2 px-4 py-3 font-medium border-b-2 transition-colors ${activeTab === 'owner' ? 'border-[#E76F51] text-[#E76F51]' : 'border-transparent text-gray-500 hover:text-gray-900'}`}
+          className={`flex items-center gap-2 px-4 py-3 font-medium border-b-2 transition-colors ${activeTab === 'owner' ? 'border-[#E76F51] text-[#E76F51]' : 'border-transparent text-kr-text-secondary hover:text-kr-text-primary'}`}
         >
           <PlusCircle className="w-5 h-5" /> Rent Out Machinery (Owner Panel)
         </button>
         <button
           onClick={() => setActiveTab('ledger')}
-          className={`flex items-center gap-2 px-4 py-3 font-medium border-b-2 transition-colors ${activeTab === 'ledger' ? 'border-[#E76F51] text-[#E76F51]' : 'border-transparent text-gray-500 hover:text-gray-900'}`}
+          className={`flex items-center gap-2 px-4 py-3 font-medium border-b-2 transition-colors ${activeTab === 'ledger' ? 'border-[#E76F51] text-[#E76F51]' : 'border-transparent text-kr-text-secondary hover:text-kr-text-primary'}`}
         >
           <List className="w-5 h-5" /> Active Bookings & Handover
         </button>
@@ -61,7 +61,7 @@ export default function RentalDashboardPage() {
         <div className="space-y-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+              <Search className="absolute left-3 top-3.5 w-5 h-5 text-kr-text-disabled" />
               <input type="text" placeholder="Search tractors, cold storage, sprayers..." className="kr-input w-full pl-10" />
             </div>
             <select className="kr-input">
@@ -83,24 +83,24 @@ export default function RentalDashboardPage() {
               <div key={rental.id} className="kr-card flex flex-col group">
                 <div className="flex justify-between items-start mb-2">
                   <span className="text-xs font-bold uppercase tracking-wider text-[#E76F51]">{rental.category}</span>
-                  <span className={`text-xs px-2 py-1 rounded font-bold ${rental.status === 'Available' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
+                  <span className={`text-xs px-2 py-1 rounded font-bold ${rental.status === 'Available' ? 'bg-kr-badge-published-bg text-kr-badge-published-text' : 'bg-kr-fill-brand-subtle text-kr-text-warning'}`}>
                     {rental.status}
                   </span>
                 </div>
                 <h3 className="font-bold text-xl text-[#1B4332] mb-3">{rental.title}</h3>
                 
                 <div className="space-y-2 mb-6">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <MapPin className="w-4 h-4 text-gray-400" /> {rental.location}
+                  <div className="flex items-center gap-2 text-sm text-kr-text-secondary">
+                    <MapPin className="w-4 h-4 text-kr-text-disabled" /> {rental.location}
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <ShieldCheck className="w-4 h-4 text-gray-400" /> {rental.owner} (Verified)
+                  <div className="flex items-center gap-2 text-sm text-kr-text-secondary">
+                    <ShieldCheck className="w-4 h-4 text-kr-text-disabled" /> {rental.owner} (Verified)
                   </div>
                 </div>
 
-                <div className="mt-auto flex items-center justify-between pt-4 border-t border-gray-100">
+                <div className="mt-auto flex items-center justify-between pt-4 border-t border-kr-border-default">
                   <div>
-                    <span className="text-lg font-extrabold text-gray-900">{rental.rate}</span>
+                    <span className="text-lg font-extrabold text-kr-text-primary">{rental.rate}</span>
                     {rental.withOperator && <p className="text-xs text-green-600 font-medium">+ Operator included</p>}
                   </div>
                   <button 
@@ -120,7 +120,7 @@ export default function RentalDashboardPage() {
       {activeTab === 'owner' && (
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1">
-            <div className="kr-card bg-white shadow-sm border-gray-200">
+            <div className="kr-card kr-glass shadow-sm border-kr-border-default">
               <h2 className="font-heading text-xl font-bold text-[#1B4332] mb-4">List New Equipment</h2>
               <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); alert('Equipment listed successfully!'); }}>
                 <div>
@@ -152,7 +152,7 @@ export default function RentalDashboardPage() {
                   <label className="kr-label">Location (District/Tehsil)</label>
                   <input type="text" className="kr-input w-full" placeholder="e.g. Sopore" required />
                 </div>
-                <label className="flex items-center gap-2 text-sm text-gray-700">
+                <label className="flex items-center gap-2 text-sm text-kr-text-primary">
                   <input type="checkbox" className="rounded text-[#E76F51] focus:ring-[#E76F51]" />
                   Operator included in rate
                 </label>
@@ -163,9 +163,9 @@ export default function RentalDashboardPage() {
           
           <div className="lg:col-span-2 space-y-4">
             <h2 className="font-heading text-xl font-bold text-[#1B4332]">My Listed Machinery</h2>
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+            <div className="kr-glass border border-kr-border-default rounded-xl overflow-hidden shadow-sm">
               <table className="w-full text-left text-sm">
-                <thead className="bg-gray-50 border-b border-gray-200 text-gray-600">
+                <thead className="bg-kr-bg-sunken border-b border-kr-border-default text-kr-text-secondary">
                   <tr>
                     <th className="px-4 py-3 font-medium">Equipment</th>
                     <th className="px-4 py-3 font-medium">Rate</th>
@@ -174,10 +174,10 @@ export default function RentalDashboardPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   <tr>
-                    <td className="px-4 py-4"><p className="font-medium text-gray-900">Mahindra 475 DI Tractor</p>Baramulla</td>
+                    <td className="px-4 py-4"><p className="font-medium text-kr-text-primary">Mahindra 475 DI Tractor</p>Baramulla</td>
                     <td className="px-4 py-4 font-medium">₹800/day</td>
                     <td className="px-4 py-4">
-                      <select className="kr-input py-1 px-2 text-sm w-32 border-green-300 bg-green-50 text-green-800">
+                      <select className="kr-input py-1 px-2 text-sm w-32 border-green-300 bg-kr-badge-published-bg text-kr-badge-published-text">
                         <option>Available</option>
                         <option>Rented Out</option>
                         <option>Maintenance</option>
@@ -185,10 +185,10 @@ export default function RentalDashboardPage() {
                     </td>
                   </tr>
                   <tr>
-                    <td className="px-4 py-4"><p className="font-medium text-gray-900">Hydraulic Sprayer</p>Baramulla</td>
+                    <td className="px-4 py-4"><p className="font-medium text-kr-text-primary">Hydraulic Sprayer</p>Baramulla</td>
                     <td className="px-4 py-4 font-medium">₹300/day</td>
                     <td className="px-4 py-4">
-                      <select className="kr-input py-1 px-2 text-sm w-32 border-amber-300 bg-amber-50 text-amber-800">
+                      <select className="kr-input py-1 px-2 text-sm w-32 border-amber-300 kr-glass text-kr-text-warning">
                         <option>Rented Out</option>
                         <option>Available</option>
                         <option>Maintenance</option>
@@ -203,14 +203,14 @@ export default function RentalDashboardPage() {
       )}
 
       {activeTab === 'ledger' && (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-            <h2 className="font-bold text-gray-900">Strict Rental Audit Ledger</h2>
-            <p className="text-sm text-gray-500">Track custody and handovers between verified Kissan ID holders.</p>
+        <div className="kr-glass border border-kr-border-default rounded-xl overflow-hidden shadow-sm">
+          <div className="px-6 py-4 border-b border-kr-border-default bg-kr-bg-sunken">
+            <h2 className="font-bold text-kr-text-primary">Strict Rental Audit Ledger</h2>
+            <p className="text-sm text-kr-text-secondary">Track custody and handovers between verified Kissan ID holders.</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm whitespace-nowrap">
-              <thead className="bg-gray-50 border-b border-gray-200 text-gray-600">
+              <thead className="bg-kr-bg-sunken border-b border-kr-border-default text-kr-text-secondary">
                 <tr>
                   <th className="px-6 py-3 font-medium">Tx ID</th>
                   <th className="px-6 py-3 font-medium">Equipment</th>
@@ -222,22 +222,22 @@ export default function RentalDashboardPage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {LEDGER.map((tx) => (
-                  <tr key={tx.id} className="hover:bg-gray-50/50">
-                    <td className="px-6 py-4 font-mono text-gray-500">{tx.id}</td>
-                    <td className="px-6 py-4 font-medium text-gray-900">{tx.equipment}</td>
-                    <td className="px-6 py-4 text-gray-600">{tx.owner}</td>
-                    <td className="px-6 py-4 text-gray-600">
+                  <tr key={tx.id} className="hover:bg-kr-bg-sunken/50">
+                    <td className="px-6 py-4 font-mono text-kr-text-secondary">{tx.id}</td>
+                    <td className="px-6 py-4 font-medium text-kr-text-primary">{tx.equipment}</td>
+                    <td className="px-6 py-4 text-kr-text-secondary">{tx.owner}</td>
+                    <td className="px-6 py-4 text-kr-text-secondary">
                       <div className="flex items-center gap-1">
                         <ShieldCheck className="w-4 h-4 text-green-500" />
                         {tx.renter}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-gray-600">{tx.dates}</td>
+                    <td className="px-6 py-4 text-kr-text-secondary">{tx.dates}</td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 rounded text-xs font-bold ${
-                        tx.status === 'Handed Over / In Use' ? 'bg-blue-100 text-blue-800' :
-                        tx.status === 'Returned & Inspected' ? 'bg-green-100 text-green-800' :
-                        'bg-amber-100 text-amber-800'
+                        tx.status === 'Handed Over / In Use' ? 'bg-kr-fill-brand-subtle text-kr-text-brand' :
+                        tx.status === 'Returned & Inspected' ? 'bg-kr-badge-published-bg text-kr-badge-published-text' :
+                        'bg-kr-fill-brand-subtle text-kr-text-warning'
                       }`}>
                         {tx.status}
                       </span>

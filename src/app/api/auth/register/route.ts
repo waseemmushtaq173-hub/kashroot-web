@@ -14,11 +14,11 @@ export async function POST(req: Request) {
 
     const user = await prisma.user.create({
       data: {
+        id: crypto.randomUUID(),
         email,
         password, // In a real app, hash this!
-        fullName,
         phone,
-        role: role || 'FARMER',
+        updated_at: new Date(),
       },
     });
 

@@ -115,11 +115,11 @@ function MarketplaceAuthContent() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F9F7F1]">
+    <div className="flex min-h-screen flex-col bg-transparent">
       <SiteHeader hideSignIn={true} />
       
       <main className="flex-1 flex items-center justify-center py-12 px-4">
-        <div className="w-full max-w-xl bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
+        <div className="w-full max-w-xl kr-glass rounded-3xl shadow-xl overflow-hidden border border-kr-border-default">
           <div className="bg-gradient-to-r from-[#1B4332] to-[#153424] p-8 text-white text-center">
             <ShieldCheck className="w-16 h-16 text-[#E76F51] mx-auto mb-4" />
             <h1 className="text-3xl font-heading font-bold mb-2">
@@ -130,7 +130,7 @@ function MarketplaceAuthContent() {
 
           <div className="p-8 md:p-10">
             {error && (
-              <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm font-medium mb-6 text-center border border-red-100">
+              <div className="bg-kr-badge-rejected-bg text-kr-badge-rejected-text p-4 rounded-xl text-sm font-medium mb-6 text-center border border-red-100">
                 {error}
               </div>
             )}
@@ -138,16 +138,16 @@ function MarketplaceAuthContent() {
             {step === 1 && (
               <form onSubmit={handleRequestOtps} className="space-y-6">
                 <div className="text-center mb-6">
-                  <h3 className="text-xl font-bold text-gray-900">Step 1: Contact Verification</h3>
-                  <p className="text-sm text-gray-500 mt-2">Enter your active mobile and email. We will send strict verification codes to both.</p>
+                  <h3 className="text-xl font-bold text-kr-text-primary">Step 1: Contact Verification</h3>
+                  <p className="text-sm text-kr-text-secondary mt-2">Enter your active mobile and email. We will send strict verification codes to both.</p>
                 </div>
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Mobile Number</label>
+                    <label className="block text-sm font-bold text-kr-text-primary mb-2">Mobile Number</label>
                     <div className="flex flex-row items-center gap-3">
                       <div className="relative flex-1">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-kr-text-disabled" />
                         <input 
                           type="tel" 
                           required 
@@ -168,10 +168,10 @@ function MarketplaceAuthContent() {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Email Address</label>
+                    <label className="block text-sm font-bold text-kr-text-primary mb-2">Email Address</label>
                     <div className="flex flex-row items-center gap-3">
                       <div className="relative flex-1">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-kr-text-disabled" />
                         <input 
                           type="email" 
                           required 
@@ -197,19 +197,19 @@ function MarketplaceAuthContent() {
             {step === 2 && (
               <form onSubmit={handleVerifyOtps} className="space-y-6">
                 <div className="text-center mb-6">
-                  <h3 className="text-xl font-bold text-gray-900">Step 2: Dual Verification</h3>
-                  <p className="text-sm text-gray-500 mt-2">Enter the distinct codes sent to your phone and email.</p>
+                  <h3 className="text-xl font-bold text-kr-text-primary">Step 2: Dual Verification</h3>
+                  <p className="text-sm text-kr-text-secondary mt-2">Enter the distinct codes sent to your phone and email.</p>
                 </div>
 
                 <div className="space-y-5">
-                  <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                  <div className="kr-glass p-4 rounded-xl border border-kr-border-default">
                     <label className="block text-sm font-bold text-blue-900 mb-2">SMS OTP (sent to {phone})</label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-400" />
                       <input 
                         type="text" 
                         required 
-                        className="kr-input w-full pl-10 bg-white" 
+                        className="kr-input w-full pl-10 kr-glass" 
                         placeholder="••••"
                         value={smsOtp}
                         onChange={(e) => setSmsOtp(e.target.value)}
@@ -217,14 +217,14 @@ function MarketplaceAuthContent() {
                     </div>
                   </div>
                   
-                  <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
+                  <div className="kr-glass p-4 rounded-xl border border-purple-100">
                     <label className="block text-sm font-bold text-purple-900 mb-2">Email OTP (sent to {email})</label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-purple-400" />
                       <input 
                         type="text" 
                         required 
-                        className="kr-input w-full pl-10 bg-white" 
+                        className="kr-input w-full pl-10 kr-glass" 
                         placeholder="••••"
                         value={emailOtp}
                         onChange={(e) => setEmailOtp(e.target.value)}
@@ -233,7 +233,7 @@ function MarketplaceAuthContent() {
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-gray-100">
+                <div className="pt-4 border-t border-kr-border-default">
                   <button type="submit" disabled={loading} className="w-full bg-[#1B4332] hover:bg-[#153424] text-white py-4 px-4 rounded-xl font-bold transition-colors shadow-lg flex justify-center items-center gap-2">
                     {loading ? 'Verifying...' : <><CheckCircle2 className="w-5 h-5" /> Verify & Continue</>}
                   </button>
@@ -244,17 +244,17 @@ function MarketplaceAuthContent() {
             {step === 3 && (
               <form onSubmit={handleCompleteOnboarding} className="space-y-5">
                 <div className="text-center mb-6">
-                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <div className="w-12 h-12 bg-kr-badge-published-bg rounded-full flex items-center justify-center mx-auto mb-3">
                     <CheckCircle2 className="w-6 h-6 text-green-600" />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900">Step 3: {requestedRole === 'SELLER' ? 'Dealership Profile' : 'Delivery Profile'}</h3>
-                  <p className="text-sm text-gray-500 mt-1">Almost there! Complete your profile to finalize registration.</p>
+                  <h3 className="text-xl font-bold text-kr-text-primary">Step 3: {requestedRole === 'SELLER' ? 'Dealership Profile' : 'Delivery Profile'}</h3>
+                  <p className="text-sm text-kr-text-secondary mt-1">Almost there! Complete your profile to finalize registration.</p>
                 </div>
 
                 {requestedRole === 'SELLER' ? (
                   <>
                     <div>
-                      <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2">
+                      <label className="flex items-center gap-2 text-sm font-bold text-kr-text-primary mb-2">
                         <Store className="w-4 h-4 text-[#1B4332]" /> Dealership Name
                       </label>
                       <input 
@@ -267,7 +267,7 @@ function MarketplaceAuthContent() {
                       />
                     </div>
                     <div>
-                      <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2">
+                      <label className="flex items-center gap-2 text-sm font-bold text-kr-text-primary mb-2">
                         <Building className="w-4 h-4 text-[#1B4332]" /> GST / License Number (Optional)
                       </label>
                       <input 
@@ -277,13 +277,13 @@ function MarketplaceAuthContent() {
                         value={gstNumber}
                         onChange={(e) => setGstNumber(e.target.value)}
                       />
-                      <p className="text-xs text-gray-500 mt-1">Verified sellers receive a trust badge on their listings.</p>
+                      <p className="text-xs text-kr-text-secondary mt-1">Verified sellers receive a trust badge on their listings.</p>
                     </div>
                   </>
                 ) : (
                   <>
                     <div>
-                      <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2">
+                      <label className="flex items-center gap-2 text-sm font-bold text-kr-text-primary mb-2">
                         <MapPin className="w-4 h-4 text-[#1B4332]" /> Default Delivery Address
                       </label>
                       <textarea 
@@ -295,7 +295,7 @@ function MarketplaceAuthContent() {
                       />
                     </div>
                     <div>
-                      <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2">
+                      <label className="flex items-center gap-2 text-sm font-bold text-kr-text-primary mb-2">
                         <Truck className="w-4 h-4 text-[#1B4332]" /> Pincode
                       </label>
                       <input 
@@ -310,7 +310,7 @@ function MarketplaceAuthContent() {
                   </>
                 )}
 
-                <div className="pt-4 border-t border-gray-100">
+                <div className="pt-4 border-t border-kr-border-default">
                   <button type="submit" disabled={loading} className="w-full bg-[#E76F51] hover:bg-[#D4A373] text-white py-4 px-4 rounded-xl font-bold transition-colors shadow-lg">
                     {loading ? 'Finalizing...' : 'Complete & Return to Hub'}
                   </button>

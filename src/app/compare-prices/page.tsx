@@ -115,7 +115,7 @@ export default function ComparePricesPage() {
   const canAddProduct = isAuth && (userRole === 'SELLER' || userRole === 'DEALER');
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F9F7F1]">
+    <div className="flex min-h-screen flex-col bg-transparent">
       <SiteHeader hideSignIn={false} />
       
       <main className="kr-container py-10 flex-1 relative">
@@ -136,7 +136,7 @@ export default function ComparePricesPage() {
           ) : !isAuth ? (
             <button 
               onClick={() => setShowAuthPrompt(true)}
-              className="bg-white hover:bg-gray-100 text-blue-900 px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-colors whitespace-nowrap"
+              className="kr-glass hover:bg-kr-bg-sunken text-blue-900 px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-colors whitespace-nowrap"
             >
               List Your Products
             </button>
@@ -158,18 +158,18 @@ export default function ComparePricesPage() {
             }
 
             return (
-              <section key={i} className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="bg-gray-50 border-b border-gray-200 px-6 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <section key={i} className="kr-glass rounded-2xl shadow-sm border border-kr-border-default overflow-hidden">
+                <div className="bg-kr-bg-sunken border-b border-kr-border-default px-6 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
                     <span className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-1 block">{category}</span>
-                    <h2 className="text-xl font-bold text-gray-900">{item}</h2>
+                    <h2 className="text-xl font-bold text-kr-text-primary">{item}</h2>
                   </div>
                   <button 
                     onClick={() => setLowestFilter(prev => ({ ...prev, [key]: !prev[key] }))}
                     className={`flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                       isLowestFiltered 
-                        ? 'bg-blue-50 border-blue-300 text-blue-700' 
-                        : 'bg-white border-gray-300 hover:bg-gray-50 text-gray-700'
+                        ? 'kr-glass border-kr-border-brand text-kr-text-brand' 
+                        : 'kr-glass border-kr-border-default hover:bg-kr-bg-sunken text-kr-text-primary'
                     }`}
                   >
                     <TrendingDown className="w-4 h-4" /> {isLowestFiltered ? 'Unfilter Lowest' : 'Filter Lowest'}
@@ -178,23 +178,23 @@ export default function ComparePricesPage() {
                 
                 <div className="divide-y divide-gray-100">
                   {displayDealers.map((dealer) => (
-                    <div key={dealer.id} className="p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 hover:bg-blue-50/50 transition-colors">
+                    <div key={dealer.id} className="p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 hover:bg-kr-bg-sunken transition-colors">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-bold text-gray-900 text-lg">{dealer.name}</h3>
+                          <h3 className="font-bold text-kr-text-primary text-lg">{dealer.name}</h3>
                           {dealer.verified && <span title="Verified Dealer"><BadgeCheck className="w-5 h-5 text-green-500" /></span>}
                         </div>
-                        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                        <div className="flex flex-wrap items-center gap-4 text-sm text-kr-text-secondary">
                           <span className="flex items-center gap-1"><MapPin className="w-4 h-4" /> {dealer.location}</span>
                           <span className="flex items-center gap-1"><Clock className="w-4 h-4" /> Updated {dealer.updated}</span>
-                          <span className="flex items-center gap-1 text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">Stock: {dealer.stock}</span>
+                          <span className="flex items-center gap-1 text-kr-text-brand kr-glass px-2 py-0.5 rounded-full border border-blue-200">Stock: {dealer.stock}</span>
                         </div>
                       </div>
                       
                       <div className="flex flex-col md:items-end w-full md:w-auto gap-3">
                         <div className="text-2xl font-bold text-[#E76F51]">₹{dealer.price}</div>
                         <div className="flex w-full md:w-auto gap-2">
-                          <button className="flex-1 md:flex-none bg-white border-2 border-[#1B4332] text-[#1B4332] hover:bg-[#1B4332]/5 px-4 py-2 rounded-lg font-bold text-sm transition-colors">
+                          <button className="flex-1 md:flex-none kr-glass border-2 border-[#1B4332] text-[#1B4332] hover:bg-[#1B4332]/5 px-4 py-2 rounded-lg font-bold text-sm transition-colors">
                             Contact
                           </button>
                           <button 
@@ -218,10 +218,10 @@ export default function ComparePricesPage() {
       {/* Role-Based Auth Panel Modal */}
       {showAuthPrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-2xl relative text-center">
+          <div className="kr-glass rounded-2xl p-8 max-w-sm w-full shadow-2xl relative text-center">
             <ShieldCheck className="w-16 h-16 text-[#E76F51] mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Are you here to Buy or Sell?</h2>
-            <p className="text-gray-600 mb-6">Choose your account type to proceed with KashRoot Escrow.</p>
+            <h2 className="text-2xl font-bold text-kr-text-primary mb-2">Are you here to Buy or Sell?</h2>
+            <p className="text-kr-text-secondary mb-6">Choose your account type to proceed with KashRoot Escrow.</p>
             <div className="flex flex-col gap-3">
               <button 
                 onClick={() => {
@@ -237,13 +237,13 @@ export default function ComparePricesPage() {
                   localStorage.setItem('user_role', 'SELLER');
                   router.push('/marketplace/auth?role=SELLER');
                 }}
-                className="w-full border-2 border-[#1B4332] text-[#1B4332] hover:bg-gray-50 font-bold py-3 px-4 rounded-xl transition-colors"
+                className="w-full border-2 border-[#1B4332] text-[#1B4332] hover:bg-kr-bg-sunken font-bold py-3 px-4 rounded-xl transition-colors"
               >
                 I am a Dealer/Seller
               </button>
               <button 
                 onClick={() => setShowAuthPrompt(false)}
-                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3 px-4 rounded-xl transition-colors mt-2"
+                className="w-full bg-kr-bg-sunken hover:bg-kr-bg-sunken text-kr-text-primary font-bold py-3 px-4 rounded-xl transition-colors mt-2"
               >
                 Cancel
               </button>
@@ -255,7 +255,7 @@ export default function ComparePricesPage() {
       {/* Order & Delivery Details Modal */}
       {showOrderModal && selectedProduct && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden my-8">
+          <div className="kr-glass rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden my-8">
             <div className="bg-[#1B4332] p-6 text-white">
               <h2 className="text-2xl font-bold">Checkout & Escrow</h2>
               <p className="text-blue-100">Secure checkout for {selectedProduct.item}</p>
@@ -264,39 +264,39 @@ export default function ComparePricesPage() {
             <div className="p-6 sm:p-8">
               {orderStatus === 'DELIVERY_FORM' && (
                 <div className="space-y-6">
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex gap-4">
+                  <div className="kr-glass border border-blue-200 rounded-xl p-4 flex gap-4">
                     <ShieldCheck className="w-8 h-8 text-blue-600 shrink-0" />
                     <div>
                       <h4 className="font-bold text-blue-900">Direct home delivery guaranteed with Escrow protection.</h4>
-                      <p className="text-sm text-blue-800 mt-1">Your funds are held safely until you receive and verify the order.</p>
+                      <p className="text-sm text-kr-text-brand mt-1">Your funds are held safely until you receive and verify the order.</p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="col-span-full">
-                      <label className="block text-sm font-bold text-gray-700 mb-1">Full Name</label>
+                      <label className="block text-sm font-bold text-kr-text-primary mb-1">Full Name</label>
                       <input type="text" className="kr-input w-full" value={deliveryDetails.name} onChange={e => setDeliveryDetails({...deliveryDetails, name: e.target.value})} placeholder="Receiver Name" />
                     </div>
                     <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-1">10-digit Phone</label>
+                      <label className="block text-sm font-bold text-kr-text-primary mb-1">10-digit Phone</label>
                       <input type="tel" className="kr-input w-full" value={deliveryDetails.phone} onChange={e => setDeliveryDetails({...deliveryDetails, phone: e.target.value})} placeholder="9999999999" />
                     </div>
                     <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-1">District</label>
+                      <label className="block text-sm font-bold text-kr-text-primary mb-1">District</label>
                       <input type="text" className="kr-input w-full" value={deliveryDetails.district} onChange={e => setDeliveryDetails({...deliveryDetails, district: e.target.value})} placeholder="e.g., Srinagar" />
                     </div>
                     <div className="col-span-full">
-                      <label className="block text-sm font-bold text-gray-700 mb-1">Street Address</label>
+                      <label className="block text-sm font-bold text-kr-text-primary mb-1">Street Address</label>
                       <textarea className="kr-input w-full py-2" rows={2} value={deliveryDetails.address} onChange={e => setDeliveryDetails({...deliveryDetails, address: e.target.value})} placeholder="House No, Street, Landmark" />
                     </div>
                     <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-1">Pincode</label>
+                      <label className="block text-sm font-bold text-kr-text-primary mb-1">Pincode</label>
                       <input type="text" className="kr-input w-full" value={deliveryDetails.pincode} onChange={e => setDeliveryDetails({...deliveryDetails, pincode: e.target.value})} placeholder="190001" />
                     </div>
                   </div>
 
-                  <div className="border-t border-gray-200 pt-6 flex justify-end gap-3">
-                    <button onClick={() => setShowOrderModal(false)} className="px-6 py-2 rounded-lg font-bold text-gray-600 hover:bg-gray-100">Cancel</button>
+                  <div className="border-t border-kr-border-default pt-6 flex justify-end gap-3">
+                    <button onClick={() => setShowOrderModal(false)} className="px-6 py-2 rounded-lg font-bold text-kr-text-secondary hover:bg-kr-bg-sunken">Cancel</button>
                     <button onClick={handleConfirmOrder} className="px-6 py-2 bg-[#E76F51] hover:bg-[#D4A373] text-white rounded-lg font-bold flex items-center gap-2 shadow-md">
                       <CreditCard className="w-5 h-5" /> Pay ₹{selectedProduct.price} to Escrow
                     </button>
@@ -307,11 +307,11 @@ export default function ComparePricesPage() {
               {orderStatus === 'ESCROW_LOCKED' && (
                 <div className="space-y-8 py-4">
                   <div className="text-center">
-                    <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <div className="w-16 h-16 bg-kr-fill-brand-subtle rounded-full flex items-center justify-center mx-auto mb-4">
                       <ShieldCheck className="w-8 h-8 text-amber-600" />
                     </div>
-                    <h3 className="text-2xl font-bold text-gray-900">ESCROW_LOCKED</h3>
-                    <p className="text-gray-500">Your funds are safe. Order ID: #KR-{selectedProduct?.id}</p>
+                    <h3 className="text-2xl font-bold text-kr-text-primary">ESCROW_LOCKED</h3>
+                    <p className="text-kr-text-secondary">Your funds are safe. Order ID: #KR-{selectedProduct?.id}</p>
                   </div>
 
                   <div className="space-y-4 max-w-md mx-auto relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent">
@@ -319,9 +319,9 @@ export default function ComparePricesPage() {
                       <div className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-white bg-green-500 text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
                         <CheckCircle2 className="w-5 h-5" />
                       </div>
-                      <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                        <h4 className="font-bold text-gray-900">Step 1</h4>
-                        <p className="text-sm text-gray-600">Funds secured in KashRoot Escrow</p>
+                      <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] kr-glass p-4 rounded-xl border border-kr-border-default shadow-sm">
+                        <h4 className="font-bold text-kr-text-primary">Step 1</h4>
+                        <p className="text-sm text-kr-text-secondary">Funds secured in KashRoot Escrow</p>
                       </div>
                     </div>
                     
@@ -329,25 +329,25 @@ export default function ComparePricesPage() {
                       <div className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-white bg-blue-500 text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
                         <Truck className="w-5 h-5 animate-pulse" />
                       </div>
-                      <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-4 rounded-xl border border-blue-200 shadow-sm bg-blue-50/30">
+                      <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] kr-glass p-4 rounded-xl border border-blue-200 shadow-sm kr-glass/30">
                         <h4 className="font-bold text-blue-900">Step 2</h4>
-                        <p className="text-sm text-blue-800">Dealer dispatches order to delivery address</p>
+                        <p className="text-sm text-kr-text-brand">Dealer dispatches order to delivery address</p>
                       </div>
                     </div>
 
                     <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
-                      <div className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-white bg-gray-200 text-gray-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <div className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-white bg-kr-bg-sunken text-kr-text-secondary shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
                         <BadgeCheck className="w-5 h-5" />
                       </div>
-                      <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                        <h4 className="font-bold text-gray-500">Step 3</h4>
-                        <p className="text-sm text-gray-500">Buyer inspects & verifies goods upon arrival</p>
+                      <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] kr-glass p-4 rounded-xl border border-kr-border-default shadow-sm">
+                        <h4 className="font-bold text-kr-text-secondary">Step 3</h4>
+                        <p className="text-sm text-kr-text-secondary">Buyer inspects & verifies goods upon arrival</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex flex-col items-center border-t border-gray-200 pt-6">
-                    <p className="text-sm text-gray-500 mb-4 text-center">Once you receive the goods and verify their quality, click below to release the funds to the dealer.</p>
+                  <div className="flex flex-col items-center border-t border-kr-border-default pt-6">
+                    <p className="text-sm text-kr-text-secondary mb-4 text-center">Once you receive the goods and verify their quality, click below to release the funds to the dealer.</p>
                     <button onClick={handleReleaseEscrow} className="w-full max-w-sm px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-green-600/20 transition-all">
                       <CheckCircle2 className="w-5 h-5" /> Confirm Delivery & Release Payment
                     </button>
@@ -357,12 +357,12 @@ export default function ComparePricesPage() {
 
               {orderStatus === 'COMPLETED' && (
                 <div className="text-center py-8">
-                  <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <div className="w-20 h-20 bg-kr-badge-published-bg rounded-full flex items-center justify-center mx-auto mb-6">
                     <BadgeCheck className="w-10 h-10 text-green-600" />
                   </div>
-                  <h3 className="text-3xl font-heading font-bold text-gray-900 mb-2">Order COMPLETED!</h3>
-                  <p className="text-gray-600 mb-8 max-w-md mx-auto">Payment has been released to {selectedProduct.name}. Thank you for using KashRoot Secure Escrow.</p>
-                  <button onClick={() => setShowOrderModal(false)} className="px-8 py-3 bg-[#1B4332] text-white rounded-xl font-bold hover:bg-[#153424] transition-colors">
+                  <h3 className="text-3xl font-heading font-bold text-kr-text-primary mb-2">Order COMPLETED!</h3>
+                  <p className="text-kr-text-secondary mb-8 max-w-md mx-auto">Payment has been released to {selectedProduct.name}. Thank you for using KashRoot Secure Escrow.</p>
+                  <button onClick={() => setShowOrderModal(false)} className="px-8 py-3 kr-hero-premium kr-pattern-chinar rounded-xl font-bold hover:bg-[#153424] transition-colors">
                     Back to Hub
                   </button>
                 </div>
@@ -375,7 +375,7 @@ export default function ComparePricesPage() {
       {/* Add Product Modal (For Dealers) */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden my-8">
+          <div className="kr-glass rounded-2xl max-w-md w-full shadow-2xl overflow-hidden my-8">
             <div className="bg-[#1B4332] p-5 text-white flex justify-between items-center">
               <h2 className="text-xl font-bold">Add Dealer Listing</h2>
               <button onClick={() => setShowAddModal(false)} className="text-white/70 hover:text-white">✕</button>
@@ -383,11 +383,11 @@ export default function ComparePricesPage() {
             
             <form onSubmit={handleAddSubmit} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Product Title</label>
+                <label className="block text-sm font-bold text-kr-text-primary mb-1">Product Title</label>
                 <input required type="text" className="kr-input w-full" value={newProduct.title} onChange={e => setNewProduct({...newProduct, title: e.target.value})} placeholder="e.g. Apple Corrugated Box 10kg" />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Category</label>
+                <label className="block text-sm font-bold text-kr-text-primary mb-1">Category</label>
                 <select className="kr-input w-full" value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value})}>
                   <option>Packaging</option>
                   <option>Agrochemicals</option>
@@ -397,25 +397,25 @@ export default function ComparePricesPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Price per unit (₹)</label>
+                  <label className="block text-sm font-bold text-kr-text-primary mb-1">Price per unit (₹)</label>
                   <input required type="number" className="kr-input w-full" value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: e.target.value})} placeholder="150" />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Stock Quantity</label>
+                  <label className="block text-sm font-bold text-kr-text-primary mb-1">Stock Quantity</label>
                   <input required type="number" className="kr-input w-full" value={newProduct.stock} onChange={e => setNewProduct({...newProduct, stock: e.target.value})} placeholder="5000" />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">District / Location</label>
+                <label className="block text-sm font-bold text-kr-text-primary mb-1">District / Location</label>
                 <input required type="text" className="kr-input w-full" value={newProduct.location} onChange={e => setNewProduct({...newProduct, location: e.target.value})} placeholder="Sopore" />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Image URL (Optional)</label>
+                <label className="block text-sm font-bold text-kr-text-primary mb-1">Image URL (Optional)</label>
                 <input type="url" className="kr-input w-full" value={newProduct.image} onChange={e => setNewProduct({...newProduct, image: e.target.value})} placeholder="https://..." />
               </div>
               
-              <div className="pt-4 flex justify-end gap-3 border-t border-gray-100">
-                <button type="button" onClick={() => setShowAddModal(false)} className="px-5 py-2 rounded-lg font-bold text-gray-600 hover:bg-gray-100">Cancel</button>
+              <div className="pt-4 flex justify-end gap-3 border-t border-kr-border-default">
+                <button type="button" onClick={() => setShowAddModal(false)} className="px-5 py-2 rounded-lg font-bold text-kr-text-secondary hover:bg-kr-bg-sunken">Cancel</button>
                 <button type="submit" className="px-5 py-2 bg-[#E76F51] hover:bg-[#D4A373] text-white rounded-lg font-bold shadow-md">Publish Listing</button>
               </div>
             </form>

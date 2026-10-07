@@ -215,19 +215,19 @@ export function KycGateBanner({ status }: { status: KycStatus }) {
     <div
       role="alert"
       className="flex items-start gap-3 p-4 rounded-lg
-                 border border-kr-warning-300 bg-kr-warning-50 mb-8"
+                 border border-kr-warning-300 bg-kr-badge-pending-bg mb-8"
     >
       <ShieldAlert
         className="w-5 h-5 text-kr-warning-600 mt-0.5 shrink-0"
         aria-hidden="true"
       />
       <div>
-        <p className="font-medium text-body-sm text-kr-warning-800">{cfg.title}</p>
+        <p className="font-medium text-body-sm text-kr-badge-pending-text">{cfg.title}</p>
         <p className="text-body-sm text-kr-warning-700 mt-1">{cfg.body}</p>
         {cfg.cta && cfg.ctaHref && (
           <a
             href={cfg.ctaHref}
-            className="inline-block mt-2 text-body-sm font-semibold text-kr-warning-800
+            className="inline-block mt-2 text-body-sm font-semibold text-kr-badge-pending-text
                        underline underline-offset-2 hover:no-underline kr-focus-ring rounded"
           >
             {cfg.cta}

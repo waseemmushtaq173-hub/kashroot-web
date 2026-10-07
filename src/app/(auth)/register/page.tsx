@@ -146,9 +146,9 @@ export default function RegisterPage() {
   const isFormValid = isEmailVerified && isPhoneVerified && agreedToTerms;
 
   return (
-    <div className="bg-white shadow-2xl shadow-gray-200/50 rounded-[2rem] p-8 sm:p-10 border border-gray-100 max-w-md w-full mx-auto relative z-10">
+    <div className="kr-glass shadow-2xl shadow-gray-200/50 rounded-[2rem] p-8 sm:p-10 border border-kr-border-default max-w-md w-full mx-auto relative z-10">
       <h1 className="text-4xl font-extrabold text-[#1B4332] tracking-tight mb-2">Create your account</h1>
-      <p className="text-sm text-gray-600 mb-8">
+      <p className="text-sm text-kr-text-secondary mb-8">
         Already have an account?{' '}
         <Link href="/login" className="text-[#E76F51] font-semibold hover:text-[#D65A3D] transition-colors">
           Sign in
@@ -156,7 +156,7 @@ export default function RegisterPage() {
       </p>
 
       {errorMsg && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2 text-sm font-medium mb-6">
+        <div className="bg-kr-badge-rejected-bg border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2 text-sm font-medium mb-6">
           <AlertCircle className="w-5 h-5 flex-shrink-0" />
           <p className="m-0">{errorMsg}</p>
         </div>
@@ -165,7 +165,7 @@ export default function RegisterPage() {
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
         {/* Role selector */}
         <div>
-          <label className="text-sm font-semibold text-gray-700 mb-1.5 block">I am a</label>
+          <label className="text-sm font-semibold text-kr-text-primary mb-1.5 block">I am a</label>
           <div className="grid grid-cols-2 gap-3">
             {(['FARMER', 'BUYER'] as const).map((r) => {
               const isSelected = selectedRole === r;
@@ -179,7 +179,7 @@ export default function RegisterPage() {
                   className={`border-2 rounded-xl p-4 font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 ${
                     isSelected
                       ? 'bg-[#1B4332]/5 border-[#1B4332] text-[#1B4332] shadow-sm ring-1 ring-[#1B4332]'
-                      : 'bg-white border-gray-100 text-gray-500 hover:border-[#1B4332]/30 hover:shadow-md'
+                      : 'kr-glass border-kr-border-default text-kr-text-secondary hover:border-[#1B4332]/30 hover:shadow-md'
                   }`}
                 >
                   <span className="text-2xl">{r === 'FARMER' ? '🌾' : '🛒'}</span>
@@ -194,12 +194,12 @@ export default function RegisterPage() {
 
         {/* Full name */}
         <div>
-          <label htmlFor="fullName" className="text-sm font-semibold text-gray-700 mb-1.5 block">Full name</label>
+          <label htmlFor="fullName" className="text-sm font-semibold text-kr-text-primary mb-1.5 block">Full name</label>
           <input
             id="fullName"
             type="text"
             autoComplete="name"
-            className="w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none"
+            className="w-full px-4 py-3.5 rounded-xl border border-kr-border-default bg-kr-bg-sunken text-kr-text-primary placeholder:text-kr-text-disabled focus:bg-kr-bg-surface focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none"
             {...register('fullName', {
               required: 'Full name is required',
               minLength: { value: 2, message: 'Name must be at least 2 characters' },
@@ -210,14 +210,14 @@ export default function RegisterPage() {
 
         {/* Email */}
         <div>
-          <label htmlFor="reg-email" className="text-sm font-semibold text-gray-700 mb-1.5 block">Email address</label>
+          <label htmlFor="reg-email" className="text-sm font-semibold text-kr-text-primary mb-1.5 block">Email address</label>
           <div className="flex gap-2">
             <input
               id="reg-email"
               type="email"
               autoComplete="email"
               disabled={isEmailVerified}
-              className="flex-1 px-4 py-3.5 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none disabled:opacity-70"
+              className="flex-1 px-4 py-3.5 rounded-xl border border-kr-border-default bg-kr-bg-sunken text-kr-text-primary placeholder:text-kr-text-disabled focus:bg-kr-bg-surface focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none disabled:opacity-70"
               {...register('email', {
                 required: 'Email is required',
                 pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Enter a valid email' },
@@ -234,7 +234,7 @@ export default function RegisterPage() {
               </button>
             )}
             {isEmailVerified && (
-              <div className="px-4 py-3.5 bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold rounded-xl flex items-center justify-center whitespace-nowrap">
+              <div className="px-4 py-3.5 kr-glass border border-kr-border-default text-emerald-700 font-semibold rounded-xl flex items-center justify-center whitespace-nowrap">
                 <CheckCircle2 className="w-5 h-5 mr-1" /> Verified
               </div>
             )}
@@ -249,7 +249,7 @@ export default function RegisterPage() {
                 placeholder="Enter Email OTP"
                 value={emailOtpInput}
                 onChange={(e) => setEmailOtpInput(e.target.value)}
-                className="flex-1 px-4 py-3.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-900 placeholder-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                className="flex-1 px-4 py-3.5 rounded-xl border border-kr-border-default kr-glass text-emerald-900 placeholder-emerald-400 focus:bg-kr-bg-surface focus:ring-2 focus:ring-emerald-500 outline-none"
               />
               <button
                 type="button"
@@ -271,17 +271,17 @@ export default function RegisterPage() {
 
         {/* Phone */}
         <div>
-          <label htmlFor="phone" className="text-sm font-semibold text-gray-700 mb-1.5 block">Mobile Number</label>
+          <label htmlFor="phone" className="text-sm font-semibold text-kr-text-primary mb-1.5 block">Mobile Number</label>
           <div className="flex gap-2">
-            <div className="flex-1 flex items-center border border-gray-200 bg-gray-50 rounded-xl overflow-hidden focus-within:bg-white focus-within:ring-2 focus-within:ring-[#1B4332]/50 focus-within:border-[#1B4332] transition-all duration-200">
-              <span className="pl-4 pr-2 text-gray-500 font-medium">+91</span>
+            <div className="flex-1 flex items-center border border-kr-border-default bg-kr-bg-sunken rounded-xl overflow-hidden focus-within:kr-glass focus-within:ring-2 focus-within:ring-[#1B4332]/50 focus-within:border-[#1B4332] transition-all duration-200">
+              <span className="pl-4 pr-2 text-kr-text-secondary font-medium">+91</span>
               <input
                 id="phone"
                 type="tel"
                 autoComplete="tel"
                 disabled={isPhoneVerified}
                 placeholder="9876543210"
-                className="w-full py-3.5 pr-4 bg-transparent text-gray-800 placeholder-gray-400 outline-none disabled:opacity-70"
+                className="w-full py-3.5 pr-4 bg-transparent text-kr-text-primary placeholder:text-kr-text-disabled outline-none disabled:opacity-70"
                 {...register('phone', { required: 'Mobile number is required' })}
               />
             </div>
@@ -296,7 +296,7 @@ export default function RegisterPage() {
               </button>
             )}
             {isPhoneVerified && (
-              <div className="px-4 py-3.5 bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold rounded-xl flex items-center justify-center whitespace-nowrap">
+              <div className="px-4 py-3.5 kr-glass border border-kr-border-default text-emerald-700 font-semibold rounded-xl flex items-center justify-center whitespace-nowrap">
                 <CheckCircle2 className="w-5 h-5 mr-1" /> Verified
               </div>
             )}
@@ -307,7 +307,7 @@ export default function RegisterPage() {
           {phoneOtpSent && !isPhoneVerified && (
             <div className="mt-3 flex flex-col gap-2">
               {phoneDevMode && (
-                <div className="text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg font-medium border border-blue-100">
+                <div className="text-sm text-blue-600 kr-glass px-3 py-2 rounded-lg font-medium border border-kr-border-default">
                   Dev Mode Active: Check terminal for OTP code.
                 </div>
               )}
@@ -317,7 +317,7 @@ export default function RegisterPage() {
                   placeholder="Enter Mobile OTP"
                   value={phoneOtpInput}
                   onChange={(e) => setPhoneOtpInput(e.target.value)}
-                  className="flex-1 px-4 py-3.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-900 placeholder-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                  className="flex-1 px-4 py-3.5 rounded-xl border border-kr-border-default kr-glass text-emerald-900 placeholder-emerald-400 focus:bg-kr-bg-surface focus:ring-2 focus:ring-emerald-500 outline-none"
                 />
                 <button
                   type="button"
@@ -340,13 +340,13 @@ export default function RegisterPage() {
 
         {/* Password */}
         <div>
-          <label htmlFor="reg-password" className="text-sm font-semibold text-gray-700 mb-1.5 block">Password</label>
+          <label htmlFor="reg-password" className="text-sm font-semibold text-kr-text-primary mb-1.5 block">Password</label>
           <div className="relative">
             <input
               id="reg-password"
               type={showPw ? 'text' : 'password'}
               autoComplete="new-password"
-              className="w-full px-4 py-3.5 pr-10 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none"
+              className="w-full px-4 py-3.5 pr-10 rounded-xl border border-kr-border-default bg-kr-bg-sunken text-kr-text-primary placeholder:text-kr-text-disabled focus:bg-kr-bg-surface focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none"
               {...register('password', {
                 required: 'Password is required',
                 minLength: { value: 8, message: 'At least 8 characters' },
@@ -359,7 +359,7 @@ export default function RegisterPage() {
             <button
               type="button"
               onClick={() => setShowPw((v) => !v)}
-              className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 transition-colors"
+              className="absolute right-3 top-3.5 text-kr-text-disabled hover:text-kr-text-secondary transition-colors"
             >
               {showPw ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
@@ -369,12 +369,12 @@ export default function RegisterPage() {
 
         {/* Confirm password */}
         <div>
-          <label htmlFor="confirm-password" className="text-sm font-semibold text-gray-700 mb-1.5 block">Confirm password</label>
+          <label htmlFor="confirm-password" className="text-sm font-semibold text-kr-text-primary mb-1.5 block">Confirm password</label>
           <input
             id="confirm-password"
             type={showPw ? 'text' : 'password'}
             autoComplete="new-password"
-            className="w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none"
+            className="w-full px-4 py-3.5 rounded-xl border border-kr-border-default bg-kr-bg-sunken text-kr-text-primary placeholder:text-kr-text-disabled focus:bg-kr-bg-surface focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none"
             {...register('confirmPassword', {
               required: 'Please confirm your password',
               validate: (v) => v === password || 'Passwords do not match',
@@ -390,9 +390,9 @@ export default function RegisterPage() {
             id="terms"
             checked={agreedToTerms}
             onChange={(e) => setAgreedToTerms(e.target.checked)}
-            className="w-4 h-4 text-[#1B4332] border-gray-300 rounded focus:ring-[#1B4332]"
+            className="w-4 h-4 text-[#1B4332] border-kr-border-default rounded focus:ring-[#1B4332]"
           />
-          <label htmlFor="terms" className="ml-2 block text-sm text-gray-700">
+          <label htmlFor="terms" className="ml-2 block text-sm text-kr-text-primary">
             I agree to the <Link href="/terms" className="text-[#E76F51] hover:underline">Terms & Conditions</Link> & <Link href="/privacy" className="text-[#E76F51] hover:underline">Privacy Policy</Link>
           </label>
         </div>

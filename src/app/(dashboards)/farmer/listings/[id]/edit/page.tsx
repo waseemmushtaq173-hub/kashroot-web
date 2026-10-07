@@ -87,8 +87,8 @@ const STATUS_BANNER: Record<ListingStatus, {
 
 const TONE_CLASS: Record<'info' | 'success' | 'warning', string> = {
   info:    'border-kr-border-default bg-kr-fill-brand-subtle text-kr-text-primary',
-  success: 'border-kr-success-300 bg-kr-success-50 text-kr-success-800',
-  warning: 'border-kr-warning-300 bg-kr-warning-50 text-kr-warning-800',
+  success: 'border-kr-border-default bg-kr-badge-published-bg text-kr-badge-published-text',
+  warning: 'border-kr-warning-300 bg-kr-badge-pending-bg text-kr-badge-pending-text',
 };
 
 function StatusBanner({ status }: { status: ListingStatus }) {
@@ -294,7 +294,7 @@ function ListingEdit() {
         <div
           role="status"
           className="flex items-start gap-3 p-4 rounded-lg border mb-6
-                     border-kr-success-300 bg-kr-success-50 text-kr-success-800"
+                     border-kr-border-default bg-kr-badge-published-bg text-kr-badge-published-text"
         >
           <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
           <p className="text-body-sm">{notice ?? 'Draft saved.'}</p>

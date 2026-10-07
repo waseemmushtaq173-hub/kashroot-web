@@ -393,7 +393,7 @@ export default function TrackingPage() {
 
         {data ? (
           <div className="flex flex-col items-start gap-1 md:items-end">
-            <span className="kr-badge bg-kr-success-50 text-kr-success-700 border-kr-success-200" title={data.attribution}>
+            <span className="kr-badge bg-kr-badge-published-bg text-kr-success-700 border-kr-success-200" title={data.attribution}>
               <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
               Live Device GPS Active
             </span>

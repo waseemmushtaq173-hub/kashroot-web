@@ -130,7 +130,7 @@ export default function MfaSetupPage() {
         <div className="space-y-6">
           {/* QR code */}
           <div className="flex flex-col items-center gap-4">
-            <div className="p-4 bg-white rounded-xl border border-kr-border-default shadow-kr-card">
+            <div className="p-4 kr-glass rounded-xl border border-kr-border-default shadow-kr-card">
               {/* QR code is a data URL from backend — never sent to a third party */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img

@@ -292,34 +292,27 @@ export const spacing = {
 // ─── BORDER RADIUS ────────────────────────────────────────────────────────────
 
 /*
- * Rectangular geometry — a deliberate design decision, not an oversight.
- *
- * The interface uses strictly sharp rectangles: no rounded bubbles anywhere in
- * the structural furniture (cards, panels, buttons, inputs, badges, modals).
- * The only element allowed to be round is `full`, which exists for genuinely
- * circular things — avatars, status dots, spinners.
- *
- * Every step maps to 0 rather than deleting the scale, so existing `rounded-*`
- * call sites keep compiling and simply render square.
+ * Premium geometry — soft, high-end radii for glass cards, heroes and modals.
+ * `full` remains for genuinely circular things (avatars, status dots, spinners).
  */
 export const borderRadius = {
-  sm:   '0px',  // tags, badges
-  DEFAULT: '0px', // inputs, buttons
-  md:   '0px',  // cards
-  lg:   '0px',  // panels
-  xl:   '0px',  // modals
-  full: '9999px', // the one exception — circles only
+  sm:   '8px',  // tags, badges
+  DEFAULT: '12px', // inputs, buttons
+  md:   '16px',  // cards
+  lg:   '20px',  // panels
+  xl:   '24px',  // modals / heroes
+  full: '9999px', // circles only
 } as const;
 
 // ─── SHADOWS ──────────────────────────────────────────────────────────────────
 
 export const boxShadow = {
-  'card':     '0 1px 3px 0 rgba(0,0,0,0.08), 0 1px 2px -1px rgba(0,0,0,0.06)',
-  'card-md':  '0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -2px rgba(0,0,0,0.06)',
-  'card-lg':  '0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.06)',
-  'overlay':  '0 20px 25px -5px rgba(0,0,0,0.12), 0 8px 10px -6px rgba(0,0,0,0.08)',
-  'brand':    '0 0 0 3px rgba(245,166,35,0.3)',  // focus ring — saffron glow
-  'danger':   '0 0 0 3px rgba(192,57,43,0.25)', // focus ring — danger
+  'card':     '0 12px 32px -12px rgba(7,11,26,0.35), inset 0 1px 0 rgba(255,255,255,0.5)',
+  'card-md':  '0 18px 44px -16px rgba(7,11,26,0.42), inset 0 1px 0 rgba(255,255,255,0.5)',
+  'card-lg':  '0 28px 64px -20px rgba(7,11,26,0.50), inset 0 1px 0 rgba(255,255,255,0.55)',
+  'overlay':  '0 28px 60px -18px rgba(7,11,26,0.55), inset 0 1px 0 rgba(255,255,255,0.4)',
+  'brand':    '0 0 0 3px rgba(245,158,11,0.35), 0 10px 24px -10px rgba(231,111,81,0.6)',
+  'danger':   '0 0 0 3px rgba(192,57,43,0.25)',
 } as const;
 
 // ─── ANIMATION ────────────────────────────────────────────────────────────────

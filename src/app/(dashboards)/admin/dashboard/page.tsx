@@ -224,7 +224,7 @@ function KycPanel() {
                   onClick={() => { setRejectingUserId(sub.userId); setRejectReason(''); }}
                   aria-label={`Reject KYC for ${sub.fullName}`}
                   className="kr-btn-ghost kr-btn-sm text-kr-text-danger
-                             hover:bg-kr-danger-50"
+                             hover:bg-kr-badge-rejected-bg"
                 >
                   <X className="w-3 h-3" aria-hidden="true" /> Reject
                 </button>
@@ -340,7 +340,7 @@ function DisputesPanel({ adminRole }: { adminRole: AdminRole }) {
           {/* SECURITY: Resolve button is hidden for REGIONAL_ADMIN (UX only).
               Backend DisputeGuard enforces the actual role restriction. */}
           <ShieldAlert className="w-4 h-4 text-kr-primary-600 mt-0.5 shrink-0" aria-hidden="true" />
-          <p className="text-caption text-kr-primary-800">
+          <p className="text-caption text-kr-text-brand">
             As Regional Admin, you can <strong>recommend</strong> outcomes.
             Only Platform Admins can <strong>resolve</strong> disputes.
           </p>
@@ -442,9 +442,9 @@ function DisputesPanel({ adminRole }: { adminRole: AdminRole }) {
 
             {actionType === 'resolve' && (
               <div role="note" className="flex items-start gap-2 p-3 rounded-md
-                                          bg-kr-warning-50 border border-kr-warning-300">
+                                          bg-kr-badge-pending-bg border border-kr-warning-300">
                 <ShieldAlert className="w-4 h-4 text-kr-warning-600 mt-0.5 shrink-0" aria-hidden="true" />
-                <p className="text-caption text-kr-warning-800">
+                <p className="text-caption text-kr-badge-pending-text">
                   Resolving is final. This will close the dispute and notify both parties.
                 </p>
               </div>
@@ -596,7 +596,7 @@ function ExpertPanel() {
               </button>
               <button
                 onClick={() => handleReject(sub.email)}
-                className="kr-btn-ghost kr-btn-sm text-kr-text-danger hover:bg-kr-danger-50"
+                className="kr-btn-ghost kr-btn-sm text-kr-text-danger hover:bg-kr-badge-rejected-bg"
               >
                 <X className="w-3 h-3" aria-hidden="true" /> Reject
               </button>
@@ -842,7 +842,7 @@ export default function AdminConsolePage() {
 
   return (
     <main id="main-content" className="kr-container py-6 md:py-10">
-      <div className="bg-slate-800 text-slate-50 p-6 md:p-8 mb-8 border-l-8 border-slate-950 shadow-md">
+      <div className="kr-hero-premium kr-pattern-chinar rounded-xl p-6 md:p-8 mb-8 border-l-8 border-kr-border-brand shadow-md">
         <div className="flex items-center gap-3 mb-2">
           <h1 className="font-heading text-display text-white">Admin console</h1>
           <span

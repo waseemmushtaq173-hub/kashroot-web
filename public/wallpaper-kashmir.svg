@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1600" viewBox="0 0 2400 1600" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0B1020"/>
+      <stop offset="38%" stop-color="#1B2A4A"/>
+      <stop offset="62%" stop-color="#3B1D5A"/>
+      <stop offset="82%" stop-color="#7C2D52"/>
+      <stop offset="100%" stop-color="#0B1020"/>
+    </linearGradient>
+    <radialGradient id="orbA" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F5A623" stop-opacity="0.9"/>
+      <stop offset="45%" stop-color="#E76F51" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#E76F51" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="orbB" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#10B981" stop-opacity="0.85"/>
+      <stop offset="50%" stop-color="#0EA5E9" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#0EA5E9" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="orbC" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#A855F7" stop-opacity="0.85"/>
+      <stop offset="55%" stop-color="#EC4899" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#EC4899" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ridge1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1B4332" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#0B1020" stop-opacity="1"/>
+    </linearGradient>
+    <linearGradient id="ridge2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2B4A3E" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#101A2E" stop-opacity="1"/>
+    </linearGradient>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.06"/></feComponentTransfer>
+      <feComposite operator="over" in2="SourceGraphic"/>
+    </filter>
+  </defs>
+  <rect width="2400" height="1600" fill="url(#sky)"/>
+  <ellipse cx="420" cy="280" rx="620" ry="460" fill="url(#orbA)"/>
+  <ellipse cx="1980" cy="360" rx="700" ry="520" fill="url(#orbC)"/>
+  <ellipse cx="1220" cy="620" rx="820" ry="560" fill="url(#orbB)" opacity="0.9"/>
+  <ellipse cx="600" cy="1250" rx="700" ry="420" fill="url(#orbB)" opacity="0.55"/>
+  <ellipse cx="1850" cy="1220" rx="640" ry="420" fill="url(#orbA)" opacity="0.5"/>
+  <path d="M0 1050 L220 920 L420 1000 L640 880 L860 990 L1080 900 L1300 1010 L1520 890 L1740 1000 L1960 910 L2180 995 L2400 930 L2400 1600 L0 1600 Z" fill="url(#ridge2)"/>
+  <path d="M0 1200 L180 1100 L400 1180 L620 1080 L840 1170 L1060 1090 L1280 1185 L1500 1095 L1720 1180 L1940 1100 L2160 1175 L2400 1105 L2400 1600 L0 1600 Z" fill="url(#ridge1)"/>
+  <g fill="#FFFFFF" opacity="0.85">
+    <circle cx="180" cy="140" r="2.2"/><circle cx="420" cy="90" r="1.6"/><circle cx="760" cy="160" r="2"/><circle cx="1120" cy="80" r="1.8"/><circle cx="1460" cy="150" r="2.1"/><circle cx="1800" cy="90" r="1.7"/><circle cx="2120" cy="170" r="2.2"/><circle cx="2280" cy="80" r="1.5"/><circle cx="980" cy="220" r="1.4"/><circle cx="1320" cy="200" r="1.6"/><circle cx="300" cy="320" r="1.3"/><circle cx="1980" cy="620" r="1.4"/>
+  </g>
+  <rect width="2400" height="1600" fill="#0B1020" opacity="0.18"/>
+</svg>

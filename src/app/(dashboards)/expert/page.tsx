@@ -33,10 +33,10 @@ export default function ExpertDashboard() {
       </header>
 
       {isExpert && !isVerified && (
-        <div className="bg-kr-warning-50 border-l-4 border-kr-warning-500 p-4 mb-6 rounded-r-md flex gap-4">
+        <div className="bg-kr-badge-pending-bg border-l-4 border-kr-warning-500 p-4 mb-6 rounded-r-md flex gap-4">
           <ShieldAlert className="w-6 h-6 text-kr-warning-600 flex-shrink-0" />
           <div>
-            <h3 className="font-semibold text-kr-warning-800">Account Under Credential Verification</h3>
+            <h3 className="font-semibold text-kr-badge-pending-text">Account Under Credential Verification</h3>
             <p className="text-kr-warning-700 text-sm mt-1">
               You will be able to publish advisories and answer farmer queries once your qualifications are approved by the Platform Admin.
             </p>

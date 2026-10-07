@@ -7,41 +7,940 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ChatMessage {
+  id           String     @id
+  threadId     String
+  content      String
+  senderUserId String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime
+  ChatThread   ChatThread @relation(fields: [threadId], references: [id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ChatThread {
+  id            String        @id
+  appointmentId String?       @unique
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime
+  isArchived    Boolean       @default(false)
+  ChatMessage   ChatMessage[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model FeeVersion {
+  id             String   @id
+  serviceFeesPct Decimal
+  created_at     DateTime @default(now())
+  orders         orders[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Payment {
+  id          String   @id
+  order_id    String
+  amount      Decimal  @db.Decimal(12, 4)
+  currency    String
+  providerRef String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime
+  orders      orders   @relation(fields: [order_id], references: [id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model addresses {
+  id          String   @id
+  user_id     String
+  region_id   String?
+  line1       String
+  line2       String?
+  city        String
+  postal_code String
+  country     String
+  is_default  Boolean  @default(false)
+  created_at  DateTime @default(now())
+  regions     regions? @relation(fields: [region_id], references: [id])
+  users       User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  orders      orders[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model agency_pesticide_inspections {
+  id                       String             @id
+  tester_profile_id        String
+  agency_name              String
+  product_brand            String
+  scanned_batch_no         String?
+  scanned_bottle_image_url String
+  verdict                  inspection_verdict
+  match_confidence         Float
+  discrepancy_report       Json?
+  created_at               DateTime           @default(now())
+  updated_at               DateTime
+  tester_profiles          tester_profiles    @relation(fields: [tester_profile_id], references: [id], onDelete: Cascade)
+
+  @@index([product_brand])
+  @@index([tester_profile_id, created_at])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model appointment_notes {
+  id             String       @id
+  appointment_id String
+  author_user_id String
+  note           String
+  created_at     DateTime     @default(now())
+  appointments   appointments @relation(fields: [appointment_id], references: [id], onDelete: Cascade)
+  users          User        @relation(fields: [author_user_id], references: [id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model appointments {
+  id                  String              @id
+  farmer_profile_id   String
+  buyer_profile_id    String
+  listing_id          String?
+  type                appointment_type
+  status              appointment_status  @default(REQUESTED)
+  proposed_slots      Json
+  confirmed_slot_utc  DateTime?
+  requester_timezone  String?
+  farmer_timezone     String?
+  cancellation_reason String?
+  is_required         Boolean             @default(true)
+  created_at          DateTime            @default(now())
+  updated_at          DateTime
+  appointment_notes   appointment_notes[]
+  buyer_profiles      buyer_profiles      @relation(fields: [buyer_profile_id], references: [id])
+  farmer_profiles     farmer_profiles     @relation(fields: [farmer_profile_id], references: [id])
+  listings            listings?           @relation(fields: [listing_id], references: [id])
+  orders              orders[]
+
+  @@index([buyer_profile_id, status])
+  @@index([farmer_profile_id, status])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model audit_logs {
+  id            String   @id
+  actor_user_id String?
+  action        String
+  target_type   String
+  target_id     String
+  ip_address    String?
+  device_info   Json?
+  metadata      Json?
+  created_at    DateTime @default(now())
+  users         User?   @relation(fields: [actor_user_id], references: [id])
+
+  @@index([actor_user_id, created_at(sort: Desc)])
+  @@index([target_type, target_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model buyer_farmer_relationships {
+  id                        String          @id
+  buyer_profile_id          String
+  farmer_profile_id         String
+  completed_orders          Int             @default(0)
+  dispute_count             Int             @default(0)
+  appointment_skip_eligible Boolean         @default(false)
+  first_order_at            DateTime?
+  last_order_at             DateTime?
+  buyer_profiles            buyer_profiles  @relation(fields: [buyer_profile_id], references: [id])
+  farmer_profiles           farmer_profiles @relation(fields: [farmer_profile_id], references: [id])
+
+  @@unique([buyer_profile_id, farmer_profile_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model buyer_profiles {
+  id                         String                       @id
+  user_id                    String                       @unique
+  display_name               String
+  buyer_type                 buyer_type
+  trust_score                Decimal                      @default(50) @db.Decimal(5, 2)
+  no_show_count              Int                          @default(0)
+  default_currency           String                       @default("INR")
+  created_at                 DateTime                     @default(now())
+  updated_at                 DateTime
+  appointments               appointments[]
+  buyer_farmer_relationships buyer_farmer_relationships[]
+  users                      User                        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  orders                     orders[]
+  saved_farmers              saved_farmers[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model categories {
+  id                 String         @id
+  name               String
+  slug               String         @unique
+  parent_category_id String?
+  icon_url           String?
+  categories         categories?    @relation("categoriesTocategories", fields: [parent_category_id], references: [id])
+  other_categories   categories[]   @relation("categoriesTocategories")
+  listings           listings[]
+  mandi_prices       mandi_prices[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model certifications {
+  id                     String                   @id
+  farmer_profile_id      String
+  name                   String
+  issuing_body           String?
+  file_key               String?
+  verified               Boolean                  @default(false)
+  expires_at             DateTime?
+  created_at             DateTime                 @default(now())
+  farmer_profiles        farmer_profiles          @relation(fields: [farmer_profile_id], references: [id], onDelete: Cascade)
+  listing_certifications listing_certifications[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model customs_documents {
+  id         String             @id
+  order_id   String
+  doc_type   String
+  hs_code    String?
+  file_key   String?
+  status     customs_doc_status @default(PENDING)
+  created_at DateTime           @default(now())
+  orders     orders             @relation(fields: [order_id], references: [id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model disputes {
+  id                    String         @id
+  order_id              String
+  opened_by             String
+  status                dispute_status @default(OPEN)
+  resolution_action     String?
+  resolution_note       String?
+  assigned_moderator_id String?
+  evidence_keys         Json?
+  created_at            DateTime       @default(now())
+  resolved_at           DateTime?
+  users                 User          @relation(fields: [opened_by], references: [id])
+  orders                orders         @relation(fields: [order_id], references: [id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model escrow_holds {
+  id                String        @id
+  order_id          String        @unique
+  buyer_profile_id  String
+  farmer_profile_id String
+  amount            Decimal       @db.Decimal(12, 4)
+  currency          String
+  status            escrow_status @default(HELD)
+  related_refund_id String?
+  held_at           DateTime      @default(now())
+  released_at       DateTime?
+  refunded_at       DateTime?
+  created_at        DateTime      @default(now())
+  updated_at        DateTime
+
+  @@index([buyer_profile_id])
+  @@index([farmer_profile_id])
+  @@index([status])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model expert_kyc_documents {
+  id                String              @id
+  expert_profile_id String
+  document_url      String
+  document_type     String
+  status            verification_status @default(PENDING)
+  review_notes      String?
+  reviewed_by       String?
+  reviewed_at       DateTime?
+  uploaded_at       DateTime            @default(now())
+  expert_profiles   expert_profiles     @relation(fields: [expert_profile_id], references: [id], onDelete: Cascade)
+
+  @@index([expert_profile_id])
+  @@index([status])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model expert_profiles {
+  id                   String                 @id
+  user_id              String                 @unique
+  display_name         String
+  specialization       String?
+  bio                  String?
+  verification_status  verification_status    @default(PENDING)
+  audio_prompts        Json?
+  created_at           DateTime               @default(now())
+  updated_at           DateTime
+  expert_kyc_documents expert_kyc_documents[]
+  users                User                  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model farmer_profiles {
+  id                         String                       @id
+  user_id                    String                       @unique
+  display_name               String
+  bio                        String?
+  origin_region_id           String?
+  kyc_status                 kyc_status                   @default(PENDING)
+  kyc_rejection_reason       String?
+  kyc_submitted_at           DateTime?
+  kyc_reviewed_at            DateTime?
+  kyc_reviewed_by            String?
+  payout_account_ref         String?
+  trust_score                Decimal                      @default(50) @db.Decimal(5, 2)
+  no_show_count              Int                          @default(0)
+  is_flagged_for_review      Boolean                      @default(false)
+  preferred_language         preferred_language           @default(KASHMIRI)
+  voice_mode_enabled         Boolean                      @default(true)
+  created_at                 DateTime                     @default(now())
+  updated_at                 DateTime
+  appointments               appointments[]
+  buyer_farmer_relationships buyer_farmer_relationships[]
+  certifications             certifications[]
+  regions                    regions?                     @relation(fields: [origin_region_id], references: [id])
+  users                      User                        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  kyc_documents              kyc_documents[]
+  listings                   listings[]
+  orders                     orders[]
+  payouts                    payouts[]
+  saved_farmers              saved_farmers[]
+  shipping_capabilities      shipping_capabilities[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model farming_advisories {
+  id                  String            @id
+  topic               String
+  category            advisory_category
+  content             String
+  applicable_crops    String[]
+  applicable_regions  String[]
+  is_gov_verified     Boolean           @default(false)
+  source_organization String
+  source_url          String?
+  audio_prompts       Json?
+  created_at          DateTime          @default(now())
+  updated_at          DateTime
+
+  @@index([category])
+  @@index([is_gov_verified, updated_at])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model fee_config_versions {
+  id             String   @id
+  serviceFeesPct Decimal  @db.Decimal(5, 4)
+  customsDutyPct Decimal  @db.Decimal(5, 4)
+  effectiveFrom  DateTime @default(now())
+  created_at     DateTime @default(now())
+  orders         orders[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model industry_golden_references {
+  id                       String   @id
+  brand_name               String   @unique
+  manufacturer_name        String
+  chemical_composition     String
+  target_crops             String
+  factory_batch_prefix     String
+  factory_hologram_pattern String
+  golden_image_url         String
+  dosage_instructions      String
+  audio_prompts            Json?
+  created_at               DateTime @default(now())
+  updated_at               DateTime
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model kyc_documents {
+  id                String          @id
+  farmer_profile_id String
+  doc_type          String
+  file_key          String
+  file_size_bytes   Int?
+  mime_type         String?
+  scan_status       scan_status     @default(PENDING)
+  uploaded_at       DateTime        @default(now())
+  reviewed_by       String?
+  reviewed_at       DateTime?
+  farmer_profiles   farmer_profiles @relation(fields: [farmer_profile_id], references: [id], onDelete: Cascade)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ledger_entries {
+  id                String            @id
+  entry_type        ledger_entry_type
+  amount            Decimal           @db.Decimal(12, 4)
+  currency          String
+  farmer_profile_id String?
+  buyer_profile_id  String?
+  related_order_id  String?
+  related_refund_id String?
+  description       String
+  created_at        DateTime          @default(now())
+
+  @@index([buyer_profile_id, created_at])
+  @@index([farmer_profile_id, created_at])
+  @@index([related_order_id, created_at])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model listing_certifications {
+  listing_id       String
+  certification_id String
+  certifications   certifications @relation(fields: [certification_id], references: [id], onDelete: Cascade)
+  listings         listings       @relation(fields: [listing_id], references: [id], onDelete: Cascade)
+
+  @@id([listing_id, certification_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model listing_photos {
+  id         String   @id
+  listing_id String
+  file_key   String
+  sort_order Int      @default(0)
+  alt_text   String?
+  listings   listings @relation(fields: [listing_id], references: [id], onDelete: Cascade)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model listings {
+  id                     String                   @id
+  farmer_profile_id      String
+  category_id            String?
+  origin_region_id       String?
+  title                  String
+  description            String?
+  variety                String?
+  unit_of_sale           String
+  price_per_unit         Decimal                  @db.Decimal(12, 4)
+  currency               String                   @default("INR")
+  min_order_qty          Decimal                  @default(1) @db.Decimal(12, 4)
+  available_qty          Decimal                  @default(0) @db.Decimal(12, 4)
+  harvest_start          DateTime?
+  harvest_end            DateTime?
+  quality_grade          String?
+  status                 listing_status           @default(DRAFT)
+  audio_prompts          Json?
+  created_at             DateTime                 @default(now())
+  updated_at             DateTime
+  stock                  Int
+  appointments           appointments[]
+  listing_certifications listing_certifications[]
+  listing_photos         listing_photos[]
+  categories             categories?              @relation(fields: [category_id], references: [id])
+  farmer_profiles        farmer_profiles          @relation(fields: [farmer_profile_id], references: [id], onDelete: Cascade)
+  regions                regions?                 @relation(fields: [origin_region_id], references: [id])
+  orders                 orders[]
+
+  @@index([origin_region_id, category_id, status])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model mandi_prices {
+  id              String          @id
+  region_id       String?
+  category_id     String?
+  mandi_name      String
+  commodity       String
+  variety         String?
+  min_price       Decimal         @db.Decimal(12, 4)
+  max_price       Decimal         @db.Decimal(12, 4)
+  modal_price     Decimal         @db.Decimal(12, 4)
+  unit_of_sale    String
+  currency        String          @default("INR")
+  trend_indicator trend_indicator @default(STABLE)
+  audio_prompts   Json?
+  recorded_at     DateTime
+  created_at      DateTime        @default(now())
+  updated_at      DateTime
+  categories      categories?     @relation(fields: [category_id], references: [id])
+  regions         regions?        @relation(fields: [region_id], references: [id])
+
+  @@index([mandi_name, commodity, recorded_at])
+  @@index([region_id, commodity, recorded_at])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model notification_preferences {
+  user_id  String
+  category String
+  channel  String
+  enabled  Boolean @default(true)
+
+  @@id([user_id, category, channel])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model notification_queue {
+  id         String              @id
+  user_id    String
+  category   String
+  channel    String
+  payload    Json
+  status     notification_status @default(QUEUED)
+  attempts   Int                 @default(0)
+  created_at DateTime            @default(now())
+  sent_at    DateTime?
+
+  @@index([status, created_at])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model order_status_history {
+  id         String       @id
+  order_id   String
+  status     order_status
+  changed_by String?
+  changed_at DateTime     @default(now())
+  note       String?
+  users      User?       @relation(fields: [changed_by], references: [id])
+  orders     orders       @relation(fields: [order_id], references: [id], onDelete: Cascade)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model orders {
+  id                                            String                 @id
+  buyer_profile_id                              String
+  farmer_profile_id                             String
+  listing_id                                    String
+  appointment_id                                String
+  fee_config_version_id                         String
+  quantity                                      Decimal                @db.Decimal(12, 4)
+  unit_price                                    Decimal                @db.Decimal(12, 4)
+  currency                                      String
+  subtotal                                      Decimal                @db.Decimal(12, 4)
+  service_fee                                   Decimal                @db.Decimal(12, 4)
+  shipping_estimate                             Decimal                @default(0) @db.Decimal(12, 4)
+  customs_duty_estimate                         Decimal                @default(0) @db.Decimal(12, 4)
+  total                                         Decimal                @db.Decimal(12, 4)
+  trade_direction                               trade_direction
+  origin_region_id                              String?
+  destination_region_id                         String?
+  buyer_shipping_address_id                     String?
+  status                                        order_status           @default(PLACED)
+  created_at                                    DateTime               @default(now())
+  updated_at                                    DateTime
+  pricingSnapshot                               Json?
+  feeVersionId                                  String?
+  Payment                                       Payment[]
+  customs_documents                             customs_documents[]
+  disputes                                      disputes[]
+  order_status_history                          order_status_history[]
+  appointments                                  appointments           @relation(fields: [appointment_id], references: [id])
+  buyer_profiles                                buyer_profiles         @relation(fields: [buyer_profile_id], references: [id])
+  addresses                                     addresses?             @relation(fields: [buyer_shipping_address_id], references: [id])
+  regions_orders_destination_region_idToregions regions?               @relation("orders_destination_region_idToregions", fields: [destination_region_id], references: [id])
+  farmer_profiles                               farmer_profiles        @relation(fields: [farmer_profile_id], references: [id])
+  FeeVersion                                    FeeVersion?            @relation(fields: [feeVersionId], references: [id])
+  fee_config_versions                           fee_config_versions    @relation(fields: [fee_config_version_id], references: [id])
+  listings                                      listings               @relation(fields: [listing_id], references: [id])
+  regions_orders_origin_region_idToregions      regions?               @relation("orders_origin_region_idToregions", fields: [origin_region_id], references: [id])
+  payouts                                       payouts[]
+  reviews                                       reviews[]
+  shipments                                     shipments[]
+
+  @@index([buyer_profile_id, status])
+  @@index([farmer_profile_id, status])
+  @@index([trade_direction, created_at(sort: Desc)])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model payouts {
+  id                String          @id
+  farmer_profile_id String
+  order_id          String
+  gross_amount      Decimal         @db.Decimal(12, 4)
+  deductions        Json
+  net_amount        Decimal         @db.Decimal(12, 4)
+  status            payout_status   @default(PENDING)
+  released_at       DateTime?
+  created_at        DateTime        @default(now())
+  farmer_profiles   farmer_profiles @relation(fields: [farmer_profile_id], references: [id])
+  orders            orders          @relation(fields: [order_id], references: [id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model permissions {
+  id               String             @id
+  key              String             @unique
+  description      String?
+  role_permissions role_permissions[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model refresh_tokens {
+  id          String    @id
+  user_id     String
+  token_hash  String
+  device_info Json?
+  ip_address  String?
+  issued_at   DateTime  @default(now())
+  expires_at  DateTime
+  revoked_at  DateTime?
+  users       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model regions {
+  id                                           String                  @id
+  name                                         String
+  country_code                                 String
+  is_active                                    Boolean                 @default(false)
+  shipping_zone_config                         Json?
+  created_at                                   DateTime                @default(now())
+  addresses                                    addresses[]
+  farmer_profiles                              farmer_profiles[]
+  listings                                     listings[]
+  mandi_prices                                 mandi_prices[]
+  orders_orders_destination_region_idToregions orders[]                @relation("orders_destination_region_idToregions")
+  orders_orders_origin_region_idToregions      orders[]                @relation("orders_origin_region_idToregions")
+  shipping_capabilities                        shipping_capabilities[]
+  user_roles                                   user_roles[]
+  weather_alerts                               weather_alerts[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model reviews {
+  id                  String        @id
+  order_id            String
+  reviewer_profile_id String
+  reviewee_profile_id String
+  reviewer_role       reviewer_role
+  rating              Int
+  body                String?
+  is_visible          Boolean       @default(true)
+  hidden_reason       String?
+  created_at          DateTime      @default(now())
+  updated_at          DateTime      @default(now())
+  orders              orders        @relation(fields: [order_id], references: [id])
+
+  @@unique([order_id, reviewer_role])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model role_permissions {
+  role_id       String
+  permission_id String
+  permissions   permissions @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+  roles         roles       @relation(fields: [role_id], references: [id], onDelete: Cascade)
+
+  @@id([role_id, permission_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model roles {
+  id               String             @id
+  name             role_name          @unique
+  role_permissions role_permissions[]
+  user_roles       user_roles[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model saved_farmers {
+  buyer_profile_id  String
+  farmer_profile_id String
+  saved_at          DateTime        @default(now())
+  buyer_profiles    buyer_profiles  @relation(fields: [buyer_profile_id], references: [id], onDelete: Cascade)
+  farmer_profiles   farmer_profiles @relation(fields: [farmer_profile_id], references: [id], onDelete: Cascade)
+
+  @@id([buyer_profile_id, farmer_profile_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model shipments {
+  id                    String          @id
+  order_id              String
+  logistics_partner_id  String?
+  tracking_ref          String?
+  provider_name         String?
+  status                shipment_status @default(PENDING_PICKUP)
+  proof_of_delivery_key String?
+  last_updated_at       DateTime        @default(now())
+  orders                orders          @relation(fields: [order_id], references: [id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model shipping_capabilities {
+  id                    String          @id
+  farmer_profile_id     String
+  destination_region_id String
+  lead_time_days        Int?
+  supported             Boolean         @default(true)
+  custom_rate           Decimal?        @db.Decimal(12, 4)
+  regions               regions         @relation(fields: [destination_region_id], references: [id])
+  farmer_profiles       farmer_profiles @relation(fields: [farmer_profile_id], references: [id], onDelete: Cascade)
+
+  @@unique([farmer_profile_id, destination_region_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tester_profiles {
+  id                           String                         @id
+  user_id                      String                         @unique
+  organization                 String
+  badge_number                 String?
+  created_at                   DateTime                       @default(now())
+  updated_at                   DateTime
+  agency_pesticide_inspections agency_pesticide_inspections[]
+  users                        User                          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model user_roles {
+  user_id     String
+  role_id     String
+  region_id   String?
+  assigned_at DateTime @default(now())
+  assigned_by String?
+  regions     regions? @relation(fields: [region_id], references: [id])
+  roles       roles    @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  users       User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@id([user_id, role_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model User {
-  id                      String                  @id @default(uuid())
-  email                   String                  @unique
-  fullName                String?
-  phone                   String?
-  role                    String                  @default("FARMER")
-  password                String?
-  notifications           Notification[]
-  notificationPreferences NotificationPreference?
+  id                   String                 @id
+  email                String?                @unique
+  phone                String?                @unique
+  password        String @map("password_hash")
+  mfa_enabled          Boolean                @default(false)
+  mfa_secret           Bytes?
+  status               user_status            @default(PENDING_VERIFICATION)
+  email_verified_at    DateTime?
+  phone_verified_at    DateTime?
+  last_login_at        DateTime?
+  created_at           DateTime               @default(now())
+  updated_at           DateTime
+  addresses            addresses[]
+  appointment_notes    appointment_notes[]
+  audit_logs           audit_logs[]
+  buyer_profiles       buyer_profiles?
+  disputes             disputes[]
+  expert_profiles      expert_profiles?
+  farmer_profiles      farmer_profiles?
+  order_status_history order_status_history[]
+  refresh_tokens       refresh_tokens[]
+  tester_profiles      tester_profiles?
+  user_roles           user_roles[]
+  @@map("users")
 }
 
-model Notification {
-  id                  String   @id @default(uuid())
-  user_id             String
-  type                String
-  title               String
-  message             String
-  channel             String   // SMS, EMAIL, IN_APP
-  status              String   // PENDING, SENT, FAILED, READ
-  provider_message_id String?
-  created_at          DateTime @default(now())
-  sent_at             DateTime?
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model weather_alerts {
+  id             String           @id
+  region_id      String
+  title          String
+  message        String
+  severity_level weather_severity @default(INFO)
+  audio_prompts  Json?
+  effective_from DateTime
+  effective_to   DateTime?
+  created_at     DateTime         @default(now())
+  updated_at     DateTime
+  regions        regions          @relation(fields: [region_id], references: [id])
 
-  user User @relation(fields: [user_id], references: [id])
+  @@index([region_id, severity_level])
 }
 
-model NotificationPreference {
-  id                       String  @id @default(uuid())
-  user_id                  String  @unique
-  sms_enabled              Boolean @default(true)
-  email_enabled            Boolean @default(true)
-  order_notifications      Boolean @default(true)
-  security_notifications   Boolean @default(true)
-  marketing_notifications  Boolean @default(false)
-
-  user User @relation(fields: [user_id], references: [id])
+enum advisory_category {
+  SPRAY_SCHEDULE
+  DISEASE_PEST
+  FERTILIZER_SOIL
+  MODERN_TECH
+  GOV_ALERT
 }
 
+enum appointment_status {
+  REQUESTED
+  CONFIRMED
+  COMPLETED
+  NO_SHOW_FARMER
+  NO_SHOW_BUYER
+  CANCELLED
+  RESCHEDULED
+}
+
+enum appointment_type {
+  VIDEO
+  PHONE
+  IN_PERSON
+}
+
+enum buyer_type {
+  DOMESTIC_SAME_REGION
+  DOMESTIC_OTHER_REGION
+  INTERNATIONAL
+}
+
+enum customs_doc_status {
+  PENDING
+  SUBMITTED
+  CLEARED
+  REJECTED
+}
+
+enum dispute_status {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+enum escrow_status {
+  HELD
+  RELEASED
+  REFUNDED
+}
+
+enum inspection_verdict {
+  GENUINE_FACTORY
+  SUSPICIOUS_COUNTERFEIT
+}
+
+enum kyc_status {
+  PENDING
+  UNDER_REVIEW
+  VERIFIED
+  REJECTED
+}
+
+enum ledger_entry_type {
+  CREDIT
+  DEBIT
+}
+
+enum listing_status {
+  DRAFT
+  ACTIVE
+  SOLD_OUT
+  ARCHIVED
+  FROZEN
+}
+
+enum notification_status {
+  QUEUED
+  PROCESSING
+  SENT
+  FAILED
+}
+
+enum order_status {
+  CREATED
+  PLACED
+  CONFIRMED
+  PACKED
+  SHIPPED
+  CUSTOMS_CLEARANCE
+  OUT_FOR_DELIVERY
+  DELIVERED
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+enum payment_provider {
+  RAZORPAY
+  STRIPE
+  PAYPAL
+}
+
+enum payment_status {
+  PENDING
+  AUTHORIZED
+  CAPTURED
+  REFUNDED
+  FAILED
+}
+
+enum payout_status {
+  PENDING
+  RELEASED
+  HELD
+  REVERSED
+}
+
+enum preferred_language {
+  KASHMIRI
+  URDU
+  HINDI
+  ENGLISH
+}
+
+enum reviewer_role {
+  BUYER
+  FARMER
+}
+
+enum role_name {
+  SUPER_ADMIN
+  REGIONAL_ADMIN
+  FARMER
+  BUYER
+  LOGISTICS_PARTNER
+  SUPPORT_MODERATOR
+  TESTER
+  EXPERT
+  SYSTEM
+}
+
+enum scan_status {
+  PENDING
+  CLEAN
+  QUARANTINED
+}
+
+enum shipment_status {
+  PENDING_PICKUP
+  PICKED_UP
+  IN_TRANSIT
+  CUSTOMS_SUBMITTED
+  CUSTOMS_CLEARED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED_DELIVERY
+  RETURNED
+}
+
+enum trade_direction {
+  EXPORT_FROM_REGION
+  IMPORT_TO_REGION
+  DOMESTIC_OTHER
+}
+
+enum trend_indicator {
+  UP
+  DOWN
+  STABLE
+}
+
+enum user_status {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum verification_status {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum weather_severity {
+  INFO
+  WARNING
+  CRITICAL
+}

@@ -264,7 +264,7 @@ export default function AppointmentBookPage() {
         role="note"
       >
         <Globe className="w-4 h-4 text-kr-primary-600 mt-0.5 shrink-0" aria-hidden="true" />
-        <p className="text-caption text-kr-primary-800">
+        <p className="text-caption text-kr-text-brand">
           All times shown in <strong>your local timezone: {buyerTz}</strong>.
           Slot availability is from the farmer’s calendar.
         </p>
@@ -363,7 +363,7 @@ export default function AppointmentBookPage() {
                       ${ isSelected
                         ? 'bg-kr-primary-500 text-white'
                         : hasSlots
-                        ? 'bg-kr-fill-brand-subtle text-kr-primary-700 hover:bg-kr-primary-100'
+                        ? 'bg-kr-fill-brand-subtle text-kr-primary-700 hover:bg-kr-bg-sunken'
                         : isPast
                         ? 'text-kr-text-disabled cursor-not-allowed'
                         : 'text-kr-text-secondary'

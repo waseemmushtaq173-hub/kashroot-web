@@ -74,7 +74,7 @@ export default function ExpertRegistrationPage() {
       </p>
 
       {errorMsg && (
-        <div className="bg-kr-error-50 border border-kr-error-200 text-kr-error-700 p-3 rounded-md mb-6 flex gap-3">
+        <div className="bg-kr-badge-rejected-bg border border-kr-border-danger text-kr-badge-rejected-text p-3 rounded-md mb-6 flex gap-3">
           <AlertCircle className="w-5 h-5 flex-shrink-0" />
           <p className="text-sm">{errorMsg}</p>
         </div>

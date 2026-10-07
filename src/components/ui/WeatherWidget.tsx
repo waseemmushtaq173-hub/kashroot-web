@@ -95,9 +95,9 @@ export function WeatherWidget() {
   };
 
   return (
-    <div className="kr-card p-0 overflow-hidden border-2 border-blue-100 bg-white">
+    <div className="kr-card p-0 overflow-hidden border-2 border-kr-border-default kr-glass">
       {/* Header and Controls */}
-      <div className="bg-blue-50/50 p-4 border-b border-blue-100">
+      <div className="bg-kr-bg-sunken p-4 border-b border-kr-border-default">
         <div className="flex items-center gap-2 mb-4">
           <CloudSun className="w-5 h-5 text-blue-600" />
           <h2 className="font-heading text-h3 text-blue-900">Live Logistics Weather</h2>
@@ -107,7 +107,7 @@ export function WeatherWidget() {
           <div className="relative flex-1">
             <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-kr-text-secondary" />
             <select
-              className="kr-input pl-9 w-full bg-white text-kr-text-primary"
+              className="kr-input pl-9 w-full kr-glass text-kr-text-primary"
               value={selectedLoc.id}
               onChange={(e) => {
                 const loc = PREDEFINED_LOCATIONS.find(l => l.id === e.target.value);
@@ -145,12 +145,12 @@ export function WeatherWidget() {
       <div className="p-6">
         {loading ? (
           <div className="animate-pulse flex flex-col items-center justify-center py-6">
-            <div className="h-16 w-32 bg-slate-200 rounded mb-4" />
-            <div className="h-4 w-48 bg-slate-200 rounded mb-8" />
+            <div className="h-16 w-32 bg-kr-bg-sunken rounded mb-4" />
+            <div className="h-4 w-48 bg-kr-bg-sunken rounded mb-8" />
             <div className="grid grid-cols-3 w-full gap-4">
-              <div className="h-16 bg-slate-100 rounded" />
-              <div className="h-16 bg-slate-100 rounded" />
-              <div className="h-16 bg-slate-100 rounded" />
+              <div className="h-16 bg-kr-bg-sunken rounded" />
+              <div className="h-16 bg-kr-bg-sunken rounded" />
+              <div className="h-16 bg-kr-bg-sunken rounded" />
             </div>
           </div>
         ) : data ? (

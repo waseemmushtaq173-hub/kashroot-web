@@ -81,17 +81,17 @@ export function SuppliesBrowser() {
       {/* ── Sample-data notice ─────────────────────────────────────────────── */}
       <div
         role="note"
-        className="mb-8 flex items-start gap-3 border border-kr-warning-300 bg-kr-warning-50 p-4"
+        className="mb-8 flex items-start gap-3 border border-kr-warning-300 bg-kr-badge-pending-bg p-4"
       >
         <AlertTriangle
           className="mt-0.5 h-4 w-4 shrink-0 text-kr-warning-700"
           aria-hidden="true"
         />
         <div>
-          <p className="text-label font-semibold text-kr-warning-800">
+          <p className="text-label font-semibold text-kr-badge-pending-text">
             Sample catalogue — not live vendor pricing
           </p>
-          <p className="mt-0.5 text-body-sm text-kr-warning-800">
+          <p className="mt-0.5 text-body-sm text-kr-badge-pending-text">
             Suppliers and prices below are placeholders that demonstrate the
             comparison layout. Do not trade against them.
           </p>
@@ -263,7 +263,7 @@ function ItemCard({ item }: { item: SupplyItem }) {
                 <tr
                   key={offer.supplier}
                   className={`border-b border-kr-border-default last:border-b-0 ${
-                    isBest ? 'bg-kr-success-50' : ''
+                    isBest ? 'bg-kr-badge-published-bg' : ''
                   }`}
                 >
                   <th
@@ -277,7 +277,7 @@ function ItemCard({ item }: { item: SupplyItem }) {
                     <span className="flex flex-wrap items-center gap-2">
                       {offer.supplier}
                       {isBest && (
-                        <span className="inline-flex items-center gap-1 border border-kr-success-300 bg-kr-bg-surface px-1.5 py-0.5 text-caption font-semibold text-kr-success-700">
+                        <span className="inline-flex items-center gap-1 border border-kr-border-default bg-kr-bg-surface px-1.5 py-0.5 text-caption font-semibold text-kr-success-700">
                           <Check className="h-3 w-3" aria-hidden="true" />
                           Best unit price
                         </span>
@@ -293,7 +293,7 @@ function ItemCard({ item }: { item: SupplyItem }) {
                     {isBest ? (
                       <span className="text-kr-text-secondary">&mdash;</span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-kr-warning-800">
+                      <span className="inline-flex items-center gap-1 text-kr-badge-pending-text">
                         <ArrowDownRight className="h-3 w-3" aria-hidden="true" />
                         {money(delta, offer.currency)}
                       </span>
@@ -313,7 +313,7 @@ function ItemCard({ item }: { item: SupplyItem }) {
                     <span
                       className={`inline-block border px-2 py-0.5 text-caption ${
                         offer.inStock
-                          ? 'border-kr-success-300 bg-kr-success-50 text-kr-success-700'
+                          ? 'border-kr-border-default bg-kr-badge-published-bg text-kr-success-700'
                           : 'border-kr-neutral-300 bg-kr-bg-sunken text-kr-text-secondary'
                       }`}
                     >

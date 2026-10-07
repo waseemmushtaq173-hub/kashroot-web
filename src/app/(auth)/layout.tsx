@@ -21,7 +21,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
       {/* Brand panel — exactly 50% width on desktop */}
       <div
-        className="hidden lg:flex w-1/2 flex-col justify-center relative bg-[#1B4332] text-white overflow-hidden"
+        className="hidden lg:flex w-1/2 flex-col justify-center relative kr-hero-premium kr-pattern-chinar overflow-hidden"
         aria-hidden="true"
       >
         {/* Subtle Kashmiri Chinar leaf pattern overlay */}
@@ -61,7 +61,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       {/* Form container — exactly 50% width on desktop, 100% on mobile */}
       <main
         id="auth-main"
-        className="flex w-full lg:w-1/2 items-center justify-center bg-gray-50 px-4 py-12 sm:px-8"
+        className="flex w-full lg:w-1/2 items-center justify-center bg-kr-bg-sunken px-4 py-12 sm:px-8"
       >
         <div className="w-full max-w-md mx-auto flex flex-col items-center">
           {/* Mobile-only logo */}

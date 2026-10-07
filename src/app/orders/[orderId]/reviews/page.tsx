@@ -195,11 +195,11 @@ function ReviewForm({
         role="status"
         aria-live="polite"
         className="flex items-center gap-3 p-4 rounded-lg
-                   border border-kr-success-300 bg-kr-success-50"
+                   border border-kr-border-default bg-kr-badge-published-bg"
       >
         <CheckCircle2 className="w-5 h-5 text-kr-success-500 shrink-0" aria-hidden="true" />
         <div>
-          <p className="font-medium text-body-sm text-kr-success-800">Review submitted</p>
+          <p className="font-medium text-body-sm text-kr-badge-published-text">Review submitted</p>
           <p className="text-caption text-kr-success-700">
             You rated {targetName} {existingReview?.rating ?? rating}/5.
           </p>

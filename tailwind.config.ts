@@ -165,6 +165,24 @@ const config: Config = {
         'kr-default': 'cubic-bezier(0.4, 0, 0.2, 1)',
         'kr-spring':  'cubic-bezier(0.34, 1.56, 0.64, 1)',
       },
+
+      keyframes: {
+        'kr-drift': {
+          from: { transform: 'translate3d(0,0,0) scale(1)' },
+          to: { transform: 'translate3d(4rem, 2.5rem, 0) scale(1.12)' },
+        },
+        'kr-float': {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-10px)' },
+        },
+      },
+      animation: {
+        'kr-drift': 'kr-drift 18s ease-in-out infinite alternate',
+        'kr-float': 'kr-float 7s ease-in-out infinite',
+      },
+      backgroundImage: {
+        'kr-wallpaper': "url('/wallpaper-kashmir.svg')",
+      },
     },
   },
 
@@ -346,18 +364,22 @@ function componentStatesPlugin() {
       // ── Cards ──────────────────────────────────────────────────────────────
       '.kr-card': {
         backgroundColor: 'var(--kr-bg-surface)',
-        border: '1px solid var(--kr-border-default)',
+        backdropFilter: 'blur(18px) saturate(1.35)',
+        WebkitBackdropFilter: 'blur(18px) saturate(1.35)',
+        border: '1px solid rgba(255,255,255,0.45)',
         borderRadius: borderRadius.md,
         padding: spacing['card-p'],
         boxShadow: boxShadow.card,
+        color: 'var(--kr-text-primary)',
       },
       '.kr-card-interactive': {
         '@apply kr-card': {},
         cursor: 'pointer',
-        transition: 'box-shadow 150ms ease, border-color 150ms ease',
+        transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
         '&:hover': {
           borderColor: 'var(--kr-border-brand)',
           boxShadow: boxShadow['card-md'],
+          transform: 'translateY(-2px)',
         },
         '&:active': { boxShadow: boxShadow.card },
         '&:focus-visible': {

@@ -62,10 +62,10 @@ function LoginForm() {
   };
 
   return (
-    <div className="max-w-md w-full bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl p-8 sm:p-10 border border-white/20 space-y-6 z-10 relative">
+    <div className="max-w-md w-full kr-glass/95 backdrop-blur-md shadow-2xl rounded-3xl p-8 sm:p-10 border border-white/20 space-y-6 z-10 relative">
       <div>
         <h1 className="text-4xl font-extrabold text-[#1B4332] tracking-tight">Welcome back</h1>
-        <p className="text-sm text-gray-600 mt-2">
+        <p className="text-sm text-kr-text-secondary mt-2">
           Don&apos;t have an account?{' '}
           <Link href="/register" className="text-[#E76F51] font-semibold hover:text-[#D65A3D] transition-colors">
             Create one free
@@ -87,9 +87,9 @@ function LoginForm() {
 
       <form onSubmit={handleLogin} className="space-y-4">
         <div>
-          <label className="text-sm font-semibold text-gray-700 mb-1 block">Account Type <span className="text-red-500">*</span></label>
+          <label className="text-sm font-semibold text-kr-text-primary mb-1 block">Account Type <span className="text-red-500">*</span></label>
           <select
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none mb-4"
+            className="w-full px-4 py-3 rounded-xl border border-kr-border-default bg-kr-bg-sunken text-kr-text-primary placeholder:text-kr-text-disabled focus:bg-kr-bg-surface focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none mb-4"
             value={selectedRole}
             onChange={(e) => setSelectedRole(e.target.value)}
             required
@@ -104,20 +104,20 @@ function LoginForm() {
         </div>
 
         <div>
-          <label className="text-sm font-semibold text-gray-700 mb-1 block">Email address</label>
+          <label className="text-sm font-semibold text-kr-text-primary mb-1 block">Email address</label>
           <input
             type="email"
             placeholder="farmer@kashroot.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none"
+            className="w-full px-4 py-3 rounded-xl border border-kr-border-default bg-kr-bg-sunken text-kr-text-primary placeholder:text-kr-text-disabled focus:bg-kr-bg-surface focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none"
             required
           />
         </div>
 
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label className="text-sm font-semibold text-gray-700 block">Password</label>
+            <label className="text-sm font-semibold text-kr-text-primary block">Password</label>
             <Link href="/forgot-password" className="text-sm text-[#E76F51] font-semibold hover:text-[#D65A3D] transition-colors">
               Forgot password?
             </Link>
@@ -128,13 +128,13 @@ function LoginForm() {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none pr-10"
+              className="w-full px-4 py-3 rounded-xl border border-kr-border-default bg-kr-bg-sunken text-kr-text-primary placeholder:text-kr-text-disabled focus:bg-kr-bg-surface focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none pr-10"
               required
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 transition-colors"
+              className="absolute right-3 top-3 text-kr-text-disabled hover:text-kr-text-secondary transition-colors"
             >
               {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>

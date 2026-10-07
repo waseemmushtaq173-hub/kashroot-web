@@ -387,7 +387,7 @@ export default function MandiPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F9F7F1]">
+    <div className="flex min-h-screen flex-col bg-transparent">
       <SiteHeader hideSignIn={false} />
       <main id="main-content" className="kr-container py-6 md:py-10 flex-1">
         {/* ── Header ───────────────────────────────────────────────────────── */}
@@ -554,10 +554,10 @@ export default function MandiPage() {
       {/* ── Board ────────────────────────────────────────────────────────── */}
       <div className="mt-8">
         {selection?.kind === 'empty' ? (
-          <div className="kr-card bg-gray-50 border border-gray-100 flex flex-col items-center justify-center p-12 text-center" role="alert">
-            <FlaskConical className="h-12 w-12 text-gray-400 mb-4" aria-hidden="true" />
-            <h2 className="font-heading text-h4 text-gray-800">Awaiting live data for {selectedState}</h2>
-            <p className="mt-2 text-body-sm text-gray-500">
+          <div className="kr-card bg-kr-bg-sunken border border-kr-border-default flex flex-col items-center justify-center p-12 text-center" role="alert">
+            <FlaskConical className="h-12 w-12 text-kr-text-disabled mb-4" aria-hidden="true" />
+            <h2 className="font-heading text-h4 text-kr-text-primary">Awaiting live data for {selectedState}</h2>
+            <p className="mt-2 text-body-sm text-kr-text-secondary">
               We are actively integrating pan-India market hubs (such as Agmarknet). Live Mandi prices for this region will be available soon.
             </p>
           </div>

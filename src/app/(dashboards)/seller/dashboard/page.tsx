@@ -46,28 +46,28 @@ export default function SellerDashboardPage() {
         </button>
       </div>
 
-      <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-200">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Payout Settings (Escrow)</h2>
-        <p className="text-sm text-gray-600 mb-6">Securely configure your bank details to receive automatic escrow payouts when buyers confirm delivery.</p>
+      <div className="kr-glass p-6 md:p-8 rounded-2xl shadow-sm border border-kr-border-default">
+        <h2 className="text-xl font-bold text-kr-text-primary mb-4">Payout Settings (Escrow)</h2>
+        <p className="text-sm text-kr-text-secondary mb-6">Securely configure your bank details to receive automatic escrow payouts when buyers confirm delivery.</p>
         
         <form className="max-w-2xl grid grid-cols-1 md:grid-cols-2 gap-6" onSubmit={(e) => { e.preventDefault(); alert("Payout settings updated securely."); }}>
           <div className="col-span-1 md:col-span-2">
-            <label className="block text-sm font-bold text-gray-700 mb-1">Account Holder Name</label>
+            <label className="block text-sm font-bold text-kr-text-primary mb-1">Account Holder Name</label>
             <input required type="text" className="kr-input w-full" placeholder="As per bank records" />
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Bank Account Number</label>
+            <label className="block text-sm font-bold text-kr-text-primary mb-1">Bank Account Number</label>
             <input required type="password" text-security="disc" className="kr-input w-full" placeholder="••••••••••••" />
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">IFSC Code</label>
+            <label className="block text-sm font-bold text-kr-text-primary mb-1">IFSC Code</label>
             <input required type="text" className="kr-input w-full uppercase" placeholder="e.g. SBIN0001234" />
           </div>
           <div className="col-span-1 md:col-span-2">
-            <label className="block text-sm font-bold text-gray-700 mb-1">UPI ID (Optional)</label>
+            <label className="block text-sm font-bold text-kr-text-primary mb-1">UPI ID (Optional)</label>
             <input type="text" className="kr-input w-full" placeholder="yourname@bank" />
           </div>
-          <div className="col-span-1 md:col-span-2 mt-2 border-t border-gray-100 pt-6">
+          <div className="col-span-1 md:col-span-2 mt-2 border-t border-kr-border-default pt-6">
             <button type="submit" className="bg-[#1B4332] hover:bg-[#153424] text-white px-6 py-3 rounded-xl font-bold transition-colors">
               Save Payout Configuration
             </button>

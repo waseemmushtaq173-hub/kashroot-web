@@ -90,7 +90,7 @@ export function VoiceAssistant() {
   return (
     <button
       onClick={toggleVoice}
-      className={`fixed bottom-6 right-6 p-4 rounded-full shadow-xl transition-all z-50 ${isPlaying ? 'bg-kr-primary-600 text-white animate-pulse' : 'bg-white text-kr-primary-600 border-2 border-kr-primary-600 hover:bg-kr-primary-50'}`}
+      className={`fixed bottom-6 right-6 p-4 rounded-full shadow-xl transition-all z-50 ${isPlaying ? 'bg-kr-primary-600 text-white animate-pulse' : 'kr-glass text-kr-primary-600 border-2 border-kr-primary-600 hover:bg-kr-fill-brand-subtle'}`}
       aria-label={isPlaying ? 'Stop Voice Assistant' : 'Start Voice Assistant'}
       title="Voice Assistant"
     >
