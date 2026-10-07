@@ -15,21 +15,21 @@ export default function DealerDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
-        <div className="kr-card kr-glass flex items-center gap-3 p-4">
+        <div className="kr-card kr-glass-amber kr-pattern-chinar kr-glass flex items-center gap-3 p-4">
           <FlaskConical className="w-5 h-5 text-purple-600 shrink-0" />
           <div>
             <p className="text-body-sm font-medium text-kr-text-primary">Inventory</p>
             <p className="text-caption text-kr-text-secondary">Stock levels</p>
           </div>
         </div>
-        <div className="kr-card kr-glass flex items-center gap-3 p-4">
+        <div className="kr-card kr-glass-amber kr-pattern-chinar kr-glass flex items-center gap-3 p-4">
           <ClipboardCheck className="w-5 h-5 text-purple-600 shrink-0" />
           <div>
             <p className="text-body-sm font-medium text-kr-text-primary">Compliance</p>
             <p className="text-caption text-kr-text-secondary">APMC & Licences</p>
           </div>
         </div>
-        <Link href="/supplies/tester" className="kr-card kr-glass hover:bg-kr-bg-sunken flex items-center gap-3 p-4 transition-colors">
+        <Link href="/supplies/tester" className="kr-card kr-glass-amber kr-pattern-chinar kr-glass hover:bg-kr-bg-sunken flex items-center gap-3 p-4 transition-colors">
           <PackageSearch className="w-5 h-5 text-purple-600 shrink-0" />
           <div>
             <p className="text-body-sm font-medium text-kr-text-primary">Tester Tool</p>
@@ -49,7 +49,7 @@ export default function DealerDashboardPage() {
         </button>
       </div>
 
-      <div className="kr-glass p-6 md:p-8 rounded-2xl shadow-sm border border-kr-border-default">
+      <div className="kr-glass-emerald kr-pattern-chinar p-6 md:p-8 rounded-2xl shadow-sm border border-kr-border-default">
         <h2 className="text-xl font-bold text-kr-text-primary mb-4">Payout Settings (Escrow)</h2>
         <p className="text-sm text-kr-text-secondary mb-6">Securely configure your bank details to receive automatic escrow payouts when buyers confirm delivery.</p>
         

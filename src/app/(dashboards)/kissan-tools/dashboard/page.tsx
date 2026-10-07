@@ -18,7 +18,7 @@ export default function KissanToolsDashboardPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {/* Horticulture & Orchard */}
-        <section className="kr-glass p-6 rounded-2xl shadow-sm border border-[#1B4332]/10 hover:shadow-lg transition-all">
+        <section className="kr-glass-emerald kr-pattern-chinar p-6 rounded-2xl shadow-sm border border-[#1B4332]/10 hover:shadow-lg transition-all">
           <div className="flex items-center gap-3 mb-6 border-b pb-4">
             <div className="w-12 h-12 rounded-lg bg-[#E76F51]/10 flex items-center justify-center">
               <Sprout className="w-6 h-6 text-[#E76F51]" />
@@ -46,7 +46,7 @@ export default function KissanToolsDashboardPage() {
         </section>
 
         {/* Agrochemicals */}
-        <section className="kr-glass p-6 rounded-2xl shadow-sm border border-[#1B4332]/10 hover:shadow-lg transition-all">
+        <section className="kr-glass-emerald kr-pattern-chinar p-6 rounded-2xl shadow-sm border border-[#1B4332]/10 hover:shadow-lg transition-all">
           <div className="flex items-center gap-3 mb-6 border-b pb-4">
             <div className="w-12 h-12 rounded-lg bg-[#1B4332]/10 flex items-center justify-center">
               <Beaker className="w-6 h-6 text-[#1B4332]" />
@@ -74,7 +74,7 @@ export default function KissanToolsDashboardPage() {
         </section>
 
         {/* Heavy Machinery */}
-        <section className="kr-glass p-6 rounded-2xl shadow-sm border border-[#1B4332]/10 hover:shadow-lg transition-all">
+        <section className="kr-glass-emerald kr-pattern-chinar p-6 rounded-2xl shadow-sm border border-[#1B4332]/10 hover:shadow-lg transition-all">
           <div className="flex items-center gap-3 mb-6 border-b pb-4">
             <div className="w-12 h-12 rounded-lg bg-[#D4A373]/20 flex items-center justify-center">
               <Tractor className="w-6 h-6 text-[#D4A373]" />
@@ -98,7 +98,7 @@ export default function KissanToolsDashboardPage() {
         </section>
 
         {/* Packaging */}
-        <section className="kr-glass p-6 rounded-2xl shadow-sm border border-[#1B4332]/10 hover:shadow-lg transition-all md:col-span-2 lg:col-span-3">
+        <section className="kr-glass-emerald kr-pattern-chinar p-6 rounded-2xl shadow-sm border border-[#1B4332]/10 hover:shadow-lg transition-all md:col-span-2 lg:col-span-3">
           <div className="flex items-center gap-3 mb-6 border-b pb-4">
             <div className="w-12 h-12 rounded-lg bg-kr-fill-brand-subtle flex items-center justify-center">
               <Box className="w-6 h-6 text-blue-600" />

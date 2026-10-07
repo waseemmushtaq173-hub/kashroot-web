@@ -365,14 +365,14 @@ export default function CheckoutPage() {
               </h2>
 
               {listingQ.isLoading && (
-                <div className="kr-card space-y-3 animate-pulse">
+                <div className="kr-card kr-glass-amber kr-pattern-chinar space-y-3 animate-pulse">
                   <div className="kr-skeleton h-5 w-2/3 rounded" />
                   <div className="kr-skeleton h-4 w-1/2 rounded" />
                 </div>
               )}
 
               {listing && (
-                <div className="kr-card space-y-4">
+                <div className="kr-card kr-glass-amber kr-pattern-chinar space-y-4">
                   <div className="flex items-start gap-4">
                     <div className="w-16 h-16 rounded-md bg-kr-bg-sunken overflow-hidden shrink-0">
                       {listing.images[0]
@@ -479,7 +479,7 @@ export default function CheckoutPage() {
                     <CustomsDisclosurePanel estimate={estimateQ.data} />
                   )}
 
-                  <div className="kr-card space-y-2 text-body-sm">
+                  <div className="kr-card kr-glass-amber kr-pattern-chinar space-y-2 text-body-sm">
                     <p className="font-heading text-h4 text-kr-text-primary mb-3">Estimated costs</p>
                     <div className="flex justify-between">
                       <span className="text-kr-text-secondary">Subtotal</span>
@@ -602,7 +602,7 @@ export default function CheckoutPage() {
 
         {/* Order summary sidebar */}
         {listing && (
-          <aside aria-label="Order summary" className="kr-card sticky top-6">
+          <aside aria-label="Order summary" className="kr-card kr-glass-amber kr-pattern-chinar sticky top-6">
             <h2 className="font-heading text-h4 text-kr-text-primary mb-4">Order summary</h2>
             <div className="space-y-2 text-body-sm">
               <p className="text-kr-text-secondary truncate">{listing.title}</p>

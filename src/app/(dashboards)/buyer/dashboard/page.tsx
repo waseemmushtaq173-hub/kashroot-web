@@ -17,28 +17,28 @@ export default function BuyerDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-        <Link href="/buyer/discover" className="kr-glass p-6 rounded-2xl border border-kr-border-default hover:border-amber-500 hover:shadow-lg transition-all group">
+        <Link href="/buyer/discover" className="kr-glass-emerald kr-pattern-chinar p-6 rounded-2xl border border-kr-border-default hover:border-amber-500 hover:shadow-lg transition-all group">
           <div className="w-12 h-12 bg-kr-fill-brand-subtle text-amber-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             <Search className="w-6 h-6" />
           </div>
           <p className="font-bold text-kr-text-primary text-lg">Marketplace</p>
           <p className="text-sm text-kr-text-secondary">Source authentic produce</p>
         </Link>
-        <Link href="/buyer/appointments" className="kr-glass p-6 rounded-2xl border border-kr-border-default hover:border-amber-500 hover:shadow-lg transition-all group">
+        <Link href="/buyer/appointments" className="kr-glass-emerald kr-pattern-chinar p-6 rounded-2xl border border-kr-border-default hover:border-amber-500 hover:shadow-lg transition-all group">
           <div className="w-12 h-12 bg-kr-fill-brand-subtle text-amber-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             <FileText className="w-6 h-6" />
           </div>
           <p className="font-bold text-kr-text-primary text-lg">Purchase Inquiries</p>
           <p className="text-sm text-kr-text-secondary">Active quotes & negotiations</p>
         </Link>
-        <Link href="/tracking" className="kr-glass p-6 rounded-2xl border border-kr-border-default hover:border-amber-500 hover:shadow-lg transition-all group">
+        <Link href="/tracking" className="kr-glass-emerald kr-pattern-chinar p-6 rounded-2xl border border-kr-border-default hover:border-amber-500 hover:shadow-lg transition-all group">
           <div className="w-12 h-12 bg-kr-fill-brand-subtle text-amber-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             <Truck className="w-6 h-6" />
           </div>
           <p className="font-bold text-kr-text-primary text-lg">Consignment Tracking</p>
           <p className="text-sm text-kr-text-secondary">Live logistics monitoring</p>
         </Link>
-        <div className="kr-glass p-6 rounded-2xl border border-kr-border-default hover:border-amber-500 hover:shadow-lg transition-all group cursor-pointer">
+        <div className="kr-glass-emerald kr-pattern-chinar p-6 rounded-2xl border border-kr-border-default hover:border-amber-500 hover:shadow-lg transition-all group cursor-pointer">
           <div className="w-12 h-12 bg-kr-fill-brand-subtle text-amber-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             <Star className="w-6 h-6" />
           </div>

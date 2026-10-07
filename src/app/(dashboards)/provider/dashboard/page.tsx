@@ -14,14 +14,14 @@ export default function ProviderDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
-        <div className="kr-card bg-kr-bg-surface flex items-center gap-3 p-4">
+        <div className="kr-card kr-glass-amber kr-pattern-chinar bg-kr-bg-surface flex items-center gap-3 p-4">
           <Calendar className="w-5 h-5 text-kr-text-brand shrink-0" />
           <div>
             <p className="text-body-sm font-medium text-kr-text-primary">Schedule</p>
             <p className="text-caption text-kr-text-secondary">Bookings & availability</p>
           </div>
         </div>
-        <div className="kr-card bg-kr-bg-surface flex items-center gap-3 p-4">
+        <div className="kr-card kr-glass-amber kr-pattern-chinar bg-kr-bg-surface flex items-center gap-3 p-4">
           <Briefcase className="w-5 h-5 text-kr-text-brand shrink-0" />
           <div>
             <p className="text-body-sm font-medium text-kr-text-primary">Services</p>

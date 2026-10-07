@@ -62,7 +62,7 @@ function fmtDate(iso: string) {
 function ProfilePanel() {
   return (
     <div className="space-y-6">
-      <div className="kr-glass p-6 rounded-2xl shadow-sm border border-kr-border-default">
+      <div className="kr-glass-emerald kr-pattern-chinar p-6 rounded-2xl shadow-sm border border-kr-border-default">
         <h2 className="font-heading text-2xl font-bold text-emerald-900 mb-4">Farmer Profile</h2>
         <div className="grid sm:grid-cols-2 gap-4 text-kr-text-primary">
           <div><strong className="text-kr-text-primary">Kissan ID:</strong> K-98234-JK</div>
@@ -71,28 +71,28 @@ function ProfilePanel() {
           <div><strong className="text-kr-text-primary">Village:</strong> Doabgah</div>
         </div>
       </div>
-      <div className="kr-glass p-6 rounded-2xl shadow-sm border border-kr-border-default">
+      <div className="kr-glass-emerald kr-pattern-chinar p-6 rounded-2xl shadow-sm border border-kr-border-default">
         <h2 className="font-heading text-2xl font-bold text-emerald-900 mb-4">Orchard Details</h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 text-kr-text-primary mb-6">
-          <div className="kr-glass p-4 rounded-xl">
+          <div className="kr-glass-emerald kr-pattern-chinar p-4 rounded-xl">
             <div className="text-sm text-emerald-800">Total Area</div>
             <div className="text-2xl font-bold text-emerald-900">45 Kanals</div>
           </div>
-          <div className="kr-glass p-4 rounded-xl">
+          <div className="kr-glass-emerald kr-pattern-chinar p-4 rounded-xl">
             <div className="text-sm text-emerald-800">Apple Trees</div>
             <div className="text-2xl font-bold text-emerald-900">1,250</div>
           </div>
-          <div className="kr-glass p-4 rounded-xl">
+          <div className="kr-glass-emerald kr-pattern-chinar p-4 rounded-xl">
             <div className="text-sm text-emerald-800">Walnut Trees</div>
             <div className="text-2xl font-bold text-emerald-900">35</div>
           </div>
-          <div className="kr-glass p-4 rounded-xl">
+          <div className="kr-glass-emerald kr-pattern-chinar p-4 rounded-xl">
             <div className="text-sm text-emerald-800">Varieties</div>
             <div className="text-xl font-bold text-emerald-900 leading-tight">Delicious, Kulu, Gala</div>
           </div>
         </div>
       </div>
-      <div className="kr-glass p-6 rounded-2xl shadow-sm border border-kr-border-default">
+      <div className="kr-glass-emerald kr-pattern-chinar p-6 rounded-2xl shadow-sm border border-kr-border-default">
         <h2 className="font-heading text-2xl font-bold text-emerald-900 mb-4">Orchard Activity Log</h2>
         <ul className="space-y-4">
           <li className="flex gap-4 items-start border-l-2 border-emerald-500 pl-4">
@@ -125,17 +125,17 @@ function ProfilePanel() {
 function KnowledgePanel() {
   return (
     <div className="grid md:grid-cols-2 gap-6">
-      <div className="kr-glass p-6 rounded-2xl border border-amber-200">
+      <div className="kr-glass-emerald kr-pattern-chinar p-6 rounded-2xl border border-amber-200">
         <h3 className="font-bold text-amber-900 text-lg mb-2">SKUAST Spray Schedule</h3>
         <p className="text-sm text-kr-text-warning mb-4">Official 2026 guidelines for Apple Scab and San Jose Scale prevention.</p>
         <button className="kr-hero-premium kr-pattern-chinar px-4 py-2 rounded-lg text-sm font-bold">Download PDF</button>
       </div>
-      <div className="kr-glass p-6 rounded-2xl border border-blue-200">
+      <div className="kr-glass-emerald kr-pattern-chinar p-6 rounded-2xl border border-blue-200">
         <h3 className="font-bold text-blue-900 text-lg mb-2">Disease Identification</h3>
         <p className="text-sm text-kr-text-brand mb-4">AI-powered handbook for identifying Alternaria and Powdery Mildew.</p>
         <button className="kr-hero-premium kr-pattern-chinar px-4 py-2 rounded-lg text-sm font-bold">Open Handbook</button>
       </div>
-      <div className="kr-glass p-6 rounded-2xl border border-kr-border-default">
+      <div className="kr-glass-emerald kr-pattern-chinar p-6 rounded-2xl border border-kr-border-default">
         <h3 className="font-bold text-emerald-900 text-lg mb-2">Pruning Techniques</h3>
         <p className="text-sm text-emerald-800 mb-4">Video tutorials for high-density trellis systems and traditional canopy management.</p>
         <button className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold">Watch Videos</button>
@@ -183,7 +183,7 @@ function ListingsPanel() {
   return (
     <div>
       {/* Real-Time Product Upload Panel */}
-      <div className="kr-glass p-6 rounded-2xl shadow-sm border border-kr-border-brand mb-8 relative overflow-hidden">
+      <div className="kr-glass-emerald kr-pattern-chinar p-6 rounded-2xl shadow-sm border border-kr-border-brand mb-8 relative overflow-hidden">
         <div className="absolute top-0 right-0 bg-kr-fill-brand-subtle text-kr-text-brand px-3 py-1 rounded-bl-lg text-xs font-bold flex items-center gap-1">
           <span className="w-2 h-2 rounded-full bg-kr-primary-500 animate-pulse"></span>
           Live Sync Active
@@ -422,7 +422,7 @@ function PayoutsPanel() {
         </p>
       </div>
 
-      <div className="kr-card bg-kr-fill-brand-subtle border-0 mb-6">
+      <div className="kr-card kr-glass-amber kr-pattern-chinar bg-kr-fill-brand-subtle border-0 mb-6">
         <p className="text-caption text-kr-text-secondary uppercase tracking-wide">Total net earnings</p>
         <p className="font-heading text-display text-kr-primary-700 kr-amount">
           {fmt(totalNet, orders[0]?.currency ?? 'INR')}
@@ -511,21 +511,21 @@ export default function FarmerDashboardPage() {
 
       {/* Quick Tools Access Bar */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
-        <Link href="/farmer/assistant" className="kr-card kr-glass/50 hover:kr-glass border-kr-border-default flex items-center gap-3 p-4 transition-colors">
+        <Link href="/farmer/assistant" className="kr-card kr-glass-amber kr-pattern-chinar kr-glass/50 hover:kr-glass border-kr-border-default flex items-center gap-3 p-4 transition-colors">
           <Bot className="w-5 h-5 text-emerald-600 shrink-0" />
           <div>
             <p className="text-body-sm font-medium text-emerald-900">AI Voice Assistant</p>
             <p className="text-caption text-emerald-700">Kashmiri, Urdu & English</p>
           </div>
         </Link>
-        <Link href="/supplies/tester" className="kr-card kr-glass hover:kr-glass border-purple-200 flex items-center gap-3 p-4 transition-colors">
+        <Link href="/supplies/tester" className="kr-card kr-glass-amber kr-pattern-chinar kr-glass hover:kr-glass border-purple-200 flex items-center gap-3 p-4 transition-colors">
           <Microscope className="w-5 h-5 text-purple-600 shrink-0" />
           <div>
             <p className="text-body-sm font-medium text-purple-900">AgroGuard Tester</p>
             <p className="text-caption text-purple-700">Scan QR codes & batches</p>
           </div>
         </Link>
-        <Link href="/tracking" className="kr-card kr-glass hover:kr-glass border-amber-200 flex items-center gap-3 p-4 transition-colors">
+        <Link href="/tracking" className="kr-card kr-glass-amber kr-pattern-chinar kr-glass hover:kr-glass border-amber-200 flex items-center gap-3 p-4 transition-colors">
           <Truck className="w-5 h-5 text-amber-600 shrink-0" />
           <div>
             <p className="text-body-sm font-medium text-amber-900">Track a Vehicle</p>

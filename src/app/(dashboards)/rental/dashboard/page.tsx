@@ -80,7 +80,7 @@ export default function RentalDashboardPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {RENTALS.map(rental => (
-              <div key={rental.id} className="kr-card flex flex-col group">
+              <div key={rental.id} className="kr-card kr-glass-amber kr-pattern-chinar flex flex-col group">
                 <div className="flex justify-between items-start mb-2">
                   <span className="text-xs font-bold uppercase tracking-wider text-[#E76F51]">{rental.category}</span>
                   <span className={`text-xs px-2 py-1 rounded font-bold ${rental.status === 'Available' ? 'bg-kr-badge-published-bg text-kr-badge-published-text' : 'bg-kr-fill-brand-subtle text-kr-text-warning'}`}>
@@ -120,7 +120,7 @@ export default function RentalDashboardPage() {
       {activeTab === 'owner' && (
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1">
-            <div className="kr-card kr-glass shadow-sm border-kr-border-default">
+            <div className="kr-card kr-glass-amber kr-pattern-chinar kr-glass shadow-sm border-kr-border-default">
               <h2 className="font-heading text-xl font-bold text-[#1B4332] mb-4">List New Equipment</h2>
               <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); alert('Equipment listed successfully!'); }}>
                 <div>

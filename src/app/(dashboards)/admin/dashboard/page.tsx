@@ -93,7 +93,7 @@ function PanelSkeleton({ rows = 4 }: { rows?: number }) {
   return (
     <div aria-busy="true" aria-label="Loading" className="space-y-4">
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="kr-card space-y-2">
+        <div key={i} className="kr-card kr-glass-amber kr-pattern-chinar space-y-2">
           <div className="kr-skeleton h-4 w-2/3 rounded" />
           <div className="kr-skeleton h-3 w-1/2 rounded" />
         </div>
@@ -165,7 +165,7 @@ function KycPanel() {
 
       <ul className="space-y-4" role="list">
         {submissions.map((sub) => (
-          <li key={sub.userId} className="kr-card">
+          <li key={sub.userId} className="kr-card kr-glass-amber kr-pattern-chinar">
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -349,7 +349,7 @@ function DisputesPanel({ adminRole }: { adminRole: AdminRole }) {
 
       <ul className="space-y-3" role="list">
         {disputes.map((dispute) => (
-          <li key={dispute.id} className="kr-card">
+          <li key={dispute.id} className="kr-card kr-glass-amber kr-pattern-chinar">
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -561,7 +561,7 @@ function ExpertPanel() {
   return (
     <ul className="space-y-4" role="list">
       {applications.map((sub, i) => (
-        <li key={i} className="kr-card">
+        <li key={i} className="kr-card kr-glass-amber kr-pattern-chinar">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap mb-2">
@@ -722,7 +722,7 @@ function AnalyticsPanel({ adminRole }: { adminRole: AdminRole }) {
         <div aria-busy="true" aria-label="Loading analytics"
              className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="kr-card space-y-2">
+            <div key={i} className="kr-card kr-glass-amber kr-pattern-chinar space-y-2">
               <div className="kr-skeleton h-3 w-3/4 rounded" />
               <div className="kr-skeleton h-7 w-1/2 rounded" />
             </div>
@@ -738,7 +738,7 @@ function AnalyticsPanel({ adminRole }: { adminRole: AdminRole }) {
         <>
           {/* ★ IMPORT/EXPORT RATIO — Prominent KPI */}
           <div
-            className="kr-card border-2 border-kr-primary-400 bg-kr-fill-brand-subtle p-6 space-y-2"
+            className="kr-card kr-glass-amber kr-pattern-chinar border-2 border-kr-primary-400 bg-kr-fill-brand-subtle p-6 space-y-2"
             aria-label="Import to export ratio KPI"
           >
             <p className="text-caption text-kr-primary-700 uppercase tracking-widest font-semibold">

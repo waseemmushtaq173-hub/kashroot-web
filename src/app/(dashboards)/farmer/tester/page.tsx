@@ -146,7 +146,7 @@ export default function TesterPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="kr-card kr-glass p-6 shadow-sm">
+        <div className="kr-card kr-glass-amber kr-pattern-chinar kr-glass-emerald kr-pattern-chinar p-6 shadow-sm">
           <h2 className="font-heading text-h3 mb-6 flex items-center gap-2">
             <Search className="w-5 h-5 text-kr-text-brand" /> Input Details
           </h2>
@@ -195,7 +195,7 @@ export default function TesterPage() {
           </form>
         </div>
 
-        <div className="kr-card bg-kr-bg-sunken p-6 flex flex-col justify-center min-h-[300px]">
+        <div className="kr-card kr-glass-amber kr-pattern-chinar bg-kr-bg-sunken p-6 flex flex-col justify-center min-h-[300px]">
           {!result && !loading && (
             <div className="text-center text-kr-text-secondary">
               <ShieldCheck className="w-16 h-16 mx-auto mb-4 opacity-20" />

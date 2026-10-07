@@ -15,21 +15,21 @@ export default function SellerDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
-        <div className="kr-card bg-kr-bg-surface flex items-center gap-3 p-4">
+        <div className="kr-card kr-glass-amber kr-pattern-chinar bg-kr-bg-surface flex items-center gap-3 p-4">
           <LayoutDashboard className="w-5 h-5 text-kr-text-brand shrink-0" />
           <div>
             <p className="text-body-sm font-medium text-kr-text-primary">Overview</p>
             <p className="text-caption text-kr-text-secondary">Sales & performance</p>
           </div>
         </div>
-        <div className="kr-card bg-kr-bg-surface flex items-center gap-3 p-4">
+        <div className="kr-card kr-glass-amber kr-pattern-chinar bg-kr-bg-surface flex items-center gap-3 p-4">
           <PenTool className="w-5 h-5 text-kr-text-brand shrink-0" />
           <div>
             <p className="text-body-sm font-medium text-kr-text-primary">Hardware Catalog</p>
             <p className="text-caption text-kr-text-secondary">Add & edit tools</p>
           </div>
         </div>
-        <div className="kr-card bg-kr-bg-surface flex items-center gap-3 p-4">
+        <div className="kr-card kr-glass-amber kr-pattern-chinar bg-kr-bg-surface flex items-center gap-3 p-4">
           <Package className="w-5 h-5 text-kr-text-brand shrink-0" />
           <div>
             <p className="text-body-sm font-medium text-kr-text-primary">Orders</p>
@@ -46,7 +46,7 @@ export default function SellerDashboardPage() {
         </button>
       </div>
 
-      <div className="kr-glass p-6 md:p-8 rounded-2xl shadow-sm border border-kr-border-default">
+      <div className="kr-glass-emerald kr-pattern-chinar p-6 md:p-8 rounded-2xl shadow-sm border border-kr-border-default">
         <h2 className="text-xl font-bold text-kr-text-primary mb-4">Payout Settings (Escrow)</h2>
         <p className="text-sm text-kr-text-secondary mb-6">Securely configure your bank details to receive automatic escrow payouts when buyers confirm delivery.</p>
         

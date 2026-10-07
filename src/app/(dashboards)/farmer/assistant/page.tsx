@@ -114,7 +114,7 @@ export default function AssistantPage() {
         <p className="text-emerald-800 mt-1">Ask questions regarding crop disease, localized weather forecasts, or market trends using your voice.</p>
       </div>
 
-      <div className="kr-glass p-6 rounded-xl border border-kr-border-default shadow-sm space-y-4">
+      <div className="kr-glass-emerald kr-pattern-chinar p-6 rounded-xl border border-kr-border-default shadow-sm space-y-4">
         <form ref={formRef} onSubmit={handleSendMessage} className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <label htmlFor="lang-select" className="text-sm font-medium text-emerald-900">Language:</label>

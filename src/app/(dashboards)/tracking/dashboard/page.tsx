@@ -507,7 +507,7 @@ export default function TrackingPage() {
         ) : trackQuery.isLoading ? (
           <TrackingSkeleton />
         ) : errorText ? (
-          <div className="kr-card kr-error-state" role="alert">
+          <div className="kr-card kr-glass-amber kr-pattern-chinar kr-error-state" role="alert">
             <AlertCircle className="h-8 w-8 text-kr-danger-500" aria-hidden="true" />
             <h2 className="font-heading text-h4 text-kr-text-primary">No tracking for that plate</h2>
             <p className="mt-2 text-body-sm text-kr-text-secondary">{errorText}</p>

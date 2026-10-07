@@ -48,7 +48,7 @@ export default function ExpertDashboard() {
         
         {/* Knowledge Base Section */}
         <div className="lg:col-span-2 space-y-6">
-          <section className="kr-card p-6 border-l-4 border-l-kr-warning-500">
+          <section className="kr-card kr-glass-amber kr-pattern-chinar p-6 border-l-4 border-l-kr-warning-500">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <ShieldAlert className="w-6 h-6 text-kr-warning-600" />
@@ -95,7 +95,7 @@ export default function ExpertDashboard() {
             </div>
           </section>
 
-          <section className="kr-card p-6 border-l-4 border-l-kr-success-500">
+          <section className="kr-card kr-glass-amber kr-pattern-chinar p-6 border-l-4 border-l-kr-success-500">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-6 h-6 text-kr-success-600" />
@@ -142,7 +142,7 @@ export default function ExpertDashboard() {
 
         {/* Action Panel */}
         <div className="space-y-6">
-          <section className="kr-card p-6 bg-kr-bg-sunken">
+          <section className="kr-card kr-glass-amber kr-pattern-chinar p-6 bg-kr-bg-sunken">
             <div className="flex items-center gap-2 mb-4">
               <Stethoscope className="w-6 h-6 text-kr-primary-600" />
               <h2 className="text-h3 font-heading">{isExpert ? 'Expert Actions' : 'Expert Connect'}</h2>
@@ -178,7 +178,7 @@ export default function ExpertDashboard() {
             )}
           </section>
 
-          <section className="kr-card p-6">
+          <section className="kr-card kr-glass-amber kr-pattern-chinar p-6">
             <div className="flex items-center gap-2 mb-4">
               <FlaskConical className="w-6 h-6 text-kr-primary-600" />
               <h2 className="text-h3 font-heading">Soil Health</h2>

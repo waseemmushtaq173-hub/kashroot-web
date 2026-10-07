@@ -186,7 +186,7 @@ export default function AppointmentBookPage() {
 
         <h1 className="font-heading text-h2 text-kr-text-primary mb-2">Confirm appointment</h1>
 
-        <div className="kr-card space-y-4 mb-6">
+        <div className="kr-card kr-glass-amber kr-pattern-chinar space-y-4 mb-6">
           <div>
             <p className="text-caption text-kr-text-secondary uppercase tracking-wide">Listing</p>
             <p className="text-body font-medium text-kr-text-primary">
@@ -285,7 +285,7 @@ export default function AppointmentBookPage() {
         <div
           role="grid"
           aria-label={`${MONTHS[month]} ${year} availability calendar`}
-          className="kr-card"
+          className="kr-card kr-glass-amber kr-pattern-chinar"
         >
           {/* Month header */}
           <div className="flex items-center justify-between mb-4">

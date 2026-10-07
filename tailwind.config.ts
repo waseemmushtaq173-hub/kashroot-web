@@ -42,6 +42,8 @@ const config: Config = {
     extend: {
       // ── COLORS ───────────────────────────────────────────────────────────
       colors: {
+        gold: '#D4AF37',
+        saffron: '#E05A3E',
         // Raw palette scales (accessible as bg-kr-primary-500, etc.)
         'kr-primary':   colors.primary,
         'kr-secondary': colors.secondary,

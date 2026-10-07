@@ -243,7 +243,7 @@ function ListingCard({ listing }: { listing: PublicListing }) {
 
   return (
     <article
-      className="kr-card kr-card-interactive flex flex-col h-full"
+      className="kr-card kr-glass-amber kr-pattern-chinar kr-card-interactive flex flex-col h-full"
       aria-label={`${listing.title} by ${listing.farmerName}`}
     >
       {/* Image */}
@@ -538,7 +538,7 @@ export default function BuyerDiscoverPage() {
                 className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"
               >
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="kr-card space-y-3">
+                  <div key={i} className="kr-card kr-glass-amber kr-pattern-chinar space-y-3">
                     <div className="kr-skeleton aspect-[4/3] rounded-md" />
                     <div className="kr-skeleton h-4 w-3/4 rounded" />
                     <div className="kr-skeleton h-3 w-1/2 rounded" />
