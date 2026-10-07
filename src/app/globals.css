@@ -3,57 +3,9 @@
 @tailwind utilities;
 
 body {
-  background: linear-gradient(to bottom right, #05130e, #0a0e1a);
-  color: #f3f4f6;
+  background-color: #07120D; /* Deep Royal Forest Green */
+  color: #F5F2EB;
   min-height: 100vh;
   margin: 0;
-}
-
-@layer components {
-  /* KashRoot Custom Premium Theme Classes */
-  .kr-glass-strong {
-    @apply bg-[#05130e]/95 backdrop-blur-xl border border-[#D4AF37]/30 shadow-[0_0_30px_rgba(212,175,55,0.1)];
-  }
-  .kr-glass-emerald {
-    @apply bg-gradient-to-b from-[#0E2E20]/90 to-[#05130e] backdrop-blur-md shadow-[0_0_20px_rgba(46,204,113,0.05)];
-  }
-  .kr-glass-amber {
-    @apply bg-gradient-to-b from-[#2E1E0E]/90 to-[#05130e] backdrop-blur-md shadow-[0_0_20px_rgba(212,175,55,0.05)];
-  }
-  .kr-glass-burgundy {
-    @apply bg-gradient-to-b from-[#2D0B12]/90 to-[#05130e] backdrop-blur-md shadow-[0_0_20px_rgba(224,90,62,0.05)];
-  }
-  
-  /* Text & Border Utilities */
-  .kr-text-primary {
-    @apply text-[#D4AF37]; /* Premium Gold */
-  }
-  .kr-text-brand {
-    @apply text-[#E76F51]; /* Saffron */
-  }
-  .kr-border-brand {
-    @apply border-[#E76F51];
-  }
-  .kr-fill-brand-subtle {
-    @apply bg-[#E76F51]/10;
-  }
-  .text-gold\/70 {
-    @apply text-[#D4AF37]/70;
-  }
-  .shadow-gold\/20 {
-    @apply shadow-[#D4AF37]/20;
-  }
-  .border-gold\/10 {
-    @apply border-[#D4AF37]/10;
-  }
-}
-
-/* Subtle Kashmiri Overlay Patterns */
-.kr-pattern-chinar {
-  background-image: url('https://www.transparenttextures.com/patterns/arabesque.png');
-  background-blend-mode: overlay;
-}
-.kr-pattern-khatamband {
-  background-image: url('https://www.transparenttextures.com/patterns/dark-matter.png');
-  background-blend-mode: overlay;
+  background-image: none !important; /* Forces the removal of that mountain graphic */
 }
