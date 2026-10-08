@@ -7,6 +7,7 @@ import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
 import { ReactNode, useEffect, useState } from 'react';
 
 import { VoiceAssistant } from '@/components/ui/VoiceAssistant';
+import { KYCOnboardingPanel } from '@/components/auth/KYCPanel';
 
 /**
  * Role-Adaptive Dashboard Layout
@@ -20,6 +21,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [showKyc, setShowKyc] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -28,6 +30,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         router.push('/login?returnTo=' + encodeURIComponent(window.location.pathname));
       } else {
         setUserRole(localStorage.getItem('user_role'));
+        
+        // Trigger KYC Panel if status is pending
+        if (localStorage.getItem('kyc_status') === 'pending') {
+          setShowKyc(true);
+        }
+
         setIsAuthenticated(true);
       }
       setIsMounted(true);
@@ -105,6 +113,15 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       </div>
       <VoiceAssistant />
       <SiteFooter />
+      <KYCOnboardingPanel 
+        isOpen={showKyc} 
+        onComplete={() => {
+          setShowKyc(false);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('kyc_status', 'verified');
+          }
+        }} 
+      />
     </div>
   );
 }
