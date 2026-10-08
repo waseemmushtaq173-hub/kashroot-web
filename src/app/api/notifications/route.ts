@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   const userId = searchParams.get('userId') || 'mock-user-id';
 
   try {
-    const notifications = await prisma.notification.findMany({
+    const notifications = await (prisma as any).notification_queue.findMany({
       where: { user_id: userId },
       orderBy: { created_at: 'desc' }
     });

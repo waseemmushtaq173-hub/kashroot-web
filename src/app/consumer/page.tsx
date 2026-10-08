@@ -74,7 +74,7 @@ export default function ConsumerDirectPage() {
                       
                       <div className="flex justify-between items-center mt-auto border-t border-white/10 pt-3">
                         <div className="text-lg font-bold">{prod.price}</div>
-                        <button className="bg-[var(--kr-apple-crimson,#C62828)] hover:bg-[#9E2020] text-white px-4 py-1.5 rounded-lg text-sm font-bold transition-colors shadow-lg">
+                        <button className="bg-[var(--kr-apple-crimson,#C62828)] hover:bg-[#9E2020] text-white px-4 py-1.5 rounded-lg text-sm font-bold transition-colors shadow-lg hidden">
                           Add to Cart
                         </button>
                       </div>
@@ -119,7 +119,7 @@ export default function ConsumerDirectPage() {
                 <h2 className="text-xl font-bold mb-2 text-center text-[var(--kr-saffron-gold,#E8A317)]">Corporate Gifting</h2>
                 <p className="text-sm text-white/70 text-center mb-6">Send customized boxes of authentic dry fruits and saffron to your clients.</p>
                 
-                <button className="w-full py-3 bg-[var(--kr-saffron-gold,#E8A317)] hover:bg-[#B37A0B] text-black font-bold rounded-lg transition-colors border border-white/20">
+                <button className="w-full py-3 bg-[var(--kr-saffron-gold,#E8A317)] hover:bg-[#B37A0B] text-black font-bold rounded-lg transition-colors border border-white/20 hidden">
                   Explore Gift Boxes
                 </button>
               </div>

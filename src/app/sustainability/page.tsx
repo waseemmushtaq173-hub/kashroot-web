@@ -69,7 +69,7 @@ export default function SustainabilityPage() {
                   <h2 className="text-xl font-bold flex items-center gap-2">
                     <Leaf className="w-5 h-5 text-green-400" /> Farm Practice Records
                   </h2>
-                  <button className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-white/10">
+                  <button className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-white/10 hidden">
                     + Log New Entry
                   </button>
                 </div>

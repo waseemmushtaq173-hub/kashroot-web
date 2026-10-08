@@ -82,11 +82,11 @@ export default function ExpertDeskPage() {
                           
                           <div className="w-full md:w-auto mt-4 md:mt-0">
                             {isResolved ? (
-                              <button className="w-full bg-green-500/10 text-green-400 border border-green-500/20 px-6 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 cursor-default">
+                              <button className="w-full bg-green-500/10 text-green-400 border border-green-500/20 px-6 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 cursor-default hidden">
                                 <CheckCircle className="w-4 h-4" /> Solved
                               </button>
                             ) : (
-                              <button className="w-full bg-[var(--kr-orchard-green,#1E7B4F)] hover:bg-[#165a39] text-white px-6 py-2 rounded-lg text-sm font-bold transition-colors shadow-lg">
+                              <button className="w-full bg-[var(--kr-orchard-green,#1E7B4F)] hover:bg-[#165a39] text-white px-6 py-2 rounded-lg text-sm font-bold transition-colors shadow-lg hidden">
                                 Open Case
                               </button>
                             )}
@@ -97,7 +97,7 @@ export default function ExpertDeskPage() {
                   })}
                 </div>
                 
-                <button className="mt-6 w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm font-medium transition-colors">
+                <button className="mt-6 w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm font-medium transition-colors hidden">
                   Load Older Cases
                 </button>
               </div>
@@ -142,7 +142,7 @@ export default function ExpertDeskPage() {
                   </div>
                 </div>
                 
-                <button className="mt-4 w-full py-3 bg-white/10 hover:bg-white/20 text-white font-medium rounded-xl transition-colors border border-white/20 text-sm">
+                <button className="mt-4 w-full py-3 bg-white/10 hover:bg-white/20 text-white font-medium rounded-xl transition-colors border border-white/20 text-sm hidden">
                   Issue Region-wide Advisory
                 </button>
               </div>

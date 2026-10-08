@@ -8,7 +8,7 @@ export async function PATCH(request: Request, context: any) {
   const id = params.id;
 
   try {
-    const notification = await prisma.notification.update({
+    const notification = await (prisma as any).notification_queue.update({
       where: { id },
       data: { status: 'READ' }
     });

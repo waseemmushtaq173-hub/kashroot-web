@@ -54,7 +54,7 @@ export default function SupplierMarketplacePage() {
                   <h2 className="text-xl font-bold flex items-center gap-2">
                     <Tag className="w-5 h-5 text-[var(--kr-chinar-amber,#D9622B)]" /> Supplier Rate Cards
                   </h2>
-                  <button className="text-sm bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg font-medium transition-colors border border-white/10">
+                  <button className="text-sm bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg font-medium transition-colors border border-white/10 hidden">
                     View Full Catalogue
                   </button>
                 </div>
@@ -69,7 +69,7 @@ export default function SupplierMarketplacePage() {
                         <span>MOQ: {item.moq}</span>
                         <span className={item.stock === 'In Stock' ? 'text-green-400' : 'text-amber-400'}>{item.stock}</span>
                       </div>
-                      <button className="w-full py-2 bg-white/10 hover:bg-[var(--kr-chinar-amber,#D9622B)] hover:text-black border border-white/20 hover:border-transparent rounded-lg text-sm font-bold transition-all">
+                      <button className="w-full py-2 bg-white/10 hover:bg-[var(--kr-chinar-amber,#D9622B)] hover:text-black border border-white/20 hover:border-transparent rounded-lg text-sm font-bold transition-all hidden">
                         Request Quote
                       </button>
                     </div>
@@ -111,7 +111,7 @@ export default function SupplierMarketplacePage() {
                         </div>
                         
                         <div className="w-full md:w-auto shrink-0 border-t md:border-t-0 md:border-l border-white/10 pt-4 md:pt-0 md:pl-4">
-                          <button className="w-full bg-[var(--kr-chinar-amber,#D9622B)] hover:bg-[#B55020] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2">
+                          <button className="w-full bg-[var(--kr-chinar-amber,#D9622B)] hover:bg-[#B55020] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2 hidden">
                             <Plus className="w-4 h-4" /> Join Order
                           </button>
                         </div>
@@ -160,7 +160,7 @@ export default function SupplierMarketplacePage() {
               {/* Action */}
               <div className="bg-[var(--kr-walnut-brown,#6B4423)]/20 p-4 rounded-xl border border-[var(--kr-walnut-brown,#6B4423)]/50 text-center">
                 <QrCode className="w-16 h-16 text-white/20 mx-auto mb-3" />
-                <button className="w-full py-3 bg-[var(--kr-walnut-brown,#6B4423)] hover:bg-[#523319] text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 border border-white/10">
+                <button className="w-full py-3 bg-[var(--kr-walnut-brown,#6B4423)] hover:bg-[#523319] text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 border border-white/10 hidden">
                   <Printer className="w-5 h-5" /> Generate 50 QR Labels
                 </button>
               </div>

@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/Button";
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -55,13 +56,13 @@ export default function ExpertDashboard() {
                 <h2 className="text-h3 font-heading">Disease Management Protocols</h2>
               </div>
               {isExpert && (
-                <button 
+                <Button 
                   disabled={!isVerified} 
-                  className={`kr-btn-ghost kr-btn-sm flex items-center gap-2 ${!isVerified ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`kr-btn-ghost kr-btn-sm flex items-center gap-2 ${!isVerified ? 'opacity-50 cursor-not-allowed' : ''} hidden`}
                 >
                   {!isVerified ? <Lock className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
                   Publish Protocol
-                </button>
+                </Button>
               )}
             </div>
             
@@ -102,13 +103,13 @@ export default function ExpertDashboard() {
                 <h2 className="text-h3 font-heading">Best Practices & SOPs</h2>
               </div>
               {isExpert && (
-                <button 
+                <Button 
                   disabled={!isVerified} 
-                  className={`kr-btn-ghost kr-btn-sm flex items-center gap-2 ${!isVerified ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`kr-btn-ghost kr-btn-sm flex items-center gap-2 ${!isVerified ? 'opacity-50 cursor-not-allowed' : ''} hidden`}
                 >
                   {!isVerified ? <Lock className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
                   Publish SOP
-                </button>
+                </Button>
               )}
             </div>
             
@@ -152,28 +153,28 @@ export default function ExpertDashboard() {
                 <p className="text-body-sm text-kr-text-secondary mb-4">
                   Manage your consultations and farmer queries.
                 </p>
-                <button disabled={!isVerified} className={`kr-btn-primary w-full flex items-center justify-center gap-2 ${!isVerified ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                <Button disabled={!isVerified} className={`kr-btn-primary w-full flex items-center justify-center gap-2 ${!isVerified ? 'opacity-50 cursor-not-allowed' : ''} hidden`}>
                   {!isVerified ? <Lock className="w-4 h-4" /> : <MessageCircle className="w-4 h-4" />}
                   Answer Farmer Queries
-                </button>
-                <button disabled={!isVerified} className={`kr-btn-secondary w-full mt-3 flex items-center justify-center gap-2 ${!isVerified ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                </Button>
+                <Button disabled={!isVerified} className={`kr-btn-secondary w-full mt-3 flex items-center justify-center gap-2 ${!isVerified ? 'opacity-50 cursor-not-allowed' : ''} hidden`}>
                   {!isVerified ? <Lock className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
                   Draft New Advisory
-                </button>
+                </Button>
               </>
             ) : (
               <>
                 <p className="text-body-sm text-kr-text-secondary mb-4">
                   Consult with verified SKUAST agronomists and regional horticulture experts.
                 </p>
-                <button className="kr-btn-primary w-full flex items-center justify-center gap-2">
+                <Button className="kr-btn-primary w-full flex items-center justify-center gap-2 hidden">
                   <MessageCircle className="w-4 h-4" />
                   Ask an Agronomist
-                </button>
-                <button className="kr-btn-secondary w-full mt-3 flex items-center justify-center gap-2">
+                </Button>
+                <Button className="kr-btn-secondary w-full mt-3 flex items-center justify-center gap-2 hidden">
                   <FileText className="w-4 h-4" />
                   Upload Crop Image
-                </button>
+                </Button>
               </>
             )}
           </section>
@@ -186,9 +187,9 @@ export default function ExpertDashboard() {
             <p className="text-body-sm text-kr-text-secondary mb-4">
               Order a comprehensive NPK and micronutrient testing kit to your orchard.
             </p>
-            <button className="kr-btn-primary w-full text-center">
+            <Button className="kr-btn-primary w-full text-center hidden">
               Request Soil Test Kit
-            </button>
+            </Button>
           </section>
         </div>
         

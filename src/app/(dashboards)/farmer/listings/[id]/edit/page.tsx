@@ -9,6 +9,7 @@ import {
 import { ApiError } from '@/lib/api/client';
 import { listingsApi, type ListingStatus } from '@/lib/api/farmer';
 import type { KycStatus } from '@/lib/listing-options';
+import { Button } from "@/components/ui/Button";
 import {
   ListingForm,
   listingToFormValues,
@@ -255,14 +256,14 @@ function ListingEdit() {
               Back to dashboard
             </a>
             {!notFound && (
-              <button
+              <Button
                 type="button"
                 onClick={() => listingQuery.refetch()}
                 className="kr-btn-secondary"
                 aria-busy={listingQuery.isFetching}
               >
                 <RefreshCw className="w-4 h-4" aria-hidden="true" /> Retry
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -344,7 +345,7 @@ function ListingEdit() {
           },
         ]}
         aside={
-          <button
+          <Button
             type="button"
             disabled={saving}
             aria-busy={archiveMut.isPending}
@@ -360,7 +361,7 @@ function ListingEdit() {
               ? <><Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> Archiving…</>
               : <><Archive className="w-4 h-4" aria-hidden="true" /> Archive</>
             }
-          </button>
+          </Button>
         }
       />
     </main>

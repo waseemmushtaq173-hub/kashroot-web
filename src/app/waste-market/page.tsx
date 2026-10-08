@@ -49,7 +49,7 @@ export default function WasteMarketPage() {
                 <h2 className="text-xl font-bold flex items-center gap-2 text-[var(--kr-saffron-gold,#E8A317)]">
                   <Leaf className="w-5 h-5" /> Available Low-Grade Stock
                 </h2>
-                <button className="bg-[var(--kr-saffron-gold,#E8A317)] hover:bg-[#B37A0B] text-black px-3 py-1.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-1">
+                <button className="bg-[var(--kr-saffron-gold,#E8A317)] hover:bg-[#B37A0B] text-black px-3 py-1.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-1 hidden">
                   <ListPlus className="w-4 h-4" /> List Stock
                 </button>
               </div>
@@ -100,7 +100,7 @@ export default function WasteMarketPage() {
                           <Coins className="w-4 h-4" /> {unit.bid}
                         </div>
                       </div>
-                      <button className="bg-[var(--kr-orchard-green,#1E7B4F)] hover:bg-[#165a39] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2">
+                      <button className="bg-[var(--kr-orchard-green,#1E7B4F)] hover:bg-[#165a39] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 hidden">
                         Accept Bid <ArrowRight className="w-4 h-4" />
                       </button>
                     </div>

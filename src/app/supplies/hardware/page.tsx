@@ -49,7 +49,7 @@ export default function HardwareMarketplacePage() {
                 ₹{tool.price.toLocaleString('en-IN')}
               </p>
               <div className="mt-auto flex gap-2">
-                <button className="kr-btn-primary kr-btn-sm flex-1">View Details</button>
+                <button className="kr-btn-primary kr-btn-sm flex-1 hidden">View Details</button>
                 <Link href={`/supplies/hardware/calculator?price=${tool.price}&tool=${encodeURIComponent(tool.name)}`} className="kr-btn-ghost kr-btn-sm" title="Calculate Buy vs Rent">
                   Calculate
                 </Link>

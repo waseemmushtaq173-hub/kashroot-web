@@ -76,7 +76,7 @@ export default function FieldAgentPage() {
                   <h2 className="text-xl font-bold flex items-center gap-2">
                     <UserPlus className="w-5 h-5 text-[var(--kr-chinar-amber,#D9622B)]" /> Onboarding
                   </h2>
-                  <button className="bg-[var(--kr-chinar-amber,#D9622B)] hover:bg-[#B55020] text-white px-3 py-1 rounded text-sm font-bold transition-colors">
+                  <button className="bg-[var(--kr-chinar-amber,#D9622B)] hover:bg-[#B55020] text-white px-3 py-1 rounded text-sm font-bold transition-colors hidden">
                     + New
                   </button>
                 </div>
@@ -93,7 +93,7 @@ export default function FieldAgentPage() {
                           {f.status}
                         </div>
                       </div>
-                      <button className="w-full bg-white/10 hover:bg-white/20 text-white py-2 rounded-lg text-xs font-bold border border-white/10 transition-colors flex justify-center items-center gap-1">
+                      <button className="w-full bg-white/10 hover:bg-white/20 text-white py-2 rounded-lg text-xs font-bold border border-white/10 transition-colors flex justify-center items-center gap-1 hidden">
                         <FileSignature className="w-3 h-3" /> {f.step}
                       </button>
                     </div>
@@ -109,7 +109,7 @@ export default function FieldAgentPage() {
                   <h2 className="text-xl font-bold flex items-center gap-2">
                     <HandCoins className="w-5 h-5 text-[var(--kr-orchard-green,#1E7B4F)]" /> Assisted Orders
                   </h2>
-                  <button className="bg-[var(--kr-orchard-green,#1E7B4F)] hover:bg-[#165a39] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors shadow-lg">
+                  <button className="bg-[var(--kr-orchard-green,#1E7B4F)] hover:bg-[#165a39] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors shadow-lg hidden">
                     Place Order for Farmer
                   </button>
                 </div>

@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/Button";
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -11,6 +12,7 @@ import { kycApi, disputesApi, analyticsApi } from '@/lib/api/admin';
 import type { KycSubmission, Dispute, AnalyticsSummary } from '@/lib/api/admin';
 import { ApiError } from '@/lib/api/client';
 
+import { PortalShell } from '@/components/layout/PortalShell';
 /**
  * AdminConsolePage
  *
@@ -108,9 +110,9 @@ function PanelError({ message, onRetry }: { message: string; onRetry: () => void
       <AlertTriangle className="w-8 h-8 text-kr-danger-500 mx-auto" aria-hidden="true" />
       <p className="text-body text-kr-text-primary">Something went wrong</p>
       <p className="text-body-sm text-kr-text-secondary">{message}</p>
-      <button onClick={onRetry} className="kr-btn-secondary kr-btn-sm">
+      <Button onClick={onRetry} className="kr-btn-secondary kr-btn-sm">
         <RefreshCw className="w-3 h-3" aria-hidden="true" /> Retry
-      </button>
+      </Button>
     </div>
   );
 }
@@ -205,7 +207,7 @@ function KycPanel() {
                 ))}
 
                 {/* Approve */}
-                <button
+                <Button
                   onClick={() => approveMut.mutate(sub.userId)}
                   disabled={approveMut.isPending && approveMut.variables === sub.userId}
                   aria-busy={approveMut.isPending && approveMut.variables === sub.userId}
@@ -217,17 +219,17 @@ function KycPanel() {
                     : <Check className="w-3 h-3" aria-hidden="true" />
                   }
                   Approve
-                </button>
+                </Button>
 
                 {/* Reject */}
-                <button
+                <Button
                   onClick={() => { setRejectingUserId(sub.userId); setRejectReason(''); }}
                   aria-label={`Reject KYC for ${sub.fullName}`}
                   className="kr-btn-ghost kr-btn-sm text-kr-text-danger
                              hover:bg-kr-badge-rejected-bg"
                 >
                   <X className="w-3 h-3" aria-hidden="true" /> Reject
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -251,7 +253,7 @@ function KycPanel() {
                   autoFocus
                 />
                 <div className="flex gap-2">
-                  <button
+                  <Button
                     onClick={() =>
                       rejectReason.trim() &&
                       rejectMut.mutate({ userId: sub.userId, reason: rejectReason.trim() })
@@ -265,13 +267,13 @@ function KycPanel() {
                       : null
                     }
                     Confirm rejection
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => setRejectingUserId(null)}
                     className="kr-btn-ghost kr-btn-sm"
                   >
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -388,7 +390,7 @@ function DisputesPanel({ adminRole }: { adminRole: AdminRole }) {
                 {/* Recommend — REGIONAL_ADMIN + PLATFORM_ADMIN */}
                 {/* SECURITY: UX gating only — backend DisputeGuard enforces role */}
                 {['OPENED', 'UNDER_REVIEW'].includes(dispute.status) && (
-                  <button
+                  <Button
                     onClick={() => {
                       setActiveDispute(dispute);
                       setActionType('recommend');
@@ -398,14 +400,14 @@ function DisputesPanel({ adminRole }: { adminRole: AdminRole }) {
                     className="kr-btn-secondary kr-btn-sm"
                   >
                     Recommend
-                  </button>
+                  </Button>
                 )}
 
                 {/* Resolve — PLATFORM_ADMIN ONLY */}
                 {/* SECURITY: hidden for REGIONAL_ADMIN (UX only); backend enforces via DisputeGuard */}
                 {adminRole === 'PLATFORM_ADMIN' &&
                   ['OPENED', 'UNDER_REVIEW', 'RECOMMENDED'].includes(dispute.status) && (
-                  <button
+                  <Button
                     onClick={() => {
                       setActiveDispute(dispute);
                       setActionType('resolve');
@@ -415,7 +417,7 @@ function DisputesPanel({ adminRole }: { adminRole: AdminRole }) {
                     className="kr-btn-primary kr-btn-sm"
                   >
                     Resolve
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -472,7 +474,7 @@ function DisputesPanel({ adminRole }: { adminRole: AdminRole }) {
             />
 
             <div className="flex gap-3">
-              <button
+              <Button
                 onClick={() => {
                   if (!actionText.trim()) return;
                   if (actionType === 'recommend') {
@@ -492,13 +494,13 @@ function DisputesPanel({ adminRole }: { adminRole: AdminRole }) {
                   : null
                 }
                 {actionType === 'recommend' ? 'Submit recommendation' : 'Confirm resolution'}
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => { setActiveDispute(null); setActionType(null); }}
                 className="kr-btn-ghost"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -588,18 +590,18 @@ function ExpertPanel() {
               </p>
             </div>
             <div className="flex gap-2 shrink-0">
-              <button
+              <Button
                 onClick={() => handleApprove(sub.email)}
                 className="kr-btn-primary kr-btn-sm"
               >
                 <Check className="w-3 h-3" aria-hidden="true" /> Approve
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => handleReject(sub.email)}
                 className="kr-btn-ghost kr-btn-sm text-kr-text-danger hover:bg-kr-badge-rejected-bg"
               >
                 <X className="w-3 h-3" aria-hidden="true" /> Reject
-              </button>
+              </Button>
             </div>
           </div>
         </li>
@@ -841,7 +843,7 @@ export default function AdminConsolePage() {
   });
 
   return (
-    <main id="main-content" className="kr-container py-6 md:py-10">
+    <PortalShell theme="admin" title="Platform Administration" description="Monitor platform activity, resolve disputes, and verify KYC." kpis={[]}>
       <div className="kr-hero-premium kr-pattern-chinar rounded-xl p-6 md:p-8 mb-8 border-l-8 border-kr-border-brand shadow-md">
         <div className="flex items-center gap-3 mb-2">
           <h1 className="font-heading text-display text-white">Admin console</h1>
@@ -873,7 +875,7 @@ export default function AdminConsolePage() {
             undefined;
 
           return (
-            <button
+            <Button
               key={id}
               role="tab"
               id={`admin-tab-${id}`}
@@ -900,7 +902,7 @@ export default function AdminConsolePage() {
                   {count > 99 ? '99+' : count}
                 </span>
               )}
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -920,6 +922,6 @@ export default function AdminConsolePage() {
           {id === 'analytics' && <AnalyticsPanel adminRole={adminRole} />}
         </div>
       ))}
-    </main>
+    </PortalShell>
   );
 }

@@ -162,7 +162,7 @@ export default function PriceIntelligencePage() {
                     ? `Storing could net you an extra ₹${profitDiff.toLocaleString()} after storage fees.` 
                     : `Selling now saves you ₹${Math.abs(profitDiff).toLocaleString()} compared to future net revenue.`}
                 </p>
-                <button className="mt-4 w-full py-2 bg-[var(--kr-saffron-gold,#E8A317)] hover:bg-[#B37A0B] text-black font-bold rounded-lg transition-colors flex items-center justify-center gap-2">
+                <button className="mt-4 w-full py-2 bg-[var(--kr-saffron-gold,#E8A317)] hover:bg-[#B37A0B] text-black font-bold rounded-lg transition-colors flex items-center justify-center gap-2 hidden">
                   Book Cold Storage <ArrowRight className="w-4 h-4" />
                 </button>
               </div>

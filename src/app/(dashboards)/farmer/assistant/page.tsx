@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/Button";
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -132,7 +133,7 @@ export default function AssistantPage() {
           </div>
           
           <div className="flex gap-2">
-            <button
+            <Button
               type="button"
               onClick={handleMicClick}
               className={`p-3 rounded-lg flex items-center justify-center transition-colors ${
@@ -141,7 +142,7 @@ export default function AssistantPage() {
               title="Toggle Voice Input"
             >
               {isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
-            </button>
+            </Button>
             <input
               type="text"
               placeholder="Tap the mic or type here..."
@@ -149,13 +150,13 @@ export default function AssistantPage() {
               onChange={(e) => setInputText(e.target.value)}
               className="flex-1 px-4 py-3 border border-emerald-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-600 text-emerald-900"
             />
-            <button
+            <Button
               type="submit"
               disabled={loading}
               className="bg-emerald-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-            </button>
+            </Button>
           </div>
         </form>
 
@@ -163,14 +164,14 @@ export default function AssistantPage() {
           <div className="mt-6 p-5 kr-glass rounded-xl border border-kr-border-default">
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-semibold text-emerald-900">Assistant Response:</h3>
-              <button 
+              <Button 
                 type="button"
                 onClick={handleSpeak}
                 className="text-emerald-600 hover:text-emerald-800 p-2 rounded-full hover:bg-kr-fill-success transition-colors"
                 title="Read aloud"
               >
                 <Volume2 className="w-6 h-6" />
-              </button>
+              </Button>
             </div>
             <p className="text-emerald-800 leading-relaxed">{reply}</p>
           </div>

@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/Button";
 'use client';
 
 import { useState } from 'react';
@@ -320,12 +321,12 @@ export default function CheckoutPage() {
             Your order has been received. The farmer will confirm shortly.
           </p>
           {placedOrderId && (
-            <button
+            <Button
               onClick={() => router.push(`/orders/${placedOrderId}`)}
               className="kr-btn-primary"
             >
               Track order
-            </button>
+            </Button>
           )}
         </div>
       </main>
@@ -334,7 +335,7 @@ export default function CheckoutPage() {
 
   return (
     <main id="main-content" className="kr-container py-6 md:py-10 max-w-2xl">
-      <button
+      <Button
         onClick={() =>
           step === 'review'   ? router.back()
           : step === 'shipping' ? setStep('review')
@@ -344,7 +345,7 @@ export default function CheckoutPage() {
                    hover:text-kr-text-primary mb-6 kr-focus-ring rounded"
       >
         <ChevronLeft className="w-4 h-4" aria-hidden="true" /> Back
-      </button>
+      </Button>
 
       <h1 className="font-heading text-h1 text-kr-text-primary mb-6">Checkout</h1>
 
@@ -416,13 +417,13 @@ export default function CheckoutPage() {
                 </div>
               )}
 
-              <button
+              <Button
                 onClick={() => setStep('shipping')}
                 disabled={!listing}
                 className="kr-btn-primary w-full mt-6"
               >
                 Continue to shipping
-              </button>
+              </Button>
             </section>
           )}
 
@@ -514,12 +515,12 @@ export default function CheckoutPage() {
                 </div>
               )}
 
-              <button
+              <Button
                 onClick={() => { if (validateAddress()) setStep('payment'); }}
                 className="kr-btn-primary w-full mt-6"
               >
                 Continue to payment
-              </button>
+              </Button>
             </section>
           )}
 
@@ -585,7 +586,7 @@ export default function CheckoutPage() {
                 </div>
               )}
 
-              <button
+              <Button
                 onClick={() => orderMut.mutate()}
                 disabled={orderMut.isPending}
                 aria-busy={orderMut.isPending}
@@ -595,7 +596,7 @@ export default function CheckoutPage() {
                   ? <><Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> Placing order…</>
                   : <><CreditCard className="w-4 h-4" aria-hidden="true" /> Place order</>
                 }
-              </button>
+              </Button>
             </section>
           )}
         </div>

@@ -1,82 +1,98 @@
 'use client';
-import { FlaskConical, ClipboardCheck, AlertTriangle, PackageSearch } from 'lucide-react';
+import { Button } from "@/components/ui/Button";
+import { FlaskConical, ClipboardCheck, AlertTriangle, PackageSearch, Settings } from 'lucide-react';
 import Link from 'next/link';
+import { PortalShell } from '@/components/layout/PortalShell';
 
 export default function DealerDashboardPage() {
-  return (
-    <main className="kr-container py-6 md:py-10">
-      <div className="bg-purple-600 text-purple-50 p-6 md:p-8 mb-8 border-l-8 border-purple-900 shadow-md">
-        <h1 className="font-heading text-display text-white mb-2">
-          Fertilizer & Pesticide Dealer Dashboard
-        </h1>
-        <p className="text-body-lg text-purple-100">
-          Manage your agrochemical inventory, regulatory compliance, and batch verification codes.
-        </p>
-      </div>
+  const kpis = [
+    { label: "Inventory", value: "Verified", trend: "Stock synced" },
+    { label: "Compliance", value: "Active", trend: "APMC Approved" },
+    { label: "Alerts", value: "0", trend: "No active recalls" },
+  ];
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
-        <div className="kr-card kr-glass-amber kr-pattern-chinar kr-glass flex items-center gap-3 p-4">
-          <FlaskConical className="w-5 h-5 text-purple-600 shrink-0" />
-          <div>
-            <p className="text-body-sm font-medium text-kr-text-primary">Inventory</p>
-            <p className="text-caption text-kr-text-secondary">Stock levels</p>
+  const navItems = [
+    { label: "Dashboard", href: "/dealer/dashboard", icon: FlaskConical, active: true },
+    { label: "Compliance", href: "/dealer/compliance", icon: ClipboardCheck },
+    { label: "Batch Tester", href: "/supplies/tester", icon: PackageSearch },
+    { label: "Payouts", href: "/dealer/payouts", icon: Settings },
+  ];
+
+  return (
+    <PortalShell
+      title="Agro-Dealer Portal"
+      description="Manage your agrochemical inventory, regulatory compliance, and batch verification codes."
+      theme="kissan"
+      kpis={kpis}
+      navItems={navItems}
+      bgImage="https://images.unsplash.com/photo-1592982537447-6f296d9b3014?auto=format&fit=crop&w=2400&q=80"
+    >
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div className="p-6 rounded-2xl bg-black/30 backdrop-blur-md border border-[var(--primary)]/20 hover:border-[var(--primary)] transition-all shadow-md group">
+          <div className="w-12 h-12 bg-[var(--accent-gradient)] rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+            <FlaskConical className="w-6 h-6 text-white" />
           </div>
+          <p className="font-bold text-white text-lg">Inventory</p>
+          <p className="text-sm text-white/60">Stock levels</p>
         </div>
-        <div className="kr-card kr-glass-amber kr-pattern-chinar kr-glass flex items-center gap-3 p-4">
-          <ClipboardCheck className="w-5 h-5 text-purple-600 shrink-0" />
-          <div>
-            <p className="text-body-sm font-medium text-kr-text-primary">Compliance</p>
-            <p className="text-caption text-kr-text-secondary">APMC & Licences</p>
+        <div className="p-6 rounded-2xl bg-black/30 backdrop-blur-md border border-[var(--primary)]/20 hover:border-[var(--primary)] transition-all shadow-md group">
+          <div className="w-12 h-12 bg-[var(--accent-gradient)] rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+            <ClipboardCheck className="w-6 h-6 text-white" />
           </div>
+          <p className="font-bold text-white text-lg">Compliance</p>
+          <p className="text-sm text-white/60">APMC & Licences</p>
         </div>
-        <Link href="/supplies/tester" className="kr-card kr-glass-amber kr-pattern-chinar kr-glass hover:bg-kr-bg-sunken flex items-center gap-3 p-4 transition-colors">
-          <PackageSearch className="w-5 h-5 text-purple-600 shrink-0" />
-          <div>
-            <p className="text-body-sm font-medium text-kr-text-primary">Tester Tool</p>
-            <p className="text-caption text-kr-text-secondary">Verify batches</p>
+        <Link href="/supplies/tester" className="p-6 rounded-2xl bg-black/30 backdrop-blur-md border border-[var(--primary)]/20 hover:border-[var(--primary)] transition-all shadow-md group">
+          <div className="w-12 h-12 bg-[var(--accent-gradient)] rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+            <PackageSearch className="w-6 h-6 text-white" />
           </div>
+          <p className="font-bold text-white text-lg">Tester Tool</p>
+          <p className="text-sm text-white/60">Verify batches</p>
         </Link>
       </div>
       
-      <div className="kr-empty-state kr-glass border border-kr-border-default mb-8">
-        <AlertTriangle className="w-10 h-10 text-kr-text-disabled mx-auto mb-2" aria-hidden="true" />
-        <p className="text-body text-kr-text-secondary font-medium">Compliance Notice</p>
-        <p className="text-body-sm text-kr-text-disabled mb-4 max-w-sm mx-auto">
-          Ensure all your registered fertilizer batch codes have been uploaded to the central KashRoot registry.
-        </p>
-        <button className="kr-btn-primary kr-btn-sm bg-purple-600 hover:bg-purple-700 text-white border-none">
+      <div className="p-10 rounded-2xl bg-black/40 backdrop-blur-md border border-amber-500/30 text-center shadow-sm mb-8">
+        <AlertTriangle className="w-16 h-16 text-amber-500/50 mx-auto mb-4" />
+        <h3 className="text-2xl font-bold text-white mb-2">Compliance Notice</h3>
+        <p className="text-white/60 mb-6 max-w-md mx-auto">Ensure all your registered fertilizer batch codes have been uploaded to the central KashRoot registry.</p>
+        <Button className="bg-[var(--primary)] hover:brightness-110 text-white font-bold px-8 py-3 rounded-xl transition-all shadow-lg hidden">
           Upload Batch Manifest
-        </button>
+        </Button>
       </div>
 
-      <div className="kr-glass-emerald kr-pattern-chinar p-6 md:p-8 rounded-2xl shadow-sm border border-kr-border-default">
-        <h2 className="text-xl font-bold text-kr-text-primary mb-4">Payout Settings (Escrow)</h2>
-        <p className="text-sm text-kr-text-secondary mb-6">Securely configure your bank details to receive automatic escrow payouts when buyers confirm delivery.</p>
-        
-        <form className="max-w-2xl grid grid-cols-1 md:grid-cols-2 gap-6" onSubmit={(e) => { e.preventDefault(); alert("Payout settings updated securely."); }}>
-          <div className="col-span-1 md:col-span-2">
-            <label className="block text-sm font-bold text-kr-text-primary mb-1">Account Holder Name</label>
-            <input required type="text" className="kr-input w-full" placeholder="As per bank records" />
-          </div>
-          <div>
-            <label className="block text-sm font-bold text-kr-text-primary mb-1">Bank Account Number</label>
-            <input required type="password" text-security="disc" className="kr-input w-full" placeholder="••••••••••••" />
-          </div>
-          <div>
-            <label className="block text-sm font-bold text-kr-text-primary mb-1">IFSC Code</label>
-            <input required type="text" className="kr-input w-full uppercase" placeholder="e.g. SBIN0001234" />
-          </div>
-          <div className="col-span-1 md:col-span-2">
-            <label className="block text-sm font-bold text-kr-text-primary mb-1">UPI ID (Optional)</label>
-            <input type="text" className="kr-input w-full" placeholder="yourname@bank" />
-          </div>
-          <div className="col-span-1 md:col-span-2 mt-2 border-t border-kr-border-default pt-6">
-            <button type="submit" className="bg-[#1B4332] hover:bg-[#153424] text-white px-6 py-3 rounded-xl font-bold transition-colors">
-              Save Payout Configuration
-            </button>
-          </div>
-        </form>
+      <div className="p-6 md:p-8 rounded-3xl bg-black/30 backdrop-blur-md border border-white/10 shadow-lg relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-8 opacity-5">
+          <Settings className="w-48 h-48 text-white" />
+        </div>
+        <div className="relative z-10">
+          <h2 className="text-2xl font-serif font-bold text-white mb-2">Payout Settings (Escrow)</h2>
+          <p className="text-white/60 mb-8 max-w-2xl">Securely configure your bank details to receive automatic escrow payouts when buyers confirm delivery.</p>
+          
+          <form className="max-w-2xl grid grid-cols-1 md:grid-cols-2 gap-6" onSubmit={(e) => { e.preventDefault(); alert("Payout settings updated securely."); }}>
+            <div className="col-span-1 md:col-span-2">
+              <label className="block text-sm font-bold text-white mb-1.5">Account Holder Name</label>
+              <input required type="text" className="w-full bg-black/50 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all" placeholder="As per bank records" />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-white mb-1.5">Bank Account Number</label>
+              <input required type="password" text-security="disc" className="w-full bg-black/50 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all" placeholder="••••••••••••" />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-white mb-1.5">IFSC Code</label>
+              <input required type="text" className="w-full bg-black/50 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all uppercase" placeholder="e.g. SBIN0001234" />
+            </div>
+            <div className="col-span-1 md:col-span-2">
+              <label className="block text-sm font-bold text-white mb-1.5">UPI ID (Optional)</label>
+              <input type="text" className="w-full bg-black/50 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all" placeholder="yourname@bank" />
+            </div>
+            <div className="col-span-1 md:col-span-2 mt-4 pt-6 border-t border-white/10">
+              <Button type="submit" className="bg-[var(--primary)] hover:brightness-110 text-white px-8 py-3.5 rounded-xl font-bold transition-all shadow-lg w-full md:w-auto">
+                Save Payout Configuration
+              </Button>
+            </div>
+          </form>
+        </div>
       </div>
-    </main>
+    </PortalShell>
   );
 }

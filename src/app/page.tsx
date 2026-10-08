@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import {
-  ArrowRight,
   Tractor,
   Sprout,
   Store,
@@ -11,13 +10,14 @@ import {
   ShieldCheck,
   PackageSearch,
   X,
-  Sparkles,
   ChevronRight,
   Activity,
   CalendarDays,
   QrCode
 } from 'lucide-react';
 import { SiteFooter, SiteHeader } from '@/components/layout/SiteHeader';
+import { HeroShowcase } from '@/components/ui/HeroShowcase';
+import { ScrollScenes } from '@/components/ui/ScrollScenes';
 
 const HERO_IMAGE = 'https://images.unsplash.com/photo-1715457573748-8e8a70b2c1be?auto=format&fit=crop&w=2400&q=80';
 
@@ -115,138 +115,9 @@ export default function Home() {
 
       {/* HERO SECTION */}
       <main id="main-content" className="flex-1">
-        <section className="relative isolate min-h-[44rem] md:min-h-[48rem] flex items-center overflow-hidden border-b border-[#D4AF37]/30">
-          {/* Authentic Dal Lake / Shikara Backdrop */}
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 bg-cover bg-center scale-105"
-            style={{ backgroundImage: `url('${HERO_IMAGE}')` }}
-          />
-          {/* Deep Royal Emerald & Saffron Vignette */}
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 bg-gradient-to-r from-[#0D5C2E]/60 via-[#0A2E22]/50 to-[#D4AF37]/30"
-          />
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 bg-[radial-gradient(circle_at_20%_40%,rgba(212,175,55,0.12),transparent_70%)]"
-          />
+        <HeroShowcase onEnterPortals={() => setPortalModalOpen(true)} />
 
-          <div className="container mx-auto px-6 md:px-12 relative z-10 py-24 max-w-7xl">
-
-
-            <h1 className="max-w-4xl font-serif text-5xl md:text-7xl font-black text-[#FFFDF8] leading-[1.1] drop-shadow-2xl">
-              Where potential finds its{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#E76F51] via-[#F4A261] to-[#E9C46A] italic">
-                path.
-              </span>
-            </h1>
-
-            <p className="mt-6 max-w-2xl text-lg md:text-xl text-[#F2ECE1]/90 font-sans font-normal leading-relaxed drop-shadow">
-              Connecting people, ideas, products and opportunities.<br />One ecosystem, built for what’s next.
-            </p>
-
-            <div className="mt-10 flex flex-col sm:flex-row gap-4 w-full max-w-md">
-              <button 
-                onClick={() => setPortalModalOpen(true)}
-                className="group relative inline-flex items-center justify-center gap-3 bg-gradient-to-r from-[#C85A17] via-[#D35400] to-[#E67E22] hover:from-[#D4AF37] hover:to-[#B8972E] text-[#FFF] py-4 px-8 rounded-2xl font-serif font-bold text-lg shadow-[0_10px_35px_rgba(200,90,23,0.4)] border border-[#FFD79E]/40 transition-all duration-300 hover:scale-[1.03]"
-              >
-                <span>Enter Kashroot Portals</span>
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1.5 transition-transform" />
-              </button>
-            </div>
-          </div>
-        </section>
-
-        {/* AN ECOSYSTEM FOR GROWTH - Kashmiri Heritage Section */}
-        <section className="relative py-28 px-6 bg-gradient-to-br from-[#0D5C2E] via-[#155A6B] to-[#0A2E22]">
-          
-          {/* Subtle Golden Chinar watermark in the corner */}
-          <div className="absolute top-8 right-8 opacity-10 pointer-events-none">
-            <ChinarLeaf className="w-96 h-96" color="#D4AF37" />
-          </div>
-
-          <div className="container mx-auto max-w-6xl relative z-10">
-            {/* Header with authentic carved border */}
-            <div className="text-center max-w-3xl mx-auto mb-20">
-              <div className="flex items-center justify-center gap-3 mb-3">
-                <ChinarLeaf className="w-5 h-5" color="#D4AF37" />
-                <span className="text-[#D4AF37] font-serif text-xs font-bold uppercase tracking-[0.3em]">Direct From The Valley</span>
-                <ChinarLeaf className="w-5 h-5 rotate-180" color="#D4AF37" />
-              </div>
-              <h2 className="text-4xl sm:text-5xl font-serif font-black text-[#FFFDF8] tracking-tight mb-4">
-                An Ecosystem for Growth
-              </h2>
-              <div className="mt-6 flex items-center justify-center gap-2">
-                <span className="h-[1px] w-12 bg-gradient-to-r from-transparent to-[#D4AF37]" />
-                <Sparkles className="w-4 h-4 text-[#D4AF37]" />
-                <span className="h-[1px] w-12 bg-gradient-to-l from-transparent to-[#D4AF37]" />
-              </div>
-            </div>
-
-            {/* 3 Premium Heritage Feature Boxes */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              
-              {/* Box 1: Kashmiri Emerald (Pashmina Forest) */}
-              <Link href="/escrow" className="block relative group rounded-3xl p-8 bg-gradient-to-b from-[#0F3524] via-[#092318] to-[#05150E] border-2 border-[#2ECC71]/30 hover:border-[#D4AF37] shadow-[0_15px_40px_rgba(0,0,0,0.5)] transition-all duration-300 hover:-translate-y-2">
-                <div className="absolute top-4 right-4 opacity-20 group-hover:opacity-40 transition-opacity">
-                  <ChinarLeaf className="w-12 h-12" color="#2ECC71" />
-                </div>
-                <div className="w-16 h-16 rounded-2xl bg-[#09291C] border border-[#2ECC71]/50 flex items-center justify-center mb-7 shadow-[0_0_25px_rgba(46,204,113,0.25)]">
-                  <ShieldCheck className="w-8 h-8 text-[#4ADE80]" />
-                </div>
-                <h3 className="font-serif text-2xl font-bold text-[#FFFDF8] mb-3 group-hover:text-[#D4AF37] transition-colors break-words">
-                  Secure Escrow
-                </h3>
-                <p className="text-[#C5BAA8] text-sm leading-relaxed break-words">
-                  Consignment payments are locked safely in escrow and disbursed directly to farmers upon digital gate-pass verification at terminal mandis.
-                </p>
-                <div className="mt-8 pt-4 border-t border-[#D4AF37]/15 flex items-center text-xs font-serif font-bold text-[#D4AF37] tracking-wider uppercase break-words">
-                  Verified Trust Protocol →
-                </div>
-              </Link>
-
-              {/* Box 2: Zaffran Saffron / Burgundy */}
-              <Link href="/mandi-weather" className="block relative group rounded-3xl p-8 bg-gradient-to-b from-[#3B141C] via-[#240A10] to-[#120408] border-2 border-[#E76F51]/30 hover:border-[#D4AF37] shadow-[0_15px_40px_rgba(0,0,0,0.5)] transition-all duration-300 hover:-translate-y-2">
-                <div className="absolute top-4 right-4 opacity-20 group-hover:opacity-40 transition-opacity">
-                  <ChinarLeaf className="w-12 h-12" color="#E76F51" />
-                </div>
-                <div className="w-16 h-16 rounded-2xl bg-[#290B12] border border-[#E76F51]/50 flex items-center justify-center mb-7 shadow-[0_0_25px_rgba(231,111,81,0.25)]">
-                  <Store className="w-8 h-8 text-[#FB7185]" />
-                </div>
-                <h3 className="font-serif text-2xl font-bold text-[#FFFDF8] mb-3 group-hover:text-[#D4AF37] transition-colors break-words">
-                  Live Mandi Sync
-                </h3>
-                <p className="text-[#C5BAA8] text-sm leading-relaxed break-words">
-                  Real-time price feeds directly from Fruit Mandi Sopore, Parimpora Srinagar, Shopian, and Azadpur Delhi with daily trend projections.
-                </p>
-                <div className="mt-8 pt-4 border-t border-[#D4AF37]/15 flex items-center text-xs font-serif font-bold text-[#D4AF37] tracking-wider uppercase break-words">
-                  Live Daily Rates →
-                </div>
-              </Link>
-
-              {/* Box 3: Kashmiri Walnut Amber */}
-              <Link href="/compare-prices" className="block relative group rounded-3xl p-8 bg-gradient-to-b from-[#3A2610] via-[#221609] to-[#120B04] border-2 border-[#D4AF37]/30 hover:border-[#D4AF37] shadow-[0_15px_40px_rgba(0,0,0,0.5)] transition-all duration-300 hover:-translate-y-2">
-                <div className="absolute top-4 right-4 opacity-20 group-hover:opacity-40 transition-opacity">
-                  <ChinarLeaf className="w-12 h-12" color="#D4AF37" />
-                </div>
-                <div className="w-16 h-16 rounded-2xl bg-[#261807] border border-[#D4AF37]/50 flex items-center justify-center mb-7 shadow-[0_0_25px_rgba(212,175,55,0.25)]">
-                  <PackageSearch className="w-8 h-8 text-[#FBBF24]" />
-                </div>
-                <h3 className="font-serif text-2xl font-bold text-[#FFFDF8] mb-3 group-hover:text-[#D4AF37] transition-colors break-words">
-                  Input Price Match
-                </h3>
-                <p className="text-[#C5BAA8] text-sm leading-relaxed break-words">
-                  Compare rates on genuine fungicides, orchard spray oils, pruning shears, and universal cardboard apple packaging boxes.
-                </p>
-                <div className="mt-8 pt-4 border-t border-[#D4AF37]/15 flex items-center text-xs font-serif font-bold text-[#D4AF37] tracking-wider uppercase break-words">
-                  Orchard Essentials →
-                </div>
-              </Link>
-
-            </div>
-          </div>
-        </section>
+        <ScrollScenes />
       </main>
 
       <SiteFooter />

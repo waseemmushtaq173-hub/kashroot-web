@@ -19,3 +19,53 @@ body {
   margin: 0;
   background-image: none !important; /* Forces the removal of that mountain graphic */
 }
+
+/* KASHROOT DYNAMIC PORTAL THEMES */
+:root {
+  --kr-saffron-gold: #E8A317;
+  --kr-orchard-green: #1E7B4F;
+}
+
+/* Base Dark Mode Settings for Dashboards */
+[data-theme] {
+  --primary-contrast: #FFFFFF;
+  --surface-base: #07120D;
+  --surface-tint: rgba(255, 255, 255, 0.05);
+}
+
+/* Farmer Dashboard (Produce) */
+[data-theme="farmer"] {
+  --primary: #D9622B;
+  --secondary: #E8A317;
+  --accent-gradient: linear-gradient(to right, #D9622B, #E8A317);
+  --chart-1: #D9622B;
+  --chart-2: #E8A317;
+}
+
+/* Seller Studio */
+[data-theme="seller"] {
+  --primary: #E8A317;
+  --secondary: #D9622B;
+  --accent-gradient: linear-gradient(to right, #E8A317, #D9622B);
+  --chart-1: #E8A317;
+  --chart-2: #D9622B;
+}
+
+/* Payments & Escrow */
+[data-theme="escrow"] {
+  --primary: #0E7C86;
+  --secondary: #0A5560;
+  --accent-gradient: linear-gradient(to right, #0E7C86, #0A5560);
+  --chart-1: #0E7C86;
+  --chart-2: #0A5560;
+}
+
+/* Market & Prices */
+[data-theme="market"] {
+  --primary: #E8A317;
+  --secondary: #6B4423;
+  --accent-gradient: linear-gradient(to right, #E8A317, #6B4423);
+  --chart-1: #E8A317;
+  --chart-2: #6B4423;
+}
+

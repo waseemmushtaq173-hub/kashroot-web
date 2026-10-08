@@ -70,7 +70,7 @@ export default function LearnPage() {
                 ))}
               </div>
               
-              <button className="mt-6 w-full py-3 bg-[var(--kr-saffron-gold,#E8A317)] hover:bg-[#B37A0B] text-black font-bold rounded-lg transition-colors flex items-center justify-center gap-2">
+              <button className="mt-6 w-full py-3 bg-[var(--kr-saffron-gold,#E8A317)] hover:bg-[#B37A0B] text-black font-bold rounded-lg transition-colors flex items-center justify-center gap-2 hidden">
                 Browse Full Library <ArrowRight className="w-4 h-4" />
               </button>
             </div>
@@ -81,7 +81,7 @@ export default function LearnPage() {
                 <h2 className="text-xl font-bold flex items-center gap-2">
                   <HelpCircle className="w-5 h-5 text-[var(--kr-dal-teal,#0E7C86)]" /> Expert Q&A Board
                 </h2>
-                <button className="bg-[var(--kr-dal-teal,#0E7C86)] hover:bg-[#0b636b] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">
+                <button className="bg-[var(--kr-dal-teal,#0E7C86)] hover:bg-[#0b636b] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors hidden">
                   Ask a Question
                 </button>
               </div>

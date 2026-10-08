@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/Button";
 'use client';
 
 import { useState } from 'react';
@@ -161,12 +162,12 @@ export default function AppointmentBookPage() {
               <span className="text-kr-text-secondary">({buyerTz})</span>
             </p>
           )}
-          <button
+          <Button
             onClick={() => router.push('/buyer/discover')}
             className="kr-btn-primary"
           >
             Back to listings
-          </button>
+          </Button>
         </div>
       </main>
     );
@@ -176,13 +177,13 @@ export default function AppointmentBookPage() {
   if (step === 'confirm' && selectedSlot) {
     return (
       <main id="main-content" className="kr-container py-6 md:py-10 max-w-lg">
-        <button
+        <Button
           onClick={() => setStep('select-slot')}
           className="flex items-center gap-1 text-body-sm text-kr-text-secondary
                      hover:text-kr-text-primary mb-6 kr-focus-ring rounded"
         >
           <ChevronLeft className="w-4 h-4" aria-hidden="true" /> Back to calendar
-        </button>
+        </Button>
 
         <h1 className="font-heading text-h2 text-kr-text-primary mb-2">Confirm appointment</h1>
 
@@ -231,7 +232,7 @@ export default function AppointmentBookPage() {
           </div>
         )}
 
-        <button
+        <Button
           onClick={() => bookMut.mutate()}
           disabled={bookMut.isPending}
           aria-busy={bookMut.isPending}
@@ -241,7 +242,7 @@ export default function AppointmentBookPage() {
             ? <><Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> Sending request…</>
             : 'Request appointment'
           }
-        </button>
+        </Button>
       </main>
     );
   }
@@ -274,9 +275,9 @@ export default function AppointmentBookPage() {
         <div role="alert" className="kr-error-state mb-6">
           <AlertTriangle className="w-8 h-8 text-kr-danger-500 mx-auto" aria-hidden="true" />
           <p className="text-body text-kr-text-primary">Could not load available slots</p>
-          <button onClick={() => slotsQ.refetch()} className="kr-btn-secondary kr-btn-sm">
+          <Button onClick={() => slotsQ.refetch()} className="kr-btn-secondary kr-btn-sm">
             Retry
-          </button>
+          </Button>
         </div>
       )}
 
@@ -289,25 +290,25 @@ export default function AppointmentBookPage() {
         >
           {/* Month header */}
           <div className="flex items-center justify-between mb-4">
-            <button
+            <Button
               onClick={prevMonth}
               aria-label="Previous month"
               className="p-2 rounded-md hover:bg-kr-bg-sunken kr-focus-ring
                          text-kr-text-secondary hover:text-kr-text-primary transition-colors"
             >
               <ChevronLeft className="w-5 h-5" aria-hidden="true" />
-            </button>
+            </Button>
             <h2 className="font-heading text-h4 text-kr-text-primary" aria-live="polite">
               {MONTHS[month]} {year}
             </h2>
-            <button
+            <Button
               onClick={nextMonth}
               aria-label="Next month"
               className="p-2 rounded-md hover:bg-kr-bg-sunken kr-focus-ring
                          text-kr-text-secondary hover:text-kr-text-primary transition-colors"
             >
               <ChevronRight className="w-5 h-5" aria-hidden="true" />
-            </button>
+            </Button>
           </div>
 
           {/* Day-of-week headers */}
@@ -345,7 +346,7 @@ export default function AppointmentBookPage() {
 
               return (
                 <div key={dayNum} role="gridcell">
-                  <button
+                  <Button
                     type="button"
                     disabled={isPast || (!hasSlots && !isLoading)}
                     onClick={() => setSelectedDay(dayISO)}
@@ -375,7 +376,7 @@ export default function AppointmentBookPage() {
                       ? <span className="kr-skeleton w-4 h-4 rounded-full" aria-hidden="true" />
                       : dayNum
                     }
-                  </button>
+                  </Button>
                 </div>
               );
             })}
@@ -469,13 +470,13 @@ export default function AppointmentBookPage() {
                 })}
               </div>
 
-              <button
+              <Button
                 onClick={() => { if (selectedSlot) setStep('confirm'); }}
                 disabled={!selectedSlot}
                 className="kr-btn-primary w-full mt-4"
               >
                 Continue
-              </button>
+              </Button>
             </fieldset>
           )}
         </div>

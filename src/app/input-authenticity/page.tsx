@@ -105,7 +105,7 @@ export default function InputAuthenticityPage() {
                   </div>
                 ))}
               </div>
-              <button className="mt-6 w-full py-3 border border-white/20 hover:bg-white/10 rounded-lg text-sm font-bold transition-colors">
+              <button className="mt-6 w-full py-3 border border-white/20 hover:bg-white/10 rounded-lg text-sm font-bold transition-colors hidden">
                 Register New Batch QR
               </button>
             </div>
@@ -142,7 +142,7 @@ export default function InputAuthenticityPage() {
                         <span className="text-xs text-red-400/60">{scan.time}</span>
                       </div>
                       <p className="text-sm text-red-200/80 mb-2">{scan.issue}</p>
-                      <button className="text-xs bg-red-500/20 hover:bg-red-500/40 text-red-300 px-3 py-1 rounded transition-colors border border-red-500/30">
+                      <button className="text-xs bg-red-500/20 hover:bg-red-500/40 text-red-300 px-3 py-1 rounded transition-colors border border-red-500/30 hidden">
                         Investigate
                       </button>
                     </div>

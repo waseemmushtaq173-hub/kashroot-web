@@ -1,16 +1,9 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { useEffect } from "react";
+import { AlertTriangle, RotateCcw } from "lucide-react";
 
-/**
- * Error — route-subtree boundary. The root layout (and globals.css) is still
- * mounted here, so design tokens / component classes are available.
- *
- * Catches render-time exceptions in any page under the app tree and offers a
- * reset, instead of letting the crash bubble up to a raw 500.
- */
-export default function Error({
+export default function GlobalError({
   error,
   reset,
 }: {
@@ -18,28 +11,26 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error('Route error boundary caught:', error);
+    // Optionally log the error to an error reporting service
+    console.error(error);
   }, [error]);
 
   return (
-    <main
-      id="main-content"
-      className="min-h-screen flex flex-col items-center justify-center gap-4 px-4 py-16 text-center bg-kr-bg-page"
-    >
-      <div className="w-12 h-12 rounded-full bg-kr-fill-brand-subtle flex items-center justify-center">
-        <AlertTriangle className="w-6 h-6 text-kr-danger-600" aria-hidden="true" />
+    <div className="flex min-h-[50vh] flex-col items-center justify-center p-4 text-center">
+      <div className="bg-red-500/10 p-4 rounded-full mb-6">
+        <AlertTriangle className="w-12 h-12 text-red-500" />
       </div>
-      <h1 className="font-heading text-h2 text-kr-text-primary">Something went wrong</h1>
-      <p className="text-body text-kr-text-secondary max-w-md">
-        We hit an unexpected error while loading this page. This is often
-        temporary — please try again in a moment.
+      <h2 className="text-2xl font-bold text-white mb-2">Something went wrong!</h2>
+      <p className="text-white/60 mb-8 max-w-md">
+        We encountered an unexpected error while rendering this portal. Please try again or return home.
       </p>
-      {error.digest && (
-        <p className="text-caption text-kr-text-disabled">Reference: {error.digest}</p>
-      )}
-      <button onClick={reset} className="kr-btn-primary kr-btn-lg mt-2">
-        <RefreshCw className="w-4 h-4" aria-hidden="true" /> Try again
+      <button
+        onClick={() => reset()}
+        className="flex items-center gap-2 bg-[#D4AF37] hover:bg-[#B37A0B] text-black px-6 py-3 rounded-xl font-bold transition-colors shadow-lg"
+      >
+        <RotateCcw className="w-5 h-5" /> Try Again
       </button>
-    </main>
+    </div>
   );
 }
+

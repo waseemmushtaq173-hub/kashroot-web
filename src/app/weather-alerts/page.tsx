@@ -83,8 +83,8 @@ export default function WeatherAlertsPage() {
                         </div>
                       </div>
                       <div className="mt-4 pt-4 border-t border-white/10 flex justify-end gap-3">
-                        <button className="text-xs bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg font-medium transition-colors">Dismiss</button>
-                        <button className={`text-xs px-4 py-2 rounded-lg font-bold transition-colors text-black ${isCritical ? 'bg-red-500 hover:bg-red-600' : 'bg-amber-500 hover:bg-amber-600'}`}>
+                        <button className="text-xs bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg font-medium transition-colors hidden">Dismiss</button>
+                        <button className={`text-xs px-4 py-2 rounded-lg font-bold transition-colors text-black ${isCritical ? 'bg-red-500 hover:bg-red-600' : 'bg-amber-500 hover:bg-amber-600'} hidden`}>
                           Mark as Done
                         </button>
                       </div>

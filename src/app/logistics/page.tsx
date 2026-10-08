@@ -80,7 +80,7 @@ export default function LogisticsPage() {
                         <span className="text-xs text-white/50">Route Risk:</span>
                         <span className="font-bold text-green-400 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> {route.risk}</span>
                       </div>
-                      <button className="ml-auto bg-[var(--kr-chinar-amber,#D9622B)] hover:bg-[#B55020] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2">
+                      <button className="ml-auto bg-[var(--kr-chinar-amber,#D9622B)] hover:bg-[#B55020] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 hidden">
                         <PackageCheck className="w-4 h-4" /> View Delivery Proof
                       </button>
                     </div>
@@ -161,7 +161,7 @@ export default function LogisticsPage() {
                 <div className="text-xs text-white/40">Includes toll & transit insurance</div>
               </div>
 
-              <button className="w-full py-3 bg-[var(--kr-pir-panjal-navy,#0B1F3A)] hover:bg-[#112a4f] text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 border border-white/20">
+              <button className="w-full py-3 bg-[var(--kr-pir-panjal-navy,#0B1F3A)] hover:bg-[#112a4f] text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 border border-white/20 hidden">
                 Get Instant Quotes
               </button>
             </div>

@@ -24,7 +24,7 @@ export default function ServicesMarketplacePage() {
             </p>
           </div>
           <div className="flex gap-3 shrink-0">
-            <button className="kr-btn-secondary kr-btn-sm">
+            <button className="kr-btn-secondary kr-btn-sm hidden">
               <MapPin className="w-4 h-4" /> Near Me
             </button>
           </div>

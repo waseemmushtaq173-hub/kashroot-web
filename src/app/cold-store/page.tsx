@@ -159,7 +159,7 @@ export default function ColdStoreOperatorPage() {
                           booking.status === 'ESCROW_LOCKED' 
                             ? 'bg-[#0E7C86] hover:bg-[#0A5C63] text-white' 
                             : 'bg-white/10 text-white/40 cursor-not-allowed'
-                        }`}
+                        } hidden`}
                       >
                         {booking.status === 'ESCROW_LOCKED' ? 'Accept & Allocate' : 'Awaiting Funds'}
                       </button>

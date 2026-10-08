@@ -70,7 +70,7 @@ export default function BuyerDeskPage() {
                           <div className="text-xs text-white/50">Top Bid</div>
                           <div className="font-bold text-[var(--kr-apple-crimson,#C62828)]">{lot.topBid}</div>
                         </div>
-                        <button className="bg-[var(--kr-pir-panjal-navy,#0B1F3A)] hover:bg-[#112a4f] text-white px-4 py-2 rounded-lg text-sm font-bold border border-white/20 transition-colors">
+                        <button className="bg-[var(--kr-pir-panjal-navy,#0B1F3A)] hover:bg-[#112a4f] text-white px-4 py-2 rounded-lg text-sm font-bold border border-white/20 transition-colors hidden">
                           Place Bid
                         </button>
                       </div>
@@ -149,13 +149,13 @@ export default function BuyerDeskPage() {
                         <div className="text-sm font-medium text-red-200">Certificate of Origin</div>
                         <div className="text-xs text-red-400/80">Pending Chamber of Commerce signature</div>
                       </div>
-                      <button className="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 transition-colors">Resolve</button>
+                      <button className="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 transition-colors hidden">Resolve</button>
                     </div>
                   </div>
                 </div>
 
                 <div className="mt-auto">
-                  <button className="w-full bg-[var(--kr-apple-crimson,#C62828)] hover:bg-[#9E2020] text-white px-4 py-3 rounded-xl font-bold transition-colors flex justify-center items-center gap-2 shadow-lg shadow-red-500/20">
+                  <button className="w-full bg-[var(--kr-apple-crimson,#C62828)] hover:bg-[#9E2020] text-white px-4 py-3 rounded-xl font-bold transition-colors flex justify-center items-center gap-2 shadow-lg shadow-red-500/20 hidden">
                     Open Customs Desk <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>

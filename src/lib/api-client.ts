@@ -57,18 +57,19 @@ export interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
   auth?: boolean;
 }
 
+import { toast } from 'sonner';
+
 /** Perform a request against the API and parse the JSON response as `T`. */
 export async function apiFetch<T>(
   path: string,
   options: ApiRequestOptions = {},
+  retries = 1
 ): Promise<T> {
-  const { query, body, auth = true, headers, method, ...init } = options;
+  const { query, body, auth = true, headers, method = body !== undefined ? 'POST' : 'GET', ...init } = options;
 
   const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
   const finalHeaders = new Headers(headers);
 
-  // JSON bodies get an explicit Content-Type; FormData must NOT (the browser
-  // sets the multipart boundary itself).
   if (body !== undefined && !isForm && !finalHeaders.has('Content-Type')) {
     finalHeaders.set('Content-Type', 'application/json');
   }
@@ -79,21 +80,51 @@ export async function apiFetch<T>(
     if (token) finalHeaders.set('Authorization', `Bearer ${token}`);
   }
 
-  const res = await fetch(buildUrl(path, query), {
-    ...init,
-    method: method ?? (body !== undefined ? 'POST' : 'GET'),
-    headers: finalHeaders,
-    // Ride the httpOnly refresh cookie along; the API's CORS allows credentials.
-    credentials: init.credentials ?? 'include',
-    body:
-      body === undefined
-        ? undefined
-        : isForm
-          ? (body as FormData)
-          : JSON.stringify(body),
-  });
+  // Idempotency key for money-moving (POST/PUT/PATCH to specific routes)
+  const isMoneyMoving = path.includes('/escrow') || path.includes('/payments') || path.includes('/checkout');
+  if (isMoneyMoving && ['POST', 'PUT', 'PATCH'].includes(method) && !finalHeaders.has('Idempotency-Key')) {
+    finalHeaders.set('Idempotency-Key', `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+  }
 
-  return parse<T>(res);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+  try {
+    const res = await fetch(buildUrl(path, query), {
+      ...init,
+      method,
+      headers: finalHeaders,
+      credentials: init.credentials ?? 'include',
+      signal: controller.signal,
+      body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
+    });
+    
+    clearTimeout(timeoutId);
+    return await parse<T>(res);
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    
+    // Retry logic for safe requests or network errors
+    const isSafe = ['GET', 'HEAD', 'OPTIONS'].includes(method);
+    if ((err.name === 'AbortError' || err.message.includes('fetch')) && retries > 0 && isSafe) {
+      return apiFetch(path, options, retries - 1);
+    }
+
+    // Global error toast
+    const errorId = `ERR-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+    const status = err instanceof ApiError ? err.status : 'NETWORK';
+    const message = err instanceof ApiError ? err.message : 'Network error or timeout';
+    
+    // Only toast if not explicitly silenced
+    if (finalHeaders.get('X-Silent-Error') !== 'true') {
+      toast.error(`Error ${status}: ${message}`, {
+        description: `Error ID: ${errorId}. Please try again or contact support.`,
+        action: { label: 'Try again', onClick: () => apiFetch(path, options, 0) }
+      });
+    }
+    
+    throw err;
+  }
 }
 
 /** Convenience verbs over {@link apiFetch}. */

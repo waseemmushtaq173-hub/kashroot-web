@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/Button";
 'use client';
 
 /**
@@ -46,6 +47,7 @@ import {
 
 import { ApiError } from '@/lib/api/client';
 import { trackingApi } from '@/lib/api/tracking';
+import { PortalShell } from '@/components/layout/PortalShell';
 import type { LiveVehicleTracking, ShipmentStatus, TrackingEvent, TrackingSource } from '@/lib/api/tracking';
 
 /**
@@ -380,7 +382,7 @@ export default function TrackingPage() {
   const isCommercial = submittedClass === 'HCV' || submittedClass === 'LCV';
 
   return (
-    <main id="main-content" className="kr-container py-6 md:py-10">
+    <PortalShell theme="tracking" title="Live Tracking" description="Monitor your consignments in real-time." kpis={[]}>
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -453,7 +455,7 @@ export default function TrackingPage() {
             />
           </div>
 
-          <button
+          <Button
             type="submit"
             className="kr-btn-primary"
             disabled={plate.trim().length === 0 || !vType || trackQuery.isFetching}
@@ -465,10 +467,10 @@ export default function TrackingPage() {
               <Search className="h-4 w-4" aria-hidden="true" />
             )}
             {trackQuery.isFetching ? 'Tracking…' : 'Track vehicle'}
-          </button>
+          </Button>
 
           {submitted.length > 0 ? (
-            <button
+            <Button
               type="button"
               className="kr-btn-ghost"
               onClick={() => trackQuery.refetch()}
@@ -479,7 +481,7 @@ export default function TrackingPage() {
                 aria-hidden="true"
               />
               Refresh
-            </button>
+            </Button>
           ) : null}
         </div>
 
@@ -511,14 +513,14 @@ export default function TrackingPage() {
             <AlertCircle className="h-8 w-8 text-kr-danger-500" aria-hidden="true" />
             <h2 className="font-heading text-h4 text-kr-text-primary">No tracking for that plate</h2>
             <p className="mt-2 text-body-sm text-kr-text-secondary">{errorText}</p>
-            <button
+            <Button
               type="button"
               className="kr-btn-secondary mt-4"
               onClick={() => trackQuery.refetch()}
             >
               <RefreshCw className="h-4 w-4" aria-hidden="true" />
               Try again
-            </button>
+            </Button>
           </div>
         ) : data ? (
           <div className="space-y-6">
@@ -669,6 +671,6 @@ export default function TrackingPage() {
           </div>
         ) : null}
       </div>
-    </main>
+    </PortalShell>
   );
 }

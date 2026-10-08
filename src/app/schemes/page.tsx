@@ -71,7 +71,7 @@ export default function SchemesFinderPage() {
                           </div>
                         </div>
                       </div>
-                      <button className="w-full md:w-auto bg-white/10 group-hover:bg-[var(--kr-saffron-gold,#E8A317)] text-white group-hover:text-black border border-white/20 group-hover:border-transparent px-6 py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2">
+                      <button className="w-full md:w-auto bg-white/10 group-hover:bg-[var(--kr-saffron-gold,#E8A317)] text-white group-hover:text-black border border-white/20 group-hover:border-transparent px-6 py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2 hidden">
                         View Details <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
@@ -151,7 +151,7 @@ export default function SchemesFinderPage() {
                     <div className="text-sm font-medium text-amber-100">Revenue Extract (Intikhab)</div>
                     <div className="text-xs text-amber-400/70">Action Required: Upload latest copy</div>
                   </div>
-                  <button className="text-xs bg-amber-500 hover:bg-amber-600 text-black px-3 py-1.5 rounded font-bold">Upload</button>
+                  <button className="text-xs bg-amber-500 hover:bg-amber-600 text-black px-3 py-1.5 rounded font-bold hidden">Upload</button>
                 </div>
               </div>
             </div>

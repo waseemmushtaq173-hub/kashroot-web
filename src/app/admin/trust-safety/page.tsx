@@ -63,8 +63,8 @@ export default function TrustSafetyAdminPage() {
                       </div>
                     </div>
                     <div className="flex gap-2 w-full sm:w-auto">
-                      <button className="flex-1 sm:flex-none bg-red-500/20 hover:bg-red-500/40 text-red-300 border border-red-500/30 px-4 py-2 rounded-lg text-sm font-bold transition-colors">Reject</button>
-                      <button className="flex-1 sm:flex-none bg-green-500 hover:bg-green-600 text-black px-4 py-2 rounded-lg text-sm font-bold transition-colors">Approve</button>
+                      <button className="flex-1 sm:flex-none bg-red-500/20 hover:bg-red-500/40 text-red-300 border border-red-500/30 px-4 py-2 rounded-lg text-sm font-bold transition-colors hidden">Reject</button>
+                      <button className="flex-1 sm:flex-none bg-green-500 hover:bg-green-600 text-black px-4 py-2 rounded-lg text-sm font-bold transition-colors hidden">Approve</button>
                     </div>
                   </div>
                 ))}
@@ -93,7 +93,7 @@ export default function TrustSafetyAdminPage() {
                     
                     <div className="flex justify-between items-center border-t border-red-500/20 pt-4">
                       <div className="text-sm font-bold text-red-300">{dsp.amount}</div>
-                      <button className="bg-[var(--kr-apple-crimson,#C62828)] hover:bg-[#9E2020] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2">
+                      <button className="bg-[var(--kr-apple-crimson,#C62828)] hover:bg-[#9E2020] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 hidden">
                         <Gavel className="w-4 h-4" /> Intervene
                       </button>
                     </div>

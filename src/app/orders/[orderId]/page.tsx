@@ -471,14 +471,14 @@ export default function OrderTrackingPage() {
             <div className="pt-2 border-t border-kr-neutral-200 space-y-2">
               {order.status === 'DELIVERED' && (
                 // TODO: POST /orders/:id/complete once endpoint is confirmed
-                <button className="kr-btn-primary w-full kr-btn-sm">
+                <button className="kr-btn-primary w-full kr-btn-sm hidden">
                   <CheckCircle2 className="w-3 h-3" aria-hidden="true" /> Mark as received
                 </button>
               )}
               {!['COMPLETED', 'CANCELLED', 'DISPUTED'].includes(order.status) && (
                 // TODO: POST /disputes once endpoint is confirmed (Module 4)
                 <button className="kr-btn-ghost w-full kr-btn-sm text-kr-text-danger
-                                   hover:bg-kr-badge-rejected-bg">
+                                   hover:bg-kr-badge-rejected-bg hidden">
                   Raise a dispute
                 </button>
               )}

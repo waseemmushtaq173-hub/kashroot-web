@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/Button";
 'use client';
 
 import { useState, useCallback } from 'react';
@@ -123,12 +124,12 @@ function FilterSidebar({
           )}
         </h2>
         {activeCount > 0 && (
-          <button
+          <Button
             onClick={onClear}
             className="text-caption text-kr-text-brand hover:underline kr-focus-ring rounded"
           >
             Clear all
-          </button>
+          </Button>
         )}
       </div>
 
@@ -212,7 +213,7 @@ function FilterSidebar({
           {COMMON_CERTS.map((cert) => {
             const selected = filters.certifications.includes(cert);
             return (
-              <button
+              <Button
                 key={cert}
                 type="button"
                 onClick={() => toggleCert(cert)}
@@ -227,7 +228,7 @@ function FilterSidebar({
                 `}
               >
                 {cert}
-              </button>
+              </Button>
             );
           })}
         </div>
@@ -446,11 +447,11 @@ export default function BuyerDiscoverPage() {
               className="kr-input pl-9 pr-4"
             />
           </div>
-          <button type="submit" className="kr-btn-primary kr-btn-sm px-5">
+          <Button type="submit" className="kr-btn-primary kr-btn-sm px-5">
             Search
-          </button>
+          </Button>
           {/* Mobile filter toggle */}
-          <button
+          <Button
             type="button"
             onClick={() => setShowMobileFilters(true)}
             className="lg:hidden kr-btn-secondary kr-btn-sm"
@@ -459,7 +460,7 @@ export default function BuyerDiscoverPage() {
           >
             <SlidersHorizontal className="w-4 h-4" aria-hidden="true" />
             Filters
-          </button>
+          </Button>
         </form>
 
         {/* Active filter chips */}
@@ -564,12 +565,12 @@ export default function BuyerDiscoverPage() {
                 <p className="text-body text-kr-text-secondary">
                   No listings match your search.
                 </p>
-                <button
+                <Button
                   onClick={() => { setFilters(DEFAULT_FILTERS); setCommittedQuery(''); setQuery(''); }}
                   className="kr-btn-secondary kr-btn-sm"
                 >
                   <X className="w-3 h-3" aria-hidden="true" /> Clear all filters
-                </button>
+                </Button>
               </div>
             )}
 
@@ -595,25 +596,25 @@ export default function BuyerDiscoverPage() {
                 {/* Pagination */}
                 {totalPages > 1 && (
                   <nav aria-label="Search results pagination" className="flex justify-center gap-2">
-                    <button
+                    <Button
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                       disabled={page === 1}
                       className="kr-btn-ghost kr-btn-sm"
                       aria-label="Previous page"
                     >
                       Previous
-                    </button>
+                    </Button>
                     <span className="text-body-sm text-kr-text-secondary self-center px-2">
                       Page {page} of {totalPages}
                     </span>
-                    <button
+                    <Button
                       onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                       disabled={page >= totalPages}
                       className="kr-btn-ghost kr-btn-sm"
                       aria-label="Next page"
                     >
                       Next
-                    </button>
+                    </Button>
                   </nav>
                 )}
               </>
@@ -640,25 +641,25 @@ export default function BuyerDiscoverPage() {
                           overflow-y-auto shadow-kr-overlay p-4">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-heading text-h3 text-kr-text-primary">Filters</h2>
-              <button
+              <Button
                 onClick={() => setShowMobileFilters(false)}
                 className="text-kr-text-secondary hover:text-kr-text-primary kr-focus-ring rounded"
                 aria-label="Close filters"
               >
                 <X className="w-5 h-5" />
-              </button>
+              </Button>
             </div>
             <FilterSidebar
               filters={filters}
               onChange={(next) => { handleFiltersChange(next); }}
               onClear={() => { setFilters(DEFAULT_FILTERS); setPage(1); }}
             />
-            <button
+            <Button
               onClick={() => setShowMobileFilters(false)}
               className="kr-btn-primary w-full mt-6"
             >
               Show results
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -675,14 +676,14 @@ function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }
                  border border-kr-primary-200"
     >
       {label}
-      <button
+      <Button
         type="button"
         onClick={onRemove}
         aria-label={`Remove filter: ${label}`}
         className="hover:text-kr-primary-900 kr-focus-ring rounded-full"
       >
         <X className="w-3 h-3" aria-hidden="true" />
-      </button>
+      </Button>
     </span>
   );
 }

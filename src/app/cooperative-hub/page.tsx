@@ -56,7 +56,7 @@ export default function CooperativeHubPage() {
                 </div>
                 <h2 className="text-xl font-bold mb-2">Group Announcement</h2>
                 <p className="text-sm text-white/70 mb-6">Instantly send an automated voice call or SMS to all 12 members of your cooperative.</p>
-                <button className="w-full bg-[var(--kr-orchard-green,#1E7B4F)] hover:bg-[#165a39] text-white py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2 shadow-lg">
+                <button className="w-full bg-[var(--kr-orchard-green,#1E7B4F)] hover:bg-[#165a39] text-white py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2 shadow-lg hidden">
                   <Mic className="w-5 h-5" /> Record Voice Broadcast
                 </button>
               </div>
@@ -67,7 +67,7 @@ export default function CooperativeHubPage() {
                   <h2 className="text-xl font-bold flex items-center gap-2">
                     <Users className="w-5 h-5 text-[var(--kr-orchard-green,#1E7B4F)]" /> Member Directory
                   </h2>
-                  <button className="text-white/60 hover:text-white transition-colors p-1">
+                  <button className="text-white/60 hover:text-white transition-colors p-1 hidden">
                     <UserPlus className="w-5 h-5" />
                   </button>
                 </div>
@@ -107,7 +107,7 @@ export default function CooperativeHubPage() {
                     </h2>
                     <p className="text-sm text-white/60 mt-1">Combine harvests from multiple members to attract larger institutional buyers.</p>
                   </div>
-                  <button className="bg-white/10 hover:bg-white/20 border border-white/10 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+                  <button className="bg-white/10 hover:bg-white/20 border border-white/10 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 hidden">
                     <Plus className="w-4 h-4" /> Create New Lot
                   </button>
                 </div>
@@ -157,11 +157,11 @@ export default function CooperativeHubPage() {
                           </div>
                           
                           {lot.status === 'Ready for Sale' ? (
-                            <button className="w-full bg-[var(--kr-saffron-gold,#E8A317)] hover:bg-[#B37A0B] text-black px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2">
+                            <button className="w-full bg-[var(--kr-saffron-gold,#E8A317)] hover:bg-[#B37A0B] text-black px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2 hidden">
                               List to Market <ArrowRight className="w-4 h-4" />
                             </button>
                           ) : (
-                            <button className="w-full bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-white/10">
+                            <button className="w-full bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-white/10 hidden">
                               Manage Grading
                             </button>
                           )}

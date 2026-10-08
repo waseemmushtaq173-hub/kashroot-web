@@ -194,7 +194,7 @@ export default function ComparePricesPage() {
                       <div className="flex flex-col md:items-end w-full md:w-auto gap-3">
                         <div className="text-2xl font-bold text-[#E76F51]">₹{dealer.price}</div>
                         <div className="flex w-full md:w-auto gap-2">
-                          <button className="flex-1 md:flex-none kr-glass border-2 border-[#1B4332] text-[#1B4332] hover:bg-[#1B4332]/5 px-4 py-2 rounded-lg font-bold text-sm transition-colors">
+                          <button className="flex-1 md:flex-none kr-glass border-2 border-[#1B4332] text-[#1B4332] hover:bg-[#1B4332]/5 px-4 py-2 rounded-lg font-bold text-sm transition-colors hidden">
                             Contact
                           </button>
                           <button 

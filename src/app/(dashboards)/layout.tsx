@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/Button";
 'use client';
 export const dynamic = 'force-dynamic';
 
@@ -67,7 +68,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <p className="text-kr-text-secondary mb-8">
               Please sign in with a <strong>{requiredRoleMsg}</strong> account to access this specific portal.
             </p>
-            <button 
+            <Button 
               onClick={() => {
                 localStorage.removeItem('auth_token');
                 localStorage.removeItem('user_role');
@@ -76,7 +77,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               className="kr-glass hover:kr-hero-premium kr-pattern-chinar font-bold py-3 px-6 rounded-lg transition-colors w-full"
             >
               Switch Account
-            </button>
+            </Button>
           </div>
         </div>
       </div>

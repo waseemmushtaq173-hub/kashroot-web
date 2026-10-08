@@ -136,11 +136,11 @@ export default function EscrowTrackerPage() {
 
             {/* Actions */}
             <div className="mt-10 flex flex-col sm:flex-row justify-end gap-4 border-t border-white/10 pt-6">
-              <button className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium border border-white/20 transition-all backdrop-blur-md">
+              <button className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium border border-white/20 transition-all backdrop-blur-md hidden">
                 <Mic className="w-5 h-5 text-[var(--kr-dal-teal,#0E7C86)]" />
                 Voice Receipt
               </button>
-              <button className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[var(--kr-dal-teal,#0E7C86)] hover:bg-[#0b636b] text-white font-bold transition-all shadow-lg shadow-[var(--kr-dal-teal,#0E7C86)]/20">
+              <button className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[var(--kr-dal-teal,#0E7C86)] hover:bg-[#0b636b] text-white font-bold transition-all shadow-lg shadow-[var(--kr-dal-teal,#0E7C86)]/20 hidden">
                 <CheckCircle className="w-5 h-5" />
                 Confirm Delivery
               </button>

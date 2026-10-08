@@ -30,11 +30,13 @@
     "react-leaflet": "^5.0.0",
     "resend": "^6.32.0",
     "socket.io-client": "^4.8.4",
+    "sonner": "^2.0.8",
     "tailwind-merge": "^3.7.0",
     "twilio": "^6.1.2"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.2",
+    "@playwright/test": "^1.64.0",
     "@types/leaflet": "^1.9.22",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.2",

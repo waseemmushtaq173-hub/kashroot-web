@@ -1,9 +1,9 @@
 "use client";
 
 import Link from 'next/link';
-import { DynamicBackdrop } from '@/components/layout/DynamicBackdrop';
-import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
-import { PlusCircle, Search, Edit3, Trash2, ArrowRight } from 'lucide-react';
+import { PortalShell } from '@/components/layout/PortalShell';
+import { PlusCircle, Search, Edit3, Trash2, ArrowRight, Store, Box, Users } from 'lucide-react';
+import { Button } from "@/components/ui/Button";
 
 const mockListings = [
   { id: 'LST-0912', crop: 'Apple', variety: 'Kullu Delicious', grade: 'Premium', price: '₹1200 / Box', status: 'Live', date: 'Oct 07' },
@@ -12,21 +12,30 @@ const mockListings = [
 ];
 
 export default function SellerStudio() {
+  const kpis = [
+    { label: "Active Listings", value: "8", trend: "+2 this week" },
+    { label: "Pending Offers", value: "14", trend: "Needs review" },
+    { label: "Total Sales", value: "₹2.1L", trend: "This month" },
+    { label: "Buyer Rating", value: "4.9/5", trend: "Top Rated" },
+  ];
+
+  const navItems = [
+    { label: "Dashboard", href: "/seller-studio", icon: Store, active: true },
+    { label: "Inventory", href: "/seller-studio/inventory", icon: Box },
+    { label: "Buyers", href: "/seller-studio/buyers", icon: Users },
+  ];
+
   return (
-    <div className="flex min-h-screen flex-col">
-      <DynamicBackdrop />
-      <SiteHeader hideSignIn={false} />
-      
-      <main className="container mx-auto px-6 py-10 relative z-10 flex-1 text-[#F5F2EB]">
-        
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-          <div>
-            <h1 className="text-4xl md:text-5xl font-serif font-black text-[#FFFDF8] drop-shadow-lg">
-              Seller Studio
-            </h1>
-            <p className="text-lg text-[#E2DAC8] mt-2 font-light">Manage your orchard's inventory and live mandi listings.</p>
-          </div>
-          <Link href="/farmer/dashboard" className="text-[var(--kr-saffron-gold)] hover:text-[var(--kr-chinar-amber)] transition-colors flex items-center gap-2">
+    <PortalShell
+      title="Seller Studio"
+      description="Manage your orchard's inventory and live mandi listings."
+      theme="seller"
+      kpis={kpis}
+      navItems={navItems}
+      bgImage="https://images.unsplash.com/photo-1715457573748-8e8a70b2c1be?auto=format&fit=crop&w=2400&q=80"
+    >
+        <div className="flex justify-end mb-8">
+          <Link href="/farmer/dashboard" className="text-[var(--primary)] hover:text-white transition-colors flex items-center gap-2 font-medium">
             Back to Dashboard <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
@@ -35,16 +44,16 @@ export default function SellerStudio() {
           
           {/* Listing Wizard (Left Column) */}
           <div className="lg:col-span-1 space-y-6">
-            <div className="p-6 rounded-3xl bg-black/40 backdrop-blur-md border border-[var(--kr-saffron-gold)]/40 shadow-xl relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[var(--kr-saffron-gold)] to-[var(--kr-chinar-amber)] opacity-10 rounded-full blur-2xl pointer-events-none" />
+            <div className="p-6 rounded-3xl bg-black/40 backdrop-blur-md border border-[var(--primary)]/40 shadow-xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--accent-gradient)] opacity-10 rounded-full blur-2xl pointer-events-none" />
               <h2 className="text-2xl font-serif font-bold text-white mb-6 flex items-center gap-2">
-                <PlusCircle className="w-6 h-6 text-[var(--kr-saffron-gold)]" /> Create Listing
+                <PlusCircle className="w-6 h-6 text-[var(--primary)]" /> Create Listing
               </h2>
               
               <form className="space-y-4 relative z-10" onSubmit={(e) => e.preventDefault()}>
                 <div>
                   <label className="block text-sm font-medium text-white/70 mb-1">Crop Type</label>
-                  <select className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--kr-saffron-gold)] transition-colors">
+                  <select className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--primary)] transition-colors">
                     <option className="bg-[#07120D]">Apple</option>
                     <option className="bg-[#07120D]">Saffron</option>
                     <option className="bg-[#07120D]">Walnut</option>
@@ -53,12 +62,12 @@ export default function SellerStudio() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-white/70 mb-1">Variety</label>
-                  <input type="text" placeholder="e.g., Kullu Delicious" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--kr-saffron-gold)] transition-colors placeholder:text-white/30" />
+                  <input type="text" placeholder="e.g., Kullu Delicious" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--primary)] transition-colors placeholder:text-white/30" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-white/70 mb-1">Grade</label>
-                    <select className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--kr-saffron-gold)] transition-colors">
+                    <select className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--primary)] transition-colors">
                       <option className="bg-[#07120D]">Premium</option>
                       <option className="bg-[#07120D]">Grade A</option>
                       <option className="bg-[#07120D]">Grade B</option>
@@ -67,17 +76,17 @@ export default function SellerStudio() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-white/70 mb-1">Quantity</label>
-                    <input type="number" placeholder="e.g., 200" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--kr-saffron-gold)] transition-colors placeholder:text-white/30" />
+                    <input type="number" placeholder="e.g., 200" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--primary)] transition-colors placeholder:text-white/30" />
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-white/70 mb-1">Price (Expected)</label>
-                  <input type="text" placeholder="₹ per unit" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--kr-saffron-gold)] transition-colors placeholder:text-white/30" />
+                  <input type="text" placeholder="₹ per unit" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--primary)] transition-colors placeholder:text-white/30" />
                 </div>
                 
-                <button className="w-full mt-4 bg-gradient-to-r from-[var(--kr-saffron-gold)] to-[var(--kr-chinar-amber)] hover:from-[var(--kr-chinar-amber)] hover:to-[#B84B1F] text-white font-bold py-3.5 rounded-xl transition-all shadow-lg hover:shadow-xl hover:scale-[1.02]">
+                <Button variant="primary" className="w-full mt-4 bg-[var(--accent-gradient)] text-black hidden">
                   Publish to Mandi
-                </button>
+                </Button>
               </form>
             </div>
           </div>
@@ -112,20 +121,20 @@ export default function SellerStudio() {
                         </td>
                         <td className="py-4 px-4">
                           <p className="text-sm text-white/80">{listing.variety} • {listing.grade}</p>
-                          <p className="text-xs font-medium text-[var(--kr-saffron-gold)]">{listing.price}</p>
+                          <p className="text-xs font-medium text-[var(--primary)]">{listing.price}</p>
                         </td>
                         <td className="py-4 px-4">
                           <span className={`px-3 py-1 rounded-full text-xs font-medium border
-                            ${listing.status === 'Live' ? 'bg-[var(--kr-orchard-green)]/20 border-[var(--kr-orchard-green)]/30 text-[var(--kr-orchard-green)]' : ''}
+                            ${listing.status === 'Live' ? 'bg-[#1E7B4F]/20 border-[#1E7B4F]/30 text-[#1E7B4F]' : ''}
                             ${listing.status === 'Draft' ? 'bg-white/10 border-white/20 text-white/70' : ''}
-                            ${listing.status === 'Sold Out' ? 'bg-[var(--kr-chinar-amber)]/20 border-[var(--kr-chinar-amber)]/30 text-[var(--kr-chinar-amber)]' : ''}
+                            ${listing.status === 'Sold Out' ? 'bg-[var(--secondary)]/20 border-[var(--secondary)]/30 text-[var(--secondary)]' : ''}
                           `}>
                             {listing.status}
                           </span>
                         </td>
-                        <td className="py-4 px-4 text-right">
-                          <button className="p-2 text-white/40 hover:text-white transition-colors"><Edit3 className="w-4 h-4" /></button>
-                          <button className="p-2 text-white/40 hover:text-[var(--kr-chinar-amber)] transition-colors"><Trash2 className="w-4 h-4" /></button>
+                        <td className="py-4 px-4 text-right flex justify-end gap-2">
+                          <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full hidden"><Edit3 className="w-4 h-4 text-white/70" /></Button>
+                          <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full hover:bg-red-500/20 hover:text-red-500 hidden"><Trash2 className="w-4 h-4 text-white/70" /></Button>
                         </td>
                       </tr>
                     ))}
@@ -136,9 +145,6 @@ export default function SellerStudio() {
           </div>
           
         </div>
-      </main>
-      
-      <SiteFooter />
-    </div>
+    </PortalShell>
   );
 }

@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/Button";
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -137,12 +138,12 @@ export default function TesterPage() {
             onChange={handleFileUpload} 
           />
         </label>
-        <button
+        <Button
           onClick={startCamera}
           className="bg-emerald-600 text-white px-5 py-3 rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 shadow-sm"
         >
           <Camera className="w-5 h-5" /> Scan Bottle QR with Camera
-        </button>
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -184,14 +185,14 @@ export default function TesterPage() {
                 className="kr-input w-full"
               />
             </div>
-            <button
+            <Button
               type="submit"
               disabled={loading || !batchCode}
               className="kr-btn-primary w-full flex justify-center items-center gap-2 mt-4"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <FlaskConical className="w-5 h-5" />}
               Run Verification Analysis
-            </button>
+            </Button>
           </form>
         </div>
 
@@ -245,12 +246,12 @@ export default function TesterPage() {
       {/* Camera Scanning Overlay */}
       {scanning && (
         <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-4">
-          <button 
+          <Button 
             onClick={stopCamera}
             className="absolute top-6 right-6 text-white hover:text-kr-text-disabled bg-black/50 p-2 rounded-full"
           >
             <X className="w-8 h-8" />
-          </button>
+          </Button>
           
           <div className="relative w-full max-w-md aspect-[3/4] border-4 border-emerald-500 rounded-2xl overflow-hidden mb-8 bg-black">
             {stream ? (
@@ -272,13 +273,13 @@ export default function TesterPage() {
             <div className="absolute top-0 left-0 w-full h-1 bg-emerald-400 shadow-[0_0_15px_3px_rgba(52,211,153,0.5)] animate-[scan_2.5s_ease-in-out_infinite]" />
           </div>
           
-          <button 
+          <Button 
             onClick={captureScan}
             disabled={!stream}
             className="kr-btn-primary kr-btn-lg bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 text-lg w-full max-w-md flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
           >
             <ScanLine className="w-6 h-6" /> Capture / Scan QR
-          </button>
+          </Button>
           
           <style dangerouslySetInnerHTML={{__html: `
             @keyframes scan {
