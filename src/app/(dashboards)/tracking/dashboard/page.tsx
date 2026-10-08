@@ -1,5 +1,5 @@
-import { Button } from "@/components/ui/Button";
 'use client';
+import { Button } from "@/components/ui/Button";
 
 /**
  * Live vehicle tracking.
@@ -65,7 +65,7 @@ const TrackingMap = dynamic(() => import('@/components/tracking/TrackingMap'), {
     <div className="kr-map-panel h-[26rem]" aria-busy="true" aria-label="Loading map">
       <div className="kr-skeleton h-full w-full" />
     </div>
-  ),
+  )
 });
 
 // ── Formatting ──────────────────────────────────────────────────────────────

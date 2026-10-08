@@ -1,5 +1,5 @@
-import { Button } from "@/components/ui/Button";
 'use client';
+import { Button } from "@/components/ui/Button";
 export const dynamic = 'force-dynamic';
 
 import { useSelectedLayoutSegment, useRouter } from 'next/navigation';

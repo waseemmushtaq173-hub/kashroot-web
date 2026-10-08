@@ -1,5 +1,5 @@
-import { Button } from "@/components/ui/Button";
 'use client';
+import { Button } from "@/components/ui/Button";
 
 import { useState, useRef, useEffect } from 'react';
 import { Bot, Send, Loader2, Mic, MicOff, Volume2 } from 'lucide-react';

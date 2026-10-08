@@ -1,5 +1,5 @@
-import { Button } from "@/components/ui/Button";
 'use client';
+import { Button } from "@/components/ui/Button";
 
 import { useState, useRef, useEffect } from 'react';
 import { ShieldAlert, ShieldCheck, Search, Loader2, FlaskConical, ScanLine, Camera, X, Upload } from 'lucide-react';

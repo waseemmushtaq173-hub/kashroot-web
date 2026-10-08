@@ -1,5 +1,5 @@
-import { Button } from "@/components/ui/Button";
 'use client';
+import { Button } from "@/components/ui/Button";
 
 import { useState, useCallback } from 'react';
 import Image from 'next/image';

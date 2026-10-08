@@ -1,5 +1,5 @@
-import { Button } from "@/components/ui/Button";
 'use client';
+import { Button } from "@/components/ui/Button";
 
 import { useEffect, useState } from 'react';
 import { BookOpen, ShieldAlert, CheckCircle2, MessageCircle, FileText, FlaskConical, Stethoscope, Edit3, Lock } from 'lucide-react';
