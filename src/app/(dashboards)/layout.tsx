@@ -7,7 +7,7 @@ import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
 import { ReactNode, useEffect, useState } from 'react';
 
 import { VoiceAssistant } from '@/components/ui/VoiceAssistant';
-import { KYCOnboardingPanel } from '@/components/auth/KYCPanel';
+import KYCPanel from '@/components/auth/KYCPanel';
 
 /**
  * Role-Adaptive Dashboard Layout
@@ -113,7 +113,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       </div>
       <VoiceAssistant />
       <SiteFooter />
-      <KYCOnboardingPanel 
+      <KYCPanel 
         isOpen={showKyc} 
         onComplete={() => {
           setShowKyc(false);
