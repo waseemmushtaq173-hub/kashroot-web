@@ -2,7 +2,7 @@
 
 import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
 import { DynamicBackdrop } from '@/components/layout/DynamicBackdrop';
-import { Users, Mic, Layers, UserPlus, CheckCircle, Apple, Search, Megaphone, ArrowRight } from 'lucide-react';
+import { Users, Mic, Layers, UserPlus, CheckCircle, Apple, Search, Megaphone, ArrowRight, Plus } from 'lucide-react';
 
 // Mock DEMO DATA
 const COOP_MEMBERS = [
