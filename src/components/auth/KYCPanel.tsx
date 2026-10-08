@@ -18,7 +18,7 @@ export default function KYCPanel({ isOpen, onComplete }: KYCPanelProps) {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md">
+    <div className="w-full flex justify-center mb-8 relative z-50">
       <div className="w-full max-w-lg p-8 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-[0_8px_32px_0_rgba(31,38,135,0.37)] text-white relative">
         <h2 className="text-2xl font-semibold mb-6">Complete Your KYC</h2>
 

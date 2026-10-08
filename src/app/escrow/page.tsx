@@ -2,6 +2,7 @@
 
 import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
 import { DynamicBackdrop } from '@/components/layout/DynamicBackdrop';
+import KYCPanel from '@/components/auth/KYCPanel';
 import { ShieldCheck, Lock, CheckCircle, Truck, Mic, Handshake, AlertCircle } from 'lucide-react';
 
 // Mock DEMO DATA
@@ -31,6 +32,9 @@ export default function EscrowTrackerPage() {
         <SiteHeader hideSignIn={false} />
 
         <main className="container mx-auto px-4 py-8 flex-1">
+          {/* Forced KYC Panel Display */}
+          <KYCPanel isOpen={true} onComplete={() => {}} />
+
           {/* Header Section - Dal Teal Accent */}
           <div className="bg-gradient-to-r from-[var(--kr-dal-teal,#0E7C86)] to-[#085C63] p-8 rounded-2xl mb-8 shadow-2xl border border-white/10 backdrop-blur-md relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div className="relative z-10">
