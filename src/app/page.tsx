@@ -133,22 +133,17 @@ export default function Home() {
           />
 
           <div className="container mx-auto px-6 md:px-12 relative z-10 py-24 max-w-7xl">
-            <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-[#0B2418]/90 border border-[#D4AF37]/50 shadow-[0_0_20px_rgba(212,175,55,0.2)] mb-6">
-              <ChinarLeaf className="w-4 h-4" color="#D4AF37" />
-              <span className="text-[#D4AF37] text-xs font-serif font-bold tracking-[0.2em] uppercase">
-                Jammu & Kashmir Premier Agri-Exchange
-              </span>
-            </div>
+
 
             <h1 className="max-w-4xl font-serif text-5xl md:text-7xl font-black text-[#FFFDF8] leading-[1.1] drop-shadow-2xl">
-              Where Harvest Meets{' '}
+              Where potential finds its{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#E76F51] via-[#F4A261] to-[#E9C46A] italic">
-                Opportunity.
+                path.
               </span>
             </h1>
 
             <p className="mt-6 max-w-2xl text-lg md:text-xl text-[#F2ECE1]/90 font-sans font-normal leading-relaxed drop-shadow">
-              Direct farm-gate trade for Kashmir&apos;s heritage produce—Grade-A Delicious Apples, Pure Saffron, Walnuts, and Almonds. Escrow protected, verified at the source.
+              Connecting people, ideas, products and opportunities.<br />One ecosystem, built for what’s next.
             </p>
 
             <div className="mt-10 flex flex-col sm:flex-row gap-4 w-full max-w-md">
