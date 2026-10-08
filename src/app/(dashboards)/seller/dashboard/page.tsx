@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/Button";
 import { Package, PenTool, LayoutDashboard, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { PortalShell } from '@/components/layout/PortalShell';
+import KYCOnboardingPanel from '@/components/auth/KYCOnboardingPanel';
 
 export default function SellerDashboardPage() {
   const kpis = [
@@ -27,6 +28,9 @@ export default function SellerDashboardPage() {
       navItems={navItems}
       bgImage="https://images.unsplash.com/photo-1533422902779-babd0060e0ce?auto=format&fit=crop&w=2400&q=80"
     >
+      {/* Full KYC gate — auto-opens while kycStatus is 'pending' */}
+      <KYCOnboardingPanel role="SELLER" />
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <Link href="/seller/dashboard" className="p-6 rounded-2xl bg-black/30 backdrop-blur-md border border-[var(--primary)]/20 hover:border-[var(--primary)] transition-all shadow-md group">
           <div className="w-12 h-12 bg-[var(--accent-gradient)] rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">

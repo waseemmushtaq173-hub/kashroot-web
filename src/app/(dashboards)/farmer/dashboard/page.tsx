@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { PortalShell } from '@/components/layout/PortalShell';
 import { Button } from "@/components/ui/Button";
+import KYCOnboardingPanel from '@/components/auth/KYCOnboardingPanel';
 
 export default function FarmerDashboard() {
   const kpis = [
@@ -43,6 +44,9 @@ export default function FarmerDashboard() {
       navItems={navItems}
       bgImage="https://images.unsplash.com/photo-1715457573748-8e8a70b2c1be?auto=format&fit=crop&w=2400&q=80"
     >
+        {/* Full KYC gate — auto-opens while kycStatus is 'pending' */}
+        <KYCOnboardingPanel role="FARMER" />
+
         <div className="flex justify-end mb-6">
           <Button variant="secondary" className="flex items-center gap-3 rounded-full hidden">
             <Volume2 className="w-5 h-5" /> Voice Summary

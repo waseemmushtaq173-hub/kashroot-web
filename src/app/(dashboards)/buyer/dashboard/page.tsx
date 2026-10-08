@@ -1,6 +1,7 @@
 import { ShoppingBag, Star, Calendar, Search, Truck, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { PortalShell } from '@/components/layout/PortalShell';
+import KYCOnboardingPanel from '@/components/auth/KYCOnboardingPanel';
 
 export default function BuyerDashboardPage() {
   const kpis = [
@@ -25,6 +26,9 @@ export default function BuyerDashboardPage() {
       navItems={navItems}
       bgImage="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=2400&q=80"
     >
+      {/* Full KYC gate — auto-opens while kycStatus is 'pending' */}
+      <KYCOnboardingPanel role="BUYER" />
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
         <Link href="/buyer/discover" className="p-6 rounded-2xl bg-black/30 backdrop-blur-md border border-[var(--primary)]/20 hover:border-[var(--primary)] hover:bg-black/50 transition-all shadow-md group">
           <div className="w-12 h-12 bg-[var(--accent-gradient)] rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform opacity-80 group-hover:opacity-100">
