@@ -387,7 +387,7 @@ export default function MandiPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-transparent">
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-[#103A4A] to-[#081F26]">
       <SiteHeader hideSignIn={false} />
       <main id="main-content" className="kr-container py-6 md:py-10 flex-1">
         {/* ── Header ───────────────────────────────────────────────────────── */}

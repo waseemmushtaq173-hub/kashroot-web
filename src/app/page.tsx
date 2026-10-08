@@ -12,7 +12,10 @@ import {
   PackageSearch,
   X,
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  Activity,
+  CalendarDays,
+  QrCode
 } from 'lucide-react';
 import { SiteFooter, SiteHeader } from '@/components/layout/SiteHeader';
 
@@ -84,6 +87,9 @@ export default function Home() {
                 { title: 'Price Comparison', desc: 'Live rates across Sopore, Shopian & Narwal mandis.', href: '/compare-prices', icon: PackageSearch, tone: 'from-[#0C3827] to-[#061C13]', border: 'border-[#2ecc71]/40', iconColor: '#4ADE80' },
                 { title: 'Rental Marketplace', desc: 'Cold storage space, tractors & pruning gear.', href: '/rental', icon: Store, tone: 'from-[#3A220E] to-[#1C1006]', border: 'border-[#E59866]/40', iconColor: '#FDBA74' },
                 { title: 'Admin Governance', desc: 'Quality audit, escrow verification & KYC.', href: '/admin/dashboard', icon: ShieldCheck, tone: 'from-[#381118] to-[#1C080C]', border: 'border-[#E76F51]/40', iconColor: '#F87171' },
+                { title: 'Orchard Health', desc: 'Plot risk map, photo diagnosis & spray logs.', href: '/orchard-health', icon: Activity, tone: 'from-[#0F3524] to-[#05150E]', border: 'border-[#2ecc71]/40', iconColor: '#4ADE80' },
+                { title: 'Season Planner', desc: 'Pruning calendar & profit ROI calculator.', href: '/season-planner', icon: CalendarDays, tone: 'from-[#381118] to-[#1C080C]', border: 'border-[#E76F51]/40', iconColor: '#F87171' },
+                { title: 'Traceability & Quality', desc: 'Origin scanner, temp log & grade history.', href: '/traceability', icon: QrCode, tone: 'from-[#063B41] to-[#042427]', border: 'border-[#14B8A6]/40', iconColor: '#2DD4BF' },
               ].map((item, idx) => (
                 <Link 
                   href={item.href} 
@@ -119,7 +125,7 @@ export default function Home() {
           {/* Deep Royal Emerald & Saffron Vignette */}
           <div
             aria-hidden="true"
-            className="absolute inset-0 bg-gradient-to-r from-[#05140D] via-[#071911]/90 to-[#081710]/40"
+            className="absolute inset-0 bg-gradient-to-r from-[#0D5C2E]/60 via-[#0A2E22]/50 to-[#D4AF37]/30"
           />
           <div
             aria-hidden="true"
@@ -158,7 +164,7 @@ export default function Home() {
         </section>
 
         {/* AN ECOSYSTEM FOR GROWTH - Kashmiri Heritage Section */}
-        <section className="relative py-28 px-6 bg-gradient-to-b from-[#063b27] via-[#094731] to-[#04281a]">
+        <section className="relative py-28 px-6 bg-gradient-to-br from-[#0D5C2E] via-[#155A6B] to-[#0A2E22]">
           
           {/* Subtle Golden Chinar watermark in the corner */}
           <div className="absolute top-8 right-8 opacity-10 pointer-events-none">
