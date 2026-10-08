@@ -1,608 +1,180 @@
-'use client';
-
-import { useState } from 'react';
 import Link from 'next/link';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  Package, Calendar, ShoppingBag, Wallet,
-  PlusCircle, AlertTriangle, Loader2, RefreshCw,
-  ChevronRight, Check, X, Info, CloudSun, Bot, Microscope, Truck,
+import { 
+  CloudSun, 
+  Droplets, 
+  Wallet, 
+  Package, 
+  Volume2, 
+  Tag, 
+  Warehouse, 
+  ShoppingCart, 
+  MessageCircleQuestion, 
+  PlusCircle,
+  ArrowRight
 } from 'lucide-react';
-import { listingsApi, appointmentsApi, ordersApi, payoutsApi } from '@/lib/api/farmer';
-import type { FarmerListing, Appointment, FarmerOrder, ListingStatus } from '@/lib/api/farmer';
-import { ApiError } from '@/lib/api/client';
+import { DynamicBackdrop } from '@/components/layout/DynamicBackdrop';
+import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
 
-type Tab = 'profile' | 'listings' | 'appointments' | 'orders' | 'payouts' | 'knowledge';
-
-const LISTING_STATUS_LABEL: Record<ListingStatus, string> = {
-  DRAFT:     'Draft',
-  PUBLISHED: 'Published',
-  SUSPENDED: 'Suspended',
-};
-
-const LISTING_STATUS_CLASS: Record<ListingStatus, string> = {
-  DRAFT:     'kr-badge-draft',
-  PUBLISHED: 'kr-badge-published',
-  SUSPENDED: 'kr-badge-pending',
-};
-
-const ORDER_STATUS_LABEL: Record<string, string> = {
-  PLACED:            'Placed',
-  CONFIRMED:         'Confirmed',
-  PACKED:            'Packed',
-  SHIPPED:           'Shipped',
-  CUSTOMS_CLEARANCE: 'Customs clearance',
-  OUT_FOR_DELIVERY:  'Out for delivery',
-  DELIVERED:         'Delivered',
-  COMPLETED:         'Completed',
-  CANCELLED:         'Cancelled',
-  DISPUTED:          'Disputed',
-};
-
-const APPOINTMENT_STATUS_CLASS: Record<string, string> = {
-  REQUESTED:  'kr-badge-pending',
-  CONFIRMED:  'kr-badge-published',
-  CANCELLED:  'kr-badge-rejected',
-  COMPLETED:  'kr-badge-published',
-  NO_SHOW:    'kr-badge-draft',
-};
-
-function fmt(amount: number, currency: string) {
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount);
-}
-
-function fmtDate(iso: string) {
-  return new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
-}
-
-// ---------------------------------------------------------------------------
-// Sub-panels
-// ---------------------------------------------------------------------------
-
-function ProfilePanel() {
+export default function FarmerDashboard() {
   return (
-    <div className="space-y-6">
-      <div className="kr-glass-emerald kr-pattern-chinar p-6 rounded-2xl shadow-sm border border-kr-border-default">
-        <h2 className="font-heading text-2xl font-bold text-emerald-900 mb-4">Farmer Profile</h2>
-        <div className="grid sm:grid-cols-2 gap-4 text-kr-text-primary">
-          <div><strong className="text-kr-text-primary">Kissan ID:</strong> K-98234-JK</div>
-          <div><strong className="text-kr-text-primary">Status:</strong> <span className="text-green-600 font-bold">Verified ✅</span></div>
-          <div><strong className="text-kr-text-primary">Tehsil:</strong> Sopore</div>
-          <div><strong className="text-kr-text-primary">Village:</strong> Doabgah</div>
+    <div className="flex min-h-screen flex-col">
+      <DynamicBackdrop />
+      <SiteHeader hideSignIn={false} />
+
+      <main className="container mx-auto px-6 py-10 relative z-10 flex-1 text-[#F5F2EB]">
+        
+        {/* Header & Voice Read-out */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+          <div>
+            <h1 className="text-4xl md:text-5xl font-serif font-black text-[#FFFDF8] drop-shadow-lg">
+              Salaam, Tariq Bhat
+            </h1>
+            <p className="text-lg text-[#E2DAC8] mt-2 font-light">Shopian Orchard, Block B</p>
+          </div>
+          <button className="flex items-center gap-3 bg-black/40 backdrop-blur-md border border-[#D4AF37]/40 px-5 py-3 rounded-full hover:bg-black/60 hover:border-[#D4AF37] transition-all group shadow-lg">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[var(--kr-chinar-amber)] to-[var(--kr-saffron-gold)] flex items-center justify-center">
+              <Volume2 className="w-5 h-5 text-white group-hover:scale-110 transition-transform" />
+            </div>
+            <span className="font-serif font-bold text-[#FFFDF8]">Voice Summary</span>
+          </button>
         </div>
-      </div>
-      <div className="kr-glass-emerald kr-pattern-chinar p-6 rounded-2xl shadow-sm border border-kr-border-default">
-        <h2 className="font-heading text-2xl font-bold text-emerald-900 mb-4">Orchard Details</h2>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 text-kr-text-primary mb-6">
-          <div className="kr-glass-emerald kr-pattern-chinar p-4 rounded-xl">
-            <div className="text-sm text-emerald-800">Total Area</div>
-            <div className="text-2xl font-bold text-emerald-900">45 Kanals</div>
-          </div>
-          <div className="kr-glass-emerald kr-pattern-chinar p-4 rounded-xl">
-            <div className="text-sm text-emerald-800">Apple Trees</div>
-            <div className="text-2xl font-bold text-emerald-900">1,250</div>
-          </div>
-          <div className="kr-glass-emerald kr-pattern-chinar p-4 rounded-xl">
-            <div className="text-sm text-emerald-800">Walnut Trees</div>
-            <div className="text-2xl font-bold text-emerald-900">35</div>
-          </div>
-          <div className="kr-glass-emerald kr-pattern-chinar p-4 rounded-xl">
-            <div className="text-sm text-emerald-800">Varieties</div>
-            <div className="text-xl font-bold text-emerald-900 leading-tight">Delicious, Kulu, Gala</div>
-          </div>
-        </div>
-      </div>
-      <div className="kr-glass-emerald kr-pattern-chinar p-6 rounded-2xl shadow-sm border border-kr-border-default">
-        <h2 className="font-heading text-2xl font-bold text-emerald-900 mb-4">Orchard Activity Log</h2>
-        <ul className="space-y-4">
-          <li className="flex gap-4 items-start border-l-2 border-emerald-500 pl-4">
-            <div className="text-sm text-kr-text-secondary w-24 shrink-0">Oct 02</div>
-            <div>
-              <strong className="text-kr-text-primary block">Harvest Forecasting</strong>
-              <span className="text-kr-text-secondary text-sm">Estimated 4,500 boxes of Grade-A Delicious for mid-October.</span>
-            </div>
-          </li>
-          <li className="flex gap-4 items-start border-l-2 border-emerald-500 pl-4">
-            <div className="text-sm text-kr-text-secondary w-24 shrink-0">Sep 28</div>
-            <div>
-              <strong className="text-kr-text-primary block">Irrigation Cycle</strong>
-              <span className="text-kr-text-secondary text-sm">Drip lines flushed and activated for Sector B.</span>
-            </div>
-          </li>
-          <li className="flex gap-4 items-start border-l-2 border-emerald-500 pl-4">
-            <div className="text-sm text-kr-text-secondary w-24 shrink-0">Sep 15</div>
-            <div>
-              <strong className="text-kr-text-primary block">Pre-Harvest Spray</strong>
-              <span className="text-kr-text-secondary text-sm">Applied Mancozeb as per SKUAST guidelines.</span>
-            </div>
-          </li>
-        </ul>
-      </div>
-    </div>
-  );
-}
 
-function KnowledgePanel() {
-  return (
-    <div className="grid md:grid-cols-2 gap-6">
-      <div className="kr-glass-emerald kr-pattern-chinar p-6 rounded-2xl border border-amber-200">
-        <h3 className="font-bold text-amber-900 text-lg mb-2">SKUAST Spray Schedule</h3>
-        <p className="text-sm text-kr-text-warning mb-4">Official 2026 guidelines for Apple Scab and San Jose Scale prevention.</p>
-        <button className="kr-hero-premium kr-pattern-chinar px-4 py-2 rounded-lg text-sm font-bold">Download PDF</button>
-      </div>
-      <div className="kr-glass-emerald kr-pattern-chinar p-6 rounded-2xl border border-blue-200">
-        <h3 className="font-bold text-blue-900 text-lg mb-2">Disease Identification</h3>
-        <p className="text-sm text-kr-text-brand mb-4">AI-powered handbook for identifying Alternaria and Powdery Mildew.</p>
-        <button className="kr-hero-premium kr-pattern-chinar px-4 py-2 rounded-lg text-sm font-bold">Open Handbook</button>
-      </div>
-      <div className="kr-glass-emerald kr-pattern-chinar p-6 rounded-2xl border border-kr-border-default">
-        <h3 className="font-bold text-emerald-900 text-lg mb-2">Pruning Techniques</h3>
-        <p className="text-sm text-emerald-800 mb-4">Video tutorials for high-density trellis systems and traditional canopy management.</p>
-        <button className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold">Watch Videos</button>
-      </div>
-    </div>
-  );
-}
-
-function ListingsPanel() {
-  const qc = useQueryClient();
-  const [page, setPage] = useState(1);
-
-  const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['farmer', 'listings', page],
-    queryFn:  () => listingsApi.myListings({ page, limit: 10 }),
-  });
-
-  const publishMut = useMutation({
-    mutationFn: (id: string) => listingsApi.publishListing(id),
-    onSuccess:  () => qc.invalidateQueries({ queryKey: ['farmer', 'listings'] }),
-  });
-
-  const unpublishMut = useMutation({
-    mutationFn: (id: string) => listingsApi.unpublishListing(id),
-    onSuccess:  () => qc.invalidateQueries({ queryKey: ['farmer', 'listings'] }),
-  });
-
-  if (isLoading) return <PanelSkeleton rows={4} />;
-  if (isError)   return <PanelError  message={apiMsg(error)} onRetry={() => refetch()} />;
-
-  const listings = data?.data ?? [];
-
-  if (listings.length === 0) {
-    return (
-      <div className="kr-empty-state">
-        <Package className="w-10 h-10 text-kr-text-disabled mx-auto" aria-hidden="true" />
-        <p className="text-body text-kr-text-secondary">You have no listings yet.</p>
-        <Link href="/farmer/listings/new" className="kr-btn-primary kr-btn-sm">
-          <PlusCircle className="w-4 h-4" aria-hidden="true" /> Create first listing
-        </Link>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      {/* Real-Time Product Upload Panel */}
-      <div className="kr-glass-emerald kr-pattern-chinar p-6 rounded-2xl shadow-sm border border-kr-border-brand mb-8 relative overflow-hidden">
-        <div className="absolute top-0 right-0 bg-kr-fill-brand-subtle text-kr-text-brand px-3 py-1 rounded-bl-lg text-xs font-bold flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-kr-primary-500 animate-pulse"></span>
-          Live Sync Active
-        </div>
-        <h3 className="font-heading text-xl font-bold text-kr-text-primary mb-4">Fast Listing / Add Produce</h3>
-        <form className="grid sm:grid-cols-2 md:grid-cols-4 gap-4" onSubmit={(e) => { e.preventDefault(); alert('Produce listed and synced to Buyer Portal in real-time via Supabase!'); }}>
-          <select className="kr-input" required defaultValue="">
-            <option value="" disabled>Crop Type</option>
-            <option>Apples (Delicious)</option>
-            <option>Walnuts (Kagzi)</option>
-            <option>Saffron (Mongra)</option>
-          </select>
-          <select className="kr-input" required defaultValue="">
-            <option value="" disabled>Grade</option>
-            <option>Grade A</option>
-            <option>Grade B</option>
-            <option>Grade C</option>
-          </select>
-          <input type="number" placeholder="Box Count" className="kr-input" required />
-          <input type="text" placeholder="Expected Price (₹)" className="kr-input" required />
-          <div className="md:col-span-4">
-            <button type="submit" className="kr-btn-primary w-full sm:w-auto">List Instantly</button>
-          </div>
-        </form>
-      </div>
-
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-body-sm text-kr-text-secondary">
-          {data?.total ?? 0} listing{data?.total !== 1 ? 's' : ''}
-        </p>
-        <Link href="/farmer/listings/new" className="kr-btn-secondary kr-btn-sm">
-          <PlusCircle className="w-4 h-4" aria-hidden="true" /> New listing
-        </Link>
-      </div>
-
-      <ul className="divide-y divide-kr-neutral-200" role="list">
-        {listings.map((l) => (
-          <li key={l.id} className="py-4 flex flex-col sm:flex-row sm:items-center gap-3">
-            <div className="w-14 h-14 rounded-md bg-kr-bg-sunken shrink-0 overflow-hidden" aria-hidden="true">
-              {l.images[0]
-                ? <img src={l.images[0]} alt={l.title} className="w-full h-full object-cover" />
-                : <Package className="w-6 h-6 m-4 text-kr-text-disabled" />}
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <Link href={`/farmer/listings/${l.id}/edit`} className="font-medium text-body text-kr-text-primary hover:text-kr-text-brand truncate">
-                  {l.title}
+        {/* Dashboard Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Main Column */}
+          <div className="lg:col-span-2 space-y-6">
+            
+            {/* Quick Actions (Chinar Amber to Saffron Accent) */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                { label: 'Sell Produce', icon: Tag, href: '/farmer/sell' },
+                { label: 'Cold Store', icon: Warehouse, href: '/farmer/store' },
+                { label: 'Buy Inputs', icon: ShoppingCart, href: '/farmer/buy' },
+                { label: 'Ask Expert', icon: MessageCircleQuestion, href: '/farmer/expert' },
+              ].map((action, idx) => (
+                <Link 
+                  key={idx} 
+                  href={action.href}
+                  className="flex flex-col items-center justify-center gap-3 p-4 rounded-2xl bg-black/30 backdrop-blur-md border border-[#D4AF37]/20 hover:border-[var(--kr-chinar-amber)] hover:bg-black/50 transition-all shadow-md group"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--kr-chinar-amber)] to-[var(--kr-saffron-gold)] flex items-center justify-center opacity-80 group-hover:opacity-100 transition-opacity">
+                    <action.icon className="w-6 h-6 text-white" />
+                  </div>
+                  <span className="text-sm font-medium text-[#E2DAC8] group-hover:text-white text-center">{action.label}</span>
                 </Link>
-                <span className={`kr-badge ${LISTING_STATUS_CLASS[l.status]}`} aria-label={`Status: ${LISTING_STATUS_LABEL[l.status]}`}>
-                  {LISTING_STATUS_LABEL[l.status]}
-                </span>
+              ))}
+            </div>
+
+            {/* List Your Product CTA */}
+            <div className="relative p-8 rounded-3xl bg-gradient-to-br from-[var(--kr-chinar-amber)] to-[#E8A317]/80 backdrop-blur-lg border border-[#FFF]/20 shadow-[0_15px_40px_rgba(217,98,43,0.3)] flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden group">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.2),transparent_60%)] pointer-events-none" />
+              <div className="relative z-10">
+                <h3 className="text-2xl font-serif font-black text-white mb-2">Ready to Harvest?</h3>
+                <p className="text-white/90 text-sm md:text-base max-w-md">List your Premium Apples or Saffron today to connect directly with verified pan-India buyers.</p>
               </div>
-              <p className="text-body-sm text-kr-text-secondary mt-0.5">
-                {l.commodity} · {fmt(l.pricePerUnit, l.currency)}/{l.unit} · {l.stockQuantity} {l.unit} stock
-              </p>
-            </div>
-
-            <div className="flex gap-2 shrink-0">
-              {l.status === 'DRAFT' && (
-                <button onClick={() => publishMut.mutate(l.id)} disabled={publishMut.isPending} className="kr-btn-primary kr-btn-sm">
-                  Publish
-                </button>
-              )}
-              {l.status === 'PUBLISHED' && (
-                <button onClick={() => unpublishMut.mutate(l.id)} disabled={unpublishMut.isPending} className="kr-btn-secondary kr-btn-sm">
-                  Unpublish
-                </button>
-              )}
-              <Link href={`/farmer/listings/${l.id}/edit`} className="kr-btn-ghost kr-btn-sm">Edit</Link>
-            </div>
-          </li>
-        ))}
-      </ul>
-
-      {(data?.total ?? 0) > 10 && (
-        <div className="flex justify-center gap-3 mt-6">
-          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="kr-btn-ghost kr-btn-sm">Previous</button>
-          <span className="text-body-sm text-kr-text-secondary self-center">Page {page}</span>
-          <button onClick={() => setPage((p) => p + 1)} disabled={(page * 10) >= (data?.total ?? 0)} className="kr-btn-ghost kr-btn-sm">Next</button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function AppointmentsPanel() {
-  const qc = useQueryClient();
-
-  const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['farmer', 'appointments'],
-    queryFn:  () => appointmentsApi.myAppointments({ limit: 20, status: 'REQUESTED' }),
-  });
-
-  const confirmMut = useMutation({
-    mutationFn: (id: string) => appointmentsApi.confirmAppointment(id),
-    onSuccess:  () => qc.invalidateQueries({ queryKey: ['farmer', 'appointments'] }),
-  });
-
-  const cancelMut = useMutation({
-    mutationFn: (id: string) => appointmentsApi.cancelAppointment(id),
-    onSuccess:  () => qc.invalidateQueries({ queryKey: ['farmer', 'appointments'] }),
-  });
-
-  if (isLoading) return <PanelSkeleton rows={3} />;
-  if (isError)   return <PanelError  message={apiMsg(error)} onRetry={() => refetch()} />;
-
-  const appts = data?.data ?? [];
-
-  if (appts.length === 0) {
-    return (
-      <div className="kr-empty-state">
-        <Calendar className="w-10 h-10 text-kr-text-disabled mx-auto" aria-hidden="true" />
-        <p className="text-body text-kr-text-secondary">No pending appointment requests.</p>
-      </div>
-    );
-  }
-
-  return (
-    <ul className="divide-y divide-kr-neutral-200" role="list">
-      {appts.map((appt) => (
-        <li key={appt.id} className="py-4 flex flex-col sm:flex-row sm:items-start gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-medium text-body text-kr-text-primary">{appt.buyerName}</p>
-              <span className={`kr-badge ${APPOINTMENT_STATUS_CLASS[appt.status]}`} aria-label={`Status: ${appt.status.toLowerCase().replace('_', ' ')}`}>
-                {appt.status.toLowerCase().replace('_', ' ')}
-              </span>
-            </div>
-            <p className="text-body-sm text-kr-text-secondary mt-0.5">Re: {appt.listingTitle}</p>
-            <p className="text-body-sm text-kr-text-secondary">
-              <time dateTime={appt.scheduledAt}>{fmtDate(appt.scheduledAt)}</time> · {appt.durationMinutes} min
-            </p>
-            {appt.notes && <p className="text-caption text-kr-text-secondary mt-1 italic">“{appt.notes}”</p>}
-          </div>
-
-          {appt.status === 'REQUESTED' && (
-            <div className="flex gap-2 shrink-0">
-              <button onClick={() => confirmMut.mutate(appt.id)} disabled={confirmMut.isPending} className="kr-btn-primary kr-btn-sm">
-                <Check className="w-3 h-3" aria-hidden="true" /> Confirm
-              </button>
-              <button onClick={() => cancelMut.mutate(appt.id)} disabled={cancelMut.isPending} className="kr-btn-ghost kr-btn-sm text-kr-text-danger hover:bg-kr-badge-rejected-bg">
-                <X className="w-3 h-3" aria-hidden="true" /> Decline
+              <button className="relative z-10 shrink-0 flex items-center gap-2 bg-white text-[#D9622B] px-6 py-3.5 rounded-full font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all">
+                <PlusCircle className="w-5 h-5" />
+                List Your Product
               </button>
             </div>
-          )}
-        </li>
-      ))}
-    </ul>
-  );
-}
 
-function OrdersPanel() {
-  const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['farmer', 'orders'],
-    queryFn:  () => ordersApi.myOrders({ limit: 20 }),
-  });
-
-  if (isLoading) return <PanelSkeleton rows={3} />;
-  if (isError)   return <PanelError  message={apiMsg(error)} onRetry={() => refetch()} />;
-
-  const orders = data?.data ?? [];
-
-  if (orders.length === 0) {
-    return (
-      <div className="kr-empty-state">
-        <ShoppingBag className="w-10 h-10 text-kr-text-disabled mx-auto" aria-hidden="true" />
-        <p className="text-body text-kr-text-secondary">No orders yet.</p>
-      </div>
-    );
-  }
-
-  return (
-    <ul className="divide-y divide-kr-neutral-200" role="list">
-      {orders.map((order) => (
-        <li key={order.id} className="py-4 flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-medium text-body text-kr-text-primary truncate">
-                #{order.id.slice(-6).toUpperCase()} · {order.listingTitle}
-              </p>
-              {order.isCrossBorder && <span className="kr-badge kr-badge-cross-border">Cross-border</span>}
+            {/* Pending Orders */}
+            <div className="p-6 rounded-2xl bg-black/30 backdrop-blur-md border border-white/10 shadow-lg">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-serif font-bold text-white flex items-center gap-2">
+                  <Package className="w-5 h-5 text-[var(--kr-chinar-amber)]" />
+                  Pending Orders
+                </h3>
+                <Link href="/farmer/orders" className="text-sm text-[var(--kr-chinar-amber)] hover:text-[var(--kr-saffron-gold)] flex items-center gap-1">
+                  View All <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+              <div className="space-y-4">
+                {[
+                  { id: 'ORD-9921', item: '200 Boxes Grade-A Delicious', status: 'Awaiting Transport', amount: '₹1,45,000' },
+                  { id: 'ORD-9918', item: '50kg Premium Walnut', status: 'Quality Check', amount: '₹82,500' },
+                ].map((order, idx) => (
+                  <div key={idx} className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors">
+                    <div>
+                      <p className="text-sm text-white/50 mb-1">{order.id}</p>
+                      <p className="font-medium text-white">{order.item}</p>
+                    </div>
+                    <div className="mt-3 md:mt-0 flex flex-row md:flex-col items-center md:items-end justify-between">
+                      <p className="text-lg font-bold text-[var(--kr-saffron-gold)]">{order.amount}</p>
+                      <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--kr-chinar-amber)]/20 text-[var(--kr-chinar-amber)] border border-[var(--kr-chinar-amber)]/30 mt-1 font-medium">
+                        {order.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <p className="text-body-sm text-kr-text-secondary">
-              {order.buyerName} · {order.quantity} {order.unit} · {fmt(order.totalAmount, order.currency)}
-            </p>
-            <p className="text-caption text-kr-text-secondary">
-              {ORDER_STATUS_LABEL[order.status]} · {fmtDate(order.updatedAt)}
-            </p>
+
           </div>
-          <Link href={`/orders/${order.id}`} className="kr-btn-ghost kr-btn-sm shrink-0">
-            Track <ChevronRight className="w-3 h-3" aria-hidden="true" />
-          </Link>
-        </li>
-      ))}
-    </ul>
-  );
-}
 
-function PayoutsPanel() {
-  const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['farmer', 'payouts'],
-    queryFn:  () => payoutsApi.ledger({ limit: 20 }),
-  });
-
-  if (isLoading) return <PanelSkeleton rows={3} />;
-  if (isError)   return <PanelError  message={apiMsg(error)} onRetry={() => refetch()} />;
-
-  const orders = data?.data ?? [];
-  const PLATFORM_FEE_PCT = 0.025;
-
-  const entries = orders.map((o) => ({
-    ...o,
-    platformFee: +(o.totalAmount * PLATFORM_FEE_PCT).toFixed(2),
-    netAmount:   +(o.totalAmount * (1 - PLATFORM_FEE_PCT)).toFixed(2),
-  }));
-
-  const totalNet = entries.reduce((sum, e) => sum + e.netAmount, 0);
-
-  if (entries.length === 0) {
-    return (
-      <div className="kr-empty-state">
-        <Wallet className="w-10 h-10 text-kr-text-disabled mx-auto" aria-hidden="true" />
-        <p className="text-body text-kr-text-secondary">No completed orders yet.</p>
-        <p className="text-body-sm text-kr-text-disabled">Payouts appear once orders are marked Completed.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <div className="flex items-start gap-2 p-3 rounded-md bg-kr-badge-pending-bg border border-kr-warning-300 mb-4" role="note">
-        <Info className="w-4 h-4 text-kr-warning-600 mt-0.5 shrink-0" aria-hidden="true" />
-        <p className="text-caption text-kr-warning-700">
-          Payout data is derived from completed orders (2.5% platform fee estimated).
-        </p>
-      </div>
-
-      <div className="kr-card kr-glass-amber kr-pattern-chinar bg-kr-fill-brand-subtle border-0 mb-6">
-        <p className="text-caption text-kr-text-secondary uppercase tracking-wide">Total net earnings</p>
-        <p className="font-heading text-display text-kr-primary-700 kr-amount">
-          {fmt(totalNet, orders[0]?.currency ?? 'INR')}
-        </p>
-        <p className="text-caption text-kr-text-secondary">From {entries.length} completed order{entries.length !== 1 ? 's' : ''}</p>
-      </div>
-
-      <ul className="divide-y divide-kr-neutral-200" role="list">
-        {entries.map((e) => (
-          <li key={e.id} className="py-3 flex items-center gap-3">
-            <div className="flex-1 min-w-0">
-              <p className="text-body-sm font-medium text-kr-text-primary truncate">{e.listingTitle}</p>
-              <p className="text-caption text-kr-text-secondary">{e.buyerName} · {fmtDate(e.updatedAt)}</p>
+          {/* Sidebar Column */}
+          <div className="space-y-6">
+            
+            {/* Today Card */}
+            <div className="p-6 rounded-2xl bg-black/40 backdrop-blur-md border border-[var(--kr-dal-teal)]/30 shadow-lg relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4 opacity-10">
+                <CloudSun className="w-24 h-24 text-white" />
+              </div>
+              <h3 className="text-lg font-serif font-bold text-white mb-1 relative z-10">Today in Shopian</h3>
+              <p className="text-sm text-[var(--kr-dal-teal)] font-medium mb-6 relative z-10">Perfect Spray Window</p>
+              
+              <div className="grid grid-cols-2 gap-4 relative z-10">
+                <div className="p-4 rounded-xl bg-white/5 border border-white/10 text-center">
+                  <CloudSun className="w-8 h-8 text-[var(--kr-saffron-gold)] mx-auto mb-2" />
+                  <p className="text-2xl font-bold text-white">24°C</p>
+                  <p className="text-xs text-white/60">Mostly Sunny</p>
+                </div>
+                <div className="p-4 rounded-xl bg-[var(--kr-dal-teal)]/20 border border-[var(--kr-dal-teal)]/40 text-center">
+                  <Droplets className="w-8 h-8 text-[var(--kr-dal-teal)] mx-auto mb-2" />
+                  <p className="text-2xl font-bold text-white">Low</p>
+                  <p className="text-xs text-white/60">Scab Risk</p>
+                </div>
+              </div>
+              <div className="mt-4 p-3 rounded-lg bg-[var(--kr-orchard-green)]/20 border border-[var(--kr-orchard-green)]/30">
+                <p className="text-xs text-[var(--kr-orchard-green)] font-medium text-center">
+                  Optimal time to apply foliar calcium: 4:00 PM - 7:00 PM
+                </p>
+              </div>
             </div>
-            <div className="text-right shrink-0">
-              <p className="text-body-sm font-medium text-kr-text-primary kr-amount">{fmt(e.netAmount, e.currency)}</p>
-              <p className="text-caption text-kr-text-secondary">-{fmt(e.platformFee, e.currency)} fee</p>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
 
-function PanelSkeleton({ rows }: { rows: number }) {
-  return (
-    <div aria-busy="true" aria-label="Loading" className="space-y-4">
-      {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex gap-3 items-center">
-          <div className="kr-skeleton w-14 h-14 rounded-md shrink-0" />
-          <div className="flex-1 space-y-2">
-            <div className="kr-skeleton h-4 w-3/4 rounded" />
-            <div className="kr-skeleton h-3 w-1/2 rounded" />
+            {/* Money Summary */}
+            <div className="p-6 rounded-2xl bg-black/40 backdrop-blur-md border border-white/10 shadow-lg">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
+                  <Wallet className="w-5 h-5 text-white" />
+                </div>
+                <h3 className="text-lg font-serif font-bold text-white">Earnings</h3>
+              </div>
+              
+              <div className="space-y-5">
+                <div>
+                  <p className="text-sm text-white/60 mb-1">Total Received (This Season)</p>
+                  <p className="text-3xl font-black text-white">₹3,42,000</p>
+                </div>
+                <div className="h-px w-full bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                <div className="flex justify-between items-center">
+                  <p className="text-sm text-white/60">In Escrow</p>
+                  <p className="text-lg font-bold text-[var(--kr-chinar-amber)]">₹1,45,000</p>
+                </div>
+              </div>
+              
+              <button className="w-full mt-6 py-2.5 rounded-xl border border-white/20 text-sm font-medium text-white hover:bg-white/10 transition-colors">
+                View Ledger
+              </button>
+            </div>
+
           </div>
+
         </div>
-      ))}
+      </main>
+      
+      <SiteFooter />
     </div>
-  );
-}
-
-function PanelError({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <div className="kr-error-state" role="alert">
-      <AlertTriangle className="w-8 h-8 text-kr-danger-500 mx-auto" aria-hidden="true" />
-      <p className="text-body text-kr-text-primary">Something went wrong</p>
-      <p className="text-body-sm text-kr-text-secondary">{message}</p>
-      <button onClick={onRetry} className="kr-btn-secondary kr-btn-sm">
-        <RefreshCw className="w-3 h-3" aria-hidden="true" /> Retry
-      </button>
-    </div>
-  );
-}
-
-function apiMsg(err: unknown): string {
-  if (err instanceof ApiError) return err.messages[0] ?? 'An error occurred';
-  return 'An unexpected error occurred. Please try again.';
-}
-
-const TABS: { id: Tab; label: string; Icon: typeof Package }[] = [
-  { id: 'profile',      label: 'Profile & Orchard', Icon: Info        },
-  { id: 'listings',     label: 'Listings',          Icon: Package     },
-  { id: 'appointments', label: 'Appointments',      Icon: Calendar    },
-  { id: 'orders',       label: 'Orders',            Icon: ShoppingBag },
-  { id: 'payouts',      label: 'Payouts',           Icon: Wallet      },
-  { id: 'knowledge',    label: 'Knowledge Hub',     Icon: Info        },
-];
-
-export default function FarmerDashboardPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('listings');
-
-  const listingsQ = useQuery({ queryKey: ['farmer', 'listings', 1], queryFn: () => listingsApi.myListings({ page: 1, limit: 1 }) });
-  const apptQ     = useQuery({ queryKey: ['farmer', 'appt-count'],  queryFn: () => appointmentsApi.myAppointments({ limit: 1, status: 'REQUESTED' }) });
-  const ordersQ   = useQuery({ queryKey: ['farmer', 'order-count'], queryFn: () => ordersApi.myOrders({ limit: 1 }) });
-
-  return (
-    <main id="main-content" className="kr-container py-6 md:py-10">
-      <div className="kr-hero-premium kr-pattern-chinar p-6 md:p-8 mb-8 border-l-8 border-kr-border-brand shadow-xl rounded-2xl">
-        <h1 className="font-heading text-display text-white mb-2">
-          Farmer Dashboard
-        </h1>
-        <p className="text-body-lg text-emerald-50">
-          Manage your listings, appointments, and sales from one place.
-        </p>
-      </div>
-
-      {/* Quick Tools Access Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
-        <Link href="/farmer/assistant" className="kr-card kr-glass-amber kr-pattern-chinar kr-glass/50 hover:kr-glass border-kr-border-default flex items-center gap-3 p-4 transition-colors">
-          <Bot className="w-5 h-5 text-emerald-600 shrink-0" />
-          <div>
-            <p className="text-body-sm font-medium text-emerald-900">AI Voice Assistant</p>
-            <p className="text-caption text-emerald-700">Kashmiri, Urdu & English</p>
-          </div>
-        </Link>
-        <Link href="/supplies/tester" className="kr-card kr-glass-amber kr-pattern-chinar kr-glass hover:kr-glass border-purple-200 flex items-center gap-3 p-4 transition-colors">
-          <Microscope className="w-5 h-5 text-purple-600 shrink-0" />
-          <div>
-            <p className="text-body-sm font-medium text-purple-900">AgroGuard Tester</p>
-            <p className="text-caption text-purple-700">Scan QR codes & batches</p>
-          </div>
-        </Link>
-        <Link href="/tracking" className="kr-card kr-glass-amber kr-pattern-chinar kr-glass hover:kr-glass border-amber-200 flex items-center gap-3 p-4 transition-colors">
-          <Truck className="w-5 h-5 text-amber-600 shrink-0" />
-          <div>
-            <p className="text-body-sm font-medium text-amber-900">Track a Vehicle</p>
-            <p className="text-caption text-amber-700">Live route & ETA by plate</p>
-          </div>
-        </Link>
-      </div>
-
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        {([
-          { label: 'Total listings', value: listingsQ.data?.total, id: 'listings' },
-          { label: 'Pending requests', value: apptQ.data?.total,    id: 'appointments' },
-          { label: 'Active orders',    value: ordersQ.data?.total,  id: 'orders' },
-          { label: 'Payout ledger',    value: null,                 id: 'payouts', cta: 'View' },
-        ] as Array<{ label: string; value: number | null | undefined; id: string; cta?: string }>).map((card) => (
-          <button
-            key={card.id}
-            onClick={() => setActiveTab(card.id as Tab)}
-            className={`kr-card text-left transition-shadow hover:shadow-kr-card-md
-              ${ activeTab === card.id ? 'border-kr-border-brand ring-1 ring-kr-border-brand' : '' }`}
-            aria-current={activeTab === card.id ? 'true' : undefined}
-          >
-            <p className="text-caption text-kr-text-secondary uppercase tracking-wide mb-1">{card.label}</p>
-            <p className="font-heading text-h2 text-kr-text-primary">
-              {card.value != null ? card.value : card.cta ?? '—'}
-            </p>
-          </button>
-        ))}
-      </div>
-
-      {/* Tab strip */}
-      <div
-        role="tablist"
-        aria-label="Dashboard sections"
-        className="flex gap-1 border-b border-kr-border-default mb-6 overflow-x-auto scrollbar-none"
-      >
-        {TABS.map(({ id, label, Icon }) => (
-          <button
-            key={id}
-            role="tab"
-            id={`tab-${id}`}
-            aria-selected={activeTab === id}
-            aria-controls={`panel-${id}`}
-            onClick={() => setActiveTab(id)}
-            className={`
-              flex items-center gap-2 px-4 py-3 text-body-sm font-medium whitespace-nowrap
-              border-b-2 transition-colors kr-focus-ring
-              ${ activeTab === id
-                ? 'border-kr-primary-500 text-kr-primary-600'
-                : 'border-transparent text-kr-text-secondary hover:text-kr-text-primary hover:border-kr-border-strong'
-              }
-            `}
-          >
-            <Icon className="w-4 h-4" aria-hidden="true" />
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab panels */}
-      {TABS.map(({ id }) => (
-        <div
-          key={id}
-          role="tabpanel"
-          id={`panel-${id}`}
-          aria-labelledby={`tab-${id}`}
-          hidden={activeTab !== id}
-        >
-          {id === 'profile'     && <ProfilePanel />}
-          {id === 'listings'    && <ListingsPanel />}
-          {id === 'appointments' && <AppointmentsPanel />}
-          {id === 'orders'      && <OrdersPanel />}
-          {id === 'payouts'     && <PayoutsPanel />}
-          {id === 'knowledge'   && <KnowledgePanel />}
-        </div>
-      ))}
-    </main>
   );
 }
