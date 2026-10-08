@@ -14,7 +14,7 @@ import {
   QrCode
 } from 'lucide-react';
 import { SiteFooter, SiteHeader } from '@/components/layout/SiteHeader';
-import { HeroShowcase } from '@/components/ui/HeroShowcase';
+import { HeroShowcase } from '@/components/layout/HeroShowcase';
 import { MainTools } from '@/components/ui/MainTools';
 
 /*
@@ -95,8 +95,8 @@ export default function Home() {
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 p-8 pt-2">
               {[
-                { title: 'Farmer Portal', desc: 'Manage orchards, crops & direct mandi listings.', href: '/farmer/dashboard', icon: Sprout, tone: 'border-[#4ADE80]/40', iconColor: '#4ADE80' },
-                { title: 'Buyer Portal', desc: 'Direct sourcing of authenticated Kashmiri produce.', href: '/buyer/dashboard', icon: Store, tone: 'border-[#F4C77B]/40', iconColor: '#F4C77B' },
+                { title: 'Farmer Portal', desc: 'Manage orchards, crops & direct mandi listings.', href: '/farmer/login', icon: Sprout, tone: 'border-[#4ADE80]/40', iconColor: '#4ADE80' },
+                { title: 'Buyer Portal', desc: 'Direct sourcing of authenticated Kashmiri produce.', href: '/buyer/login', icon: Store, tone: 'border-[#F4C77B]/40', iconColor: '#F4C77B' },
                 { title: 'Kissan Tools', desc: 'Orchard equipment, sprayers & horti supplies.', href: '/kissan-tools/dashboard', icon: Tractor, tone: 'border-[#F87171]/40', iconColor: '#F87171' },
                 { title: 'Rental Marketplace', desc: 'Cold storage space, tractors & pruning gear.', href: '/rental/dashboard', icon: Store, tone: 'border-[#F4C77B]/40', iconColor: '#F4C77B' },
                 { title: 'Admin Governance', desc: 'Quality audit, escrow verification & KYC.', href: '/admin/dashboard', icon: ShieldCheck, tone: 'border-[#F87171]/40', iconColor: '#F87171' },

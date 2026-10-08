@@ -115,28 +115,28 @@ export default function ComparePricesPage() {
   const canAddProduct = isAuth && (userRole === 'SELLER' || userRole === 'DEALER');
 
   return (
-    <div className="flex min-h-screen flex-col bg-transparent">
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-sky-50 to-white text-slate-800">
       <SiteHeader hideSignIn={false} />
       
-      <main className="kr-container py-10 flex-1 relative">
-        <div className="bg-gradient-to-r from-blue-900 to-blue-800 text-white p-8 md:p-10 rounded-2xl mb-8 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+      <main className="kr-container py-10 flex-1 relative z-10">
+        <div className="bg-gradient-to-r from-sky-100 to-blue-50 text-slate-900 p-8 md:p-10 rounded-2xl mb-8 shadow-lg border border-white/60 backdrop-blur-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
-            <h1 className="font-heading text-4xl font-bold mb-3">Price Comparison Hub</h1>
-            <p className="text-xl text-blue-100 max-w-2xl font-light">
+            <h1 className="font-heading text-4xl font-bold mb-3 text-sky-900">Price Comparison Hub</h1>
+            <p className="text-xl text-slate-700 max-w-2xl font-medium">
               Compare real-time rates for farm essentials across authorized dealers. Direct home delivery guaranteed with Escrow protection.
             </p>
           </div>
           {canAddProduct ? (
             <button 
               onClick={() => setShowAddModal(true)}
-              className="bg-[#E76F51] hover:bg-[#D4A373] text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-colors whitespace-nowrap"
+              className="bg-sky-600 hover:bg-sky-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-colors whitespace-nowrap"
             >
               <Plus className="w-5 h-5" /> Add New Product
             </button>
           ) : !isAuth ? (
             <button 
               onClick={() => setShowAuthPrompt(true)}
-              className="kr-glass hover:bg-kr-bg-sunken text-blue-900 px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-colors whitespace-nowrap"
+              className="bg-white/80 hover:bg-white text-sky-900 px-6 py-3 rounded-xl font-bold shadow-md border border-sky-200 flex items-center gap-2 transition-colors whitespace-nowrap"
             >
               List Your Products
             </button>
