@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --kr-chinar-amber: #D9622B;
+  --kr-dal-teal: #0E7C86;
+  --kr-saffron-gold: #E8A317;
+  --kr-apple-crimson: #C62828;
+  --kr-orchard-green: #1E7B4F;
+  --kr-pir-panjal-navy: #0B1F3A;
+  --kr-walnut-brown: #6B4423;
+}
+
 body {
   background-color: #07120D; /* Deep Royal Forest Green */
   color: #F5F2EB;

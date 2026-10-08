@@ -42,6 +42,13 @@ const config: Config = {
     extend: {
       // ── COLORS ───────────────────────────────────────────────────────────
       colors: {
+        'chinar-amber': '#D9622B',
+        'dal-teal': '#0E7C86',
+        'saffron-gold': '#E8A317',
+        'apple-crimson': '#C62828',
+        'orchard-green': '#1E7B4F',
+        'pir-panjal-navy': '#0B1F3A',
+        'walnut-brown': '#6B4423',
         gold: '#D4AF37',
         saffron: '#E05A3E',
         // Raw palette scales (accessible as bg-kr-primary-500, etc.)
