@@ -2,7 +2,7 @@
 
 import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
 import { DynamicBackdrop } from '@/components/layout/DynamicBackdrop';
-import { Recycle, Factory, Leaf, ArrowRightRight, Coins, ListPlus } from 'lucide-react';
+import { Recycle, Factory, Leaf, ArrowRight, Coins, ListPlus } from 'lucide-react';
 
 // Mock DEMO DATA
 const LOW_GRADE_LISTINGS = [
@@ -101,7 +101,7 @@ export default function WasteMarketPage() {
                         </div>
                       </div>
                       <button className="bg-[var(--kr-orchard-green,#1E7B4F)] hover:bg-[#165a39] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2">
-                        Accept Bid <ArrowRightRight className="w-4 h-4" />
+                        Accept Bid <ArrowRight className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
