@@ -1,142 +1,156 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
-import { ShieldCheck, Lock, CheckCircle, Truck, Package, Clock } from 'lucide-react';
-import Link from 'next/link';
+import { DynamicBackdrop } from '@/components/layout/DynamicBackdrop';
+import { ShieldCheck, Lock, CheckCircle, Truck, Mic, Handshake, AlertCircle } from 'lucide-react';
 
-interface EscrowTransaction {
-  id: string;
-  date: string;
-  item: string;
-  seller: string;
-  amount: string;
-  status: 'FUNDS_IN_ESCROW' | 'DISPATCHED' | 'DELIVERED' | 'COMPLETED';
-}
+// Mock DEMO DATA
+const ESCROW_KPIS = {
+  moneyLocked: '₹14,50,000',
+  moneyReleased: '₹42,80,000',
+  daysToPayment: '4.2 Days'
+};
 
-const MOCK_TRANSACTIONS: EscrowTransaction[] = [
-  { id: 'KR-94821', date: 'Oct 5, 2026', item: 'Apple Corrugated Box (Universal 10kg)', seller: 'Kashmir Packaging Co.', amount: '₹14,500', status: 'DISPATCHED' },
-  { id: 'KR-73291', date: 'Oct 3, 2026', item: 'DAP Fertilizer (50kg)', seller: 'Zamindar Agri Center', amount: '₹22,700', status: 'FUNDS_IN_ESCROW' },
-  { id: 'KR-10294', date: 'Sep 28, 2026', item: 'Gala Apples (Grade A) - 50 Boxes', seller: 'Shopian Orchards', amount: '₹45,000', status: 'COMPLETED' },
+const TIMELINE_STEPS = [
+  { id: 'offer', label: 'Offer', icon: Handshake, status: 'completed', date: 'Oct 10, 10:00 AM' },
+  { id: 'lock', label: 'Lock', icon: Lock, status: 'completed', date: 'Oct 10, 11:30 AM' },
+  { id: 'deliver', label: 'Deliver', icon: Truck, status: 'current', date: 'In Transit' },
+  { id: 'confirm', label: 'Confirm', icon: CheckCircle, status: 'pending', date: '--' },
+  { id: 'release', label: 'Release', icon: ShieldCheck, status: 'pending', date: '--' },
 ];
 
-export default function EscrowPage() {
-  const [isAuth, setIsAuth] = useState(false);
-  const [transactions, setTransactions] = useState<EscrowTransaction[]>([]);
-
-  useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsAuth(!!token);
-    
-    // Simulate fetching active transactions
-    setTransactions(MOCK_TRANSACTIONS);
-  }, []);
-
-  const handleReleasePayment = (id: string) => {
-    setTransactions(prev => prev.map(t => 
-      t.id === id ? { ...t, status: 'COMPLETED' } : t
-    ));
-  };
-
-  const getStatusBadge = (status: EscrowTransaction['status']) => {
-    switch(status) {
-      case 'FUNDS_IN_ESCROW':
-        return <span className="px-3 py-1 bg-kr-fill-brand-subtle text-kr-text-warning rounded-full text-xs font-bold flex items-center gap-1 w-max"><Lock className="w-3 h-3" /> FUNDS IN ESCROW</span>;
-      case 'DISPATCHED':
-        return <span className="px-3 py-1 bg-kr-fill-brand-subtle text-kr-text-brand rounded-full text-xs font-bold flex items-center gap-1 w-max"><Truck className="w-3 h-3" /> DISPATCHED</span>;
-      case 'DELIVERED':
-        return <span className="px-3 py-1 bg-kr-fill-brand-subtle text-kr-text-brand rounded-full text-xs font-bold flex items-center gap-1 w-max"><Package className="w-3 h-3" /> DELIVERED</span>;
-      case 'COMPLETED':
-        return <span className="px-3 py-1 bg-kr-badge-published-bg text-kr-badge-published-text rounded-full text-xs font-bold flex items-center gap-1 w-max"><CheckCircle className="w-3 h-3" /> COMPLETED</span>;
-    }
-  };
-
+export default function EscrowTrackerPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-transparent">
-      <SiteHeader hideSignIn={false} />
-      
-      <main className="kr-container py-10 flex-1">
-        <div className="bg-gradient-to-r from-[#1B4332] to-[#153424] text-white p-8 md:p-10 rounded-2xl mb-8 shadow-xl relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="relative z-10">
-            <h1 className="font-heading text-4xl font-bold mb-3 flex items-center gap-3">
-              <ShieldCheck className="w-10 h-10 text-[#E76F51]" /> Active Escrow Dashboard
-            </h1>
-            <p className="text-xl text-white/90 max-w-2xl font-light">
-              Manage your protected transactions. Funds are held securely by KashRoot until delivery is verified.
-            </p>
-          </div>
-          <div className="absolute top-0 right-0 opacity-10 pointer-events-none transform translate-x-1/4 -translate-y-1/4">
-            <ShieldCheck className="w-96 h-96" />
-          </div>
-        </div>
+    <div className="flex min-h-screen flex-col relative text-white">
+      {/* Background Component */}
+      <div className="fixed inset-0 z-0">
+        <DynamicBackdrop />
+      </div>
 
-        {!isAuth ? (
-          <div className="kr-glass p-10 rounded-2xl shadow-sm border border-kr-border-default text-center max-w-2xl mx-auto my-12">
-            <Lock className="w-16 h-16 text-kr-text-disabled mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-kr-text-primary mb-2">Sign in to view your Escrow Wallet</h2>
-            <p className="text-kr-text-secondary mb-6">You must be logged in to manage your secure transactions and release payments.</p>
-            <Link href="/escrow/auth" className="inline-block bg-[#1B4332] hover:bg-[#153424] text-white px-8 py-3 rounded-xl font-bold transition-colors">
-              Sign In
-            </Link>
+      <div className="relative z-10 flex min-h-screen flex-col">
+        <SiteHeader hideSignIn={false} />
+
+        <main className="container mx-auto px-4 py-8 flex-1">
+          {/* Header Section - Dal Teal Accent */}
+          <div className="bg-gradient-to-r from-[var(--kr-dal-teal,#0E7C86)] to-[#085C63] p-8 rounded-2xl mb-8 shadow-2xl border border-white/10 backdrop-blur-md relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="relative z-10">
+              <h1 className="text-3xl md:text-4xl font-bold mb-2 flex items-center gap-3">
+                <ShieldCheck className="w-8 h-8 text-white/90" /> Money & Escrow Tracker
+              </h1>
+              <p className="text-lg text-white/80 font-light max-w-xl">
+                Secure your payments. Funds are locked in escrow and only released when both parties confirm delivery.
+              </p>
+            </div>
+            <div className="absolute top-0 right-0 opacity-10 pointer-events-none transform translate-x-1/4 -translate-y-1/4">
+              <ShieldCheck className="w-64 h-64" />
+            </div>
           </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-kr-text-primary">Your Transactions</h2>
-              <span className="text-sm text-kr-text-secondary font-medium">{transactions.length} Active Orders</span>
+
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div className="bg-black/30 backdrop-blur-md border border-white/20 p-6 rounded-2xl relative overflow-hidden">
+              <div className="flex justify-between items-start mb-2">
+                <span className="text-white/70 font-medium">Money Locked</span>
+                <Lock className="w-5 h-5 text-[var(--kr-dal-teal,#0E7C86)]" />
+              </div>
+              <div className="text-3xl font-bold text-white">{ESCROW_KPIS.moneyLocked}</div>
+              <div className="absolute -bottom-4 -right-4 opacity-5">
+                <Lock className="w-24 h-24" />
+              </div>
             </div>
 
-            {transactions.length === 0 ? (
-              <div className="kr-glass p-10 rounded-2xl shadow-sm border border-kr-border-default text-center">
-                <Package className="w-12 h-12 text-kr-text-disabled mx-auto mb-3" />
-                <p className="text-kr-text-secondary font-medium">No active transactions in escrow.</p>
+            <div className="bg-black/30 backdrop-blur-md border border-white/20 p-6 rounded-2xl relative overflow-hidden">
+              <div className="flex justify-between items-start mb-2">
+                <span className="text-white/70 font-medium">Money Released</span>
+                <CheckCircle className="w-5 h-5 text-green-400" />
               </div>
-            ) : (
-              <div className="grid gap-6">
-                {transactions.map((tx) => (
-                  <div key={tx.id} className="kr-glass rounded-2xl shadow-sm border border-kr-border-default p-6 flex flex-col md:flex-row gap-6 justify-between items-start md:items-center hover:shadow-md transition-shadow">
-                    <div className="flex-1 space-y-3">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <span className="font-mono text-sm text-kr-text-secondary bg-kr-bg-sunken px-2 py-1 rounded">{tx.id}</span>
-                        <span className="flex items-center gap-1 text-sm text-kr-text-secondary"><Clock className="w-4 h-4" /> {tx.date}</span>
-                        {getStatusBadge(tx.status)}
-                      </div>
-                      
-                      <div>
-                        <h3 className="text-xl font-bold text-kr-text-primary">{tx.item}</h3>
-                        <p className="text-kr-text-secondary flex items-center gap-2 mt-1">
-                          Seller: <span className="font-semibold text-kr-text-primary">{tx.seller}</span>
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex flex-col md:items-end w-full md:w-auto gap-4 border-t md:border-t-0 pt-4 md:pt-0 border-kr-border-default">
-                      <div className="text-2xl font-bold text-[#E76F51]">{tx.amount}</div>
-                      
-                      {(tx.status === 'FUNDS_IN_ESCROW' || tx.status === 'DISPATCHED' || tx.status === 'DELIVERED') && (
-                        <button 
-                          onClick={() => handleReleasePayment(tx.id)}
-                          className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2 shadow-sm"
-                        >
-                          <CheckCircle className="w-4 h-4" /> Verify Delivery & Release Payment
-                        </button>
-                      )}
-                      
-                      {tx.status === 'COMPLETED' && (
-                        <span className="text-sm font-bold text-kr-badge-published-text bg-kr-badge-published-bg px-4 py-2 rounded-lg border border-green-200 inline-block text-center">
-                          Payment Released ✓
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
+              <div className="text-3xl font-bold text-white">{ESCROW_KPIS.moneyReleased}</div>
+              <div className="absolute -bottom-4 -right-4 opacity-5">
+                <CheckCircle className="w-24 h-24" />
               </div>
-            )}
+            </div>
+
+            <div className="bg-black/30 backdrop-blur-md border border-white/20 p-6 rounded-2xl relative overflow-hidden">
+              <div className="flex justify-between items-start mb-2">
+                <span className="text-white/70 font-medium">Avg. Days-to-Payment</span>
+                <AlertCircle className="w-5 h-5 text-[var(--kr-saffron-gold,#E8A317)]" />
+              </div>
+              <div className="text-3xl font-bold text-white">{ESCROW_KPIS.daysToPayment}</div>
+            </div>
           </div>
-        )}
-      </main>
-      <SiteFooter />
+
+          {/* Active Transaction Timeline */}
+          <div className="bg-black/40 backdrop-blur-lg border border-white/20 rounded-2xl p-6 md:p-8 mb-8">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                  <span className="bg-[var(--kr-dal-teal,#0E7C86)] w-3 h-3 rounded-full animate-pulse"></span>
+                  Active Order: #KR-8823
+                </h2>
+                <p className="text-white/70 mt-1">Gala Apples (Grade A) - 100 Boxes • Seller: Shopian Orchards</p>
+              </div>
+              <div className="text-right">
+                <div className="text-2xl font-bold text-[var(--kr-saffron-gold,#E8A317)]">₹1,45,000</div>
+                <div className="text-sm text-white/60">Locked in Escrow</div>
+              </div>
+            </div>
+
+            {/* Live Timeline UI */}
+            <div className="relative">
+              {/* Connecting Line */}
+              <div className="absolute top-8 left-[10%] right-[10%] h-1 bg-white/10 hidden md:block rounded-full"></div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+                {TIMELINE_STEPS.map((step, index) => {
+                  const isCompleted = step.status === 'completed';
+                  const isCurrent = step.status === 'current';
+                  const isPending = step.status === 'pending';
+                  const Icon = step.icon;
+                  
+                  return (
+                    <div key={step.id} className="relative flex flex-row md:flex-col items-center gap-4 md:gap-2 z-10">
+                      {/* Mobile Connecting Line */}
+                      {index !== TIMELINE_STEPS.length - 1 && (
+                        <div className="absolute top-10 left-5 bottom-[-10px] w-0.5 bg-white/10 md:hidden z-0"></div>
+                      )}
+                      
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center border-4 z-10
+                        ${isCompleted ? 'bg-[var(--kr-dal-teal,#0E7C86)] border-black/50 text-white' : 
+                          isCurrent ? 'bg-black border-[var(--kr-saffron-gold,#E8A317)] text-[var(--kr-saffron-gold,#E8A317)]' : 
+                          'bg-black/50 border-white/20 text-white/30'}`}
+                      >
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      
+                      <div className="text-left md:text-center mt-2">
+                        <div className={`font-bold ${isCurrent ? 'text-[var(--kr-saffron-gold,#E8A317)]' : isCompleted ? 'text-white' : 'text-white/40'}`}>
+                          {step.label}
+                        </div>
+                        <div className="text-xs text-white/50">{step.date}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="mt-10 flex flex-col sm:flex-row justify-end gap-4 border-t border-white/10 pt-6">
+              <button className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium border border-white/20 transition-all backdrop-blur-md">
+                <Mic className="w-5 h-5 text-[var(--kr-dal-teal,#0E7C86)]" />
+                Voice Receipt
+              </button>
+              <button className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[var(--kr-dal-teal,#0E7C86)] hover:bg-[#0b636b] text-white font-bold transition-all shadow-lg shadow-[var(--kr-dal-teal,#0E7C86)]/20">
+                <CheckCircle className="w-5 h-5" />
+                Confirm Delivery
+              </button>
+            </div>
+          </div>
+
+        </main>
+
+        <SiteFooter />
+      </div>
     </div>
   );
 }
