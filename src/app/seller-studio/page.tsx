@@ -1,3 +1,5 @@
+"use client";
+
 import Link from 'next/link';
 import { DynamicBackdrop } from '@/components/layout/DynamicBackdrop';
 import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
