@@ -11,12 +11,14 @@ import { BrandMark } from '@/components/brand/Shikara';
  * carry portal cards.
  */
 const PORTALS = [
-  { title: 'Farmer Portal', href: '/farmer/dashboard', desc: 'Orchards, listings & advisory' },
-  { title: 'Buyer Portal', href: '/buyer/dashboard', desc: 'Source verified produce' },
-  { title: 'Kissan Tools', href: '/kissan-tools/dashboard', desc: 'Equipment & horti supplies' },
-  { title: 'Rental Marketplace', href: '/rental/dashboard', desc: 'Cold storage & machinery' },
-  { title: 'Logistics', href: '/provider/dashboard', desc: 'Tracking & providers' },
-  { title: 'Admin Governance', href: '/admin/dashboard', desc: 'KYC, audit & escrow' },
+  { title: 'Farmer Portal', href: '/farmer/login', desc: 'Orchards, listings & advisory' },
+  { title: 'Buyer Portal', href: '/buyer/login', desc: 'Source verified produce' },
+  { title: 'Seller Portal', href: '/seller/login', desc: 'Products, stock & supplier listings' },
+  { title: 'Kissan Tools', href: '/login/kissan-tools', desc: 'Equipment & horti supplies' },
+  { title: 'Rental Marketplace', href: '/login/rental', desc: 'Cold storage & machinery' },
+  { title: 'Logistics', href: '/login/provider', desc: 'Tracking & providers' },
+  { title: 'Expert Desk', href: '/login/expert', desc: 'Agronomy & crop advisory' },
+  { title: 'Admin Governance', href: '/login/admin', desc: 'KYC, audit & escrow' },
   { title: 'Orchard Health', href: '/orchard-health', desc: 'Diagnosis & spray logs' },
   { title: 'Season Planner', href: '/season-planner', desc: 'Calendar & ROI calculator' },
   { title: 'Traceability', href: '/traceability', desc: 'Origin scanner & grade history' },
@@ -56,7 +58,7 @@ function PortalMenu({ onOpenPortals }: { onOpenPortals?: () => void }) {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full mt-2 w-[22rem] max-h-[70vh] overflow-y-auto rounded-2xl border border-white/25 bg-white/15 p-2 shadow-[0_24px_60px_-20px_rgba(7,11,26,0.6)] backdrop-blur-xl"
+          className="absolute right-0 top-full mt-2 w-[22rem] max-h-[70vh] overflow-y-auto rounded-2xl border border-white bg-white/95 p-2 shadow-xl backdrop-blur-xl"
         >
           {PORTALS.map((p) => (
             <Link
@@ -78,7 +80,7 @@ function PortalMenu({ onOpenPortals }: { onOpenPortals?: () => void }) {
 
 export function SiteHeader({ hideSignIn = false, onOpenPortals }: { hideSignIn?: boolean; onOpenPortals?: () => void }) {
   return (
-    <header className="sticky top-0 z-40 border-b border-white/25 bg-kr-bg-surface/75 backdrop-blur-xl supports-[backdrop-filter]:bg-kr-bg-surface/65 shadow-[0_8px_30px_-12px_rgba(7,11,26,0.35)]">
+    <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 text-slate-800 backdrop-blur-xl shadow-sm">
       <nav
         className="kr-container flex items-center justify-between gap-4 py-3"
         aria-label="Primary"
@@ -125,7 +127,7 @@ export function SiteHeader({ hideSignIn = false, onOpenPortals }: { hideSignIn?:
  */
 export function SiteFooter() {
   return (
-    <footer className="border-t border-white/25 bg-kr-bg-surface/70 backdrop-blur-xl supports-[backdrop-filter]:bg-kr-bg-surface/60">
+    <footer className="border-t border-slate-200 bg-white/75 text-slate-800 backdrop-blur-xl">
       <div className="kr-container flex flex-col items-start justify-between gap-4 py-8 sm:flex-row sm:items-center">
         <div>
           <BrandMark size="sm" />
@@ -147,7 +149,7 @@ export function SiteFooter() {
             Horticulture supplies
           </Link>
           <Link
-            href="/farmer/dashboard"
+            href="/farmer/login"
             className="text-kr-text-secondary transition-colors hover:text-kr-text-brand"
           >
             For farmers

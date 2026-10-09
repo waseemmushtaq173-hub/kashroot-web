@@ -8,6 +8,7 @@ import { ReactNode, useEffect, useState } from 'react';
 
 import { VoiceAssistant } from '@/components/ui/VoiceAssistant';
 import KYCPanel from '@/components/auth/KYCPanel';
+import { portalBySlug } from '@/lib/auth/portals';
 
 /**
  * Role-Adaptive Dashboard Layout
@@ -51,17 +52,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  let authorized = true;
-  let requiredRoleMsg = '';
-  if (userRole) {
-    if (segment === 'farmer' && userRole !== 'FARMER') { authorized = false; requiredRoleMsg = 'Farmer'; }
-    else if (segment === 'buyer' && userRole !== 'BUYER') { authorized = false; requiredRoleMsg = 'Buyer'; }
-    else if (segment === 'expert' && userRole !== 'EXPERT') { authorized = false; requiredRoleMsg = 'Agricultural Expert'; }
-    else if (segment === 'admin' && userRole !== 'ADMIN') { authorized = false; requiredRoleMsg = 'Platform Admin'; }
-    else if (segment === 'provider' && userRole !== 'PROVIDER') { authorized = false; requiredRoleMsg = 'Logistics & Provider'; }
-    else if (segment === 'kissan-tools' && userRole !== 'KISSAN_PARTNER') { authorized = false; requiredRoleMsg = 'Kissan Partner'; }
-    else if (segment === 'rental' && userRole !== 'RENTAL') { authorized = false; requiredRoleMsg = 'Equipment / Machinery Rental'; }
-  }
+  // Each portal in the registry is scoped to its own role, so the guard reads
+  // the requirement from there instead of a hand-maintained chain that a new
+  // portal can be left out of. Segments with no registry entry (dealer,
+  // tracking) carry no role of their own yet and stay open to any session.
+  const guardedPortal = segment ? portalBySlug(segment) : undefined;
+  const authorized = !guardedPortal || !userRole || userRole === guardedPortal.role;
 
   if (!authorized) {
     return (
@@ -74,13 +70,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               Your current active session is scoped to <strong className="bg-kr-bg-sunken px-2 py-1 rounded">{userRole}</strong>.
             </p>
             <p className="text-kr-text-secondary mb-8">
-              Please sign in with a <strong>{requiredRoleMsg}</strong> account to access this specific portal.
+              Please sign in with a <strong>{guardedPortal?.accountLabel}</strong> account to access this specific portal.
             </p>
             <Button 
               onClick={() => {
                 localStorage.removeItem('auth_token');
                 localStorage.removeItem('user_role');
-                router.push('/login');
+                router.push(guardedPortal?.loginHref ?? '/login');
               }}
               className="kr-glass hover:kr-hero-premium kr-pattern-chinar font-bold py-3 px-6 rounded-lg transition-colors w-full"
             >

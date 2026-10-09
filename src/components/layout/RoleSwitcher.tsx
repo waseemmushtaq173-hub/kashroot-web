@@ -14,9 +14,9 @@ export function RoleSwitcher() {
     >
       <option value="">Switch Role...</option>
       <option value="/admin/dashboard">Admin Portal</option>
-      <option value="/farmer/dashboard">Farmer</option>
-      <option value="/buyer/dashboard">Buyer</option>
-      <option value="/seller/dashboard">Hardware Seller</option>
+      <option value="/farmer/login">Farmer</option>
+      <option value="/buyer/login">Buyer</option>
+      <option value="/seller/login">Seller</option>
       <option value="/dealer/dashboard">Fertilizer Dealer</option>
       <option value="/provider/dashboard">Rental Provider</option>
       <option value="/agriculture/dashboard">Agriculture Portal</option>

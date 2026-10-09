@@ -143,8 +143,10 @@ apiClient.interceptors.response.use(
       _refreshQueue.forEach((cb) => cb(null));
       _refreshQueue = [];
       // Redirect to login (works in client components; server redirects handled separately)
+      // Carry where they were so the portal can send them back after sign-in.
       if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+        const here = window.location.pathname + window.location.search;
+        window.location.href = here === '/' ? '/login' : `/login?returnTo=${encodeURIComponent(here)}`;
       }
       return Promise.reject(toApiError(error as any));
     } finally {

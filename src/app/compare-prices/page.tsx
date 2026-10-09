@@ -138,7 +138,7 @@ export default function ComparePricesPage() {
               onClick={() => setShowAuthPrompt(true)}
               className="bg-white/80 hover:bg-white text-sky-900 px-6 py-3 rounded-xl font-bold shadow-md border border-sky-200 flex items-center gap-2 transition-colors whitespace-nowrap"
             >
-              List Your Products
+              List your products
             </button>
           ) : null}
         </div>

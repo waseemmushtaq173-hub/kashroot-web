@@ -54,13 +54,13 @@ export function MainTools() {
     <section className="relative py-20 md:py-28">
       <div className="container mx-auto px-6 md:px-12 max-w-7xl relative z-10">
         <div className="max-w-3xl mb-12 md:mb-16">
-          <p className="text-[#E8C87A] tracking-[0.3em] text-xs uppercase font-serif font-bold mb-4">
+          <p className="text-emerald-700 tracking-[0.3em] text-xs uppercase font-serif font-bold mb-4">
             Three tools. One network.
           </p>
-          <h2 className="font-serif text-4xl md:text-5xl font-black text-white leading-tight drop-shadow-lg">
+          <h2 className="font-serif text-4xl md:text-5xl font-black text-slate-900 leading-tight">
             Trade with confidence.
           </h2>
-          <p className="mt-4 text-lg text-white/75 max-w-2xl">
+          <p className="mt-4 text-lg text-slate-600 max-w-2xl">
             The essentials of Kashmiri agri-trade, engineered into three focused instruments.
           </p>
         </div>
@@ -70,16 +70,16 @@ export function MainTools() {
             <Link
               key={tool.title}
               href={tool.href}
-              className={`group relative flex flex-col p-7 md:p-8 rounded-3xl bg-white/10 backdrop-blur-md border border-white/20 ${tool.ring} ${tool.glow} transition-all duration-300 hover:-translate-y-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4C77B] focus-visible:ring-offset-2 focus-visible:ring-offset-black/40`}
+              className={`group relative flex flex-col p-7 md:p-8 rounded-3xl bg-white/75 backdrop-blur-md border border-white shadow-lg ${tool.ring} ${tool.glow} transition-all duration-300 hover:-translate-y-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4C77B] focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
             >
               <div className={`w-14 h-14 rounded-2xl border flex items-center justify-center mb-6 ${tool.iconBg}`}>
                 <tool.icon className="w-7 h-7" style={{ color: tool.accent }} />
               </div>
 
-              <h3 className="font-serif text-2xl font-bold text-white mb-3 leading-snug">
+              <h3 className="font-serif text-2xl font-bold text-slate-900 mb-3 leading-snug">
                 {tool.title}
               </h3>
-              <p className="text-sm md:text-base text-white/70 leading-relaxed mb-7 flex-1">
+              <p className="text-sm md:text-base text-slate-600 leading-relaxed mb-7 flex-1">
                 {tool.desc}
               </p>
 

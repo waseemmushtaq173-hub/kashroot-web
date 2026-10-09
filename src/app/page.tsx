@@ -52,13 +52,13 @@ export default function Home() {
   const [isPortalModalOpen, setPortalModalOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen flex-col bg-transparent text-[#F5F2EB] selection:bg-[#D4AF37]/30 selection:text-[#FFF]">
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-emerald-50 via-white to-amber-50 text-slate-900 selection:bg-emerald-200 selection:text-emerald-950">
       <SiteHeader hideSignIn={true} onOpenPortals={() => setPortalModalOpen(true)} />
 
       {/* GLASSMORPHIC PORTAL SELECTOR */}
       {isPortalModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-md animate-in fade-in duration-300"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/25 backdrop-blur-md animate-in fade-in duration-300"
           onClick={() => setPortalModalOpen(false)}
           role="dialog"
           aria-modal="true"
@@ -66,7 +66,7 @@ export default function Home() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-4xl bg-white/10 backdrop-blur-xl border border-white/25 rounded-3xl shadow-[0_0_60px_rgba(212,175,55,0.18)] overflow-hidden relative max-h-[90vh] overflow-y-auto"
+            className="w-full max-w-4xl bg-white/90 text-slate-800 backdrop-blur-xl border border-white rounded-3xl shadow-xl overflow-hidden relative max-h-[90vh] overflow-y-auto"
           >
             {/* Khatamband corner accents */}
             <div className="absolute top-0 left-0 w-24 h-24 border-t-2 border-l-2 border-[#D4AF37]/60 rounded-tl-3xl pointer-events-none" />
@@ -74,7 +74,7 @@ export default function Home() {
             
             <button 
               onClick={() => setPortalModalOpen(false)}
-              className="absolute top-5 right-5 p-2.5 text-[#F4C77B] hover:text-white bg-black/30 border border-white/20 hover:border-[#D4AF37] rounded-full transition-all z-20 shadow-lg"
+              className="absolute top-5 right-5 p-2.5 text-amber-800 hover:text-amber-950 bg-white border border-slate-200 hover:border-[#D4AF37] rounded-full transition-all z-20 shadow-lg"
               aria-label="Close portal selector"
             >
               <X className="w-5 h-5" />
@@ -86,10 +86,10 @@ export default function Home() {
                 <span className="text-[#F4C77B] tracking-[0.25em] text-xs uppercase font-serif font-bold">Kashroot Gateway</span>
                 <ChinarLeaf className="w-7 h-7 rotate-180" color="#D4AF37" />
               </div>
-              <h2 className="text-3xl sm:text-4xl font-serif font-extrabold text-white tracking-wide">
+              <h2 className="text-3xl sm:text-4xl font-serif font-extrabold text-slate-900 tracking-wide">
                 Choose Your Portal
               </h2>
-              <p className="text-[#F4C77B]/80 text-sm mt-1 font-light">Access your dedicated trade portal or management dashboard</p>
+              <p className="text-slate-600 text-sm mt-1 font-light">Access your dedicated trade portal or management dashboard</p>
               <KhatambandBorder />
             </div>
             
@@ -97,9 +97,10 @@ export default function Home() {
               {[
                 { title: 'Farmer Portal', desc: 'Manage orchards, crops & direct mandi listings.', href: '/farmer/login', icon: Sprout, tone: 'border-[#4ADE80]/40', iconColor: '#4ADE80' },
                 { title: 'Buyer Portal', desc: 'Direct sourcing of authenticated Kashmiri produce.', href: '/buyer/login', icon: Store, tone: 'border-[#F4C77B]/40', iconColor: '#F4C77B' },
-                { title: 'Kissan Tools', desc: 'Orchard equipment, sprayers & horti supplies.', href: '/kissan-tools/dashboard', icon: Tractor, tone: 'border-[#F87171]/40', iconColor: '#F87171' },
-                { title: 'Rental Marketplace', desc: 'Cold storage space, tractors & pruning gear.', href: '/rental/dashboard', icon: Store, tone: 'border-[#F4C77B]/40', iconColor: '#F4C77B' },
-                { title: 'Admin Governance', desc: 'Quality audit, escrow verification & KYC.', href: '/admin/dashboard', icon: ShieldCheck, tone: 'border-[#F87171]/40', iconColor: '#F87171' },
+                { title: 'Seller Portal', desc: 'Manage verified listings, stock and supplier offers.', href: '/seller/login', icon: Store, tone: 'border-[#F4C77B]/40', iconColor: '#B45309' },
+                { title: 'Kissan Tools', desc: 'Orchard equipment, sprayers & horti supplies.', href: '/login/kissan-tools', icon: Tractor, tone: 'border-[#F87171]/40', iconColor: '#F87171' },
+                { title: 'Rental Marketplace', desc: 'Cold storage space, tractors & pruning gear.', href: '/login/rental', icon: Store, tone: 'border-[#F4C77B]/40', iconColor: '#F4C77B' },
+                { title: 'Admin Governance', desc: 'Quality audit, escrow verification & KYC.', href: '/login/admin', icon: ShieldCheck, tone: 'border-[#F87171]/40', iconColor: '#F87171' },
                 { title: 'Orchard Health', desc: 'Plot risk map, photo diagnosis & spray logs.', href: '/orchard-health', icon: Activity, tone: 'border-[#4ADE80]/40', iconColor: '#4ADE80' },
                 { title: 'Season Planner', desc: 'Pruning calendar & profit ROI calculator.', href: '/season-planner', icon: CalendarDays, tone: 'border-[#F87171]/40', iconColor: '#F87171' },
                 { title: 'Traceability & Quality', desc: 'Origin scanner, temp log & grade history.', href: '/traceability', icon: QrCode, tone: 'border-[#7DD3FC]/40', iconColor: '#7DD3FC' },
@@ -107,17 +108,17 @@ export default function Home() {
                 <Link 
                   href={item.href} 
                   key={idx} 
-                  className={`group relative p-6 rounded-2xl bg-white/5 hover:bg-white/10 border ${item.tone} hover:border-[#D4AF37] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_25px_rgba(212,175,55,0.15)] flex flex-col justify-between`}
+                  className={`group relative p-6 rounded-2xl bg-white/80 hover:bg-white border ${item.tone} hover:border-[#D4AF37] transition-all duration-300 hover:-translate-y-1 hover:shadow-lg flex flex-col justify-between`}
                 >
                   <div>
-                    <div className="w-12 h-12 rounded-xl bg-black/40 border border-white/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <div className="w-12 h-12 rounded-xl bg-amber-50 border border-slate-200 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                       <item.icon className="w-6 h-6" style={{ color: item.iconColor }} />
                     </div>
-                    <h3 className="text-lg font-serif font-bold text-white group-hover:text-[#F4C77B] transition-colors flex items-center gap-1.5">
+                    <h3 className="text-lg font-serif font-bold text-slate-900 group-hover:text-amber-800 transition-colors flex items-center gap-1.5">
                       {item.title}
                       <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all text-[#F4C77B]" />
                     </h3>
-                    <p className="text-xs text-white/70 mt-1.5 leading-relaxed">{item.desc}</p>
+                    <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">{item.desc}</p>
                   </div>
                 </Link>
               ))}

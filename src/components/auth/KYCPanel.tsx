@@ -1,7 +1,41 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, User, CreditCard, Building2, Smartphone, CheckCircle, Search } from 'lucide-react';
+import { ShieldCheck, User, CreditCard, Building2, CheckCircle, Info, Eye, EyeOff } from 'lucide-react';
+
+/**
+ * An IFSC encodes the bank in its first four characters and the branch in its
+ * last six. The bank code is a stable published mapping, so naming the bank
+ * offline is a real lookup. The branch NAME is not derivable without a bank
+ * directory, so this panel shows the branch code the user typed and never
+ * invents a branch name, and never claims the account itself was verified —
+ * that happens when KYC is reviewed.
+ */
+const BANK_NAMES: Record<string, string> = {
+  HDFC: 'HDFC Bank',
+  ICIC: 'ICICI Bank',
+  UTIB: 'Axis Bank',
+  KKBK: 'Kotak Mahindra Bank',
+  SBIN: 'State Bank of India',
+  PUNB: 'Punjab National Bank',
+  UBIN: 'Union Bank of India',
+  CNRB: 'Canara Bank',
+  BARB: 'Bank of Baroda',
+  IDIB: 'Indian Bank',
+  IOBA: 'Indian Overseas Bank',
+  JAKA: 'Jammu & Kashmir Bank',
+};
+
+const IFSC_PATTERN = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+
+/** Indian bank account numbers run 9-18 digits; the exact length varies by bank. */
+const ACCOUNT_PATTERN = /^[0-9]{9,18}$/;
+
+type IfscLookup =
+  | { status: 'idle' }
+  | { status: 'invalid' }
+  | { status: 'unknown'; branchCode: string }
+  | { status: 'resolved'; bank: string; branchCode: string };
 
 interface KYCPanelProps {
   isOpen: boolean;
@@ -16,50 +50,38 @@ export default function KYCPanel({ isOpen, onComplete }: KYCPanelProps) {
   const [role, setRole] = useState('');
   const [aadhaar, setAadhaar] = useState('');
   const [pan, setPan] = useState('');
-  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
   
   const [accountNo, setAccountNo] = useState('');
+  const [confirmAccountNo, setConfirmAccountNo] = useState('');
+  const [showAccount, setShowAccount] = useState(false);
   const [ifsc, setIfsc] = useState('');
-  const [bankDetails, setBankDetails] = useState<{ bank: string; branch: string } | null>(null);
-  const [isCheckingIfsc, setIsCheckingIfsc] = useState(false);
+  const [ifscLookup, setIfscLookup] = useState<IfscLookup>({ status: 'idle' });
 
   useEffect(() => {
     setIsVisible(isOpen);
   }, [isOpen]);
 
-  // Mock IFSC Validation Function
-  const checkIFSC = async (code: string) => {
-    if (code.length < 11) return;
-    setIsCheckingIfsc(true);
-    try {
-      // Trying public razorpay IFSC API
-      const response = await fetch(`https://ifsc.razorpay.com/${code}`);
-      if (response.ok) {
-        const data = await response.json();
-        setBankDetails({ bank: data.BANK, branch: data.BRANCH });
-      } else {
-        // Mock fallback if API fails
-        setTimeout(() => {
-          setBankDetails({ bank: "Jammu & Kashmir Bank", branch: "Srinagar Main" });
-        }, 800);
-      }
-    } catch (e) {
-      // Fallback
-      setBankDetails({ bank: "HDFC Bank", branch: "Lal Chowk" });
-    } finally {
-      setIsCheckingIfsc(false);
-    }
-  };
+  const accountValid = ACCOUNT_PATTERN.test(accountNo);
+  const accountsMatch = accountNo === confirmAccountNo;
+  const bankStepComplete = accountValid && accountsMatch && IFSC_PATTERN.test(ifsc);
 
   const handleIfscChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.toUpperCase();
-    setIfsc(val);
-    setBankDetails(null);
-    if (val.length === 11) {
-      checkIFSC(val);
+    const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11);
+    setIfsc(value);
+    if (value.length < 11) {
+      setIfscLookup({ status: 'idle' });
+      return;
     }
+    if (!IFSC_PATTERN.test(value)) {
+      setIfscLookup({ status: 'invalid' });
+      return;
+    }
+    const bank = BANK_NAMES[value.slice(0, 4)];
+    const branchCode = value.slice(5);
+    setIfscLookup(bank ? { status: 'resolved', bank, branchCode } : { status: 'unknown', branchCode });
   };
 
   if (!isVisible) return null;
@@ -138,7 +160,8 @@ export default function KYCPanel({ isOpen, onComplete }: KYCPanelProps) {
                   <input 
                     type="text" 
                     value={aadhaar}
-                    onChange={e => setAadhaar(e.target.value)}
+                    onChange={e => setAadhaar(e.target.value.replace(/\D/g, '').slice(0, 12))}
+                    inputMode="numeric"
                     className="w-full px-4 py-3 rounded-xl bg-white/80 border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:outline-none transition-all placeholder:text-slate-400" 
                     placeholder="XXXX XXXX XXXX" 
                   />
@@ -148,36 +171,25 @@ export default function KYCPanel({ isOpen, onComplete }: KYCPanelProps) {
                   <input 
                     type="text" 
                     value={pan}
-                    onChange={e => setPan(e.target.value.toUpperCase())}
+                    onChange={e => setPan(e.target.value.toUpperCase().slice(0, 10))}
                     className="w-full px-4 py-3 rounded-xl bg-white/80 border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:outline-none transition-all placeholder:text-slate-400 uppercase" 
                     placeholder="ABCDE1234F" 
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1">Phone Verification</label>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">Aadhaar OTP verification</label>
+                  <p className="mb-2 text-xs text-slate-500">A one-time code will be sent to the mobile number registered with Aadhaar.</p>
                   <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Smartphone className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
-                      <input 
-                        type="tel" 
-                        value={phone}
-                        onChange={e => setPhone(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/80 border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:outline-none transition-all placeholder:text-slate-400" 
-                        placeholder="+91 Mobile Number" 
-                      />
-                    </div>
                     {otpVerified ? (
                       <button disabled className="px-4 py-3 bg-green-100 text-green-700 rounded-xl font-bold flex items-center gap-1 border border-green-200">
                         <CheckCircle className="w-4 h-4" /> Verified
                       </button>
-                    ) : otpSent ? (
-                      <button onClick={() => setOtpVerified(true)} className="px-4 py-3 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-xl font-bold border border-blue-200 transition-colors">
-                        Verify OTP
-                      </button>
                     ) : (
-                      <button onClick={() => setOtpSent(true)} className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold border border-slate-200 transition-colors whitespace-nowrap">
-                        Send SMS OTP
-                      </button>
+                      <>
+                        <button type="button" disabled={aadhaar.length !== 12} onClick={() => setOtpSent(true)} className="px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl font-bold border border-blue-200 transition-colors whitespace-nowrap">Get OTP</button>
+                        {otpSent && <input aria-label="6-digit OTP" inputMode="numeric" maxLength={6} value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} className="min-w-0 flex-1 px-4 py-3 rounded-xl bg-white border border-slate-200" placeholder="Enter 6-digit OTP" />}
+                        {otpSent && <button type="button" disabled={otp.length !== 6} onClick={() => setOtpVerified(true)} className="px-4 py-3 bg-blue-100 hover:bg-blue-200 disabled:opacity-50 text-blue-700 rounded-xl font-bold border border-blue-200 transition-colors">Verify</button>}
+                      </>
                     )}
                   </div>
                 </div>
@@ -194,14 +206,51 @@ export default function KYCPanel({ isOpen, onComplete }: KYCPanelProps) {
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1">Account Number</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label htmlFor="kyc-account" className="block text-sm font-bold text-slate-700">Account Number</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowAccount(v => !v)}
+                      className="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors"
+                    >
+                      {showAccount ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showAccount ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
                   <input 
-                    type="password" 
+                    id="kyc-account"
+                    type={showAccount ? 'text' : 'password'}
+                    inputMode="numeric"
+                    autoComplete="off"
                     value={accountNo}
-                    onChange={e => setAccountNo(e.target.value)}
+                    onChange={e => setAccountNo(e.target.value.replace(/\D/g, '').slice(0, 18))}
                     className="w-full px-4 py-3 rounded-xl bg-white/80 border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:outline-none transition-all placeholder:text-slate-400 font-mono tracking-widest" 
                     placeholder="Enter Account Number" 
                   />
+                  {accountNo.length > 0 && !accountValid && (
+                    <p className="mt-1.5 text-xs font-semibold text-amber-700">Account numbers are 9 to 18 digits.</p>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="kyc-account-confirm" className="block text-sm font-bold text-slate-700 mb-1">Confirm Account Number</label>
+                  <input 
+                    id="kyc-account-confirm"
+                    type={showAccount ? 'text' : 'password'}
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={confirmAccountNo}
+                    onChange={e => setConfirmAccountNo(e.target.value.replace(/\D/g, '').slice(0, 18))}
+                    className="w-full px-4 py-3 rounded-xl bg-white/80 border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:outline-none transition-all placeholder:text-slate-400 font-mono tracking-widest" 
+                    placeholder="Re-enter to confirm" 
+                  />
+                  {confirmAccountNo.length > 0 && !accountsMatch && (
+                    <p role="alert" className="mt-1.5 text-xs font-semibold text-red-700">The two account numbers do not match.</p>
+                  )}
+                  {accountValid && accountsMatch && (
+                    <p className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-emerald-700">
+                      <CheckCircle className="w-3.5 h-3.5" /> Both entries match.
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-1">IFSC Code</label>
@@ -214,19 +263,28 @@ export default function KYCPanel({ isOpen, onComplete }: KYCPanelProps) {
                       className="w-full px-4 py-3 rounded-xl bg-white/80 border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:outline-none transition-all placeholder:text-slate-400 uppercase font-mono" 
                       placeholder="e.g. HDFC0001234" 
                     />
-                    {isCheckingIfsc && (
-                      <Search className="absolute right-4 top-3.5 w-5 h-5 text-blue-400 animate-pulse" />
-                    )}
                   </div>
                 </div>
 
-                {bankDetails && (
-                  <div className="p-4 bg-green-50 border border-green-200 rounded-xl flex gap-3 animate-in fade-in zoom-in-95">
-                    <CheckCircle className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-bold text-green-800">{bankDetails.bank}</p>
-                      <p className="text-sm text-green-700">{bankDetails.branch} Branch</p>
-                    </div>
+                {ifscLookup.status === 'invalid' && (
+                  <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    That is not a valid IFSC. The format is four letters, a zero, then six characters &mdash; for example HDFC0001234.
+                  </p>
+                )}
+
+                {(ifscLookup.status === 'resolved' || ifscLookup.status === 'unknown') && (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 animate-in fade-in zoom-in-95">
+                    <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                      <Info className="w-4 h-4 shrink-0" /> Read from the code &mdash; not confirmed with the bank
+                    </p>
+                    <p className="mt-2 font-bold text-slate-800">
+                      {ifscLookup.status === 'resolved'
+                        ? ifscLookup.bank
+                        : `Bank code ${ifsc.slice(0, 4)} is not in the offline list`}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Branch code {ifscLookup.branchCode}. The branch and the account holder&apos;s name are confirmed when your KYC is reviewed.
+                    </p>
                   </div>
                 )}
               </div>
@@ -246,13 +304,14 @@ export default function KYCPanel({ isOpen, onComplete }: KYCPanelProps) {
           <button
             onClick={() => {
               if (step === 1 && !role) return alert('Please select a role');
+              if (step === 2 && (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan) || !otpVerified)) return alert('Enter a valid PAN and verify the Aadhaar OTP');
               if (step < 3) {
                 setStep(s => s + 1);
               } else {
                 onComplete();
               }
             }}
-            disabled={(step === 1 && !role) || (step === 3 && !bankDetails)}
+            disabled={(step === 1 && !role) || (step === 3 && !bankStepComplete)}
             className="px-8 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold shadow-lg shadow-blue-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {step === 3 ? 'Complete KYC' : 'Continue'}
