@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen w-full">
+    <div className="kr-light flex min-h-screen w-full text-slate-900">
       <a
         href="#auth-main"
         className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50
@@ -21,9 +21,19 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
       {/* Brand panel — exactly 50% width on desktop */}
       <div
-        className="hidden lg:flex w-1/2 flex-col justify-center relative kr-hero-premium kr-pattern-chinar overflow-hidden"
+        className="hidden lg:flex w-1/2 flex-col justify-center relative isolate overflow-hidden"
         aria-hidden="true"
       >
+        <Image
+          src="/seasons/autumn-garden.jpg"
+          alt=""
+          fill
+          sizes="50vw"
+          priority
+          className="-z-20 object-cover"
+          style={{ objectPosition: '50% 50%' }}
+        />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-emerald-950/80 via-emerald-900/50 to-amber-900/40" />
         {/* Subtle Chinar leaf pattern overlay */}
         <div 
           className="absolute inset-0 pointer-events-none opacity-20"
@@ -51,7 +61,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             <h1 className="font-heading text-5xl font-extrabold text-white leading-tight">
               Where Harvest Meets Opportunity.
             </h1>
-            <p className="text-[#E76F51] text-xl font-medium">
+            <p className="text-amber-100 text-xl font-medium">
               Join the digital hub connecting farmers to buyers, modern tools, and intelligent agricultural insights.
             </p>
           </div>
@@ -61,7 +71,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       {/* Form container — exactly 50% width on desktop, 100% on mobile */}
       <main
         id="auth-main"
-        className="flex w-full lg:w-1/2 items-center justify-center bg-kr-bg-sunken px-4 py-12 sm:px-8"
+        className="flex w-full lg:w-1/2 items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-amber-50 px-4 py-12 sm:px-8"
       >
         <div className="w-full max-w-md mx-auto flex flex-col items-center">
           {/* Mobile-only logo */}
@@ -69,7 +79,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             <div className="w-10 h-10 rounded-lg bg-[#1B4332] flex items-center justify-center shadow-md">
               <span className="text-white font-heading font-bold text-xl">K</span>
             </div>
-            <span className="font-heading font-bold text-2xl text-kr-text-primary">KashRoot</span>
+            <span className="font-heading font-bold text-2xl text-slate-900">KashRoot</span>
           </div>
 
           {/* Centered Form content */}

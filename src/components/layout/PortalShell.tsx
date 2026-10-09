@@ -1,7 +1,27 @@
-import React from "react";
-import Link from "next/link";
-import { Bell, Globe, Moon, Home, Settings, LayoutDashboard, Plus } from "lucide-react";
-import { cn } from "@/lib/utils";
+'use client';
+
+/**
+ * PortalShell — the bright frame every role portal renders inside.
+ *
+ * Replaces the old dark shell (black rail, black KPI tiles, hotlinked Unsplash
+ * art). Same props, so existing callers keep working, plus:
+ *   - `tabs` / `activeTab` / `onTabChange` for in-page sections, which is how
+ *     portals now offer "Catalog", "Orders"… without routes that never existed;
+ *   - `actions` for hero buttons;
+ *   - `standalone` for pages outside the (dashboards) group, which then get
+ *     the site header and footer from the shell.
+ *
+ * The hero shows one of the season photographs under a tint, with a chinar
+ * leaf watermark; the canvas carries a faint khatamband lattice. The wrapper
+ * is `kr-light`, so kr-* design-token classes used inside render properly.
+ */
+import Image from 'next/image';
+import Link from 'next/link';
+import type { ElementType, ReactNode } from 'react';
+
+import { ChinarLeaf } from '@/components/brand/ChinarLeaf';
+import { SiteFooter, SiteHeader } from '@/components/layout/SiteHeader';
+import { FOCUS, GLASS_CARD, LATTICE_BG, resolveTheme } from '@/components/portal/kit';
 
 export interface KPI {
   label: string;
@@ -12,127 +32,151 @@ export interface KPI {
 export interface NavItem {
   label: string;
   href: string;
-  icon: React.ElementType;
+  icon: ElementType;
   active?: boolean;
+}
+
+export interface PortalTab {
+  id: string;
+  label: string;
+  icon?: ElementType;
+  count?: number;
 }
 
 export interface PortalShellProps {
   title: string;
   description: string;
+  /** Palette key from PORTAL_THEMES (farmer, buyer, seller, kissan, rental …). */
   theme: string;
+  eyebrow?: string;
   kpis?: KPI[];
+  /** Links to other pages, shown as pills. */
   navItems?: NavItem[];
+  /** In-page sections, shown as tabs. */
+  tabs?: PortalTab[];
+  activeTab?: string;
+  onTabChange?: (id: string) => void;
+  /** Buttons on the hero. */
+  actions?: ReactNode;
+  /** Render the site header/footer (pages outside the dashboards layout). */
+  standalone?: boolean;
+  /** Legacy prop — ignored; heroes use the local season photographs. */
   bgImage?: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
-export function PortalShell({ 
-  title, 
-  description, 
-  theme, 
-  kpis = [], 
+export function PortalShell({
+  title,
+  description,
+  theme: themeId,
+  eyebrow,
+  kpis = [],
   navItems = [],
-  bgImage = "https://images.unsplash.com/photo-1715457573748-8e8a70b2c1be?auto=format&fit=crop&w=2400&q=80",
-  children 
+  tabs = [],
+  activeTab,
+  onTabChange,
+  actions,
+  standalone = false,
+  children,
 }: PortalShellProps) {
+  const theme = resolveTheme(themeId);
+
   return (
-    <div className="min-h-screen flex bg-[var(--surface-base)] text-white" data-theme={theme}>
-      {/* Blurred Background Overlay */}
-      <div 
-        className="fixed inset-0 z-0 opacity-10 bg-cover bg-center blur-3xl saturate-150"
-        style={{ backgroundImage: `url(${bgImage})` }}
-      />
+    <div className={`kr-light relative isolate min-h-screen text-slate-900 ${theme.canvas}`}>
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10" style={LATTICE_BG} />
+      {standalone && <SiteHeader tone="light" />}
 
-      {/* Desktop Left Rail */}
-      <aside className="hidden md:flex flex-col w-24 border-r border-white/10 bg-black/40 backdrop-blur-xl relative z-20 items-center py-6 gap-8">
-        <Link href="/" className="w-12 h-12 rounded-xl bg-gradient-to-br from-white/10 to-transparent flex items-center justify-center border border-white/20">
-          <Globe className="w-6 h-6 text-[#D4AF37]" />
-        </Link>
-        <nav className="flex flex-col gap-4">
-          {navItems.map((item, i) => (
-            <Link 
-              key={i} 
-              href={item.href}
-              className={cn(
-                "w-12 h-12 flex items-center justify-center rounded-2xl transition-all duration-300",
-                item.active 
-                  ? "bg-[var(--primary)] shadow-[0_0_20px_var(--primary)] text-white" 
-                  : "text-white/50 hover:bg-white/10 hover:text-white"
+      <div className="mx-auto max-w-7xl px-4 pb-16 pt-6 sm:px-6 lg:px-8">
+        {/* Hero */}
+        <section className="relative isolate overflow-hidden rounded-[2rem] shadow-[0_20px_60px_rgba(15,23,42,0.18)]">
+          <Image
+            src={theme.photo}
+            alt=""
+            fill
+            sizes="(min-width: 1280px) 1216px, 100vw"
+            priority
+            className="-z-20 object-cover"
+            style={{ objectPosition: theme.focus }}
+          />
+          <div aria-hidden className={`absolute inset-0 -z-10 bg-gradient-to-r ${theme.heroTint}`} />
+          <ChinarLeaf
+            className="pointer-events-none absolute -right-6 -top-8 -z-10 h-56 w-56 rotate-12 opacity-30"
+            color="#FDE68A"
+          />
+
+          <div className="flex min-h-[220px] flex-col justify-end gap-5 p-6 sm:flex-row sm:items-end sm:justify-between sm:p-9">
+            <div className="max-w-2xl">
+              {eyebrow && (
+                <p className={`inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] backdrop-blur ${theme.eyebrow}`}>
+                  {eyebrow}
+                </p>
               )}
-            >
-              <item.icon className="w-6 h-6" />
-            </Link>
-          ))}
-        </nav>
-      </aside>
-
-      <div className="flex-1 flex flex-col relative z-10 w-full overflow-x-hidden">
-        {/* Top Bar */}
-        <header className="h-16 border-b border-white/10 bg-black/20 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-40">
-          <div className="font-serif font-bold tracking-widest text-[var(--primary)] uppercase text-sm">
-            {theme} Portal
-          </div>
-          <div className="flex items-center gap-4">
-            <button className="p-2 hover:bg-white/10 rounded-full transition-colors"><Globe className="w-5 h-5 text-white/70" /></button>
-            <button className="p-2 hover:bg-white/10 rounded-full transition-colors"><Moon className="w-5 h-5 text-white/70" /></button>
-            <button className="p-2 hover:bg-white/10 rounded-full transition-colors relative">
-              <Bell className="w-5 h-5 text-white/70" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
-          </div>
-        </header>
-
-        {/* Hero Banner with Overlapping KPIs */}
-        <div className="relative pt-12 pb-24 px-6 md:px-12">
-          <div className="absolute inset-0 z-0 bg-cover bg-center opacity-30" style={{ backgroundImage: `url(${bgImage})` }} />
-          <div className="absolute inset-0 z-0 bg-gradient-to-b from-transparent to-[var(--surface-base)]" />
-          
-          <div className="relative z-10 max-w-5xl mx-auto">
-            <h1 className="text-4xl md:text-5xl font-black font-serif mb-4 drop-shadow-xl">{title}</h1>
-            <p className="text-lg text-white/80 max-w-2xl font-light">{description}</p>
-          </div>
-        </div>
-
-        {/* KPI Row (Overlaps the banner) */}
-        {kpis.length > 0 && (
-          <div className="px-6 md:px-12 relative z-20 -mt-16 mb-12">
-            <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4">
-              {kpis.map((kpi, i) => (
-                <div key={i} className="bg-black/50 backdrop-blur-xl border border-[var(--primary)]/30 rounded-2xl p-5 shadow-2xl relative overflow-hidden group hover:-translate-y-1 transition-transform">
-                  <div className="absolute -top-6 -right-6 w-16 h-16 bg-[var(--primary)]/10 rounded-full blur-2xl group-hover:bg-[var(--primary)]/20 transition-colors" />
-                  <p className="text-sm text-white/60 mb-1">{kpi.label}</p>
-                  <p className="text-2xl font-bold text-white">{kpi.value}</p>
-                  {kpi.trend && <p className="text-xs text-[var(--primary)] mt-1 font-medium">{kpi.trend}</p>}
-                </div>
-              ))}
+              <h1 className="mt-3 text-3xl font-bold tracking-tight text-white drop-shadow-sm sm:text-4xl">{title}</h1>
+              <p className="mt-2 text-base text-white/90">{description}</p>
             </div>
+            {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+          </div>
+        </section>
+
+        {/* KPIs */}
+        {kpis.length > 0 && (
+          <div className={`relative z-10 -mt-6 mx-3 grid gap-3 sm:mx-6 ${kpis.length >= 4 ? 'grid-cols-2 lg:grid-cols-4' : kpis.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'}`}>
+            {kpis.map((kpi) => (
+              <div key={kpi.label} className={`${GLASS_CARD} p-4`}>
+                <p className="text-xs font-medium uppercase tracking-wider text-slate-500">{kpi.label}</p>
+                <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{kpi.value}</p>
+                {kpi.trend && <p className={`mt-0.5 text-xs font-medium ${theme.accent}`}>{kpi.trend}</p>}
+              </div>
+            ))}
           </div>
         )}
 
-        {/* Main Content Area */}
-        <main className="px-6 md:px-12 pb-24 flex-1">
-          <div className="max-w-5xl mx-auto">
-            {children}
-          </div>
-        </main>
+        {/* Navigation: page links + in-page tabs */}
+        {(navItems.length > 0 || tabs.length > 0) && (
+          <nav
+            aria-label={`${title} sections`}
+            className="mt-6 flex flex-wrap gap-1.5 rounded-2xl bg-white/60 p-1.5 ring-1 ring-slate-900/5 backdrop-blur"
+          >
+            {tabs.map(({ id, label, icon: Icon, count }) => {
+              const active = id === activeTab;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => onTabChange?.(id)}
+                  aria-pressed={active}
+                  className={`inline-flex cursor-pointer items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold transition ${FOCUS} ${theme.outline} ${
+                    active ? theme.tabActive : 'text-slate-600 hover:bg-white/70 hover:text-slate-900'
+                  }`}
+                >
+                  {Icon && <Icon className="h-4 w-4" aria-hidden />}
+                  {label}
+                  {typeof count === 'number' && (
+                    <span className="rounded-full bg-slate-900/5 px-1.5 text-xs tabular-nums">{count}</span>
+                  )}
+                </button>
+              );
+            })}
+            {navItems.map(({ label, href, icon: Icon, active }) => (
+              <Link
+                key={href}
+                href={href}
+                aria-current={active ? 'page' : undefined}
+                className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold no-underline transition hover:no-underline ${FOCUS} ${theme.outline} ${
+                  active ? theme.tabActive : 'text-slate-600 hover:bg-white/70 hover:text-slate-900'
+                }`}
+              >
+                <Icon className="h-4 w-4" aria-hidden />
+                {label}
+              </Link>
+            ))}
+          </nav>
+        )}
+
+        <div className="mt-6">{children}</div>
       </div>
 
-      {/* Mobile Bottom Tab Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-20 bg-black/80 backdrop-blur-xl border-t border-white/10 z-50 flex items-center justify-around px-2">
-        <Link href="/" className="p-3 text-white/50"><Home className="w-6 h-6" /></Link>
-        <Link href="#" className="p-3 text-[var(--primary)]"><LayoutDashboard className="w-6 h-6" /></Link>
-        
-        {/* Floating Action Center Button */}
-        <div className="relative -top-6">
-          <button className="w-14 h-14 rounded-full bg-gradient-to-tr from-[var(--primary)] to-[var(--secondary)] flex items-center justify-center shadow-[0_4px_20px_var(--primary)] border-4 border-black text-white hover:scale-105 transition-transform">
-            <Plus className="w-7 h-7" />
-          </button>
-        </div>
-        
-        <Link href="#" className="p-3 text-white/50"><Bell className="w-6 h-6" /></Link>
-        <Link href="#" className="p-3 text-white/50"><Settings className="w-6 h-6" /></Link>
-      </nav>
+      {standalone && <SiteFooter tone="light" />}
     </div>
   );
 }
-

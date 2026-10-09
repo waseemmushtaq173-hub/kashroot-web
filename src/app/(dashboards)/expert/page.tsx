@@ -1,199 +1,388 @@
 'use client';
-import { Button } from "@/components/ui/Button";
 
-import { useEffect, useState } from 'react';
-import { BookOpen, ShieldAlert, CheckCircle2, MessageCircle, FileText, FlaskConical, Stethoscope, Edit3, Lock } from 'lucide-react';
+/**
+ * Advisory & knowledge hub — disease protocols and SOPs, ask-an-agronomist
+ * queries (experts get an answer queue instead), and soil-test kit orders.
+ *
+ * Queries, published advisories and kit orders live in the browser
+ * (kr_expert_*) until an advisory API exists.
+ */
+import { useState, useSyncExternalStore } from 'react';
+import { BookOpen, CheckCircle2, Edit3, FlaskConical, ImagePlus, Lock, MessageCircle, Send, ShieldAlert, Stethoscope } from 'lucide-react';
+import { toast } from 'sonner';
+
+import { PortalShell } from '@/components/layout/PortalShell';
+import { Badge, Btn, EmptyState, Field, INPUT, Modal, PORTAL_THEMES, Panel } from '@/components/portal/kit';
+import { localId, usePersistentState } from '@/lib/portal-store';
+
+const theme = PORTAL_THEMES.expert;
+
+interface Article {
+  id: string;
+  kind: 'protocol' | 'sop';
+  title: string;
+  status?: string;
+  body: string[];
+}
+
+interface Query {
+  id: string;
+  crop: string;
+  question: string;
+  photo?: string;
+  answer?: string;
+  askedAt: number;
+}
+
+type KitStage = 'requested' | 'delivered' | 'sample-sent' | 'report';
+interface KitOrder {
+  id: string;
+  plot: string;
+  crop: string;
+  stage: KitStage;
+}
+
+const BUILT_IN: Article[] = [
+  {
+    id: 'A-1',
+    kind: 'protocol',
+    title: 'Apple scab (Venturia inaequalis)',
+    status: 'High alert · pre-bloom to petal fall',
+    body: [
+      'Silver tip to green tip: Dodine 65 WP (60 g/100 L) or Captan 50 WP (300 g/100 L).',
+      'Pink bud: Mancozeb 75 WP (300 g/100 L) or Propineb 70 WP (300 g/100 L).',
+      'Prune the canopy open for airflow to keep leaf wetness down.',
+    ],
+  },
+  {
+    id: 'A-2',
+    kind: 'protocol',
+    title: 'San José scale',
+    body: ['Horticultural mineral oil at 2% during delayed dormancy (late Feb / early March). Never spray in freezing temperatures.'],
+  },
+  {
+    id: 'A-3',
+    kind: 'protocol',
+    title: 'Walnut blight (Xanthomonas arboricola)',
+    body: ['Copper oxychloride 50 WP (300 g/100 L) at early leaf emergence and pre-bloom; repeat post-bloom after heavy spring rain.'],
+  },
+  {
+    id: 'A-4',
+    kind: 'sop',
+    title: 'High-density apple planting',
+    body: ['Rootstocks M9 or MM106. Pits 3×3×3 ft, rows 3 m apart, trees 1 m apart. Install drip and trellis before planting.'],
+  },
+  {
+    id: 'A-5',
+    kind: 'sop',
+    title: 'Saffron corm grading & soil prep',
+    body: ['Plant corms heavier than 8 g. Dip in Carbendazim 50 WP (2 g/L) for 30 minutes. Aim for soil pH 6.5–7.5 on well-drained upland soil.'],
+  },
+  {
+    id: 'A-6',
+    kind: 'sop',
+    title: 'NPK for bearing apple trees',
+    body: ['Soil-test first. Baseline for 10+ year trees: 700 g N, 350 g P₂O₅, 700 g K₂O per tree in split doses.'],
+  },
+];
+
+const CANNED: Record<string, string> = {
+  Apple: 'From your description this looks like early scab. Spray Captan 50 WP at 300 g/100 L now and again in 10 days, and remove fallen leaves. Send a close-up of the leaf underside if spots keep spreading.',
+  Walnut: 'Black lesions on young nuts after rain usually mean walnut blight. Use copper oxychloride 50 WP at 300 g/100 L and avoid overhead irrigation.',
+  Saffron: 'Yellowing with soft corms points to corm rot. Lift and discard affected corms, improve drainage, and treat healthy corms with Carbendazim before replanting.',
+  Cherry: 'Cracking after rain is common close to harvest. Keep soil moisture even and consider a calcium chloride spray (0.5%) from fruit colour change.',
+  Other: 'Thanks — an agronomist will follow up. Meanwhile, isolate affected plants and avoid spraying until the cause is confirmed.',
+};
+
+const KIT_STAGES: Record<KitStage, { label: string; tone: 'amber' | 'violet' | 'blue' | 'green'; next?: KitStage; action?: string }> = {
+  requested: { label: 'Kit dispatched', tone: 'amber', next: 'delivered', action: 'I received the kit' },
+  delivered: { label: 'Kit with you', tone: 'violet', next: 'sample-sent', action: 'I posted my sample' },
+  'sample-sent': { label: 'Sample at the lab', tone: 'blue', next: 'report', action: 'Check for report' },
+  report: { label: 'Report ready', tone: 'green' },
+};
+
+const NO_ARTICLES: Article[] = [];
+const NO_QUERIES: Query[] = [];
+const NO_KITS: KitOrder[] = [];
+const NO_APPLICATION: { status?: string } | null = null;
+
+const subscribeRole = (cb: () => void) => {
+  window.addEventListener('storage', cb);
+  return () => window.removeEventListener('storage', cb);
+};
+const readRole = () => localStorage.getItem('user_role');
 
 export default function ExpertDashboard() {
-  const [isExpert, setIsExpert] = useState(false);
-  const [isVerified, setIsVerified] = useState(false);
+  const role = useSyncExternalStore(subscribeRole, readRole, () => null);
+  const isExpert = role === 'EXPERT';
+  const [application] = usePersistentState<{ status?: string } | null>('expert_application', NO_APPLICATION);
+  const awaitingVerification = isExpert && application?.status === 'PENDING_VERIFICATION';
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const role = localStorage.getItem('user_role');
-      setIsExpert(role === 'EXPERT');
-      
-      const appStr = localStorage.getItem('expert_application');
-      if (appStr) {
-        const app = JSON.parse(appStr);
-        setIsVerified(app.status === 'VERIFIED_EXPERT');
-      } else {
-        // Mock default verified state for non-new registrations
-        setIsVerified(true);
-      }
+  const [tab, setTab] = useState('library');
+  const [articles, setArticles] = usePersistentState<Article[]>('kr_expert_articles', NO_ARTICLES);
+  const [queries, setQueries] = usePersistentState<Query[]>('kr_expert_queries', NO_QUERIES);
+  const [kits, setKits] = usePersistentState<KitOrder[]>('kr_expert_kits', NO_KITS);
+
+  const [ask, setAsk] = useState({ crop: 'Apple', question: '', photo: '' });
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [draft, setDraft] = useState({ kind: 'protocol' as Article['kind'], title: '', body: '' });
+  const [answering, setAnswering] = useState<Query | null>(null);
+  const [answerText, setAnswerText] = useState('');
+  const [kit, setKit] = useState({ plot: '', crop: 'Apple' });
+
+  const library = [...articles, ...BUILT_IN];
+  const open = queries.filter((q) => !q.answer);
+
+  const submitQuestion = () => {
+    if (ask.question.trim().length < 10) return toast.error('Describe the problem in a sentence or two.');
+    const q: Query = { id: localId('Q'), crop: ask.crop, question: ask.question.trim(), photo: ask.photo || undefined, askedAt: Date.now() };
+    setQueries((all) => [q, ...all]);
+    setAsk({ crop: ask.crop, question: '', photo: '' });
+    toast.success('Question sent to an agronomist');
+    if (!isExpert) {
+      setTimeout(() => {
+        setQueries((all) => all.map((x) => (x.id === q.id && !x.answer ? { ...x, answer: CANNED[q.crop] ?? CANNED.Other } : x)));
+        toast.success('An agronomist replied to your question');
+      }, 5000);
     }
-  }, []);
+  };
+
+  const publish = () => {
+    if (!draft.title.trim() || draft.body.trim().length < 20) return toast.error('Add a title and at least a couple of sentences.');
+    setArticles((all) => [{ id: localId('A'), kind: draft.kind, title: draft.title.trim(), body: draft.body.trim().split(/\n+/) }, ...all]);
+    setDraft({ kind: 'protocol', title: '', body: '' });
+    setPublishOpen(false);
+    toast.success('Advisory published to farmers');
+  };
+
+  const sendAnswer = () => {
+    if (!answering || answerText.trim().length < 10) return toast.error('Write a short answer first.');
+    setQueries((all) => all.map((x) => (x.id === answering.id ? { ...x, answer: answerText.trim() } : x)));
+    setAnswering(null);
+    setAnswerText('');
+    toast.success('Answer sent to the farmer');
+  };
+
+  const orderKit = () => {
+    if (!kit.plot.trim()) return toast.error('Name the plot so we can label your report.');
+    setKits((all) => [{ id: localId('KIT'), plot: kit.plot.trim(), crop: kit.crop, stage: 'requested' }, ...all]);
+    setKit({ plot: '', crop: kit.crop });
+    toast.success('Soil test kit on its way');
+  };
+
+  const articleList = (kind: Article['kind']) => (
+    <ul className="space-y-3">
+      {library.filter((a) => a.kind === kind).map((a) => (
+        <li key={a.id} className="rounded-2xl bg-white/70 p-4 ring-1 ring-slate-900/5">
+          <div className="flex flex-wrap items-center gap-2">
+            {kind === 'sop' && <BookOpen className="h-4 w-4 text-purple-700" aria-hidden />}
+            <h3 className="font-semibold text-slate-900">{a.title}</h3>
+            {a.status && <Badge tone="amber">{a.status}</Badge>}
+            {!BUILT_IN.includes(a) && <Badge tone="violet">New</Badge>}
+          </div>
+          {a.body.length > 1 ? (
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
+              {a.body.map((line) => <li key={line}>{line}</li>)}
+            </ul>
+          ) : (
+            <p className="mt-2 text-sm text-slate-700">{a.body[0]}</p>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
 
   return (
-    <div className="kr-container py-8 space-y-8">
-      <header className="mb-8">
-        <h1 className="font-heading text-h1 text-kr-text-primary">Advisory & Knowledge Hub</h1>
-        <p className="text-body mt-2 text-kr-text-secondary">
-          Region-specific agricultural guidance, disease management, and direct agronomy support.
+    <PortalShell
+      title="Advisory & knowledge hub"
+      description="Disease protocols, orchard SOPs and direct answers from agronomists — plus soil testing at your door."
+      eyebrow={isExpert ? 'Expert desk' : 'Advisory'}
+      theme="expert"
+      kpis={[
+        { label: 'Protocols & SOPs', value: String(library.length), trend: `${articles.length} published here` },
+        { label: isExpert ? 'Open queries' : 'Your questions', value: String(isExpert ? open.length : queries.length), trend: `${queries.filter((q) => q.answer).length} answered` },
+        { label: 'Soil tests', value: String(kits.length), trend: `${kits.filter((k) => k.stage === 'report').length} reports ready` },
+      ]}
+      tabs={[
+        { id: 'library', label: 'Library', icon: BookOpen },
+        { id: 'ask', label: isExpert ? 'Answer queue' : 'Ask an agronomist', icon: MessageCircle, count: isExpert ? open.length : undefined },
+        { id: 'soil', label: 'Soil test', icon: FlaskConical },
+      ]}
+      activeTab={tab}
+      onTabChange={setTab}
+      actions={
+        isExpert ? (
+          <Btn theme={theme} variant="white" icon={awaitingVerification ? Lock : Edit3} disabled={awaitingVerification} onClick={() => setPublishOpen(true)}>Publish advisory</Btn>
+        ) : (
+          <Btn theme={theme} variant="white" icon={MessageCircle} onClick={() => setTab('ask')}>Ask an agronomist</Btn>
+        )
+      }
+    >
+      {awaitingVerification && (
+        <p className="mb-6 flex items-start gap-2 rounded-2xl bg-amber-50 p-4 text-sm text-amber-900 ring-1 ring-amber-200">
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          Your credentials are being verified by the platform admin. Publishing and answering unlock once you are approved.
         </p>
-      </header>
+      )}
 
-      {isExpert && !isVerified && (
-        <div className="bg-kr-badge-pending-bg border-l-4 border-kr-warning-500 p-4 mb-6 rounded-r-md flex gap-4">
-          <ShieldAlert className="w-6 h-6 text-kr-warning-600 flex-shrink-0" />
-          <div>
-            <h3 className="font-semibold text-kr-badge-pending-text">Account Under Credential Verification</h3>
-            <p className="text-kr-warning-700 text-sm mt-1">
-              You will be able to publish advisories and answer farmer queries once your qualifications are approved by the Platform Admin.
-            </p>
-          </div>
+      {tab === 'library' && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Panel theme={theme} title="Disease management protocols" icon={ShieldAlert}>
+            {articleList('protocol')}
+          </Panel>
+          <Panel theme={theme} title="Best practices & SOPs" icon={CheckCircle2}>
+            {articleList('sop')}
+          </Panel>
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Knowledge Base Section */}
-        <div className="lg:col-span-2 space-y-6">
-          <section className="kr-card kr-glass-amber kr-pattern-chinar p-6 border-l-4 border-l-kr-warning-500">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <ShieldAlert className="w-6 h-6 text-kr-warning-600" />
-                <h2 className="text-h3 font-heading">Disease Management Protocols</h2>
-              </div>
-              {isExpert && (
-                <Button 
-                  disabled={!isVerified} 
-                  className={`kr-btn-ghost kr-btn-sm flex items-center gap-2 ${!isVerified ? 'opacity-50 cursor-not-allowed' : ''} hidden`}
-                >
-                  {!isVerified ? <Lock className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
-                  Publish Protocol
-                </Button>
-              )}
-            </div>
-            
-            <div className="space-y-4">
-              <div className="border border-kr-border-default rounded-md p-4">
-                <h3 className="font-semibold text-kr-text-primary text-body-lg">Apple Scab (Venturia inaequalis)</h3>
-                <p className="text-caption text-kr-text-secondary mt-1">Status: High Alert (Pre-bloom to Petal fall phase)</p>
-                <div className="mt-3 bg-kr-bg-sunken p-3 text-body-sm text-kr-text-secondary rounded">
-                  <strong>Treatment Schedule:</strong>
-                  <ul className="list-disc pl-4 mt-1 space-y-1">
-                    <li>Silver tip to Green tip: Dodine 65 WP (60g/100L) or Captan 50 WP (300g/100L).</li>
-                    <li>Pink bud stage: Mancozeb 75 WP (300g/100L) or Propineb 70 WP (300g/100L).</li>
-                    <li>Ensure proper canopy pruning for aeration to lower humidity.</li>
-                  </ul>
-                </div>
-              </div>
-
-              <div className="border border-kr-border-default rounded-md p-4">
-                <h3 className="font-semibold text-kr-text-primary text-body-lg">San Jose Scale</h3>
-                <div className="mt-3 bg-kr-bg-sunken p-3 text-body-sm text-kr-text-secondary rounded">
-                  <strong>Intervention:</strong> Apply Horticulture Mineral Oil (HMO) at 2% concentration during the delayed dormant stage (late Feb/early March). Avoid spraying during freezing temperatures.
-                </div>
-              </div>
-
-              <div className="border border-kr-border-default rounded-md p-4">
-                <h3 className="font-semibold text-kr-text-primary text-body-lg">Walnut Blight (Xanthomonas arboricola)</h3>
-                <div className="mt-3 bg-kr-bg-sunken p-3 text-body-sm text-kr-text-secondary rounded">
-                  <strong>Prevention:</strong> Copper-based sprays (e.g., Copper Oxychloride 50 WP at 300g/100L) during early leaf emergence and pre-bloom. Repeat post-bloom if spring rains are heavy.
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className="kr-card kr-glass-amber kr-pattern-chinar p-6 border-l-4 border-l-kr-success-500">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-6 h-6 text-kr-success-600" />
-                <h2 className="text-h3 font-heading">Best Practices & SOPs</h2>
-              </div>
-              {isExpert && (
-                <Button 
-                  disabled={!isVerified} 
-                  className={`kr-btn-ghost kr-btn-sm flex items-center gap-2 ${!isVerified ? 'opacity-50 cursor-not-allowed' : ''} hidden`}
-                >
-                  {!isVerified ? <Lock className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
-                  Publish SOP
-                </Button>
-              )}
-            </div>
-            
-            <div className="space-y-4">
-              <div className="border border-kr-border-default rounded-md p-4 flex gap-4">
-                <div className="mt-1"><BookOpen className="w-5 h-5 text-kr-primary-600" /></div>
-                <div>
-                  <h3 className="font-medium text-kr-text-primary">High-Density Apple Orchard Planting</h3>
-                  <p className="text-body-sm text-kr-text-secondary mt-1">Recommended rootstocks (M9, MM106). Pit size 3x3x3 ft. Space rows 3m apart and trees 1m apart. Install drip irrigation and trellis systems prior to planting.</p>
-                </div>
-              </div>
-
-              <div className="border border-kr-border-default rounded-md p-4 flex gap-4">
-                <div className="mt-1"><BookOpen className="w-5 h-5 text-kr-primary-600" /></div>
-                <div>
-                  <h3 className="font-medium text-kr-text-primary">Saffron Corm Grading & Soil Prep</h3>
-                  <p className="text-body-sm text-kr-text-secondary mt-1">Select corms weighing {'>'} 8g. Treat with Carbendazim 50 WP (2g/L) for 30 minutes before planting. Soil pH should ideally be 6.5 to 7.5 (Pampore karewas).</p>
-                </div>
-              </div>
-
-              <div className="border border-kr-border-default rounded-md p-4 flex gap-4">
-                <div className="mt-1"><BookOpen className="w-5 h-5 text-kr-primary-600" /></div>
-                <div>
-                  <h3 className="font-medium text-kr-text-primary">Optimal NPK Application Rates</h3>
-                  <p className="text-body-sm text-kr-text-secondary mt-1">Always perform soil testing first. Baseline for bearing apple trees (10+ years): 700g N, 350g P2O5, 700g K2O per tree applied in split doses.</p>
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
-
-        {/* Action Panel */}
-        <div className="space-y-6">
-          <section className="kr-card kr-glass-amber kr-pattern-chinar p-6 bg-kr-bg-sunken">
-            <div className="flex items-center gap-2 mb-4">
-              <Stethoscope className="w-6 h-6 text-kr-primary-600" />
-              <h2 className="text-h3 font-heading">{isExpert ? 'Expert Actions' : 'Expert Connect'}</h2>
-            </div>
-            {isExpert ? (
-              <>
-                <p className="text-body-sm text-kr-text-secondary mb-4">
-                  Manage your consultations and farmer queries.
-                </p>
-                <Button disabled={!isVerified} className={`kr-btn-primary w-full flex items-center justify-center gap-2 ${!isVerified ? 'opacity-50 cursor-not-allowed' : ''} hidden`}>
-                  {!isVerified ? <Lock className="w-4 h-4" /> : <MessageCircle className="w-4 h-4" />}
-                  Answer Farmer Queries
-                </Button>
-                <Button disabled={!isVerified} className={`kr-btn-secondary w-full mt-3 flex items-center justify-center gap-2 ${!isVerified ? 'opacity-50 cursor-not-allowed' : ''} hidden`}>
-                  {!isVerified ? <Lock className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
-                  Draft New Advisory
-                </Button>
-              </>
+      {tab === 'ask' && (
+        <div className="grid gap-6 lg:grid-cols-[1fr_1.3fr]">
+          <Panel theme={theme} title={isExpert ? 'Post a question for the network' : 'Describe the problem'} icon={Stethoscope}>
+            <form className="grid gap-4" onSubmit={(e) => { e.preventDefault(); submitQuestion(); }}>
+              <Field label="Crop">
+                <select className={INPUT} value={ask.crop} onChange={(e) => setAsk({ ...ask, crop: e.target.value })}>
+                  {Object.keys(CANNED).map((c) => <option key={c}>{c}</option>)}
+                </select>
+              </Field>
+              <Field label="What are you seeing?">
+                <textarea rows={4} className={INPUT} value={ask.question} onChange={(e) => setAsk({ ...ask, question: e.target.value })} placeholder="e.g. Olive-green spots on leaves after last week's rain" />
+              </Field>
+              <Field label="Photo (optional)" hint={ask.photo ? `Attached: ${ask.photo}` : 'A close-up helps the diagnosis.'}>
+                <span className="flex items-center gap-2">
+                  <ImagePlus className="h-4 w-4 text-purple-700" aria-hidden />
+                  <input type="file" accept="image/*" className="text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-purple-50 file:px-3 file:py-1.5 file:text-purple-800" onChange={(e) => setAsk({ ...ask, photo: e.target.files?.[0]?.name ?? '' })} />
+                </span>
+              </Field>
+              <Btn theme={theme} type="submit" icon={Send}>Send question</Btn>
+            </form>
+          </Panel>
+          <Panel theme={theme} title={isExpert ? 'Answer queue' : 'Your questions'} icon={MessageCircle}>
+            {queries.length === 0 ? (
+              <EmptyState theme={theme} icon={MessageCircle} title="No questions yet" text={isExpert ? 'Farmer questions land here.' : 'Ask about a pest, disease or nutrient problem — replies usually come in minutes.'} />
             ) : (
-              <>
-                <p className="text-body-sm text-kr-text-secondary mb-4">
-                  Consult with verified SKUAST agronomists and regional horticulture experts.
-                </p>
-                <Button className="kr-btn-primary w-full flex items-center justify-center gap-2 hidden">
-                  <MessageCircle className="w-4 h-4" />
-                  Ask an Agronomist
-                </Button>
-                <Button className="kr-btn-secondary w-full mt-3 flex items-center justify-center gap-2 hidden">
-                  <FileText className="w-4 h-4" />
-                  Upload Crop Image
-                </Button>
-              </>
+              <ul className="space-y-3">
+                {queries.map((q) => (
+                  <li key={q.id} className="rounded-2xl bg-white/70 p-4 ring-1 ring-slate-900/5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge tone="violet">{q.crop}</Badge>
+                      {q.answer ? <Badge tone="green">Answered</Badge> : <Badge tone="amber">Waiting for agronomist</Badge>}
+                      {q.photo && <span className="text-xs text-slate-500">📎 {q.photo}</span>}
+                    </div>
+                    <p className="mt-2 text-sm text-slate-800">{q.question}</p>
+                    {q.answer && <p className="mt-3 rounded-xl bg-purple-50 p-3 text-sm text-purple-950">{q.answer}</p>}
+                    {isExpert && !q.answer && (
+                      <Btn theme={theme} size="sm" className="mt-3" icon={awaitingVerification ? Lock : Send} disabled={awaitingVerification} onClick={() => { setAnswering(q); setAnswerText(''); }}>Answer</Btn>
+                    )}
+                  </li>
+                ))}
+              </ul>
             )}
-          </section>
-
-          <section className="kr-card kr-glass-amber kr-pattern-chinar p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <FlaskConical className="w-6 h-6 text-kr-primary-600" />
-              <h2 className="text-h3 font-heading">Soil Health</h2>
-            </div>
-            <p className="text-body-sm text-kr-text-secondary mb-4">
-              Order a comprehensive NPK and micronutrient testing kit to your orchard.
-            </p>
-            <Button className="kr-btn-primary w-full text-center hidden">
-              Request Soil Test Kit
-            </Button>
-          </section>
+          </Panel>
         </div>
-        
-      </div>
-    </div>
+      )}
+
+      {tab === 'soil' && (
+        <div className="grid gap-6 lg:grid-cols-[1fr_1.3fr]">
+          <Panel theme={theme} title="Order a soil test kit" icon={FlaskConical}>
+            <p className="mb-4 text-sm text-slate-600">NPK, pH, organic carbon and micronutrients. The report comes with a fertiliser plan for your crop.</p>
+            <form className="grid gap-4" onSubmit={(e) => { e.preventDefault(); orderKit(); }}>
+              <Field label="Plot name">
+                <input className={INPUT} value={kit.plot} onChange={(e) => setKit({ ...kit, plot: e.target.value })} placeholder="e.g. Upper terrace block" />
+              </Field>
+              <Field label="Crop">
+                <select className={INPUT} value={kit.crop} onChange={(e) => setKit({ ...kit, crop: e.target.value })}>
+                  {['Apple', 'Walnut', 'Saffron', 'Cherry', 'Almond', 'Vegetables'].map((c) => <option key={c}>{c}</option>)}
+                </select>
+              </Field>
+              <Btn theme={theme} type="submit" icon={FlaskConical}>Request soil test kit</Btn>
+            </form>
+          </Panel>
+          <Panel theme={theme} title="Your soil tests" icon={CheckCircle2}>
+            {kits.length === 0 ? (
+              <EmptyState theme={theme} icon={FlaskConical} title="No tests yet" text="Order a kit to get a fertiliser plan for your plot." />
+            ) : (
+              <ul className="space-y-3">
+                {kits.map((k) => {
+                  const st = KIT_STAGES[k.stage];
+                  return (
+                    <li key={k.id} className="rounded-2xl bg-white/70 p-4 ring-1 ring-slate-900/5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-xs text-slate-500">{k.id} · {k.crop}</p>
+                          <p className="font-semibold text-slate-900">{k.plot}</p>
+                        </div>
+                        <Badge tone={st.tone}>{st.label}</Badge>
+                      </div>
+                      {k.stage === 'report' ? (
+                        <dl className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+                          {[['pH', '6.8'], ['Nitrogen', 'Medium'], ['Phosphorus', 'Low'], ['Potassium', 'High']].map(([l, v]) => (
+                            <div key={l} className="rounded-xl bg-purple-50 p-2 text-center"><dt className="text-xs text-purple-700">{l}</dt><dd className="font-semibold text-purple-950">{v}</dd></div>
+                          ))}
+                          <p className="col-span-full text-xs text-slate-600">Plan: add 350 g P₂O₅ per bearing tree before flowering; hold back potash this season.</p>
+                        </dl>
+                      ) : (
+                        <Btn theme={theme} size="sm" variant="soft" className="mt-3" onClick={() => { setKits((all) => all.map((x) => (x.id === k.id ? { ...x, stage: st.next! } : x))); toast.success(KIT_STAGES[st.next!].label); }}>
+                          {st.action}
+                        </Btn>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Panel>
+        </div>
+      )}
+
+      <Modal
+        open={publishOpen}
+        onClose={() => setPublishOpen(false)}
+        title="Publish an advisory"
+        wide
+        footer={
+          <>
+            <Btn theme={theme} variant="ghost" onClick={() => setPublishOpen(false)}>Cancel</Btn>
+            <Btn theme={theme} icon={Edit3} onClick={publish}>Publish</Btn>
+          </>
+        }
+      >
+        <div className="grid gap-4">
+          <Field label="Type">
+            <select className={INPUT} value={draft.kind} onChange={(e) => setDraft({ ...draft, kind: e.target.value as Article['kind'] })}>
+              <option value="protocol">Disease protocol</option>
+              <option value="sop">Best practice / SOP</option>
+            </select>
+          </Field>
+          <Field label="Title">
+            <input className={INPUT} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="e.g. Powdery mildew in nurseries" />
+          </Field>
+          <Field label="Guidance" hint="One step per line.">
+            <textarea rows={5} className={INPUT} value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} />
+          </Field>
+        </div>
+      </Modal>
+
+      <Modal
+        open={answering !== null}
+        onClose={() => setAnswering(null)}
+        title="Answer farmer query"
+        footer={
+          <>
+            <Btn theme={theme} variant="ghost" onClick={() => setAnswering(null)}>Cancel</Btn>
+            <Btn theme={theme} icon={Send} onClick={sendAnswer}>Send answer</Btn>
+          </>
+        }
+      >
+        {answering && (
+          <div className="grid gap-4">
+            <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700"><strong>{answering.crop}:</strong> {answering.question}</p>
+            <Field label="Your answer">
+              <textarea rows={5} className={INPUT} value={answerText} onChange={(e) => setAnswerText(e.target.value)} />
+            </Field>
+          </div>
+        )}
+      </Modal>
+    </PortalShell>
   );
 }

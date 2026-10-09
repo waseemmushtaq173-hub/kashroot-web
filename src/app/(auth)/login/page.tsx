@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { LogIn, Loader2, Eye, EyeOff } from 'lucide-react';
 import { authApi, tokenStore } from '@/lib/api/auth';
-import { loginHref, PORTAL_ROLES, ROLE_LABELS, portalRoleFromValue } from '@/lib/auth/roles';
+import { loginHref, PORTAL_ROLES, ROLE_LABELS, portalRoleFromValue, safeNextPath } from '@/lib/auth/roles';
 import { ApiError } from '@/lib/api/client';
 
 import { Suspense } from 'react';
@@ -45,6 +45,9 @@ function LoginForm() {
       else if (targetRole === 'EXPERT') targetRoute = '/expert';
       else if (targetRole === 'KISSAN_PARTNER') targetRoute = '/kissan-tools/dashboard';
       else if (targetRole === 'RENTAL') targetRoute = '/rental/dashboard';
+      else if (targetRole === 'PROVIDER') targetRoute = '/provider/dashboard';
+      // Honour where the user was headed (the dashboards guard sets returnTo).
+      targetRoute = safeNextPath(searchParams.get('returnTo'), targetRoute);
 
       if (data.accessToken) {
         tokenStore.setToken(data.accessToken, targetRole);
@@ -70,7 +73,7 @@ function LoginForm() {
   };
 
   return (
-    <div className="max-w-md w-full kr-glass/95 backdrop-blur-md shadow-2xl rounded-3xl p-8 sm:p-10 border border-white/20 space-y-6 z-10 relative">
+    <div className="max-w-md w-full bg-white/85 backdrop-blur-xl shadow-[0_20px_60px_rgba(15,23,42,0.12)] rounded-3xl p-8 sm:p-10 ring-1 ring-slate-900/5 space-y-6 z-10 relative text-slate-900">
       <div>
         <h1 className="text-4xl font-extrabold text-[#1B4332] tracking-tight">Partner &amp; staff sign-in</h1>
         <p className="text-sm text-kr-text-secondary mt-2">
@@ -122,6 +125,7 @@ function LoginForm() {
             <option value="EXPERT">Expert</option>
             <option value="KISSAN_PARTNER">Kissan Partner (Agri/Horti)</option>
             <option value="RENTAL">Equipment / Machinery Rental</option>
+            <option value="PROVIDER">Logistics &amp; Provider</option>
           </select>
         </div>
 

@@ -1,5 +1,4 @@
 'use client';
-import { Button } from "@/components/ui/Button";
 export const dynamic = 'force-dynamic';
 
 import { useSelectedLayoutSegment, useRouter } from 'next/navigation';
@@ -8,7 +7,33 @@ import { ReactNode, useEffect, useState } from 'react';
 
 import { VoiceAssistant } from '@/components/ui/VoiceAssistant';
 import { KYCPanel } from '@/components/auth/KYCPanel';
+import { tokenStore } from '@/lib/api/auth';
 import { isPortalRole, loginHref, portalRoleFromValue, ROLE_VALUE } from '@/lib/auth/roles';
+
+/**
+ * Role each dashboard segment requires (localStorage `user_role` value).
+ * Segments not listed are open to any signed-in user: dealer, tracking, and
+ * the shared marketplaces — kissan-tools (supplies shop), rental (renters and
+ * owners) and expert (farmers ask, experts answer; the page adapts by role).
+ */
+const SEGMENT_ROLE: Record<string, { role: string; label: string }> = {
+  farmer: { role: 'FARMER', label: 'Farmer' },
+  buyer: { role: 'BUYER', label: 'Buyer' },
+  seller: { role: 'SELLER', label: 'Seller' },
+  admin: { role: 'ADMIN', label: 'Platform Admin' },
+  provider: { role: 'PROVIDER', label: 'Logistics & Provider' },
+};
+
+/** Sign-in page for a segment: dedicated portal login, else /login with the role preselected. */
+function signInPath(segment: string | null, next?: string): string {
+  if (segment && isPortalRole(segment)) return loginHref(segment, next);
+  const params = new URLSearchParams();
+  const required = segment ? SEGMENT_ROLE[segment] : undefined;
+  if (required) params.set('role', required.role);
+  if (next) params.set('returnTo', next);
+  const qs = params.toString();
+  return qs ? `/login?${qs}` : '/login';
+}
 
 /**
  * Role-Adaptive Dashboard Layout
@@ -30,9 +55,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       if (!token) {
         // Farmer, buyer and seller routes have their own sign-in pages; every
         // other portal still uses the shared /login.
-        const path = window.location.pathname;
-        const portal = segment && isPortalRole(segment) ? segment : null;
-        router.push(portal ? loginHref(portal, path) : '/login?returnTo=' + encodeURIComponent(path));
+        router.push(signInPath(segment, window.location.pathname));
       } else {
         setUserRole(localStorage.getItem('user_role'));
         
@@ -50,76 +73,65 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   if (!isMounted || !isAuthenticated) {
     // Prevent flicker and layout shift while checking credentials
     return (
-      <div className="flex min-h-screen items-center justify-center bg-transparent">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-kr-primary-600 border-t-transparent" />
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-amber-50">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-600 border-t-transparent" />
       </div>
     );
   }
 
-  let authorized = true;
-  let requiredRoleMsg = '';
-  if (userRole) {
-    if (segment === 'farmer' && userRole !== 'FARMER') { authorized = false; requiredRoleMsg = 'Farmer'; }
-    else if (segment === 'buyer' && userRole !== 'BUYER') { authorized = false; requiredRoleMsg = 'Buyer'; }
-    else if (segment === 'seller' && userRole !== 'SELLER') { authorized = false; requiredRoleMsg = 'Seller'; }
-    else if (segment === 'expert' && userRole !== 'EXPERT') { authorized = false; requiredRoleMsg = 'Agricultural Expert'; }
-    else if (segment === 'admin' && userRole !== 'ADMIN') { authorized = false; requiredRoleMsg = 'Platform Admin'; }
-    else if (segment === 'provider' && userRole !== 'PROVIDER') { authorized = false; requiredRoleMsg = 'Logistics & Provider'; }
-    else if (segment === 'kissan-tools' && userRole !== 'KISSAN_PARTNER') { authorized = false; requiredRoleMsg = 'Kissan Partner'; }
-    else if (segment === 'rental' && userRole !== 'RENTAL') { authorized = false; requiredRoleMsg = 'Equipment / Machinery Rental'; }
-  }
+  const required = segment ? SEGMENT_ROLE[segment] : undefined;
+  const authorized = !userRole || !required || userRole === required.role;
+  const requiredRoleMsg = required?.label ?? '';
 
   if (!authorized) {
     return (
-      <div className="flex min-h-screen flex-col bg-transparent">
-        <SiteHeader />
-        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-          <div className="kr-glass-strong rounded-2xl p-8 max-w-lg">
-            <h2 className="font-heading text-3xl font-bold text-amber-600 mb-4">Unauthorized Access</h2>
-            <p className="text-kr-text-primary text-lg mb-2">
-              Your current active session is scoped to <strong className="bg-kr-bg-sunken px-2 py-1 rounded">{userRole}</strong>.
+      <div className="kr-light flex min-h-screen flex-col bg-gradient-to-br from-amber-50 via-white to-emerald-50 text-slate-900">
+        <SiteHeader tone="light" />
+        <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
+          <div className="max-w-lg rounded-3xl bg-white/80 p-8 shadow-[0_20px_60px_rgba(15,23,42,0.12)] ring-1 ring-slate-900/5 backdrop-blur-xl">
+            <h2 className="mb-3 font-sans text-2xl font-bold text-slate-900">This portal needs a different account</h2>
+            <p className="mb-2 text-slate-700">
+              You&apos;re signed in as <strong className="rounded bg-slate-100 px-2 py-0.5">{userRole}</strong>.
             </p>
-            <p className="text-kr-text-secondary mb-8">
-              Please sign in with a <strong>{requiredRoleMsg}</strong> account to access this specific portal.
+            <p className="mb-8 text-slate-600">
+              Sign in with a <strong>{requiredRoleMsg}</strong> account to open this portal.
             </p>
-            <Button 
-              onClick={() => {
-                localStorage.removeItem('auth_token');
-                localStorage.removeItem('user_role');
-                const portal = segment && isPortalRole(segment) ? segment : null;
-                router.push(portal ? loginHref(portal) : '/login');
-              }}
-              className="kr-glass hover:kr-hero-premium kr-pattern-chinar font-bold py-3 px-6 rounded-lg transition-colors w-full"
-            >
-              Switch Account
-            </Button>
+            <div className="flex flex-wrap justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  tokenStore.removeToken();
+                  router.push(signInPath(segment, window.location.pathname));
+                }}
+                className="cursor-pointer rounded-xl bg-emerald-700 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-emerald-800"
+              >
+                Sign in as {requiredRoleMsg}
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push('/')}
+                className="cursor-pointer rounded-xl bg-white px-6 py-3 font-semibold text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-50"
+              >
+                Back to home
+              </button>
+            </div>
           </div>
         </div>
+        <SiteFooter tone="light" />
       </div>
     );
   }
 
-  
-  // Map segments to vibrant theme classes that override wallpaper hues + glass tints in globals.css
-  let themeClass = 'theme-neutral'; // Default to admin/neutral
-  if (segment === 'farmer') themeClass = 'theme-farmer';
-  else if (segment === 'buyer') themeClass = 'theme-buyer';
-  else if (segment === 'seller') themeClass = 'theme-seller';
-  else if (segment === 'dealer') themeClass = 'theme-dealer';
-  else if (segment === 'provider') themeClass = 'theme-provider';
-  else if (segment === 'rental') themeClass = 'theme-rental';
-  else if (segment === 'kissan-tools') themeClass = 'theme-kissan';
-  else if (segment === 'tracking') themeClass = 'theme-provider';
-  else if (segment === 'admin' || segment === 'expert') themeClass = 'theme-neutral';
-  
+  // Every portal renders inside PortalShell (bright, kr-light scoped); the
+  // layout only adds the site chrome around it.
   return (
-    <div className={`flex min-h-screen flex-col bg-transparent ${themeClass} kr-app-shell`}>
-      <SiteHeader />
-      <div className="flex-1 flex flex-col">
+    <div className="kr-light flex min-h-screen flex-col bg-gradient-to-br from-emerald-50 via-white to-amber-50 text-slate-900">
+      <SiteHeader tone="light" />
+      <div className="flex flex-1 flex-col">
         {children}
       </div>
       <VoiceAssistant />
-      <SiteFooter />
+      <SiteFooter tone="light" />
       <KYCPanel
         open={showKyc}
         onClose={() => setShowKyc(false)}

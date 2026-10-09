@@ -81,22 +81,8 @@ apiClient.interceptors.response.use(
 
     // ---- MOCK BACKEND BYPASS FOR DEMO / NO-BACKEND MODE ----
     if (typeof window !== 'undefined' && localStorage.getItem('auth_token')) {
-      const url = original?.url || '';
-      
-      if (url.includes('/admin/kyc')) return Promise.resolve({ data: { data: [], total: 0 } });
-      if (url.includes('/admin/disputes')) return Promise.resolve({ data: { data: [], total: 0 } });
-      if (url.includes('/admin/analytics')) {
-        return Promise.resolve({ data: { 
-          importExportRatio: 1.8, exportOrders: 150, importOrders: 83, regionName: 'Jammu & Kashmir',
-          period: { start: '2023-01-01', end: new Date().toISOString().split('T')[0] }, currency: 'INR',
-          grossRevenue: 8500000, totalOrders: 233, completedOrders: 210, cancelledOrders: 5,
-          disputedOrders: 2, activeListings: 124, newFarmers: 45, newBuyers: 32,
-          kycPending: 0, kycApproved: 120, kycRejected: 4
-        }});
-      }
-      if (url.includes('/admin/regions')) {
-        return Promise.resolve({ data: [{ id: 'kashmir', name: 'Kashmir Valley' }, { id: 'jammu', name: 'Jammu Division' }]});
-      }
+      // Admin endpoints are not faked here: the admin console shows its own
+      // labelled demo data when the API is unreachable.
       if (error.response?.status === 401 && localStorage.getItem('auth_token') === 'mock_jwt_token') {
         return Promise.resolve({ data: {} });
       }

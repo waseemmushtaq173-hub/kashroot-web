@@ -1,927 +1,526 @@
 'use client';
-import { Button } from "@/components/ui/Button";
 
-import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+/**
+ * Admin governance console — KYC queue, expert credential checks, disputes
+ * and regional analytics.
+ *
+ * API contracts (kashroot-api src/modules/admin + src/modules/disputes):
+ *   GET  /admin/kyc?status=PENDING · POST /admin/kyc/:userId/approve|reject
+ *   GET  /admin/disputes · POST /disputes/:id/recommend|resolve
+ *   GET  /admin/analytics · GET /admin/regions
+ *
+ * When the API is unreachable (not deployed, or the module is not mounted)
+ * each panel falls back to demo records kept in this browser (kr_admin_*), so
+ * every button still does something visible. A banner says which mode is on.
+ *
+ * SECURITY: role checks here are UX only — backend guards enforce access.
+ * REGIONAL_ADMIN can recommend disputes; only PLATFORM_ADMIN can resolve.
+ */
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Users, ShieldCheck, ShieldAlert, BarChart3,
-  Check, X, AlertTriangle, Loader2, RefreshCw,
-  Globe, TrendingUp, TrendingDown, Eye, ChevronRight,
+  BarChart3,
+  Check,
+  Eye,
+  Gavel,
+  GraduationCap,
+  Loader2,
+  RefreshCw,
+  ShieldAlert,
+  ShieldCheck,
+  TrendingDown,
+  TrendingUp,
+  Users,
+  WifiOff,
+  X,
 } from 'lucide-react';
-import { kycApi, disputesApi, analyticsApi } from '@/lib/api/admin';
-import type { KycSubmission, Dispute, AnalyticsSummary } from '@/lib/api/admin';
-import { ApiError } from '@/lib/api/client';
+import { toast } from 'sonner';
 
 import { PortalShell } from '@/components/layout/PortalShell';
-/**
- * AdminConsolePage
- *
- * API contracts (Module 5 verified against src/modules/admin/ + src/modules/disputes/):
- *   KYC:
- *     GET  /admin/kyc?status=PENDING  → KycQueuePage
- *     POST /admin/kyc/:userId/approve  → { message }
- *     POST /admin/kyc/:userId/reject   → { message }
- *   Disputes:
- *     GET  /admin/disputes             → DisputesPage
- *     POST /disputes/:id/recommend     → Dispute  (REGIONAL_ADMIN + PLATFORM_ADMIN)
- *     POST /disputes/:id/resolve       → Dispute  (PLATFORM_ADMIN ONLY)
- *   Analytics:
- *     GET  /admin/analytics?regionId=...&startDate=...&endDate=...
- *     GET  /admin/regions
- *
- * RBAC:
- *   <!-- SECURITY: role checks here are UX only. Backend guards enforce actual access. -->
- *   REGIONAL_ADMIN : can RECOMMEND disputes, view own region analytics, manage KYC
- *   PLATFORM_ADMIN : can RESOLVE disputes, view all regions
- *   Resolve button is hidden for REGIONAL_ADMIN — backend still enforces the restriction.
- *
- * Tabs: KYC Queue | Disputes | Analytics
- * Import/Export ratio KPI is prominently surfaced in the Analytics tab.
- *
- * Accessibility:
- *   Tabs: role=tablist/tab/tabpanel + aria-selected/controls/hidden.
- *   KYC approve/reject: aria-label with user name.
- *   Dispute recommend/resolve: aria-label with dispute id.
- *   Modals: role=dialog + aria-modal + focus trap (simplified).
- *   Loading: aria-busy. Errors: role=alert.
- */
+import { Badge, Btn, EmptyState, Field, INPUT, Modal, PORTAL_THEMES, Panel, inr } from '@/components/portal/kit';
+import { analyticsApi, disputesApi, kycApi, type AnalyticsSummary, type Dispute, type KycSubmission } from '@/lib/api/admin';
+import { ApiError } from '@/lib/api/client';
+import { usePersistentState } from '@/lib/portal-store';
+
+const theme = PORTAL_THEMES.admin;
 
 type AdminRole = 'REGIONAL_ADMIN' | 'PLATFORM_ADMIN';
 
+// ─── Demo records (used only when the API is unreachable) ───
 
-const DISPUTE_STATUS_LABEL: Record<string, string> = {
-  OPENED:        'Opened',
-  UNDER_REVIEW:  'Under review',
-  RECOMMENDED:   'Recommended',
-  RESOLVED:      'Resolved',
-  CLOSED:        'Closed',
-};
+const DEMO_KYC: KycSubmission[] = [
+  {
+    userId: 'demo-u1', fullName: 'Rafiq Ahmad', email: 'rafiq@example.com', role: 'FARMER', kycStatus: 'PENDING', submittedAt: '2026-10-07T09:12:00Z',
+    documents: [{ type: 'AADHAAR_MASKED', url: '', uploadedAt: '2026-10-07T09:12:00Z' }, { type: 'LAND_RECORD', url: '', uploadedAt: '2026-10-07T09:13:00Z' }],
+  },
+  {
+    userId: 'demo-u2', fullName: 'Hill Fresh Traders', email: 'buying@hillfresh.example', role: 'BUYER', kycStatus: 'PENDING', submittedAt: '2026-10-08T14:40:00Z',
+    documents: [{ type: 'PAN_CARD', url: '', uploadedAt: '2026-10-08T14:40:00Z' }, { type: 'GST_CERTIFICATE', url: '', uploadedAt: '2026-10-08T14:41:00Z' }],
+  },
+  {
+    userId: 'demo-u3', fullName: 'Shabnam Bano', email: 'shabnam@example.com', role: 'FARMER', kycStatus: 'PENDING', submittedAt: '2026-10-09T06:05:00Z',
+    documents: [{ type: 'AADHAAR_MASKED', url: '', uploadedAt: '2026-10-09T06:05:00Z' }],
+  },
+];
 
-const DISPUTE_STATUS_CLASS: Record<string, string> = {
-  OPENED:        'kr-badge-pending',
-  UNDER_REVIEW:  'kr-badge-pending',
-  RECOMMENDED:   'kr-badge-draft',
-  RESOLVED:      'kr-badge-published',
-  CLOSED:        'kr-badge-draft',
-};
+const DEMO_DISPUTES: Dispute[] = [
+  {
+    id: 'demo-d1', orderId: 'ORD-77A1C2', listingTitle: 'Delicious apples · 400 boxes', farmerName: 'Green Valley Orchards', buyerName: 'Metro Fruit Co.',
+    reason: 'Grade mismatch on arrival', description: '60 boxes graded B instead of A.', status: 'OPENED', openedAt: '2026-10-06T10:00:00Z', updatedAt: '2026-10-06T10:00:00Z',
+  },
+  {
+    id: 'demo-d2', orderId: 'ORD-91F0B4', listingTitle: 'Walnut kernels · 300 kg', farmerName: 'Hillside Walnut Co-op', buyerName: 'Dry Fruit House',
+    reason: 'Short weight', description: '12 kg short against invoice.', status: 'RECOMMENDED', recommendation: 'Refund the value of 12 kg from escrow.', openedAt: '2026-10-02T08:30:00Z', updatedAt: '2026-10-05T12:00:00Z',
+  },
+];
 
-const KYC_STATUS_CLASS: Record<string, string> = {
-  PENDING:  'kr-badge-pending',
-  VERIFIED: 'kr-badge-published',
-  REJECTED: 'kr-badge-rejected',
-};
+const DEMO_REGIONS = [
+  { id: 'north', name: 'North orchard belt' },
+  { id: 'upper', name: 'Upper valley' },
+  { id: 'lake', name: 'Lakeside' },
+  { id: 'river', name: 'Riverside' },
+];
 
-function fmt(n: number, currency = 'INR') {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency', currency, maximumFractionDigits: 0,
-  }).format(n);
+interface ExpertApplication {
+  fullName?: string;
+  email?: string;
+  degree?: string;
+  institution?: string;
+  license?: string;
+  specialization?: string;
+  experience?: string;
+  status?: string;
+}
+const NO_APPLICATION: ExpertApplication | null = null;
+
+function demoSummary(regionId: string, start: string, end: string): AnalyticsSummary {
+  const days = Math.max(1, Math.round((Date.parse(end) - Date.parse(start)) / 864e5) + 1);
+  const weight = regionId ? 0.25 + (DEMO_REGIONS.findIndex((r) => r.id === regionId) + 1) * 0.06 : 1;
+  const n = (perDay: number) => Math.round(perDay * days * weight);
+  const exportOrders = n(5.2);
+  const importOrders = Math.max(1, n(3.1));
+  const totalOrders = n(14);
+  return {
+    regionId: regionId || 'all',
+    regionName: DEMO_REGIONS.find((r) => r.id === regionId)?.name ?? 'All regions',
+    period: { start, end },
+    totalOrders,
+    completedOrders: Math.round(totalOrders * 0.82),
+    cancelledOrders: Math.round(totalOrders * 0.06),
+    disputedOrders: Math.round(totalOrders * 0.02),
+    grossRevenue: n(410000),
+    currency: 'INR',
+    exportOrders,
+    importOrders,
+    importExportRatio: exportOrders / importOrders,
+    kycPending: 3,
+    kycApproved: n(1.4),
+    kycRejected: n(0.2),
+    activeListings: n(9),
+    newFarmers: n(2.1),
+    newBuyers: n(0.9),
+  };
 }
 
-function fmtDate(iso: string) {
-  return new Intl.DateTimeFormat('en-IN', {
-    day: 'numeric', month: 'short', year: 'numeric',
-  }).format(new Date(iso));
-}
+const fmtDate = (iso: string) => new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(iso));
+const apiMsg = (err: unknown) => (err instanceof ApiError ? err.messages[0] : 'The admin service did not respond.');
+const label = (s: string) => s.replace(/_/g, ' ').toLowerCase();
 
-function apiMsg(err: unknown) {
-  return err instanceof ApiError
-    ? err.messages[0]
-    : 'An error occurred. Please try again.';
-}
-
-// ─── Shared micro-components ───
-
-function PanelSkeleton({ rows = 4 }: { rows?: number }) {
+function DemoBanner({ error, onRetry }: { error: unknown; onRetry: () => void }) {
   return (
-    <div aria-busy="true" aria-label="Loading" className="space-y-4">
-      {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="kr-card kr-glass-amber kr-pattern-chinar space-y-2">
-          <div className="kr-skeleton h-4 w-2/3 rounded" />
-          <div className="kr-skeleton h-3 w-1/2 rounded" />
-        </div>
-      ))}
+    <div role="status" className="mb-4 flex flex-col gap-3 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200 sm:flex-row sm:items-center sm:justify-between">
+      <p className="flex items-start gap-2 text-sm text-amber-900">
+        <WifiOff className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+        <span>
+          <strong>Demo mode.</strong> {error instanceof ApiError && error.statusCode > 0 ? `${apiMsg(error).replace(/\.?$/, '.')}` : 'The admin service could not be reached.'} Showing sample records — actions here stay in this browser.
+        </span>
+      </p>
+      <Btn theme={theme} size="sm" variant="soft" icon={RefreshCw} onClick={onRetry}>Retry live</Btn>
     </div>
   );
 }
 
-function PanelError({ message, onRetry }: { message: string; onRetry: () => void }) {
+function Loading() {
   return (
-    <div className="kr-error-state" role="alert">
-      <AlertTriangle className="w-8 h-8 text-kr-danger-500 mx-auto" aria-hidden="true" />
-      <p className="text-body text-kr-text-primary">Something went wrong</p>
-      <p className="text-body-sm text-kr-text-secondary">{message}</p>
-      <Button onClick={onRetry} className="kr-btn-secondary kr-btn-sm">
-        <RefreshCw className="w-3 h-3" aria-hidden="true" /> Retry
-      </Button>
+    <div aria-busy="true" className="flex items-center gap-2 py-10 text-sm text-slate-500">
+      <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…
     </div>
   );
 }
 
-// ─── KYC Panel ───
+// ─── KYC ───
 
 function KycPanel() {
   const qc = useQueryClient();
-  const [rejectingUserId, setRejectingUserId] = useState<string | null>(null);
-  const [rejectReason, setRejectReason] = useState('');
+  const [demo, setDemo] = usePersistentState<KycSubmission[]>('kr_admin_kyc', DEMO_KYC);
+  const [rejecting, setRejecting] = useState<KycSubmission | null>(null);
+  const [reason, setReason] = useState('');
 
-  const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['admin', 'kyc', 'PENDING'],
-    queryFn: () => kycApi.getQueue({ status: 'PENDING', limit: 20 }),
-  });
+  const q = useQuery({ queryKey: ['admin', 'kyc', 'PENDING'], queryFn: () => kycApi.getQueue({ status: 'PENDING', limit: 20 }), retry: 1 });
+  const live = !q.isError;
 
-  const approveMut = useMutation({
-    mutationFn: (userId: string) => kycApi.approve(userId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'kyc'] }),
-  });
-
-  const rejectMut = useMutation({
-    mutationFn: ({ userId, reason }: { userId: string; reason: string }) =>
-      kycApi.reject(userId, reason),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin', 'kyc'] });
-      setRejectingUserId(null);
-      setRejectReason('');
+  const approve = useMutation({
+    mutationFn: (s: KycSubmission) => (live ? kycApi.approve(s.userId) : Promise.resolve(null)),
+    onSuccess: (_r, s) => {
+      if (live) void qc.invalidateQueries({ queryKey: ['admin', 'kyc'] });
+      else setDemo((all) => all.filter((x) => x.userId !== s.userId));
+      toast.success(`${s.fullName} verified`);
     },
+    onError: (err) => toast.error(apiMsg(err)),
   });
 
-  if (isLoading) return <PanelSkeleton />;
-  if (isError)   return <PanelError message={apiMsg(error)} onRetry={() => refetch()} />;
+  const reject = useMutation({
+    mutationFn: ({ s, why }: { s: KycSubmission; why: string }) => (live ? kycApi.reject(s.userId, why) : Promise.resolve(null)),
+    onSuccess: (_r, { s }) => {
+      if (live) void qc.invalidateQueries({ queryKey: ['admin', 'kyc'] });
+      else setDemo((all) => all.filter((x) => x.userId !== s.userId));
+      setRejecting(null);
+      setReason('');
+      toast.success(`${s.fullName} rejected — they will be asked to resubmit`);
+    },
+    onError: (err) => toast.error(apiMsg(err)),
+  });
 
-  const submissions = data?.data ?? [];
-
-  if (submissions.length === 0) {
-    return (
-      <div className="kr-empty-state">
-        <ShieldCheck className="w-10 h-10 text-kr-success-500 mx-auto" aria-hidden="true" />
-        <p className="text-body text-kr-text-secondary">KYC queue is empty</p>
-        <p className="text-body-sm text-kr-text-disabled">All submissions have been reviewed.</p>
-      </div>
-    );
-  }
+  if (q.isLoading) return <Loading />;
+  const rows = live ? q.data?.data ?? [] : demo;
 
   return (
-    <div>
-      <p className="text-body-sm text-kr-text-secondary mb-4">
-        {data?.total} pending submission{data?.total !== 1 ? 's' : ''}
-      </p>
-
-      <ul className="space-y-4" role="list">
-        {submissions.map((sub) => (
-          <li key={sub.userId} className="kr-card kr-glass-amber kr-pattern-chinar">
-            <div className="flex items-start justify-between gap-4 flex-wrap">
+    <Panel theme={theme} title="KYC verification queue" icon={Users}>
+      {!live && <DemoBanner error={q.error} onRetry={() => void q.refetch()} />}
+      {rows.length === 0 ? (
+        <EmptyState
+          theme={theme}
+          icon={ShieldCheck}
+          title="Queue is clear"
+          text="Every submission has been reviewed."
+          action={!live ? <Btn theme={theme} variant="soft" onClick={() => setDemo(DEMO_KYC)}>Reload demo queue</Btn> : undefined}
+        />
+      ) : (
+        <ul className="space-y-3">
+          {rows.map((s) => (
+            <li key={s.userId} className="flex flex-col gap-3 rounded-2xl bg-white/70 p-4 ring-1 ring-slate-900/5 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-medium text-body text-kr-text-primary">{sub.fullName}</p>
-                  <span
-                    className={`kr-badge ${KYC_STATUS_CLASS[sub.kycStatus]}`}
-                    aria-label={`KYC status: ${sub.kycStatus.toLowerCase()}`}
-                  >
-                    {sub.kycStatus.toLowerCase()}
-                  </span>
-                  <span className="kr-badge kr-badge-draft">{sub.role}</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-semibold text-slate-900">{s.fullName}</p>
+                  <Badge tone="amber">{label(s.kycStatus)}</Badge>
+                  <Badge tone="blue">{label(s.role)}</Badge>
                 </div>
-                <p className="text-body-sm text-kr-text-secondary">{sub.email}</p>
-                <p className="text-caption text-kr-text-secondary">
-                  Submitted {fmtDate(sub.submittedAt)}
-                </p>
-                <p className="text-body-sm text-kr-text-secondary mt-1">
-                  {sub.documents.length} document{sub.documents.length !== 1 ? 's' : ''} attached:
-                  {sub.documents.map((d) => d.type.replace(/_/g, ' ')).join(', ')}
-                </p>
+                <p className="text-sm text-slate-600">{s.email} · submitted {fmtDate(s.submittedAt)}</p>
+                <p className="text-xs text-slate-500">Documents: {s.documents.map((d) => label(d.type)).join(', ') || 'none'}</p>
               </div>
-
-              <div className="flex gap-2 shrink-0">
-                {/* View documents */}
-                {sub.documents.map((doc) => (
-                  <a
-                    key={doc.type}
-                    href={doc.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="kr-btn-ghost kr-btn-sm"
-                    aria-label={`View ${doc.type.replace(/_/g, ' ')} document for ${sub.fullName}`}
-                  >
-                    <Eye className="w-3 h-3" aria-hidden="true" />
-                    {doc.type.split('_')[0]}
-                  </a>
+              <div className="flex flex-wrap gap-2">
+                {s.documents.filter((d) => d.url).map((d) => (
+                  <Btn key={d.type} theme={theme} size="sm" variant="ghost" icon={Eye} href={d.url}>
+                    {label(d.type).split(' ')[0]}
+                  </Btn>
                 ))}
-
-                {/* Approve */}
-                <Button
-                  onClick={() => approveMut.mutate(sub.userId)}
-                  disabled={approveMut.isPending && approveMut.variables === sub.userId}
-                  aria-busy={approveMut.isPending && approveMut.variables === sub.userId}
-                  aria-label={`Approve KYC for ${sub.fullName}`}
-                  className="kr-btn-primary kr-btn-sm"
+                <Btn
+                  theme={theme}
+                  size="sm"
+                  icon={approve.isPending && approve.variables?.userId === s.userId ? Loader2 : Check}
+                  disabled={approve.isPending}
+                  aria-label={`Approve KYC for ${s.fullName}`}
+                  onClick={() => approve.mutate(s)}
                 >
-                  {approveMut.isPending && approveMut.variables === sub.userId
-                    ? <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
-                    : <Check className="w-3 h-3" aria-hidden="true" />
-                  }
                   Approve
-                </Button>
-
-                {/* Reject */}
-                <Button
-                  onClick={() => { setRejectingUserId(sub.userId); setRejectReason(''); }}
-                  aria-label={`Reject KYC for ${sub.fullName}`}
-                  className="kr-btn-ghost kr-btn-sm text-kr-text-danger
-                             hover:bg-kr-badge-rejected-bg"
-                >
-                  <X className="w-3 h-3" aria-hidden="true" /> Reject
-                </Button>
+                </Btn>
+                <Btn theme={theme} size="sm" variant="danger" icon={X} aria-label={`Reject KYC for ${s.fullName}`} onClick={() => { setRejecting(s); setReason(''); }}>
+                  Reject
+                </Btn>
               </div>
-            </div>
+            </li>
+          ))}
+        </ul>
+      )}
 
-            {/* Reject reason inline form */}
-            {rejectingUserId === sub.userId && (
-              <div
-                className="mt-4 pt-4 border-t border-kr-neutral-200 space-y-3"
-                role="dialog"
-                aria-label={`Reject KYC for ${sub.fullName}`}
-              >
-                <label htmlFor={`reject-reason-${sub.userId}`} className="kr-label">
-                  Rejection reason <span aria-hidden="true" className="text-kr-text-danger">*</span>
-                </label>
-                <textarea
-                  id={`reject-reason-${sub.userId}`}
-                  rows={3}
-                  placeholder="Explain why the documents are insufficient…"
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
-                  className="kr-input resize-y"
-                  autoFocus
-                />
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() =>
-                      rejectReason.trim() &&
-                      rejectMut.mutate({ userId: sub.userId, reason: rejectReason.trim() })
-                    }
-                    disabled={!rejectReason.trim() || rejectMut.isPending}
-                    aria-busy={rejectMut.isPending}
-                    className="kr-btn-danger kr-btn-sm"
-                  >
-                    {rejectMut.isPending
-                      ? <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
-                      : null
-                    }
-                    Confirm rejection
-                  </Button>
-                  <Button
-                    onClick={() => setRejectingUserId(null)}
-                    className="kr-btn-ghost kr-btn-sm"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
-    </div>
+      <Modal
+        open={rejecting !== null}
+        onClose={() => setRejecting(null)}
+        title={rejecting ? `Reject ${rejecting.fullName}` : 'Reject'}
+        footer={
+          <>
+            <Btn theme={theme} variant="ghost" onClick={() => setRejecting(null)}>Cancel</Btn>
+            <Btn theme={theme} variant="danger" disabled={!reason.trim() || reject.isPending} onClick={() => rejecting && reject.mutate({ s: rejecting, why: reason.trim() })}>
+              Confirm rejection
+            </Btn>
+          </>
+        }
+      >
+        <Field label="Reason (shown to the user)">
+          <textarea rows={3} className={INPUT} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Land record is unreadable — please upload a clearer scan." />
+        </Field>
+      </Modal>
+    </Panel>
   );
 }
 
-// ─── Disputes Panel ───
+// ─── Expert credentials ───
+
+function ExpertPanel() {
+  const [app, setApp] = usePersistentState<ExpertApplication | null>('expert_application', NO_APPLICATION);
+  const pending = app?.status === 'PENDING_VERIFICATION';
+
+  return (
+    <Panel theme={theme} title="Expert credential verification" icon={GraduationCap}>
+      {!pending || !app ? (
+        <EmptyState
+          theme={theme}
+          icon={ShieldCheck}
+          title="No applications waiting"
+          text="Agronomists who register through the expert sign-up appear here for review."
+          action={<Btn theme={theme} variant="soft" href="/register/expert">Open expert sign-up</Btn>}
+        />
+      ) : (
+        <div className="flex flex-col gap-4 rounded-2xl bg-white/70 p-4 ring-1 ring-slate-900/5 lg:flex-row lg:items-start lg:justify-between">
+          <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+            <div className="sm:col-span-2 flex items-center gap-2"><dt className="sr-only">Name</dt><dd className="font-semibold text-slate-900">{app.fullName ?? 'Unnamed applicant'}</dd><Badge tone="amber">pending</Badge></div>
+            {([
+              ['Email', app.email],
+              ['Degree', app.degree],
+              ['Institution', app.institution],
+              ['Licence no.', app.license],
+              ['Specialisation', app.specialization],
+              ['Experience', app.experience ? `${app.experience} years` : undefined],
+            ] as const).map(([k, v]) => (
+              <div key={k} className="flex gap-2"><dt className="text-slate-500">{k}:</dt><dd className="text-slate-800">{v || '—'}</dd></div>
+            ))}
+          </dl>
+          <div className="flex gap-2">
+            <Btn theme={theme} size="sm" icon={Check} onClick={() => { setApp({ ...app, status: 'VERIFIED_EXPERT' }); toast.success('Expert verified — they can now publish advisories'); }}>Approve</Btn>
+            <Btn theme={theme} size="sm" variant="danger" icon={X} onClick={() => { setApp(null); toast.success('Application rejected'); }}>Reject</Btn>
+          </div>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+// ─── Disputes ───
 
 function DisputesPanel({ adminRole }: { adminRole: AdminRole }) {
   const qc = useQueryClient();
-  const [activeDispute, setActiveDispute] = useState<Dispute | null>(null);
-  const [actionText, setActionText] = useState('');
-  const [actionType, setActionType] = useState<'recommend' | 'resolve' | null>(null);
+  const [demo, setDemo] = usePersistentState<Dispute[]>('kr_admin_disputes', DEMO_DISPUTES);
+  const [active, setActive] = useState<{ d: Dispute; kind: 'recommend' | 'resolve' } | null>(null);
+  const [text, setText] = useState('');
 
-  const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['admin', 'disputes'],
-    queryFn: () => disputesApi.list({ limit: 20 }),
-  });
+  const q = useQuery({ queryKey: ['admin', 'disputes'], queryFn: () => disputesApi.list({ limit: 20 }), retry: 1 });
+  const live = !q.isError;
 
-  const recommendMut = useMutation({
-    mutationFn: ({ id, text }: { id: string; text: string }) =>
-      disputesApi.recommend(id, text),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin', 'disputes'] });
-      setActiveDispute(null);
-      setActionText('');
-      setActionType(null);
+  const act = useMutation({
+    mutationFn: ({ d, kind, body }: { d: Dispute; kind: 'recommend' | 'resolve'; body: string }) =>
+      live ? (kind === 'recommend' ? disputesApi.recommend(d.id, body) : disputesApi.resolve(d.id, body)) : Promise.resolve(null),
+    onSuccess: (_r, { d, kind, body }) => {
+      if (live) void qc.invalidateQueries({ queryKey: ['admin', 'disputes'] });
+      else
+        setDemo((all) =>
+          all.map((x) =>
+            x.id === d.id
+              ? { ...x, ...(kind === 'recommend' ? { recommendation: body, status: 'RECOMMENDED' } : { resolution: body, status: 'RESOLVED' }), updatedAt: new Date().toISOString() }
+              : x,
+          ),
+        );
+      setActive(null);
+      setText('');
+      toast.success(kind === 'recommend' ? 'Recommendation recorded' : 'Dispute resolved — both parties notified');
     },
+    onError: (err) => toast.error(apiMsg(err)),
   });
 
-  const resolveMut = useMutation({
-    mutationFn: ({ id, text }: { id: string; text: string }) =>
-      disputesApi.resolve(id, text),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin', 'disputes'] });
-      setActiveDispute(null);
-      setActionText('');
-      setActionType(null);
-    },
-  });
-
-  if (isLoading) return <PanelSkeleton />;
-  if (isError)   return <PanelError message={apiMsg(error)} onRetry={() => refetch()} />;
-
-  const disputes = data?.data ?? [];
-
-  if (disputes.length === 0) {
-    return (
-      <div className="kr-empty-state">
-        <ShieldCheck className="w-10 h-10 text-kr-success-500 mx-auto" aria-hidden="true" />
-        <p className="text-body text-kr-text-secondary">No open disputes</p>
-      </div>
-    );
-  }
+  if (q.isLoading) return <Loading />;
+  const rows = live ? q.data?.data ?? [] : demo;
 
   return (
-    <div className="space-y-4">
-      {/* RBAC note for REGIONAL_ADMIN */}
+    <Panel theme={theme} title="Trade disputes" icon={Gavel}>
+      {!live && <DemoBanner error={q.error} onRetry={() => void q.refetch()} />}
       {adminRole === 'REGIONAL_ADMIN' && (
-        <div role="note" className="flex items-start gap-2 p-3 rounded-md
-                                    bg-kr-fill-brand-subtle border border-kr-border-brand">
-          {/* SECURITY: Resolve button is hidden for REGIONAL_ADMIN (UX only).
-              Backend DisputeGuard enforces the actual role restriction. */}
-          <ShieldAlert className="w-4 h-4 text-kr-primary-600 mt-0.5 shrink-0" aria-hidden="true" />
-          <p className="text-caption text-kr-text-brand">
-            As Regional Admin, you can <strong>recommend</strong> outcomes.
-            Only Platform Admins can <strong>resolve</strong> disputes.
-          </p>
-        </div>
+        <p className="mb-4 rounded-xl bg-indigo-50 p-3 text-sm text-indigo-900">As Regional Admin you can recommend outcomes; only Platform Admins resolve.</p>
       )}
-
-      <ul className="space-y-3" role="list">
-        {disputes.map((dispute) => (
-          <li key={dispute.id} className="kr-card kr-glass-amber kr-pattern-chinar">
-            <div className="flex items-start justify-between gap-4 flex-wrap">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <p className="font-medium text-body text-kr-text-primary">
-                    #{dispute.orderId.slice(-6).toUpperCase()} · {dispute.listingTitle}
-                  </p>
-                  <span
-                    className={`kr-badge ${DISPUTE_STATUS_CLASS[dispute.status]}`}
-                    aria-label={`Dispute status: ${DISPUTE_STATUS_LABEL[dispute.status]}`}
-                  >
-                    {DISPUTE_STATUS_LABEL[dispute.status]}
-                  </span>
+      {rows.length === 0 ? (
+        <EmptyState theme={theme} icon={ShieldCheck} title="No open disputes" text="Escrow trades are running clean." action={!live ? <Btn theme={theme} variant="soft" onClick={() => setDemo(DEMO_DISPUTES)}>Reload demo disputes</Btn> : undefined} />
+      ) : (
+        <ul className="space-y-3">
+          {rows.map((d) => {
+            const done = d.status === 'RESOLVED' || d.status === 'CLOSED';
+            return (
+              <li key={d.id} className="flex flex-col gap-3 rounded-2xl bg-white/70 p-4 ring-1 ring-slate-900/5 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0 space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-semibold text-slate-900">#{d.orderId.slice(-6).toUpperCase()} · {d.listingTitle}</p>
+                    <Badge tone={done ? 'green' : d.status === 'RECOMMENDED' ? 'violet' : 'amber'}>{label(d.status)}</Badge>
+                  </div>
+                  <p className="text-sm text-slate-600">{d.farmerName} ↔ {d.buyerName} · opened {fmtDate(d.openedAt)}</p>
+                  <p className="text-sm text-slate-700"><strong>Reason:</strong> {d.reason}</p>
+                  {d.recommendation && <p className="text-sm text-indigo-900"><strong>Recommendation:</strong> {d.recommendation}</p>}
+                  {d.resolution && <p className="text-sm text-emerald-800"><strong>Resolution:</strong> {d.resolution}</p>}
                 </div>
-                <p className="text-body-sm text-kr-text-secondary">
-                  {dispute.farmerName} ↔ {dispute.buyerName}
-                </p>
-                <p className="text-body-sm text-kr-text-secondary mt-1">
-                  <strong>Reason:</strong> {dispute.reason}
-                </p>
-                <p className="text-caption text-kr-text-secondary">
-                  Opened {fmtDate(dispute.openedAt)}
-                </p>
-                {dispute.recommendation && (
-                  <p className="text-body-sm text-kr-text-secondary mt-1">
-                    <strong>Recommendation:</strong> {dispute.recommendation}
-                  </p>
+                {!done && (
+                  <div className="flex flex-wrap gap-2">
+                    {(d.status === 'OPENED' || d.status === 'UNDER_REVIEW') && (
+                      <Btn theme={theme} size="sm" variant="soft" onClick={() => { setActive({ d, kind: 'recommend' }); setText(''); }}>Recommend</Btn>
+                    )}
+                    {adminRole === 'PLATFORM_ADMIN' && (
+                      <Btn theme={theme} size="sm" icon={Gavel} onClick={() => { setActive({ d, kind: 'resolve' }); setText(d.recommendation ?? ''); }}>Resolve</Btn>
+                    )}
+                  </div>
                 )}
-                {dispute.resolution && (
-                  <p className="text-body-sm text-kr-success-700 mt-1">
-                    <strong>Resolution:</strong> {dispute.resolution}
-                  </p>
-                )}
-              </div>
-
-              <div className="flex gap-2 shrink-0 flex-wrap">
-                {/* Recommend — REGIONAL_ADMIN + PLATFORM_ADMIN */}
-                {/* SECURITY: UX gating only — backend DisputeGuard enforces role */}
-                {['OPENED', 'UNDER_REVIEW'].includes(dispute.status) && (
-                  <Button
-                    onClick={() => {
-                      setActiveDispute(dispute);
-                      setActionType('recommend');
-                      setActionText('');
-                    }}
-                    aria-label={`Recommend outcome for dispute ${dispute.id.slice(-6).toUpperCase()}`}
-                    className="kr-btn-secondary kr-btn-sm"
-                  >
-                    Recommend
-                  </Button>
-                )}
-
-                {/* Resolve — PLATFORM_ADMIN ONLY */}
-                {/* SECURITY: hidden for REGIONAL_ADMIN (UX only); backend enforces via DisputeGuard */}
-                {adminRole === 'PLATFORM_ADMIN' &&
-                  ['OPENED', 'UNDER_REVIEW', 'RECOMMENDED'].includes(dispute.status) && (
-                  <Button
-                    onClick={() => {
-                      setActiveDispute(dispute);
-                      setActionType('resolve');
-                      setActionText('');
-                    }}
-                    aria-label={`Resolve dispute ${dispute.id.slice(-6).toUpperCase()}`}
-                    className="kr-btn-primary kr-btn-sm"
-                  >
-                    Resolve
-                  </Button>
-                )}
-              </div>
-            </div>
-          </li>
-        ))}
-      </ul>
-
-      {/* Action modal (recommend / resolve) */}
-      {activeDispute && actionType && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
-          role="dialog"
-          aria-modal="true"
-          aria-label={`${actionType === 'recommend' ? 'Recommend' : 'Resolve'} dispute`}
-        >
-          <div className="bg-kr-bg-surface rounded-xl p-6 w-full max-w-md shadow-kr-overlay space-y-4">
-            <h2 className="font-heading text-h3 text-kr-text-primary">
-              {actionType === 'recommend' ? 'Recommend outcome' : 'Resolve dispute'}
-            </h2>
-            <p className="text-body-sm text-kr-text-secondary">
-              Dispute #{activeDispute.orderId.slice(-6).toUpperCase()}
-              {' '}&mdash; {activeDispute.farmerName} ↔ {activeDispute.buyerName}
-            </p>
-
-            {actionType === 'resolve' && (
-              <div role="note" className="flex items-start gap-2 p-3 rounded-md
-                                          bg-kr-badge-pending-bg border border-kr-warning-300">
-                <ShieldAlert className="w-4 h-4 text-kr-warning-600 mt-0.5 shrink-0" aria-hidden="true" />
-                <p className="text-caption text-kr-badge-pending-text">
-                  Resolving is final. This will close the dispute and notify both parties.
-                </p>
-              </div>
-            )}
-
-            <label
-              htmlFor="action-text"
-              className="kr-label"
-            >
-              {actionType === 'recommend' ? 'Your recommendation' : 'Resolution statement'}
-              <span aria-hidden="true" className="text-kr-text-danger"> *</span>
-            </label>
-            <textarea
-              id="action-text"
-              rows={4}
-              placeholder={
-                actionType === 'recommend'
-                  ? 'Summarise the situation and suggest a fair outcome…'
-                  : 'State the final decision and next steps…'
-              }
-              value={actionText}
-              onChange={(e) => setActionText(e.target.value)}
-              className="kr-input resize-y"
-              autoFocus
-            />
-
-            <div className="flex gap-3">
-              <Button
-                onClick={() => {
-                  if (!actionText.trim()) return;
-                  if (actionType === 'recommend') {
-                    recommendMut.mutate({ id: activeDispute.id, text: actionText.trim() });
-                  } else {
-                    resolveMut.mutate({ id: activeDispute.id, text: actionText.trim() });
-                  }
-                }}
-                disabled={!actionText.trim() || recommendMut.isPending || resolveMut.isPending}
-                aria-busy={recommendMut.isPending || resolveMut.isPending}
-                className={`flex-1 kr-btn-lg ${
-                  actionType === 'resolve' ? 'kr-btn-primary' : 'kr-btn-secondary'
-                }`}
-              >
-                {(recommendMut.isPending || resolveMut.isPending)
-                  ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                  : null
-                }
-                {actionType === 'recommend' ? 'Submit recommendation' : 'Confirm resolution'}
-              </Button>
-              <Button
-                onClick={() => { setActiveDispute(null); setActionType(null); }}
-                className="kr-btn-ghost"
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </div>
+              </li>
+            );
+          })}
+        </ul>
       )}
-    </div>
-  );
-}
 
-// ─── Expert Verification Panel ───
-
-function ExpertPanel() {
-  const [applications, setApplications] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Read from our mock localStorage store
-    if (typeof window !== 'undefined') {
-      const appStr = localStorage.getItem('expert_application');
-      if (appStr) {
-        const app = JSON.parse(appStr);
-        if (app.status === 'PENDING_VERIFICATION') {
-          setApplications([app]);
+      <Modal
+        open={active !== null}
+        onClose={() => setActive(null)}
+        title={active?.kind === 'resolve' ? 'Resolve dispute' : 'Recommend an outcome'}
+        footer={
+          <>
+            <Btn theme={theme} variant="ghost" onClick={() => setActive(null)}>Cancel</Btn>
+            <Btn theme={theme} disabled={!text.trim() || act.isPending} onClick={() => active && act.mutate({ d: active.d, kind: active.kind, body: text.trim() })}>
+              {active?.kind === 'resolve' ? 'Confirm resolution' : 'Submit recommendation'}
+            </Btn>
+          </>
         }
-      }
-      setLoading(false);
-    }
-  }, []);
-
-  const handleApprove = (email: string) => {
-    if (typeof window !== 'undefined') {
-      const appStr = localStorage.getItem('expert_application');
-      if (appStr) {
-        const app = JSON.parse(appStr);
-        app.status = 'VERIFIED_EXPERT';
-        localStorage.setItem('expert_application', JSON.stringify(app));
-        setApplications([]);
-      }
-    }
-  };
-
-  const handleReject = (email: string) => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('expert_application');
-      setApplications([]);
-    }
-  };
-
-  if (loading) return <PanelSkeleton />;
-
-  if (applications.length === 0) {
-    return (
-      <div className="kr-empty-state">
-        <ShieldCheck className="w-10 h-10 text-kr-success-500 mx-auto" aria-hidden="true" />
-        <p className="text-body text-kr-text-secondary">Expert queue is empty</p>
-        <p className="text-body-sm text-kr-text-disabled">All expert applications have been reviewed.</p>
-      </div>
-    );
-  }
-
-  return (
-    <ul className="space-y-4" role="list">
-      {applications.map((sub, i) => (
-        <li key={i} className="kr-card kr-glass-amber kr-pattern-chinar">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap mb-2">
-                <p className="font-medium text-body text-kr-text-primary">{sub.fullName}</p>
-                <span className="kr-badge kr-badge-pending">PENDING</span>
-              </div>
-              <p className="text-body-sm text-kr-text-secondary mb-1">
-                <strong>Email:</strong> {sub.email}
+      >
+        {active && (
+          <div className="grid gap-4">
+            <p className="text-sm text-slate-600">#{active.d.orderId.slice(-6).toUpperCase()} — {active.d.farmerName} ↔ {active.d.buyerName}</p>
+            {active.kind === 'resolve' && (
+              <p className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+                <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> Resolving is final: escrow is released or refunded and both parties are notified.
               </p>
-              <p className="text-body-sm text-kr-text-secondary mb-1">
-                <strong>Degree:</strong> {sub.degree}
-              </p>
-              <p className="text-body-sm text-kr-text-secondary mb-1">
-                <strong>Institution:</strong> {sub.institution}
-              </p>
-              <p className="text-body-sm text-kr-text-secondary mb-1">
-                <strong>License No:</strong> {sub.license}
-              </p>
-              <p className="text-body-sm text-kr-text-secondary mb-1">
-                <strong>Specialization:</strong> {sub.specialization}
-              </p>
-              <p className="text-body-sm text-kr-text-secondary mt-1">
-                <strong>Experience:</strong> {sub.experience} Years
-              </p>
-            </div>
-            <div className="flex gap-2 shrink-0">
-              <Button
-                onClick={() => handleApprove(sub.email)}
-                className="kr-btn-primary kr-btn-sm"
-              >
-                <Check className="w-3 h-3" aria-hidden="true" /> Approve
-              </Button>
-              <Button
-                onClick={() => handleReject(sub.email)}
-                className="kr-btn-ghost kr-btn-sm text-kr-text-danger hover:bg-kr-badge-rejected-bg"
-              >
-                <X className="w-3 h-3" aria-hidden="true" /> Reject
-              </Button>
-            </div>
+            )}
+            <Field label={active.kind === 'resolve' ? 'Resolution statement' : 'Your recommendation'}>
+              <textarea rows={4} className={INPUT} value={text} onChange={(e) => setText(e.target.value)} />
+            </Field>
           </div>
-        </li>
-      ))}
-    </ul>
+        )}
+      </Modal>
+    </Panel>
   );
 }
 
-
-// ─── Analytics Panel ───
+// ─── Analytics ───
 
 function AnalyticsPanel({ adminRole }: { adminRole: AdminRole }) {
   const today = new Date().toISOString().slice(0, 10);
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
+  const [start, setStart] = useState(() => new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10));
+  const [end, setEnd] = useState(today);
+  const [region, setRegion] = useState('');
 
-  const [startDate, setStartDate] = useState(thirtyDaysAgo);
-  const [endDate, setEndDate]     = useState(today);
-  const [selectedRegion, setSelectedRegion] = useState<string>('');
-
-  const regionsQ = useQuery({
-    queryKey: ['admin', 'regions'],
-    queryFn: analyticsApi.listRegions,
+  const regionsQ = useQuery({ queryKey: ['admin', 'regions'], queryFn: analyticsApi.listRegions, retry: 1 });
+  const summaryQ = useQuery({
+    queryKey: ['admin', 'analytics', region, start, end],
+    queryFn: () => analyticsApi.getSummary({ regionId: region || undefined, startDate: start, endDate: end }),
+    enabled: !!start && !!end,
+    retry: 1,
   });
 
-  const analyticsQ = useQuery({
-    queryKey: ['admin', 'analytics', selectedRegion, startDate, endDate],
-    queryFn: () =>
-      analyticsApi.getSummary({
-        regionId: selectedRegion || undefined,
-        startDate,
-        endDate,
-      }),
-    enabled: !!startDate && !!endDate,
-  });
+  const live = !summaryQ.isError;
+  const regions = regionsQ.isError ? DEMO_REGIONS : regionsQ.data ?? [];
+  const s = live ? summaryQ.data : demoSummary(region, start, end);
 
-  const summary = analyticsQ.data;
-
-  function KpiCard({
-    label, value, sub, highlight = false,
-    trend,
-  }: {
-    label: string;
-    value: string | number;
-    sub?: string;
-    highlight?: boolean;
-    trend?: 'up' | 'down' | 'neutral';
-  }) {
-    return (
-      <div
-        className={`kr-card space-y-1 ${
-          highlight ? 'border-kr-border-brand bg-kr-fill-brand-subtle' : ''
-        }`}
-      >
-        <p className="text-caption text-kr-text-secondary uppercase tracking-wide">{label}</p>
-        <div className="flex items-end gap-2">
-          <p className="font-heading text-h2 text-kr-text-primary kr-amount">{value}</p>
-          {trend === 'up'   && <TrendingUp   className="w-4 h-4 text-kr-success-500 mb-1" aria-label="trending up" />}
-          {trend === 'down' && <TrendingDown  className="w-4 h-4 text-kr-danger-500 mb-1"  aria-label="trending down" />}
-        </div>
-        {sub && <p className="text-caption text-kr-text-secondary">{sub}</p>}
-      </div>
-    );
-  }
+  const cards: { label: string; value: string; sub?: string; up?: boolean; down?: boolean }[] = s
+    ? [
+        { label: 'Gross revenue', value: inr.format(s.grossRevenue), up: true },
+        { label: 'Total orders', value: String(s.totalOrders), sub: `${s.completedOrders} completed` },
+        { label: 'Cancelled', value: String(s.cancelledOrders), sub: `${((s.cancelledOrders / (s.totalOrders || 1)) * 100).toFixed(1)}% cancel rate`, down: s.cancelledOrders > s.totalOrders * 0.1 },
+        { label: 'Disputed', value: String(s.disputedOrders), down: s.disputedOrders > 10 },
+        { label: 'Active listings', value: String(s.activeListings) },
+        { label: 'New farmers', value: String(s.newFarmers), up: true },
+        { label: 'New buyers', value: String(s.newBuyers), up: true },
+        { label: 'KYC pending', value: String(s.kycPending), sub: `${s.kycApproved} approved · ${s.kycRejected} rejected` },
+      ]
+    : [];
 
   return (
-    <div className="space-y-6">
-      {/* Filters */}
-      <div className="flex flex-wrap gap-4 items-end">
-        {/* Region selector — REGIONAL_ADMIN sees own region only (UX) */}
-        {/* SECURITY: backend filters by scoped region from JWT; this UI filter is additive UX */}
-        <div>
-          <label htmlFor="analytics-region" className="kr-label mb-1">Region</label>
-          <select
-            id="analytics-region"
-            value={selectedRegion}
-            onChange={(e) => setSelectedRegion(e.target.value)}
-            className="kr-input"
-            disabled={adminRole === 'REGIONAL_ADMIN'}
-            aria-describedby={adminRole === 'REGIONAL_ADMIN' ? 'region-note' : undefined}
-          >
+    <Panel theme={theme} title="Regional analytics" icon={BarChart3}>
+      {!live && <DemoBanner error={summaryQ.error} onRetry={() => { void regionsQ.refetch(); void summaryQ.refetch(); }} />}
+      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+        <Field label="Region" hint={adminRole === 'REGIONAL_ADMIN' ? 'Scoped to your assigned region.' : undefined}>
+          <select className={INPUT} value={region} disabled={adminRole === 'REGIONAL_ADMIN'} onChange={(e) => setRegion(e.target.value)}>
             {adminRole === 'PLATFORM_ADMIN' && <option value="">All regions</option>}
-            {(regionsQ.data ?? []).map((r) => (
-              <option key={r.id} value={r.id}>{r.name}</option>
-            ))}
+            {regions.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
-          {adminRole === 'REGIONAL_ADMIN' && (
-            <p id="region-note" className="kr-hint">
-              Scoped to your assigned region.
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label htmlFor="analytics-start" className="kr-label mb-1">From</label>
-          <input
-            id="analytics-start"
-            type="date"
-            value={startDate}
-            max={endDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="kr-input"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="analytics-end" className="kr-label mb-1">To</label>
-          <input
-            id="analytics-end"
-            type="date"
-            value={endDate}
-            min={startDate}
-            max={today}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="kr-input"
-          />
-        </div>
+        </Field>
+        <Field label="From">
+          <input type="date" className={INPUT} value={start} max={end} onChange={(e) => setStart(e.target.value)} />
+        </Field>
+        <Field label="To">
+          <input type="date" className={INPUT} value={end} min={start} max={today} onChange={(e) => setEnd(e.target.value)} />
+        </Field>
       </div>
 
-      {analyticsQ.isLoading && (
-        <div aria-busy="true" aria-label="Loading analytics"
-             className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="kr-card kr-glass-amber kr-pattern-chinar space-y-2">
-              <div className="kr-skeleton h-3 w-3/4 rounded" />
-              <div className="kr-skeleton h-7 w-1/2 rounded" />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {analyticsQ.isError && (
-        <PanelError message={apiMsg(analyticsQ.error)} onRetry={() => analyticsQ.refetch()} />
-      )}
-
-      {summary && (
+      {summaryQ.isLoading && <Loading />}
+      {s && (
         <>
-          {/* ★ IMPORT/EXPORT RATIO — Prominent KPI */}
-          <div
-            className="kr-card kr-glass-amber kr-pattern-chinar border-2 border-kr-primary-400 bg-kr-fill-brand-subtle p-6 space-y-2"
-            aria-label="Import to export ratio KPI"
-          >
-            <p className="text-caption text-kr-primary-700 uppercase tracking-widest font-semibold">
-              ★ Import / Export Ratio
-            </p>
-            <div className="flex items-end gap-4 flex-wrap">
-              <p className="font-heading text-display text-kr-primary-700 kr-amount">
-                {summary.importExportRatio.toFixed(2)}x
-              </p>
-              <div className="space-y-0.5">
-                <p className="text-body-sm text-kr-text-secondary">
-                  {summary.exportOrders} exports · {summary.importOrders} imports
-                </p>
-                <p className="text-body-sm text-kr-text-secondary">
-                  {summary.regionName} · {summary.period.start} to {summary.period.end}
-                </p>
-              </div>
+          <div className="mb-4 rounded-2xl bg-gradient-to-br from-indigo-600 to-slate-800 p-6 text-white shadow-lg">
+            <p className="text-xs font-semibold uppercase tracking-widest text-indigo-200">Export / import ratio</p>
+            <div className="mt-1 flex flex-wrap items-end gap-4">
+              <p className="font-serif text-5xl font-semibold tabular-nums">{s.importExportRatio.toFixed(2)}×</p>
+              <p className="pb-1 text-sm text-indigo-100">{s.exportOrders} exports · {s.importOrders} imports · {s.regionName} · {s.period.start} → {s.period.end}</p>
             </div>
-            <p className="text-caption text-kr-primary-700">
-              Ratio &gt; 1 means the region exports more than it imports.
-              Target: &gt; 1.5 for healthy trade balance.
-            </p>
+            <p className="mt-2 text-xs text-indigo-200">Above 1 means the region sells out more than it brings in. Healthy target: above 1.5.</p>
           </div>
-
-          {/* KPI grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            <KpiCard
-              label="Gross Revenue"
-              value={fmt(summary.grossRevenue, summary.currency)}
-              trend="up"
-            />
-            <KpiCard
-              label="Total Orders"
-              value={summary.totalOrders}
-              sub={`${summary.completedOrders} completed`}
-            />
-            <KpiCard
-              label="Cancelled"
-              value={summary.cancelledOrders}
-              sub={`${((summary.cancelledOrders / (summary.totalOrders || 1)) * 100).toFixed(1)}% cancel rate`}
-              trend={summary.cancelledOrders > summary.totalOrders * 0.1 ? 'down' : 'neutral'}
-            />
-            <KpiCard
-              label="Disputed"
-              value={summary.disputedOrders}
-              trend={summary.disputedOrders > 10 ? 'down' : 'neutral'}
-            />
-            <KpiCard
-              label="Active Listings"
-              value={summary.activeListings}
-            />
-            <KpiCard
-              label="New Farmers"
-              value={summary.newFarmers}
-              trend="up"
-            />
-            <KpiCard
-              label="New Buyers"
-              value={summary.newBuyers}
-              trend="up"
-            />
-            <KpiCard
-              label="KYC Pending"
-              value={summary.kycPending}
-              sub={`${summary.kycApproved} approved, ${summary.kycRejected} rejected`}
-            />
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {cards.map((c) => (
+              <div key={c.label} className="rounded-2xl bg-white/80 p-4 ring-1 ring-slate-900/5">
+                <p className="text-xs uppercase tracking-wider text-slate-500">{c.label}</p>
+                <p className="mt-1 flex items-center gap-1 text-xl font-bold tabular-nums text-slate-900">
+                  {c.value}
+                  {c.up && <TrendingUp className="h-4 w-4 text-emerald-600" aria-label="trending up" />}
+                  {c.down && <TrendingDown className="h-4 w-4 text-red-600" aria-label="trending down" />}
+                </p>
+                {c.sub && <p className="text-xs text-slate-500">{c.sub}</p>}
+              </div>
+            ))}
           </div>
         </>
       )}
-    </div>
+    </Panel>
   );
 }
 
 // ─── Page ───
 
-type Tab = 'kyc' | 'expert' | 'disputes' | 'analytics';
-
-const TABS: { id: Tab; label: string; Icon: any }[] = [
-  { id: 'kyc',       label: 'KYC Queue',  Icon: Users       },
-  { id: 'expert',    label: 'Expert KYC', Icon: ShieldCheck },
-  { id: 'disputes',  label: 'Disputes',   Icon: ShieldAlert },
-  { id: 'analytics', label: 'Analytics',  Icon: BarChart3   },
-];
-
 export default function AdminConsolePage() {
-  const [activeTab, setActiveTab] = useState<Tab>('kyc');
+  const [tab, setTab] = useState('kyc');
+  // SECURITY: UX only — read from JWT claims once the auth store exposes them.
+  const adminRole: AdminRole = 'PLATFORM_ADMIN';
 
-  // In production: read from auth store / JWT claims
-  // SECURITY: role check here is UX only — backend enforces actual access control
-  const adminRole: AdminRole = 'PLATFORM_ADMIN'; // TODO: useAuthStore().user.role
+  const kycQ = useQuery({ queryKey: ['admin', 'kyc', 'PENDING'], queryFn: () => kycApi.getQueue({ status: 'PENDING', limit: 20 }), retry: 1 });
+  const disputesQ = useQuery({ queryKey: ['admin', 'disputes'], queryFn: () => disputesApi.list({ limit: 20 }), retry: 1 });
+  const [demoKyc] = usePersistentState<KycSubmission[]>('kr_admin_kyc', DEMO_KYC);
+  const [demoDisputes] = usePersistentState<Dispute[]>('kr_admin_disputes', DEMO_DISPUTES);
 
-  const kycCountQ = useQuery({
-    queryKey: ['admin', 'kyc', 'PENDING'],
-    queryFn: () => kycApi.getQueue({ status: 'PENDING', limit: 1 }),
-  });
-
-  const disputesCountQ = useQuery({
-    queryKey: ['admin', 'disputes'],
-    queryFn: () => disputesApi.list({ limit: 1 }),
-  });
+  const kycCount = kycQ.isError ? demoKyc.length : kycQ.data?.total ?? 0;
+  const disputeRows = disputesQ.isError ? demoDisputes : disputesQ.data?.data ?? [];
+  const openDisputes = disputeRows.filter((d) => d.status !== 'RESOLVED' && d.status !== 'CLOSED').length;
 
   return (
-    <PortalShell theme="admin" title="Platform Administration" description="Monitor platform activity, resolve disputes, and verify KYC." kpis={[]}>
-      <div className="kr-hero-premium kr-pattern-chinar rounded-xl p-6 md:p-8 mb-8 border-l-8 border-kr-border-brand shadow-md">
-        <div className="flex items-center gap-3 mb-2">
-          <h1 className="font-heading text-display text-white">Admin console</h1>
-          <span
-            className={`kr-badge ${
-              adminRole === 'PLATFORM_ADMIN' ? 'bg-slate-700 text-slate-100 border-none' : 'kr-badge-draft'
-            }`}
-            aria-label={`Admin role: ${adminRole.replace('_', ' ').toLowerCase()}`}
-          >
-            {adminRole === 'PLATFORM_ADMIN' ? 'Platform Admin' : 'Regional Admin'}
-          </span>
-        </div>
-        <p className="text-body-lg text-slate-300">
-          Review KYC submissions, manage disputes, and monitor region analytics.
-        </p>
-      </div>
-
-      {/* Tab strip */}
-      <div
-        role="tablist"
-        aria-label="Admin console sections"
-        className="flex gap-1 border-b border-kr-border-default mb-6 overflow-x-auto scrollbar-none"
-      >
-        {TABS.map(({ id, label, Icon }) => {
-          // Badge counts on tabs
-          const count =
-            id === 'kyc'      ? kycCountQ.data?.total :
-            id === 'disputes' ? disputesCountQ.data?.total :
-            undefined;
-
-          return (
-            <Button
-              key={id}
-              role="tab"
-              id={`admin-tab-${id}`}
-              aria-selected={activeTab === id}
-              aria-controls={`admin-panel-${id}`}
-              onClick={() => setActiveTab(id)}
-              className={`
-                flex items-center gap-2 px-4 py-3 text-body-sm font-medium whitespace-nowrap
-                border-b-2 transition-colors kr-focus-ring
-                ${ activeTab === id
-                  ? 'border-kr-primary-500 text-kr-primary-600'
-                  : 'border-transparent text-kr-text-secondary hover:text-kr-text-primary'
-                }
-              `}
-            >
-              <Icon className="w-4 h-4" aria-hidden="true" />
-              {label}
-              {count != null && count > 0 && (
-                <span
-                  className="inline-flex items-center justify-center
-                             w-5 h-5 rounded-full bg-kr-danger-500 text-white text-caption"
-                  aria-label={`${count} pending`}
-                >
-                  {count > 99 ? '99+' : count}
-                </span>
-              )}
-            </Button>
-          );
-        })}
-      </div>
-
-      {/* Tab panels */}
-      {TABS.map(({ id }) => (
-        <div
-          key={id}
-          role="tabpanel"
-          id={`admin-panel-${id}`}
-          aria-labelledby={`admin-tab-${id}`}
-          hidden={activeTab !== id}
-        >
-          {id === 'kyc'       && <KycPanel />}
-          {id === 'expert'    && <ExpertPanel />}
-          {id === 'disputes'  && <DisputesPanel adminRole={adminRole} />}
-          {id === 'analytics' && <AnalyticsPanel adminRole={adminRole} />}
-        </div>
-      ))}
+    <PortalShell
+      title="Governance console"
+      description="Verify identities, settle trade disputes and watch regional trade health."
+      eyebrow={adminRole === 'PLATFORM_ADMIN' ? 'Platform admin' : 'Regional admin'}
+      theme="admin"
+      kpis={[
+        { label: 'KYC pending', value: String(kycCount), trend: kycQ.isError ? 'Demo data' : 'Live queue' },
+        { label: 'Open disputes', value: String(openDisputes), trend: 'Escrow on hold' },
+        { label: 'Your role', value: adminRole === 'PLATFORM_ADMIN' ? 'Platform' : 'Regional', trend: 'Backend enforces access' },
+      ]}
+      tabs={[
+        { id: 'kyc', label: 'KYC queue', icon: Users, count: kycCount },
+        { id: 'expert', label: 'Expert KYC', icon: GraduationCap },
+        { id: 'disputes', label: 'Disputes', icon: Gavel, count: openDisputes },
+        { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+      ]}
+      activeTab={tab}
+      onTabChange={setTab}
+    >
+      {tab === 'kyc' && <KycPanel />}
+      {tab === 'expert' && <ExpertPanel />}
+      {tab === 'disputes' && <DisputesPanel adminRole={adminRole} />}
+      {tab === 'analytics' && <AnalyticsPanel adminRole={adminRole} />}
     </PortalShell>
   );
 }

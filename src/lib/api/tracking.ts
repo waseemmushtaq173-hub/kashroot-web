@@ -128,7 +128,7 @@ export const trackingApi = {
     if (vehicleNumber.substring(2, 3) !== '-') {
        prefix = vehicleNumber.substring(0,2) + '-' + vehicleNumber.substring(2,4);
     }
-    const rtoCoords = rtoMap[prefix] || { lat: 34.0837, lng: 74.7973 }; // Default Kashmir
+    const rtoCoords = rtoMap[prefix] || { lat: 34.0837, lng: 74.7973 }; // Default: valley centre
 
     // 2. Mock Guard: Reject mismatch
     if (isCommercial && (vehicleNumber.toLowerCase().includes('maruti') || vehicleNumber.toLowerCase().includes('car'))) {
@@ -137,7 +137,7 @@ export const trackingApi = {
 
     try {
       const response = await api.get<LiveVehicleTracking>(`/tracking/${encodeURIComponent(vehicleNumber)}`);
-      let data = response;
+      const data = response;
 
       // 3. Strip Private Details globally
       data.driver.name = 'Driver (Protected)';
@@ -161,7 +161,7 @@ export const trackingApi = {
       }
 
       return data;
-    } catch (e: any) {
+    } catch (e: unknown) {
       if (!isCommercial) {
          // Even if backend fails (e.g. invalid format), generate a mock non-commercial response
          return {
@@ -186,7 +186,76 @@ export const trackingApi = {
            fetchedAt: new Date().toISOString(),
          } as LiveVehicleTracking;
       }
+      // Backend unreachable (not deployed, module not mounted, or down): fall
+      // back to a local simulation so the screen still works. A 4xx other than
+      // 404 is a real validation answer and is shown as-is.
+      // (Network failures arrive as ApiError with statusCode 0.)
+      const unreachable = !(e instanceof ApiError) || e.statusCode === 0 || e.statusCode === 404 || e.statusCode >= 500;
+      if (unreachable) return simulateCommercial(vehicleNumber, vehicleClass, rtoCoords);
       throw e;
     }
   },
 };
+
+/** Deterministic simulated consignment for a plate, used only as a fallback. */
+function simulateCommercial(vehicleNumber: string, vehicleClass: string | undefined, origin: GeoPoint): LiveVehicleTracking {
+  let hash = 0;
+  for (const ch of vehicleNumber.toUpperCase()) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+
+  const destination: GeoPoint = Math.abs(origin.lat - 28.61) > 1.5 ? { lat: 28.6139, lng: 77.209 } : { lat: origin.lat + 2.4, lng: origin.lng + 1.6 };
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const straightKm =
+    6371 * 2 * Math.asin(Math.sqrt(Math.sin(toRad(destination.lat - origin.lat) / 2) ** 2 + Math.cos(toRad(origin.lat)) * Math.cos(toRad(destination.lat)) * Math.sin(toRad(destination.lng - origin.lng) / 2) ** 2));
+  const totalKm = Math.round(straightKm * 1.3);
+  const percent = 15 + (hash % 70);
+  const coveredKm = Math.round((totalKm * percent) / 100);
+
+  const steps = 12;
+  const path = Array.from({ length: steps + 1 }, (_, i) => ({
+    lat: origin.lat + ((destination.lat - origin.lat) * i) / steps + Math.sin(i) * 0.05,
+    lng: origin.lng + ((destination.lng - origin.lng) * i) / steps,
+    distanceFromOriginKm: Math.round((totalKm * i) / steps),
+  }));
+  const at = percent / 100;
+  const now = Date.now();
+  const hours = (km: number) => (km / 45) * 3_600_000;
+  const departureAt = new Date(now - hours(coveredKm)).toISOString();
+  const etaAt = new Date(now + hours(totalKm - coveredKm)).toISOString();
+  const commercial = vehicleClass === 'LCV' ? { type: 'Light goods vehicle', capacityTonnes: 3.5 } : { type: 'Refrigerated truck', capacityTonnes: 12 };
+
+  return {
+    vehicle: { registrationNumber: vehicleNumber, displayNumber: vehicleNumber.toUpperCase(), ...commercial },
+    shipment: { id: `SHP-${(hash % 90000) + 10000}`, commodity: ['Apples', 'Walnuts', 'Cherries', 'Pears'][hash % 4], quantity: { value: 400 + (hash % 600), unit: 'boxes' } },
+    driver: { name: 'Driver (Protected)', contact: null },
+    owner: { name: 'Owner (Protected)', contact: null },
+    route: {
+      origin: { name: 'Origin packhouse', district: '', state: '', ...origin },
+      destination: { name: 'Wholesale fruit market', district: '', state: '', ...destination },
+      totalDistanceKm: totalKm,
+      path,
+    },
+    status: 'in_transit',
+    progress: { percent, coveredKm, remainingKm: totalKm - coveredKm },
+    position: {
+      lat: origin.lat + (destination.lat - origin.lat) * at,
+      lng: origin.lng + (destination.lng - origin.lng) * at,
+      speedKmph: 38 + (hash % 25),
+      headingDeg: 160,
+      nearestLandmark: 'National highway checkpoint',
+      distanceFromOriginKm: coveredKm,
+      distanceToDestinationKm: totalKm - coveredKm,
+      recordedAt: new Date(now).toISOString(),
+    },
+    departureAt,
+    etaAt,
+    events: [
+      { at: new Date(Date.parse(departureAt) - 3_600_000).toISOString(), label: 'Loaded and sealed', place: 'Origin packhouse', occurred: true },
+      { at: departureAt, label: 'Departed', place: 'Origin packhouse', occurred: true },
+      { at: new Date(now - hours(coveredKm) / 2).toISOString(), label: 'Crossed highway toll', place: 'Toll plaza', occurred: true },
+      { at: etaAt, label: 'Arrival at market', place: 'Wholesale fruit market', occurred: false },
+    ],
+    source: 'simulated',
+    attribution: 'Local simulated lookup — tracking service unreachable',
+    fetchedAt: new Date(now).toISOString(),
+  };
+}

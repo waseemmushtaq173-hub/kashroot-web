@@ -382,7 +382,7 @@ export default function TrackingPage() {
   const isCommercial = submittedClass === 'HCV' || submittedClass === 'LCV';
 
   return (
-    <PortalShell theme="tracking" title="Live Tracking" description="Monitor your consignments in real-time." kpis={[]}>
+    <PortalShell theme="tracking" eyebrow="Logistics" title="Live tracking" description="Follow any consignment from packhouse to market — position, route and ETA.">
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -397,7 +397,7 @@ export default function TrackingPage() {
           <div className="flex flex-col items-start gap-1 md:items-end">
             <span className="kr-badge bg-kr-badge-published-bg text-kr-success-700 border-kr-success-200" title={data.attribution}>
               <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
-              Live Device GPS Active
+              {data.source === 'simulated' ? 'Simulated position' : 'Live GPS'}
             </span>
           </div>
         ) : null}

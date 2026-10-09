@@ -25,8 +25,10 @@ export default function ExpertRegistrationPage() {
 
       // Save application state locally to mock backend behaviour
       if (typeof window !== 'undefined') {
+        // Never keep credentials in browser storage.
+        const { password: _password, ...profile } = data;
         const expertData = {
-          ...data,
+          ...profile,
           status: 'PENDING_VERIFICATION'
         };
         localStorage.setItem('expert_application', JSON.stringify(expertData));
