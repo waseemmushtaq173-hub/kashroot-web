@@ -71,6 +71,12 @@ export interface AuthUser {
   mfaEnabled: boolean;
 }
 
+export interface RegisterResponse {
+  userId: string | null;
+  /** True when Supabase wants the email confirmed before the first sign-in. */
+  needsEmailConfirmation: boolean;
+}
+
 export interface LoginResponse {
   accessToken:   string;
   requiresMfa:   boolean;   // true for admin roles with MFA enabled
@@ -96,20 +102,35 @@ export interface RefreshResponse {
 
 // ── API calls ─────────────────────────────────────────────────────────────
 export const authApi = {
-  register: async (dto: RegisterDto) => {
-    // Call the dedicated backend API route for registration
-    const res = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(dto),
+  register: async (dto: RegisterDto): Promise<RegisterResponse> => {
+    // Sign-up goes through Supabase auth — the same place `login` checks
+    // credentials — so a new account can sign in immediately. It used to POST
+    // to /api/auth/register, which wrote a Prisma row Supabase never sees, so
+    // registering and then signing in could not both work.
+    //
+    // The name and role ride along in user_metadata, which `login` reads back.
+    const { data, error } = await supabase.auth.signUp({
+      email: dto.email,
+      password: dto.password,
+      options: {
+        data: {
+          full_name: dto.fullName,
+          role: dto.role,
+          ...(dto.phone ? { phone: dto.phone } : {}),
+        },
+      },
     });
-    
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      throw new Error(errorData.error || 'Failed to register account');
-    }
-    
-    return await res.json();
+
+    if (error) throw new Error(error.message || 'Failed to register account');
+
+    // With "Confirm email" switched on for the Supabase project, signUp
+    // returns a user but no session: the link has to be clicked before
+    // signInWithPassword will work. Switched off, the session arrives here and
+    // they can sign in straight away.
+    return {
+      userId: data.user?.id ?? null,
+      needsEmailConfirmation: !data.session,
+    };
   },
   login: async (dto: LoginDto) => {
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -121,6 +142,9 @@ export const authApi = {
       throw new Error('Invalid email or password');
     }
 
+    // The role recorded at sign-up wins; kr_mock_role stays as the fallback
+    // for accounts created before sign-up wrote any metadata.
+    const metadataRole = data.user.user_metadata?.role as UserRole | undefined;
     const mockRole = (typeof window !== 'undefined' && localStorage.getItem('kr_mock_role')) as UserRole || 'FARMER';
     return {
       accessToken: data.session.access_token,
@@ -129,7 +153,7 @@ export const authApi = {
         id: data.user.id,
         email: dto.email,
         fullName: data.user.user_metadata?.full_name || 'Verified User',
-        role: mockRole,
+        role: metadataRole ?? mockRole,
         kycStatus: 'VERIFIED',
         mfaEnabled: false
       }

@@ -7,6 +7,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { AlertCircle, Loader2, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import { authApi, type RegisterDto } from '@/lib/api/auth';
+import { loginHref } from '@/lib/auth/roles';
 import { ApiError } from '@/lib/api/client';
 import axios from 'axios';
 
@@ -64,12 +65,20 @@ export default function RegisterPage() {
   const phoneValue = watch('phone', '');
   const password = watch('password', '');
 
+  const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
+
   const registerMutation = useMutation({
     mutationFn: (dto: RegisterDto) => authApi.register(dto),
-    onSuccess: (_, variables) => {
+    onSuccess: (result, variables) => {
       setSuccess(true);
+      setNeedsEmailConfirmation(result.needsEmailConfirmation);
+      // Sending them to /login would land on the partner and staff form; each
+      // role has its own sign-in. Skip the redirect entirely while the email
+      // is unconfirmed, because signing in would fail until the link is used.
+      if (result.needsEmailConfirmation) return;
+      const role = variables.role === 'BUYER' ? 'buyer' : 'farmer';
       setTimeout(() => {
-        router.push('/login');
+        router.push(loginHref(role));
       }, 2000);
     },
   });
@@ -137,8 +146,16 @@ export default function RegisterPage() {
       <div style={{ textAlign: 'center', padding: '2rem 0' }}>
         <CheckCircle2 style={{ width: '3rem', height: '3rem', color: '#16a34a', margin: '0 auto 1rem' }} />
         <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#111827' }}>Account created!</h2>
-        <p style={{ color: '#4b5563', marginTop: '0.5rem' }}>You have successfully registered. Redirecting to login…</p>
-        <Loader2 className="animate-spin" style={{ width: '1.25rem', height: '1.25rem', color: '#d97706', margin: '1rem auto 0' }} />
+        {needsEmailConfirmation ? (
+          <p style={{ color: '#4b5563', marginTop: '0.5rem' }}>
+            Check your inbox and click the confirmation link, then sign in.
+          </p>
+        ) : (
+          <>
+            <p style={{ color: '#4b5563', marginTop: '0.5rem' }}>You have successfully registered. Redirecting to sign in…</p>
+            <Loader2 className="animate-spin" style={{ width: '1.25rem', height: '1.25rem', color: '#d97706', margin: '1rem auto 0' }} />
+          </>
+        )}
       </div>
     );
   }
