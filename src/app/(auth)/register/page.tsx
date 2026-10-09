@@ -1,53 +1,40 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { AlertCircle, Loader2, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import { authApi, type RegisterDto } from '@/lib/api/auth';
-import { loginHref } from '@/lib/auth/roles';
+import { loginHref, REGISTER_ROLES } from '@/lib/auth/roles';
 import { ApiError } from '@/lib/api/client';
-import axios from 'axios';
+import { ContactOtp } from '@/components/auth/ContactOtp';
+
+type RegisterRole = RegisterDto['role'];
+const ROLE_EMOJI: Record<RegisterRole, string> = { FARMER: '🌾', BUYER: '🛒', SELLER: '🏪', PROVIDER: '🚚' };
 
 export default function RegisterPage() {
+  return (
+    <Suspense>
+      <RegisterForm />
+    </Suspense>
+  );
+}
+
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requested = REGISTER_ROLES.find((r) => r.role === searchParams.get('role'))?.role ?? 'FARMER';
   const [showPw, setShowPw] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<'FARMER' | 'BUYER'>('FARMER');
+  const [selectedRole, setSelectedRole] = useState<RegisterRole>(requested as RegisterRole);
 
-  // Dual OTP States
-  const [emailOtpSent, setEmailOtpSent] = useState(false);
+  // Contact verification (codes are checked on the server — see ContactOtp)
   const [isEmailVerified, setIsEmailVerified] = useState(false);
-  const [isSendingEmail, setIsSendingEmail] = useState(false);
-  const [expectedEmailOtp, setExpectedEmailOtp] = useState('');
-  const [emailOtpInput, setEmailOtpInput] = useState('');
-  const [emailTimer, setEmailTimer] = useState(0);
-  const [emailError, setEmailError] = useState('');
-
-  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
-  const [isSendingPhone, setIsSendingPhone] = useState(false);
-  const [expectedPhoneOtp, setExpectedPhoneOtp] = useState('');
-  const [phoneOtpInput, setPhoneOtpInput] = useState('');
-  const [phoneTimer, setPhoneTimer] = useState(0);
-  const [phoneError, setPhoneError] = useState('');
-  const [phoneDevMode, setPhoneDevMode] = useState(false);
 
   const [agreedToTerms, setAgreedToTerms] = useState(false);
-
-  useEffect(() => {
-    let interval: any;
-    if (emailTimer > 0) interval = setInterval(() => setEmailTimer((t) => t - 1), 1000);
-    return () => clearInterval(interval);
-  }, [emailTimer]);
-
-  useEffect(() => {
-    let interval: any;
-    if (phoneTimer > 0) interval = setInterval(() => setPhoneTimer((t) => t - 1), 1000);
-    return () => clearInterval(interval);
-  }, [phoneTimer]);
 
   const {
     register,
@@ -57,7 +44,7 @@ export default function RegisterPage() {
     formState: { errors },
   } = useForm<RegisterDto & { confirmPassword: string }>({
     defaultValues: {
-      role: 'FARMER',
+      role: requested as RegisterRole,
     },
   });
 
@@ -76,7 +63,7 @@ export default function RegisterPage() {
       // role has its own sign-in. Skip the redirect entirely while the email
       // is unconfirmed, because signing in would fail until the link is used.
       if (result.needsEmailConfirmation) return;
-      const role = variables.role === 'BUYER' ? 'buyer' : 'farmer';
+      const role = REGISTER_ROLES.find((r) => r.role === variables.role)?.portal ?? 'farmer';
       setTimeout(() => {
         router.push(loginHref(role));
       }, 2000);
@@ -86,53 +73,6 @@ export default function RegisterPage() {
   const onSubmit = ({ confirmPassword, ...dto }: RegisterDto & { confirmPassword: string }) => {
     dto.role = selectedRole;
     registerMutation.mutate(dto);
-  };
-
-  const handleSendEmailOtp = async () => {
-    setEmailError('');
-    if (!emailValue || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
-      setEmailError('Please enter a valid email address first.');
-      return;
-    }
-    setIsSendingEmail(true);
-    try {
-      console.log('Frontend sending OTP request for:', emailValue);
-      const res = await axios.post('/api/auth/otp/email', { email: emailValue });
-      if (res.data.emailOtp) {
-        setExpectedEmailOtp(res.data.emailOtp);
-        setEmailOtpSent(true);
-        setEmailTimer(30);
-      }
-    } catch (err: any) {
-      setEmailError(err.response?.data?.message || 'Failed to send email OTP');
-    } finally {
-      setIsSendingEmail(false);
-    }
-  };
-
-  const handleSendPhoneOtp = async () => {
-    setPhoneError('');
-    setPhoneDevMode(false);
-    if (!phoneValue || phoneValue.length < 10) {
-      setPhoneError('Please enter a valid mobile number first.');
-      return;
-    }
-    setIsSendingPhone(true);
-    try {
-      const res = await axios.post('/api/auth/otp/sms', { phone: phoneValue });
-      if (res.data.phoneOtp) {
-        setExpectedPhoneOtp(res.data.phoneOtp);
-        setPhoneOtpSent(true);
-        setPhoneTimer(30);
-        if (res.data.isMock) {
-          setPhoneDevMode(true);
-        }
-      }
-    } catch (err: any) {
-      setPhoneError(err.response?.data?.message || 'Failed to send SMS OTP');
-    } finally {
-      setIsSendingPhone(false);
-    }
   };
 
   const errorMsg = registerMutation.error instanceof ApiError
@@ -167,7 +107,7 @@ export default function RegisterPage() {
       <h1 className="text-4xl font-extrabold text-[#1B4332] tracking-tight mb-2">Create your account</h1>
       <p className="text-sm text-kr-text-secondary mb-8">
         Already have an account?{' '}
-        <Link href="/login" className="text-[#E76F51] font-semibold hover:text-[#D65A3D] transition-colors">
+        <Link href={loginHref(REGISTER_ROLES.find((r) => r.role === selectedRole)?.portal ?? 'farmer')} className="text-[#E76F51] font-semibold hover:text-[#D65A3D] transition-colors">
           Sign in
         </Link>
       </p>
@@ -184,14 +124,16 @@ export default function RegisterPage() {
         <div>
           <label className="text-sm font-semibold text-kr-text-primary mb-1.5 block">I am a</label>
           <div className="grid grid-cols-2 gap-3">
-            {(['FARMER', 'BUYER'] as const).map((r) => {
+            {REGISTER_ROLES.map(({ role: r, label }) => {
               const isSelected = selectedRole === r;
               return (
-                <div
+                <button
+                  type="button"
                   key={r}
+                  aria-pressed={isSelected}
                   onClick={() => {
-                    setSelectedRole(r);
-                    setValue('role', r);
+                    setSelectedRole(r as RegisterRole);
+                    setValue('role', r as RegisterRole);
                   }}
                   className={`border-2 rounded-xl p-4 font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 ${
                     isSelected
@@ -199,11 +141,9 @@ export default function RegisterPage() {
                       : 'kr-glass border-kr-border-default text-kr-text-secondary hover:border-[#1B4332]/30 hover:shadow-md'
                   }`}
                 >
-                  <span className="text-2xl">{r === 'FARMER' ? '🌾' : '🛒'}</span>
-                  <span className="text-sm">
-                    {r === 'FARMER' ? 'Farmer' : 'Buyer'}
-                  </span>
-                </div>
+                  <span className="text-2xl" aria-hidden>{ROLE_EMOJI[r as RegisterRole]}</span>
+                  <span className="text-sm">{label}</span>
+                </button>
               );
             })}
           </div>
@@ -225,135 +165,27 @@ export default function RegisterPage() {
           {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName.message}</p>}
         </div>
 
-        {/* Email */}
-        <div>
-          <label htmlFor="reg-email" className="text-sm font-semibold text-kr-text-primary mb-1.5 block">Email address</label>
-          <div className="flex gap-2">
-            <input
-              id="reg-email"
-              type="email"
-              autoComplete="email"
-              disabled={isEmailVerified}
-              className="flex-1 px-4 py-3.5 rounded-xl border border-kr-border-default bg-kr-bg-sunken text-kr-text-primary placeholder:text-kr-text-disabled focus:bg-kr-bg-surface focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none disabled:opacity-70"
-              {...register('email', {
-                required: 'Email is required',
-                pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Enter a valid email' },
-              })}
-            />
-            {!isEmailVerified && (
-              <button
-                type="button"
-                onClick={handleSendEmailOtp}
-                disabled={isSendingEmail || emailTimer > 0}
-                className="kr-btn-ghost text-kr-primary-600 hover:text-kr-primary-700 hover:bg-kr-fill-brand-subtle font-bold whitespace-nowrap px-4 py-3.5 rounded-xl shrink-0 disabled:opacity-50 transition-colors"
-              >
-                {isSendingEmail ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : emailTimer > 0 ? `Wait ${emailTimer}s` : 'Send OTP'}
-              </button>
-            )}
-            {isEmailVerified && (
-              <div className="px-4 py-3.5 kr-glass border border-kr-border-default text-emerald-700 font-semibold rounded-xl flex items-center justify-center whitespace-nowrap">
-                <CheckCircle2 className="w-5 h-5 mr-1" /> Verified
-              </div>
-            )}
-          </div>
-          {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
-          {emailError && <p className="text-red-500 text-xs mt-1">{emailError}</p>}
-          
-          {emailOtpSent && !isEmailVerified && (
-            <div className="mt-3 flex gap-2">
-              <input
-                type="text"
-                placeholder="Enter Email OTP"
-                value={emailOtpInput}
-                onChange={(e) => setEmailOtpInput(e.target.value)}
-                className="flex-1 px-4 py-3.5 rounded-xl border border-kr-border-default kr-glass text-emerald-900 placeholder-emerald-400 focus:bg-kr-bg-surface focus:ring-2 focus:ring-emerald-500 outline-none"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  if (emailOtpInput === expectedEmailOtp) {
-                    setIsEmailVerified(true);
-                    setEmailError('');
-                  } else {
-                    setEmailError('Invalid Email OTP');
-                  }
-                }}
-                className="px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition-colors"
-              >
-                Verify
-              </button>
-            </div>
-          )}
-        </div>
+        {/* Email — verified with a code sent to the inbox */}
+        <ContactOtp
+          channel="email"
+          label="Email address"
+          value={emailValue ?? ""}
+          onChange={(v) => setValue('email', v)}
+          verified={isEmailVerified}
+          onVerified={() => setIsEmailVerified(true)}
+          onReset={() => setIsEmailVerified(false)}
+        />
 
-        {/* Phone */}
-        <div>
-          <label htmlFor="phone" className="text-sm font-semibold text-kr-text-primary mb-1.5 block">Mobile Number</label>
-          <div className="flex gap-2">
-            <div className="flex-1 flex items-center border border-kr-border-default bg-kr-bg-sunken rounded-xl overflow-hidden focus-within:kr-glass focus-within:ring-2 focus-within:ring-[#1B4332]/50 focus-within:border-[#1B4332] transition-all duration-200">
-              <span className="pl-4 pr-2 text-kr-text-secondary font-medium">+91</span>
-              <input
-                id="phone"
-                type="tel"
-                autoComplete="tel"
-                disabled={isPhoneVerified}
-                placeholder="9876543210"
-                className="w-full py-3.5 pr-4 bg-transparent text-kr-text-primary placeholder:text-kr-text-disabled outline-none disabled:opacity-70"
-                {...register('phone', { required: 'Mobile number is required' })}
-              />
-            </div>
-            {!isPhoneVerified && (
-              <button
-                type="button"
-                onClick={handleSendPhoneOtp}
-                disabled={isSendingPhone || phoneTimer > 0}
-                className="kr-btn-ghost text-kr-primary-600 hover:text-kr-primary-700 hover:bg-kr-fill-brand-subtle font-bold whitespace-nowrap px-4 py-3.5 rounded-xl shrink-0 disabled:opacity-50 transition-colors"
-              >
-                {isSendingPhone ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : phoneTimer > 0 ? `Wait ${phoneTimer}s` : 'Send OTP'}
-              </button>
-            )}
-            {isPhoneVerified && (
-              <div className="px-4 py-3.5 kr-glass border border-kr-border-default text-emerald-700 font-semibold rounded-xl flex items-center justify-center whitespace-nowrap">
-                <CheckCircle2 className="w-5 h-5 mr-1" /> Verified
-              </div>
-            )}
-          </div>
-          {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>}
-          {phoneError && <p className="text-red-500 text-xs mt-1">{phoneError}</p>}
-
-          {phoneOtpSent && !isPhoneVerified && (
-            <div className="mt-3 flex flex-col gap-2">
-              {phoneDevMode && (
-                <div className="text-sm text-blue-600 kr-glass px-3 py-2 rounded-lg font-medium border border-kr-border-default">
-                  Dev Mode Active: Check terminal for OTP code.
-                </div>
-              )}
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Enter Mobile OTP"
-                  value={phoneOtpInput}
-                  onChange={(e) => setPhoneOtpInput(e.target.value)}
-                  className="flex-1 px-4 py-3.5 rounded-xl border border-kr-border-default kr-glass text-emerald-900 placeholder-emerald-400 focus:bg-kr-bg-surface focus:ring-2 focus:ring-emerald-500 outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (phoneOtpInput === expectedPhoneOtp) {
-                      setIsPhoneVerified(true);
-                      setPhoneError('');
-                    } else {
-                      setPhoneError('Invalid Mobile OTP');
-                    }
-                  }}
-                  className="px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition-colors"
-                >
-                  Verify
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        {/* Mobile — verified with an SMS code */}
+        <ContactOtp
+          channel="sms"
+          label="Mobile number"
+          value={phoneValue ?? ""}
+          onChange={(v) => setValue('phone', v)}
+          verified={isPhoneVerified}
+          onVerified={() => setIsPhoneVerified(true)}
+          onReset={() => setIsPhoneVerified(false)}
+        />
 
         {/* Password */}
         <div>

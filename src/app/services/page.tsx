@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 export default function ServicesMarketplacePage() {
   const MOCK_SERVICES = [
-    { id: 's1', name: 'Drone Spraying (Pesticides)', provider: 'Kashmir AgriDrones', rate: 1200, unit: 'per acre', rating: 4.8 },
+    { id: 's1', name: 'Drone Spraying (Pesticides)', provider: 'Valley AgriDrones', rate: 1200, unit: 'per acre', rating: 4.8 },
     { id: 's2', name: 'Soil Health Testing & Analysis', provider: 'SKUAST Lab Network', rate: 800, unit: 'per sample', rating: 4.9 },
     { id: 's3', name: 'Tractor with Operator', provider: 'Amin Rentals', rate: 4500, unit: 'per day', rating: 4.5 },
     { id: 's4', name: 'Apple Pruning Expert', provider: 'Horticulture Specialists', rate: 2500, unit: 'per day', rating: 4.7 }

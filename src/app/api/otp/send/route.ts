@@ -1,0 +1,29 @@
+/** POST { channel: 'sms' | 'email', to } → { token } (the code goes only to the phone or inbox). */
+import { NextResponse } from 'next/server';
+
+import { emailConfigured, normalise, sendCode, smsConfigured, type Channel } from '@/lib/server/otp';
+import { hasSigningSecret, rateLimited } from '@/lib/server/sign';
+
+export async function POST(request: Request) {
+  const { channel, to } = (await request.json().catch(() => ({}))) as { channel?: Channel; to?: string };
+  if (channel !== 'sms' && channel !== 'email') return NextResponse.json({ error: 'Choose SMS or email.' }, { status: 400 });
+  const target = normalise(channel, String(to ?? ''));
+  if (!target) return NextResponse.json({ error: channel === 'sms' ? 'Enter a valid 10-digit Indian mobile number.' : 'Enter a valid email address.' }, { status: 400 });
+  if (!hasSigningSecret() || (channel === 'sms' ? !smsConfigured() : !emailConfigured())) {
+    return NextResponse.json(
+      { configured: false, error: channel === 'sms' ? 'SMS codes are not connected yet. The site owner needs to add an SMS provider (MSG91, Twilio or Fast2SMS) and OTP_SECRET.' : 'Email codes are not connected yet. The site owner needs to add RESEND_API_KEY (or Gmail SMTP) and OTP_SECRET.' },
+      { status: 503 },
+    );
+  }
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+  if (rateLimited(`otp:${channel}:${target}`, 4, 15 * 60_000) || rateLimited(`otp-ip:${ip}`, 20, 15 * 60_000)) {
+    return NextResponse.json({ error: 'Too many codes requested. Wait a few minutes and try again.' }, { status: 429 });
+  }
+  try {
+    const token = await sendCode(channel, target);
+    return NextResponse.json({ token, to: channel === 'sms' ? `••••••${target.slice(-4)}` : target });
+  } catch (err) {
+    console.error('OTP send failed:', err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: channel === 'sms' ? 'The SMS could not be sent. Check the number and try again.' : 'The email could not be sent. Check the address and try again.' }, { status: 502 });
+  }
+}

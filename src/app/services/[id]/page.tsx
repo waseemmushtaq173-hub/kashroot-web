@@ -44,7 +44,7 @@ export default function ServiceDetailsPage({ params }: { params: { id: string } 
                   <Briefcase className="w-5 h-5 text-kr-text-brand mt-0.5" />
                   <div>
                     <p className="text-body-sm font-medium text-kr-text-primary">Provider</p>
-                    <p className="text-body-sm text-kr-text-secondary">Kashmir AgriDrones</p>
+                    <p className="text-body-sm text-kr-text-secondary">Valley AgriDrones</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-3">

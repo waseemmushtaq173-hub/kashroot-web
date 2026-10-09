@@ -1,134 +1,173 @@
 'use client';
 
-import { useState } from 'react';
-import { ShieldCheck, Lock, CheckCircle, Truck, Handshake, AlertCircle, IdCard } from 'lucide-react';
+/**
+ * Escrow — how protected payment works, your verification status, and the
+ * deals you have accepted in the Buyer portal. No invented balances: money
+ * figures appear only for real deals.
+ *
+ * KYC (Aadhaar OTP / DigiLocker, PAN, SMS + email) runs through KYCPanel and
+ * needs a signed-in account; signed-out visitors are sent to sign in first.
+ */
+import { useState, useSyncExternalStore } from 'react';
+import { CheckCircle2, Handshake, IdCard, Lock, LogIn, ShieldCheck, Truck, type LucideIcon } from 'lucide-react';
+import { toast } from 'sonner';
 
-import { KYCPanel } from '@/components/auth/KYCPanel';
-import { ToolHeader, ToolShell } from '@/components/layout/ToolShell';
-import { GLASS } from '@/lib/tools';
+import { KYCPanel, type KycSubmission } from '@/components/auth/KYCPanel';
+import { PortalShell } from '@/components/layout/PortalShell';
+import { Badge, Btn, EmptyState, PORTAL_THEMES, Panel, inr } from '@/components/portal/kit';
+import { Tilt3D } from '@/components/three/Tilt3D';
+import { usePersistentState } from '@/lib/portal-store';
 
-// Mock DEMO DATA
-const ESCROW_KPIS = {
-  moneyLocked: '₹14,50,000',
-  moneyReleased: '₹42,80,000',
-  daysToPayment: '4.2 Days'
-};
+const theme = PORTAL_THEMES.provider;
 
-const TIMELINE_STEPS = [
-  { id: 'offer', label: 'Offer', icon: Handshake, status: 'completed', date: 'Oct 10, 10:00 AM' },
-  { id: 'lock', label: 'Lock', icon: Lock, status: 'completed', date: 'Oct 10, 11:30 AM' },
-  { id: 'deliver', label: 'Deliver', icon: Truck, status: 'current', date: 'In Transit' },
-  { id: 'confirm', label: 'Confirm', icon: CheckCircle, status: 'pending', date: '--' },
-  { id: 'release', label: 'Release', icon: ShieldCheck, status: 'pending', date: '--' },
+const STEPS: { label: string; text: string; icon: LucideIcon }[] = [
+  { label: 'Agree', text: 'Buyer accepts a seller’s quote for an exact lot, grade and price.', icon: Handshake },
+  { label: 'Lock', text: 'Buyer pays into escrow. The seller sees the money is there — but cannot touch it yet.', icon: Lock },
+  { label: 'Deliver', text: 'Seller dispatches; the truck can be followed on Tracking.', icon: Truck },
+  { label: 'Confirm', text: 'Buyer checks grade and weight on arrival and confirms, or raises a dispute.', icon: CheckCircle2 },
+  { label: 'Release', text: 'Money is released to the seller’s verified bank account.', icon: ShieldCheck },
 ];
 
-export default function EscrowTrackerPage() {
+interface KycRecord {
+  submittedAt: string;
+  role: string;
+  method: string;
+  aadhaarLast4: string;
+  panVerifiedBy: string;
+  bank: string;
+}
+interface Inquiry {
+  id: string;
+  crop: string;
+  quantity: string;
+  bestQuote: number | null;
+  status: 'open' | 'accepted';
+}
+
+const NO_KYC: KycRecord | null = null;
+/** Deal value = per-unit quote × the number at the start of "500 boxes". */
+const dealValue = (d: Inquiry) => (d.bestQuote ?? 0) * (parseFloat(d.quantity) || 0);
+const NO_INQUIRIES: Inquiry[] = [];
+
+const subscribe = (cb: () => void) => {
+  window.addEventListener('storage', cb);
+  return () => window.removeEventListener('storage', cb);
+};
+
+export default function EscrowPage() {
+  const signedIn = useSyncExternalStore(subscribe, () => Boolean(localStorage.getItem('auth_token')), () => false);
   const [kycOpen, setKycOpen] = useState(false);
+  const [kyc, setKyc] = usePersistentState<KycRecord | null>('kr_kyc_record', NO_KYC);
+  const [inquiries] = usePersistentState<Inquiry[]>('kr_buyer_inquiries', NO_INQUIRIES);
+  const deals = inquiries.filter((i) => i.status === 'accepted');
+
+  const onComplete = (s: KycSubmission) => {
+    setKyc({
+      submittedAt: new Date().toISOString(),
+      role: s.role,
+      method: s.identity.method === 'DIGILOCKER' ? 'DigiLocker' : 'Aadhaar OTP',
+      aadhaarLast4: s.identity.aadhaarLast4,
+      panVerifiedBy: s.identity.panVerifiedBy === 'DIGILOCKER' ? 'DigiLocker' : 'Income Tax database',
+      bank: `${s.bank.bankName} ••••${s.bank.accountNumber.slice(-4)}`,
+    });
+    localStorage.setItem('kyc_status', 'submitted');
+    toast.success('Verification complete');
+  };
+
+  const kycButton = signedIn ? (
+    <Btn theme={theme} variant="white" icon={IdCard} onClick={() => setKycOpen(true)}>{kyc ? 'Update KYC' : 'Complete KYC'}</Btn>
+  ) : (
+    <Btn theme={theme} variant="white" icon={LogIn} href="/login?next=/escrow">Sign in to verify</Btn>
+  );
 
   return (
-    <ToolShell
-      tool="escrow"
-      header={
-        <ToolHeader
-          tool="escrow"
-          title="Money & Escrow Tracker"
-          description="Secure your payments. Funds are locked in escrow and only released when both parties confirm delivery."
-          actions={
-            <button
-              type="button"
-              onClick={() => setKycOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-teal-700/20 transition hover:bg-teal-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
-            >
-              <IdCard className="h-4 w-4" aria-hidden />
-              Complete KYC
-            </button>
-          }
-        />
-      }
+    <PortalShell
+      standalone
+      theme="provider"
+      eyebrow="Escrow protected trade"
+      title="Your money moves only when the harvest does"
+      description="Payments are held safely and released to the seller only after the buyer confirms delivery."
+      actions={kycButton}
+      kpis={[
+        { label: 'Your verification', value: kyc ? 'Verified' : 'Not yet', trend: kyc ? `${kyc.method} · PAN via ${kyc.panVerifiedBy}` : 'Aadhaar, PAN, mobile and email' },
+        { label: 'Accepted deals', value: String(deals.length), trend: deals.length ? 'Ready to fund' : 'Accept a quote in the Buyer portal' },
+        { label: 'Value of deals', value: deals.length ? inr.format(deals.reduce((sum, d) => sum + dealValue(d), 0)) : '—', trend: 'From your accepted quotes' },
+      ]}
     >
-      <KYCPanel
-        open={kycOpen}
-        onClose={() => setKycOpen(false)}
-        // No self-service KYC endpoint exists yet; record the submission locally.
-        onComplete={() => localStorage.setItem('kyc_status', 'submitted')}
-      />
+      <KYCPanel open={kycOpen} onClose={() => setKycOpen(false)} onComplete={onComplete} />
 
-      {/* KPI Cards */}
-      <div className="mb-10 grid grid-cols-1 gap-6 md:grid-cols-3">
-        <div className={`${GLASS.card} relative overflow-hidden p-6`}>
-          <div className="mb-2 flex items-start justify-between">
-            <span className="font-semibold text-slate-600">Money Locked</span>
-            <Lock className="h-5 w-5 text-teal-600" aria-hidden />
-          </div>
-          <div className="text-3xl font-bold text-slate-900">{ESCROW_KPIS.moneyLocked}</div>
-        </div>
-
-        <div className={`${GLASS.card} relative overflow-hidden p-6`}>
-          <div className="mb-2 flex items-start justify-between">
-            <span className="font-semibold text-slate-600">Money Released</span>
-            <CheckCircle className="h-5 w-5 text-emerald-600" aria-hidden />
-          </div>
-          <div className="text-3xl font-bold text-slate-900">{ESCROW_KPIS.moneyReleased}</div>
-        </div>
-
-        <div className={`${GLASS.card} relative overflow-hidden p-6`}>
-          <div className="mb-2 flex items-start justify-between">
-            <span className="font-semibold text-slate-600">Avg. Days-to-Payment</span>
-            <AlertCircle className="h-5 w-5 text-cyan-600" aria-hidden />
-          </div>
-          <div className="text-3xl font-bold text-slate-900">{ESCROW_KPIS.daysToPayment}</div>
-        </div>
-      </div>
-
-      {/* Active Transaction Timeline */}
-      <div className={`${GLASS.card} mb-8 p-6 md:p-8`}>
-        <div className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-          <div>
-            <h2 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
-              <span className="h-3 w-3 animate-pulse rounded-full bg-emerald-500" aria-hidden></span>
-              Active Order: #KR-8823
-            </h2>
-            <p className="mt-1 font-medium text-slate-600">Gala Apples (Grade A) - 100 Boxes • Seller: Green Valley Orchards</p>
-          </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-teal-700">₹1,45,000</div>
-            <div className="text-sm font-medium text-slate-500">Locked in Escrow</div>
-          </div>
-        </div>
-
-        {/* Live Timeline UI */}
-        <div className="relative">
-          <div className="absolute left-[10%] right-[10%] top-8 hidden h-1 rounded-full bg-slate-200 md:block"></div>
-
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
-            {TIMELINE_STEPS.map((step) => {
-              const isCompleted = step.status === 'completed';
-              const isCurrent = step.status === 'current';
-              const Icon = step.icon;
-
-              return (
-                <div key={step.id} className="relative z-10 flex flex-row items-center gap-4 md:flex-col md:gap-2">
-                  <div
-                    className={`z-10 flex h-12 w-12 items-center justify-center rounded-full border-4 shadow-sm
-                      ${isCompleted ? 'border-emerald-100 bg-teal-600 text-white' :
-                        isCurrent ? 'border-teal-600 bg-white text-teal-700' :
-                        'border-white bg-slate-100 text-slate-400'}`}
-                  >
+      <Panel theme={theme} title="How escrow protects both sides" icon={ShieldCheck}>
+        <ol className="grid gap-4 md:grid-cols-5">
+          {STEPS.map(({ label, text, icon: Icon }, i) => (
+            <li key={label}>
+              <Tilt3D className="rounded-2xl" max={8}>
+                <div className="h-full rounded-2xl bg-white/85 p-4 shadow-sm ring-1 ring-slate-900/5 [transform-style:preserve-3d]">
+                  <span data-depth className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-teal-400 to-cyan-700 text-white shadow-lg shadow-cyan-700/25">
                     <Icon className="h-5 w-5" aria-hidden />
-                  </div>
-
-                  <div className="mt-2 text-left md:text-center">
-                    <div className={`font-bold ${isCurrent ? 'text-teal-700' : isCompleted ? 'text-slate-900' : 'text-slate-500'}`}>
-                      {step.label}
-                    </div>
-                    <div className="text-xs font-medium text-slate-500">{step.date}</div>
-                  </div>
+                  </span>
+                  <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-teal-700">Step {i + 1}</p>
+                  <p className="font-semibold text-slate-900">{label}</p>
+                  <p className="mt-1 text-sm text-slate-600">{text}</p>
                 </div>
-              );
-            })}
-          </div>
-        </div>
+              </Tilt3D>
+            </li>
+          ))}
+        </ol>
+      </Panel>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_1.4fr]">
+        <Panel theme={theme} title="Your verification" icon={IdCard}>
+          {kyc ? (
+            <dl className="grid gap-2.5 text-sm">
+              {[
+                ['Identity', `${kyc.method}${kyc.aadhaarLast4 ? ` · Aadhaar ••••${kyc.aadhaarLast4}` : ''}`],
+                ['PAN', `Verified via ${kyc.panVerifiedBy}`],
+                ['Payout account', kyc.bank],
+                ['Verified on', new Date(kyc.submittedAt).toLocaleDateString('en-IN')],
+              ].map(([k, v]) => (
+                <div key={k} className="flex justify-between gap-3 border-b border-slate-900/5 pb-2">
+                  <dt className="text-slate-500">{k}</dt>
+                  <dd className="text-right font-medium text-slate-900">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : (
+            <EmptyState
+              theme={theme}
+              icon={IdCard}
+              title="Verify once, trade safely"
+              text="Aadhaar (OTP to your Aadhaar-linked mobile, or DigiLocker), PAN against the Income Tax records, plus your mobile and email."
+              action={kycButton}
+            />
+          )}
+        </Panel>
+        <Panel theme={theme} title="Your deals" icon={Handshake}>
+          {deals.length === 0 ? (
+            <EmptyState theme={theme} icon={Handshake} title="No accepted deals yet" text="Accept a seller’s quote in the Buyer portal and it will appear here, ready to fund." action={<Btn theme={theme} variant="soft" href="/buyer/dashboard">Open Buyer portal</Btn>} />
+          ) : (
+            <ul className="space-y-3">
+              {deals.map((d) => (
+                <li key={d.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white/70 p-4 ring-1 ring-slate-900/5">
+                  <div>
+                    <p className="text-xs text-slate-500">{d.id}</p>
+                    <p className="font-semibold text-slate-900">{d.crop} · {d.quantity}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {d.bestQuote !== null && (
+                      <span className="text-right">
+                        <span className="block font-semibold tabular-nums text-slate-900">{inr.format(dealValue(d))}</span>
+                        <span className="block text-xs text-slate-500">{inr.format(d.bestQuote)} per unit</span>
+                      </span>
+                    )}
+                    <Badge tone="amber">Awaiting payment</Badge>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-4 text-xs text-slate-500">Funding requires a payment-gateway escrow account (e.g. a bank nodal account) connected to the KashRoot API.</p>
+        </Panel>
       </div>
-    </ToolShell>
+    </PortalShell>
   );
 }

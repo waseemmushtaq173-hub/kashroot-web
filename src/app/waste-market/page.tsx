@@ -11,7 +11,7 @@ const LOW_GRADE_LISTINGS = [
 ];
 
 const PROCESSING_UNITS = [
-  { name: 'Kashmir Juice Concentrates', type: 'Juice Factory', demand: 'Apple Culls (Unlimited)', bid: '₹11.5/kg', distance: '12 km away' },
+  { name: 'Valley Juice Concentrates', type: 'Juice Factory', demand: 'Apple Culls (Unlimited)', bid: '₹11.5/kg', distance: '12 km away' },
 ];
 
 export default function WasteMarketPage() {

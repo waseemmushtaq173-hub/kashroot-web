@@ -5,7 +5,7 @@ import { SuppliesBrowser } from '@/components/supplies/SuppliesBrowser';
 export const metadata: Metadata = {
   title: 'Horticulture & agriculture supplies — KashRoot',
   description:
-    'Compare packaging, machinery and input prices across suppliers for Kashmiri horticulture. See every offer for the same item side by side.',
+    'Compare packaging, machinery and input prices across suppliers for valley horticulture. See every offer for the same item side by side.',
 };
 
 /**

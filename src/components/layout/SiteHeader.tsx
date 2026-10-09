@@ -2,9 +2,11 @@
 
 import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
-import { LayoutGrid, ChevronDown } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { LayoutGrid, ChevronDown, Home, LogOut } from 'lucide-react';
 import { BrandMark } from '@/components/brand/Shikara';
-import { loginHref, PORTAL_ROLES, ROLE_LABELS } from '@/lib/auth/roles';
+import { authApi } from '@/lib/api/auth';
+import { loginHref, PORTAL_IDS, PORTALS, type PortalId } from '@/lib/auth/roles';
 
 /**
  * `dark` (default) is the original look for the dark dashboards. `light` is for
@@ -19,16 +21,11 @@ export type SiteTone = 'dark' | 'light';
  * Rendered as a glassmorphic dropdown so the homepage hero never has to
  * carry portal cards.
  */
-const PORTALS = [
-  { title: 'Farmer Portal', href: '/farmer/dashboard', desc: 'Orchards, listings & advisory' },
-  { title: 'Buyer Portal', href: '/buyer/dashboard', desc: 'Source verified produce' },
-  { title: 'Kissan Tools', href: '/kissan-tools/dashboard', desc: 'Equipment & horti supplies' },
-  { title: 'Rental Marketplace', href: '/rental/dashboard', desc: 'Cold storage & machinery' },
-  { title: 'Logistics', href: '/provider/dashboard', desc: 'Tracking & providers' },
-  { title: 'Admin Governance', href: '/admin/dashboard', desc: 'KYC, audit & escrow' },
-  { title: 'Orchard Health', href: '/orchard-health', desc: 'Diagnosis & spray logs' },
+const MENU_ITEMS = [
+  ...PORTAL_IDS.map((id) => ({ title: `${PORTALS[id].label} portal`, href: PORTALS[id].home, desc: PORTALS[id].tagline })),
+  { title: 'Orchard Health', href: '/orchard-health', desc: 'Risk map, diagnosis & spray logs' },
   { title: 'Season Planner', href: '/season-planner', desc: 'Calendar & ROI calculator' },
-  { title: 'Traceability', href: '/traceability', desc: 'Origin scanner & grade history' },
+  { title: 'Traceability', href: '/traceability', desc: 'Origin, cold chain & grades' },
 ];
 
 function PortalMenu({ onOpenPortals, tone }: { onOpenPortals?: () => void; tone: SiteTone }) {
@@ -76,7 +73,7 @@ function PortalMenu({ onOpenPortals, tone }: { onOpenPortals?: () => void; tone:
               : 'border-white/25 bg-white/15 shadow-[0_24px_60px_-20px_rgba(7,11,26,0.6)]'
           }`}
         >
-          {PORTALS.map((p) => (
+          {MENU_ITEMS.map((p) => (
             <Link
               key={p.href}
               href={p.href}
@@ -99,14 +96,48 @@ export function SiteHeader({
   onOpenPortals,
   tone = 'dark',
   showRoleSignIn = false,
+  portal,
 }: {
   hideSignIn?: boolean;
   onOpenPortals?: () => void;
   tone?: SiteTone;
-  /** Light tone only: show "Sign in as Farmer · Buyer · Seller" in the bar. */
+  /** Light tone only: show a "Sign in" link in the bar. */
   showRoleSignIn?: boolean;
+  /** Inside a portal: show only that portal, Home and Sign out — no portal picker. */
+  portal?: PortalId | null;
 }) {
   const light = tone === 'light';
+  const router = useRouter();
+
+  if (portal) {
+    const signOut = async () => {
+      await authApi.logout();
+      router.replace(loginHref(portal));
+    };
+    return (
+      <header className="sticky top-0 z-40 border-b border-slate-900/5 bg-white/75 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] backdrop-blur-xl">
+        <nav aria-label="Portal" className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <Link href="/" className="shrink-0 text-slate-900 no-underline hover:no-underline">
+              <BrandMark />
+            </Link>
+            <span className="hidden truncate rounded-full bg-slate-900/5 px-3 py-1 text-xs font-semibold text-slate-700 sm:inline">
+              {PORTALS[portal].label} portal
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Link href="/" className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 no-underline transition hover:bg-white hover:text-slate-900 hover:no-underline">
+              <Home className="h-4 w-4" aria-hidden /> Home
+            </Link>
+            <button type="button" onClick={signOut} className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-900/10 bg-white/80 px-3 py-2 text-sm font-semibold text-slate-800 transition hover:bg-white">
+              <LogOut className="h-4 w-4" aria-hidden /> Sign out
+            </button>
+          </div>
+        </nav>
+      </header>
+    );
+  }
+
   const navLink = light
     ? 'rounded-lg px-3 py-2 text-label font-medium text-slate-700 no-underline transition-colors hover:bg-white hover:text-slate-900 hover:no-underline'
     : 'rounded-lg px-3 py-2 text-label text-kr-text-secondary transition-colors hover:bg-white/40 hover:text-kr-text-primary';
@@ -145,14 +176,9 @@ export function SiteHeader({
 
         <div className="flex items-center gap-2">
           {light && showRoleSignIn && !hideSignIn && (
-            <div className="hidden items-center gap-0.5 md:flex" role="group" aria-label="Sign in">
-              <span className="px-2 text-xs font-medium text-slate-500">Sign in as</span>
-              {PORTAL_ROLES.map((role) => (
-                <Link key={role} href={loginHref(role)} className={navLink}>
-                  {ROLE_LABELS[role]}
-                </Link>
-              ))}
-            </div>
+            <Link href="/login" className={`${navLink} hidden md:inline-flex`}>
+              Sign in
+            </Link>
           )}
           <PortalMenu onOpenPortals={onOpenPortals} tone={tone} />
           <Link

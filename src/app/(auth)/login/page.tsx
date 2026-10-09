@@ -1,189 +1,58 @@
-'use client';
-
-export const dynamic = 'force-dynamic';import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+/**
+ * /login — no shared credential form any more: every portal has its own
+ * sign-in. Old links that carry a role (/login?role=ADMIN&returnTo=…) go
+ * straight to that portal's page; otherwise this is a chooser.
+ */
+import type { Metadata } from 'next';
 import Link from 'next/link';
-import { LogIn, Loader2, Eye, EyeOff } from 'lucide-react';
-import { authApi, tokenStore } from '@/lib/api/auth';
-import { loginHref, PORTAL_ROLES, ROLE_LABELS, portalRoleFromValue, safeNextPath } from '@/lib/auth/roles';
-import { ApiError } from '@/lib/api/client';
+import { redirect } from 'next/navigation';
+import { ArrowRight } from 'lucide-react';
 
-import { Suspense } from 'react';
+import { PORTAL_LOGIN } from '@/components/auth/portalLoginConfig';
+import { loginHref, PORTAL_IDS, PORTALS, portalForRole, safeNextPath, type PortalId } from '@/lib/auth/roles';
 
-function LoginForm() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const verified = searchParams.get('verified') === '1';
-  const requestedRole = searchParams.get('role');
-  // Farmers, buyers and sellers have dedicated sign-in pages now.
-  const dedicatedPortal = portalRoleFromValue(requestedRole);
-  const initialRole = requestedRole && !dedicatedPortal ? requestedRole : 'ADMIN';
+export const metadata: Metadata = { title: 'Choose your sign-in' };
 
-  useEffect(() => {
-    if (dedicatedPortal) router.replace(loginHref(dedicatedPortal));
-  }, [dedicatedPortal, router]);
-  
-  const [selectedRole, setSelectedRole] = useState(initialRole);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+const LEGACY_ROLE: Record<string, PortalId> = { KISSAN_PARTNER: 'kissan', RENTAL: 'rental', EXPERT: 'expert' };
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
-    try {
-      const data = await authApi.login({ email, password });
-      // The login function must bind the selected role directly.
-      const targetRole = selectedRole;
-      let targetRoute = '/farmer/dashboard';
-      if (targetRole === 'BUYER') targetRoute = '/buyer/dashboard';
-      else if (targetRole === 'ADMIN') targetRoute = '/admin/dashboard';
-      else if (targetRole === 'EXPERT') targetRoute = '/expert';
-      else if (targetRole === 'KISSAN_PARTNER') targetRoute = '/kissan-tools/dashboard';
-      else if (targetRole === 'RENTAL') targetRoute = '/rental/dashboard';
-      else if (targetRole === 'PROVIDER') targetRoute = '/provider/dashboard';
-      // Honour where the user was headed (the dashboards guard sets returnTo).
-      targetRoute = safeNextPath(searchParams.get('returnTo'), targetRoute);
-
-      if (data.accessToken) {
-        tokenStore.setToken(data.accessToken, targetRole);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('auth_email', email);
-          localStorage.setItem('user_role', targetRole);
-          document.cookie = `user_role=${targetRole}; path=/; max-age=86400; SameSite=Lax`;
-        }
-      }
-
-      router.push(targetRoute);
-    } catch (err: unknown) {
-      if (err instanceof ApiError) {
-        setError(err.messages[0] ?? 'Invalid email or password');
-      } else if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('Failed to sign in. Please check your connection.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="max-w-md w-full bg-white/85 backdrop-blur-xl shadow-[0_20px_60px_rgba(15,23,42,0.12)] rounded-3xl p-8 sm:p-10 ring-1 ring-slate-900/5 space-y-6 z-10 relative text-slate-900">
-      <div>
-        <h1 className="text-4xl font-extrabold text-[#1B4332] tracking-tight">Partner &amp; staff sign-in</h1>
-        <p className="text-sm text-kr-text-secondary mt-2">
-          Don&apos;t have an account?{' '}
-          <Link href="/register" className="text-[#E76F51] font-semibold hover:text-[#D65A3D] transition-colors">
-            Create one free
-          </Link>
-        </p>
-      </div>
-
-      <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
-        <p className="text-sm font-semibold text-emerald-900">Farmer, buyer or seller?</p>
-        <p className="mt-0.5 text-sm text-emerald-800">Use your portal&apos;s own sign-in:</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {PORTAL_ROLES.map((role) => (
-            <Link
-              key={role}
-              href={loginHref(role)}
-              className="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-emerald-800 no-underline ring-1 ring-emerald-200 transition hover:bg-emerald-100 hover:no-underline"
-            >
-              {ROLE_LABELS[role]} sign-in
-            </Link>
-          ))}
-        </div>
-      </div>
-
-      {verified && (
-        <div className="p-3 bg-kr-fill-brand-subtle border border-kr-border-brand text-kr-text-brand text-sm rounded-xl">
-          Email verified successfully! You can now log in.
-        </div>
-      )}
-
-      {error && (
-        <div className="kr-error-state p-3 text-sm rounded-xl">
-          {error}
-        </div>
-      )}
-
-      <form onSubmit={handleLogin} className="space-y-4">
-        <div>
-          <label className="text-sm font-semibold text-kr-text-primary mb-1 block">Account Type <span className="text-red-500">*</span></label>
-          <select
-            className="w-full px-4 py-3 rounded-xl border border-kr-border-default bg-kr-bg-sunken text-kr-text-primary placeholder:text-kr-text-disabled focus:bg-kr-bg-surface focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none mb-4"
-            value={selectedRole}
-            onChange={(e) => setSelectedRole(e.target.value)}
-            required
-          >
-            <option value="ADMIN">Admin</option>
-            <option value="EXPERT">Expert</option>
-            <option value="KISSAN_PARTNER">Kissan Partner (Agri/Horti)</option>
-            <option value="RENTAL">Equipment / Machinery Rental</option>
-            <option value="PROVIDER">Logistics &amp; Provider</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="text-sm font-semibold text-kr-text-primary mb-1 block">Email address</label>
-          <input
-            type="email"
-            placeholder="farmer@kashroot.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-kr-border-default bg-kr-bg-sunken text-kr-text-primary placeholder:text-kr-text-disabled focus:bg-kr-bg-surface focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none"
-            required
-          />
-        </div>
-
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <label className="text-sm font-semibold text-kr-text-primary block">Password</label>
-            <Link href="/forgot-password" className="text-sm text-[#E76F51] font-semibold hover:text-[#D65A3D] transition-colors">
-              Forgot password?
-            </Link>
-          </div>
-          <div className="relative">
-            <input
-              type={showPassword ? 'text' : 'password'}
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-kr-border-default bg-kr-bg-sunken text-kr-text-primary placeholder:text-kr-text-disabled focus:bg-kr-bg-surface focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none pr-10"
-              required
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-3 text-kr-text-disabled hover:text-kr-text-secondary transition-colors"
-            >
-              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-            </button>
-          </div>
-        </div>
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-3.5 px-4 bg-gradient-to-r from-[#E76F51] to-[#F4A261] hover:from-[#D65A3D] hover:to-[#E76F51] text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2 text-lg mt-6"
-        >
-          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogIn className="w-5 h-5" />}
-          Sign in
-        </button>
-      </form>
-    </div>
-  );
+function first(value: string | string[] | undefined): string | undefined {
+  return typeof value === 'string' ? value : value?.[0];
 }
 
-export default function LoginPage() {
+export default async function LoginChooserPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+  const query = await searchParams;
+  const role = first(query.role);
+  const next = safeNextPath(first(query.returnTo) ?? first(query.next), '') || undefined;
+  const portal = role ? (portalForRole(role) ?? LEGACY_ROLE[role]) : undefined;
+  if (portal) redirect(loginHref(portal, next));
+
   return (
-    <Suspense fallback={<div className="flex items-center justify-center p-8"><Loader2 className="w-8 h-8 animate-spin text-emerald-600" /></div>}>
-      <LoginForm />
-    </Suspense>
+    <div className="w-full">
+      <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Choose your portal</h1>
+      <p className="mt-2 text-slate-600">Each portal has its own sign-in.</p>
+      <ul className="mt-8 grid gap-3 sm:grid-cols-2">
+        {PORTAL_IDS.map((id) => {
+          const copy = PORTAL_LOGIN[id];
+          const Icon = copy.icon;
+          return (
+            <li key={id}>
+              <Link
+                href={loginHref(id, next)}
+                className="group flex items-center gap-3 rounded-2xl bg-white/90 p-3.5 text-slate-900 no-underline shadow-sm ring-1 ring-slate-900/5 transition hover:-translate-y-0.5 hover:no-underline hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+              >
+                <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${copy.theme.iconTile}`}>
+                  <Icon className="h-5 w-5" aria-hidden />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold">{PORTALS[id].label}</span>
+                  <span className="block truncate text-xs text-slate-500">{PORTALS[id].tagline}</span>
+                </span>
+                <ArrowRight className="h-4 w-4 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-slate-700" aria-hidden />
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }

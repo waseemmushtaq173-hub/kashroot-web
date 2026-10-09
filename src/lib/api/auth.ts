@@ -16,11 +16,7 @@
  */
 
 import { api } from './client';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key';
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { supabase } from '@/lib/supabase';
 
 // ── Role enum (mirrors Module 1 UserRole) ─────────────────────────────────
 export type UserRole =
@@ -35,7 +31,7 @@ export type UserRole =
 export interface RegisterDto {
   email:    string;
   password: string;
-  role:     'FARMER' | 'BUYER';
+  role:     'FARMER' | 'BUYER' | 'SELLER' | 'PROVIDER';
   fullName: string;
   phone?:   string;
 }
@@ -79,6 +75,8 @@ export interface RegisterResponse {
 
 export interface LoginResponse {
   accessToken:   string;
+  /** Role recorded on the account (Supabase metadata); null if none was saved. */
+  accountRole:   UserRole | null;
   requiresMfa:   boolean;   // true for admin roles with MFA enabled
   user:          AuthUser;
 }
@@ -144,10 +142,13 @@ export const authApi = {
 
     // The role recorded at sign-up wins; kr_mock_role stays as the fallback
     // for accounts created before sign-up wrote any metadata.
-    const metadataRole = data.user.user_metadata?.role as UserRole | undefined;
+    // app_metadata is only writable server-side (dashboard / service role), so
+    // it wins over user_metadata, which the user can edit.
+    const metadataRole = (data.user.app_metadata?.role ?? data.user.user_metadata?.role) as UserRole | undefined;
     const mockRole = (typeof window !== 'undefined' && localStorage.getItem('kr_mock_role')) as UserRole || 'FARMER';
     return {
       accessToken: data.session.access_token,
+      accountRole: metadataRole ?? null,
       requiresMfa: false,
       user: {
         id: data.user.id,
@@ -208,7 +209,7 @@ export const authApi = {
   mfaSetup:      async ()                    => ({ qrCodeDataUrl: '', secret: '' } as MfaSetupResponse),
   mfaVerify:     async (dto: MfaVerifyDto)   => ({ message: 'MFA verified' } as MfaVerifyResponse),
   refresh:       async ()                    => ({ accessToken: 'mock_jwt_token' }),
-  logout:        async ()                    => { tokenStore.removeToken(); },
+  logout:        async ()                    => { tokenStore.removeToken(); await supabase.auth.signOut().catch(() => undefined); },
 };
 export const tokenStore = {
   getToken: () => (typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null),

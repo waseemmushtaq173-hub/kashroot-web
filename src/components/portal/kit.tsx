@@ -14,6 +14,9 @@
  * Every class is a complete literal string so Tailwind keeps it.
  */
 import Link from 'next/link';
+
+import type { SceneMood } from '@/components/three/ValleyScene';
+import { Tilt3D } from '@/components/three/Tilt3D';
 import {
   forwardRef,
   useEffect,
@@ -29,6 +32,8 @@ import { ChinarLeaf } from '@/components/brand/ChinarLeaf';
 // ── Themes ──────────────────────────────────────────────────────────────────
 
 export interface PortalTheme {
+  /** 3D valley scene mood for the hero. */
+  mood: SceneMood;
   /** Page canvas gradient. */
   canvas: string;
   /** Hero photograph (public/seasons) and its crop focus. */
@@ -58,6 +63,7 @@ const T = (t: PortalTheme) => t;
 
 export const PORTAL_THEMES = {
   farmer: T({
+    mood: 'spring',
     canvas: 'bg-gradient-to-br from-emerald-50 via-lime-50 to-amber-50',
     photo: '/seasons/spring-meadow.jpg', focus: '50% 30%',
     heroTint: 'from-emerald-950/70 via-emerald-900/40 to-transparent',
@@ -69,6 +75,7 @@ export const PORTAL_THEMES = {
     tabActive: 'bg-white text-emerald-800 shadow-sm ring-1 ring-emerald-200',
   }),
   buyer: T({
+    mood: 'summer',
     canvas: 'bg-gradient-to-br from-sky-50 via-white to-indigo-50',
     photo: '/seasons/summer-lake.jpg', focus: '50% 50%',
     heroTint: 'from-sky-950/70 via-sky-900/35 to-transparent',
@@ -80,6 +87,7 @@ export const PORTAL_THEMES = {
     tabActive: 'bg-white text-sky-800 shadow-sm ring-1 ring-sky-200',
   }),
   seller: T({
+    mood: 'autumn',
     canvas: 'bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50',
     photo: '/seasons/autumn-garden.jpg', focus: '50% 55%',
     heroTint: 'from-amber-950/75 via-orange-900/40 to-transparent',
@@ -91,6 +99,7 @@ export const PORTAL_THEMES = {
     tabActive: 'bg-white text-amber-900 shadow-sm ring-1 ring-amber-200',
   }),
   kissan: T({
+    mood: 'autumn',
     canvas: 'bg-gradient-to-br from-orange-50 via-amber-50 to-stone-100',
     photo: '/seasons/autumn-garden.jpg', focus: '50% 40%',
     heroTint: 'from-stone-950/75 via-orange-950/40 to-transparent',
@@ -102,6 +111,7 @@ export const PORTAL_THEMES = {
     tabActive: 'bg-white text-orange-900 shadow-sm ring-1 ring-orange-200',
   }),
   rental: T({
+    mood: 'dusk',
     canvas: 'bg-gradient-to-br from-violet-50 via-white to-fuchsia-50',
     photo: '/seasons/winter-road.jpg', focus: '50% 20%',
     heroTint: 'from-violet-950/70 via-violet-900/35 to-transparent',
@@ -113,6 +123,7 @@ export const PORTAL_THEMES = {
     tabActive: 'bg-white text-violet-800 shadow-sm ring-1 ring-violet-200',
   }),
   provider: T({
+    mood: 'winter',
     canvas: 'bg-gradient-to-br from-teal-50 via-cyan-50 to-white',
     photo: '/seasons/winter-lake.jpg', focus: '50% 40%',
     heroTint: 'from-teal-950/70 via-teal-900/35 to-transparent',
@@ -124,6 +135,7 @@ export const PORTAL_THEMES = {
     tabActive: 'bg-white text-teal-800 shadow-sm ring-1 ring-teal-200',
   }),
   dealer: T({
+    mood: 'autumn',
     canvas: 'bg-gradient-to-br from-rose-50 via-orange-50 to-amber-50',
     photo: '/seasons/autumn-garden.jpg', focus: '50% 70%',
     heroTint: 'from-rose-950/70 via-rose-900/35 to-transparent',
@@ -135,6 +147,7 @@ export const PORTAL_THEMES = {
     tabActive: 'bg-white text-rose-800 shadow-sm ring-1 ring-rose-200',
   }),
   admin: T({
+    mood: 'dawn',
     canvas: 'bg-gradient-to-br from-slate-50 via-indigo-50 to-white',
     photo: '/seasons/winter-lake.jpg', focus: '50% 30%',
     heroTint: 'from-indigo-950/75 via-indigo-900/40 to-transparent',
@@ -146,6 +159,7 @@ export const PORTAL_THEMES = {
     tabActive: 'bg-white text-indigo-800 shadow-sm ring-1 ring-indigo-200',
   }),
   tracking: T({
+    mood: 'winter',
     canvas: 'bg-gradient-to-br from-cyan-50 via-white to-sky-50',
     photo: '/seasons/winter-road.jpg', focus: '50% 15%',
     heroTint: 'from-cyan-950/70 via-cyan-900/35 to-transparent',
@@ -157,6 +171,7 @@ export const PORTAL_THEMES = {
     tabActive: 'bg-white text-cyan-800 shadow-sm ring-1 ring-cyan-200',
   }),
   expert: T({
+    mood: 'dusk',
     canvas: 'bg-gradient-to-br from-purple-50 via-white to-amber-50',
     photo: '/seasons/summer-lake.jpg', focus: '50% 30%',
     heroTint: 'from-purple-950/70 via-purple-900/35 to-transparent',
@@ -294,10 +309,10 @@ export function Tile({
   onClick?: () => void;
   badge?: string;
 }) {
-  const cls = `group relative flex h-full flex-col items-start gap-3 rounded-2xl bg-white/80 p-4 text-left no-underline ring-1 ring-slate-900/5 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:bg-white hover:no-underline hover:shadow-md motion-reduce:hover:translate-y-0 ${FOCUS} ${theme.outline}`;
+  const cls = `group relative flex h-full flex-col items-start gap-3 rounded-2xl bg-white/80 p-4 [transform-style:preserve-3d] text-left no-underline ring-1 ring-slate-900/5 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:bg-white hover:no-underline hover:shadow-md motion-reduce:hover:translate-y-0 ${FOCUS} ${theme.outline}`;
   const body = (
     <>
-      <span className={`grid h-11 w-11 place-items-center rounded-xl ${theme.tile}`}>
+      <span data-depth className={`grid h-11 w-11 place-items-center rounded-xl ${theme.tile}`}>
         <Icon className="h-5 w-5" aria-hidden />
       </span>
       <span>
@@ -309,14 +324,18 @@ export function Tile({
       )}
     </>
   );
-  return href ? (
-    <Link href={href} className={cls}>
-      {body}
-    </Link>
-  ) : (
-    <button type="button" onClick={onClick} className={`${cls} cursor-pointer`}>
-      {body}
-    </button>
+  return (
+    <Tilt3D className="rounded-2xl">
+      {href ? (
+        <Link href={href} className={cls}>
+          {body}
+        </Link>
+      ) : (
+        <button type="button" onClick={onClick} className={`${cls} w-full cursor-pointer`}>
+          {body}
+        </button>
+      )}
+    </Tilt3D>
   );
 }
 

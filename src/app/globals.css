@@ -186,3 +186,30 @@ body {
 @keyframes kr-light-shimmer {
   to { background-position: -200% 0; }
 }
+
+/* Tilt3D: the card face turns toward the pointer; [data-depth] layers float. */
+.kr-tilt {
+  transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform 0.25s ease-out;
+  will-change: transform;
+}
+.kr-tilt [data-depth] {
+  transform: translateZ(calc(var(--depth, 24) * 1px));
+}
+@media (prefers-reduced-motion: reduce) {
+  .kr-tilt { transform: none; transition: none; }
+}
+
+/* Truck marker on the route map. */
+.kr-truck-marker { position: relative; }
+.kr-truck-marker__body {
+  position: absolute; inset: 0; display: grid; place-items: center; border-radius: 9999px;
+  background: #0e7490; color: #fff; box-shadow: 0 6px 16px rgba(14, 116, 144, 0.45); border: 2px solid #fff;
+}
+.kr-truck-marker__body svg { width: 18px; height: 18px; }
+.kr-truck-marker__pulse {
+  position: absolute; inset: -6px; border-radius: 9999px; background: rgba(14, 116, 144, 0.3);
+  animation: kr-truck-pulse 1.8s ease-out infinite;
+}
+@keyframes kr-truck-pulse { from { transform: scale(0.6); opacity: 1; } to { transform: scale(1.6); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .kr-truck-marker__pulse { animation: none; } }

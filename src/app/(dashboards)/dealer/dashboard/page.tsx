@@ -5,7 +5,7 @@
  * manifest upload to the authenticity registry, and payouts.
  *
  * Data lives in the browser (kr_dealer_*) until a dealer API exists. The
- * manifest is read locally (CSV: name,batch,expiry,stock) and never uploaded.
+ * manifest is read locally (CSV: name,batch,expiry,stock[,manufacturer]) and never uploaded.
  */
 import { useRef, useState } from 'react';
 import {
@@ -28,6 +28,7 @@ import { PortalShell } from '@/components/layout/PortalShell';
 import { PayoutPanel } from '@/components/portal/PayoutPanel';
 import { Badge, Btn, EmptyState, Field, INPUT, Modal, PORTAL_THEMES, Panel, Tile } from '@/components/portal/kit';
 import { localId, usePersistentState } from '@/lib/portal-store';
+import { supabase, supabaseConfigured } from '@/lib/supabase';
 
 const theme = PORTAL_THEMES.dealer;
 
@@ -37,6 +38,8 @@ interface Batch {
   batch: string;
   expiry: string;
   stock: number;
+  /** Optional; defaults to "Not specified" in the registry. */
+  manufacturer?: string;
   registered: boolean;
 }
 
@@ -48,7 +51,7 @@ interface Licence {
 }
 
 const SEED_BATCHES: Batch[] = [
-  { id: 'B-1', name: 'Mancozeb 75% WP (1 kg)', batch: 'MZ-24-1187', expiry: '2027-03-31', stock: 140, registered: true },
+  { id: 'B-1', name: 'Mancozeb 75% WP (1 kg)', batch: 'MZ-24-1187', expiry: '2027-03-31', stock: 140, registered: false },
   { id: 'B-2', name: 'Horticultural mineral oil (5 L)', batch: 'HMO-25-0442', expiry: '2027-08-15', stock: 36, registered: false },
   { id: 'B-3', name: 'Calcium nitrate (25 kg)', batch: 'CN-25-2290', expiry: '2026-11-30', stock: 18, registered: false },
 ];
@@ -62,7 +65,7 @@ const SEED_LICENCES: Licence[] = [
 
 const daysUntil = (date: string) => Math.ceil((Date.parse(date) - Date.now()) / 86_400_000);
 
-const EMPTY_BATCH = { name: '', batch: '', expiry: '', stock: '' };
+const EMPTY_BATCH = { name: '', batch: '', expiry: '', stock: '', manufacturer: '' };
 
 export default function DealerDashboardPage() {
   const [tab, setTab] = useState('inventory');
@@ -81,16 +84,38 @@ export default function DealerDashboardPage() {
   const addBatch = () => {
     const stock = Number(draft.stock);
     if (!draft.name.trim() || !draft.batch.trim() || !draft.expiry || !(stock >= 0)) return toast.error('Fill product, batch code, expiry and stock.');
-    setBatches((all) => [{ id: localId('B'), name: draft.name.trim(), batch: draft.batch.trim().toUpperCase(), expiry: draft.expiry, stock, registered: false }, ...all]);
+    setBatches((all) => [{ id: localId('B'), name: draft.name.trim(), batch: draft.batch.trim().toUpperCase(), expiry: draft.expiry, stock, manufacturer: draft.manufacturer.trim() || undefined, registered: false }, ...all]);
     setDraft(EMPTY_BATCH);
     setAddOpen(false);
     toast.success('Batch added — register it so farmers can verify it');
   };
 
-  const registerAll = () => {
+  /**
+   * Write batches to the shared registry farmers verify against. Only accounts
+   * an admin approved as DEALER / MANUFACTURER can write (database policy).
+   */
+  const pushToRegistry = async (list: Batch[]): Promise<boolean> => {
+    if (!supabaseConfigured) {
+      toast.error('The batch registry is not connected on this site yet.');
+      return false;
+    }
+    const { error } = await supabase.from('fertilizer_batches').upsert(
+      list.map((b) => ({ batch_code: b.batch, product: b.name, manufacturer: b.manufacturer || 'Not specified', expiry_date: b.expiry || null })),
+      { onConflict: 'batch_code' },
+    );
+    if (error) {
+      const denied = /row-level security|permission|JWT|not authorized/i.test(error.message);
+      toast.error(denied ? 'Your account is not approved to register batches yet — ask the KashRoot admin to approve you as a dealer.' : `Registry error: ${error.message}`);
+      return false;
+    }
+    const codes = new Set(list.map((b) => b.batch));
+    setBatches((all) => all.map((b) => (codes.has(b.batch) ? { ...b, registered: true } : b)));
+    return true;
+  };
+
+  const registerAll = async () => {
     if (unregistered.length === 0) return toast.info('Every batch is already registered.');
-    setBatches((all) => all.map((b) => ({ ...b, registered: true })));
-    toast.success(`${unregistered.length} batch code(s) registered`);
+    if (await pushToRegistry(unregistered)) toast.success(`${unregistered.length} batch code(s) registered — farmers can now verify them`);
   };
 
   const readManifest = async (file: File) => {
@@ -100,10 +125,11 @@ export default function DealerDashboardPage() {
       .filter((c) => c.length >= 4 && c[0] && !/^name$/i.test(c[0]));
     const parsed: Batch[] = rows
       .filter(([, batch, expiry, stock]) => batch && !Number.isNaN(Date.parse(expiry)) && Number(stock) >= 0)
-      .map(([name, batch, expiry, stock]) => ({ id: localId('B'), name, batch: batch.toUpperCase(), expiry, stock: Number(stock), registered: true }));
+      .map(([name, batch, expiry, stock, manufacturer]) => ({ id: localId('B'), name, batch: batch.toUpperCase(), expiry, stock: Number(stock), manufacturer: manufacturer || undefined, registered: false }));
     if (parsed.length === 0) return toast.error('No valid rows. Use CSV columns: name,batch,expiry (YYYY-MM-DD),stock');
     setBatches((all) => [...parsed, ...all.filter((b) => !parsed.some((p) => p.batch === b.batch))]);
-    toast.success(`${parsed.length} batch(es) imported and registered from ${file.name}`);
+    toast.success(`${parsed.length} batch(es) imported from ${file.name}`);
+    if (await pushToRegistry(parsed)) toast.success('Imported batches registered');
   };
 
   const attachLicence = (file: File) => {
@@ -166,7 +192,7 @@ export default function DealerDashboardPage() {
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
         <Tile theme={theme} icon={PackageSearch} label="Batch tester" hint="Check any code the way farmers do" href="/supplies/tester" />
-        <Tile theme={theme} icon={ShieldCheck} label="Input authenticity" hint="Public verification page" href="/input-authenticity" />
+        <Tile theme={theme} icon={ShieldCheck} label="Price Comparison" hint="List inputs where buyers compare" href="/compare-prices" />
         <Tile theme={theme} icon={ClipboardCheck} label="Compliance checklist" hint={`${compliant} of ${licences.length} done`} onClick={() => setTab('compliance')} />
       </div>
 
@@ -216,7 +242,7 @@ export default function DealerDashboardPage() {
                             {b.registered ? (
                               <Badge tone="green">Registered</Badge>
                             ) : (
-                              <Btn theme={theme} size="sm" variant="soft" onClick={() => { setBatches((all) => all.map((x) => (x.id === b.id ? { ...x, registered: true } : x))); toast.success(`${b.batch} registered`); }}>
+                              <Btn theme={theme} size="sm" variant="soft" onClick={async () => { if (await pushToRegistry([b])) toast.success(`${b.batch} registered`); }}>
                                 Register
                               </Btn>
                             )}
@@ -233,7 +259,7 @@ export default function DealerDashboardPage() {
                 </table>
               </div>
             )}
-            <p className="mt-4 text-xs text-slate-500">Manifest format: CSV with columns <code>name,batch,expiry,stock</code> (expiry as YYYY-MM-DD).</p>
+            <p className="mt-4 text-xs text-slate-500">Manifest format: CSV with columns <code>name,batch,expiry,stock,manufacturer</code> (expiry as YYYY-MM-DD).</p>
           </Panel>
         </div>
       )}
@@ -294,6 +320,11 @@ export default function DealerDashboardPage() {
           <Field label="Stock (units)">
             <input type="number" min={0} className={INPUT} value={draft.stock} onChange={(e) => setDraft({ ...draft, stock: e.target.value })} />
           </Field>
+          <div className="sm:col-span-2">
+            <Field label="Manufacturer">
+              <input className={INPUT} value={draft.manufacturer} onChange={(e) => setDraft({ ...draft, manufacturer: e.target.value })} placeholder="As printed on the pack" />
+            </Field>
+          </div>
         </div>
       </Modal>
     </PortalShell>

@@ -1,22 +1,16 @@
 /**
- * KYC service adapter for KYCPanel — the one place to swap simulation for real
- * verification.
+ * KYC service adapter for KYCPanel.
  *
- * IFSC lookup is real: it calls this app's /api/ifsc route, which proxies the
- * public Razorpay IFSC directory. Set NEXT_PUBLIC_IFSC_MOCK=true to answer from
- * the bank-code table below instead (offline development, demos).
+ * IFSC lookup calls /api/ifsc (public Razorpay IFSC directory); set
+ * NEXT_PUBLIC_IFSC_MOCK=true to answer from the bank-code table instead.
  *
- * Aadhaar OTP and DigiLocker are SIMULATED — the Kashroot API has no
- * verification endpoints yet. Real Aadhaar e-KYC only works through a
- * UIDAI-licensed KUA or a DigiLocker partner (API Setu), with credentials that
- * must never reach the browser. When the API grows those routes (e.g.
- * POST /kyc/aadhaar/otp, POST /kyc/aadhaar/verify, GET /kyc/digilocker/start),
- * replace the three simulated functions with fetches to them; the signatures
- * are already what the panel needs.
- *
- * Simulation rules: any valid Aadhaar receives an OTP; any 6-digit OTP verifies
- * except 000000, which is rejected so the error state can be exercised.
+ * Aadhaar OTP, PAN and DigiLocker are REAL: they call this app's /api/kyc/*
+ * routes, which hold the KYC provider credentials server-side (Sandbox.co.in).
+ * UIDAI texts the Aadhaar OTP to the mobile linked with that Aadhaar. When the
+ * provider is not configured the routes answer 503 and the panel says so.
  */
+import { authFetch } from '@/lib/auth-fetch';
+
 import { isValidIfsc } from './validators';
 
 export interface IfscDetails {
@@ -92,52 +86,98 @@ async function mockIfscLookup(ifsc: string, signal?: AbortSignal): Promise<IfscD
 }
 
 // ---------------------------------------------------------------------------
-// Simulated identity verification — see the file header before shipping.
+// Identity verification (real, via /api/kyc/*)
 // ---------------------------------------------------------------------------
 
-const pendingOtps = new Map<string, string>();
-
-/** Asks UIDAI to text an OTP to the Aadhaar-linked mobile. */
-export async function requestAadhaarOtp(aadhaarDigits: string): Promise<{ txnId: string }> {
-  await delay(1100);
-  const txnId = simulatedId('sim-otp');
-  pendingOtps.set(txnId, aadhaarDigits.slice(-4));
-  return { txnId };
+export class KycUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'KycUnavailableError';
+  }
 }
 
-export async function verifyAadhaarOtp(txnId: string, otp: string): Promise<IdentityVerification> {
-  await delay(1000);
-  const last4 = pendingOtps.get(txnId);
-  if (!last4 || !/^\d{6}$/.test(otp) || otp === '000000') throw new OtpRejectedError();
-  pendingOtps.delete(txnId);
-  return { referenceId: txnId, aadhaarLast4: last4 };
+async function post<T>(url: string, body: unknown): Promise<T> {
+  const res = await authFetch(url, { method: 'POST', body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 503 || res.status === 401) throw new KycUnavailableError(data.error ?? 'Verification is unavailable.');
+  if (!res.ok) throw new Error(data.error ?? 'Verification failed. Please try again.');
+  return data as T;
+}
+
+/** Asks UIDAI (through the KYC provider) to text an OTP to the Aadhaar-linked mobile. */
+export async function requestAadhaarOtp(aadhaarDigits: string): Promise<{ txnId: string }> {
+  const { referenceId } = await post<{ referenceId: string }>('/api/kyc/aadhaar/otp', { aadhaar: aadhaarDigits });
+  return { txnId: referenceId };
+}
+
+export interface AadhaarPerson {
+  name: string;
+  /** DD-MM-YYYY as UIDAI returns it. */
+  dateOfBirth: string;
+}
+
+export async function verifyAadhaarOtp(txnId: string, otp: string, last4: string): Promise<IdentityVerification & { person: AadhaarPerson }> {
+  try {
+    const r = await post<{ referenceId: string; aadhaarLast4: string; name: string; dateOfBirth: string }>('/api/kyc/aadhaar/verify', { referenceId: txnId, otp, last4 });
+    return { referenceId: r.referenceId, aadhaarLast4: r.aadhaarLast4 || last4, person: { name: r.name, dateOfBirth: r.dateOfBirth } };
+  } catch (err) {
+    if (err instanceof KycUnavailableError) throw err;
+    throw new OtpRejectedError();
+  }
+}
+
+export interface PanCheck {
+  valid: boolean;
+  nameMatch: boolean;
+  dobMatch: boolean;
+  category: string;
+}
+
+/** dob as YYYY-MM-DD (date input) — sent as DD/MM/YYYY. */
+export async function verifyPan(pan: string, name: string, dobIso: string): Promise<PanCheck> {
+  const [y, m, d] = dobIso.split('-');
+  return post<PanCheck>('/api/kyc/pan', { pan, name, dob: `${d}/${m}/${y}` });
 }
 
 /**
- * Real flow: redirect to DigiLocker's consent screen, then read the verified
- * Aadhaar back on the callback. Simulated here as an instant consent.
+ * DigiLocker: opens the consent screen in a popup (so the panel keeps its
+ * state) and polls until the user finishes. `popup` must be opened by the
+ * click handler itself, or browsers block it.
  */
-export async function verifyWithDigiLocker(): Promise<IdentityVerification> {
-  await delay(1600);
-  return { referenceId: simulatedId('sim-dl'), aadhaarLast4: '0000' };
-}
+export async function verifyWithDigiLocker(popup: Window | null): Promise<IdentityVerification & { panShared: boolean }> {
+  let start: { sessionId: string; authorizationUrl: string; ticket: string };
+  try {
+    start = await post('/api/kyc/digilocker/start', {});
+  } catch (err) {
+    popup?.close();
+    throw err;
+  }
+  if (popup && !popup.closed) popup.location.href = start.authorizationUrl;
+  else window.location.assign(start.authorizationUrl);
 
-/** Not crypto.randomUUID(): that is undefined over plain http on a LAN IP. */
-function simulatedId(prefix: string): string {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  const deadline = Date.now() + 10 * 60_000;
+  while (Date.now() < deadline) {
+    await delay(2500);
+    const res = await authFetch(`/api/kyc/digilocker/status?session=${encodeURIComponent(start.sessionId)}&ticket=${encodeURIComponent(start.ticket)}`);
+    const s = (await res.json().catch(() => ({}))) as { status?: string; aadhaar?: boolean; pan?: boolean; aadhaarLast4?: string; error?: string };
+    if (!res.ok) throw new Error(s.error ?? 'DigiLocker did not respond.');
+    if (s.status === 'succeeded') {
+      if (!s.aadhaar) throw new Error('Aadhaar was not shared from DigiLocker. Please allow Aadhaar on the consent screen.');
+      return { referenceId: start.sessionId, aadhaarLast4: s.aadhaarLast4 ?? '', panShared: Boolean(s.pan) };
+    }
+    if (s.status === 'failed' || s.status === 'expired') throw new Error(`DigiLocker consent ${s.status}. Please try again.`);
+    if (popup?.closed && s.status === 'created') {
+      // Closed before consenting — give the provider one more poll, then stop.
+      await delay(2500);
+    }
+  }
+  throw new Error('DigiLocker timed out. Please try again.');
 }
 
 function delay(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) return reject(signal.reason);
     const timer = setTimeout(resolve, ms);
-    signal?.addEventListener(
-      'abort',
-      () => {
-        clearTimeout(timer);
-        reject(signal.reason);
-      },
-      { once: true },
-    );
+    signal?.addEventListener('abort', () => { clearTimeout(timer); reject(signal.reason); }, { once: true });
   });
 }

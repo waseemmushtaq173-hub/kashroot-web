@@ -25,7 +25,10 @@ export default function ComparePricesPage() {
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<DealerListing | null>(null);
-  const [lowestFilter, setLowestFilter] = useState<Record<string, boolean>>({});
+  const [sortBy, setSortBy] = useState<'price-asc' | 'price-desc' | 'default'>('price-asc');
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('All');
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
 
   // Escrow & Order State
   const [orderStatus, setOrderStatus] = useState<'IDLE' | 'DELIVERY_FORM' | 'ESCROW_LOCKED' | 'COMPLETED'>('IDLE');
@@ -91,7 +94,17 @@ export default function ComparePricesPage() {
   };
 
   // Group listings by category and item
-  const groupedListings = listings.reduce((acc, curr) => {
+  const priceOf = (l: DealerListing) => parseFloat(String(l.price).replace(/[^\d.]/g, '')) || 0;
+  const categories = ['All', ...Array.from(new Set(listings.map((l) => l.category)))];
+  const q = search.trim().toLowerCase();
+  const visibleListings = listings.filter(
+    (l) =>
+      (categoryFilter === 'All' || l.category === categoryFilter) &&
+      (!verifiedOnly || l.verified) &&
+      (!q || `${l.item} ${l.name} ${l.location} ${l.category}`.toLowerCase().includes(q)),
+  );
+
+  const groupedListings = visibleListings.reduce((acc, curr) => {
     const key = `${curr.category}:::${curr.item}`;
     if (!acc[key]) acc[key] = [];
     acc[key].push(curr);
@@ -117,19 +130,42 @@ export default function ComparePricesPage() {
         />
       }
     >
+        <div className="mb-6 flex flex-col gap-3 rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-slate-900/5 backdrop-blur lg:flex-row lg:items-center">
+          <label className="relative flex-1">
+            <span className="sr-only">Search products, dealers or towns</span>
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products, dealers or towns" className="block w-full rounded-xl border-0 bg-white px-4 py-2.5 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-sky-600" />
+          </label>
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            Category
+            <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="rounded-xl border-0 bg-white py-2.5 pl-3 pr-8 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-sky-600">
+              {categories.map((c) => <option key={c}>{c}</option>)}
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            Sort
+            <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)} className="rounded-xl border-0 bg-white py-2.5 pl-3 pr-8 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-sky-600">
+              <option value="price-asc">Price: low to high</option>
+              <option value="price-desc">Price: high to low</option>
+              <option value="default">As listed</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            <input type="checkbox" checked={verifiedOnly} onChange={(e) => setVerifiedOnly(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-sky-700 focus:ring-sky-600" />
+            Verified dealers only
+          </label>
+        </div>
+
+        {Object.keys(groupedListings).length === 0 && (
+          <p className="rounded-2xl bg-white/80 p-8 text-center text-slate-600 ring-1 ring-slate-900/5">No products match these filters.</p>
+        )}
+
         <div className="space-y-8">
           {Object.entries(groupedListings).map(([key, groupDealers], i) => {
             const [category, item] = key.split(':::');
-            const isLowestFiltered = lowestFilter[key];
-            
             const displayDealers = [...groupDealers];
-            if (isLowestFiltered) {
-              displayDealers.sort((a, b) => {
-                const priceA = parseFloat(a.price.replace(/[^\d.]/g, '')) || 0;
-                const priceB = parseFloat(b.price.replace(/[^\d.]/g, '')) || 0;
-                return priceA - priceB;
-              });
-            }
+            if (sortBy !== 'default') displayDealers.sort((a, b) => (sortBy === 'price-asc' ? priceOf(a) - priceOf(b) : priceOf(b) - priceOf(a)));
+            const lowest = Math.min(...groupDealers.map(priceOf));
+            const highest = Math.max(...groupDealers.map(priceOf));
 
             return (
               <section key={i} className="kr-glass rounded-2xl shadow-sm border border-kr-border-default overflow-hidden">
@@ -138,16 +174,11 @@ export default function ComparePricesPage() {
                     <span className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-1 block">{category}</span>
                     <h2 className="text-xl font-bold text-kr-text-primary">{item}</h2>
                   </div>
-                  <button 
-                    onClick={() => setLowestFilter(prev => ({ ...prev, [key]: !prev[key] }))}
-                    className={`flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      isLowestFiltered 
-                        ? 'kr-glass border-kr-border-brand text-kr-text-brand' 
-                        : 'kr-glass border-kr-border-default hover:bg-kr-bg-sunken text-kr-text-primary'
-                    }`}
-                  >
-                    <TrendingDown className="w-4 h-4" /> {isLowestFiltered ? 'Unfilter Lowest' : 'Filter Lowest'}
-                  </button>
+                  {groupDealers.length > 1 && (
+                    <p className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-800 ring-1 ring-emerald-200">
+                      <TrendingDown className="h-4 w-4" aria-hidden /> Save up to ₹{(highest - lowest).toLocaleString('en-IN')} by choosing the lowest offer
+                    </p>
+                  )}
                 </div>
                 
                 <div className="divide-y divide-gray-100">
@@ -166,7 +197,12 @@ export default function ComparePricesPage() {
                       </div>
                       
                       <div className="flex flex-col md:items-end w-full md:w-auto gap-3">
-                        <div className="text-2xl font-bold text-[#E76F51]">₹{dealer.price}</div>
+                        <div className="flex items-center gap-2">
+                          {groupDealers.length > 1 && priceOf(dealer) === lowest && (
+                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">Lowest</span>
+                          )}
+                          <span className="text-2xl font-bold text-[#E76F51]">₹{dealer.price}</span>
+                        </div>
                         <div className="flex w-full md:w-auto gap-2">
                           <button className="flex-1 md:flex-none kr-glass border-2 border-sky-700 text-sky-800 hover:bg-[#1B4332]/5 px-4 py-2 rounded-lg font-bold text-sm transition-colors hidden">
                             Contact

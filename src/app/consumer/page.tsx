@@ -6,9 +6,9 @@ import { ShoppingBag, Gift, Truck, Leaf, CheckCircle, Search, MapPin } from 'luc
 
 // Mock DEMO DATA
 const PRODUCE_LIST = [
-  { id: 'PROD-1', name: 'Premium Kagzi Walnuts', origin: 'Anantnag, Kashmir', farmer: 'Fayaz Orchards', price: '₹850/kg', rating: 4.9, img: '🌰' },
-  { id: 'PROD-2', name: 'GI Tagged Pampore Saffron', origin: 'Pampore, Kashmir', farmer: 'Bhat Saffron Co.', price: '₹2,500/10g', rating: 5.0, img: '🌸' },
-  { id: 'PROD-3', name: 'Fresh Gala Apples (Gift Box)', origin: 'Shopian, Kashmir', farmer: 'Shopian Fruit Coop', price: '₹1,200/5kg', rating: 4.8, img: '🍎' },
+  { id: 'PROD-1', name: 'Premium Kagzi Walnuts', origin: 'Anantnag', farmer: 'Fayaz Orchards', price: '₹850/kg', rating: 4.9, img: '🌰' },
+  { id: 'PROD-2', name: 'GI Tagged Pampore Saffron', origin: 'Pampore', farmer: 'Bhat Saffron Co.', price: '₹2,500/10g', rating: 5.0, img: '🌸' },
+  { id: 'PROD-3', name: 'Fresh Gala Apples (Gift Box)', origin: 'Shopian', farmer: 'Shopian Fruit Coop', price: '₹1,200/5kg', rating: 4.8, img: '🍎' },
 ];
 
 const TRACKING = [
@@ -31,10 +31,10 @@ export default function ConsumerDirectPage() {
           <div className="bg-gradient-to-r from-[var(--kr-apple-crimson,#C62828)] to-[var(--kr-saffron-gold,#E8A317)] p-8 rounded-2xl mb-8 shadow-2xl border border-white/10 backdrop-blur-md relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div className="relative z-10">
               <h1 className="text-3xl md:text-4xl font-bold mb-2 flex items-center gap-3">
-                <ShoppingBag className="w-8 h-8 text-white" /> Direct from Kashmir
+                <ShoppingBag className="w-8 h-8 text-white" /> Direct from the valley
               </h1>
               <p className="text-lg text-white/90 font-medium max-w-xl">
-                Buy 100% traced, authentic Kashmiri produce directly from the source. Perfect for yourself or as a premium gift.
+                Buy 100% traced, authentic valley produce directly from the source. Perfect for yourself or as a premium gift.
               </p>
             </div>
             <div className="absolute top-0 right-0 opacity-20 pointer-events-none transform translate-x-1/4 -translate-y-1/4">

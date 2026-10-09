@@ -1,60 +1,107 @@
 /**
- * Portal roles for the dedicated sign-in pages (/login/farmer, /login/buyer,
- * /login/seller) that replace the global "Welcome back" screen.
+ * Portals and their sign-in pages. Every portal has its own sign-in at
+ * /login/<portal> — there is no shared "pick your account type" form.
  *
- * Server-safe (no browser APIs), so the landing page and the login route can
- * both build links from it.
+ * Server-safe (no browser APIs), so server components, the login route and the
+ * dashboards layout can all build links from it.
  *
- * Sign-in here is authApi.login (Supabase) followed by tokenStore.setToken with
- * the role of the page the user signed in through — the same binding the old
- * /login page did with its "Account Type" dropdown. The role is NOT verified
- * server-side yet (authApi.login returns a mock role); when the API returns
- * real roles, check them in RoleLoginForm before calling tokenStore.setToken.
+ * Two kinds of portal:
+ *   - Role portals (farmer, buyer, seller, logistics, admin) belong to one
+ *     account type. Signing in through them checks the account's role.
+ *   - Shared portals (kissan tools, rental, tracking, dealer, expert) are
+ *     open to any signed-in account; each still has its own sign-in page.
+ *
+ * SECURITY: the role checks here are UX. The account role comes from Supabase
+ * (app_metadata first, then user_metadata, which users can edit themselves), so
+ * the backend must still enforce access on every request.
  */
-export type PortalRole = 'farmer' | 'buyer' | 'seller';
 
-export const PORTAL_ROLES: readonly PortalRole[] = ['farmer', 'buyer', 'seller'];
+/** Account role values stored in `user_role` and Supabase metadata. */
+export type AccountRole = 'FARMER' | 'BUYER' | 'SELLER' | 'PROVIDER' | 'ADMIN' | 'EXPERT' | 'DEALER';
 
-export const ROLE_LABELS: Record<PortalRole, string> = {
-  farmer: 'Farmer',
-  buyer: 'Buyer',
-  seller: 'Seller',
+export type PortalId =
+  | 'farmer'
+  | 'buyer'
+  | 'seller'
+  | 'kissan'
+  | 'rental'
+  | 'logistics'
+  | 'tracking'
+  | 'dealer'
+  | 'expert'
+  | 'admin';
+
+export interface PortalInfo {
+  label: string;
+  /** Account role the portal requires; null = any signed-in account. */
+  requiredRole: AccountRole | null;
+  /** Where the portal lands after sign-in when no `next` was requested. */
+  home: string;
+  /** The (dashboards) route segment the portal lives under. */
+  segment: string;
+  /** One line for menus and the sign-in chooser. */
+  tagline: string;
+}
+
+export const PORTALS: Record<PortalId, PortalInfo> = {
+  farmer: { label: 'Farmer', requiredRole: 'FARMER', home: '/farmer/dashboard', segment: 'farmer', tagline: 'Orchards, listings & advisory' },
+  buyer: { label: 'Buyer', requiredRole: 'BUYER', home: '/buyer/dashboard', segment: 'buyer', tagline: 'Source verified produce' },
+  seller: { label: 'Seller', requiredRole: 'SELLER', home: '/seller/dashboard', segment: 'seller', tagline: 'Catalogue, orders & payouts' },
+  kissan: { label: 'Kissan Tools', requiredRole: null, home: '/kissan-tools/dashboard', segment: 'kissan-tools', tagline: 'Equipment & horti supplies' },
+  rental: { label: 'Rental', requiredRole: null, home: '/rental/dashboard', segment: 'rental', tagline: 'Cold storage & machinery' },
+  logistics: { label: 'Logistics', requiredRole: 'PROVIDER', home: '/provider/dashboard', segment: 'provider', tagline: 'Transport jobs & cold chain' },
+  tracking: { label: 'Tracking', requiredRole: null, home: '/tracking/dashboard', segment: 'tracking', tagline: 'Find any consignment' },
+  dealer: { label: 'Agro-dealer', requiredRole: null, home: '/dealer/dashboard', segment: 'dealer', tagline: 'Batch-coded inputs & compliance' },
+  expert: { label: 'Advisory', requiredRole: null, home: '/expert', segment: 'expert', tagline: 'Ask agronomists, soil tests' },
+  admin: { label: 'Admin', requiredRole: 'ADMIN', home: '/admin/dashboard', segment: 'admin', tagline: 'KYC, disputes & analytics' },
 };
 
-/** Value stored in localStorage `user_role` / the `user_role` cookie. */
-export const ROLE_VALUE: Record<PortalRole, 'FARMER' | 'BUYER' | 'SELLER'> = {
-  farmer: 'FARMER',
-  buyer: 'BUYER',
-  seller: 'SELLER',
-};
+export const PORTAL_IDS = Object.keys(PORTALS) as PortalId[];
 
-/** Where each portal lands after sign-in when no `next` was requested. */
-export const ROLE_HOME: Record<PortalRole, string> = {
-  farmer: '/farmer/dashboard',
-  buyer: '/buyer/dashboard',
-  seller: '/seller/dashboard',
-};
+export function isPortalId(value: string): value is PortalId {
+  return value in PORTALS;
+}
 
-/** Auxiliary auth routes in this app. */
-export const AUTH_ROUTES = {
-  /** The register page reads no query yet; its role picker is on the form. */
-  register: () => '/register',
-  forgotPassword: '/forgot-password',
-} as const;
+/** The portal that owns a (dashboards) route segment, e.g. 'provider' → 'logistics'. */
+export function portalForSegment(segment: string | null | undefined): PortalId | null {
+  return PORTAL_IDS.find((id) => PORTALS[id].segment === segment) ?? null;
+}
 
-export function isPortalRole(value: string): value is PortalRole {
-  return (PORTAL_ROLES as readonly string[]).includes(value);
+/** The portal whose role an account has, e.g. 'PROVIDER' → 'logistics'. */
+export function portalForRole(role: string | null | undefined): PortalId | null {
+  return PORTAL_IDS.find((id) => PORTALS[id].requiredRole === role) ?? null;
 }
 
 /** Link to a portal's sign-in, carrying where to go afterwards. */
-export function loginHref(role: PortalRole, next?: string): string {
-  return next ? `/login/${role}?next=${encodeURIComponent(next)}` : `/login/${role}`;
+export function loginHref(portal: PortalId, next?: string): string {
+  return next ? `/login/${portal}?next=${encodeURIComponent(next)}` : `/login/${portal}`;
 }
 
-/** The portal for a stored `user_role` value (e.g. 'FARMER' → 'farmer'). */
-export function portalRoleFromValue(value: string | null | undefined): PortalRole | null {
-  return PORTAL_ROLES.find((role) => ROLE_VALUE[role] === value) ?? null;
-}
+/** Roles a person can pick when creating an account. */
+export const REGISTER_ROLES: { role: AccountRole; portal: PortalId; label: string }[] = [
+  { role: 'FARMER', portal: 'farmer', label: 'Farmer' },
+  { role: 'BUYER', portal: 'buyer', label: 'Buyer' },
+  { role: 'SELLER', portal: 'seller', label: 'Seller' },
+  { role: 'PROVIDER', portal: 'logistics', label: 'Logistics' },
+];
+
+/** Auxiliary auth routes in this app. */
+export const AUTH_ROUTES = {
+  /** Register, optionally with the account type preselected. */
+  register: (portal?: PortalId) => {
+    const role = REGISTER_ROLES.find((r) => r.portal === portal)?.role;
+    return role ? `/register?role=${role}` : '/register';
+  },
+  forgotPassword: '/forgot-password',
+} as const;
+
+// ── Back-compat names used across the app ──────────────────────────────────
+export type PortalRole = PortalId;
+export const PORTAL_ROLES = PORTAL_IDS;
+export const isPortalRole = isPortalId;
+export const ROLE_LABELS = Object.fromEntries(PORTAL_IDS.map((id) => [id, PORTALS[id].label])) as Record<PortalId, string>;
+export const ROLE_HOME = Object.fromEntries(PORTAL_IDS.map((id) => [id, PORTALS[id].home])) as Record<PortalId, string>;
+export const portalRoleFromValue = portalForRole;
 
 /**
  * `next` arrives from the query string, so it is attacker-controlled. Only a

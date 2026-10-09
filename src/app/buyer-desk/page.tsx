@@ -34,7 +34,7 @@ export default function BuyerDeskPage() {
                 <Globe className="w-8 h-8 text-white" /> Buyer & Exporter Desk
               </h1>
               <p className="text-lg text-white/90 font-medium max-w-xl">
-                Source verified, graded produce directly from Kashmir. Bid on aggregated lots and manage your export pipeline.
+                Source verified, graded produce directly from the valley. Bid on aggregated lots and manage your export pipeline.
               </p>
             </div>
             <div className="absolute top-0 right-0 opacity-20 pointer-events-none transform translate-x-1/4 -translate-y-1/4">
@@ -92,7 +92,7 @@ export default function BuyerDeskPage() {
                   <div className="absolute inset-0 opacity-30 bg-[url('https://upload.wikimedia.org/wikipedia/commons/e/e4/Jammu_and_Kashmir_locator_map.svg')] bg-center bg-no-repeat bg-contain filter invert"></div>
                   <div className="absolute top-12 left-12 w-3 h-3 bg-red-500 rounded-full shadow-[0_0_15px_red] animate-ping"></div>
                   <div className="absolute top-20 right-20 w-4 h-4 bg-green-500 rounded-full shadow-[0_0_15px_green] animate-pulse"></div>
-                  <span className="z-10 text-white/50 font-medium bg-black/50 px-3 py-1 rounded backdrop-blur-sm">Kashmir Valley Region</span>
+                  <span className="z-10 text-white/50 font-medium bg-black/50 px-3 py-1 rounded backdrop-blur-sm">Valley region</span>
                 </div>
 
                 <div className="space-y-3">

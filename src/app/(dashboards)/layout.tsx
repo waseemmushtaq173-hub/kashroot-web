@@ -5,36 +5,16 @@ import { useSelectedLayoutSegment, useRouter } from 'next/navigation';
 import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
 import { ReactNode, useEffect, useState } from 'react';
 
-import { VoiceAssistant } from '@/components/ui/VoiceAssistant';
 import { KYCPanel } from '@/components/auth/KYCPanel';
 import { tokenStore } from '@/lib/api/auth';
-import { isPortalRole, loginHref, portalRoleFromValue, ROLE_VALUE } from '@/lib/auth/roles';
+import { loginHref, PORTALS, portalForSegment } from '@/lib/auth/roles';
 
 /**
- * Role each dashboard segment requires (localStorage `user_role` value).
- * Segments not listed are open to any signed-in user: dealer, tracking, and
- * the shared marketplaces — kissan-tools (supplies shop), rental (renters and
- * owners) and expert (farmers ask, experts answer; the page adapts by role).
+ * Each dashboard segment belongs to one portal (see lib/auth/roles). Signed-out
+ * visitors go to that portal's own sign-in; role portals (farmer, buyer,
+ * seller, logistics, admin) need an account of that role, shared portals
+ * (kissan tools, rental, tracking, dealer, expert) accept any account.
  */
-const SEGMENT_ROLE: Record<string, { role: string; label: string }> = {
-  farmer: { role: 'FARMER', label: 'Farmer' },
-  buyer: { role: 'BUYER', label: 'Buyer' },
-  seller: { role: 'SELLER', label: 'Seller' },
-  admin: { role: 'ADMIN', label: 'Platform Admin' },
-  provider: { role: 'PROVIDER', label: 'Logistics & Provider' },
-};
-
-/** Sign-in page for a segment: dedicated portal login, else /login with the role preselected. */
-function signInPath(segment: string | null, next?: string): string {
-  if (segment && isPortalRole(segment)) return loginHref(segment, next);
-  const params = new URLSearchParams();
-  const required = segment ? SEGMENT_ROLE[segment] : undefined;
-  if (required) params.set('role', required.role);
-  if (next) params.set('returnTo', next);
-  const qs = params.toString();
-  return qs ? `/login?${qs}` : '/login';
-}
-
 /**
  * Role-Adaptive Dashboard Layout
  * Injects CSS thematic variables based on the active route segment.
@@ -55,7 +35,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       if (!token) {
         // Farmer, buyer and seller routes have their own sign-in pages; every
         // other portal still uses the shared /login.
-        router.push(signInPath(segment, window.location.pathname));
+        const portal = portalForSegment(segment);
+        router.push(portal ? loginHref(portal, window.location.pathname) : '/login');
       } else {
         setUserRole(localStorage.getItem('user_role'));
         
@@ -79,9 +60,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  const required = segment ? SEGMENT_ROLE[segment] : undefined;
-  const authorized = !userRole || !required || userRole === required.role;
-  const requiredRoleMsg = required?.label ?? '';
+  const portal = portalForSegment(segment);
+  const required = portal ? PORTALS[portal].requiredRole : null;
+  const authorized = !userRole || !required || userRole === required;
+  const requiredRoleMsg = portal ? PORTALS[portal].label : '';
 
   if (!authorized) {
     return (
@@ -101,11 +83,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 type="button"
                 onClick={() => {
                   tokenStore.removeToken();
-                  router.push(signInPath(segment, window.location.pathname));
+                  const portal = portalForSegment(segment);
+        router.push(portal ? loginHref(portal, window.location.pathname) : '/login');
                 }}
                 className="cursor-pointer rounded-xl bg-emerald-700 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-emerald-800"
               >
-                Sign in as {requiredRoleMsg}
+                Open the {requiredRoleMsg} sign-in
               </button>
               <button
                 type="button"
@@ -126,19 +109,15 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   // layout only adds the site chrome around it.
   return (
     <div className="kr-light flex min-h-screen flex-col bg-gradient-to-br from-emerald-50 via-white to-amber-50 text-slate-900">
-      <SiteHeader tone="light" />
+      <SiteHeader tone="light" portal={portal} />
       <div className="flex flex-1 flex-col">
         {children}
       </div>
-      <VoiceAssistant />
       <SiteFooter tone="light" />
       <KYCPanel
         open={showKyc}
         onClose={() => setShowKyc(false)}
-        defaultRole={(() => {
-          const portal = portalRoleFromValue(userRole);
-          return portal ? ROLE_VALUE[portal] : undefined;
-        })()}
+        defaultRole={userRole === 'FARMER' || userRole === 'BUYER' || userRole === 'SELLER' ? userRole : undefined}
         // No self-service KYC endpoint exists yet: mark it submitted (under
         // review), never "verified" — nobody has reviewed it.
         onComplete={() => localStorage.setItem('kyc_status', 'submitted')}

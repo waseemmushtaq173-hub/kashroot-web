@@ -11,8 +11,8 @@
  *   - `standalone` for pages outside the (dashboards) group, which then get
  *     the site header and footer from the shell.
  *
- * The hero shows one of the season photographs under a tint, with a chinar
- * leaf watermark; the canvas carries a faint khatamband lattice. The wrapper
+ * The hero is a live 3D valley (ValleyScene) in the portal's season mood, over
+ * the season photograph as a no-WebGL fallback, with a chinar leaf watermark; the canvas carries a faint khatamband lattice. The wrapper
  * is `kr-light`, so kr-* design-token classes used inside render properly.
  */
 import Image from 'next/image';
@@ -20,6 +20,8 @@ import Link from 'next/link';
 import type { ElementType, ReactNode } from 'react';
 
 import { ChinarLeaf } from '@/components/brand/ChinarLeaf';
+import { Tilt3D } from '@/components/three/Tilt3D';
+import { ValleyScene } from '@/components/three/ValleyScene';
 import { SiteFooter, SiteHeader } from '@/components/layout/SiteHeader';
 import { FOCUS, GLASS_CARD, LATTICE_BG, resolveTheme } from '@/components/portal/kit';
 
@@ -98,13 +100,14 @@ export function PortalShell({
             className="-z-20 object-cover"
             style={{ objectPosition: theme.focus }}
           />
+          <ValleyScene mood={theme.mood} className="-z-20" />
           <div aria-hidden className={`absolute inset-0 -z-10 bg-gradient-to-r ${theme.heroTint}`} />
           <ChinarLeaf
             className="pointer-events-none absolute -right-6 -top-8 -z-10 h-56 w-56 rotate-12 opacity-30"
             color="#FDE68A"
           />
 
-          <div className="flex min-h-[220px] flex-col justify-end gap-5 p-6 sm:flex-row sm:items-end sm:justify-between sm:p-9">
+          <div className="flex min-h-[260px] flex-col justify-end gap-5 p-6 sm:min-h-[320px] sm:flex-row sm:items-end sm:justify-between sm:p-9">
             <div className="max-w-2xl">
               {eyebrow && (
                 <p className={`inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] backdrop-blur ${theme.eyebrow}`}>
@@ -122,11 +125,13 @@ export function PortalShell({
         {kpis.length > 0 && (
           <div className={`relative z-10 -mt-6 mx-3 grid gap-3 sm:mx-6 ${kpis.length >= 4 ? 'grid-cols-2 lg:grid-cols-4' : kpis.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'}`}>
             {kpis.map((kpi) => (
-              <div key={kpi.label} className={`${GLASS_CARD} p-4`}>
-                <p className="text-xs font-medium uppercase tracking-wider text-slate-500">{kpi.label}</p>
-                <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{kpi.value}</p>
-                {kpi.trend && <p className={`mt-0.5 text-xs font-medium ${theme.accent}`}>{kpi.trend}</p>}
-              </div>
+              <Tilt3D key={kpi.label} className="rounded-2xl" max={7}>
+                <div className={`${GLASS_CARD} h-full p-4 [transform-style:preserve-3d]`}>
+                  <p className="text-xs font-medium uppercase tracking-wider text-slate-500">{kpi.label}</p>
+                  <p data-depth className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{kpi.value}</p>
+                  {kpi.trend && <p className={`mt-0.5 text-xs font-medium ${theme.accent}`}>{kpi.trend}</p>}
+                </div>
+              </Tilt3D>
             ))}
           </div>
         )}

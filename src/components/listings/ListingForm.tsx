@@ -377,7 +377,7 @@ export function ListingForm({
           <input
             id="title"
             type="text"
-            placeholder="e.g. Grade-A Kashmiri Walnuts — Harvest 2026"
+            placeholder="e.g. Grade-A Walnuts — Harvest 2026"
             aria-required="true"
             aria-describedby={errors.title ? 'title-err' : 'title-hint'}
             aria-invalid={!!errors.title}

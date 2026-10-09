@@ -8,7 +8,8 @@
  * scab infection at a given mean temperature). Spray log and block weather
  * live in the browser (kr_orchard_*).
  */
-import { useMemo, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Camera, CloudRain, Droplets, Map as MapIcon, MessageCircle, PlusCircle, Stethoscope, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -105,8 +106,19 @@ const todayIso = () => new Date().toISOString().slice(0, 10);
 const addDays = (iso: string, days: number) => new Date(Date.parse(iso) + days * 864e5).toISOString().slice(0, 10);
 const daysFromToday = (iso: string) => Math.ceil((Date.parse(iso) - Date.parse(todayIso())) / 864e5);
 
+const TABS = ['risk', 'diagnose', 'sprays'];
+
 export default function OrchardHealthPage() {
-  const [tab, setTab] = useState('risk');
+  return (
+    <Suspense>
+      <OrchardHealth />
+    </Suspense>
+  );
+}
+
+function OrchardHealth() {
+  const requested = useSearchParams().get('tab');
+  const [tab, setTab] = useState(requested && TABS.includes(requested) ? requested : 'risk');
   const [weather, setWeather] = usePersistentState<Weather>('kr_orchard_weather', SEED_WEATHER);
   const [sprays, setSprays] = usePersistentState<Spray[]>('kr_orchard_sprays', NO_SPRAYS);
   const [selected, setSelected] = useState<string>('B');

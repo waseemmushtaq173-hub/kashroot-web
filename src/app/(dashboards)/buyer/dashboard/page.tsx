@@ -140,7 +140,7 @@ export default function BuyerDashboardPage() {
             <Tile theme={theme} icon={Search} label="Marketplace" hint="Browse live lots" href="/buyer/discover" />
             <Tile theme={theme} icon={Scale} label="Compare prices" hint="Dealers side by side" href="/compare-prices" />
             <Tile theme={theme} icon={ShieldCheck} label="Escrow" hint="Money held safely" href="/escrow" />
-            <Tile theme={theme} icon={Truck} label="Track consignment" hint="Live logistics" href="/tracking" />
+            <Tile theme={theme} icon={Truck} label="Track consignment" hint="Toll-plaza route" href="/tracking/dashboard" />
             <Tile theme={theme} icon={TrendingUp} label="Mandi rates" hint="Today’s prices" href="/mandi-weather" />
           </div>
 

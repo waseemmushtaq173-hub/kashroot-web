@@ -1,24 +1,28 @@
+/**
+ * GET /api/mandi?state=&district=&market=&commodity=&limit=
+ * Live Agmarknet prices (Rs/quintal) via data.gov.in. Never fabricates: an
+ * empty board is returned as an empty list.
+ */
 import { NextResponse } from 'next/server';
 
-export const dynamic = 'force-dynamic';
+import { fetchMandiPrices } from '@/lib/server/mandi';
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const market = searchParams.get('market') || 'Sopore';
-
-  // Strict Zero-Fabrication Rule Enforced
-  // In a real environment, this would hit the data.gov.in API with an API key.
-  // Since we don't have an active API key here, we strictly refuse to hallucinate prices.
-  
-  const today = new Date().toISOString().split('T')[0];
-  const lastReportDate = new Date(Date.now() - 86400000).toISOString().split('T')[0]; // Yesterday
-
-  return NextResponse.json({
-    market: market,
-    reportedToday: false,
-    message: `${market} has not reported today. Last report: ${lastReportDate}`,
-    data: null,
-    source: 'agmarknet.gov.in',
-    fetchedAt: new Date().toISOString()
-  });
+  const q = new URL(request.url).searchParams;
+  const pick = (k: string) => q.get(k)?.slice(0, 80) || undefined;
+  try {
+    const result = await fetchMandiPrices({
+      state: pick('state'),
+      district: pick('district'),
+      market: pick('market'),
+      commodity: pick('commodity'),
+      limit: Number(q.get('limit')) || 300,
+    });
+    return NextResponse.json(result, { headers: { 'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=1800' } });
+  } catch (err) {
+    return NextResponse.json(
+      { error: 'The government mandi price service did not respond. Try again in a minute.', detail: err instanceof Error ? err.message : String(err) },
+      { status: 502 },
+    );
+  }
 }

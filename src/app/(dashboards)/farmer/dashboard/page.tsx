@@ -134,9 +134,9 @@ export default function FarmerDashboard() {
           <div className="space-y-6 lg:col-span-2">
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <Tile theme={theme} icon={PlusCircle} label="Sell produce" hint="Create a new lot" href="/farmer/listings/new" />
-              <Tile theme={theme} icon={Warehouse} label="Cold storage" hint="Book CA space" href="/cold-store" />
+              <Tile theme={theme} icon={Warehouse} label="Cold storage" hint="Rent CA space & machinery" href="/rental/dashboard" />
               <Tile theme={theme} icon={ShoppingCart} label="Buy inputs" hint="Verified supplies" href="/supplies" />
-              <Tile theme={theme} icon={MessageCircleQuestion} label="Ask an expert" hint="Agronomist desk" href="/expert-desk" />
+              <Tile theme={theme} icon={MessageCircleQuestion} label="Ask an expert" hint="Agronomist answers" href="/expert" />
               <Tile theme={theme} icon={Activity} label="Orchard health" hint="Risk map & sprays" href="/orchard-health" />
               <Tile theme={theme} icon={CalendarDays} label="Season planner" hint="Tasks & ROI" href="/season-planner" />
               <Tile theme={theme} icon={TrendingUp} label="Mandi rates" hint="Live prices" href="/mandi-weather" />

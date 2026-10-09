@@ -12,8 +12,8 @@ const DISTRICT_YIELD = [
 ];
 
 const STORAGE_GAP = [
-  { region: 'South Kashmir', existing: 45000, required: 80000 },
-  { region: 'North Kashmir', existing: 60000, required: 110000 },
+  { region: 'South valley', existing: 45000, required: 80000 },
+  { region: 'North valley', existing: 60000, required: 110000 },
 ];
 
 export default function GovernmentInsightsPage() {
@@ -104,7 +104,7 @@ export default function GovernmentInsightsPage() {
                 <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
                 <div>
                   <h4 className="font-bold text-amber-400 text-sm mb-1">Policy Recommendation</h4>
-                  <p className="text-xs text-amber-200/80">North Kashmir shows a critical 50,000 MT deficit in CA storage. Subsidy allocation for new CA stores should be prioritized in Sopore/Baramulla belts.</p>
+                  <p className="text-xs text-amber-200/80">The north valley shows a critical 50,000 MT deficit in CA storage. Subsidy allocation for new CA stores should be prioritized in Sopore/Baramulla belts.</p>
                 </div>
               </div>
             </div>

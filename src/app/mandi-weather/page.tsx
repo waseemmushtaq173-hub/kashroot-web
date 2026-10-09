@@ -1,657 +1,453 @@
 'use client';
 
+/**
+ * Live Mandi Rates & Weather.
+ *
+ * - Weather: Open-Meteo through /api/weather (any place in India, or the
+ *   browser's location). Farm advice lines are simple rules on that data.
+ * - Mandi: Agmarknet daily prices through /api/mandi (data.gov.in), filtered
+ *   by state / district / market / commodity, sortable, Rs per quintal or kg.
+ *
+ * Nothing is invented: empty feeds and service errors are shown as such.
+ */
 import { useEffect, useMemo, useState } from 'react';
-import type { ChangeEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  AlertCircle,
-  CheckCircle2,
+  ArrowDownWideNarrow,
+  ArrowUpNarrowWide,
+  CalendarClock,
+  Cloud,
+  CloudDrizzle,
+  CloudFog,
+  CloudLightning,
+  CloudRain,
+  CloudSnow,
   CloudSun,
-  FlaskConical,
-  Info,
-  Loader2,
+  Droplets,
   LocateFixed,
+  Loader2,
   MapPin,
   RefreshCw,
+  Search,
+  Sun,
+  Thermometer,
+  TriangleAlert,
+  Wind,
+  type LucideIcon,
 } from 'lucide-react';
-import { WeatherWidget } from '@/components/ui/WeatherWidget';
-import { ToolHeader, ToolShell } from '@/components/layout/ToolShell';
 
-import { mandiApi } from '@/lib/api/mandi';
-import type {
-  LiveMandiFeed,
-  MandiFeedQuery,
-  MandiQuote,
-  TrendPoint,
-} from '@/lib/api/mandi';
+import { PortalShell } from '@/components/layout/PortalShell';
+import { Badge, Btn, EmptyState, INPUT, PORTAL_THEMES, Panel, inr } from '@/components/portal/kit';
+import { Tilt3D } from '@/components/three/Tilt3D';
 
-/** Sentinel for the "near me" entry in the market select. */
-const NEAR_ME = '__near_me__';
+const theme = PORTAL_THEMES.buyer;
 
-/** How the page is asking for prices right now. */
-type Selection =
-  | { kind: 'hub'; id: string }
-  | { kind: 'coords'; lat: number; lng: number }
-  | { kind: 'empty' };
-
-// ── Formatting ──────────────────────────────────────────────────────────────
-// Arrival dates are plain calendar dates with no time component, so everything
-// here formats and compares them in UTC. Letting the browser's local zone near
-// midnight would slide a date by a day and quietly misreport how fresh a board
-// is.
-
-const inr = new Intl.NumberFormat('en-IN', {
-  style: 'currency',
-  currency: 'INR',
-  maximumFractionDigits: 0,
-});
-
-const dayMonth = new Intl.DateTimeFormat('en-IN', {
-  day: 'numeric',
-  month: 'short',
-  timeZone: 'UTC',
-});
-
-function formatArrival(iso: string): string {
-  return dayMonth.format(new Date(`${iso}T00:00:00Z`));
+interface Place {
+  name: string;
+  admin: string;
+  lat: number;
+  lng: number;
+}
+interface Forecast {
+  place: Place;
+  current: { time: string; temperature: number; humidity: number; precipitation: number; wind: number; code: number };
+  hourly: { time: string; temperature: number; precipitationProbability: number; code: number }[];
+  daily: { date: string; max: number; min: number; precipitation: number; code: number }[];
+  source: string;
+}
+interface MandiRecord {
+  state: string;
+  district: string;
+  market: string;
+  commodity: string;
+  variety: string;
+  grade: string;
+  arrivalDate: string;
+  minPrice: number;
+  maxPrice: number;
+  modalPrice: number;
+}
+interface MandiResult {
+  records: MandiRecord[];
+  usingSampleKey: boolean;
+  fetchedAt: string;
+  source: string;
 }
 
-/** Whole days between an arrival date and today, both in UTC. */
-function ageInDays(iso: string): number {
-  const then = Date.parse(`${iso}T00:00:00Z`);
-  const now = new Date();
-  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-  return Math.round((today - then) / 86_400_000);
+const STATES = [
+  'Andhra Pradesh', 'Assam', 'Bihar', 'Chandigarh', 'Chattisgarh', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jammu and Kashmir',
+  'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Nagaland', 'NCT of Delhi', 'Odisha',
+  'Pondicherry', 'Punjab', 'Rajasthan', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttrakhand', 'West Bengal',
+];
+const COMMODITIES = [
+  'Apple', 'Walnut', 'Almond(Badam)', 'Cherry', 'Pear(Marasebu)', 'Plum', 'Peach', 'Apricot(Jardalu/Khumani)', 'Grapes', 'Pomegranate',
+  'Onion', 'Potato', 'Tomato', 'Garlic', 'Cauliflower', 'Cabbage', 'Green Chilli', 'Rice', 'Wheat', 'Maize',
+];
+
+const WMO: [number[], string, LucideIcon][] = [
+  [[0], 'Clear sky', Sun],
+  [[1, 2], 'Partly cloudy', CloudSun],
+  [[3], 'Overcast', Cloud],
+  [[45, 48], 'Fog', CloudFog],
+  [[51, 53, 55, 56, 57], 'Drizzle', CloudDrizzle],
+  [[61, 63, 65, 66, 67, 80, 81, 82], 'Rain', CloudRain],
+  [[71, 73, 75, 77, 85, 86], 'Snow', CloudSnow],
+  [[95, 96, 99], 'Thunderstorm', CloudLightning],
+];
+const wmo = (code: number) => WMO.find(([codes]) => codes.includes(code)) ?? WMO[2];
+
+const dayName = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+const daysOld = (iso: string) => Math.max(0, Math.floor((Date.now() - Date.parse(`${iso}T00:00:00+05:30`)) / 864e5));
+
+function advice(f: Forecast): { tone: 'amber' | 'blue' | 'green' | 'red'; text: string }[] {
+  const out: { tone: 'amber' | 'blue' | 'green' | 'red'; text: string }[] = [];
+  const wetSoon = f.hourly.slice(0, 12).some((h) => h.precipitationProbability >= 60);
+  if (wetSoon) out.push({ tone: 'blue', text: 'Rain likely in the next 12 hours — hold sprays and fertiliser application.' });
+  if (f.current.wind >= 15) out.push({ tone: 'amber', text: `Wind ${Math.round(f.current.wind)} km/h — spray drift risk; spray in calm morning hours.` });
+  const frost = f.daily.slice(0, 3).find((d) => d.min <= 2);
+  if (frost) out.push({ tone: 'red', text: `Frost risk on ${dayName(frost.date)} (min ${Math.round(frost.min)} °C) — protect blossoms and nurseries.` });
+  const hot = f.daily.slice(0, 3).find((d) => d.max >= 32);
+  if (hot) out.push({ tone: 'amber', text: `Heat on ${dayName(hot.date)} (max ${Math.round(hot.max)} °C) — irrigate early and shade fresh produce.` });
+  if (out.length === 0) out.push({ tone: 'green', text: 'Settled weather — a good window for field work and harvest.' });
+  return out;
 }
 
-function formatAge(iso: string | null): string {
-  if (!iso) return '';
-  const days = ageInDays(iso);
-  if (days <= 0) return 'today';
-  if (days === 1) return 'yesterday';
-  return `${days} days ago`;
+async function getJson<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data as { error?: string }).error || `Request failed (${res.status})`);
+  return data as T;
 }
 
-// ── Sub-components ──────────────────────────────────────────────────────────
+export default function MandiWeatherPage() {
+  // Weather
+  const [placeQuery, setPlaceQuery] = useState('');
+  const [where, setWhere] = useState<{ q?: string; lat?: number; lng?: number; name?: string }>({ q: 'Srinagar' });
+  const [suggestions, setSuggestions] = useState<Place[]>([]);
+  const [locating, setLocating] = useState(false);
 
-/**
- * A sparkline over the aggregated daily series.
- *
- * Renders whatever the feed returned and nothing when it returned less than two
- * points, rather than drawing a flat line that would read as "no movement"
- * when the truth is "no data".
- */
-function PriceTrend({ points, caption, multiplier }: { points: TrendPoint[]; caption: string; multiplier: number }) {
-  if (points.length < 2) return null;
-
-  const values = points.map((point) => point.modalPrice * multiplier);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const span = max - min || 1;
-
-  const WIDTH = 100;
-  const HEIGHT = 28;
-
-  // preserveAspectRatio="none" lets this stretch to any container width; the
-  // non-scaling stroke below keeps the line itself from stretching with it.
-  const path = values
-    .map((value, index) => {
-      const x = (index / (values.length - 1)) * WIDTH;
-      const y = HEIGHT - ((value - min) / span) * HEIGHT;
-      return `${index === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`;
-    })
-    .join(' ');
-
-  const first = values[0] ?? 0;
-  const last = values[values.length - 1] ?? 0;
-  const changePct = first === 0 ? 0 : ((last - first) / first) * 100;
-  const rising = changePct >= 0;
-
-  const from = points[0]?.arrivalDate ?? '';
-  const to = points[points.length - 1]?.arrivalDate ?? '';
-  const label = `${caption}: ${points.length} daily averages from ${formatArrival(from)} to ${formatArrival(to)}, ${rising ? 'up' : 'down'} ${Math.abs(changePct).toFixed(1)} percent.`;
-
-  return (
-    <section className="kr-card" aria-label={caption}>
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-label font-medium text-kr-text-primary">{caption}</h2>
-        <p className="text-caption text-kr-text-secondary">
-          {points.length} daily averages · {formatArrival(from)} – {formatArrival(to)}
-        </p>
-      </div>
-
-      <svg
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-        preserveAspectRatio="none"
-        role="img"
-        aria-label={label}
-        className="mt-3 h-14 w-full text-kr-primary-600"
-      >
-        <path
-          d={path}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.5}
-          vectorEffect="non-scaling-stroke"
-        />
-      </svg>
-
-      <p className="mt-2 text-body-sm text-kr-text-secondary">
-        <span className={rising ? 'text-kr-text-success' : 'text-kr-text-danger'}>
-          {rising ? '▲' : '▼'} {Math.abs(changePct).toFixed(1)}%
-        </span>{' '}
-        across the period shown
-      </p>
-    </section>
-  );
-}
-
-/** One market board's card. */
-function PriceCard({ quote, multiplier, displayUnit }: { quote: MandiQuote; multiplier: number; displayUnit: string }) {
-  const modal = quote.modalPrice * multiplier;
-  const min = quote.minPrice * multiplier;
-  const max = quote.maxPrice * multiplier;
-  const unitLabel = displayUnit === 'box' ? 'Box (20kg)' : displayUnit === 'kg' ? 'Kg' : 'Quintal (100kg)';
-
-  return (
-    <article className="kr-card flex flex-col">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="font-heading text-h4 text-kr-text-primary">
-            {quote.market}
-          </h3>
-          <p className="mt-1 text-caption text-kr-text-secondary">
-            {quote.district ? `${quote.district}, ` : ''}
-            {quote.state}
-          </p>
-        </div>
-        {quote.grade ? (
-          <span className="kr-badge kr-badge-draft shrink-0">{quote.grade}</span>
-        ) : null}
-      </div>
-
-      <p className="mt-4 kr-amount-lg text-kr-text-primary">
-        {inr.format(modal)}
-      </p>
-      <p className="text-caption text-kr-text-secondary">
-        per {unitLabel} · {quote.commodity}
-        {quote.variety ? ` (${quote.variety})` : ''}
-      </p>
-
-      <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-kr-border-default pt-3">
-        <div>
-          <dt className="text-caption text-kr-text-secondary">Low</dt>
-          <dd className="kr-amount text-kr-text-primary">
-            {inr.format(min)}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-caption text-kr-text-secondary">High</dt>
-          <dd className="kr-amount text-kr-text-primary">
-            {inr.format(max)}
-          </dd>
-        </div>
-      </dl>
-    </article>
-  );
-}
-
-/** Shown while the first board for a location is in flight. */
-function BoardSkeleton() {
-  return (
-    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-      {Array.from({ length: 6 }).map((_, index) => (
-        <div key={index} className="kr-card">
-          <div className="kr-skeleton h-4 w-2/3" />
-          <div className="kr-skeleton mt-3 h-3 w-1/3" />
-          <div className="kr-skeleton mt-5 h-8 w-1/2" />
-          <div className="kr-skeleton mt-5 h-10 w-full" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── Page ────────────────────────────────────────────────────────────────────
-
-export default function MandiPage() {
-  const [selection, setSelection] = useState<Selection | null>(null);
-  const [commodity, setCommodity] = useState('Apple');
-  const [displayUnit, setDisplayUnit] = useState<'quintal' | 'kg' | 'box'>('box');
-  const [geo, setGeo] = useState<{ status: 'idle' | 'locating' | 'error'; message?: string }>({
-    status: 'idle',
-  });
-  const [selectedState, setSelectedState] = useState<string>('');
-  const [detectedDistrict, setDetectedDistrict] = useState<string>('');
-
-  const catalogueQuery = useQuery({
-    queryKey: ['mandi', 'catalogue'],
-    queryFn: mandiApi.locations,
+  const weatherQ = useQuery({
+    queryKey: ['weather', where],
+    queryFn: () => {
+      const p = new URLSearchParams();
+      if (where.lat !== undefined && where.lng !== undefined) {
+        p.set('lat', String(where.lat));
+        p.set('lng', String(where.lng));
+        if (where.name) p.set('name', where.name);
+      } else p.set('q', where.q ?? 'Srinagar');
+      return getJson<Forecast>(`/api/weather?${p}`);
+    },
     staleTime: 5 * 60_000,
   });
 
   useEffect(() => {
-    if (selection || !catalogueQuery.data) return;
-    const { locations, commodities } = catalogueQuery.data;
-    const preferred = selectedState 
-      ? locations.find((l) => l.state === selectedState) 
-      : locations[0];
-    
-    if (preferred) {
-      if (!selectedState) setSelectedState(preferred.state);
-      setSelection({ kind: 'hub', id: preferred.id });
-    }
-    if (!commodities.includes(commodity) && commodities[0]) {
-      setCommodity(commodities[0]);
-    }
-  }, [catalogueQuery.data, selection, selectedState]);
+    const text = placeQuery.trim();
+    if (text.length < 3) return;
+    const t = setTimeout(() => {
+      getJson<{ places: Place[] }>(`/api/weather?search=${encodeURIComponent(text)}`)
+        .then((r) => setSuggestions(r.places))
+        .catch(() => setSuggestions([]));
+    }, 350);
+    return () => clearTimeout(t);
+  }, [placeQuery]);
 
-  useEffect(() => {
-    if (['Apple', 'Cherry', 'Pear', 'Tomato'].includes(commodity)) {
-      setDisplayUnit('box');
-    } else if (['Saffron', 'Walnut'].includes(commodity)) {
-      setDisplayUnit('kg');
-    } else {
-      setDisplayUnit('quintal');
-    }
-  }, [commodity]);
+  const useMyLocation = () => {
+    if (!navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setWhere({ lat: Math.round(pos.coords.latitude * 1e4) / 1e4, lng: Math.round(pos.coords.longitude * 1e4) / 1e4, name: 'Your location' });
+        setLocating(false);
+      },
+      () => setLocating(false),
+      { timeout: 10_000, maximumAge: 600_000 },
+    );
+  };
 
-  const query = useMemo<MandiFeedQuery | null>(() => {
-    if (!selection || selection.kind === 'empty') return null;
-    return selection.kind === 'hub'
-      ? { location: selection.id, commodity }
-      : { lat: selection.lat, lng: selection.lng, commodity };
-  }, [selection, commodity]);
+  // Mandi
+  const [filters, setFilters] = useState({ state: '', district: '', market: '', commodity: 'Apple' });
+  const [applied, setApplied] = useState(filters);
+  const [unit, setUnit] = useState<'quintal' | 'kg'>('quintal');
+  const [sort, setSort] = useState<'price-asc' | 'price-desc' | 'date'>('date');
 
-  const feedQuery = useQuery({
-    queryKey: ['mandi', 'feed', query],
-    enabled: query !== null,
-    queryFn: () => mandiApi.feed(query as MandiFeedQuery),
-    retry: 1,
+  const mandiQ = useQuery({
+    queryKey: ['mandi', applied],
+    queryFn: () => {
+      const p = new URLSearchParams();
+      Object.entries(applied).forEach(([k, v]) => v.trim() && p.set(k, v.trim()));
+      return getJson<MandiResult>(`/api/mandi?${p}`);
+    },
+    staleTime: 10 * 60_000,
   });
 
-  const feed: LiveMandiFeed | undefined = feedQuery.data;
+  const factor = unit === 'kg' ? 0.01 : 1;
+  const rows = useMemo(() => {
+    const list = [...(mandiQ.data?.records ?? [])];
+    if (sort === 'price-asc') list.sort((a, b) => a.modalPrice - b.modalPrice);
+    else if (sort === 'price-desc') list.sort((a, b) => b.modalPrice - a.modalPrice);
+    return list;
+  }, [mandiQ.data, sort]);
+  const stats = useMemo(() => {
+    if (rows.length === 0) return null;
+    const modal = rows.map((r) => r.modalPrice).filter((n) => n > 0);
+    if (modal.length === 0) return null;
+    const hi = rows.reduce((a, b) => (b.modalPrice > a.modalPrice ? b : a));
+    const lo = rows.reduce((a, b) => (b.modalPrice > 0 && b.modalPrice < a.modalPrice ? b : a));
+    const latest = rows.reduce((a, b) => (b.arrivalDate > a.arrivalDate ? b : a)).arrivalDate;
+    return { avg: modal.reduce((s, n) => s + n, 0) / modal.length, hi, lo, latest };
+  }, [rows]);
 
-  useEffect(() => {
-    if (feed?.location?.resolvedBy === 'coordinates' && feed.location.state && feed.location.state !== selectedState) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSelectedState(feed.location.state);
-    }
-  }, [feed, selectedState]);
-
-  function useMyLocation() {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      console.warn('Geolocation not supported by browser.');
-      setGeo({
-        status: 'error',
-        message: 'This browser cannot share a location. Choose a market instead.',
-      });
-      return;
-    }
-
-    setGeo({ status: 'locating' });
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const lat = position.coords.latitude;
-        const lng = position.coords.longitude;
-        
-        try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-          const data = await res.json();
-          const state = data.address?.state;
-          const district = data.address?.state_district || data.address?.county || data.address?.city;
-          
-          if (state) setSelectedState(state);
-          if (district) setDetectedDistrict(district);
-
-          const locations = catalogueQuery.data?.locations ?? [];
-          const hasState = locations.some((l) => l.state === state);
-
-          setGeo({ status: 'idle' });
-          
-          if (state && hasState) {
-            // Try to find an exact district match, else pick the first hub in that state
-            const hubForState = locations.find(l => l.state === state && (district && l.label.includes(district))) || locations.find(l => l.state === state);
-            if (hubForState) {
-              setSelection({ kind: 'hub', id: hubForState.id });
-              return;
-            }
-          }
-
-          if (state && !hasState) {
-            setSelection({ kind: 'empty' });
-            return;
-          }
-        } catch (err) {
-          console.warn('Reverse geocoding failed:', err);
-        }
-
-        setGeo({ status: 'idle' });
-        setSelection({
-          kind: 'coords',
-          lat,
-          lng,
-        });
-      },
-      (error) => {
-        console.warn('Geolocation error:', error);
-        setGeo({
-          status: 'error',
-          message:
-            error.code === error.PERMISSION_DENIED
-              ? 'Location access was declined. Choose a market from the list instead.'
-              : 'Your location could not be determined. Choose a market from the list instead.',
-        });
-      },
-      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 5 * 60_000 },
-    );
-  }
-
-  function onStateChange(event: ChangeEvent<HTMLSelectElement>) {
-    const value = event.target.value;
-    setSelectedState(value);
-    const firstForState = catalogueQuery.data?.locations.find((l) => l.state === value);
-    if (firstForState) {
-      setSelection({ kind: 'hub', id: firstForState.id });
-    } else {
-      setSelection({ kind: 'empty' });
-    }
-  }
-
-  function onMarketChange(event: ChangeEvent<HTMLSelectElement>) {
-    const value = event.target.value;
-    if (value === NEAR_ME) return;
-    setGeo({ status: 'idle' });
-    setSelection({ kind: 'hub', id: value });
-  }
-
-  const locations = catalogueQuery.data?.locations ?? [];
-  let uniqueStates = Array.from(new Set(locations.map(l => l.state)));
-  if (selectedState && !uniqueStates.includes(selectedState)) {
-    uniqueStates = [selectedState, ...uniqueStates];
-  }
-  const stateLocations = locations.filter(l => l.state === selectedState);
-
-  const selectValue =
-    selection?.kind === 'hub' ? selection.id : selection ? NEAR_ME : '';
-
-  const baseUnit = feed?.unitOfSale || 'quintal';
-  let multiplier = 1;
-  if (baseUnit === 'quintal') {
-    if (displayUnit === 'kg') multiplier = 0.01;
-    else if (displayUnit === 'box') multiplier = 0.2; // 20kg box
-  } else if (baseUnit === 'kg') {
-    if (displayUnit === 'quintal') multiplier = 100;
-    else if (displayUnit === 'box') multiplier = 20; // 20kg box
-  }
+  const f = weatherQ.data;
+  const [, condLabel, CondIcon] = f ? wmo(f.current.code) : [[], '', Cloud];
 
   return (
-    <ToolShell
-      tool="mandi"
-      header={
-        <ToolHeader
-          tool="mandi"
-          title="Live mandi prices"
-          description="Daily arrival rates from regulated market boards, resolved to the market you choose or the one nearest you."
-          actions={
-            feed ? (
-              <div className="flex flex-col items-start gap-1 md:items-end">
-                <span
-                  className={feed.source === 'agmarknet' ? 'kr-badge kr-badge-published' : 'kr-badge kr-badge-draft'}
-                  title={feed.attribution}
-                >
-                  {feed.source === 'agmarknet' ? (
-                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                  ) : (
-                    <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />
-                  )}
-                  {feed.source === 'agmarknet' ? 'Agmarknet' : 'Modelled'}
-                </span>
-                <p className="text-caption text-kr-text-secondary">{feed.attribution}</p>
-              </div>
-            ) : null
-          }
-        />
-      }
+    <PortalShell
+      standalone
+      theme="buyer"
+      eyebrow="Live mandi rates & weather"
+      title="Today’s prices, today’s sky"
+      description="Government-published wholesale prices from mandis across India, with the local forecast that decides when you pick, spray and ship."
+      kpis={[
+        { label: 'Weather', value: f ? `${Math.round(f.current.temperature)} °C` : '—', trend: f ? `${condLabel} · ${f.place.name}` : weatherQ.isError ? 'Unavailable right now' : 'Loading…' },
+        { label: `${applied.commodity || 'All'} — average modal`, value: stats ? inr.format(stats.avg * factor) : '—', trend: stats ? `per ${unit} · ${rows.length} reports` : mandiQ.isError ? 'Unavailable right now' : mandiQ.isLoading ? 'Loading…' : 'No reports yet' },
+        { label: 'Latest arrival date', value: stats ? dayName(stats.latest) : '—', trend: stats ? (daysOld(stats.latest) === 0 ? 'Reported today' : `${daysOld(stats.latest)} day(s) ago`) : 'Agmarknet' },
+      ]}
     >
-      <div>
-        <WeatherWidget />
-      </div>
-
-      {/* ── Controls ─────────────────────────────────────────────────────── */}
-      <div className="mt-6 rounded-2xl border border-white/80 bg-kr-bg-surface p-4 shadow-[0_8px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl md:p-5">
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="min-w-[12rem] flex-1">
-            <label htmlFor="mandi-state" className="kr-label">
-              State
-            </label>
-            <select
-              id="mandi-state"
-              className="kr-input"
-              value={selectedState}
-              onChange={onStateChange}
-              disabled={catalogueQuery.isLoading}
-            >
-              {uniqueStates.map(state => (
-                <option key={state} value={state}>{state}</option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="min-w-[14rem] flex-1">
-            <label htmlFor="mandi-market" className="kr-label">
-              District / Hub
-            </label>
-            <select
-              id="mandi-market"
-              className="kr-input"
-              value={selectValue}
-              onChange={onMarketChange}
-              disabled={catalogueQuery.isLoading}
-            >
-              {selection?.kind === 'coords' ? (
-                <option value={NEAR_ME}>
-                  Near me
-                  {detectedDistrict 
-                    ? ` — ${detectedDistrict}` 
-                    : (feed ? ` — ${feed.location.label}` : ' — locating…')}
-                </option>
-              ) : null}
-
-              {stateLocations.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {location.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="min-w-[12rem] flex-1">
-            <label htmlFor="mandi-commodity" className="kr-label">
-              Commodity
-            </label>
-            <select
-              id="mandi-commodity"
-              className="kr-input"
-              value={commodity}
-              onChange={(event) => setCommodity(event.target.value)}
-              disabled={catalogueQuery.isLoading}
-            >
-              {(catalogueQuery.data?.commodities ?? [commodity]).map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="min-w-[8rem] flex-[0.5]">
-            <label htmlFor="mandi-unit" className="kr-label">
-              Unit
-            </label>
-            <select
-              id="mandi-unit"
-              className="kr-input"
-              value={displayUnit}
-              onChange={(event) => setDisplayUnit(event.target.value as any)}
-            >
-              <option value="box">Per Box (20kg)</option>
-              <option value="kg">Per Kg</option>
-              <option value="quintal">Per Quintal</option>
-            </select>
-          </div>
-
-          <button
-            type="button"
-            className="kr-btn-secondary"
-            onClick={useMyLocation}
-            disabled={geo.status === 'locating'}
-            aria-busy={geo.status === 'locating'}
+      {/* ── Weather ───────────────────────────────────────── */}
+      <Panel theme={theme} title="Weather" icon={CloudSun}>
+        <div className="flex flex-col gap-3 md:flex-row">
+          <form
+            className="relative flex-1"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (placeQuery.trim()) setWhere({ q: placeQuery.trim() });
+              setSuggestions([]);
+            }}
           >
-            {geo.status === 'locating' ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            ) : (
-              <LocateFixed className="h-4 w-4" aria-hidden="true" />
+            <label htmlFor="place" className="sr-only">Town, district or village</label>
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
+            <input id="place" className={`${INPUT} pl-9`} value={placeQuery} onChange={(e) => setPlaceQuery(e.target.value)} placeholder="Search a town, district or village" autoComplete="off" />
+            {suggestions.length > 0 && placeQuery.trim().length >= 3 && (
+              <ul role="listbox" className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-slate-900/10">
+                {suggestions.map((p) => (
+                  <li key={`${p.lat},${p.lng}`}>
+                    <button
+                      type="button"
+                      className="flex w-full cursor-pointer items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-sky-50"
+                      onClick={() => {
+                        setWhere({ lat: p.lat, lng: p.lng, name: p.name });
+                        setPlaceQuery(p.name);
+                        setSuggestions([]);
+                      }}
+                    >
+                      <MapPin className="h-4 w-4 text-sky-600" aria-hidden />
+                      <span className="font-medium text-slate-900">{p.name}</span>
+                      <span className="truncate text-slate-500">{p.admin}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
-            {geo.status === 'locating' ? 'Locating…' : 'Use my location'}
-          </button>
-
-          <button
-            type="button"
-            className="kr-btn-ghost"
-            onClick={() => feedQuery.refetch()}
-            disabled={feedQuery.isFetching || !query}
-            aria-busy={feedQuery.isFetching}
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${feedQuery.isFetching ? 'animate-spin' : ''}`}
-              aria-hidden="true"
-            />
-            Refresh
-          </button>
+          </form>
+          <Btn theme={theme} variant="soft" icon={locating ? Loader2 : LocateFixed} onClick={useMyLocation} disabled={locating}>
+            Use my location
+          </Btn>
         </div>
 
-        {geo.status === 'error' && geo.message ? (
-          <p className="kr-error-msg mt-3" role="status">
-            <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
-            {geo.message}
-          </p>
-        ) : null}
-      </div>
-
-      {/* ── Board ────────────────────────────────────────────────────────── */}
-      <div className="mt-8">
-        {selection?.kind === 'empty' ? (
-          <div className="kr-card bg-kr-bg-sunken border border-kr-border-default flex flex-col items-center justify-center p-12 text-center" role="alert">
-            <FlaskConical className="h-12 w-12 text-kr-text-disabled mb-4" aria-hidden="true" />
-            <h2 className="font-heading text-h4 text-kr-text-primary">Awaiting live data for {selectedState}</h2>
-            <p className="mt-2 text-body-sm text-kr-text-secondary">
-              We are actively integrating pan-India market hubs (such as Agmarknet). Live Mandi prices for this region will be available soon.
-            </p>
+        {weatherQ.isLoading && <p className="mt-6 flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading forecast…</p>}
+        {weatherQ.isError && (
+          <div className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">
+            <TriangleAlert className="h-4 w-4" aria-hidden /> {(weatherQ.error as Error).message}
+            <Btn theme={theme} size="sm" variant="ghost" icon={RefreshCw} onClick={() => void weatherQ.refetch()}>Retry</Btn>
           </div>
-        ) : feedQuery.isLoading || catalogueQuery.isLoading ? (
-          <BoardSkeleton />
-        ) : feedQuery.isError ? (
-          <div className="kr-card kr-error-state" role="alert">
-            <h2 className="font-heading text-h4 text-kr-text-primary">
-              The price board could not be loaded
-            </h2>
-            <p className="mt-2 text-body-sm text-kr-text-secondary">
-              {feedQuery.error instanceof Error
-                ? feedQuery.error.message
-                : 'The request to the price service failed.'}
-            </p>
-            <button
-              type="button"
-              className="kr-btn-primary mt-4"
-              onClick={() => feedQuery.refetch()}
-            >
-              <RefreshCw className="h-4 w-4" aria-hidden="true" />
-              Try again
-            </button>
-          </div>
-        ) : feed ? (
-          <>
-            {/* Where the answer came from, in one line. */}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-kr-text-secondary">
-              <span className="inline-flex items-center gap-1.5">
-                <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span className="font-medium text-kr-text-primary">
-                  {feed.location.label}
-                </span>
-              </span>
-              {feed.location.resolvedBy === 'coordinates' &&
-              feed.location.distanceKm !== null ? (
-                <span>· nearest hub, {feed.location.distanceKm} km away</span>
-              ) : null}
-              <span>·</span>
-              <span>
-                {feed.commodity} per {displayUnit === 'box' ? 'Box (20kg)' : displayUnit === 'kg' ? 'Kg' : 'Quintal'}
-              </span>
-              {feed.asOf ? (
-                <>
-                  <span>·</span>
-                  <span>
-                    latest arrivals {formatArrival(feed.asOf)} ({formatAge(feed.asOf)})
-                  </span>
-                </>
-              ) : null}
-            </div>
-
-            {/*
-              Present only when the board could not be served as asked — an
-              upstream outage, or a state that publishes nothing for this
-              commodity. It explains an empty board; it is not a label on
-              filled-in numbers.
-            */}
-            {feed.note ? (
-              <p
-                role="status"
-                className="mt-4 flex items-start gap-2 border border-kr-border-default bg-kr-bg-sunken p-3 text-body-sm text-kr-text-secondary"
-              >
-                <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                <span>{feed.note}</span>
-              </p>
-            ) : null}
-
-            {feed.prices.length > 0 ? (
-              <>
-                <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {feed.prices.map((quote) => (
-                    <PriceCard key={`${quote.market}-${quote.arrivalDate}`} quote={quote} multiplier={multiplier} displayUnit={displayUnit} />
-                  ))}
+        )}
+        {f && (
+          <div className="mt-6 space-y-5">
+            <div className="grid gap-4 lg:grid-cols-[1.1fr_2fr]">
+              <Tilt3D className="rounded-3xl" max={6}>
+                <div className="relative h-full overflow-hidden rounded-3xl bg-gradient-to-br from-sky-500 to-indigo-600 p-6 text-white shadow-lg [transform-style:preserve-3d]">
+                  <p className="flex items-center gap-1.5 text-sm text-sky-100"><MapPin className="h-4 w-4" aria-hidden /> {f.place.name}{f.place.admin ? `, ${f.place.admin}` : ''}</p>
+                  <div data-depth className="mt-3 flex items-center gap-4">
+                    <CondIcon className="h-14 w-14 drop-shadow" aria-hidden />
+                    <div>
+                      <p className="text-5xl font-semibold tabular-nums">{Math.round(f.current.temperature)}°</p>
+                      <p className="text-sky-100">{condLabel}</p>
+                    </div>
+                  </div>
+                  <dl className="mt-5 grid grid-cols-3 gap-2 text-sm">
+                    <div><dt className="flex items-center gap-1 text-sky-100"><Droplets className="h-3.5 w-3.5" aria-hidden /> Humidity</dt><dd className="font-semibold">{f.current.humidity}%</dd></div>
+                    <div><dt className="flex items-center gap-1 text-sky-100"><Wind className="h-3.5 w-3.5" aria-hidden /> Wind</dt><dd className="font-semibold">{Math.round(f.current.wind)} km/h</dd></div>
+                    <div><dt className="flex items-center gap-1 text-sky-100"><CloudRain className="h-3.5 w-3.5" aria-hidden /> Rain</dt><dd className="font-semibold">{f.current.precipitation} mm</dd></div>
+                  </dl>
                 </div>
-
-                {feed.history.length > 1 ? (
-                  <div className="mt-6">
-                    <PriceTrend
-                      points={feed.history}
-                      caption={`${feed.commodity} in ${feed.location.state} — daily average`}
-                      multiplier={multiplier}
-                    />
-                  </div>
-                ) : null}
-              </>
-            ) : !feed.note ? (
-              <div className="kr-card mt-6" role="status">
-                <div className="flex items-start gap-3">
-                  <CloudSun className="mt-0.5 h-5 w-5 shrink-0 text-kr-text-secondary" aria-hidden="true" />
-                  <div>
-                    <h2 className="font-heading text-h4 text-kr-text-primary">
-                      No arrivals reported
-                    </h2>
-                    <p className="mt-1 text-body-sm text-kr-text-secondary">
-                      No board in {feed.location.label} has published a{' '}
-                      {feed.commodity} arrival for this period.
-                    </p>
-                  </div>
+              </Tilt3D>
+              <div className="space-y-3">
+                {advice(f).map((a) => (
+                  <p key={a.text} className="flex items-start gap-2 rounded-2xl bg-white/70 p-3 text-sm text-slate-800 ring-1 ring-slate-900/5">
+                    <Badge tone={a.tone}>Farm tip</Badge> {a.text}
+                  </p>
+                ))}
+                <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Next 24 hours">
+                  {f.hourly.filter((_, i) => i % 2 === 0).map((h) => {
+                    const [, , Icon] = wmo(h.code);
+                    return (
+                      <div key={h.time} className="min-w-[4.5rem] rounded-2xl bg-white/80 p-2.5 text-center ring-1 ring-slate-900/5">
+                        <p className="text-xs text-slate-500">{h.time.slice(11, 16)}</p>
+                        <Icon className="mx-auto my-1 h-5 w-5 text-sky-600" aria-hidden />
+                        <p className="text-sm font-semibold tabular-nums text-slate-900">{Math.round(h.temperature)}°</p>
+                        <p className="text-[11px] text-sky-700">{h.precipitationProbability}%</p>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            ) : null}
-          </>
-        ) : null}
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+              {f.daily.map((d) => {
+                const [, label, Icon] = wmo(d.code);
+                return (
+                  <Tilt3D key={d.date} className="rounded-2xl" max={8}>
+                    <div className="h-full rounded-2xl bg-white/85 p-3 text-center shadow-sm ring-1 ring-slate-900/5 [transform-style:preserve-3d]">
+                      <p className="text-xs font-semibold text-slate-600">{dayName(d.date)}</p>
+                      <Icon data-depth className="mx-auto my-2 h-7 w-7 text-sky-600" aria-label={label} />
+                      <p className="text-sm font-semibold tabular-nums text-slate-900">{Math.round(d.max)}° / <span className="text-slate-500">{Math.round(d.min)}°</span></p>
+                      <p className="text-[11px] text-sky-700">{d.precipitation} mm</p>
+                    </div>
+                  </Tilt3D>
+                );
+              })}
+            </div>
+            <p className="text-xs text-slate-500">Weather data: {f.source}, CC BY 4.0.</p>
+          </div>
+        )}
+      </Panel>
+
+      {/* ── Mandi ─────────────────────────────────────────── */}
+      <div className="mt-6">
+        <Panel theme={theme} title="Mandi prices (Agmarknet)" icon={Thermometer}>
+          <form
+            className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_1fr_auto]"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setApplied(filters);
+            }}
+          >
+            <label className="text-sm font-medium text-slate-700">
+              Commodity
+              <input list="commodities" className={`${INPUT} mt-1`} value={filters.commodity} onChange={(e) => setFilters({ ...filters, commodity: e.target.value })} placeholder="e.g. Apple" />
+            </label>
+            <label className="text-sm font-medium text-slate-700">
+              State
+              <input list="states" className={`${INPUT} mt-1`} value={filters.state} onChange={(e) => setFilters({ ...filters, state: e.target.value })} placeholder="All India" />
+            </label>
+            <label className="text-sm font-medium text-slate-700">
+              District
+              <input className={`${INPUT} mt-1`} value={filters.district} onChange={(e) => setFilters({ ...filters, district: e.target.value })} placeholder="Any" />
+            </label>
+            <label className="text-sm font-medium text-slate-700">
+              Market
+              <input className={`${INPUT} mt-1`} value={filters.market} onChange={(e) => setFilters({ ...filters, market: e.target.value })} placeholder="Any" />
+            </label>
+            <div className="flex items-end">
+              <Btn theme={theme} type="submit" icon={Search} className="w-full">Show prices</Btn>
+            </div>
+            <datalist id="commodities">{COMMODITIES.map((c) => <option key={c} value={c} />)}</datalist>
+            <datalist id="states">{STATES.map((s) => <option key={s} value={s} />)}</datalist>
+          </form>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="text-sm text-slate-600">Sort:</span>
+            {([
+              ['price-asc', 'Price low → high', ArrowUpNarrowWide],
+              ['price-desc', 'Price high → low', ArrowDownWideNarrow],
+              ['date', 'Newest first', CalendarClock],
+            ] as const).map(([id, label, Icon]) => (
+              <Btn key={id} theme={theme} size="sm" variant={sort === id ? 'solid' : 'soft'} icon={Icon} aria-pressed={sort === id} onClick={() => setSort(id)}>
+                {label}
+              </Btn>
+            ))}
+            <span className="ms-auto inline-flex rounded-xl bg-slate-900/5 p-1" role="group" aria-label="Price unit">
+              {(['quintal', 'kg'] as const).map((u) => (
+                <button key={u} type="button" aria-pressed={unit === u} onClick={() => setUnit(u)} className={`cursor-pointer rounded-lg px-3 py-1 text-sm font-semibold ${unit === u ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}`}>
+                  ₹ / {u}
+                </button>
+              ))}
+            </span>
+          </div>
+
+          {mandiQ.isLoading && <p className="mt-6 flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Fetching today’s reports…</p>}
+          {mandiQ.isError && (
+            <div className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">
+              <TriangleAlert className="h-4 w-4" aria-hidden /> {(mandiQ.error as Error).message}
+              <Btn theme={theme} size="sm" variant="ghost" icon={RefreshCw} onClick={() => void mandiQ.refetch()}>Retry</Btn>
+            </div>
+          )}
+          {mandiQ.data && rows.length === 0 && (
+            <div className="mt-6">
+              <EmptyState theme={theme} icon={Thermometer} title="No reports in the current feed" text={`No mandi has reported ${applied.commodity || 'that commodity'}${applied.state ? ` in ${applied.state}` : ''} in today’s Agmarknet data. Try another state or commodity.`} />
+            </div>
+          )}
+          {stats && (
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
+                <p className="text-xs uppercase tracking-wider text-emerald-800">Best price</p>
+                <p className="text-xl font-bold tabular-nums text-emerald-950">{inr.format(stats.hi.modalPrice * factor)}</p>
+                <p className="text-xs text-emerald-800">{stats.hi.market}, {stats.hi.district}</p>
+              </div>
+              <div className="rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-200">
+                <p className="text-xs uppercase tracking-wider text-sky-800">Average modal</p>
+                <p className="text-xl font-bold tabular-nums text-sky-950">{inr.format(stats.avg * factor)}</p>
+                <p className="text-xs text-sky-800">across {rows.length} reports</p>
+              </div>
+              <div className="rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200">
+                <p className="text-xs uppercase tracking-wider text-amber-800">Lowest price</p>
+                <p className="text-xl font-bold tabular-nums text-amber-950">{inr.format(stats.lo.modalPrice * factor)}</p>
+                <p className="text-xs text-amber-800">{stats.lo.market}, {stats.lo.district}</p>
+              </div>
+            </div>
+          )}
+          {rows.length > 0 && (
+            <div className="mt-5 overflow-x-auto rounded-2xl ring-1 ring-slate-900/5">
+              <table className="w-full min-w-[760px] bg-white/80 text-left text-sm">
+                <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3">Market</th>
+                    <th className="px-4 py-3">Commodity · variety</th>
+                    <th className="px-4 py-3">Arrival</th>
+                    <th className="px-4 py-3 text-right">Min</th>
+                    <th className="px-4 py-3 text-right">Modal</th>
+                    <th className="px-4 py-3 text-right">Max</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-900/5">
+                  {rows.slice(0, 150).map((r, i) => (
+                    <tr key={`${r.market}-${r.variety}-${r.arrivalDate}-${i}`} className="hover:bg-sky-50/60">
+                      <td className="px-4 py-3">
+                        <p className="font-semibold text-slate-900">{r.market}</p>
+                        <p className="text-xs text-slate-500">{r.district}, {r.state}</p>
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">{r.commodity}{r.variety ? ` · ${r.variety}` : ''}{r.grade && r.grade !== 'FAQ' ? ` · ${r.grade}` : ''}</td>
+                      <td className="px-4 py-3">
+                        <span className="text-slate-800">{dayName(r.arrivalDate)}</span>
+                        {daysOld(r.arrivalDate) > 2 && <span className="block text-xs text-amber-700">{daysOld(r.arrivalDate)} days old</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums text-slate-600">{inr.format(r.minPrice * factor)}</td>
+                      <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">{inr.format(r.modalPrice * factor)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-slate-600">{inr.format(r.maxPrice * factor)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {mandiQ.data && (
+            <p className="mt-3 text-xs text-slate-500">
+              Source: {mandiQ.data.source}, prices in ₹ per quintal as published (÷100 for per kg). Fetched {new Date(mandiQ.data.fetchedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}.
+              {mandiQ.data.usingSampleKey && ' Showing the limited public sample — the site owner can add a free data.gov.in key for the full feed.'}
+            </p>
+          )}
+        </Panel>
       </div>
-    </ToolShell>
+    </PortalShell>
   );
 }

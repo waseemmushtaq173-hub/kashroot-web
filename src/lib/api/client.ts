@@ -23,6 +23,8 @@
 
 import axios, { AxiosError, type AxiosInstance } from 'axios';
 
+import { supabase } from '@/lib/supabase';
+
 // ── In-memory token store (not localStorage — avoids XSS exposure) ────────
 let _accessToken: string | null = null;
 export const tokenStore = {
@@ -107,32 +109,24 @@ apiClient.interceptors.response.use(
     original._retry = true;
     _refreshing = true;
 
+    // Sessions come from Supabase, so a 401 is answered by refreshing the
+    // Supabase session and retrying once. If that fails the request simply
+    // fails: the user is NOT signed out or bounced to a generic login page
+    // because one backend call was rejected — each dashboard layout decides
+    // where its own sign-in is.
     try {
-      const { data } = await axios.post<{ accessToken: string }>(
-        `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1'}/auth/refresh`,
-        {},
-        { withCredentials: true },
-      );
-      tokenStore.set(data.accessToken);
-      _refreshQueue.forEach((cb) => cb(data.accessToken));
+      const { data } = await supabase.auth.refreshSession();
+      const fresh = data.session?.access_token ?? null;
+      if (!fresh) throw error;
+      tokenStore.set(fresh);
+      _refreshQueue.forEach((cb) => cb(fresh));
       _refreshQueue = [];
-      original.headers.Authorization = `Bearer ${data.accessToken}`;
+      original.headers.Authorization = `Bearer ${fresh}`;
       return apiClient(original);
-    } catch(error) {
-      // If we are using the mock token, do not redirect on refresh failure
-      // This prevents the infinite redirect loop when the real backend is unreachable
-      if (typeof window !== 'undefined' && localStorage.getItem('auth_token') === 'mock_jwt_token') {
-        return Promise.reject(toApiError(error as any));
-      }
-
-      tokenStore.clear();
+    } catch {
       _refreshQueue.forEach((cb) => cb(null));
       _refreshQueue = [];
-      // Redirect to login (works in client components; server redirects handled separately)
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login';
-      }
-      return Promise.reject(toApiError(error as any));
+      return Promise.reject(toApiError(error));
     } finally {
       _refreshing = false;
     }

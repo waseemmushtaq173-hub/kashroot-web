@@ -49,13 +49,16 @@ import {
   Users as UsersIcon,
   X as XIcon,
 } from 'lucide-react';
+import { ContactOtp } from '@/components/auth/ContactOtp';
 import {
   IfscNotFoundError,
   lookupIfsc,
   OtpRejectedError,
   requestAadhaarOtp,
   verifyAadhaarOtp,
+  verifyPan,
   verifyWithDigiLocker,
+  type PanCheck,
   type IdentityVerification,
   type IfscDetails,
 } from '@/lib/kyc/kyc-service';
@@ -84,6 +87,11 @@ export interface KycSubmission {
     referenceId: string;
     aadhaarLast4: string;
     pan: string;
+    /** How the PAN was confirmed: Income Tax check, or shared from DigiLocker. */
+    panVerifiedBy: 'PAN_API' | 'DIGILOCKER';
+    /** Verified contact details for escrow alerts. */
+    mobile: string;
+    email: string;
   };
   bank: {
     ifsc: string;
@@ -430,6 +438,17 @@ function useIdentityVerification() {
     (IdentityVerification & { method: KycSubmission['identity']['method'] }) | null
   >(null);
   const [pan, setPanValue] = useState('');
+  const [panName, setPanName] = useState('');
+  const [panDob, setPanDob] = useState('');
+  const [panCheck, setPanCheck] = useState<PanCheck | null>(null);
+  const [panBusy, setPanBusy] = useState(false);
+  const [panCheckError, setPanCheckError] = useState<string | null>(null);
+  const [panShared, setPanShared] = useState(false);
+  const [digiLockerError, setDigiLockerError] = useState<string | null>(null);
+  const [mobile, setMobile] = useState('');
+  const [email, setEmail] = useState('');
+  const [mobileOk, setMobileOk] = useState(false);
+  const [emailOk, setEmailOk] = useState(false);
   // Bumped on every reset, so a response for an abandoned attempt is ignored.
   const attempt = useRef(0);
 
@@ -459,9 +478,9 @@ function useIdentityVerification() {
       if (current !== attempt.current) return;
       setTxnId(id);
       setResendIn(RESEND_SECONDS);
-    } catch {
+    } catch (err) {
       if (current !== attempt.current) return;
-      setSendError('We couldn’t send the OTP. Please try again.');
+      setSendError(err instanceof Error && err.message ? err.message : 'We couldn’t send the OTP. Please try again.');
     } finally {
       if (current === attempt.current) setOtpPhase('idle');
     }
@@ -473,14 +492,18 @@ function useIdentityVerification() {
     setOtpPhase('verifying');
     setOtpError(null);
     try {
-      const result = await verifyAadhaarOtp(txnId, code);
+      const { person, ...result } = await verifyAadhaarOtp(txnId, code, aadhaarDigits.slice(-4));
       if (current !== attempt.current) return;
       setVerified({ ...result, method: 'AADHAAR_OTP' });
+      // Prefill the PAN check with the Aadhaar name and date of birth.
+      if (person.name) setPanName(person.name);
+      const dob = /^(\d{2})-(\d{2})-(\d{4})$/.exec(person.dateOfBirth);
+      if (dob) setPanDob(`${dob[3]}-${dob[2]}-${dob[1]}`);
       setTxnId(null);
       setOtp('');
     } catch (err) {
       if (current !== attempt.current) return;
-      setOtpError(err instanceof OtpRejectedError ? err.message : 'Verification failed. Please try again.');
+      setOtpError(err instanceof OtpRejectedError || (err instanceof Error && err.message) ? (err as Error).message : 'Verification failed. Please try again.');
       setOtp('');
     } finally {
       if (current === attempt.current) setOtpPhase('idle');
@@ -497,14 +520,38 @@ function useIdentityVerification() {
 
   const startDigiLocker = async () => {
     const current = ++attempt.current;
+    // Opened inside the click so popup blockers allow it.
+    const popup = window.open('', 'kashroot-digilocker', 'width=520,height=760');
     setDigiLocker('connecting');
+    setDigiLockerError(null);
     try {
-      const result = await verifyWithDigiLocker();
+      const { panShared: shared, ...result } = await verifyWithDigiLocker(popup);
       if (current !== attempt.current) return;
       setVerified({ ...result, method: 'DIGILOCKER' });
+      setPanShared(shared);
       setDigiLocker('idle');
-    } catch {
-      if (current === attempt.current) setDigiLocker('failed');
+    } catch (err) {
+      popup?.close();
+      if (current !== attempt.current) return;
+      setDigiLocker('failed');
+      setDigiLockerError(err instanceof Error && err.message ? err.message : 'DigiLocker didn’t respond.');
+    }
+  };
+
+  const checkPan = async () => {
+    if (!isValidPan(pan) || !panName.trim() || !panDob) return;
+    setPanBusy(true);
+    setPanCheckError(null);
+    try {
+      const r = await verifyPan(pan, panName.trim(), panDob);
+      setPanCheck(r);
+      if (!r.valid) setPanCheckError('The Income Tax database does not show this PAN as valid.');
+      else if (!r.nameMatch || !r.dobMatch) setPanCheckError(`PAN is valid, but the ${!r.nameMatch ? 'name' : 'date of birth'} does not match the PAN record.`);
+    } catch (err) {
+      setPanCheck(null);
+      setPanCheckError(err instanceof Error && err.message ? err.message : 'PAN check failed. Please try again.');
+    } finally {
+      setPanBusy(false);
     }
   };
 
@@ -519,11 +566,23 @@ function useIdentityVerification() {
     setOtpError(null);
     setResendIn(0);
     setDigiLocker('idle');
+    setDigiLockerError(null);
+    setPanShared(false);
   };
 
+  const panApiOk = panCheck?.valid === true && panCheck.nameMatch && panCheck.dobMatch;
+  const panConfirmed = isValidPan(pan) && (panApiOk || panShared);
   const result: KycSubmission['identity'] | null =
-    verified && isValidPan(pan)
-      ? { method: verified.method, referenceId: verified.referenceId, aadhaarLast4: verified.aadhaarLast4, pan }
+    verified && panConfirmed && mobileOk && emailOk
+      ? {
+          method: verified.method,
+          referenceId: verified.referenceId,
+          aadhaarLast4: verified.aadhaarLast4,
+          pan,
+          panVerifiedBy: panApiOk ? 'PAN_API' : 'DIGILOCKER',
+          mobile,
+          email,
+        }
       : null;
 
   return {
@@ -546,7 +605,35 @@ function useIdentityVerification() {
     verified,
     resetAadhaar,
     pan,
-    setPan: (value: string) => setPanValue(formatPan(value)),
+    setPan: (value: string) => {
+      setPanValue(formatPan(value));
+      setPanCheck(null);
+      setPanCheckError(null);
+    },
+    panName,
+    setPanName: (v: string) => {
+      setPanName(v);
+      setPanCheck(null);
+    },
+    panDob,
+    setPanDob: (v: string) => {
+      setPanDob(v);
+      setPanCheck(null);
+    },
+    checkPan,
+    panBusy,
+    panCheckError,
+    panApiOk,
+    panShared,
+    digiLockerError,
+    mobile,
+    setMobile,
+    email,
+    setEmail,
+    mobileOk,
+    setMobileOk,
+    emailOk,
+    setEmailOk,
     result,
   };
 }
@@ -571,7 +658,7 @@ function IdentityStep({
         headingRef={headingRef}
         Icon={IdCardIcon}
         title="Verify your identity"
-        description="Use DigiLocker for an instant check, or verify your Aadhaar with a one-time password."
+        description="DigiLocker or Aadhaar OTP, then PAN and your contact details — all checked against official records."
       />
 
       <div className="space-y-6">
@@ -621,7 +708,7 @@ function IdentityStep({
             </button>
 
             {model.digiLocker === 'failed' && (
-              <InlineAlert announce>DigiLocker didn’t respond. Try again, or verify with Aadhaar OTP below.</InlineAlert>
+              <InlineAlert announce>{model.digiLockerError ?? 'DigiLocker didn’t respond.'} You can also verify with Aadhaar OTP below.</InlineAlert>
             )}
 
             <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -757,6 +844,38 @@ function IdentityStep({
             )}
           </div>
         </Field>
+
+        {model.panShared ? (
+          <p className="flex items-center gap-2 rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-900 ring-1 ring-emerald-200">
+            <CheckIcon className="h-4 w-4" /> PAN shared from DigiLocker (issued by the Income Tax Department).
+          </p>
+        ) : model.panApiOk ? (
+          <p className="flex items-center gap-2 rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-900 ring-1 ring-emerald-200">
+            <CheckIcon className="h-4 w-4" /> PAN verified with the Income Tax database — name and date of birth match.
+          </p>
+        ) : (
+          <div className="grid gap-3 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+            <label className="text-sm font-medium text-slate-800">
+              Name as on PAN
+              <input value={model.panName} onChange={(e) => model.setPanName(e.target.value)} autoComplete="name" className={`${inputClass(false)} mt-1.5`} />
+            </label>
+            <label className="text-sm font-medium text-slate-800">
+              Date of birth
+              <input type="date" value={model.panDob} onChange={(e) => model.setPanDob(e.target.value)} className={`${inputClass(false)} mt-1.5`} />
+            </label>
+            <button type="button" onClick={model.checkPan} disabled={!panOk || !model.panName.trim() || !model.panDob || model.panBusy} className={BTN_PRIMARY}>
+              {model.panBusy && <SpinnerIcon className="h-4 w-4 animate-spin" />}
+              Verify PAN
+            </button>
+            {model.panCheckError && <p role="alert" className="text-sm text-rose-700 sm:col-span-3">{model.panCheckError}</p>}
+          </div>
+        )}
+
+        <div className="space-y-4 rounded-2xl bg-white/70 p-4 ring-1 ring-slate-200">
+          <p className="text-sm font-semibold text-slate-900">Contact for escrow alerts</p>
+          <ContactOtp channel="sms" label="Mobile number" value={model.mobile} onChange={model.setMobile} verified={model.mobileOk} onVerified={() => model.setMobileOk(true)} onReset={() => model.setMobileOk(false)} />
+          <ContactOtp channel="email" label="Email address" value={model.email} onChange={model.setEmail} verified={model.emailOk} onVerified={() => model.setEmailOk(true)} onReset={() => model.setEmailOk(false)} />
+        </div>
       </div>
     </>
   );
