@@ -62,7 +62,7 @@ export const PORTALS: Portal[] = [
     label: 'Farmer Login',
     detail: 'Orchard tools, harvest listings, and crop support.',
     accountLabel: 'Farmer',
-    loginHref: '/farmer/login',
+    loginHref: '/login/farmer',
     dashboard: '/farmer/dashboard',
     signupHref: '/register',
     accent: 'emerald',
@@ -73,9 +73,9 @@ export const PORTALS: Portal[] = [
     role: 'BUYER',
     slug: 'buyer',
     label: 'Buyer Login',
-    detail: 'Source verified produce from Kashmiri growers.',
+    detail: 'Source verified produce direct from growers.',
     accountLabel: 'Buyer',
-    loginHref: '/buyer/login',
+    loginHref: '/login/buyer',
     dashboard: '/buyer/dashboard',
     signupHref: '/register',
     accent: 'sky',
@@ -88,7 +88,7 @@ export const PORTALS: Portal[] = [
     label: 'Seller Login',
     detail: 'Manage your products, stock, and supplier offers.',
     accountLabel: 'Seller',
-    loginHref: '/seller/login',
+    loginHref: '/login/seller',
     dashboard: '/seller/dashboard',
     accent: 'amber',
     icon: PackageSearch,
@@ -100,7 +100,7 @@ export const PORTALS: Portal[] = [
     label: 'Kissan Partner Login',
     detail: 'Orchard equipment, sprayers, and horticulture supplies.',
     accountLabel: 'Kissan Partner',
-    loginHref: '/login/kissan-tools',
+    loginHref: '/login?role=KISSAN_PARTNER',
     dashboard: '/kissan-tools/dashboard',
     accent: 'emerald',
     icon: Tractor,
@@ -112,7 +112,7 @@ export const PORTALS: Portal[] = [
     label: 'Rental Partner Login',
     detail: 'Cold storage space, tractors, and pruning gear.',
     accountLabel: 'Equipment / Machinery Rental',
-    loginHref: '/login/rental',
+    loginHref: '/login?role=RENTAL',
     dashboard: '/rental/dashboard',
     accent: 'slate',
     icon: Warehouse,
@@ -124,7 +124,7 @@ export const PORTALS: Portal[] = [
     label: 'Logistics Login',
     detail: 'Shipment tracking and provider dispatch.',
     accountLabel: 'Logistics & Provider',
-    loginHref: '/login/provider',
+    loginHref: '/login?role=PROVIDER',
     dashboard: '/provider/dashboard',
     accent: 'sky',
     icon: Truck,
@@ -136,7 +136,7 @@ export const PORTALS: Portal[] = [
     label: 'Expert Login',
     detail: 'Advisory desk for agronomists and crop specialists.',
     accountLabel: 'Agricultural Expert',
-    loginHref: '/login/expert',
+    loginHref: '/login?role=EXPERT',
     dashboard: '/expert',
     signupHref: '/register/expert',
     accent: 'violet',
@@ -149,7 +149,7 @@ export const PORTALS: Portal[] = [
     label: 'Admin Login',
     detail: 'Quality audit, escrow verification, and KYC governance.',
     accountLabel: 'Platform Admin',
-    loginHref: '/login/admin',
+    loginHref: '/login?role=ADMIN',
     dashboard: '/admin/dashboard',
     accent: 'rose',
     icon: ShieldCheck,
@@ -166,44 +166,6 @@ export const SHARED_LOGIN_PORTALS = PORTALS.filter((portal) => !portal.primary);
 
 export function portalBySlug(slug: string): Portal | undefined {
   return PORTALS.find((portal) => portal.slug === slug);
-}
-
-const PORTAL_SLUGS = new Set(PORTALS.map((portal) => portal.slug));
-
-/**
- * Accepts a `returnTo` only if it is a same-origin path. A value starting with
- * `//` (or `/\`, which browsers normalise to `//`) is read as a protocol-
- * relative URL and would turn the login flow into an open redirect, so those
- * are rejected along with anything carrying whitespace or control characters.
- */
-export function sanitizePath(value: string | string[] | undefined): string | undefined {
-  const raw = Array.isArray(value) ? value[0] : value;
-  if (!raw || !raw.startsWith('/')) return undefined;
-  // '//' is a protocol-relative URL, and a leading slash-backslash is
-  // normalised to '//' by browsers, so both are rejected.
-  if (raw[1] === '/' || raw[1] === '\\') return undefined;
-  for (const char of raw) {
-    if (char.charCodeAt(0) <= 0x20) return undefined;
-  }
-  return raw;
-}
-
-/**
- * Where this portal should land after sign-in. A `returnTo` pointing into a
- * different portal is dropped rather than followed: the dashboard guard would
- * only reject it, so the session is better off on its own dashboard.
- */
-export function returnToFor(value: string | string[] | undefined, portal: Portal): string {
-  const path = sanitizePath(value);
-  if (!path) return portal.dashboard;
-  const segment = path.split('/')[1]?.split(/[?#]/)[0];
-  if (segment && PORTAL_SLUGS.has(segment) && segment !== portal.slug) return portal.dashboard;
-  return path;
-}
-
-/** Appends a validated `returnTo` to a login link so it survives the hop. */
-export function withReturnTo(href: string, returnTo: string | undefined): string {
-  return returnTo ? `${href}?returnTo=${encodeURIComponent(returnTo)}` : href;
 }
 
 // Accent classes are written out in full so Tailwind's scanner picks them up.

@@ -1,59 +1,54 @@
-import Link from 'next/link';
-import { CheckCircle2 } from 'lucide-react';
-import { ACCENT_BADGE, PORTALS, sanitizePath, withReturnTo } from '@/lib/auth/portals';
+/**
+ * /login — sign-in for the roles with no dedicated page: Admin, Expert, Kissan
+ * Partner, Logistics and Rental.
+ *
+ * Farmers, buyers and sellers each have their own page under /login/<role>, so
+ * `?role=FARMER|BUYER|SELLER` is redirected there rather than offered in the
+ * picker. Links to all three sit above the form as well, since this is where
+ * the API client's 401 handler sends everyone.
+ *
+ * Provider is in the picker although the integration brief named only Admin,
+ * Expert, Kissan Partner and Rental: /provider/dashboard is guarded on the
+ * PROVIDER role, so leaving it out would make that dashboard unreachable — the
+ * exact gap the previous commit fixed.
+ */
+import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 
-const primary = PORTALS.filter((portal) => portal.primary);
-const partner = PORTALS.filter((portal) => !portal.primary);
+import { OtherRolesLoginForm, type RoleOption } from '@/components/auth/OtherRolesLoginForm';
+import { PORTALS } from '@/lib/auth/portals';
+import { firstParam, loginRoleForSessionRole, loginHref, safeNextPath } from '@/lib/auth/roles';
+
+export const metadata: Metadata = {
+  title: 'Partner & staff sign-in',
+};
+
+/**
+ * Everything except the three roles with a page of their own, reduced to the
+ * fields the client form needs: the registry's `icon` is a React component and
+ * functions cannot be passed to a Client Component.
+ */
+const OTHER_PORTALS: RoleOption[] = PORTALS.filter((portal) => !portal.primary).map(
+  ({ role, accountLabel, dashboard, accent }) => ({ role, accountLabel, dashboard, accent }),
+);
 
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const { verified, returnTo } = await searchParams;
-  const justVerified = (Array.isArray(verified) ? verified[0] : verified) === '1';
-  // The dashboard guard sends people here with where they were headed.
-  const destination = sanitizePath(returnTo);
+  const query = await searchParams;
+  const requestedNext = firstParam(query.next) ?? firstParam(query.returnTo);
+  const next = safeNextPath(requestedNext, '') || undefined;
 
-  return (
-    <main className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-sky-50 px-4 py-16 text-slate-900">
-      <section className="mx-auto max-w-5xl">
-        <p className="text-center text-sm font-bold uppercase tracking-[0.22em] text-emerald-700">KashRoot Portals</p>
-        <h1 className="mt-3 text-center text-4xl font-extrabold tracking-tight sm:text-5xl">Choose your sign-in</h1>
-        <p className="mx-auto mt-4 max-w-xl text-center text-slate-600">Select the workspace that matches your role to continue.</p>
+  // A dedicated role asked for by name goes to its own page.
+  const requestedRole = firstParam(query.role);
+  const dedicated = loginRoleForSessionRole(requestedRole?.toUpperCase());
+  if (dedicated) redirect(loginHref(dedicated, next));
 
-        {justVerified && (
-          <p role="status" className="mx-auto mt-6 flex max-w-xl items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-semibold text-emerald-800">
-            <CheckCircle2 className="h-4 w-4 shrink-0" /> Email verified. Pick your portal below to sign in.
-          </p>
-        )}
+  const preselected = OTHER_PORTALS.some((portal) => portal.role === requestedRole?.toUpperCase())
+    ? requestedRole!.toUpperCase()
+    : OTHER_PORTALS[0].role;
 
-        <div className="mt-10 grid gap-5 md:grid-cols-3">
-          {primary.map(({ label, detail, loginHref, icon: Icon, accent }) => (
-            <Link key={loginHref} href={withReturnTo(loginHref, destination)} className="group rounded-3xl border border-white bg-white/80 p-7 shadow-lg transition hover:-translate-y-1 hover:shadow-xl">
-              <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${ACCENT_BADGE[accent]}`}><Icon className="h-6 w-6" /></span>
-              <h2 className="mt-5 text-xl font-bold">{label}</h2>
-              <p className="mt-2 text-sm leading-relaxed text-slate-600">{detail}</p>
-              <span className="mt-6 inline-block font-semibold text-emerald-800 group-hover:underline">Continue →</span>
-            </Link>
-          ))}
-        </div>
-
-        <h2 className="mt-14 text-center text-sm font-bold uppercase tracking-[0.18em] text-slate-500">Partner &amp; staff portals</h2>
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {partner.map(({ label, detail, loginHref, icon: Icon, accent }) => (
-            <Link key={loginHref} href={withReturnTo(loginHref, destination)} className="group flex items-start gap-4 rounded-2xl border border-slate-200 bg-white/70 p-5 transition hover:border-slate-300 hover:bg-white hover:shadow-md">
-              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${ACCENT_BADGE[accent]}`}><Icon className="h-5 w-5" /></span>
-              <span>
-                <span className="block font-bold group-hover:underline">{label}</span>
-                <span className="mt-1 block text-xs leading-relaxed text-slate-600">{detail}</span>
-              </span>
-            </Link>
-          ))}
-        </div>
-
-        <p className="mt-10 text-center text-sm text-slate-500"><Link href="/" className="hover:text-emerald-800">Back to KashRoot</Link></p>
-      </section>
-    </main>
-  );
+  return <OtherRolesLoginForm portals={OTHER_PORTALS} initialRole={preselected} next={next} />;
 }

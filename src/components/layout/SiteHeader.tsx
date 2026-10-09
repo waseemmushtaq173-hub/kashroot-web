@@ -11,14 +11,14 @@ import { BrandMark } from '@/components/brand/Shikara';
  * carry portal cards.
  */
 const PORTALS = [
-  { title: 'Farmer Portal', href: '/farmer/login', desc: 'Orchards, listings & advisory' },
-  { title: 'Buyer Portal', href: '/buyer/login', desc: 'Source verified produce' },
-  { title: 'Seller Portal', href: '/seller/login', desc: 'Products, stock & supplier listings' },
-  { title: 'Kissan Tools', href: '/login/kissan-tools', desc: 'Equipment & horti supplies' },
-  { title: 'Rental Marketplace', href: '/login/rental', desc: 'Cold storage & machinery' },
-  { title: 'Logistics', href: '/login/provider', desc: 'Tracking & providers' },
-  { title: 'Expert Desk', href: '/login/expert', desc: 'Agronomy & crop advisory' },
-  { title: 'Admin Governance', href: '/login/admin', desc: 'KYC, audit & escrow' },
+  { title: 'Farmer Portal', href: '/login/farmer', desc: 'Orchards, listings & advisory' },
+  { title: 'Buyer Portal', href: '/login/buyer', desc: 'Source verified produce' },
+  { title: 'Seller Portal', href: '/login/seller', desc: 'Products, stock & supplier listings' },
+  { title: 'Kissan Tools', href: '/login?role=KISSAN_PARTNER', desc: 'Equipment & horti supplies' },
+  { title: 'Rental Marketplace', href: '/login?role=RENTAL', desc: 'Cold storage & machinery' },
+  { title: 'Logistics', href: '/login?role=PROVIDER', desc: 'Tracking & providers' },
+  { title: 'Expert Desk', href: '/login?role=EXPERT', desc: 'Agronomy & crop advisory' },
+  { title: 'Admin Governance', href: '/login?role=ADMIN', desc: 'KYC, audit & escrow' },
   { title: 'Orchard Health', href: '/orchard-health', desc: 'Diagnosis & spray logs' },
   { title: 'Season Planner', href: '/season-planner', desc: 'Calendar & ROI calculator' },
   { title: 'Traceability', href: '/traceability', desc: 'Origin scanner & grade history' },
@@ -48,7 +48,7 @@ function PortalMenu({ onOpenPortals }: { onOpenPortals?: () => void }) {
         onClick={() => (onOpenPortals ? onOpenPortals() : setOpen((v) => !v))}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex items-center gap-1.5 rounded-lg border border-white/30 bg-white/15 px-3 py-2 text-label font-semibold text-kr-text-primary backdrop-blur-md transition-all hover:border-[#D4AF37] hover:bg-white/25"
+        className="flex items-center gap-1.5 rounded-lg border border-white/30 bg-white/15 px-3 py-2 text-label font-semibold text-slate-900 backdrop-blur-md transition-all hover:border-[#D4AF37] hover:bg-white/25"
       >
         <LayoutGrid className="w-4 h-4" />
         Portals
@@ -68,8 +68,8 @@ function PortalMenu({ onOpenPortals }: { onOpenPortals?: () => void }) {
               onClick={() => setOpen(false)}
               className="block rounded-xl px-3 py-2.5 transition-colors hover:bg-white/30"
             >
-              <span className="block text-sm font-semibold text-kr-text-primary">{p.title}</span>
-              <span className="block text-xs text-kr-text-secondary">{p.desc}</span>
+              <span className="block text-sm font-semibold text-slate-900">{p.title}</span>
+              <span className="block text-xs text-slate-600">{p.desc}</span>
             </Link>
           ))}
         </div>
@@ -82,7 +82,7 @@ export function SiteHeader({ hideSignIn = false, onOpenPortals }: { hideSignIn?:
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 text-slate-800 backdrop-blur-xl shadow-sm">
       <nav
-        className="kr-container flex items-center justify-between gap-4 py-3"
+        className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4 py-3"
         aria-label="Primary"
       >
         <Link href="/" className="shrink-0">
@@ -92,19 +92,19 @@ export function SiteHeader({ hideSignIn = false, onOpenPortals }: { hideSignIn?:
         <div className="hidden items-center gap-1 sm:flex">
           <Link
             href="/buyer/discover"
-            className="rounded-lg px-3 py-2 text-label text-kr-text-secondary transition-colors hover:bg-white/40 hover:text-kr-text-primary"
+            className="rounded-lg px-3 py-2 text-label text-slate-600 transition-colors hover:bg-white/40 hover:text-slate-900"
           >
             Produce
           </Link>
           <Link
             href="/supplies"
-            className="rounded-lg px-3 py-2 text-label text-kr-text-secondary transition-colors hover:bg-white/40 hover:text-kr-text-primary"
+            className="rounded-lg px-3 py-2 text-label text-slate-600 transition-colors hover:bg-white/40 hover:text-slate-900"
           >
             Supplies
           </Link>
           <Link
             href="/compare-prices"
-            className="rounded-lg px-3 py-2 text-label text-kr-text-secondary transition-colors hover:bg-white/40 hover:text-kr-text-primary"
+            className="rounded-lg px-3 py-2 text-label text-slate-600 transition-colors hover:bg-white/40 hover:text-slate-900"
           >
             Compare
           </Link>
@@ -112,7 +112,10 @@ export function SiteHeader({ hideSignIn = false, onOpenPortals }: { hideSignIn?:
 
         <div className="flex items-center gap-2">
           <PortalMenu onOpenPortals={onOpenPortals} />
-          <Link href="/supplies" className="kr-btn-ghost kr-btn-sm sm:hidden">
+          <Link
+            href="/supplies"
+            className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-white/40 hover:text-slate-900 sm:hidden"
+          >
             Supplies
           </Link>
         </div>
@@ -128,29 +131,29 @@ export function SiteHeader({ hideSignIn = false, onOpenPortals }: { hideSignIn?:
 export function SiteFooter() {
   return (
     <footer className="border-t border-slate-200 bg-white/75 text-slate-800 backdrop-blur-xl">
-      <div className="kr-container flex flex-col items-start justify-between gap-4 py-8 sm:flex-row sm:items-center">
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col items-start justify-between gap-4 py-8 sm:flex-row sm:items-center">
         <div>
           <BrandMark size="sm" />
-          <p className="mt-2 text-caption text-kr-text-secondary">
+          <p className="mt-2 text-caption text-slate-600">
             &copy; {new Date().getFullYear()} KashRoot Technologies Pvt. Ltd.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-caption">
           <Link
             href="/buyer/discover"
-            className="text-kr-text-secondary transition-colors hover:text-kr-text-brand"
+            className="text-slate-600 transition-colors hover:text-emerald-800"
           >
             Produce marketplace
           </Link>
           <Link
             href="/supplies"
-            className="text-kr-text-secondary transition-colors hover:text-kr-text-brand"
+            className="text-slate-600 transition-colors hover:text-emerald-800"
           >
             Horticulture supplies
           </Link>
           <Link
-            href="/farmer/login"
-            className="text-kr-text-secondary transition-colors hover:text-kr-text-brand"
+            href="/login/farmer"
+            className="text-slate-600 transition-colors hover:text-emerald-800"
           >
             For farmers
           </Link>

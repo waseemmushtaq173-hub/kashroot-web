@@ -7,8 +7,10 @@ import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
 import { ReactNode, useEffect, useState } from 'react';
 
 import { VoiceAssistant } from '@/components/ui/VoiceAssistant';
-import KYCPanel from '@/components/auth/KYCPanel';
+import { KYCPanel } from '@/components/auth/KYCPanel';
 import { portalBySlug } from '@/lib/auth/portals';
+import { isLoginRole, loginHref } from '@/lib/auth/roles';
+import { kycNeedsOnboarding, kycRoleFor, markKycSubmitted } from '@/lib/kyc/submission';
 
 /**
  * Role-Adaptive Dashboard Layout
@@ -28,12 +30,20 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('auth_token');
       if (!token) {
-        router.push('/login?returnTo=' + encodeURIComponent(window.location.pathname));
+        const here = window.location.pathname;
+        router.push(
+          segment && isLoginRole(segment)
+            ? loginHref(segment, here)
+            : '/login?returnTo=' + encodeURIComponent(here),
+        );
       } else {
-        setUserRole(localStorage.getItem('user_role'));
-        
-        // Trigger KYC Panel if status is pending
-        if (localStorage.getItem('kyc_status') === 'pending') {
+        const storedRole = localStorage.getItem('user_role');
+        setUserRole(storedRole);
+
+        // Open the KYC panel while this role still owes a submission. The
+        // legacy kyc_status flag alone never fired: nothing ever set it to
+        // 'pending'. See src/lib/kyc/submission.ts.
+        if (kycNeedsOnboarding(kycRoleFor(storedRole))) {
           setShowKyc(true);
         }
 
@@ -41,7 +51,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       }
       setIsMounted(true);
     }
-  }, [router]);
+  }, [router, segment]);
 
   if (!isMounted || !isAuthenticated) {
     // Prevent flicker and layout shift while checking credentials
@@ -109,15 +119,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       </div>
       <VoiceAssistant />
       <SiteFooter />
-      <KYCPanel 
-        isOpen={showKyc} 
-        onComplete={() => {
-          setShowKyc(false);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('kyc_status', 'verified');
-          }
-        }} 
-      />
+      {showKyc && (
+        <KYCPanel
+          open
+          defaultRole={kycRoleFor(userRole)}
+          onClose={() => setShowKyc(false)}
+          onComplete={(submission) => markKycSubmitted(submission.role)}
+        />
+      )}
     </div>
   );
 }

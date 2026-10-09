@@ -1,69 +1,173 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect } from 'react';
+/**
+ * HeroShowcase — the full-screen seasonal backdrop for the landing page.
+ *
+ * Crossfades through the season photographs every `intervalMs` (7s) with a
+ * slow Ken Burns zoom, under a light scrim that keeps glass content readable on
+ * any photograph. A small frosted badge in the bottom-right corner shows the
+ * season in small lowercase letters ("spring", "winter") and doubles as the
+ * carousel control: slide dots with a progress fill, and a pause button —
+ * auto-moving content longer than 5s must be pausable (WCAG 2.2.2).
+ *
+ *   - Crossfade without a "dip": the incoming slide fades in ABOVE the outgoing
+ *     one, which stays fully opaque underneath until the next change.
+ *   - The timer is keyed to the active slide, so choosing a slide by hand
+ *     restarts the full interval instead of cutting it short.
+ *   - Rotation stops while the tab is hidden, and the zoom only runs for users
+ *     who have not asked for reduced motion.
+ *
+ * The photographs sit on a `fixed` layer: on a phone, where the stacked tool
+ * cards make the page taller than the screen, the image stays viewport-sized
+ * instead of being cropped to a sliver and upscaled.
+ *
+ * From the web-overhaul stub, with its inline icons swapped for lucide-react.
+ */
+import Image from 'next/image';
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 
-const IMAGES = [
-  { url: '/seasons/spring.svg', name: 'Spring Blossoms in Pulwama', season: 'Spring' },
-  { url: '/seasons/summer.svg', name: 'Summer on Dal Lake', season: 'Summer' },
-  { url: '/seasons/autumn.svg', name: 'Autumn Chinars of Naseem Bagh', season: 'Autumn' },
-  { url: '/seasons/winter.svg', name: 'Winter Snow in Gulmarg', season: 'Winter' },
-];
+import { Pause, Play } from 'lucide-react';
 
-export function HeroShowcase({ onEnterPortals }: { onEnterPortals?: () => void }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
+import { SEASON_DOT, SEASON_SLIDES, type SeasonId, type SeasonSlide } from '@/lib/seasons';
+
+interface HeroShowcaseProps {
+  slides?: readonly SeasonSlide[];
+  intervalMs?: number;
+  /** Opens on this season's first photo — pass `seasonForDate(new Date())` from the server. */
+  initialSeason?: SeasonId;
+  /** Page content, rendered above the slideshow. */
+  children?: ReactNode;
+}
+
+export function HeroShowcase({
+  slides = SEASON_SLIDES,
+  intervalMs = 7000,
+  initialSeason,
+  children,
+}: HeroShowcaseProps) {
+  const [firstIndex] = useState(() => Math.max(0, slides.findIndex((s) => s.season === initialSeason)));
+  const [{ active, previous }, setSlides] = useState({ active: firstIndex, previous: firstIndex });
+  const [paused, setPaused] = useState(false);
+  const pageVisible = useSyncExternalStore(subscribeToVisibility, isPageVisible, () => true);
+  const progressRef = useRef<HTMLSpanElement>(null);
+
+  const running = !paused && pageVisible && slides.length > 1;
+
+  const goTo = (index: number) =>
+    setSlides((s) => (index === s.active ? s : { active: index, previous: s.active }));
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % IMAGES.length);
-    }, 5000); // 5 seconds crossfade
-    return () => clearInterval(timer);
-  }, []);
+    if (!running) return;
+    const timer = window.setTimeout(
+      () => setSlides((s) => ({ active: (s.active + 1) % slides.length, previous: s.active })),
+      intervalMs,
+    );
+    return () => window.clearTimeout(timer);
+  }, [active, running, intervalMs, slides.length]);
+
+  // Fill the active dot over the interval. Animates `transform` directly (never
+  // a Tailwind scale class) so Tailwind's transform utilities cannot fight with
+  // this animation over the same bar.
+  useEffect(() => {
+    const bar = progressRef.current;
+    if (!bar || !running) return;
+    const fill = bar.animate([{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], {
+      duration: intervalMs,
+      easing: 'linear',
+      fill: 'forwards',
+    });
+    return () => fill.cancel();
+  }, [active, running, intervalMs]);
+
+  const current = slides[active];
 
   return (
-    <div className="relative w-full h-[80vh] min-h-[600px] overflow-hidden">
-      {/* Background Images Crossfade */}
-      {IMAGES.map((img, index) => (
-        <div
-          key={img.url}
-          className="absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-in-out"
-          style={{
-            backgroundImage: `url('${img.url}')`,
-            opacity: index === currentIndex ? 1 : 0,
-            zIndex: index === currentIndex ? 1 : 0
-          }}
-        />
-      ))}
-
-      {/* Dark overlay for readability */}
-      <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-white/35 z-10" />
-
-      {/* Hero Content */}
-      <div className="relative z-20 flex flex-col items-center justify-center h-full text-center px-4">
-        <h1 className="text-5xl md:text-7xl font-bold text-emerald-950 mb-6 drop-shadow-sm">
-          The Soul of Kashmir
-        </h1>
-        <p className="text-xl text-emerald-950/85 max-w-2xl mb-8">
-          Authentic produce, direct from the valleys. Experience the true essence of Kashmiri agriculture.
-        </p>
-        <button
-          onClick={onEnterPortals}
-          className="px-8 py-4 bg-white/75 hover:bg-white/95 backdrop-blur-md border border-white text-emerald-900 rounded-full font-semibold text-lg transition-all shadow-lg hover:shadow-xl hover:scale-105"
-        >
-          Explore Portals
-        </button>
+    <div className="relative isolate min-h-[100svh]">
+      <div aria-hidden className="fixed inset-0 -z-10 overflow-hidden bg-sky-100">
+        {slides.map((slide, i) => (
+          <div
+            key={slide.key}
+            className={`absolute inset-0 transition-opacity duration-[1600ms] ease-in-out motion-reduce:transition-none ${
+              i === active ? 'z-10 opacity-100' : i === previous ? 'z-0 opacity-100' : 'z-0 opacity-0'
+            }`}
+          >
+            <Image
+              src={slide.image}
+              alt=""
+              fill
+              sizes="100vw"
+              priority={i === firstIndex}
+              style={{ objectPosition: slide.focus }}
+              className={`object-cover transition-transform duration-[9000ms] ease-out ${
+                i === active ? 'motion-safe:scale-105' : 'scale-100'
+              }`}
+            />
+          </div>
+        ))}
+        {/* Light scrim: brighter at the top (nav) and bottom (cards + badge). */}
+        <div className="absolute inset-0 z-20 bg-gradient-to-b from-white/40 via-white/5 to-white/50" />
+        <div className="absolute inset-0 z-20 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.6),transparent_55%)]" />
       </div>
 
-      {/* Glassmorphic Image Badge */}
-      <div className="absolute bottom-6 right-6 z-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-4 rounded-2xl shadow-xl">
-          <p className="text-xs font-bold text-emerald-900/60 uppercase tracking-wider mb-1">
-            {IMAGES[currentIndex].season}
+      {children}
+
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-end p-4 sm:p-6">
+        <div className="pointer-events-auto flex items-center gap-2.5 rounded-full bg-white/70 py-1.5 pl-3.5 pr-1.5 shadow-[0_8px_30px_rgba(15,23,42,0.12)] ring-1 ring-white/70 backdrop-blur-xl">
+          <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${SEASON_DOT[current.season]}`} />
+
+          {/* Announce the season only when the user is driving the carousel;
+              a polite announcement every 7s would drown out a screen reader. */}
+          <p aria-live={paused ? 'polite' : 'off'} className="text-xs font-medium tracking-wide text-slate-700">
+            <span className="sr-only">Season: </span>
+            {current.season}
           </p>
-          <p className="text-sm font-medium text-emerald-950">
-            {IMAGES[currentIndex].name}
-          </p>
+
+          <div className="hidden items-center sm:flex" role="group" aria-label="Choose a photo">
+            {slides.map((slide, i) => (
+              <button
+                key={slide.key}
+                type="button"
+                onClick={() => goTo(i)}
+                aria-label={`Show photo ${i + 1} of ${slides.length} (${slide.season})`}
+                aria-current={i === active ? 'true' : undefined}
+                className="grid h-7 cursor-pointer place-items-center px-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-700"
+              >
+                <span
+                  className={`relative block h-1.5 overflow-hidden rounded-full transition-all duration-300 ${
+                    i === active ? 'w-6 bg-slate-900/10' : 'w-1.5 bg-slate-900/30 hover:bg-slate-900/50'
+                  }`}
+                >
+                  {i === active && (
+                    <span
+                      ref={progressRef}
+                      className="absolute inset-0 origin-left rounded-full bg-slate-800"
+                      style={{ transform: running ? 'scaleX(0)' : 'scaleX(1)' }}
+                    />
+                  )}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setPaused((p) => !p)}
+            aria-label={paused ? 'Play season slideshow' : 'Pause season slideshow'}
+            className="grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-full bg-white/80 text-slate-700 ring-1 ring-slate-900/10 transition hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-700"
+          >
+            {paused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+          </button>
         </div>
       </div>
     </div>
   );
+}
+
+function subscribeToVisibility(onChange: () => void): () => void {
+  document.addEventListener('visibilitychange', onChange);
+  return () => document.removeEventListener('visibilitychange', onChange);
+}
+
+function isPageVisible(): boolean {
+  return document.visibilityState === 'visible';
 }

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { WeatherWidget } from '@/components/ui/WeatherWidget';
 import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
+import { ToolShell } from '@/components/layout/ToolShell';
 
 import { mandiApi } from '@/lib/api/mandi';
 import type {
@@ -112,10 +113,10 @@ function PriceTrend({ points, caption, multiplier }: { points: TrendPoint[]; cap
   const label = `${caption}: ${points.length} daily averages from ${formatArrival(from)} to ${formatArrival(to)}, ${rising ? 'up' : 'down'} ${Math.abs(changePct).toFixed(1)} percent.`;
 
   return (
-    <section className="kr-card" aria-label={caption}>
+    <section className="rounded-3xl bg-white/70 p-6 backdrop-blur-xl ring-1 ring-slate-900/5 shadow-[0_8px_30px_rgba(15,23,42,0.06)]" aria-label={caption}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-label font-medium text-kr-text-primary">{caption}</h2>
-        <p className="text-caption text-kr-text-secondary">
+        <h2 className="text-label font-medium text-slate-900">{caption}</h2>
+        <p className="text-caption text-slate-600">
           {points.length} daily averages · {formatArrival(from)} – {formatArrival(to)}
         </p>
       </div>
@@ -136,8 +137,8 @@ function PriceTrend({ points, caption, multiplier }: { points: TrendPoint[]; cap
         />
       </svg>
 
-      <p className="mt-2 text-body-sm text-kr-text-secondary">
-        <span className={rising ? 'text-kr-text-success' : 'text-kr-text-danger'}>
+      <p className="mt-2 text-body-sm text-slate-600">
+        <span className={rising ? 'text-emerald-700' : 'text-rose-700'}>
           {rising ? '▲' : '▼'} {Math.abs(changePct).toFixed(1)}%
         </span>{' '}
         across the period shown
@@ -147,6 +148,15 @@ function PriceTrend({ points, caption, multiplier }: { points: TrendPoint[]; cap
 }
 
 /** One market board's card. */
+type DisplayUnit = 'quintal' | 'kg' | 'box';
+
+/** Fruit is traded by the box, saffron and walnuts by the kilo, the rest by quintal. */
+function defaultUnitFor(commodity: string): DisplayUnit {
+  if (['Apple', 'Cherry', 'Pear', 'Tomato'].includes(commodity)) return 'box';
+  if (['Saffron', 'Walnut'].includes(commodity)) return 'kg';
+  return 'quintal';
+}
+
 function PriceCard({ quote, multiplier, displayUnit }: { quote: MandiQuote; multiplier: number; displayUnit: string }) {
   const modal = quote.modalPrice * multiplier;
   const min = quote.minPrice * multiplier;
@@ -154,40 +164,40 @@ function PriceCard({ quote, multiplier, displayUnit }: { quote: MandiQuote; mult
   const unitLabel = displayUnit === 'box' ? 'Box (20kg)' : displayUnit === 'kg' ? 'Kg' : 'Quintal (100kg)';
 
   return (
-    <article className="kr-card flex flex-col">
+    <article className="rounded-3xl bg-white/70 p-6 backdrop-blur-xl ring-1 ring-slate-900/5 shadow-[0_8px_30px_rgba(15,23,42,0.06)] flex flex-col">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="font-heading text-h4 text-kr-text-primary">
+          <h3 className="font-heading text-h4 text-slate-900">
             {quote.market}
           </h3>
-          <p className="mt-1 text-caption text-kr-text-secondary">
+          <p className="mt-1 text-caption text-slate-600">
             {quote.district ? `${quote.district}, ` : ''}
             {quote.state}
           </p>
         </div>
         {quote.grade ? (
-          <span className="kr-badge kr-badge-draft shrink-0">{quote.grade}</span>
+          <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-slate-100 text-slate-700 shrink-0">{quote.grade}</span>
         ) : null}
       </div>
 
-      <p className="mt-4 kr-amount-lg text-kr-text-primary">
+      <p className="mt-4 text-lg font-semibold tabular-nums text-slate-900 text-slate-900">
         {inr.format(modal)}
       </p>
-      <p className="text-caption text-kr-text-secondary">
+      <p className="text-caption text-slate-600">
         per {unitLabel} · {quote.commodity}
         {quote.variety ? ` (${quote.variety})` : ''}
       </p>
 
-      <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-kr-border-default pt-3">
+      <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-200 pt-3">
         <div>
-          <dt className="text-caption text-kr-text-secondary">Low</dt>
-          <dd className="kr-amount text-kr-text-primary">
+          <dt className="text-caption text-slate-600">Low</dt>
+          <dd className="font-semibold tabular-nums text-slate-900 text-slate-900">
             {inr.format(min)}
           </dd>
         </div>
         <div>
-          <dt className="text-caption text-kr-text-secondary">High</dt>
-          <dd className="kr-amount text-kr-text-primary">
+          <dt className="text-caption text-slate-600">High</dt>
+          <dd className="font-semibold tabular-nums text-slate-900 text-slate-900">
             {inr.format(max)}
           </dd>
         </div>
@@ -201,11 +211,11 @@ function BoardSkeleton() {
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
       {Array.from({ length: 6 }).map((_, index) => (
-        <div key={index} className="kr-card">
-          <div className="kr-skeleton h-4 w-2/3" />
-          <div className="kr-skeleton mt-3 h-3 w-1/3" />
-          <div className="kr-skeleton mt-5 h-8 w-1/2" />
-          <div className="kr-skeleton mt-5 h-10 w-full" />
+        <div key={index} className="rounded-3xl bg-white/70 p-6 backdrop-blur-xl ring-1 ring-slate-900/5 shadow-[0_8px_30px_rgba(15,23,42,0.06)]">
+          <div className="animate-pulse rounded-lg bg-slate-200 h-4 w-2/3" />
+          <div className="animate-pulse rounded-lg bg-slate-200 mt-3 h-3 w-1/3" />
+          <div className="animate-pulse rounded-lg bg-slate-200 mt-5 h-8 w-1/2" />
+          <div className="animate-pulse rounded-lg bg-slate-200 mt-5 h-10 w-full" />
         </div>
       ))}
     </div>
@@ -217,7 +227,13 @@ function BoardSkeleton() {
 export default function MandiPage() {
   const [selection, setSelection] = useState<Selection | null>(null);
   const [commodity, setCommodity] = useState('Apple');
-  const [displayUnit, setDisplayUnit] = useState<'quintal' | 'kg' | 'box'>('box');
+  // The unit follows the commodity, but the user can override it until they
+  // pick a different commodity. Derived rather than synced in an effect, which
+  // is what react-hooks/set-state-in-effect was flagging.
+  const [unitOverride, setUnitOverride] = useState<{ commodity: string; unit: DisplayUnit } | null>(null);
+  const displayUnit: DisplayUnit =
+    unitOverride && unitOverride.commodity === commodity ? unitOverride.unit : defaultUnitFor(commodity);
+  const setDisplayUnit = (unit: DisplayUnit) => setUnitOverride({ commodity, unit });
   const [geo, setGeo] = useState<{ status: 'idle' | 'locating' | 'error'; message?: string }>({
     status: 'idle',
   });
@@ -246,15 +262,6 @@ export default function MandiPage() {
     }
   }, [catalogueQuery.data, selection, selectedState]);
 
-  useEffect(() => {
-    if (['Apple', 'Cherry', 'Pear', 'Tomato'].includes(commodity)) {
-      setDisplayUnit('box');
-    } else if (['Saffron', 'Walnut'].includes(commodity)) {
-      setDisplayUnit('kg');
-    } else {
-      setDisplayUnit('quintal');
-    }
-  }, [commodity]);
 
   const query = useMemo<MandiFeedQuery | null>(() => {
     if (!selection || selection.kind === 'empty') return null;
@@ -387,16 +394,16 @@ export default function MandiPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-br from-teal-50 to-emerald-50 text-slate-800">
-      <SiteHeader hideSignIn={false} />
-      <main id="main-content" className="kr-container py-6 md:py-10 flex-1">
+    <div className="flex min-h-screen flex-col">
+      <SiteHeader />
+      <ToolShell tool="mandi">
         {/* ── Header ───────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-heading text-h1 text-kr-text-primary">
+          <h1 className="font-heading text-h1 text-slate-900">
             Live mandi prices
           </h1>
-          <p className="mt-1 max-w-2xl text-body text-kr-text-secondary">
+          <p className="mt-1 max-w-2xl text-body text-slate-600">
             Daily arrival rates from regulated market boards, resolved to the
             market you choose or the one nearest you.
           </p>
@@ -407,8 +414,8 @@ export default function MandiPage() {
             <span
               className={
                 feed.source === 'agmarknet'
-                  ? 'kr-badge kr-badge-published'
-                  : 'kr-badge kr-badge-draft'
+                  ? 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-800'
+                  : 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-slate-100 text-slate-700'
               }
               title={feed.attribution}
             >
@@ -419,7 +426,7 @@ export default function MandiPage() {
               )}
               {feed.source === 'agmarknet' ? 'Agmarknet' : 'Modelled'}
             </span>
-            <p className="text-caption text-kr-text-secondary">
+            <p className="text-caption text-slate-600">
               {feed.attribution}
             </p>
           </div>
@@ -431,15 +438,15 @@ export default function MandiPage() {
       </div>
 
       {/* ── Controls ─────────────────────────────────────────────────────── */}
-      <div className="mt-6 border border-kr-border-default bg-kr-bg-surface p-4 md:p-5">
+      <div className="mt-6 border border-slate-200 bg-white p-4 md:p-5">
         <div className="flex flex-wrap items-end gap-4">
           <div className="min-w-[12rem] flex-1">
-            <label htmlFor="mandi-state" className="kr-label">
+            <label htmlFor="mandi-state" className="mb-1 block text-sm font-medium text-slate-700">
               State
             </label>
             <select
               id="mandi-state"
-              className="kr-input"
+              className="block w-full rounded-xl border-0 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
               value={selectedState}
               onChange={onStateChange}
               disabled={catalogueQuery.isLoading}
@@ -451,12 +458,12 @@ export default function MandiPage() {
           </div>
           
           <div className="min-w-[14rem] flex-1">
-            <label htmlFor="mandi-market" className="kr-label">
+            <label htmlFor="mandi-market" className="mb-1 block text-sm font-medium text-slate-700">
               District / Hub
             </label>
             <select
               id="mandi-market"
-              className="kr-input"
+              className="block w-full rounded-xl border-0 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
               value={selectValue}
               onChange={onMarketChange}
               disabled={catalogueQuery.isLoading}
@@ -479,12 +486,12 @@ export default function MandiPage() {
           </div>
 
           <div className="min-w-[12rem] flex-1">
-            <label htmlFor="mandi-commodity" className="kr-label">
+            <label htmlFor="mandi-commodity" className="mb-1 block text-sm font-medium text-slate-700">
               Commodity
             </label>
             <select
               id="mandi-commodity"
-              className="kr-input"
+              className="block w-full rounded-xl border-0 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
               value={commodity}
               onChange={(event) => setCommodity(event.target.value)}
               disabled={catalogueQuery.isLoading}
@@ -498,14 +505,14 @@ export default function MandiPage() {
           </div>
 
           <div className="min-w-[8rem] flex-[0.5]">
-            <label htmlFor="mandi-unit" className="kr-label">
+            <label htmlFor="mandi-unit" className="mb-1 block text-sm font-medium text-slate-700">
               Unit
             </label>
             <select
               id="mandi-unit"
-              className="kr-input"
+              className="block w-full rounded-xl border-0 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
               value={displayUnit}
-              onChange={(event) => setDisplayUnit(event.target.value as any)}
+              onChange={(event) => setDisplayUnit(event.target.value as DisplayUnit)}
             >
               <option value="box">Per Box (20kg)</option>
               <option value="kg">Per Kg</option>
@@ -515,7 +522,7 @@ export default function MandiPage() {
 
           <button
             type="button"
-            className="kr-btn-secondary"
+            className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition bg-white text-amber-900 ring-1 ring-amber-200 hover:bg-amber-50"
             onClick={useMyLocation}
             disabled={geo.status === 'locating'}
             aria-busy={geo.status === 'locating'}
@@ -530,7 +537,7 @@ export default function MandiPage() {
 
           <button
             type="button"
-            className="kr-btn-ghost"
+            className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition text-slate-700 hover:bg-slate-100"
             onClick={() => feedQuery.refetch()}
             disabled={feedQuery.isFetching || !query}
             aria-busy={feedQuery.isFetching}
@@ -544,7 +551,7 @@ export default function MandiPage() {
         </div>
 
         {geo.status === 'error' && geo.message ? (
-          <p className="kr-error-msg mt-3" role="status">
+          <p className="mt-1 text-xs font-semibold text-rose-700 mt-3" role="status">
             <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
             {geo.message}
           </p>
@@ -554,28 +561,28 @@ export default function MandiPage() {
       {/* ── Board ────────────────────────────────────────────────────────── */}
       <div className="mt-8">
         {selection?.kind === 'empty' ? (
-          <div className="kr-card bg-kr-bg-sunken border border-kr-border-default flex flex-col items-center justify-center p-12 text-center" role="alert">
-            <FlaskConical className="h-12 w-12 text-kr-text-disabled mb-4" aria-hidden="true" />
-            <h2 className="font-heading text-h4 text-kr-text-primary">Awaiting live data for {selectedState}</h2>
-            <p className="mt-2 text-body-sm text-kr-text-secondary">
+          <div className="rounded-3xl bg-white/70 p-6 backdrop-blur-xl ring-1 ring-slate-900/5 shadow-[0_8px_30px_rgba(15,23,42,0.06)] bg-slate-50 border border-slate-200 flex flex-col items-center justify-center p-12 text-center" role="alert">
+            <FlaskConical className="h-12 w-12 text-slate-400 mb-4" aria-hidden="true" />
+            <h2 className="font-heading text-h4 text-slate-900">Awaiting live data for {selectedState}</h2>
+            <p className="mt-2 text-body-sm text-slate-600">
               We are actively integrating pan-India market hubs (such as Agmarknet). Live Mandi prices for this region will be available soon.
             </p>
           </div>
         ) : feedQuery.isLoading || catalogueQuery.isLoading ? (
           <BoardSkeleton />
         ) : feedQuery.isError ? (
-          <div className="kr-card kr-error-state" role="alert">
-            <h2 className="font-heading text-h4 text-kr-text-primary">
+          <div className="rounded-3xl bg-white/70 p-6 backdrop-blur-xl ring-1 ring-slate-900/5 shadow-[0_8px_30px_rgba(15,23,42,0.06)] rounded-xl bg-rose-50 p-4 text-rose-800 ring-1 ring-rose-200" role="alert">
+            <h2 className="font-heading text-h4 text-slate-900">
               The price board could not be loaded
             </h2>
-            <p className="mt-2 text-body-sm text-kr-text-secondary">
+            <p className="mt-2 text-body-sm text-slate-600">
               {feedQuery.error instanceof Error
                 ? feedQuery.error.message
                 : 'The request to the price service failed.'}
             </p>
             <button
               type="button"
-              className="kr-btn-primary mt-4"
+              className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition bg-amber-400 text-amber-950 hover:bg-amber-300 mt-4"
               onClick={() => feedQuery.refetch()}
             >
               <RefreshCw className="h-4 w-4" aria-hidden="true" />
@@ -585,10 +592,10 @@ export default function MandiPage() {
         ) : feed ? (
           <>
             {/* Where the answer came from, in one line. */}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-kr-text-secondary">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-slate-600">
               <span className="inline-flex items-center gap-1.5">
                 <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span className="font-medium text-kr-text-primary">
+                <span className="font-medium text-slate-900">
                   {feed.location.label}
                 </span>
               </span>
@@ -619,7 +626,7 @@ export default function MandiPage() {
             {feed.note ? (
               <p
                 role="status"
-                className="mt-4 flex items-start gap-2 border border-kr-border-default bg-kr-bg-sunken p-3 text-body-sm text-kr-text-secondary"
+                className="mt-4 flex items-start gap-2 border border-slate-200 bg-slate-50 p-3 text-body-sm text-slate-600"
               >
                 <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>{feed.note}</span>
@@ -645,14 +652,14 @@ export default function MandiPage() {
                 ) : null}
               </>
             ) : !feed.note ? (
-              <div className="kr-card mt-6" role="status">
+              <div className="rounded-3xl bg-white/70 p-6 backdrop-blur-xl ring-1 ring-slate-900/5 shadow-[0_8px_30px_rgba(15,23,42,0.06)] mt-6" role="status">
                 <div className="flex items-start gap-3">
-                  <CloudSun className="mt-0.5 h-5 w-5 shrink-0 text-kr-text-secondary" aria-hidden="true" />
+                  <CloudSun className="mt-0.5 h-5 w-5 shrink-0 text-slate-600" aria-hidden="true" />
                   <div>
-                    <h2 className="font-heading text-h4 text-kr-text-primary">
+                    <h2 className="font-heading text-h4 text-slate-900">
                       No arrivals reported
                     </h2>
-                    <p className="mt-1 text-body-sm text-kr-text-secondary">
+                    <p className="mt-1 text-body-sm text-slate-600">
                       No board in {feed.location.label} has published a{' '}
                       {feed.commodity} arrival for this period.
                     </p>
@@ -663,7 +670,7 @@ export default function MandiPage() {
           </>
         ) : null}
       </div>
-      </main>
+      </ToolShell>
       <SiteFooter />
     </div>
   );
