@@ -14,17 +14,17 @@ interface WeatherData {
 }
 
 const PREDEFINED_LOCATIONS = [
-  { id: 'srinagar', name: 'Srinagar, J&K', lat: 34.0837, lng: 74.7973 },
-  { id: 'shopian', name: 'Shopian, J&K', lat: 33.7223, lng: 74.8341 },
-  { id: 'baramulla', name: 'Baramulla, J&K', lat: 34.2000, lng: 74.3400 },
-  { id: 'anantnag', name: 'Anantnag, J&K', lat: 33.7311, lng: 75.1487 },
-  { id: 'pulwama', name: 'Pulwama, J&K', lat: 33.8716, lng: 74.8946 },
-  { id: 'kupwara', name: 'Kupwara, J&K', lat: 34.5262, lng: 74.2546 },
-  { id: 'bandipora', name: 'Bandipora, J&K', lat: 34.4225, lng: 74.6542 },
-  { id: 'ganderbal', name: 'Ganderbal, J&K', lat: 34.2185, lng: 74.7749 },
-  { id: 'kulgam', name: 'Kulgam, J&K', lat: 33.6436, lng: 75.0210 },
-  { id: 'budgam', name: 'Budgam, J&K', lat: 34.0263, lng: 74.7176 },
-  { id: 'jammu', name: 'Jammu, J&K', lat: 32.7266, lng: 74.8570 },
+  { id: 'srinagar', name: 'Srinagar', lat: 34.0837, lng: 74.7973 },
+  { id: 'shopian', name: 'Shopian', lat: 33.7223, lng: 74.8341 },
+  { id: 'baramulla', name: 'Baramulla', lat: 34.2000, lng: 74.3400 },
+  { id: 'anantnag', name: 'Anantnag', lat: 33.7311, lng: 75.1487 },
+  { id: 'pulwama', name: 'Pulwama', lat: 33.8716, lng: 74.8946 },
+  { id: 'kupwara', name: 'Kupwara', lat: 34.5262, lng: 74.2546 },
+  { id: 'bandipora', name: 'Bandipora', lat: 34.4225, lng: 74.6542 },
+  { id: 'ganderbal', name: 'Ganderbal', lat: 34.2185, lng: 74.7749 },
+  { id: 'kulgam', name: 'Kulgam', lat: 33.6436, lng: 75.0210 },
+  { id: 'budgam', name: 'Budgam', lat: 34.0263, lng: 74.7176 },
+  { id: 'jammu', name: 'Jammu', lat: 32.7266, lng: 74.8570 },
   { id: 'azadpur', name: 'Delhi (Azadpur)', lat: 28.7373, lng: 77.1726 },
   { id: 'bengaluru', name: 'Bengaluru (APMC)', lat: 12.9716, lng: 77.5946 },
   { id: 'mumbai', name: 'Mumbai (Vashi)', lat: 19.0760, lng: 72.8777 },
@@ -117,7 +117,7 @@ export function WeatherWidget() {
               {selectedLoc.id === 'custom-gps' && (
                 <option value="custom-gps">My Current Location</option>
               )}
-              <optgroup label="Jammu & Kashmir">
+              <optgroup label="Districts">
                 {PREDEFINED_LOCATIONS.slice(0, 11).map(loc => (
                   <option key={loc.id} value={loc.id}>{loc.name}</option>
                 ))}

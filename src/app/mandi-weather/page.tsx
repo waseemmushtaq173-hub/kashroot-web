@@ -15,7 +15,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { WeatherWidget } from '@/components/ui/WeatherWidget';
-import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
+import { ToolHeader, ToolShell } from '@/components/layout/ToolShell';
 
 import { mandiApi } from '@/lib/api/mandi';
 import type {
@@ -387,51 +387,40 @@ export default function MandiPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-br from-teal-50 to-emerald-50 text-slate-800">
-      <SiteHeader hideSignIn={false} />
-      <main id="main-content" className="kr-container py-6 md:py-10 flex-1">
-        {/* ── Header ───────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-h1 text-kr-text-primary">
-            Live mandi prices
-          </h1>
-          <p className="mt-1 max-w-2xl text-body text-kr-text-secondary">
-            Daily arrival rates from regulated market boards, resolved to the
-            market you choose or the one nearest you.
-          </p>
-        </div>
-
-        {feed ? (
-          <div className="flex flex-col items-start gap-1 md:items-end">
-            <span
-              className={
-                feed.source === 'agmarknet'
-                  ? 'kr-badge kr-badge-published'
-                  : 'kr-badge kr-badge-draft'
-              }
-              title={feed.attribution}
-            >
-              {feed.source === 'agmarknet' ? (
-                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-              ) : (
-                <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />
-              )}
-              {feed.source === 'agmarknet' ? 'Agmarknet' : 'Modelled'}
-            </span>
-            <p className="text-caption text-kr-text-secondary">
-              {feed.attribution}
-            </p>
-          </div>
-        ) : null}
-      </div>
-      
-      <div className="mt-6">
+    <ToolShell
+      tool="mandi"
+      header={
+        <ToolHeader
+          tool="mandi"
+          title="Live mandi prices"
+          description="Daily arrival rates from regulated market boards, resolved to the market you choose or the one nearest you."
+          actions={
+            feed ? (
+              <div className="flex flex-col items-start gap-1 md:items-end">
+                <span
+                  className={feed.source === 'agmarknet' ? 'kr-badge kr-badge-published' : 'kr-badge kr-badge-draft'}
+                  title={feed.attribution}
+                >
+                  {feed.source === 'agmarknet' ? (
+                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  ) : (
+                    <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />
+                  )}
+                  {feed.source === 'agmarknet' ? 'Agmarknet' : 'Modelled'}
+                </span>
+                <p className="text-caption text-kr-text-secondary">{feed.attribution}</p>
+              </div>
+            ) : null
+          }
+        />
+      }
+    >
+      <div>
         <WeatherWidget />
       </div>
 
       {/* ── Controls ─────────────────────────────────────────────────────── */}
-      <div className="mt-6 border border-kr-border-default bg-kr-bg-surface p-4 md:p-5">
+      <div className="mt-6 rounded-2xl border border-white/80 bg-kr-bg-surface p-4 shadow-[0_8px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl md:p-5">
         <div className="flex flex-wrap items-end gap-4">
           <div className="min-w-[12rem] flex-1">
             <label htmlFor="mandi-state" className="kr-label">
@@ -663,8 +652,6 @@ export default function MandiPage() {
           </>
         ) : null}
       </div>
-      </main>
-      <SiteFooter />
-    </div>
+    </ToolShell>
   );
 }

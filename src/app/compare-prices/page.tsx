@@ -2,7 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { BadgeCheck, MapPin, TrendingDown, Clock, Plus, ShieldCheck, Truck, CreditCard, CheckCircle2 } from 'lucide-react';
-import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
+import { ToolShell } from '@/components/layout/ToolShell';
+import {
+  ListProductsLink,
+  PRICE_COMPARISON_BUTTON,
+  PriceComparisonHeader,
+} from '@/components/price-comparison/PriceComparisonHeader';
+import { loginHref } from '@/lib/auth/roles';
 import { useRouter } from 'next/navigation';
 
 interface DealerListing {
@@ -19,12 +25,12 @@ interface DealerListing {
 }
 
 const DEFAULT_LISTINGS: DealerListing[] = [
-  { id: '1', category: "Packaging", item: "Apple Corrugated Box (Universal 10kg)", name: "Kashmir Packaging Co.", location: "Sopore", price: "145", verified: true, updated: "2 hours ago", stock: "5000" },
-  { id: '2', category: "Packaging", item: "Apple Corrugated Box (Universal 10kg)", name: "Valley Traders", location: "Shopian", price: "148", verified: true, updated: "5 hours ago", stock: "2000" },
-  { id: '3', category: "Packaging", item: "Apple Corrugated Box (Universal 10kg)", name: "Global Corrugates", location: "Lassipora", price: "142", verified: false, updated: "1 day ago", stock: "1500" },
-  { id: '4', category: "Agrochemicals", item: "DAP Fertilizer (50kg Bag)", name: "Zamindar Agri Center", location: "Baramulla", price: "11350", verified: true, updated: "1 hour ago", stock: "200" },
-  { id: '5', category: "Agrochemicals", item: "DAP Fertilizer (50kg Bag)", name: "Kissan Hub", location: "Pulwama", price: "11365", verified: true, updated: "4 hours ago", stock: "50" },
-  { id: '6', category: "Agrochemicals", item: "DAP Fertilizer (50kg Bag)", name: "National Fertilizers", location: "Srinagar", price: "11380", verified: true, updated: "2 days ago", stock: "300" }
+  { id: '1', category: "Packaging", item: "Apple Corrugated Box (Universal 10kg)", name: "Valley Packaging Co.", location: "Nashik", price: "145", verified: true, updated: "2 hours ago", stock: "5000" },
+  { id: '2', category: "Packaging", item: "Apple Corrugated Box (Universal 10kg)", name: "Orchard Traders", location: "Pune", price: "148", verified: true, updated: "5 hours ago", stock: "2000" },
+  { id: '3', category: "Packaging", item: "Apple Corrugated Box (Universal 10kg)", name: "Global Corrugates", location: "Ludhiana", price: "142", verified: false, updated: "1 day ago", stock: "1500" },
+  { id: '4', category: "Agrochemicals", item: "DAP Fertilizer (50kg Bag)", name: "Zamindar Agri Center", location: "Indore", price: "11350", verified: true, updated: "1 hour ago", stock: "200" },
+  { id: '5', category: "Agrochemicals", item: "DAP Fertilizer (50kg Bag)", name: "Kissan Hub", location: "Jaipur", price: "11365", verified: true, updated: "4 hours ago", stock: "50" },
+  { id: '6', category: "Agrochemicals", item: "DAP Fertilizer (50kg Bag)", name: "National Fertilizers", location: "Lucknow", price: "11380", verified: true, updated: "2 days ago", stock: "300" }
 ];
 
 export default function ComparePricesPage() {
@@ -115,34 +121,22 @@ export default function ComparePricesPage() {
   const canAddProduct = isAuth && (userRole === 'SELLER' || userRole === 'DEALER');
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-br from-sky-50 to-white text-slate-800">
-      <SiteHeader hideSignIn={false} />
-      
-      <main className="kr-container py-10 flex-1 relative z-10">
-        <div className="bg-gradient-to-r from-sky-100 to-blue-50 text-slate-900 p-8 md:p-10 rounded-2xl mb-8 shadow-lg border border-white/60 backdrop-blur-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-          <div>
-            <h1 className="font-heading text-4xl font-bold mb-3 text-sky-900">Price Comparison Hub</h1>
-            <p className="text-xl text-slate-700 max-w-2xl font-medium">
-              Compare real-time rates for farm essentials across authorized dealers. Direct home delivery guaranteed with Escrow protection.
-            </p>
-          </div>
-          {canAddProduct ? (
-            <button 
-              onClick={() => setShowAddModal(true)}
-              className="bg-sky-600 hover:bg-sky-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-colors whitespace-nowrap"
-            >
-              <Plus className="w-5 h-5" /> Add New Product
-            </button>
-          ) : !isAuth ? (
-            <button 
-              onClick={() => setShowAuthPrompt(true)}
-              className="bg-white/80 hover:bg-white text-sky-900 px-6 py-3 rounded-xl font-bold shadow-md border border-sky-200 flex items-center gap-2 transition-colors whitespace-nowrap"
-            >
-              List Your Products
-            </button>
-          ) : null}
-        </div>
-
+    <ToolShell
+      tool="priceComparison"
+      header={
+        <PriceComparisonHeader
+          actions={
+            canAddProduct ? (
+              <button type="button" onClick={() => setShowAddModal(true)} className={PRICE_COMPARISON_BUTTON}>
+                <Plus className="h-4 w-4" aria-hidden /> Add New Product
+              </button>
+            ) : (
+              <ListProductsLink />
+            )
+          }
+        />
+      }
+    >
         <div className="space-y-8">
           {Object.entries(groupedListings).map(([key, groupDealers], i) => {
             const [category, item] = key.split(':::');
@@ -194,12 +188,12 @@ export default function ComparePricesPage() {
                       <div className="flex flex-col md:items-end w-full md:w-auto gap-3">
                         <div className="text-2xl font-bold text-[#E76F51]">₹{dealer.price}</div>
                         <div className="flex w-full md:w-auto gap-2">
-                          <button className="flex-1 md:flex-none kr-glass border-2 border-[#1B4332] text-[#1B4332] hover:bg-[#1B4332]/5 px-4 py-2 rounded-lg font-bold text-sm transition-colors hidden">
+                          <button className="flex-1 md:flex-none kr-glass border-2 border-sky-700 text-sky-800 hover:bg-[#1B4332]/5 px-4 py-2 rounded-lg font-bold text-sm transition-colors hidden">
                             Contact
                           </button>
                           <button 
                             onClick={() => handleOrderClick(dealer)}
-                            className="flex-1 md:flex-none bg-[#1B4332] hover:bg-[#153424] text-white px-6 py-2 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2 shadow-md"
+                            className="flex-1 md:flex-none bg-sky-700 hover:bg-sky-800 text-white px-6 py-2 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2 shadow-md"
                           >
                             <ShieldCheck className="w-4 h-4" /> Order Now
                           </button>
@@ -212,32 +206,24 @@ export default function ComparePricesPage() {
             );
           })}
         </div>
-      </main>
-      <SiteFooter />
 
       {/* Role-Based Auth Panel Modal */}
       {showAuthPrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="kr-glass rounded-2xl p-8 max-w-sm w-full shadow-2xl relative text-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm p-4">
+          <div className="kr-glass-strong rounded-2xl p-8 max-w-sm w-full shadow-2xl relative text-center">
             <ShieldCheck className="w-16 h-16 text-[#E76F51] mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-kr-text-primary mb-2">Are you here to Buy or Sell?</h2>
             <p className="text-kr-text-secondary mb-6">Choose your account type to proceed with KashRoot Escrow.</p>
             <div className="flex flex-col gap-3">
               <button 
-                onClick={() => {
-                  localStorage.setItem('user_role', 'BUYER');
-                  router.push('/marketplace/auth?role=BUYER');
-                }}
-                className="w-full bg-[#1B4332] hover:bg-[#153424] text-white font-bold py-3 px-4 rounded-xl transition-colors"
+                onClick={() => router.push(loginHref('buyer', '/compare-prices'))}
+                className="w-full bg-sky-700 hover:bg-sky-800 text-white font-bold py-3 px-4 rounded-xl transition-colors"
               >
                 I am a Buyer
               </button>
               <button 
-                onClick={() => {
-                  localStorage.setItem('user_role', 'SELLER');
-                  router.push('/marketplace/auth?role=SELLER');
-                }}
-                className="w-full border-2 border-[#1B4332] text-[#1B4332] hover:bg-kr-bg-sunken font-bold py-3 px-4 rounded-xl transition-colors"
+                onClick={() => router.push(loginHref('seller', '/compare-prices'))}
+                className="w-full border-2 border-sky-700 text-sky-800 hover:bg-kr-bg-sunken font-bold py-3 px-4 rounded-xl transition-colors"
               >
                 I am a Dealer/Seller
               </button>
@@ -254,11 +240,11 @@ export default function ComparePricesPage() {
 
       {/* Order & Delivery Details Modal */}
       {showOrderModal && selectedProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="kr-glass rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden my-8">
-            <div className="bg-[#1B4332] p-6 text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="kr-glass-strong rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden my-8">
+            <div className="bg-gradient-to-r from-sky-50 via-white to-amber-50 border-b border-sky-100 p-6 text-slate-900">
               <h2 className="text-2xl font-bold">Checkout & Escrow</h2>
-              <p className="text-blue-100">Secure checkout for {selectedProduct.item}</p>
+              <p className="text-slate-600">Secure checkout for {selectedProduct.item}</p>
             </div>
             
             <div className="p-6 sm:p-8">
@@ -283,7 +269,7 @@ export default function ComparePricesPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-bold text-kr-text-primary mb-1">District</label>
-                      <input type="text" className="kr-input w-full" value={deliveryDetails.district} onChange={e => setDeliveryDetails({...deliveryDetails, district: e.target.value})} placeholder="e.g., Srinagar" />
+                      <input type="text" className="kr-input w-full" value={deliveryDetails.district} onChange={e => setDeliveryDetails({...deliveryDetails, district: e.target.value})} placeholder="Your district" />
                     </div>
                     <div className="col-span-full">
                       <label className="block text-sm font-bold text-kr-text-primary mb-1">Street Address</label>
@@ -291,7 +277,7 @@ export default function ComparePricesPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-bold text-kr-text-primary mb-1">Pincode</label>
-                      <input type="text" className="kr-input w-full" value={deliveryDetails.pincode} onChange={e => setDeliveryDetails({...deliveryDetails, pincode: e.target.value})} placeholder="190001" />
+                      <input type="text" className="kr-input w-full" value={deliveryDetails.pincode} onChange={e => setDeliveryDetails({...deliveryDetails, pincode: e.target.value})} placeholder="6-digit PIN" />
                     </div>
                   </div>
 
@@ -362,7 +348,7 @@ export default function ComparePricesPage() {
                   </div>
                   <h3 className="text-3xl font-heading font-bold text-kr-text-primary mb-2">Order COMPLETED!</h3>
                   <p className="text-kr-text-secondary mb-8 max-w-md mx-auto">Payment has been released to {selectedProduct.name}. Thank you for using KashRoot Secure Escrow.</p>
-                  <button onClick={() => setShowOrderModal(false)} className="px-8 py-3 kr-hero-premium kr-pattern-chinar rounded-xl font-bold hover:bg-[#153424] transition-colors">
+                  <button onClick={() => setShowOrderModal(false)} className="px-8 py-3 bg-sky-700 text-white rounded-xl font-bold hover:bg-sky-800 transition-colors">
                     Back to Hub
                   </button>
                 </div>
@@ -374,11 +360,11 @@ export default function ComparePricesPage() {
 
       {/* Add Product Modal (For Dealers) */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="kr-glass rounded-2xl max-w-md w-full shadow-2xl overflow-hidden my-8">
-            <div className="bg-[#1B4332] p-5 text-white flex justify-between items-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm p-4">
+          <div className="kr-glass-strong rounded-2xl max-w-md w-full shadow-2xl overflow-hidden my-8">
+            <div className="bg-gradient-to-r from-sky-50 via-white to-amber-50 border-b border-sky-100 p-5 text-slate-900 flex justify-between items-center">
               <h2 className="text-xl font-bold">Add Dealer Listing</h2>
-              <button onClick={() => setShowAddModal(false)} className="text-white/70 hover:text-white">✕</button>
+              <button type="button" onClick={() => setShowAddModal(false)} aria-label="Close" className="text-slate-500 hover:text-slate-900">✕</button>
             </div>
             
             <form onSubmit={handleAddSubmit} className="p-6 space-y-4">
@@ -407,7 +393,7 @@ export default function ComparePricesPage() {
               </div>
               <div>
                 <label className="block text-sm font-bold text-kr-text-primary mb-1">District / Location</label>
-                <input required type="text" className="kr-input w-full" value={newProduct.location} onChange={e => setNewProduct({...newProduct, location: e.target.value})} placeholder="Sopore" />
+                <input required type="text" className="kr-input w-full" value={newProduct.location} onChange={e => setNewProduct({...newProduct, location: e.target.value})} placeholder="Your town" />
               </div>
               <div>
                 <label className="block text-sm font-bold text-kr-text-primary mb-1">Image URL (Optional)</label>
@@ -422,6 +408,6 @@ export default function ComparePricesPage() {
           </div>
         </div>
       )}
-    </div>
+    </ToolShell>
   );
 }

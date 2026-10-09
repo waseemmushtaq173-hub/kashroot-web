@@ -1,9 +1,11 @@
 'use client';
 
-import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
-import { DynamicBackdrop } from '@/components/layout/DynamicBackdrop';
-import KYCPanel from '@/components/auth/KYCPanel';
-import { ShieldCheck, Lock, CheckCircle, Truck, Mic, Handshake, AlertCircle } from 'lucide-react';
+import { useState } from 'react';
+import { ShieldCheck, Lock, CheckCircle, Truck, Handshake, AlertCircle, IdCard } from 'lucide-react';
+
+import { KYCPanel } from '@/components/auth/KYCPanel';
+import { ToolHeader, ToolShell } from '@/components/layout/ToolShell';
+import { GLASS } from '@/lib/tools';
 
 // Mock DEMO DATA
 const ESCROW_KPIS = {
@@ -21,111 +23,112 @@ const TIMELINE_STEPS = [
 ];
 
 export default function EscrowTrackerPage() {
+  const [kycOpen, setKycOpen] = useState(false);
+
   return (
-    <div className="flex min-h-screen flex-col relative text-gray-900 bg-[#FFFDF0]">
-      {/* Background Component */}
-      <div className="fixed inset-0 z-0 bg-gradient-to-br from-amber-100/50 via-[#FFFDF0] to-orange-100/50 pointer-events-none" />
+    <ToolShell
+      tool="escrow"
+      header={
+        <ToolHeader
+          tool="escrow"
+          title="Money & Escrow Tracker"
+          description="Secure your payments. Funds are locked in escrow and only released when both parties confirm delivery."
+          actions={
+            <button
+              type="button"
+              onClick={() => setKycOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-teal-700/20 transition hover:bg-teal-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
+            >
+              <IdCard className="h-4 w-4" aria-hidden />
+              Complete KYC
+            </button>
+          }
+        />
+      }
+    >
+      <KYCPanel
+        open={kycOpen}
+        onClose={() => setKycOpen(false)}
+        // No self-service KYC endpoint exists yet; record the submission locally.
+        onComplete={() => localStorage.setItem('kyc_status', 'submitted')}
+      />
 
-      <div className="relative z-10 flex min-h-screen flex-col">
-        <SiteHeader hideSignIn={false} />
-
-        <main className="container mx-auto px-4 py-8 flex-1">
-          {/* Forced KYC Panel Display */}
-          <KYCPanel isOpen={true} onComplete={() => {}} />
-
-          {/* Header Section - Saffron/Gold Accent */}
-          <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-8 rounded-2xl mb-8 shadow-xl border border-white/40 backdrop-blur-md relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6 text-white">
-            <div className="relative z-10">
-              <h1 className="text-3xl md:text-4xl font-bold mb-2 flex items-center gap-3">
-                <ShieldCheck className="w-8 h-8 text-white/90" /> Money & Escrow Tracker
-              </h1>
-              <p className="text-lg text-white/90 font-medium max-w-xl">
-                Secure your payments. Funds are locked in escrow and only released when both parties confirm delivery.
-              </p>
-            </div>
-            <div className="absolute top-0 right-0 opacity-20 pointer-events-none transform translate-x-1/4 -translate-y-1/4">
-              <ShieldCheck className="w-64 h-64" />
-            </div>
+      {/* KPI Cards */}
+      <div className="mb-10 grid grid-cols-1 gap-6 md:grid-cols-3">
+        <div className={`${GLASS.card} relative overflow-hidden p-6`}>
+          <div className="mb-2 flex items-start justify-between">
+            <span className="font-semibold text-slate-600">Money Locked</span>
+            <Lock className="h-5 w-5 text-teal-600" aria-hidden />
           </div>
+          <div className="text-3xl font-bold text-slate-900">{ESCROW_KPIS.moneyLocked}</div>
+        </div>
 
-          {/* KPI Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-            <div className="bg-white/60 backdrop-blur-xl border border-white p-6 rounded-2xl shadow-lg relative overflow-hidden">
-              <div className="flex justify-between items-start mb-2">
-                <span className="text-gray-600 font-semibold">Money Locked</span>
-                <Lock className="w-5 h-5 text-amber-600" />
-              </div>
-              <div className="text-3xl font-bold text-gray-900">{ESCROW_KPIS.moneyLocked}</div>
-            </div>
-
-            <div className="bg-white/60 backdrop-blur-xl border border-white p-6 rounded-2xl shadow-lg relative overflow-hidden">
-              <div className="flex justify-between items-start mb-2">
-                <span className="text-gray-600 font-semibold">Money Released</span>
-                <CheckCircle className="w-5 h-5 text-green-600" />
-              </div>
-              <div className="text-3xl font-bold text-gray-900">{ESCROW_KPIS.moneyReleased}</div>
-            </div>
-
-            <div className="bg-white/60 backdrop-blur-xl border border-white p-6 rounded-2xl shadow-lg relative overflow-hidden">
-              <div className="flex justify-between items-start mb-2">
-                <span className="text-gray-600 font-semibold">Avg. Days-to-Payment</span>
-                <AlertCircle className="w-5 h-5 text-orange-500" />
-              </div>
-              <div className="text-3xl font-bold text-gray-900">{ESCROW_KPIS.daysToPayment}</div>
-            </div>
+        <div className={`${GLASS.card} relative overflow-hidden p-6`}>
+          <div className="mb-2 flex items-start justify-between">
+            <span className="font-semibold text-slate-600">Money Released</span>
+            <CheckCircle className="h-5 w-5 text-emerald-600" aria-hidden />
           </div>
+          <div className="text-3xl font-bold text-slate-900">{ESCROW_KPIS.moneyReleased}</div>
+        </div>
 
-          {/* Active Transaction Timeline */}
-          <div className="bg-white/50 backdrop-blur-xl border border-white rounded-2xl p-6 md:p-8 mb-8 shadow-xl">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                  <span className="bg-green-500 w-3 h-3 rounded-full animate-pulse"></span>
-                  Active Order: #KR-8823
-                </h2>
-                <p className="text-gray-600 mt-1 font-medium">Gala Apples (Grade A) - 100 Boxes • Seller: Shopian Orchards</p>
-              </div>
-              <div className="text-right">
-                <div className="text-2xl font-bold text-amber-600">₹1,45,000</div>
-                <div className="text-sm text-gray-500 font-medium">Locked in Escrow</div>
-              </div>
-            </div>
-
-            {/* Live Timeline UI */}
-            <div className="relative">
-              <div className="absolute top-8 left-[10%] right-[10%] h-1 bg-gray-200 hidden md:block rounded-full"></div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-                {TIMELINE_STEPS.map((step, index) => {
-                  const isCompleted = step.status === 'completed';
-                  const isCurrent = step.status === 'current';
-                  const Icon = step.icon;
-                  
-                  return (
-                    <div key={step.id} className="relative flex flex-row md:flex-col items-center gap-4 md:gap-2 z-10">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center border-4 z-10 shadow-sm
-                        ${isCompleted ? 'bg-amber-500 border-amber-100 text-white' : 
-                          isCurrent ? 'bg-white border-amber-500 text-amber-600' : 
-                          'bg-gray-100 border-white text-gray-400'}`}
-                      >
-                        <Icon className="w-5 h-5" />
-                      </div>
-                      
-                      <div className="text-left md:text-center mt-2">
-                        <div className={`font-bold ${isCurrent ? 'text-amber-600' : isCompleted ? 'text-gray-900' : 'text-gray-400'}`}>
-                          {step.label}
-                        </div>
-                        <div className="text-xs text-gray-500 font-medium">{step.date}</div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+        <div className={`${GLASS.card} relative overflow-hidden p-6`}>
+          <div className="mb-2 flex items-start justify-between">
+            <span className="font-semibold text-slate-600">Avg. Days-to-Payment</span>
+            <AlertCircle className="h-5 w-5 text-cyan-600" aria-hidden />
           </div>
-        </main>
-        <SiteFooter />
+          <div className="text-3xl font-bold text-slate-900">{ESCROW_KPIS.daysToPayment}</div>
+        </div>
       </div>
-    </div>
+
+      {/* Active Transaction Timeline */}
+      <div className={`${GLASS.card} mb-8 p-6 md:p-8`}>
+        <div className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+          <div>
+            <h2 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
+              <span className="h-3 w-3 animate-pulse rounded-full bg-emerald-500" aria-hidden></span>
+              Active Order: #KR-8823
+            </h2>
+            <p className="mt-1 font-medium text-slate-600">Gala Apples (Grade A) - 100 Boxes • Seller: Green Valley Orchards</p>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-bold text-teal-700">₹1,45,000</div>
+            <div className="text-sm font-medium text-slate-500">Locked in Escrow</div>
+          </div>
+        </div>
+
+        {/* Live Timeline UI */}
+        <div className="relative">
+          <div className="absolute left-[10%] right-[10%] top-8 hidden h-1 rounded-full bg-slate-200 md:block"></div>
+
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
+            {TIMELINE_STEPS.map((step) => {
+              const isCompleted = step.status === 'completed';
+              const isCurrent = step.status === 'current';
+              const Icon = step.icon;
+
+              return (
+                <div key={step.id} className="relative z-10 flex flex-row items-center gap-4 md:flex-col md:gap-2">
+                  <div
+                    className={`z-10 flex h-12 w-12 items-center justify-center rounded-full border-4 shadow-sm
+                      ${isCompleted ? 'border-emerald-100 bg-teal-600 text-white' :
+                        isCurrent ? 'border-teal-600 bg-white text-teal-700' :
+                        'border-white bg-slate-100 text-slate-400'}`}
+                  >
+                    <Icon className="h-5 w-5" aria-hidden />
+                  </div>
+
+                  <div className="mt-2 text-left md:text-center">
+                    <div className={`font-bold ${isCurrent ? 'text-teal-700' : isCompleted ? 'text-slate-900' : 'text-slate-500'}`}>
+                      {step.label}
+                    </div>
+                    <div className="text-xs font-medium text-slate-500">{step.date}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </ToolShell>
   );
 }

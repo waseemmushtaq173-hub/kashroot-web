@@ -69,3 +69,120 @@ body {
   --chart-2: #6B4423;
 }
 
+
+/*
+ * LIGHT TOOL SCOPE — Escrow, Live Mandi Rates and Price Comparison.
+ *
+ * The semantic tokens in src/styles/design-tokens.ts were never emitted as CSS
+ * variables, so every kr-* class that reads them (kr-card, kr-input, kr-btn-*,
+ * text-kr-text-primary, bg-kr-bg-surface …) resolved to nothing and rendered
+ * transparent. This block emits the light map (values copied from
+ * semanticTokens.light) under .kr-light only, so the three bright tool pages
+ * get working cards, inputs and buttons while the dark dashboards, which sit
+ * outside this scope, are untouched.
+ *
+ * Brand fill is overridden per tool with a shade dark enough for the white
+ * label the kr-btn-* classes use (the token default, saffron #F5A623, is ~2:1).
+ */
+.kr-light {
+  --kr-bg-page: #F7F8FA;
+  --kr-bg-surface: rgba(255, 255, 255, 0.78);
+  --kr-bg-sunken: rgba(237, 238, 242, 0.7);
+  --kr-bg-overlay: #FFFFFF;
+  --kr-text-primary: #111827;
+  --kr-text-secondary: #4A5568;
+  --kr-text-disabled: #8E94A6;
+  --kr-text-inverse: #FFFFFF;
+  --kr-text-brand: #0F766E;
+  --kr-text-success: #225531;
+  --kr-text-warning: #92400E;
+  --kr-text-danger: #9E2D22;
+  --kr-border-default: #D6D9E0;
+  --kr-border-strong: #8E94A6;
+  --kr-border-brand: #5EEAD4;
+  --kr-border-focus: #14B8A6;
+  --kr-border-danger: #E8625A;
+  --kr-fill-brand: #0F766E;
+  --kr-fill-brand-hover: #115E59;
+  --kr-fill-brand-active: #134E4A;
+  --kr-fill-brand-subtle: #F0FDFA;
+  --kr-fill-secondary: #8B5E3C;
+  --kr-fill-success: #3A8C52;
+  --kr-fill-warning: #D97706;
+  --kr-fill-danger: #C0392B;
+  --kr-fill-danger-hover: #9E2D22;
+  --kr-badge-draft-bg: #EDEEF2;
+  --kr-badge-draft-text: #4A5568;
+  --kr-badge-published-bg: #EDFAF3;
+  --kr-badge-published-text: #225531;
+  --kr-badge-pending-bg: #FFFBEB;
+  --kr-badge-pending-text: #92400E;
+  --kr-badge-rejected-bg: #FDF2F0;
+  --kr-badge-rejected-text: #7C221A;
+  color: var(--kr-text-primary);
+}
+
+.kr-light[data-tool="mandi"] {
+  --kr-text-brand: #92400E;
+  --kr-border-brand: #FCD34D;
+  --kr-border-focus: #F59E0B;
+  --kr-fill-brand: #B45309;
+  --kr-fill-brand-hover: #92400E;
+  --kr-fill-brand-active: #78350F;
+  --kr-fill-brand-subtle: #FFFBEB;
+}
+
+.kr-light[data-tool="priceComparison"] {
+  --kr-text-brand: #0369A1;
+  --kr-border-brand: #7DD3FC;
+  --kr-border-focus: #0EA5E9;
+  --kr-fill-brand: #0369A1;
+  --kr-fill-brand-hover: #075985;
+  --kr-fill-brand-active: #0C4A6E;
+  --kr-fill-brand-subtle: #F0F9FF;
+}
+
+/* Classes the pages already use but nothing defined. */
+.kr-light .kr-container {
+  width: 100%;
+  max-width: 80rem;
+  margin-inline: auto;
+  padding-inline: 1rem;
+}
+@media (min-width: 640px) {
+  .kr-light .kr-container { padding-inline: 1.5rem; }
+}
+@media (min-width: 1024px) {
+  .kr-light .kr-container { padding-inline: 2rem; }
+}
+
+.kr-light .kr-glass,
+.kr-light .kr-glass-strong {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(18px) saturate(1.35);
+  -webkit-backdrop-filter: blur(18px) saturate(1.35);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+}
+.kr-light .kr-glass-strong { background: rgba(255, 255, 255, 0.9); }
+
+.kr-light .kr-error-state {
+  background: #FDF2F0;
+  border-color: #F3B6AF;
+}
+
+.kr-light .kr-amount,
+.kr-light .kr-amount-lg {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.kr-light .kr-amount-lg { font-size: 1.75rem; line-height: 1.2; }
+
+.kr-light .kr-skeleton {
+  border-radius: 0.5rem;
+  background: linear-gradient(90deg, #E5E7EB 25%, #F3F4F6 50%, #E5E7EB 75%);
+  background-size: 200% 100%;
+  animation: kr-light-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes kr-light-shimmer {
+  to { background-position: -200% 0; }
+}

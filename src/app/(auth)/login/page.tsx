@@ -1,10 +1,11 @@
 'use client';
 
-export const dynamic = 'force-dynamic';import { useState } from 'react';
+export const dynamic = 'force-dynamic';import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { LogIn, Loader2, Eye, EyeOff } from 'lucide-react';
 import { authApi, tokenStore } from '@/lib/api/auth';
+import { loginHref, PORTAL_ROLES, ROLE_LABELS, portalRoleFromValue } from '@/lib/auth/roles';
 import { ApiError } from '@/lib/api/client';
 
 import { Suspense } from 'react';
@@ -13,7 +14,14 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const verified = searchParams.get('verified') === '1';
-  const initialRole = searchParams.get('role') || 'FARMER';
+  const requestedRole = searchParams.get('role');
+  // Farmers, buyers and sellers have dedicated sign-in pages now.
+  const dedicatedPortal = portalRoleFromValue(requestedRole);
+  const initialRole = requestedRole && !dedicatedPortal ? requestedRole : 'ADMIN';
+
+  useEffect(() => {
+    if (dedicatedPortal) router.replace(loginHref(dedicatedPortal));
+  }, [dedicatedPortal, router]);
   
   const [selectedRole, setSelectedRole] = useState(initialRole);
   const [email, setEmail] = useState('');
@@ -64,13 +72,29 @@ function LoginForm() {
   return (
     <div className="max-w-md w-full kr-glass/95 backdrop-blur-md shadow-2xl rounded-3xl p-8 sm:p-10 border border-white/20 space-y-6 z-10 relative">
       <div>
-        <h1 className="text-4xl font-extrabold text-[#1B4332] tracking-tight">Welcome back</h1>
+        <h1 className="text-4xl font-extrabold text-[#1B4332] tracking-tight">Partner &amp; staff sign-in</h1>
         <p className="text-sm text-kr-text-secondary mt-2">
           Don&apos;t have an account?{' '}
           <Link href="/register" className="text-[#E76F51] font-semibold hover:text-[#D65A3D] transition-colors">
             Create one free
           </Link>
         </p>
+      </div>
+
+      <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
+        <p className="text-sm font-semibold text-emerald-900">Farmer, buyer or seller?</p>
+        <p className="mt-0.5 text-sm text-emerald-800">Use your portal&apos;s own sign-in:</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {PORTAL_ROLES.map((role) => (
+            <Link
+              key={role}
+              href={loginHref(role)}
+              className="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-emerald-800 no-underline ring-1 ring-emerald-200 transition hover:bg-emerald-100 hover:no-underline"
+            >
+              {ROLE_LABELS[role]} sign-in
+            </Link>
+          ))}
+        </div>
       </div>
 
       {verified && (
@@ -94,9 +118,7 @@ function LoginForm() {
             onChange={(e) => setSelectedRole(e.target.value)}
             required
           >
-            <option value="FARMER">Farmer</option>
             <option value="ADMIN">Admin</option>
-            <option value="BUYER">Buyer</option>
             <option value="EXPERT">Expert</option>
             <option value="KISSAN_PARTNER">Kissan Partner (Agri/Horti)</option>
             <option value="RENTAL">Equipment / Machinery Rental</option>

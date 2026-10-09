@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "KashRoot | Premium Agri-Network",
-  description: "Kashmir's authentic agricultural trading platform.",
+  description: "Escrow-protected agri-trade, live mandi rates and price comparison.",
 };
 
 export default function RootLayout({

@@ -7,7 +7,8 @@ import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
 import { ReactNode, useEffect, useState } from 'react';
 
 import { VoiceAssistant } from '@/components/ui/VoiceAssistant';
-import KYCPanel from '@/components/auth/KYCPanel';
+import { KYCPanel } from '@/components/auth/KYCPanel';
+import { isPortalRole, loginHref, portalRoleFromValue, ROLE_VALUE } from '@/lib/auth/roles';
 
 /**
  * Role-Adaptive Dashboard Layout
@@ -27,7 +28,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('auth_token');
       if (!token) {
-        router.push('/login?returnTo=' + encodeURIComponent(window.location.pathname));
+        // Farmer, buyer and seller routes have their own sign-in pages; every
+        // other portal still uses the shared /login.
+        const path = window.location.pathname;
+        const portal = segment && isPortalRole(segment) ? segment : null;
+        router.push(portal ? loginHref(portal, path) : '/login?returnTo=' + encodeURIComponent(path));
       } else {
         setUserRole(localStorage.getItem('user_role'));
         
@@ -40,7 +45,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       }
       setIsMounted(true);
     }
-  }, [router]);
+  }, [router, segment]);
 
   if (!isMounted || !isAuthenticated) {
     // Prevent flicker and layout shift while checking credentials
@@ -56,6 +61,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   if (userRole) {
     if (segment === 'farmer' && userRole !== 'FARMER') { authorized = false; requiredRoleMsg = 'Farmer'; }
     else if (segment === 'buyer' && userRole !== 'BUYER') { authorized = false; requiredRoleMsg = 'Buyer'; }
+    else if (segment === 'seller' && userRole !== 'SELLER') { authorized = false; requiredRoleMsg = 'Seller'; }
     else if (segment === 'expert' && userRole !== 'EXPERT') { authorized = false; requiredRoleMsg = 'Agricultural Expert'; }
     else if (segment === 'admin' && userRole !== 'ADMIN') { authorized = false; requiredRoleMsg = 'Platform Admin'; }
     else if (segment === 'provider' && userRole !== 'PROVIDER') { authorized = false; requiredRoleMsg = 'Logistics & Provider'; }
@@ -80,7 +86,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               onClick={() => {
                 localStorage.removeItem('auth_token');
                 localStorage.removeItem('user_role');
-                router.push('/login');
+                const portal = segment && isPortalRole(segment) ? segment : null;
+                router.push(portal ? loginHref(portal) : '/login');
               }}
               className="kr-glass hover:kr-hero-premium kr-pattern-chinar font-bold py-3 px-6 rounded-lg transition-colors w-full"
             >
@@ -113,14 +120,16 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       </div>
       <VoiceAssistant />
       <SiteFooter />
-      <KYCPanel 
-        isOpen={showKyc} 
-        onComplete={() => {
-          setShowKyc(false);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('kyc_status', 'verified');
-          }
-        }} 
+      <KYCPanel
+        open={showKyc}
+        onClose={() => setShowKyc(false)}
+        defaultRole={(() => {
+          const portal = portalRoleFromValue(userRole);
+          return portal ? ROLE_VALUE[portal] : undefined;
+        })()}
+        // No self-service KYC endpoint exists yet: mark it submitted (under
+        // review), never "verified" — nobody has reviewed it.
+        onComplete={() => localStorage.setItem('kyc_status', 'submitted')}
       />
     </div>
   );

@@ -4,7 +4,7 @@ import Image from 'next/image';
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: { template: '%s | KashRoot', default: 'KashRoot' },
-  description: 'Kashmir\'s global agri-trade platform — connecting farmers to buyers worldwide.',
+  description: 'The agri-trade platform connecting farmers to buyers worldwide.',
 };
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -24,7 +24,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         className="hidden lg:flex w-1/2 flex-col justify-center relative kr-hero-premium kr-pattern-chinar overflow-hidden"
         aria-hidden="true"
       >
-        {/* Subtle Kashmiri Chinar leaf pattern overlay */}
+        {/* Subtle Chinar leaf pattern overlay */}
         <div 
           className="absolute inset-0 pointer-events-none opacity-20"
           style={{
@@ -52,7 +52,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
               Where Harvest Meets Opportunity.
             </h1>
             <p className="text-[#E76F51] text-xl font-medium">
-              Join the digital hub connecting Kashmiri farmers to buyers, modern tools, and intelligent agricultural insights.
+              Join the digital hub connecting farmers to buyers, modern tools, and intelligent agricultural insights.
             </p>
           </div>
         </div>
