@@ -25,6 +25,16 @@ export default function SupportPage() {
           <Link className="font-semibold text-emerald-800 underline" href="/orchard-health">Orchard Health</Link>.
         </p>
       </section>
+      <section>
+        <h2>Contact us</h2>
+        <p>
+          Still stuck? Email{' '}
+          <a className="font-semibold text-emerald-800 underline" href="mailto:support@kashroot.com">
+            support@kashroot.com
+          </a>{' '}
+          and include your order number if your question is about an order.
+        </p>
+      </section>
     </InfoPage>
   );
 }
