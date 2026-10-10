@@ -1,7 +1,7 @@
 /** POST { channel: 'sms' | 'email', to } → { token } (the code goes only to the phone or inbox). */
 import { NextResponse } from 'next/server';
 
-import { emailConfigured, normalise, sendCode, smsConfigured, type Channel } from '@/lib/server/otp';
+import { emailConfigured, normalise, sendCode, SmsProviderError, smsConfigured, type Channel } from '@/lib/server/otp';
 import { hasSigningSecret, rateLimited } from '@/lib/server/sign';
 
 export async function POST(request: Request) {
@@ -27,6 +27,8 @@ export async function POST(request: Request) {
     if ((err as { code?: string })?.code === 'EAUTH') {
       return NextResponse.json({ error: 'The site’s email sender was refused by Gmail. The site owner needs to check GMAIL_USER and GMAIL_APP_PASSWORD.' }, { status: 502 });
     }
-    return NextResponse.json({ error: channel === 'sms' ? 'The SMS could not be sent. Check the number and try again.' : 'The email could not be sent. Check the address and try again.' }, { status: 502 });
+    // Provider messages (e.g. Fast2SMS "Insufficient balance") say what to fix; they hold no secrets.
+    const reason = err instanceof SmsProviderError ? ` (${err.message})` : '';
+    return NextResponse.json({ error: channel === 'sms' ? `The SMS could not be sent${reason}. Check the number and try again.` : 'The email could not be sent. Check the address and try again.' }, { status: 502 });
   }
 }

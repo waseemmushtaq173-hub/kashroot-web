@@ -37,6 +37,9 @@ export function emailConfigured() {
   return Boolean(process.env.RESEND_API_KEY || (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD));
 }
 
+/** An SMS provider refused the message; its text is safe to show. */
+export class SmsProviderError extends Error {}
+
 async function sendSms(mobile10: string, code: string) {
   if (process.env.MSG91_AUTH_KEY && process.env.MSG91_TEMPLATE_ID) {
     const res = await fetch('https://control.msg91.com/api/v5/otp?' + new URLSearchParams({ template_id: process.env.MSG91_TEMPLATE_ID, mobile: `91${mobile10}`, otp: code }), {
@@ -45,7 +48,7 @@ async function sendSms(mobile10: string, code: string) {
       signal: AbortSignal.timeout(15_000),
     });
     const j = await res.json().catch(() => ({}));
-    if (!res.ok || j.type === 'error') throw new Error(j.message || `MSG91 answered ${res.status}`);
+    if (!res.ok || j.type === 'error') throw new SmsProviderError(j.message || `MSG91 answered ${res.status}`);
     return;
   }
   if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER) {
@@ -64,7 +67,7 @@ async function sendSms(mobile10: string, code: string) {
     signal: AbortSignal.timeout(15_000),
   });
   const j = await res.json().catch(() => ({}));
-  if (!res.ok || j.return === false) throw new Error(Array.isArray(j.message) ? j.message.join(' ') : j.message || `Fast2SMS answered ${res.status}`);
+  if (!res.ok || j.return === false) throw new SmsProviderError(`Fast2SMS: ${Array.isArray(j.message) ? j.message.join(' ') : j.message || `answered ${res.status}`}`);
 }
 
 async function sendEmail(email: string, code: string) {
