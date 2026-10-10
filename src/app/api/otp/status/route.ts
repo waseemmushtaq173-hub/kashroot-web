@@ -5,7 +5,7 @@
  */
 import { NextResponse } from 'next/server';
 
-import { emailConfigured, smsConfigured } from '@/lib/server/otp';
+import { emailConfigured, emailProvider as pickEmailProvider, smsConfigured } from '@/lib/server/otp';
 import { hasSigningSecret } from '@/lib/server/sign';
 
 export const dynamic = 'force-dynamic';
@@ -15,7 +15,7 @@ const has = (name: string) => Boolean(process.env[name]?.trim());
 export function GET() {
   const secret = hasSigningSecret();
   const smsProvider = has('MSG91_AUTH_KEY') && has('MSG91_TEMPLATE_ID') ? 'MSG91' : has('TWILIO_ACCOUNT_SID') && has('TWILIO_AUTH_TOKEN') && has('TWILIO_PHONE_NUMBER') ? 'Twilio' : has('FAST2SMS_API_KEY') ? 'Fast2SMS' : null;
-  const emailProvider = has('RESEND_API_KEY') ? 'Resend' : has('GMAIL_USER') && has('GMAIL_APP_PASSWORD') ? 'Gmail' : null;
+  const emailProvider = pickEmailProvider();
 
   const problems: string[] = [];
   if (!secret) problems.push('OTP_SECRET is missing — add any long random text. Without it no OTP can be sent.');
@@ -24,7 +24,7 @@ export function GET() {
     if (has('GMAIL_USER') !== has('GMAIL_APP_PASSWORD')) problems.push('Gmail needs both GMAIL_USER and GMAIL_APP_PASSWORD.');
     else problems.push('No email provider found. Add GMAIL_USER and GMAIL_APP_PASSWORD (or RESEND_API_KEY).');
   }
-  if (emailProvider === 'Resend' && !has('RESEND_FROM')) problems.push('RESEND_FROM is not set, so Resend can only email your own Resend account address. Use Gmail, or verify a domain in Resend and set RESEND_FROM.');
+  if (emailProvider === 'Resend' && !has('RESEND_FROM')) problems.push('RESEND_FROM is not set, so Resend can only email your own Resend account address. Add GMAIL_USER and GMAIL_APP_PASSWORD (used automatically), or verify a domain in Resend and set RESEND_FROM.');
 
   return NextResponse.json({
     smsOtp: secret && smsConfigured() ? `on (${smsProvider})` : 'off',

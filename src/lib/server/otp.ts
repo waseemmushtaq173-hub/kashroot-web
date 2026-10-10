@@ -9,7 +9,8 @@
  *   SMS   — MSG91 (MSG91_AUTH_KEY + MSG91_TEMPLATE_ID, DLT-approved template
  *           with an ##OTP## variable), Twilio (TWILIO_ACCOUNT_SID,
  *           TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER) or Fast2SMS (FAST2SMS_API_KEY).
- *   Email — Resend (RESEND_API_KEY, RESEND_FROM) or Gmail SMTP (GMAIL_USER,
+ *   Email — Resend with a verified sender (RESEND_API_KEY + RESEND_FROM), else
+ *           Gmail SMTP (GMAIL_USER,
  *           GMAIL_APP_PASSWORD).
  * Signing key: OTP_SECRET (a long random string).
  */
@@ -33,8 +34,21 @@ export function normalise(channel: Channel, to: string): string | null {
 export function smsConfigured() {
   return Boolean((process.env.MSG91_AUTH_KEY && process.env.MSG91_TEMPLATE_ID) || (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER) || process.env.FAST2SMS_API_KEY);
 }
+/**
+ * Resend without RESEND_FROM can only send from onboarding@resend.dev, which
+ * delivers to the Resend account owner alone — so Gmail wins unless Resend
+ * has a verified sender.
+ */
+export function emailProvider(): 'Resend' | 'Gmail' | null {
+  const resend = Boolean(process.env.RESEND_API_KEY?.trim());
+  const gmail = Boolean(process.env.GMAIL_USER?.trim() && process.env.GMAIL_APP_PASSWORD?.trim());
+  if (resend && process.env.RESEND_FROM?.trim()) return 'Resend';
+  if (gmail) return 'Gmail';
+  return resend ? 'Resend' : null;
+}
+
 export function emailConfigured() {
-  return Boolean(process.env.RESEND_API_KEY || (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD));
+  return emailProvider() !== null;
 }
 
 /** An SMS provider refused the message; its text is safe to show. */
@@ -73,10 +87,10 @@ async function sendSms(mobile10: string, code: string) {
 async function sendEmail(email: string, code: string) {
   const subject = `${code} is your KashRoot verification code`;
   const html = `<div style="font-family:system-ui,sans-serif;font-size:16px;color:#0f172a"><p>Your KashRoot verification code is</p><p style="font-size:28px;font-weight:700;letter-spacing:6px">${code}</p><p>It expires in 10 minutes. Never share it with anyone — KashRoot staff will never ask for it.</p></div>`;
-  if (process.env.RESEND_API_KEY) {
+  if (emailProvider() === 'Resend') {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY!.trim()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ from: process.env.RESEND_FROM || 'KashRoot <onboarding@resend.dev>', to: email, subject, html }),
       signal: AbortSignal.timeout(15_000),
     });
