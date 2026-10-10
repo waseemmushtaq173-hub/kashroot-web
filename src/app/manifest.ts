@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'KashRoot — orchards, mandi rates & safe trade',
     short_name: 'KashRoot',
-    description: 'Live mandi rates, weather, orchard health and escrow-protected trade for growers, buyers and sellers.',
+    description: 'Live mandi rates, weather, orchard health and pay-after-delivery trade for growers, buyers and sellers.',
     start_url: '/',
     scope: '/',
     display: 'standalone',

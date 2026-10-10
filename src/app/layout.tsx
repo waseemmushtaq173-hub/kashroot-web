@@ -9,14 +9,14 @@ import { SITE_URL } from "@/lib/site";
 const inter = Inter({ subsets: ["latin"] });
 
 const DESCRIPTION =
-  "Live mandi rates, weather, orchard health and escrow-protected trade for apple, walnut, saffron and vegetable growers, buyers, sellers and transporters.";
+  "Live mandi rates, weather, orchard health and pay-after-delivery trade for apple, walnut, saffron and vegetable growers, buyers, sellers and transporters.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: { default: "KashRoot | Orchards, mandi rates & safe agri-trade", template: "%s | KashRoot" },
   description: DESCRIPTION,
   applicationName: "KashRoot",
-  keywords: ["mandi rates", "apple price today", "Agmarknet", "orchard", "escrow", "farmers", "horticulture", "Shopian", "Sopore", "walnut", "saffron", "weather for farmers"],
+  keywords: ["mandi rates", "apple price today", "Agmarknet", "orchard", "cold storage", "farmers", "horticulture", "Shopian", "Sopore", "walnut", "saffron", "weather for farmers"],
   openGraph: {
     type: "website",
     siteName: "KashRoot",

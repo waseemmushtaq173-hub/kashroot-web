@@ -35,7 +35,7 @@ const SLIDES = [
     image: "https://images.unsplash.com/photo-1628157793441-10c0130db6fc?auto=format&fit=crop&w=2400&q=85",
     localImage: "/hero/apple-orchard.webp",
     eyebrow: "Shopian Valley",
-    subline: "Grade-A apples priced transparently, escrow protected.",
+    subline: "Grade-A apples priced transparently, paid after delivery.",
   },
 ];
 

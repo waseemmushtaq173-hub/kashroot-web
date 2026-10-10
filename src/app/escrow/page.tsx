@@ -1,31 +1,37 @@
 'use client';
 
 /**
- * Escrow — how protected payment works, your verification status, and the
- * deals you have accepted in the Buyer portal. No invented balances: money
- * figures appear only for real deals.
+ * Safe payments (/escrow) — how paying works on KashRoot, your
+ * verification status, and your open orders.
+ *
+ * KashRoot does not hold money. Marketplace orders are pay-after-delivery:
+ * the buyer pays the seller directly by UPI / bank once the goods arrive and
+ * are checked. Cold-store bookings are paid straight to the owner.
  *
  * KYC (Aadhaar OTP / DigiLocker, PAN, SMS + email) runs through KYCPanel and
  * needs a signed-in account; signed-out visitors are sent to sign in first.
  */
-import { useState, useSyncExternalStore } from 'react';
-import { CheckCircle2, Handshake, IdCard, Lock, LogIn, ShieldCheck, Truck, type LucideIcon } from 'lucide-react';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { BadgeIndianRupee, CheckCircle2, IdCard, LogIn, PackageCheck, ShieldCheck, ShoppingCart, Truck, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { KYCPanel, type KycSubmission } from '@/components/auth/KYCPanel';
 import { PortalShell } from '@/components/layout/PortalShell';
-import { Badge, Btn, EmptyState, PORTAL_THEMES, Panel, inr } from '@/components/portal/kit';
+import { OrderCard } from '@/components/market/OrderCard';
+import { Btn, EmptyState, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { Tilt3D } from '@/components/three/Tilt3D';
+import { loadAccount } from '@/lib/db/client';
+import { buyerOrders, type MarketOrder } from '@/lib/db/market';
 import { usePersistentState } from '@/lib/portal-store';
 
 const theme = PORTAL_THEMES.provider;
 
 const STEPS: { label: string; text: string; icon: LucideIcon }[] = [
-  { label: 'Agree', text: 'Buyer accepts a seller’s quote for an exact lot, grade and price.', icon: Handshake },
-  { label: 'Lock', text: 'Buyer pays into escrow. The seller sees the money is there — but cannot touch it yet.', icon: Lock },
-  { label: 'Deliver', text: 'Seller dispatches; the truck can be followed on Tracking.', icon: Truck },
-  { label: 'Confirm', text: 'Buyer checks grade and weight on arrival and confirms, or raises a dispute.', icon: CheckCircle2 },
-  { label: 'Release', text: 'Money is released to the seller’s verified bank account.', icon: ShieldCheck },
+  { label: 'Order', text: 'Order on Price Comparison at the seller’s listed price. You pay nothing now.', icon: ShoppingCart },
+  { label: 'Dispatch', text: 'The seller accepts and sends it; a truck can be followed on Tracking with its KashRoot code.', icon: Truck },
+  { label: 'Check', text: 'When it arrives, check grade and weight. Something wrong? Report a problem before paying.', icon: PackageCheck },
+  { label: 'Pay', text: 'Pay the seller directly from your UPI app and type the payment number.', icon: BadgeIndianRupee },
+  { label: 'Confirm', text: 'The seller confirms the money reached them and the order is complete.', icon: CheckCircle2 },
 ];
 
 interface KycRecord {
@@ -36,18 +42,8 @@ interface KycRecord {
   panVerifiedBy: string;
   bank: string;
 }
-interface Inquiry {
-  id: string;
-  crop: string;
-  quantity: string;
-  bestQuote: number | null;
-  status: 'open' | 'accepted';
-}
 
 const NO_KYC: KycRecord | null = null;
-/** Deal value = per-unit quote × the number at the start of "500 boxes". */
-const dealValue = (d: Inquiry) => (d.bestQuote ?? 0) * (parseFloat(d.quantity) || 0);
-const NO_INQUIRIES: Inquiry[] = [];
 
 const subscribe = (cb: () => void) => {
   window.addEventListener('storage', cb);
@@ -61,8 +57,22 @@ export default function EscrowPage() {
   const kycRole = accountRole === 'FARMER' || accountRole === 'BUYER' || accountRole === 'SELLER' ? accountRole : accountRole === 'PROVIDER' ? 'SELLER' : undefined;
   const [kycOpen, setKycOpen] = useState(false);
   const [kyc, setKyc] = usePersistentState<KycRecord | null>('kr_kyc_record', NO_KYC);
-  const [inquiries] = usePersistentState<Inquiry[]>('kr_buyer_inquiries', NO_INQUIRIES);
-  const deals = inquiries.filter((i) => i.status === 'accepted');
+  const [orders, setOrders] = useState<MarketOrder[] | null>(null);
+  const loadOrders = useCallback(async () => {
+    const a = await loadAccount().catch(() => null);
+    setOrders(a ? await buyerOrders(a.id).catch(() => []) : []);
+  }, []);
+  useEffect(() => {
+    let live = true;
+    const run = async () => {
+      if (live) await loadOrders();
+    };
+    void run();
+    return () => {
+      live = false;
+    };
+  }, [loadOrders]);
+  const open = (orders ?? []).filter((o) => !['completed', 'cancelled', 'rejected'].includes(o.status));
 
   const onComplete = (s: KycSubmission) => {
     setKyc({
@@ -87,19 +97,19 @@ export default function EscrowPage() {
     <PortalShell
       standalone
       theme="provider"
-      eyebrow="Escrow protected trade"
-      title="Your money moves only when the harvest does"
-      description="Payments are held safely and released to the seller only after the buyer confirms delivery."
+      eyebrow="Safe payments"
+      title="Pay only after the goods reach you"
+      description="KashRoot does not hold your money. You pay the seller directly by UPI once you have received and checked the goods."
       actions={kycButton}
       kpis={[
         { label: 'Your verification', value: kyc ? 'Verified' : 'Not yet', trend: kyc ? `${kyc.method} · PAN: ${kyc.panVerifiedBy}` : 'Free with UIDAI’s offline e-KYC or Aadhaar QR' },
-        { label: 'Accepted deals', value: String(deals.length), trend: deals.length ? 'Ready to fund' : 'Accept a quote in the Buyer portal' },
-        { label: 'Value of deals', value: deals.length ? inr.format(deals.reduce((sum, d) => sum + dealValue(d), 0)) : '—', trend: 'From your accepted quotes' },
+        { label: 'Open orders', value: String(open.length), trend: 'Ordered, on the way or to pay' },
+        { label: 'To pay now', value: String(open.filter((o) => o.status === 'delivered').length), trend: 'Received — pay the seller' },
       ]}
     >
       <KYCPanel open={kycOpen} onClose={() => setKycOpen(false)} onComplete={onComplete} defaultRole={kycRole} />
 
-      <Panel theme={theme} title="How escrow protects both sides" icon={ShieldCheck}>
+      <Panel theme={theme} title="How paying works" icon={ShieldCheck}>
         <ol className="grid gap-4 md:grid-cols-5">
           {STEPS.map(({ label, text, icon: Icon }, i) => (
             <li key={label}>
@@ -116,6 +126,7 @@ export default function EscrowPage() {
             </li>
           ))}
         </ol>
+        <p className="mt-4 text-sm text-slate-600">Cold-store bookings are paid straight to the cold-store owner’s UPI, and the owner confirms your space.</p>
       </Panel>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_1.4fr]">
@@ -144,31 +155,14 @@ export default function EscrowPage() {
             />
           )}
         </Panel>
-        <Panel theme={theme} title="Your deals" icon={Handshake}>
-          {deals.length === 0 ? (
-            <EmptyState theme={theme} icon={Handshake} title="No accepted deals yet" text="Accept a seller’s quote in the Buyer portal and it will appear here, ready to fund." action={<Btn theme={theme} variant="soft" href="/buyer/dashboard">Open Buyer portal</Btn>} />
+        <Panel theme={theme} title="Your open orders" icon={ShoppingCart}>
+          {orders === null ? (
+            <p className="text-sm text-slate-600">Loading…</p>
+          ) : open.length === 0 ? (
+            <EmptyState theme={theme} icon={ShoppingCart} title="No open orders" text="Order on Price Comparison — you pay the seller only after the goods reach you." action={<Btn theme={theme} variant="soft" href="/compare-prices">Open Price Comparison</Btn>} />
           ) : (
-            <ul className="space-y-3">
-              {deals.map((d) => (
-                <li key={d.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white/70 p-4 ring-1 ring-slate-900/5">
-                  <div>
-                    <p className="text-xs text-slate-500">{d.id}</p>
-                    <p className="font-semibold text-slate-900">{d.crop} · {d.quantity}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {d.bestQuote !== null && (
-                      <span className="text-right">
-                        <span className="block font-semibold tabular-nums text-slate-900">{inr.format(dealValue(d))}</span>
-                        <span className="block text-xs text-slate-500">{inr.format(d.bestQuote)} per unit</span>
-                      </span>
-                    )}
-                    <Badge tone="amber">Awaiting payment</Badge>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <ul className="space-y-3">{open.map((o) => <OrderCard key={o.id} order={o} as="buyer" theme={theme} onChange={() => void loadOrders()} />)}</ul>
           )}
-          <p className="mt-4 text-xs text-slate-500">Funding requires a payment-gateway escrow account (e.g. a bank nodal account) connected to the KashRoot API.</p>
         </Panel>
       </div>
     </PortalShell>

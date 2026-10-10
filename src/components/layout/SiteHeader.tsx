@@ -36,7 +36,7 @@ const EXPLORE_ITEMS = [
   { title: 'Supplies', href: '/supplies' },
   { title: 'Compare prices', href: '/compare-prices' },
   { title: 'Mandi rates & weather', href: '/mandi-weather' },
-  { title: 'Escrow-protected trade', href: '/escrow' },
+  { title: 'Pay after delivery', href: '/escrow' },
 ];
 
 /**

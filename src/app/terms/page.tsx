@@ -12,11 +12,12 @@ export default function TermsPage() {
         <p>You must give accurate details and complete identity verification before you can sell, buy or receive payouts. One person or business per account.</p>
       </section>
       <section>
-        <h2>2. Escrow trades</h2>
+        <h2>2. Orders and payment</h2>
         <ul>
-          <li>Buyer payments are held in escrow until delivery is confirmed or the confirmation window lapses.</li>
-          <li>Sellers must describe grade, quantity and packing honestly; mismatches can be disputed.</li>
-          <li>Disputes are reviewed by platform administrators, whose decision on escrow release is final.</li>
+          <li>Orders are pay-after-delivery: the buyer pays the seller directly (UPI or bank transfer) after receiving and checking the goods. KashRoot does not hold, receive or release payments.</li>
+          <li>Cold-store and machinery bookings are paid directly to the owner, who confirms the booking.</li>
+          <li>Sellers must describe grade, quantity and packing honestly; a buyer can report a mismatch on the order before paying.</li>
+          <li>KashRoot administrators can see reported orders and contact both sides, but the payment itself is between buyer and seller.</li>
         </ul>
       </section>
       <section>
@@ -25,7 +26,7 @@ export default function TermsPage() {
       </section>
       <section>
         <h2>4. Prohibited use</h2>
-        <p>No counterfeit agro-inputs, misbranded produce, fake reviews, or attempts to move a trade off-platform to avoid escrow.</p>
+        <p>No counterfeit agro-inputs, misbranded produce, fake reviews, or or false payment references.</p>
       </section>
       <section>
         <h2>5. Changes</h2>

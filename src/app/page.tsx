@@ -51,8 +51,8 @@ interface ToolAction {
 /** Primary + secondary CTA per card. Logins carry the tool as `next`. */
 const TOOL_ACTIONS: Record<ToolId, { primary: ToolAction; secondary: ToolAction }> = {
   escrow: {
-    primary: { label: 'Buy with escrow', href: loginHref('buyer', TOOLS.escrow.href) },
-    secondary: { label: 'Sell with escrow', href: loginHref('seller', TOOLS.escrow.href) },
+    primary: { label: 'Buy, pay after delivery', href: loginHref('buyer', TOOLS.escrow.href) },
+    secondary: { label: 'Sell your produce', href: loginHref('seller', TOOLS.escrow.href) },
   },
   mandi: {
     primary: { label: 'Open farmer portal', href: loginHref('farmer', '/farmer/dashboard') },
@@ -88,7 +88,7 @@ export default function HomePage() {
               </span>
             </h1>
             <p className="mt-4 max-w-xl text-base leading-relaxed text-slate-700 sm:text-lg">
-              Escrow-protected payments, live mandi rates and transparent price comparison for growers, traders
+              Pay-after-delivery trade, live mandi rates and transparent price comparison for growers, traders
               and buyers.
             </p>
           </section>

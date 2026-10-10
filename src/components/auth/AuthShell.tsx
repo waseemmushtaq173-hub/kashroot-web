@@ -36,7 +36,7 @@ export const AUTH_THEMES: Record<AuthThemeId, AuthTheme> = {
     blobB: 'bg-rose-300/40',
     eyebrow: 'text-amber-200',
     headline: 'Where every harvest meets a fair price.',
-    copy: 'Growers, buyers, sellers and transporters — one trusted marketplace with escrow on every deal.',
+    copy: 'Growers, buyers, sellers and transporters — one trusted marketplace, pay after delivery.',
   },
   farmer: {
     mood: 'spring',
@@ -56,7 +56,7 @@ export const AUTH_THEMES: Record<AuthThemeId, AuthTheme> = {
     blobB: 'bg-indigo-300/40',
     eyebrow: 'text-sky-200',
     headline: 'Source authentic produce, straight from the orchard.',
-    copy: 'Verified growers, side-by-side offers and your money held in escrow until delivery.',
+    copy: 'Verified growers, side-by-side offers, and you pay only after delivery.',
   },
   seller: {
     mood: 'autumn',
@@ -81,7 +81,7 @@ export const AUTH_THEMES: Record<AuthThemeId, AuthTheme> = {
 };
 
 const FEATURES = [
-  { icon: ShieldCheck, label: 'Escrow on every deal' },
+  { icon: ShieldCheck, label: 'Pay after delivery' },
   { icon: LineChart, label: 'Live government mandi rates' },
   { icon: BadgeCheck, label: 'Verified with UIDAI' },
 ];

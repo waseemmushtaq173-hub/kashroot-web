@@ -469,6 +469,10 @@ create trigger market_orders_before before insert on public.market_orders for ea
 drop policy if exists "Buyers and sellers see orders" on public.market_orders;
 create policy "Buyers and sellers see orders" on public.market_orders for select to authenticated
   using (buyer_id = auth.uid() or seller_id = auth.uid());
+-- A buyer's "Report a problem" reaches KashRoot: admins see disputed orders.
+drop policy if exists "Admins see reported orders" on public.market_orders;
+create policy "Admins see reported orders" on public.market_orders for select to authenticated
+  using (status = 'disputed' and public.kr_has_role('ADMIN'));
 drop policy if exists "Buyers place orders" on public.market_orders;
 create policy "Buyers place orders" on public.market_orders for insert to authenticated with check (buyer_id = auth.uid());
 

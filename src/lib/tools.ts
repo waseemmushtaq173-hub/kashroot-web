@@ -61,10 +61,10 @@ export const GLASS = {
 export const TOOLS: Record<ToolId, Tool> = {
   escrow: {
     id: 'escrow',
-    title: 'Escrow Protected Trade',
-    eyebrow: 'Payments held safely',
+    title: 'Pay After Delivery',
+    eyebrow: 'Safe payments',
     description:
-      'Your money is held by Kashroot until the produce arrives and is accepted — no advance-payment risk on either side.',
+      'Order now and pay the seller directly by UPI only after the goods reach you and you have checked them — no advance-payment risk.',
     href: '/escrow',
     icon: ShieldCheck,
     theme: {

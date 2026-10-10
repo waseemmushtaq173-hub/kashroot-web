@@ -52,7 +52,7 @@ export const PORTAL_LOGIN: Record<PortalId, PortalLoginCopy> = {
     mood: 'spring',
     eyebrow: 'Farmer portal',
     headline: 'Manage your orchards',
-    description: 'Track today’s mandi rates, list your harvest and get paid safely through escrow.',
+    description: 'Track today’s mandi rates, list your harvest and get paid directly by UPI after delivery.',
     highlights: ['Live rates from your nearest mandi', 'List apples, saffron, walnuts and more', 'Payment released only on delivery'],
     theme: T({
       canvas: 'bg-gradient-to-br from-lime-50 via-emerald-50 to-teal-50',
@@ -71,8 +71,8 @@ export const PORTAL_LOGIN: Record<PortalId, PortalLoginCopy> = {
     mood: 'summer',
     eyebrow: 'Buyer portal',
     headline: 'Source authentic produce',
-    description: 'Buy saffron, premium apples and dry fruits direct from verified growers — your payment stays in escrow until the goods arrive.',
-    highlights: ['Verified growers and traders', 'Compare offers side by side', 'Escrow protection on every order'],
+    description: 'Buy saffron, premium apples and dry fruits direct from verified growers — pay only after the goods arrive.',
+    highlights: ['Verified growers and traders', 'Compare offers side by side', 'Pay after delivery on every order'],
     theme: T({
       canvas: 'bg-gradient-to-br from-sky-50 via-white to-indigo-50',
       iconTile: 'bg-gradient-to-br from-sky-400 to-indigo-500 text-white shadow-lg shadow-indigo-500/30',
@@ -147,7 +147,7 @@ export const PORTAL_LOGIN: Record<PortalId, PortalLoginCopy> = {
     mood: 'winter',
     eyebrow: 'Logistics portal',
     headline: 'Move the harvest on time',
-    description: 'Accept transport jobs, run cold-chain shipments and get paid through escrow on delivery.',
+    description: 'Accept transport jobs, run cold-chain shipments and share live tracking with every load.',
     highlights: ['Transport requests near you', 'Cold-chain temperature logs', 'Payouts released on delivery'],
     theme: T({
       canvas: 'bg-gradient-to-br from-teal-50 via-cyan-50 to-white',

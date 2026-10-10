@@ -9,14 +9,14 @@ export default function SupportPage() {
   return (
     <InfoPage title="Help & support" intro="Quick answers, and a person when you need one.">
       <section>
-        <h2>Payment held in escrow?</h2>
+        <h2>How do I pay?</h2>
         <p>
-          Money is released when the buyer confirms delivery. Track it on the <Link className="font-semibold text-emerald-800 underline" href="/escrow">Escrow</Link> page.
+          Buyers pay the seller directly by UPI after the goods arrive; KashRoot does not hold money. See how on the <Link className="font-semibold text-emerald-800 underline" href="/escrow">Safe payments</Link> page.
         </p>
       </section>
       <section>
         <h2>Problem with an order?</h2>
-        <p>Open the order and choose “Raise a dispute”. Escrow stays on hold until an administrator reviews it.</p>
+        <p>Open it in My orders and press “Report a problem” before you pay. The seller and KashRoot’s team see your note and can call you.</p>
       </section>
       <section>
         <h2>Crop or pest question?</h2>

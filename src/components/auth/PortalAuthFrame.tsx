@@ -57,7 +57,7 @@ export function PortalAuthFrame({ portal, labelledBy, children }: { portal: Port
               ))}
             </ul>
           </div>
-          <p className="mt-8 hidden text-xs text-white/80 lg:block">Escrow-protected trade · Verified growers, traders and buyers</p>
+          <p className="mt-8 hidden text-xs text-white/80 lg:block">Pay-after-delivery trade · Verified growers, traders and buyers</p>
         </section>
 
         <section aria-labelledby={labelledBy} className="bg-white/80 p-6 text-slate-900 sm:p-10">
