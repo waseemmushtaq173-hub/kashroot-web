@@ -191,6 +191,8 @@ export interface KycConfig {
   online: boolean;
   offline: boolean;
   sms: boolean;
+  /** Mobile codes can also go by WhatsApp. */
+  whatsapp?: boolean;
   email: boolean;
 }
 

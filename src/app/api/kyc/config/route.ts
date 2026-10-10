@@ -5,7 +5,7 @@
  */
 import { NextResponse } from 'next/server';
 
-import { emailConfigured, smsConfigured } from '@/lib/server/otp';
+import { emailConfigured, smsConfigured, whatsappConfigured } from '@/lib/server/otp';
 import { sandboxConfigured } from '@/lib/server/sandbox';
 import { hasSigningSecret } from '@/lib/server/sign';
 
@@ -17,6 +17,7 @@ export function GET() {
     online: sandboxConfigured(),
     offline: true,
     sms: signing && smsConfigured(),
+    whatsapp: signing && whatsappConfigured(),
     email: signing && emailConfigured(),
   });
 }

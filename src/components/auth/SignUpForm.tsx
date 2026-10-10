@@ -19,7 +19,7 @@ import { useForm } from 'react-hook-form';
 import { AlertCircle, ArrowRight, Check, CheckCircle2, Eye, EyeOff, GraduationCap, Leaf, Loader2, ShoppingBag, Store, Truck, type LucideIcon } from 'lucide-react';
 
 import { setAuthTheme, type AuthThemeId } from '@/components/auth/AuthShell';
-import { ContactOtp } from '@/components/auth/ContactOtp';
+import { ContactOtp, type PhoneRoute } from '@/components/auth/ContactOtp';
 import { PORTAL_LOGIN } from '@/components/auth/portalLoginConfig';
 import { authApi, type RegisterDto } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
@@ -113,17 +113,18 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
   // Codes only when the site has an email/SMS provider (see /api/kyc/config).
-  const [contactConfig, setContactConfig] = useState<{ sms: boolean; email: boolean } | null>(null);
+  const [contactConfig, setContactConfig] = useState<{ sms: boolean; whatsapp: boolean; email: boolean } | null>(null);
   // A provider that fails on the site's side (bad key, unverified sender)
   // must not lock everyone out of signing up: that check becomes optional.
-  const [smsDown, setSmsDown] = useState(false);
+  const [phoneDown, setPhoneDown] = useState<PhoneRoute[]>([]);
   const [emailDown, setEmailDown] = useState(false);
-  const smsRequired = Boolean(contactConfig?.sms) && !smsDown;
+  const phoneRoutes: PhoneRoute[] = contactConfig ? [...(contactConfig.sms ? (['sms'] as const) : []), ...(contactConfig.whatsapp ? (['whatsapp'] as const) : [])] : [];
+  const smsRequired = phoneRoutes.some((r) => !phoneDown.includes(r));
   const emailRequired = Boolean(contactConfig?.email) && !emailDown;
 
   useEffect(() => {
     let live = true;
-    void getKycConfig().then((c) => live && setContactConfig({ sms: c.sms, email: c.email }));
+    void getKycConfig().then((c) => live && setContactConfig({ sms: c.sms, whatsapp: Boolean(c.whatsapp), email: c.email }));
     return () => {
       live = false;
     };
@@ -350,7 +351,8 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
             label="Mobile number"
             accent={otpAccent}
             required={contactConfig ? smsRequired : undefined}
-            onUnavailable={() => setSmsDown(true)}
+            routes={phoneRoutes.length ? phoneRoutes : undefined}
+            onUnavailable={(r) => setPhoneDown((down) => (r === 'email' || down.includes(r) ? down : [...down, r]))}
             value={phoneValue ?? ''}
             onChange={(v) => {
               setValue('phone', v);

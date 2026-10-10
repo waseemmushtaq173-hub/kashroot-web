@@ -5,7 +5,7 @@
  */
 import { NextResponse } from 'next/server';
 
-import { emailConfigured, emailProvider as pickEmailProvider, smsConfigured } from '@/lib/server/otp';
+import { emailConfigured, emailProvider as pickEmailProvider, smsConfigured, whatsappConfigured } from '@/lib/server/otp';
 import { hasSigningSecret } from '@/lib/server/sign';
 
 export const dynamic = 'force-dynamic';
@@ -28,8 +28,9 @@ export function GET() {
 
   return NextResponse.json({
     smsOtp: secret && smsConfigured() ? `on (${smsProvider}${smsProvider === 'Fast2SMS' ? `, route ${(process.env.FAST2SMS_ROUTE ?? 'otp').trim() || 'otp'}` : ''})` : 'off',
+    whatsappOtp: secret && whatsappConfigured() ? 'on (WhatsApp Cloud API)' : 'off',
     emailOtp: secret && emailConfigured() ? `on (${emailProvider})` : 'off',
-    found: { OTP_SECRET: has('OTP_SECRET'), FAST2SMS_API_KEY: has('FAST2SMS_API_KEY'), GMAIL_USER: has('GMAIL_USER'), GMAIL_APP_PASSWORD: has('GMAIL_APP_PASSWORD'), RESEND_API_KEY: has('RESEND_API_KEY'), RESEND_FROM: has('RESEND_FROM'), MSG91_AUTH_KEY: has('MSG91_AUTH_KEY'), TWILIO_ACCOUNT_SID: has('TWILIO_ACCOUNT_SID') },
+    found: { OTP_SECRET: has('OTP_SECRET'), FAST2SMS_API_KEY: has('FAST2SMS_API_KEY'), GMAIL_USER: has('GMAIL_USER'), GMAIL_APP_PASSWORD: has('GMAIL_APP_PASSWORD'), RESEND_API_KEY: has('RESEND_API_KEY'), RESEND_FROM: has('RESEND_FROM'), MSG91_AUTH_KEY: has('MSG91_AUTH_KEY'), TWILIO_ACCOUNT_SID: has('TWILIO_ACCOUNT_SID'), WHATSAPP_TOKEN: has('WHATSAPP_TOKEN'), WHATSAPP_PHONE_NUMBER_ID: has('WHATSAPP_PHONE_NUMBER_ID'), WHATSAPP_TEMPLATE: has('WHATSAPP_TEMPLATE') },
     problems,
     note: 'Vercel applies new or changed variables only to deployments made after the change — redeploy after editing them.',
   });

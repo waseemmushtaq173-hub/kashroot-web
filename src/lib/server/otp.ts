@@ -19,11 +19,11 @@ import { randomInt, randomUUID } from 'node:crypto';
 
 import { sign, verifySignature } from './sign';
 
-export type Channel = 'sms' | 'email';
+export type Channel = 'sms' | 'whatsapp' | 'email';
 const TTL_MS = 10 * 60_000;
 
 export function normalise(channel: Channel, to: string): string | null {
-  if (channel === 'sms') {
+  if (channel === 'sms' || channel === 'whatsapp') {
     const digits = to.replace(/\D/g, '').replace(/^(91|0)(?=\d{10}$)/, '');
     return /^[6-9]\d{9}$/.test(digits) ? digits : null;
   }
@@ -45,6 +45,41 @@ export function emailProvider(): 'Resend' | 'Gmail' | null {
   if (resend && process.env.RESEND_FROM?.trim()) return 'Resend';
   if (gmail) return 'Gmail';
   return resend ? 'Resend' : null;
+}
+
+/**
+ * WhatsApp OTP through Meta's WhatsApp Cloud API: WHATSAPP_TOKEN (a permanent
+ * system-user token), WHATSAPP_PHONE_NUMBER_ID, and WHATSAPP_TEMPLATE — an
+ * approved AUTHENTICATION template with a copy-code button
+ * (WHATSAPP_TEMPLATE_LANG, default en). No DLT registration needed.
+ */
+export function whatsappConfigured() {
+  return Boolean(process.env.WHATSAPP_TOKEN?.trim() && process.env.WHATSAPP_PHONE_NUMBER_ID?.trim() && process.env.WHATSAPP_TEMPLATE?.trim());
+}
+
+async function sendWhatsapp(mobile10: string, code: string) {
+  const version = process.env.WHATSAPP_API_VERSION?.trim() || 'v21.0';
+  const res = await fetch(`https://graph.facebook.com/${version}/${process.env.WHATSAPP_PHONE_NUMBER_ID!.trim()}/messages`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN!.trim()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to: `91${mobile10}`,
+      type: 'template',
+      template: {
+        name: process.env.WHATSAPP_TEMPLATE!.trim(),
+        language: { code: process.env.WHATSAPP_TEMPLATE_LANG?.trim() || 'en' },
+        // Authentication templates take the code in the body and in the copy-code button.
+        components: [
+          { type: 'body', parameters: [{ type: 'text', text: code }] },
+          { type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: code }] },
+        ],
+      },
+    }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok || j.error) throw new SmsProviderError(`WhatsApp: ${j.error?.error_user_msg || j.error?.message || `answered ${res.status}`}`);
 }
 
 export function emailConfigured() {
@@ -127,6 +162,7 @@ async function sendEmail(email: string, code: string) {
 export async function sendCode(channel: Channel, to: string): Promise<string> {
   const code = String(randomInt(100000, 1000000));
   if (channel === 'sms') await sendSms(to, code);
+  else if (channel === 'whatsapp') await sendWhatsapp(to, code);
   else await sendEmail(to, code);
   const payload = { id: randomUUID(), ch: channel, to, exp: Date.now() + TTL_MS };
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
