@@ -270,7 +270,7 @@ export function Panel({
   id?: string;
 }) {
   return (
-    <section id={id} className={`${GLASS_CARD} p-5 sm:p-6 ${className}`}>
+    <section id={id} className={`${GLASS_CARD} min-w-0 p-5 sm:p-6 ${className}`}>
       {(title || action) && (
         <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
           {title && (

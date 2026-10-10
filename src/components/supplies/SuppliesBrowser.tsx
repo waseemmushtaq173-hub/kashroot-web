@@ -227,7 +227,7 @@ function ItemCard({ item }: { item: SupplyItem }) {
       </header>
 
       {/* Offer comparison */}
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="w-full min-w-[38rem] border-collapse text-left">
           <caption className="kr-sr-only">
             Supplier offers for {item.name}, ordered by unit price

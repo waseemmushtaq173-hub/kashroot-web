@@ -114,7 +114,7 @@ export default function FieldAgentPage() {
                   </button>
                 </div>
                 
-                <div className="overflow-x-auto">
+                <div className="relative overflow-x-auto">
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-white/10 text-white/50">

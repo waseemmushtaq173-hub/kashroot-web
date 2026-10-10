@@ -55,7 +55,7 @@ export default function ToolComparisonPage() {
           )}
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="w-full border-collapse text-left border border-kr-border-default bg-kr-bg-surface">
             <thead>
               <tr className="bg-kr-bg-sunken border-b border-kr-border-default">

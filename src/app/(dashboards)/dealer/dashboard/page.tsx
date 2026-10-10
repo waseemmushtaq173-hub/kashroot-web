@@ -211,7 +211,7 @@ export default function DealerDashboardPage() {
             {batches.length === 0 ? (
               <EmptyState theme={theme} icon={FlaskConical} title="No batches" text="Add a batch or upload a manifest CSV." />
             ) : (
-              <div className="overflow-x-auto">
+              <div className="relative overflow-x-auto">
                 <table className="w-full min-w-[640px] text-left text-sm">
                   <thead className="text-xs uppercase tracking-wider text-slate-500">
                     <tr><th className="py-2">Product</th><th>Batch</th><th>Expiry</th><th>Stock</th><th>Registry</th><th className="sr-only">Actions</th></tr>

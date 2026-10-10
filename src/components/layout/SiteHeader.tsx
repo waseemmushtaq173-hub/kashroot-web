@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LayoutGrid, ChevronDown, Home, LogOut, UserRound } from 'lucide-react';
+import { LayoutGrid, ChevronDown, Home, LogIn, LogOut, Menu, UserPlus, UserRound, X } from 'lucide-react';
 import { BrandMark } from '@/components/brand/Shikara';
 import { MyDetailsPanel } from '@/components/portal/MyDetailsPanel';
 import { MY_DETAILS } from '@/components/portal/myDetailsConfig';
@@ -29,6 +29,87 @@ const MENU_ITEMS = [
   { title: 'Season Planner', href: '/season-planner', desc: 'Calendar & ROI calculator' },
   { title: 'Traceability', href: '/traceability', desc: 'Origin, cold chain & grades' },
 ];
+
+/** Public pages and tools, for the phone menu (the bar has no room for them). */
+const EXPLORE_ITEMS = [
+  { title: 'Produce marketplace', href: '/buyer/discover' },
+  { title: 'Supplies', href: '/supplies' },
+  { title: 'Compare prices', href: '/compare-prices' },
+  { title: 'Mandi rates & weather', href: '/mandi-weather' },
+  { title: 'Escrow-protected trade', href: '/escrow' },
+];
+
+/**
+ * Phone menu: one button opens everything the desktop bar shows — sign in,
+ * create account, the public pages and every portal — so nothing on the site
+ * needs "Desktop site" to be reached.
+ */
+function MobileMenu({ showAuth }: { showAuth: boolean }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onOutside = (e: PointerEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('pointerdown', onOutside);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('pointerdown', onOutside);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [open]);
+
+  const close = () => setOpen(false);
+  const item = 'block rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-900 no-underline transition-colors hover:bg-slate-900/5 hover:no-underline';
+  const heading = 'px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500';
+
+  return (
+    <div className="md:hidden" ref={wrapRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-controls="mobile-menu"
+        className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-900/10 bg-white/85 px-3 py-2 text-sm font-semibold text-slate-800 backdrop-blur-md transition hover:bg-white"
+      >
+        {open ? <X className="h-4 w-4" aria-hidden /> : <Menu className="h-4 w-4" aria-hidden />}
+        Menu
+      </button>
+
+      {open && (
+        <div
+          id="mobile-menu"
+          className="absolute inset-x-0 top-full z-50 max-h-[calc(100svh-4.5rem)] overflow-y-auto border-b border-slate-900/10 bg-white px-3 pb-4 pt-2 shadow-[0_24px_60px_-20px_rgba(15,23,42,0.35)]"
+        >
+          {showAuth && (
+            <div className="grid grid-cols-2 gap-2 p-1">
+              <Link href="/login" onClick={close} className="flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-3 py-3 text-sm font-semibold text-white no-underline shadow-sm hover:bg-emerald-800 hover:no-underline">
+                <LogIn className="h-4 w-4" aria-hidden /> Sign in
+              </Link>
+              <Link href="/register" onClick={close} className="flex items-center justify-center gap-2 rounded-xl bg-white px-3 py-3 text-sm font-semibold text-slate-900 no-underline ring-1 ring-slate-900/15 hover:bg-slate-50 hover:no-underline">
+                <UserPlus className="h-4 w-4" aria-hidden /> Create account
+              </Link>
+            </div>
+          )}
+          <p className={heading}>Explore</p>
+          {EXPLORE_ITEMS.map((p) => (
+            <Link key={p.href} href={p.href} onClick={close} className={item}>{p.title}</Link>
+          ))}
+          <p className={heading}>Portals & tools</p>
+          {MENU_ITEMS.map((p) => (
+            <Link key={p.href} href={p.href} onClick={close} className={item}>
+              {p.title}
+              <span className="block text-xs font-normal text-slate-500">{p.desc}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function PortalMenu({ onOpenPortals, tone }: { onOpenPortals?: () => void; tone: SiteTone }) {
   const light = tone === 'light';
@@ -138,7 +219,7 @@ export function SiteHeader({
           <BrandMark />
         </Link>
 
-        <div className="hidden items-center gap-1 sm:flex">
+        <div className="hidden items-center gap-1 md:flex">
           <Link href="/buyer/discover" className={navLink}>
             Produce
           </Link>
@@ -156,13 +237,10 @@ export function SiteHeader({
               Sign in
             </Link>
           )}
-          <PortalMenu onOpenPortals={onOpenPortals} tone={tone} />
-          <Link
-            href="/supplies"
-            className={light ? `${navLink} sm:hidden` : 'kr-btn-ghost kr-btn-sm sm:hidden'}
-          >
-            Supplies
-          </Link>
+          <div className="hidden md:block">
+            <PortalMenu onOpenPortals={onOpenPortals} tone={tone} />
+          </div>
+          <MobileMenu showAuth={!hideSignIn} />
         </div>
       </nav>
     </header>
@@ -227,23 +305,23 @@ function PortalHeader({ portal }: { portal: PortalId }) {
     <header className="sticky top-0 z-40 border-b border-slate-900/5 bg-white/75 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] backdrop-blur-xl">
       <nav aria-label="Portal" className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
-          <Link href="/" className="shrink-0 text-slate-900 no-underline hover:no-underline">
-            <BrandMark />
+          <Link href="/" aria-label="KashRoot home" className="shrink-0 text-slate-900 no-underline hover:no-underline">
+            <BrandMark compactOnPhone />
           </Link>
           <span className="hidden truncate rounded-full bg-slate-900/5 px-3 py-1 text-xs font-semibold text-slate-700 sm:inline">
             {PORTALS[portal].label} portal
           </span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
           {hasDetailsForm && (
-            <button type="button" onClick={() => setDetailsOpen(true)} className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-slate-800 transition hover:bg-white">
-              <UserRound className="h-4 w-4" aria-hidden /> <span className="hidden sm:inline">My details</span>
+            <button type="button" onClick={() => setDetailsOpen(true)} className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-2 text-sm font-semibold text-slate-800 transition hover:bg-white sm:px-3">
+              <UserRound className="h-4 w-4" aria-hidden /> <span>My details</span>
             </button>
           )}
-          <Link href="/" className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 no-underline transition hover:bg-white hover:text-slate-900 hover:no-underline">
+          <Link href="/" className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 no-underline transition hover:bg-white hover:text-slate-900 hover:no-underline">
             <Home className="h-4 w-4" aria-hidden /> Home
           </Link>
-          <button type="button" onClick={signOut} className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-900/10 bg-white/80 px-3 py-2 text-sm font-semibold text-slate-800 transition hover:bg-white">
+          <button type="button" onClick={signOut} className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-900/10 bg-white/80 px-3 py-2 text-sm font-semibold text-slate-800 transition hover:bg-white">
             <LogOut className="h-4 w-4" aria-hidden /> Sign out
           </button>
         </div>
