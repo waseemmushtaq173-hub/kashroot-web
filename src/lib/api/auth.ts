@@ -16,7 +16,21 @@
  */
 
 import { api } from './client';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseConfigured } from '@/lib/supabase';
+
+const NOT_SET_UP = 'Sign-in is not set up on this site yet: the owner must add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel and redeploy.';
+
+/** Plain-language versions of Supabase auth errors. */
+function friendlyAuthError(message: string | undefined, fallback: string): string {
+  const m = (message ?? '').toLowerCase();
+  if (m.includes('email not confirmed')) return 'Your email is not confirmed yet. Open the confirmation link we emailed you (check Spam/Promotions too), then sign in.';
+  if (m.includes('invalid login credentials')) return 'Wrong email or password. If you have not created an account yet, use Create an account.';
+  if (m.includes('already registered') || m.includes('already been registered')) return 'An account with this email already exists. Sign in instead, or use Forgot password.';
+  if (m.includes('rate limit') || m.includes('too many')) return 'Too many attempts. Please wait a few minutes and try again.';
+  if (m.includes('password') && m.includes('characters')) return message!;
+  if (m.includes('failed to fetch') || m.includes('network')) return 'Could not reach the sign-in service. Check your internet connection.';
+  return message || fallback;
+}
 
 // ── Role enum (mirrors Module 1 UserRole) ─────────────────────────────────
 export type UserRole =
@@ -101,6 +115,7 @@ export interface RefreshResponse {
 // ── API calls ─────────────────────────────────────────────────────────────
 export const authApi = {
   register: async (dto: RegisterDto): Promise<RegisterResponse> => {
+    if (!supabaseConfigured) throw new Error(NOT_SET_UP);
     // Sign-up goes through Supabase auth — the same place `login` checks
     // credentials — so a new account can sign in immediately. It used to POST
     // to /api/auth/register, which wrote a Prisma row Supabase never sees, so
@@ -119,7 +134,9 @@ export const authApi = {
       },
     });
 
-    if (error) throw new Error(error.message || 'Failed to register account');
+    if (error) throw new Error(friendlyAuthError(error.message, 'Failed to register account'));
+    // Supabase answers an already-registered email with a user that has no identities.
+    if (data.user && data.user.identities?.length === 0) throw new Error(friendlyAuthError('already registered', ''));
 
     // With "Confirm email" switched on for the Supabase project, signUp
     // returns a user but no session: the link has to be clicked before
@@ -131,13 +148,14 @@ export const authApi = {
     };
   },
   login: async (dto: LoginDto) => {
+    if (!supabaseConfigured) throw new Error(NOT_SET_UP);
     const { data, error } = await supabase.auth.signInWithPassword({
       email: dto.email,
       password: dto.password,
     });
 
     if (error) {
-      throw new Error('Invalid email or password');
+      throw new Error(friendlyAuthError(error.message, 'Invalid email or password'));
     }
 
     // The role recorded at sign-up wins; kr_mock_role stays as the fallback

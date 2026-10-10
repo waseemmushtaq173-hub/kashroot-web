@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useMutation } from '@tanstack/react-query';
@@ -10,6 +10,7 @@ import { authApi, type RegisterDto } from '@/lib/api/auth';
 import { loginHref, REGISTER_ROLES } from '@/lib/auth/roles';
 import { ApiError } from '@/lib/api/client';
 import { ContactOtp } from '@/components/auth/ContactOtp';
+import { getKycConfig } from '@/lib/kyc/kyc-service';
 
 type RegisterRole = RegisterDto['role'];
 const ROLE_EMOJI: Record<RegisterRole, string> = { FARMER: '🌾', BUYER: '🛒', SELLER: '🏪', PROVIDER: '🚚' };
@@ -33,6 +34,16 @@ function RegisterForm() {
   // Contact verification (codes are checked on the server — see ContactOtp)
   const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
+  // Codes are only asked for when the site has an email/SMS provider; without
+  // one, Supabase's own confirmation email verifies the address for free.
+  const [contactConfig, setContactConfig] = useState<{ sms: boolean; email: boolean } | null>(null);
+  useEffect(() => {
+    let live = true;
+    void getKycConfig().then((c) => live && setContactConfig({ sms: c.sms, email: c.email }));
+    return () => {
+      live = false;
+    };
+  }, []);
 
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
@@ -87,9 +98,14 @@ function RegisterForm() {
         <CheckCircle2 style={{ width: '3rem', height: '3rem', color: '#16a34a', margin: '0 auto 1rem' }} />
         <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#111827' }}>Account created!</h2>
         {needsEmailConfirmation ? (
-          <p style={{ color: '#4b5563', marginTop: '0.5rem' }}>
-            Check your inbox and click the confirmation link, then sign in.
-          </p>
+          <>
+            <p style={{ color: '#4b5563', marginTop: '0.5rem' }}>
+              We emailed a confirmation link to <strong>{emailValue}</strong>. Click it (check Spam/Promotions too), then sign in.
+            </p>
+            <Link href={loginHref(REGISTER_ROLES.find((r) => r.role === selectedRole)?.portal ?? 'farmer')} className="mt-4 inline-block rounded-xl bg-[#1B4332] px-5 py-3 font-semibold text-white no-underline hover:no-underline">
+              Go to sign in
+            </Link>
+          </>
         ) : (
           <>
             <p style={{ color: '#4b5563', marginTop: '0.5rem' }}>You have successfully registered. Redirecting to sign in…</p>
@@ -100,7 +116,12 @@ function RegisterForm() {
     );
   }
 
-  const isFormValid = isEmailVerified && isPhoneVerified && agreedToTerms;
+  const emailFormatOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test((emailValue ?? '').trim());
+  const phoneDigits = (phoneValue ?? '').replace(/\D/g, '');
+  const emailOk = contactConfig?.email ? isEmailVerified : emailFormatOk;
+  // Mobile is optional until SMS codes are connected; if typed it must look valid.
+  const phoneOk = contactConfig?.sms ? isPhoneVerified : phoneDigits.length === 0 || /^(91)?[6-9]\d{9}$/.test(phoneDigits);
+  const isFormValid = emailOk && phoneOk && agreedToTerms;
 
   return (
     <div className="kr-glass shadow-2xl shadow-gray-200/50 rounded-[2rem] p-8 sm:p-10 border border-kr-border-default max-w-md w-full mx-auto relative z-10">
@@ -165,27 +186,62 @@ function RegisterForm() {
           {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName.message}</p>}
         </div>
 
-        {/* Email — verified with a code sent to the inbox */}
-        <ContactOtp
-          channel="email"
-          label="Email address"
-          value={emailValue ?? ""}
-          onChange={(v) => setValue('email', v)}
-          verified={isEmailVerified}
-          onVerified={() => setIsEmailVerified(true)}
-          onReset={() => setIsEmailVerified(false)}
-        />
+        {/* Email — a code when an email provider is connected, else Supabase's confirmation link */}
+        {contactConfig?.email ? (
+          <ContactOtp
+            channel="email"
+            label="Email address"
+            value={emailValue ?? ''}
+            onChange={(v) => setValue('email', v)}
+            verified={isEmailVerified}
+            onVerified={() => setIsEmailVerified(true)}
+            onReset={() => setIsEmailVerified(false)}
+          />
+        ) : (
+          <div>
+            <label htmlFor="reg-email" className="text-sm font-semibold text-kr-text-primary mb-1.5 block">Email address</label>
+            <input
+              id="reg-email"
+              type="email"
+              autoComplete="email"
+              value={emailValue ?? ''}
+              onChange={(e) => setValue('email', e.target.value)}
+              placeholder="you@example.com"
+              className="w-full px-4 py-3.5 rounded-xl border border-kr-border-default bg-white text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] outline-none"
+            />
+            <p className="mt-1 text-xs text-slate-500">We’ll email you a link to confirm this address.</p>
+          </div>
+        )}
 
-        {/* Mobile — verified with an SMS code */}
-        <ContactOtp
-          channel="sms"
-          label="Mobile number"
-          value={phoneValue ?? ""}
-          onChange={(v) => setValue('phone', v)}
-          verified={isPhoneVerified}
-          onVerified={() => setIsPhoneVerified(true)}
-          onReset={() => setIsPhoneVerified(false)}
-        />
+        {/* Mobile — SMS code when an SMS provider is connected, else optional */}
+        {contactConfig?.sms ? (
+          <ContactOtp
+            channel="sms"
+            label="Mobile number"
+            value={phoneValue ?? ''}
+            onChange={(v) => setValue('phone', v)}
+            verified={isPhoneVerified}
+            onVerified={() => setIsPhoneVerified(true)}
+            onReset={() => setIsPhoneVerified(false)}
+          />
+        ) : (
+          <div>
+            <label htmlFor="reg-phone" className="text-sm font-semibold text-kr-text-primary mb-1.5 block">
+              Mobile number <span className="font-normal text-slate-500">(optional)</span>
+            </label>
+            <input
+              id="reg-phone"
+              type="tel"
+              inputMode="numeric"
+              autoComplete="tel-national"
+              value={phoneValue ?? ''}
+              onChange={(e) => setValue('phone', e.target.value.replace(/[^\d+ ]/g, '').slice(0, 14))}
+              placeholder="10-digit mobile number"
+              className="w-full px-4 py-3.5 rounded-xl border border-kr-border-default bg-white text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] outline-none"
+            />
+            {!phoneOk && <p className="mt-1 text-xs text-red-600">Enter a valid 10-digit Indian mobile number, or leave it empty.</p>}
+          </div>
+        )}
 
         {/* Password */}
         <div>
