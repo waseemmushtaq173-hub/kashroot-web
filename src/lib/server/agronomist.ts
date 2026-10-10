@@ -73,6 +73,8 @@ export interface Diagnosis {
   see_expert: boolean;
   photo_quality_note: string;
   summary_spoken: string;
+  /** summary_spoken in Devanagari, for a Hindi voice (Urdu / Kashmiri only). */
+  summary_devanagari: string;
 }
 
 const DIAGNOSIS_SCHEMA = {
@@ -89,8 +91,9 @@ const DIAGNOSIS_SCHEMA = {
     see_expert: { type: 'boolean', description: 'True when confidence is not high, damage is spreading, or a lab test is needed' },
     photo_quality_note: { type: 'string', description: 'How to take a better photo if needed, else empty' },
     summary_spoken: { type: 'string', description: 'Three or four plain sentences to read aloud' },
+    summary_devanagari: { type: 'string', description: 'When writing Urdu or Kashmiri: summary_spoken transliterated into Devanagari (same words, as pronounced) for a Hindi voice; otherwise empty' },
   },
-  required: ['plant_seen', 'healthy', 'likely_problem', 'confidence', 'signs_seen', 'other_possibilities', 'do_now', 'prevent', 'see_expert', 'photo_quality_note', 'summary_spoken'],
+  required: ['plant_seen', 'healthy', 'likely_problem', 'confidence', 'signs_seen', 'other_possibilities', 'do_now', 'prevent', 'see_expert', 'photo_quality_note', 'summary_spoken', 'summary_devanagari'],
   additionalProperties: false,
 };
 

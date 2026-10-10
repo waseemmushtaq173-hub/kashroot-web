@@ -68,7 +68,7 @@ function Advisory() {
   const isExpert = Boolean(account?.staff.some((r) => r === 'EXPERT' || r === 'ADMIN'));
   const requestedTab = params.get('tab');
   const askKind: RequestKind = requestedTab === 'video' ? 'video_call' : requestedTab === 'soil' ? 'soil_test' : 'question';
-  const activeTab = tab ?? (isExpert ? 'queue' : requestedTab === 'library' ? 'library' : 'ask');
+  const activeTab = tab ?? (isExpert ? 'queue' : requestedTab === 'library' || requestedTab === 'mine' ? requestedTab : 'ask');
 
   const refresh = useCallback(async () => {
     if (!account) return;
