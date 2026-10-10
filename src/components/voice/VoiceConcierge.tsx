@@ -1,110 +1,47 @@
 'use client';
 
 /**
- * VoiceConcierge — ask by voice (or text), hear the answer in the same
- * language. Speech recognition and speech synthesis are the browser's (Web
- * Speech API); answers come from /api/ai, which reads live mandi and weather
- * data for prices and forecasts.
+ * VoiceConcierge — ask by voice (or text), hear the answer in your language:
+ * Kashmiri, Urdu, Hindi or English. Answers come from /api/ai (Claude with
+ * live mandi and weather data); speaking and listening use the browser
+ * (src/lib/client/speech.ts). Errors are spoken as well as shown.
  *
- * Support: recognition works in Chrome/Edge/Safari (not Firefox; Brave
- * blocks it) and needs HTTPS + internet; the typed box works everywhere.
- * Replies are spoken with the most natural voice the device has for the
- * language. Urdu voices are rare, so when only a Hindi voice exists the
- * assistant also returns the Urdu answer in Devanagari and the Hindi voice
- * reads it — the words and pronunciation are the same.
+ * Listening works in Chrome/Edge/Safari (not Firefox; Brave blocks it). No
+ * browser recognises Kashmiri speech yet, so in Kashmiri it listens in Urdu.
  */
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, Mic, MicOff, Send, Sparkles, Square, Volume2 } from 'lucide-react';
+import { CircleAlert, Loader2, Mic, MicOff, Send, Sparkles, Square, Volume2 } from 'lucide-react';
 
-type Lang = 'en' | 'hi' | 'ur';
-const LANGS: { id: Lang; label: string; speech: string }[] = [
-  { id: 'en', label: 'English', speech: 'en-IN' },
-  { id: 'hi', label: 'हिन्दी', speech: 'hi-IN' },
-  { id: 'ur', label: 'اردو', speech: 'ur-IN' },
-];
+import { LangPicker } from '@/components/voice/VoiceButtons';
+import { useAssistant } from '@/lib/client/assistant';
+import { isRtl, listen, recognitionAvailable, type SpeechLang } from '@/lib/client/speech';
+import { loadAccount } from '@/lib/db/client';
 
-const SUGGESTIONS: Record<Lang, string[]> = {
-  en: ['Today’s apple prices', 'Rain forecast for my district this week', 'How do I control apple scab?'],
-  hi: ['आज सेब का भाव क्या है?', 'इस हफ़्ते बारिश का अनुमान', 'सेब में स्कैब कैसे रोकें?'],
-  ur: ['آج سیب کی قیمت کیا ہے؟', 'اس ہفتے بارش کی پیشگوئی', 'سیب میں اسکیب کیسے روکیں؟'],
+const SUGGESTIONS: Record<SpeechLang, string[]> = {
+  en: ['Today’s apple prices', 'Rain forecast for my district this week', 'How do I control apple scab?', 'How do I book cold storage?'],
+  hi: ['आज सेब का भाव क्या है?', 'इस हफ़्ते बारिश का अनुमान', 'सेब में स्कैब कैसे रोकें?', 'कोल्ड स्टोरेज कैसे बुक करें?'],
+  ur: ['آج سیب کی قیمت کیا ہے؟', 'اس ہفتے بارش کی پیشگوئی', 'سیب میں اسکیب کیسے روکیں؟', 'کولڈ اسٹوریج کیسے بک کریں؟'],
+  ks: ['اَز چھُ سیبُک ریٹ کیا؟', 'یَتھ ہفتس منٛز روٗد آسہِ؟', 'سیبس اسکیب کِتھ کٔنۍ رُکاو؟', 'کولڈ سٹور کِتھ کٔنۍ بُک کرو؟'],
 };
 
-interface Turn {
-  role: 'user' | 'assistant';
-  text: string;
-  lang: Lang;
-  /** Urdu answer in Devanagari, for a Hindi voice. */
-  speech?: string;
-}
-
-const NATURAL = /natural|neural|online|google|premium|enhanced|siri/i;
-
-/** The most natural installed voice for a language, if any. */
-function bestVoice(voices: SpeechSynthesisVoice[], code: string): SpeechSynthesisVoice | undefined {
-  const prefix = code.slice(0, 2).toLowerCase();
-  const matching = voices.filter((v) => v.lang.toLowerCase().replace('_', '-').startsWith(prefix));
-  const exact = matching.filter((v) => v.lang.toLowerCase().replace('_', '-') === code.toLowerCase());
-  return exact.find((v) => NATURAL.test(v.name)) ?? matching.find((v) => NATURAL.test(v.name)) ?? exact[0] ?? matching[0];
-}
-
-/** Voices load asynchronously in Chrome; wait briefly for them. */
-function loadVoices(): Promise<SpeechSynthesisVoice[]> {
-  const synth = typeof window !== 'undefined' ? window.speechSynthesis : undefined;
-  if (!synth) return Promise.resolve([]);
-  const now = synth.getVoices();
-  if (now.length) return Promise.resolve(now);
-  return new Promise((resolve) => {
-    const done = () => resolve(synth.getVoices());
-    synth.addEventListener('voiceschanged', done, { once: true });
-    setTimeout(done, 1200);
-  });
-}
-
-/* Minimal typing for the prefixed Web Speech recognition API. */
-interface RecognitionLike {
-  lang: string;
-  interimResults: boolean;
-  continuous: boolean;
-  onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }> }) => void) | null;
-  onerror: ((e: { error: string }) => void) | null;
-  onend: (() => void) | null;
-  start: () => void;
-  stop: () => void;
-}
-type RecognitionCtor = new () => RecognitionLike;
-
-function getRecognition(): RecognitionCtor | null {
-  if (typeof window === 'undefined') return null;
-  const w = window as unknown as { SpeechRecognition?: RecognitionCtor; webkitSpeechRecognition?: RecognitionCtor };
-  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
-}
-
-/** Split into short sentences: Chrome's online voices stop after ~14 s. */
-function chunks(text: string): string[] {
-  return (text.match(/[^.!?।۔؟]+[.!?।۔؟]?/g) ?? [text]).map((s) => s.trim()).filter(Boolean).flatMap((s) => (s.length > 180 ? s.match(/.{1,180}(\s|$)/g) ?? [s] : [s]));
-}
+const PLACEHOLDER: Record<SpeechLang, string> = { en: 'Or type your question…', hi: 'अपना सवाल लिखें…', ur: 'اپنا سوال لکھیں…', ks: 'پنُن سوال لیٚکھِو…' };
 
 export function VoiceConcierge() {
-  const [lang, setLang] = useState<Lang>('en');
-  const [turns, setTurns] = useState<Turn[]>([]);
+  const [lang, setLang] = useState<SpeechLang>('en');
   const [draft, setDraft] = useState('');
   const [interim, setInterim] = useState('');
   const [listening, setListening] = useState(false);
-  const [thinking, setThinking] = useState(false);
-  const [speaking, setSpeaking] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
-  const recRef = useRef<RecognitionLike | null>(null);
-  const listRef = useRef<HTMLDivElement>(null);
   const [canListen, setCanListen] = useState(false);
+  const { turns, ask, thinking, speaking, say, stop, notice, setNotice, configured } = useAssistant();
+  const stopListening = useRef<(() => void) | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Feature detection has to wait for the browser; this runs once.
-    const id = requestAnimationFrame(() => setCanListen(getRecognition() !== null));
-    window.speechSynthesis?.getVoices();
+    const id = requestAnimationFrame(() => setCanListen(recognitionAvailable()));
+    void loadAccount().then((a) => a?.lang && setLang(a.lang)).catch(() => undefined);
     return () => {
       cancelAnimationFrame(id);
-      recRef.current?.stop();
-      window.speechSynthesis?.cancel();
+      stopListening.current?.();
     };
   }, []);
 
@@ -112,127 +49,32 @@ export function VoiceConcierge() {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
   }, [turns, thinking]);
 
-  const speak = async (turn: Pick<Turn, 'text' | 'lang' | 'speech'>) => {
-    const synth = window.speechSynthesis;
-    if (!synth) {
-      setNotice('This browser cannot speak replies aloud.');
-      return;
-    }
-    synth.cancel();
-    const voices = await loadVoices();
-    let code = LANGS.find((x) => x.id === turn.lang)!.speech;
-    let text = turn.text;
-    let voice = bestVoice(voices, code);
-    // No Urdu voice: read the Devanagari copy with a Hindi voice.
-    if (!voice && turn.lang === 'ur' && turn.speech) {
-      const hindi = bestVoice(voices, 'hi-IN');
-      if (hindi) {
-        voice = hindi;
-        code = 'hi-IN';
-        text = turn.speech;
-      }
-    }
-    if (!voice && turn.lang !== 'en') {
-      setNotice(`No ${turn.lang === 'hi' ? 'Hindi' : 'Urdu or Hindi'} voice is installed on this device, so the reply is shown as text. Add Hindi in your phone’s or computer’s text-to-speech settings (Google Text-to-speech on Android, Speech settings on Windows) to hear replies.`);
-      return;
-    }
-    const parts = chunks(text);
-    setSpeaking(true);
-    parts.forEach((part, i) => {
-      const u = new SpeechSynthesisUtterance(part);
-      u.lang = voice?.lang ?? code;
-      if (voice) u.voice = voice;
-      u.rate = 0.95;
-      if (i === parts.length - 1) {
-        u.onend = () => setSpeaking(false);
-        u.onerror = () => setSpeaking(false);
-      }
-      synth.speak(u);
-    });
-  };
-
-  /** Urdu without an Urdu voice but with a Hindi one: ask for a Devanagari copy too. */
-  const needsDevanagari = async (l: Lang) => {
-    if (l !== 'ur') return false;
-    const voices = await loadVoices();
-    return !bestVoice(voices, 'ur-IN') && Boolean(bestVoice(voices, 'hi-IN'));
-  };
-
-  const ask = async (text: string, l: Lang) => {
-    const question = text.trim();
-    if (!question || thinking) return;
-    setNotice(null);
-    const history = turns.slice(-6).map(({ role, text: t }) => ({ role, text: t }));
-    setTurns((all) => [...all, { role: 'user', text: question, lang: l }]);
+  const send = (text: string) => {
     setDraft('');
-    setThinking(true);
-    try {
-      const speakAs = (await needsDevanagari(l)) ? 'hi' : undefined;
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: question, lang: l, history, speakAs }),
-      });
-      const data = (await res.json()) as { reply?: string; error?: string; speech?: string };
-      const turn: Turn = { role: 'assistant', text: data.reply ?? data.error ?? 'Sorry, something went wrong.', lang: l, speech: data.speech };
-      setTurns((all) => [...all, turn]);
-      if (data.reply) void speak(turn);
-    } catch {
-      setTurns((all) => [...all, { role: 'assistant', text: 'I could not reach the assistant. Check your internet connection.', lang: l }]);
-    } finally {
-      setThinking(false);
-    }
+    void ask(text, lang);
   };
 
   const toggleListening = () => {
     if (listening) {
-      recRef.current?.stop();
+      stopListening.current?.();
       return;
     }
-    const Ctor = getRecognition();
-    if (!Ctor) {
-      setNotice('Voice input is not supported in this browser — type your question instead (Chrome works best).');
-      return;
-    }
-    window.speechSynthesis?.cancel();
-    setSpeaking(false);
-    const rec = new Ctor();
-    const l = lang;
-    rec.lang = LANGS.find((x) => x.id === l)!.speech;
-    rec.interimResults = true;
-    rec.continuous = false;
-    let finalText = '';
-    rec.onresult = (e) => {
-      let live = '';
-      for (let i = 0; i < e.results.length; i++) {
-        const r = e.results[i];
-        if (r.isFinal) finalText += r[0].transcript;
-        else live += r[0].transcript;
-      }
-      setInterim(finalText + live);
-    };
-    rec.onerror = (e) => {
-      const msg: Record<string, string> = {
-        'not-allowed': 'Microphone permission was blocked. Allow the microphone for this site and try again.',
-        'no-speech': 'I did not hear anything. Tap the mic and speak.',
-        'language-not-supported': 'This browser cannot listen in that language yet — please type instead.',
-        network: 'Voice input could not connect. Some browsers, such as Brave, block it — use Chrome or Edge, or type your question.',
-        'service-not-allowed': 'This browser does not allow voice input (Brave blocks it). Use Chrome or Edge, or type your question.',
-      };
-      setNotice(msg[e.error] ?? 'Voice input stopped. Please try again.');
-    };
-    rec.onend = () => {
-      setListening(false);
-      setInterim('');
-      if (finalText.trim()) void ask(finalText, l);
-    };
-    recRef.current = rec;
+    stop();
     setNotice(null);
+    stopListening.current = listen(lang, {
+      onText: setInterim,
+      onDone: (finalText) => {
+        setListening(false);
+        setInterim('');
+        if (finalText) send(finalText);
+      },
+      onError: setNotice,
+    });
+    if (!stopListening.current) return setNotice('Voice input is not supported in this browser — type your question instead (Chrome works best).');
     setListening(true);
-    rec.start();
   };
 
-  const rtl = lang === 'ur';
+  const rtl = isRtl(lang) ? 'rtl' : undefined;
 
   return (
     <div className="relative overflow-hidden rounded-[2rem] bg-white/80 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.14)] ring-1 ring-white/70 backdrop-blur-xl sm:p-8">
@@ -243,25 +85,18 @@ export function VoiceConcierge() {
             <Sparkles className="h-3.5 w-3.5" aria-hidden /> Voice assistant
           </p>
           <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">Ask KashRoot anything</h2>
-          <p className="mt-1 text-sm text-slate-600">Prices, weather and crop care — speak, and hear the answer in your language.</p>
+          <p className="mt-1 text-sm text-slate-600">Prices, weather, crop care and how to use KashRoot — speak, and hear the answer in Kashmiri, Urdu, Hindi or English.</p>
         </div>
-        <div role="group" aria-label="Language" className="flex rounded-xl bg-slate-900/5 p-1">
-          {LANGS.map((l) => (
-            <button
-              key={l.id}
-              type="button"
-              aria-pressed={lang === l.id}
-              onClick={() => setLang(l.id)}
-              className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold transition ${lang === l.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-            >
-              {l.label}
-            </button>
-          ))}
-        </div>
+        <LangPicker value={lang} onChange={setLang} />
       </div>
 
+      {configured === false && (
+        <p role="alert" className="relative mt-4 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
+          <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> The voice assistant is not connected yet. The site owner needs to add ANTHROPIC_API_KEY in Vercel and redeploy.
+        </p>
+      )}
+
       <div className="relative mt-6 grid gap-6 md:grid-cols-[auto_1fr] md:items-start">
-        {/* The orb */}
         <div className="flex flex-col items-center gap-3">
           <button
             type="button"
@@ -281,20 +116,20 @@ export function VoiceConcierge() {
           <p className="text-sm font-medium text-slate-600" aria-live="polite">
             {listening ? 'Listening…' : thinking ? 'Thinking…' : speaking ? 'Speaking…' : canListen ? 'Tap and speak' : 'Type below'}
           </p>
+          {lang === 'ks' && canListen && <p className="max-w-[10rem] text-center text-xs text-slate-500">Speak in Kashmiri or Urdu</p>}
           {speaking && (
-            <button type="button" onClick={() => { window.speechSynthesis.cancel(); setSpeaking(false); }} className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-slate-900/5 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-900/10">
+            <button type="button" onClick={stop} className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-slate-900/5 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-900/10">
               <Square className="h-3.5 w-3.5" aria-hidden /> Stop voice
             </button>
           )}
         </div>
 
-        {/* Conversation */}
         <div className="min-w-0">
           <div ref={listRef} className="max-h-72 min-h-[9rem] space-y-3 overflow-y-auto rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-900/5" aria-live="polite">
             {turns.length === 0 && !interim && (
               <div className="flex flex-wrap gap-2">
                 {SUGGESTIONS[lang].map((s) => (
-                  <button key={s} type="button" dir={rtl ? 'rtl' : undefined} onClick={() => void ask(s, lang)} className="cursor-pointer rounded-full bg-white px-3 py-1.5 text-sm text-slate-700 ring-1 ring-slate-900/10 transition hover:bg-amber-50 hover:ring-amber-300">
+                  <button key={s} type="button" dir={rtl} onClick={() => send(s)} className="cursor-pointer rounded-full bg-white px-3 py-1.5 text-sm text-slate-700 ring-1 ring-slate-900/10 transition hover:bg-amber-50 hover:ring-amber-300">
                     {s}
                   </button>
                 ))}
@@ -303,12 +138,12 @@ export function VoiceConcierge() {
             {turns.map((t, i) => (
               <div key={i} className={`flex ${t.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <p
-                  dir={t.lang === 'ur' ? 'rtl' : undefined}
-                  className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${t.role === 'user' ? 'bg-gradient-to-br from-orange-500 to-rose-600 text-white' : 'bg-white text-slate-800 ring-1 ring-slate-900/5'}`}
+                  dir={isRtl(t.lang) && !t.error ? 'rtl' : undefined}
+                  className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${t.role === 'user' ? 'bg-gradient-to-br from-orange-500 to-rose-600 text-white' : t.error ? 'bg-rose-50 text-rose-900 ring-1 ring-rose-200' : 'bg-white text-slate-800 ring-1 ring-slate-900/5'}`}
                 >
                   {t.text}
-                  {t.role === 'assistant' && (
-                    <button type="button" aria-label="Play this answer" onClick={() => void speak(t)} className="ms-2 inline-flex cursor-pointer align-middle text-slate-400 hover:text-orange-600">
+                  {t.role === 'assistant' && !t.error && (
+                    <button type="button" aria-label="Play this answer" onClick={() => void say(t)} className="ms-2 inline-flex cursor-pointer align-middle text-slate-400 hover:text-orange-600">
                       <Volume2 className="h-4 w-4" />
                     </button>
                   )}
@@ -316,7 +151,7 @@ export function VoiceConcierge() {
               </div>
             ))}
             {interim && (
-              <p dir={rtl ? 'rtl' : undefined} className="ms-auto max-w-[85%] rounded-2xl bg-orange-100 px-4 py-2.5 text-sm italic text-orange-900">
+              <p dir={rtl} className="ms-auto max-w-[85%] rounded-2xl bg-orange-100 px-4 py-2.5 text-sm italic text-orange-900">
                 {interim}
               </p>
             )}
@@ -331,16 +166,16 @@ export function VoiceConcierge() {
             className="mt-3 flex gap-2"
             onSubmit={(e) => {
               e.preventDefault();
-              void ask(draft, lang);
+              send(draft);
             }}
           >
             <label className="sr-only" htmlFor="voice-question">Your question</label>
             <input
               id="voice-question"
-              dir={rtl ? 'rtl' : undefined}
+              dir={rtl}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder={lang === 'hi' ? 'अपना सवाल लिखें…' : lang === 'ur' ? 'اپنا سوال لکھیں…' : 'Or type your question…'}
+              placeholder={PLACEHOLDER[lang]}
               className="min-w-0 flex-1 rounded-xl border-0 bg-white px-4 py-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-orange-500"
             />
             <button type="submit" disabled={!draft.trim() || thinking} className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-orange-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50">

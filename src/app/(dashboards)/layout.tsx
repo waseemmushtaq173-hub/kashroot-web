@@ -8,6 +8,7 @@ import { ReactNode, useEffect, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 
 import { KYCPanel, type KycRole } from '@/components/auth/KYCPanel';
+import { PortalGuide } from '@/components/voice/PortalGuide';
 import { supabase } from '@/lib/supabase';
 import { authApi, SELF_JOIN_ROLES, storedRoles, tokenStore } from '@/lib/api/auth';
 import { loginHref, PORTALS, portalForSegment } from '@/lib/auth/roles';
@@ -174,6 +175,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         {children}
       </div>
       <SiteFooter tone="light" />
+      {portal && <PortalGuide portal={portal} />}
       <KYCPanel
         open={showKyc}
         onClose={() => setShowKyc(false)}
