@@ -14,6 +14,16 @@ import 'server-only';
 const RESOURCE = '9ef84268-d588-465a-a308-a864a43d0070';
 const SAMPLE_KEY = '579b464db66ec23bdd000001cdd3946e44ce4aad7209ff7b23ac571b';
 
+/** Why the feed could not be read: the route turns this into plain words. */
+export class MandiError extends Error {
+  constructor(
+    public kind: 'timeout' | 'network' | 'key' | 'upstream',
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
 export interface MandiRecord {
   state: string;
   district: string;
@@ -75,12 +85,25 @@ export async function fetchMandiPrices(query: MandiQuery): Promise<MandiResult> 
   if (market) params.set('filters[market]', market);
   if (commodity) params.set('filters[commodity]', commodity);
 
-  const res = await fetch(`https://api.data.gov.in/resource/${RESOURCE}?${params}`, {
-    headers: { Accept: 'application/json' },
-    next: { revalidate: 900 },
-    signal: AbortSignal.timeout(12_000),
-  });
-  if (!res.ok) throw new Error(`data.gov.in answered ${res.status}`);
+  const url = `https://api.data.gov.in/resource/${RESOURCE}?${params}`;
+  // data.gov.in is often slow and occasionally drops a request: wait longer,
+  // and try once more on a timeout, network error or 5xx.
+  let res: Response | undefined;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      res = await fetch(url, {
+        headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0 (compatible; KashRoot/1.0; +https://kashroot-web.vercel.app)' },
+        next: { revalidate: 900 },
+        signal: AbortSignal.timeout(22_000),
+      });
+      if (res.status < 500) break;
+    } catch (err) {
+      if (attempt === 1) throw new MandiError(err instanceof Error && err.name === 'TimeoutError' ? 'timeout' : 'network', err instanceof Error ? err.message : String(err));
+    }
+  }
+  if (!res) throw new MandiError('network', 'No response');
+  if (res.status === 401 || res.status === 403) throw new MandiError('key', `data.gov.in answered ${res.status}`);
+  if (!res.ok) throw new MandiError('upstream', `data.gov.in answered ${res.status}`);
   const json = (await res.json()) as { records?: Record<string, unknown>[]; total?: number | string };
 
   // data.gov.in silently ignores filters it does not understand, so re-check.

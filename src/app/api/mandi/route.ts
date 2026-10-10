@@ -5,7 +5,17 @@
  */
 import { NextResponse } from 'next/server';
 
-import { fetchMandiPrices } from '@/lib/server/mandi';
+import { fetchMandiPrices, MandiError } from '@/lib/server/mandi';
+
+// data.gov.in can take a while; allow for one slow attempt plus a retry.
+export const maxDuration = 60;
+
+const WHY: Record<MandiError['kind'], string> = {
+  timeout: 'The government mandi price service (data.gov.in) is very slow right now and did not answer in time. Try again in a minute.',
+  network: 'Could not connect to the government mandi price service (data.gov.in). Try again in a minute.',
+  key: 'The government data service refused this site’s API key. The site owner needs to check DATA_GOV_IN_API_KEY.',
+  upstream: 'The government mandi price service (data.gov.in) is having trouble right now. Try again in a minute.',
+};
 
 export async function GET(request: Request) {
   const q = new URL(request.url).searchParams;
@@ -16,12 +26,12 @@ export async function GET(request: Request) {
       district: pick('district'),
       market: pick('market'),
       commodity: pick('commodity'),
-      limit: Number(q.get('limit')) || 300,
+      limit: Math.min(Number(q.get('limit')) || 150, 500),
     });
     return NextResponse.json(result, { headers: { 'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=1800' } });
   } catch (err) {
     return NextResponse.json(
-      { error: 'The government mandi price service did not respond. Try again in a minute.', detail: err instanceof Error ? err.message : String(err) },
+      { error: err instanceof MandiError ? WHY[err.kind] : WHY.upstream, detail: err instanceof Error ? err.message : String(err) },
       { status: 502 },
     );
   }

@@ -32,7 +32,7 @@ function host(sub: 'api' | 'geocoding-api') {
 export async function geocode(name: string): Promise<Place[]> {
   const url = new URL('https://geocoding-api.open-meteo.com/v1/search');
   url.search = new URLSearchParams({ name, count: '8', language: 'en', format: 'json', countryCode: 'IN' }).toString();
-  const res = await fetch(url, { next: { revalidate: 86_400 }, signal: AbortSignal.timeout(10_000) });
+  const res = await fetch(url, { next: { revalidate: 86_400 }, signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(`Geocoding answered ${res.status}`);
   const json = (await res.json()) as { results?: { name: string; admin1?: string; admin2?: string; country?: string; latitude: number; longitude: number }[] };
   return (json.results ?? []).map((r) => ({
@@ -56,7 +56,7 @@ export async function forecast(place: Place): Promise<Forecast> {
     forecast_days: '7',
   });
   if (key) params.set('apikey', key);
-  const res = await fetch(`${base}/v1/forecast?${params}`, { next: { revalidate: 600 }, signal: AbortSignal.timeout(10_000) });
+  const res = await fetch(`${base}/v1/forecast?${params}`, { next: { revalidate: 600 }, signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(`Open-Meteo answered ${res.status}`);
   const j = await res.json();
   const now = j.current;

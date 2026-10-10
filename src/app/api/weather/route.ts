@@ -8,6 +8,8 @@ import { NextResponse } from 'next/server';
 
 import { forecast, geocode, type Place } from '@/lib/server/weather';
 
+export const maxDuration = 30;
+
 export async function GET(request: Request) {
   const q = new URL(request.url).searchParams;
   try {
