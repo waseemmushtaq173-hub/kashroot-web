@@ -1,117 +1,84 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { BadgeCheck, MapPin, TrendingDown, Clock, Plus, ShieldCheck, Truck, CreditCard, CheckCircle2 } from 'lucide-react';
-import { ToolShell } from '@/components/layout/ToolShell';
-import {
-  ListProductsLink,
-  PRICE_COMPARISON_BUTTON,
-  PriceComparisonHeader,
-} from '@/components/price-comparison/PriceComparisonHeader';
-import { loginHref } from '@/lib/auth/roles';
-import { useRouter } from 'next/navigation';
+/**
+ * Price Comparison — real products listed by sellers and dealers
+ * (market_listings), compared by price, ordered with pay-after-delivery:
+ * the buyer keeps the money until the goods arrive and are checked, then pays
+ * the seller directly by UPI / bank (market_orders). KashRoot never holds it.
+ *   Compare: farm inputs or produce, by type, search, cheapest first.
+ *   My orders: the buyer's orders and the next step on each.
+ *   Sell here: a seller's products, orders received and payout details.
+ */
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { BadgeCheck, Loader2, MapPin, Package, Phone, Search, ShieldCheck, ShoppingCart, Store } from 'lucide-react';
+import { toast } from 'sonner';
 
-import { DEFAULT_LISTINGS, type DealerListing } from '@/lib/dealer-listings';
+import { ToolShell } from '@/components/layout/ToolShell';
+import { OrderCard } from '@/components/market/OrderCard';
+import { SellerDesk } from '@/components/market/SellerDesk';
+import { Badge, Btn, EmptyState, Field, INPUT, Modal, PORTAL_THEMES, Panel } from '@/components/portal/kit';
+import { ListProductsLink, PRICE_COMPARISON_BUTTON, PriceComparisonHeader } from '@/components/price-comparison/PriceComparisonHeader';
+import { loginHref } from '@/lib/auth/roles';
+import { inr, loadAccount, type Account } from '@/lib/db/client';
+import { browseListings, buyerOrders, placeOrder, PRODUCE, SUBCATEGORIES, type MarketCategory, type MarketListing, type MarketOrder } from '@/lib/db/market';
+
+const theme = PORTAL_THEMES.buyer;
 
 export default function ComparePricesPage() {
-  const router = useRouter();
-  const [listings, setListings] = useState<DealerListing[]>([]);
-  const [isAuth, setIsAuth] = useState(false);
-  const [userRole, setUserRole] = useState('');
-  const [userName, setUserName] = useState('');
-
-  // Modals & Flows
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showOrderModal, setShowOrderModal] = useState(false);
-  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<DealerListing | null>(null);
-  const [sortBy, setSortBy] = useState<'price-asc' | 'price-desc' | 'default'>('price-asc');
+  const [account, setAccount] = useState<Account | null | undefined>(undefined);
+  const [tab, setTab] = useState<'compare' | 'orders' | 'sell'>('compare');
+  const [category, setCategory] = useState<MarketCategory>('supplies');
+  const [kind, setKind] = useState('All');
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('All');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
-
-  // Escrow & Order State
-  const [orderStatus, setOrderStatus] = useState<'IDLE' | 'DELIVERY_FORM' | 'ESCROW_LOCKED' | 'COMPLETED'>('IDLE');
-  
-  // Forms
-  const [newProduct, setNewProduct] = useState({ title: '', category: 'Packaging', price: '', stock: '', location: '', image: '' });
-  const [deliveryDetails, setDeliveryDetails] = useState({ name: '', phone: '', address: '', district: '', pincode: '' });
+  const [data, setData] = useState<{ listings: MarketListing[]; verified: Set<string> } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [ordering, setOrdering] = useState<MarketListing | null>(null);
+  const [orders, setOrders] = useState<MarketOrder[]>([]);
 
   useEffect(() => {
-    // Load auth state
-    const token = localStorage.getItem('auth_token');
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsAuth(!!token);
-    setUserRole(localStorage.getItem('user_role') || '');
-    setUserName(localStorage.getItem('auth_email') || 'User');
-
-    // Load listings from mock API (localStorage)
-    const stored = localStorage.getItem('kr_mock_dealer_listings');
-    if (stored) {
-      setListings(JSON.parse(stored));
-    } else {
-      setListings(DEFAULT_LISTINGS);
-      localStorage.setItem('kr_mock_dealer_listings', JSON.stringify(DEFAULT_LISTINGS));
-    }
+    void loadAccount().then(setAccount).catch(() => setAccount(null));
   }, []);
 
-  const handleAddSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const entry: DealerListing = {
-      id: Date.now().toString(),
-      category: newProduct.category,
-      item: newProduct.title,
-      name: userName.split('@')[0] + ' Enterprises', // Mock dealer name
-      location: newProduct.location,
-      price: newProduct.price,
-      verified: true,
-      updated: 'Just now',
-      stock: newProduct.stock,
-      image: newProduct.image
-    };
-    const updated = [entry, ...listings];
-    setListings(updated);
-    localStorage.setItem('kr_mock_dealer_listings', JSON.stringify(updated));
-    setShowAddModal(false);
-  };
-
-  const handleOrderClick = (product: DealerListing) => {
-    setSelectedProduct(product);
-    if (!isAuth) {
-      setShowAuthPrompt(true);
-    } else {
-      setOrderStatus('DELIVERY_FORM');
-      setShowOrderModal(true);
+  const load = useCallback(async () => {
+    try {
+      setData(await browseListings(category));
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not load products.');
+      setData({ listings: [], verified: new Set() });
     }
-  };
+  }, [category]);
 
-  const handleConfirmOrder = () => {
-    setOrderStatus('ESCROW_LOCKED');
-  };
+  const loadOrders = useCallback(async () => {
+    if (!account) return;
+    try {
+      setOrders(await buyerOrders(account.id));
+    } catch {
+      setOrders([]);
+    }
+  }, [account]);
 
-  const handleReleaseEscrow = () => {
-    setOrderStatus('COMPLETED');
-  };
+  useEffect(() => {
+    let live = true;
+    const run = async () => {
+      if (live) await Promise.all([load(), loadOrders()]);
+    };
+    void run();
+    return () => {
+      live = false;
+    };
+  }, [load, loadOrders]);
 
-  // Group listings by category and item
-  const priceOf = (l: DealerListing) => parseFloat(String(l.price).replace(/[^\d.]/g, '')) || 0;
-  const categories = ['All', ...Array.from(new Set(listings.map((l) => l.category)))];
-  const q = search.trim().toLowerCase();
-  const visibleListings = listings.filter(
-    (l) =>
-      (categoryFilter === 'All' || l.category === categoryFilter) &&
-      (!verifiedOnly || l.verified) &&
-      (!q || `${l.item} ${l.name} ${l.location} ${l.category}`.toLowerCase().includes(q)),
-  );
+  const shown = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (data?.listings ?? [])
+      .filter((l) => (kind === 'All' || l.subcategory === kind) && (!verifiedOnly || data?.verified.has(l.seller_id)) && (!q || `${l.product} ${l.variety ?? ''} ${l.seller_name} ${l.district} ${l.subcategory ?? ''}`.toLowerCase().includes(q)))
+      .sort((a, b) => Number(a.price) - Number(b.price));
+  }, [data, kind, search, verifiedOnly]);
 
-  const groupedListings = visibleListings.reduce((acc, curr) => {
-    const key = `${curr.category}:::${curr.item}`;
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(curr);
-    return acc;
-  }, {} as Record<string, DealerListing[]>);
-
-  const canAddProduct = isAuth && (userRole === 'SELLER' || userRole === 'DEALER');
+  const openOrders = orders.filter((o) => ['accepted', 'shipped', 'delivered'].includes(o.status)).length;
 
   return (
     <ToolShell
@@ -119,9 +86,9 @@ export default function ComparePricesPage() {
       header={
         <PriceComparisonHeader
           actions={
-            canAddProduct ? (
-              <button type="button" onClick={() => setShowAddModal(true)} className={PRICE_COMPARISON_BUTTON}>
-                <Plus className="h-4 w-4" aria-hidden /> Add New Product
+            account ? (
+              <button type="button" onClick={() => setTab('sell')} className={PRICE_COMPARISON_BUTTON}>
+                <Store className="h-4 w-4" aria-hidden /> Sell here
               </button>
             ) : (
               <ListProductsLink />
@@ -130,300 +97,191 @@ export default function ComparePricesPage() {
         />
       }
     >
-        <div className="mb-6 flex flex-col gap-3 rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-slate-900/5 backdrop-blur lg:flex-row lg:items-center">
-          <label className="relative flex-1">
-            <span className="sr-only">Search products, dealers or towns</span>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products, dealers or towns" className="block w-full rounded-xl border-0 bg-white px-4 py-2.5 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-sky-600" />
-          </label>
-          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-            Category
-            <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="rounded-xl border-0 bg-white py-2.5 pl-3 pr-8 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-sky-600">
-              {categories.map((c) => <option key={c}>{c}</option>)}
+      <div role="tablist" aria-label="Price Comparison" className="mb-6 inline-flex flex-wrap gap-1 rounded-2xl bg-white/80 p-1 shadow-sm ring-1 ring-slate-900/5">
+        {([
+          ['compare', 'Compare prices', Search],
+          ['orders', `My orders${openOrders ? ` (${openOrders})` : ''}`, ShoppingCart],
+          ['sell', 'Sell here', Store],
+        ] as const).map(([id, label, Icon]) => (
+          <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold transition ${tab === id ? 'bg-sky-700 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-900/5'}`}>
+            <Icon className="h-4 w-4" aria-hidden /> {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'compare' && (
+        <div className="space-y-5">
+          <div className="flex flex-col gap-3 rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-slate-900/5 lg:flex-row lg:items-center">
+            <div role="group" aria-label="What" className="inline-flex rounded-xl bg-slate-100 p-1">
+              {([['supplies', 'Farm inputs & supplies'], ['produce', 'Fruit & produce']] as const).map(([id, label]) => (
+                <button key={id} type="button" aria-pressed={category === id} onClick={() => { setCategory(id); setKind('All'); }} className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold ${category === id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}`}>{label}</button>
+              ))}
+            </div>
+            <label className="relative flex-1">
+              <span className="sr-only">Search</span>
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products, sellers or districts" className={`${INPUT} pl-9`} />
+            </label>
+            <select aria-label="Type" value={kind} onChange={(e) => setKind(e.target.value)} className={`${INPUT} lg:w-56`}>
+              <option value="All">All types</option>
+              {(category === 'produce' ? PRODUCE : SUBCATEGORIES).map((c) => <option key={c}>{c}</option>)}
             </select>
-          </label>
-          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-            Sort
-            <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)} className="rounded-xl border-0 bg-white py-2.5 pl-3 pr-8 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-sky-600">
-              <option value="price-asc">Price: low to high</option>
-              <option value="price-desc">Price: high to low</option>
-              <option value="default">As listed</option>
-            </select>
-          </label>
-          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-            <input type="checkbox" checked={verifiedOnly} onChange={(e) => setVerifiedOnly(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-sky-700 focus:ring-sky-600" />
-            Verified dealers only
-          </label>
-        </div>
+            <label className="flex items-center gap-2 whitespace-nowrap text-sm font-medium text-slate-700">
+              <input type="checkbox" checked={verifiedOnly} onChange={(e) => setVerifiedOnly(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-sky-700" /> Verified sellers only
+            </label>
+          </div>
 
-        {Object.keys(groupedListings).length === 0 && (
-          <p className="rounded-2xl bg-white/80 p-8 text-center text-slate-600 ring-1 ring-slate-900/5">No products match these filters.</p>
-        )}
+          <p className="flex items-start gap-2 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-950 ring-1 ring-emerald-200">
+            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" aria-hidden />
+            <span><strong>Pay after delivery.</strong> Order now; pay the seller directly by UPI only when the goods reach you and you have checked them. KashRoot never holds your money.</span>
+          </p>
 
-        <div className="space-y-8">
-          {Object.entries(groupedListings).map(([key, groupDealers], i) => {
-            const [category, item] = key.split(':::');
-            const displayDealers = [...groupDealers];
-            if (sortBy !== 'default') displayDealers.sort((a, b) => (sortBy === 'price-asc' ? priceOf(a) - priceOf(b) : priceOf(b) - priceOf(a)));
-            const lowest = Math.min(...groupDealers.map(priceOf));
-            const highest = Math.max(...groupDealers.map(priceOf));
-
-            return (
-              <section key={i} className="kr-glass rounded-2xl shadow-sm border border-kr-border-default overflow-hidden">
-                <div className="bg-kr-bg-sunken border-b border-kr-border-default px-6 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                  <div>
-                    <span className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-1 block">{category}</span>
-                    <h2 className="text-xl font-bold text-kr-text-primary">{item}</h2>
-                  </div>
-                  {groupDealers.length > 1 && (
-                    <p className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-800 ring-1 ring-emerald-200">
-                      <TrendingDown className="h-4 w-4" aria-hidden /> Save up to ₹{(highest - lowest).toLocaleString('en-IN')} by choosing the lowest offer
+          {error ? (
+            <p role="alert" className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">{error}</p>
+          ) : data === null ? (
+            <p className="flex items-center gap-2 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading prices…</p>
+          ) : shown.length === 0 ? (
+            <EmptyState theme={theme} icon={Package} title={data.listings.length ? 'Nothing matches' : 'No products listed yet'} text={data.listings.length ? 'Try another type or search.' : 'Sellers and dealers can list their products with “Sell here”.'} />
+          ) : (
+            <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {shown.map((l, i) => {
+                const verified = data.verified.has(l.seller_id);
+                const own = account?.id === l.seller_id;
+                return (
+                  <li key={l.id} className="flex flex-col rounded-2xl bg-white/90 p-5 shadow-sm ring-1 ring-slate-900/5">
+                    {l.photo && (
+                      // eslint-disable-next-line @next/next/no-img-element -- seller photo (data URL)
+                      <img src={l.photo} alt="" className="mb-3 h-36 w-full rounded-xl object-cover" />
+                    )}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-sky-700">{l.subcategory ?? l.category}</span>
+                      {i === 0 && kind !== 'All' && <Badge tone="green">Lowest price</Badge>}
+                    </div>
+                    <h3 className="mt-1 text-lg font-semibold text-slate-900">{l.product}</h3>
+                    {(l.variety || l.grade) && <p className="text-sm text-slate-600">{[l.variety, l.grade && `Grade ${l.grade}`].filter(Boolean).join(' · ')}</p>}
+                    <p className="mt-2 flex items-center gap-1.5 text-sm text-slate-700">
+                      {verified ? <BadgeCheck className="h-4 w-4 text-emerald-600" aria-label="KashRoot-verified seller" /> : <Store className="h-4 w-4 text-slate-400" aria-hidden />}
+                      {l.seller_name}{verified ? ' (verified)' : ''}
                     </p>
-                  )}
-                </div>
-                
-                <div className="divide-y divide-gray-100">
-                  {displayDealers.map((dealer) => (
-                    <div key={dealer.id} className="p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 hover:bg-kr-bg-sunken transition-colors">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-bold text-kr-text-primary text-lg">{dealer.name}</h3>
-                          {dealer.verified && <span title="Verified Dealer"><BadgeCheck className="w-5 h-5 text-green-500" /></span>}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-4 text-sm text-kr-text-secondary">
-                          <span className="flex items-center gap-1"><MapPin className="w-4 h-4" /> {dealer.location}</span>
-                          <span className="flex items-center gap-1"><Clock className="w-4 h-4" /> Updated {dealer.updated}</span>
-                          <span className="flex items-center gap-1 text-kr-text-brand kr-glass px-2 py-0.5 rounded-full border border-blue-200">Stock: {dealer.stock}</span>
-                        </div>
+                    <p className="flex items-center gap-1.5 text-sm text-slate-600"><MapPin className="h-4 w-4" aria-hidden /> {l.district}</p>
+                    {l.details && <p className="mt-2 line-clamp-2 text-sm text-slate-600">{l.details}</p>}
+                    <div className="mt-auto flex items-end justify-between gap-2 border-t border-slate-900/5 pt-4">
+                      <div>
+                        <p className="text-xl font-bold text-slate-900">{inr(l.price)} <span className="text-sm font-normal text-slate-500">/ {l.unit}</span></p>
+                        <p className="text-xs text-slate-500">{Number(l.quantity).toLocaleString('en-IN')} {l.unit} in stock</p>
                       </div>
-                      
-                      <div className="flex flex-col md:items-end w-full md:w-auto gap-3">
-                        <div className="flex items-center gap-2">
-                          {groupDealers.length > 1 && priceOf(dealer) === lowest && (
-                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">Lowest</span>
-                          )}
-                          <span className="text-2xl font-bold text-[#E76F51]">₹{dealer.price}</span>
-                        </div>
-                        <div className="flex w-full md:w-auto gap-2">
-                          <button className="flex-1 md:flex-none kr-glass border-2 border-sky-700 text-sky-800 hover:bg-[#1B4332]/5 px-4 py-2 rounded-lg font-bold text-sm transition-colors hidden">
-                            Contact
-                          </button>
-                          <button 
-                            onClick={() => handleOrderClick(dealer)}
-                            className="flex-1 md:flex-none bg-sky-700 hover:bg-sky-800 text-white px-6 py-2 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2 shadow-md"
-                          >
-                            <ShieldCheck className="w-4 h-4" /> Order Now
-                          </button>
-                        </div>
+                      <div className="flex gap-2">
+                        <a href={`tel:${l.phone}`} aria-label={`Call ${l.seller_name}`} className="grid h-10 w-10 place-items-center rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200"><Phone className="h-4 w-4" aria-hidden /></a>
+                        {own ? <Badge tone="violet">Yours</Badge> : <Btn theme={theme} icon={ShoppingCart} onClick={() => setOrdering(l)}>Order</Btn>}
                       </div>
                     </div>
-                  ))}
-                </div>
-              </section>
-            );
-          })}
-        </div>
-
-      {/* Role-Based Auth Panel Modal */}
-      {showAuthPrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm p-4">
-          <div className="kr-glass-strong rounded-2xl p-8 max-w-sm w-full shadow-2xl relative text-center">
-            <ShieldCheck className="w-16 h-16 text-[#E76F51] mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-kr-text-primary mb-2">Are you here to Buy or Sell?</h2>
-            <p className="text-kr-text-secondary mb-6">Choose your account type to proceed with KashRoot Escrow.</p>
-            <div className="flex flex-col gap-3">
-              <button 
-                onClick={() => router.push(loginHref('buyer', '/compare-prices'))}
-                className="w-full bg-sky-700 hover:bg-sky-800 text-white font-bold py-3 px-4 rounded-xl transition-colors"
-              >
-                I am a Buyer
-              </button>
-              <button 
-                onClick={() => router.push(loginHref('seller', '/compare-prices'))}
-                className="w-full border-2 border-sky-700 text-sky-800 hover:bg-kr-bg-sunken font-bold py-3 px-4 rounded-xl transition-colors"
-              >
-                I am a Dealer/Seller
-              </button>
-              <button 
-                onClick={() => setShowAuthPrompt(false)}
-                className="w-full bg-kr-bg-sunken hover:bg-kr-bg-sunken text-kr-text-primary font-bold py-3 px-4 rounded-xl transition-colors mt-2"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
       )}
 
-      {/* Order & Delivery Details Modal */}
-      {showOrderModal && selectedProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="kr-glass-strong rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden my-8">
-            <div className="bg-gradient-to-r from-sky-50 via-white to-amber-50 border-b border-sky-100 p-6 text-slate-900">
-              <h2 className="text-2xl font-bold">Checkout & Escrow</h2>
-              <p className="text-slate-600">Secure checkout for {selectedProduct.item}</p>
-            </div>
-            
-            <div className="p-6 sm:p-8">
-              {orderStatus === 'DELIVERY_FORM' && (
-                <div className="space-y-6">
-                  <div className="kr-glass border border-blue-200 rounded-xl p-4 flex gap-4">
-                    <ShieldCheck className="w-8 h-8 text-blue-600 shrink-0" />
-                    <div>
-                      <h4 className="font-bold text-blue-900">Direct home delivery guaranteed with Escrow protection.</h4>
-                      <p className="text-sm text-kr-text-brand mt-1">Your funds are held safely until you receive and verify the order.</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="col-span-full">
-                      <label className="block text-sm font-bold text-kr-text-primary mb-1">Full Name</label>
-                      <input type="text" className="kr-input w-full" value={deliveryDetails.name} onChange={e => setDeliveryDetails({...deliveryDetails, name: e.target.value})} placeholder="Receiver Name" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold text-kr-text-primary mb-1">10-digit Phone</label>
-                      <input type="tel" className="kr-input w-full" value={deliveryDetails.phone} onChange={e => setDeliveryDetails({...deliveryDetails, phone: e.target.value})} placeholder="9999999999" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold text-kr-text-primary mb-1">District</label>
-                      <input type="text" className="kr-input w-full" value={deliveryDetails.district} onChange={e => setDeliveryDetails({...deliveryDetails, district: e.target.value})} placeholder="Your district" />
-                    </div>
-                    <div className="col-span-full">
-                      <label className="block text-sm font-bold text-kr-text-primary mb-1">Street Address</label>
-                      <textarea className="kr-input w-full py-2" rows={2} value={deliveryDetails.address} onChange={e => setDeliveryDetails({...deliveryDetails, address: e.target.value})} placeholder="House No, Street, Landmark" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold text-kr-text-primary mb-1">Pincode</label>
-                      <input type="text" className="kr-input w-full" value={deliveryDetails.pincode} onChange={e => setDeliveryDetails({...deliveryDetails, pincode: e.target.value})} placeholder="6-digit PIN" />
-                    </div>
-                  </div>
-
-                  <div className="border-t border-kr-border-default pt-6 flex justify-end gap-3">
-                    <button onClick={() => setShowOrderModal(false)} className="px-6 py-2 rounded-lg font-bold text-kr-text-secondary hover:bg-kr-bg-sunken">Cancel</button>
-                    <button onClick={handleConfirmOrder} className="px-6 py-2 bg-[#E76F51] hover:bg-[#D4A373] text-white rounded-lg font-bold flex items-center gap-2 shadow-md">
-                      <CreditCard className="w-5 h-5" /> Pay ₹{selectedProduct.price} to Escrow
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {orderStatus === 'ESCROW_LOCKED' && (
-                <div className="space-y-8 py-4">
-                  <div className="text-center">
-                    <div className="w-16 h-16 bg-kr-fill-brand-subtle rounded-full flex items-center justify-center mx-auto mb-4">
-                      <ShieldCheck className="w-8 h-8 text-amber-600" />
-                    </div>
-                    <h3 className="text-2xl font-bold text-kr-text-primary">ESCROW_LOCKED</h3>
-                    <p className="text-kr-text-secondary">Your funds are safe. Order ID: #KR-{selectedProduct?.id}</p>
-                  </div>
-
-                  <div className="space-y-4 max-w-md mx-auto relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent">
-                    <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                      <div className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-white bg-green-500 text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
-                        <CheckCircle2 className="w-5 h-5" />
-                      </div>
-                      <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] kr-glass p-4 rounded-xl border border-kr-border-default shadow-sm">
-                        <h4 className="font-bold text-kr-text-primary">Step 1</h4>
-                        <p className="text-sm text-kr-text-secondary">Funds secured in KashRoot Escrow</p>
-                      </div>
-                    </div>
-                    
-                    <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                      <div className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-white bg-blue-500 text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
-                        <Truck className="w-5 h-5 animate-pulse" />
-                      </div>
-                      <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] kr-glass p-4 rounded-xl border border-blue-200 shadow-sm kr-glass/30">
-                        <h4 className="font-bold text-blue-900">Step 2</h4>
-                        <p className="text-sm text-kr-text-brand">Dealer dispatches order to delivery address</p>
-                      </div>
-                    </div>
-
-                    <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
-                      <div className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-white bg-kr-bg-sunken text-kr-text-secondary shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
-                        <BadgeCheck className="w-5 h-5" />
-                      </div>
-                      <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] kr-glass p-4 rounded-xl border border-kr-border-default shadow-sm">
-                        <h4 className="font-bold text-kr-text-secondary">Step 3</h4>
-                        <p className="text-sm text-kr-text-secondary">Buyer inspects & verifies goods upon arrival</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-center border-t border-kr-border-default pt-6">
-                    <p className="text-sm text-kr-text-secondary mb-4 text-center">Once you receive the goods and verify their quality, click below to release the funds to the dealer.</p>
-                    <button onClick={handleReleaseEscrow} className="w-full max-w-sm px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-green-600/20 transition-all">
-                      <CheckCircle2 className="w-5 h-5" /> Confirm Delivery & Release Payment
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {orderStatus === 'COMPLETED' && (
-                <div className="text-center py-8">
-                  <div className="w-20 h-20 bg-kr-badge-published-bg rounded-full flex items-center justify-center mx-auto mb-6">
-                    <BadgeCheck className="w-10 h-10 text-green-600" />
-                  </div>
-                  <h3 className="text-3xl font-heading font-bold text-kr-text-primary mb-2">Order COMPLETED!</h3>
-                  <p className="text-kr-text-secondary mb-8 max-w-md mx-auto">Payment has been released to {selectedProduct.name}. Thank you for using KashRoot Secure Escrow.</p>
-                  <button onClick={() => setShowOrderModal(false)} className="px-8 py-3 bg-sky-700 text-white rounded-xl font-bold hover:bg-sky-800 transition-colors">
-                    Back to Hub
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+      {tab === 'orders' && (
+        account ? (
+          <Panel theme={theme} title="My orders" icon={ShoppingCart}>
+            {orders.length === 0 ? (
+              <EmptyState theme={theme} icon={ShoppingCart} title="No orders yet" text="Order from Compare prices. You pay the seller only after the goods reach you." />
+            ) : (
+              <ul className="space-y-3">{orders.map((o) => <OrderCard key={o.id} order={o} as="buyer" theme={theme} onChange={() => void loadOrders()} />)}</ul>
+            )}
+          </Panel>
+        ) : (
+          <SignInPrompt next="/compare-prices" />
+        )
       )}
 
-      {/* Add Product Modal (For Dealers) */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm p-4">
-          <div className="kr-glass-strong rounded-2xl max-w-md w-full shadow-2xl overflow-hidden my-8">
-            <div className="bg-gradient-to-r from-sky-50 via-white to-amber-50 border-b border-sky-100 p-5 text-slate-900 flex justify-between items-center">
-              <h2 className="text-xl font-bold">Add Dealer Listing</h2>
-              <button type="button" onClick={() => setShowAddModal(false)} aria-label="Close" className="text-slate-500 hover:text-slate-900">✕</button>
-            </div>
-            
-            <form onSubmit={handleAddSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-kr-text-primary mb-1">Product Title</label>
-                <input required type="text" className="kr-input w-full" value={newProduct.title} onChange={e => setNewProduct({...newProduct, title: e.target.value})} placeholder="e.g. Apple Corrugated Box 10kg" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-kr-text-primary mb-1">Category</label>
-                <select className="kr-input w-full" value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value})}>
-                  <option>Packaging</option>
-                  <option>Agrochemicals</option>
-                  <option>Machinery</option>
-                  <option>Supplies</option>
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-bold text-kr-text-primary mb-1">Price per unit (₹)</label>
-                  <input required type="number" className="kr-input w-full" value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: e.target.value})} placeholder="150" />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-kr-text-primary mb-1">Stock Quantity</label>
-                  <input required type="number" className="kr-input w-full" value={newProduct.stock} onChange={e => setNewProduct({...newProduct, stock: e.target.value})} placeholder="5000" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-kr-text-primary mb-1">District / Location</label>
-                <input required type="text" className="kr-input w-full" value={newProduct.location} onChange={e => setNewProduct({...newProduct, location: e.target.value})} placeholder="Your town" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-kr-text-primary mb-1">Image URL (Optional)</label>
-                <input type="url" className="kr-input w-full" value={newProduct.image} onChange={e => setNewProduct({...newProduct, image: e.target.value})} placeholder="https://..." />
-              </div>
-              
-              <div className="pt-4 flex justify-end gap-3 border-t border-kr-border-default">
-                <button type="button" onClick={() => setShowAddModal(false)} className="px-5 py-2 rounded-lg font-bold text-kr-text-secondary hover:bg-kr-bg-sunken">Cancel</button>
-                <button type="submit" className="px-5 py-2 bg-[#E76F51] hover:bg-[#D4A373] text-white rounded-lg font-bold shadow-md">Publish Listing</button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {tab === 'sell' && (account ? <SellerDesk account={account} theme={theme} /> : <SignInPrompt next="/compare-prices" seller />)}
+
+      {ordering && (
+        account ? (
+          <OrderModal listing={ordering} account={account} onClose={() => setOrdering(null)} onPlaced={() => { setOrdering(null); setTab('orders'); void loadOrders(); }} />
+        ) : (
+          <Modal open onClose={() => setOrdering(null)} title="Sign in to order">
+            <SignInPrompt next="/compare-prices" />
+          </Modal>
+        )
       )}
     </ToolShell>
+  );
+}
+
+function SignInPrompt({ next, seller = false }: { next: string; seller?: boolean }) {
+  return (
+    <div className="rounded-2xl bg-white/90 p-6 text-center ring-1 ring-slate-900/5">
+      <p className="text-slate-700">{seller ? 'Sign in to list your products and receive orders.' : 'Sign in to order and follow your orders.'}</p>
+      <div className="mt-4 flex flex-wrap justify-center gap-2">
+        {seller ? (
+          <Link href={loginHref('seller', next)} className={PRICE_COMPARISON_BUTTON}>Seller sign-in</Link>
+        ) : (
+          <>
+            <Link href={loginHref('farmer', next)} className={PRICE_COMPARISON_BUTTON}>Farmer sign-in</Link>
+            <Link href={loginHref('buyer', next)} className="inline-flex items-center rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 no-underline ring-1 ring-slate-200 hover:no-underline">Buyer sign-in</Link>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function OrderModal({ listing: l, account, onClose, onPlaced }: { listing: MarketListing; account: Account; onClose: () => void; onPlaced: () => void }) {
+  const [form, setForm] = useState({ quantity: '1', name: account.name, phone: account.phone, address: [account.village, account.district].filter(Boolean).join(', ') });
+  const [busy, setBusy] = useState(false);
+  const qty = Number(form.quantity) || 0;
+
+  const place = async () => {
+    if (!(qty > 0)) return toast.error('How many do you want?');
+    if (qty > Number(l.quantity)) return toast.error(`Only ${l.quantity} ${l.unit} in stock.`);
+    if (!/^(\+?91)?[6-9]\d{9}$/.test(form.phone.replace(/\s/g, ''))) return toast.error('Add your 10-digit mobile number.');
+    if (form.address.trim().length < 5) return toast.error('Add the delivery address (village, district).');
+    setBusy(true);
+    try {
+      await placeOrder({ listing_id: l.id, buyer_name: form.name.trim() || account.name, buyer_phone: form.phone.replace(/\s/g, ''), delivery_address: form.address.trim(), quantity: qty });
+      toast.success('Order sent to the seller — pay only after delivery');
+      onPlaced();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not place the order.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`Order ${l.product}`}
+      footer={
+        <>
+          <Btn theme={theme} variant="ghost" onClick={onClose}>Cancel</Btn>
+          <Btn theme={theme} icon={ShoppingCart} disabled={busy} onClick={() => void place()}>{busy ? 'Sending…' : `Order for ${inr(qty * Number(l.price))}`}</Btn>
+        </>
+      }
+    >
+      <div className="grid gap-4">
+        <p className="text-sm text-slate-600">{inr(l.price)} per {l.unit} from {l.seller_name}, {l.district}</p>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label={`How many (${l.unit})`}>
+            <input type="number" min={1} max={Number(l.quantity)} className={INPUT} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
+          </Field>
+          <Field label="Your mobile">
+            <input type="tel" className={INPUT} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          </Field>
+        </div>
+        <Field label="Your name">
+          <input className={INPUT} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        </Field>
+        <Field label="Deliver to">
+          <textarea rows={2} className={INPUT} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Village, tehsil, district, landmark" />
+        </Field>
+        <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-950">You pay nothing now. When the goods reach you and you have checked them, press “I received the goods” and pay the seller by UPI.</p>
+      </div>
+    </Modal>
   );
 }

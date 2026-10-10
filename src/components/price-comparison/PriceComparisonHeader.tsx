@@ -41,7 +41,7 @@ export function PriceComparisonHeader({ actions }: { actions?: ReactNode }) {
     <ToolHeader
       tool="priceComparison"
       title="Price Comparison Hub"
-      description="Compare real-time rates for farm essentials across authorized dealers. Direct home delivery guaranteed with Escrow protection."
+      description="Compare prices from sellers and dealers, order to your door, and pay the seller only after the goods reach you."
       actions={actions}
     />
   );

@@ -66,7 +66,7 @@ export const AUTH_THEMES: Record<AuthThemeId, AuthTheme> = {
     blobB: 'bg-orange-300/40',
     eyebrow: 'text-amber-200',
     headline: 'Reach buyers across the country.',
-    copy: 'Publish your catalogue to price comparison and receive escrow payouts on delivery.',
+    copy: 'Publish your catalogue to price comparison; buyers pay you directly after delivery.',
   },
   logistics: {
     mood: 'winter',

@@ -91,7 +91,7 @@ export const PORTAL_LOGIN: Record<PortalId, PortalLoginCopy> = {
     eyebrow: 'Seller portal',
     headline: 'Grow your agri-business',
     description: 'List your products, reach buyers across India and follow every order from dispatch to payout.',
-    highlights: ['Publish to Price Comparison', 'Orders from packing to delivery', 'Escrow payouts to your bank'],
+    highlights: ['Publish to Price Comparison', 'Orders from packing to delivery', 'Buyers pay to your UPI / bank'],
     theme: T({
       canvas: 'bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50',
       iconTile: 'bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg shadow-orange-500/30',
@@ -129,7 +129,7 @@ export const PORTAL_LOGIN: Record<PortalId, PortalLoginCopy> = {
     eyebrow: 'Rental marketplace',
     headline: 'Rent machinery & cold storage',
     description: 'Tractors, sprayers and cold-store space by the day — or earn from your own idle equipment.',
-    highlights: ['Verified owners and operators', 'Deposits held in escrow', 'Bookings from request to return'],
+    highlights: ['Verified owners and operators', 'Pay the owner directly by UPI', 'Bookings from request to return'],
     theme: T({
       canvas: 'bg-gradient-to-br from-violet-50 via-white to-fuchsia-50',
       iconTile: 'bg-gradient-to-br from-violet-400 to-purple-700 text-white shadow-lg shadow-purple-700/30',
@@ -186,7 +186,7 @@ export const PORTAL_LOGIN: Record<PortalId, PortalLoginCopy> = {
     eyebrow: 'Agro-dealer portal',
     headline: 'Sell inputs farmers can trust',
     description: 'Register every batch code, keep licences current and let farmers verify what they buy.',
-    highlights: ['Batch registry farmers can scan', 'Licence and compliance checklist', 'Escrow payouts'],
+    highlights: ['Batch registry farmers can scan', 'Licence and compliance checklist', 'Verified-dealer badge'],
     theme: T({
       canvas: 'bg-gradient-to-br from-rose-50 via-orange-50 to-amber-50',
       iconTile: 'bg-gradient-to-br from-rose-400 to-red-700 text-white shadow-lg shadow-red-700/30',

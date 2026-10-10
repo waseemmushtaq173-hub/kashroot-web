@@ -399,7 +399,14 @@ create table if not exists public.market_listings (
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
+alter table public.market_listings add column if not exists subcategory text check (char_length(subcategory) <= 40);
 create index if not exists market_listings_product on public.market_listings (category, lower(product)) where active;
+
+-- Which sellers KashRoot has verified (dealer or admin), for the badge on listings.
+create or replace function public.kr_verified_sellers(p_ids uuid[]) returns setof uuid
+language sql stable security definer set search_path = public as $$
+  select distinct user_id from public.staff_roles where user_id = any(p_ids) and role in ('DEALER', 'ADMIN')
+$$;
 alter table public.market_listings enable row level security;
 drop trigger if exists market_listings_touch on public.market_listings;
 create trigger market_listings_touch before update on public.market_listings for each row execute function public.kr_touch();
@@ -702,4 +709,4 @@ grant select, insert, update, delete on
   to authenticated;
 grant usage, select on all sequences in schema public to authenticated;
 grant execute on function public.kr_track(text), public.kr_driver_view(text), public.kr_driver_ping(text, double precision, double precision, real),
-  public.kr_driver_delivered(text), public.kr_check_batch(text) to anon, authenticated;
+  public.kr_driver_delivered(text), public.kr_check_batch(text), public.kr_verified_sellers(uuid[]) to anon, authenticated;

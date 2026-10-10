@@ -18,14 +18,14 @@ export const PORTAL_GUIDES: Partial<Record<PortalId, Guide>> = {
     ur: 'یہ آپ کا کسان پورٹل ہے۔ اپنی فصل بیچنے کے لیے "List produce" دبائیں۔ آپ کے آرڈر اور ڈلیوری تک محفوظ رکھا پیسہ نیچے نظر آتا ہے۔ آج کے منڈی بھاؤ کے لیے Home دبا کر Mandi rates کھولیں۔ کسی ماہر سے پوچھنے یا بیمار پتے کی تصویر بھیجنے کے لیے Advisory پورٹل کھولیں۔ اوپر "My details" دبا کر اپنا گاؤں، فصل اور زبان محفوظ کریں۔',
   },
   buyer: {
-    en: 'This is the Buyer portal. Find produce from verified growers, compare prices, and pay through escrow — the seller gets the money only after you accept the delivery. To follow a truck, use Track consignment.',
-    hi: 'यह ख़रीदार पोर्टल है। भरोसेमंद किसानों की उपज देखें, भाव मिलाएँ और एस्क्रो से भुगतान करें — डिलीवरी मान लेने के बाद ही विक्रेता को पैसा मिलता है। ट्रक देखने के लिए Track consignment दबाएँ।',
-    ur: 'یہ خریدار پورٹل ہے۔ قابلِ بھروسہ کسانوں کی پیداوار دیکھیں، بھاؤ ملائیں اور ایسکرو سے ادائیگی کریں — ڈلیوری قبول کرنے کے بعد ہی بیچنے والے کو پیسہ ملتا ہے۔ ٹرک دیکھنے کے لیے Track consignment دبائیں۔',
+    en: 'This is the Buyer portal. To buy, open Price Comparison, choose a product and press Order. You pay nothing now. When the goods reach you and you have checked them, open My orders, press I received the goods, and pay the seller from your UPI app. To follow a truck, use Track consignment.',
+    hi: 'यह ख़रीदार पोर्टल है। ख़रीदने के लिए Price Comparison खोलें, सामान चुनें और Order दबाएँ। अभी कुछ नहीं देना है। सामान पहुँचने और जाँचने के बाद My orders खोलें, "I received the goods" दबाएँ और अपने UPI ऐप से विक्रेता को भुगतान करें। ट्रक देखने के लिए Track consignment दबाएँ।',
+    ur: 'یہ خریدار پورٹل ہے۔ خریدنے کے لیے Price Comparison کھولیں، سامان چنیں اور Order دبائیں۔ ابھی کچھ نہیں دینا ہے۔ سامان پہنچنے اور جانچنے کے بعد My orders کھولیں، "I received the goods" دبائیں اور اپنے UPI ایپ سے بیچنے والے کو ادائیگی کریں۔ ٹرک دیکھنے کے لیے Track consignment دبائیں۔',
   },
   seller: {
-    en: 'This is the Seller portal. Add your products so farmers can compare and order them. Accept orders, ship them, and add your UPI or bank details under Payouts so buyers can pay you.',
-    hi: 'यह विक्रेता पोर्टल है। अपने सामान जोड़ें ताकि किसान भाव मिलाकर ऑर्डर कर सकें। ऑर्डर स्वीकार करें, भेजें, और Payouts में अपना UPI या बैंक खाता जोड़ें ताकि ख़रीदार आपको भुगतान कर सकें।',
-    ur: 'یہ بیچنے والوں کا پورٹل ہے۔ اپنی چیزیں شامل کریں تاکہ کسان بھاؤ ملا کر آرڈر کر سکیں۔ آرڈر قبول کریں، بھیجیں، اور Payouts میں اپنا UPI یا بینک کھاتہ شامل کریں تاکہ خریدار آپ کو ادائیگی کر سکیں۔',
+    en: 'This is the Seller portal. Open My products and press Add product, with its price and stock, so farmers can compare and order it. In Orders, press Accept, then Mark shipped. Add your UPI or bank details under Payouts; the buyer pays you there after the goods arrive, and you press Money received.',
+    hi: 'यह विक्रेता पोर्टल है। My products खोलकर "Add product" दबाएँ और दाम व स्टॉक लिखें, ताकि किसान भाव मिलाकर ऑर्डर कर सकें। Orders में Accept दबाएँ, फिर "Mark shipped"। Payouts में अपना UPI या बैंक खाता जोड़ें; सामान पहुँचने के बाद ख़रीदार वहीं भुगतान करेगा, फिर आप "Money received" दबाएँ।',
+    ur: 'یہ بیچنے والوں کا پورٹل ہے۔ My products کھول کر "Add product" دبائیں اور دام اور اسٹاک لکھیں، تاکہ کسان بھاؤ ملا کر آرڈر کر سکیں۔ Orders میں Accept دبائیں، پھر "Mark shipped"۔ Payouts میں اپنا UPI یا بینک کھاتہ شامل کریں؛ سامان پہنچنے کے بعد خریدار وہیں ادائیگی کرے گا، پھر آپ "Money received" دبائیں۔',
   },
   rental: {
     en: 'This is Cold storage and machinery. In the Cold storage tab, find a store with free boxes and press Book. Choose how many boxes and for how many months, then pay the owner from your UPI app and type the payment number. If you own a cold store, open My cold store to list it, keep the free boxes up to date, and confirm bookings.',
