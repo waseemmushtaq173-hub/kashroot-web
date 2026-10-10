@@ -18,7 +18,7 @@ export function GET() {
   const emailProvider = pickEmailProvider();
 
   const problems: string[] = [];
-  if (!secret) problems.push('OTP_SECRET is missing — add any long random text. Without it no OTP can be sent.');
+  if (!secret) problems.push('No signing secret: add OTP_SECRET (any long random text), or an SMS/email provider key.');
   if (!smsProvider) problems.push('No SMS provider found. For Fast2SMS the variable must be named exactly FAST2SMS_API_KEY.');
   if (!emailProvider) {
     if (has('GMAIL_USER') !== has('GMAIL_APP_PASSWORD')) problems.push('Gmail needs both GMAIL_USER and GMAIL_APP_PASSWORD.');

@@ -7,7 +7,7 @@
  */
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { Check, Leaf } from 'lucide-react';
+import { ArrowLeft, Check, Leaf } from 'lucide-react';
 
 import { PORTAL_LOGIN } from '@/components/auth/portalLoginConfig';
 import { ValleyScene } from '@/components/three/ValleyScene';
@@ -28,12 +28,17 @@ export function PortalAuthFrame({ portal, labelledBy, children }: { portal: Port
           <ValleyScene mood={copy.mood} className="-z-20" />
           <div aria-hidden className={`absolute inset-0 -z-10 bg-gradient-to-tr ${theme.sceneTint}`} />
 
-          <Link href="/" className={`inline-flex items-center gap-2 rounded-xl text-white no-underline hover:no-underline ${focusRing}`}>
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-white/20 text-white ring-1 ring-white/40 backdrop-blur">
-              <Leaf className="h-4 w-4" aria-hidden />
-            </span>
-            <span className="text-base font-semibold tracking-tight">KashRoot</span>
-          </Link>
+          <div className="flex items-center justify-between gap-3">
+            <Link href="/" className={`inline-flex items-center gap-2 rounded-xl text-white no-underline hover:no-underline ${focusRing}`}>
+              <span className="grid h-8 w-8 place-items-center rounded-lg bg-white/20 text-white ring-1 ring-white/40 backdrop-blur">
+                <Leaf className="h-4 w-4" aria-hidden />
+              </span>
+              <span className="text-base font-semibold tracking-tight">KashRoot</span>
+            </Link>
+            <Link href="/" className={`inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-sm font-semibold text-white no-underline ring-1 ring-white/40 backdrop-blur transition hover:bg-white/30 hover:no-underline ${focusRing}`}>
+              <ArrowLeft className="h-4 w-4" aria-hidden /> Back to home
+            </Link>
+          </div>
           <div className="mt-8 lg:mt-0">
             <span data-depth className={`grid h-14 w-14 place-items-center rounded-2xl ${theme.iconTile}`}>
               <Icon className="h-6 w-6" aria-hidden />

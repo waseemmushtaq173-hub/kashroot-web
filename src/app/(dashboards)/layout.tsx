@@ -33,10 +33,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('auth_token');
       if (!token) {
-        // Farmer, buyer and seller routes have their own sign-in pages; every
-        // other portal still uses the shared /login.
+        // Replace, not push: the portal page must not stay in history, or
+        // Back would land on it and bounce straight back to sign-in.
         const portal = portalForSegment(segment);
-        router.push(portal ? loginHref(portal, window.location.pathname) : '/login');
+        router.replace(portal ? loginHref(portal, window.location.pathname) : '/login');
       } else {
         setUserRole(localStorage.getItem('user_role'));
         
@@ -84,7 +84,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 onClick={() => {
                   tokenStore.removeToken();
                   const portal = portalForSegment(segment);
-        router.push(portal ? loginHref(portal, window.location.pathname) : '/login');
+                  router.replace(portal ? loginHref(portal, window.location.pathname) : '/login');
                 }}
                 className="cursor-pointer rounded-xl bg-emerald-700 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-emerald-800"
               >
