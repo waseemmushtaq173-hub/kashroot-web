@@ -14,7 +14,7 @@ import { CircleAlert, Loader2, Mic, MicOff, Send, Sparkles, Square, Volume2 } fr
 
 import { LangPicker } from '@/components/voice/VoiceButtons';
 import { useAssistant } from '@/lib/client/assistant';
-import { isRtl, listen, recognitionAvailable, type SpeechLang } from '@/lib/client/speech';
+import { isRtl, listen, noListenHelp, recognitionAvailable, type SpeechLang } from '@/lib/client/speech';
 import { loadAccount } from '@/lib/db/client';
 
 const SUGGESTIONS: Record<SpeechLang, string[]> = {
@@ -32,12 +32,17 @@ export function VoiceConcierge() {
   const [interim, setInterim] = useState('');
   const [listening, setListening] = useState(false);
   const [canListen, setCanListen] = useState(false);
+  const [listenHelp, setListenHelp] = useState<string | null>(null);
   const { turns, ask, thinking, speaking, say, stop, notice, setNotice, configured } = useAssistant();
   const stopListening = useRef<(() => void) | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const id = requestAnimationFrame(() => setCanListen(recognitionAvailable()));
+    const id = requestAnimationFrame(() => {
+      const ok = recognitionAvailable();
+      setCanListen(ok);
+      setListenHelp(ok ? null : noListenHelp());
+    });
     void loadAccount().then((a) => a?.lang && setLang(a.lang)).catch(() => undefined);
     return () => {
       cancelAnimationFrame(id);
@@ -70,7 +75,7 @@ export function VoiceConcierge() {
       },
       onError: setNotice,
     });
-    if (!stopListening.current) return setNotice('Voice input is not supported in this browser — type your question instead (Chrome works best).');
+    if (!stopListening.current) return setNotice(noListenHelp());
     setListening(true);
   };
 
@@ -117,6 +122,7 @@ export function VoiceConcierge() {
             {listening ? 'Listening…' : thinking ? 'Thinking…' : speaking ? 'Speaking…' : canListen ? 'Tap and speak' : 'Type below'}
           </p>
           {lang === 'ks' && canListen && <p className="max-w-[10rem] text-center text-xs text-slate-500">Speak in Kashmiri or Urdu</p>}
+          {listenHelp && <p className="max-w-[12rem] text-center text-xs text-amber-800">{listenHelp}</p>}
           {speaking && (
             <button type="button" onClick={stop} className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-slate-900/5 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-900/10">
               <Square className="h-3.5 w-3.5" aria-hidden /> Stop voice

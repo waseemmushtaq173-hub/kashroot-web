@@ -14,7 +14,7 @@ import { HelpCircle, Loader2, Mic, Square, Volume2, X } from 'lucide-react';
 import { PORTAL_GUIDES } from '@/components/voice/portalGuides';
 import { LangPicker } from '@/components/voice/VoiceButtons';
 import { useAssistant } from '@/lib/client/assistant';
-import { isRtl, listen, NO_VOICE_HELP, speak, stopSpeaking, type SpeechLang } from '@/lib/client/speech';
+import { isRtl, listen, NO_VOICE_HELP, noListenHelp, speak, stopSpeaking, type SpeechLang } from '@/lib/client/speech';
 import { PORTALS, type PortalId } from '@/lib/auth/roles';
 import { loadAccount } from '@/lib/db/client';
 
@@ -137,7 +137,7 @@ export function PortalGuide({ portal }: { portal: PortalId }) {
       },
       onError: setNote,
     });
-    if (!stopListening.current) return setNote('This browser cannot listen. Use Chrome on your phone.');
+    if (!stopListening.current) return setNote(noListenHelp());
     setListening(true);
   };
 

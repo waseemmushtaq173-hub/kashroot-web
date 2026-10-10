@@ -126,7 +126,7 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
             </button>
           </form>
           <div aria-live="polite" className="mt-4">
-            <BatchResult lookup={lookup} account={account} />
+            <BatchResult lookup={lookup} account={account} onPhoto={() => setMode('photo')} />
           </div>
         </div>
       )}
@@ -168,14 +168,22 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function BatchResult({ lookup, account }: { lookup: Lookup; account: Account | null }) {
+function BatchResult({ lookup, account, onPhoto }: { lookup: Lookup; account: Account | null; onPhoto?: () => void }) {
   if (lookup.state === 'idle' || lookup.state === 'loading') return lookup.state === 'loading' ? <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Checking the registry…</p> : null;
   if (lookup.state === 'error') return <p className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">{lookup.message}</p>;
   if (lookup.state === 'missing') {
     return (
       <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900 ring-1 ring-amber-200">
         <p className="flex items-center gap-2 font-semibold"><CircleAlert className="h-5 w-5" aria-hidden /> {lookup.code} is not in the KashRoot registry</p>
-        <p className="mt-1">That does not prove it is fake — the dealer may not have registered it yet. Ask for a GST bill, check the seal, MRP and registration number, and buy from licensed dealers.</p>
+        <p className="mt-1">That does not prove it is fake. India has no public government list of batch numbers, so this check only knows batches that dealers have registered in KashRoot’s Agro-dealer portal — ask your dealer to register theirs.</p>
+        {onPhoto && (
+          <>
+            <p className="mt-2">Meanwhile, photograph the label: KashRoot reads it and checks that the details the law requires — registration number, batch, dates, manufacturer and grade — are there and look right.</p>
+            <button type="button" onClick={onPhoto} className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 font-semibold text-white hover:bg-emerald-800">
+              <Camera className="h-4 w-4" aria-hidden /> Check the label photo
+            </button>
+          </>
+        )}
         <ReportBatch code={lookup.code} account={account} />
       </div>
     );

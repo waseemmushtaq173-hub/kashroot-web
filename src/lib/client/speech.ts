@@ -147,8 +147,20 @@ interface RecognitionLike {
 }
 type RecognitionCtor = new () => RecognitionLike;
 
+/** Brave ships the speech API but blocks the service behind it (fails with "network"). */
+export function isBrave(): boolean {
+  return typeof navigator !== 'undefined' && 'brave' in navigator;
+}
+
+/** What to tell someone whose browser cannot listen. */
+export function noListenHelp(): string {
+  return isBrave()
+    ? 'Brave blocks voice input. Open KashRoot in Chrome to speak — or type your question.'
+    : 'This browser cannot listen. Use Chrome on your phone — or type your question.';
+}
+
 export function recognitionAvailable(): boolean {
-  if (typeof window === 'undefined') return false;
+  if (typeof window === 'undefined' || isBrave()) return false;
   const w = window as unknown as { SpeechRecognition?: RecognitionCtor; webkitSpeechRecognition?: RecognitionCtor };
   return Boolean(w.SpeechRecognition ?? w.webkitSpeechRecognition);
 }
@@ -167,7 +179,7 @@ export const LISTEN_ERRORS: Record<string, string> = {
  * the browser can't listen.
  */
 export function listen(lang: SpeechLang, handlers: { onText?: (t: string) => void; onDone: (finalText: string) => void; onError?: (message: string) => void }): (() => void) | null {
-  if (typeof window === 'undefined') return null;
+  if (!recognitionAvailable()) return null;
   const w = window as unknown as { SpeechRecognition?: RecognitionCtor; webkitSpeechRecognition?: RecognitionCtor };
   const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
   if (!Ctor) return null;

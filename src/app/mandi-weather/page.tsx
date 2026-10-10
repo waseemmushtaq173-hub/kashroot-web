@@ -115,10 +115,17 @@ function advice(f: Forecast): { tone: 'amber' | 'blue' | 'green' | 'red'; text: 
   return out;
 }
 
+/** An error that also carries the technical reason, shown under the message. */
+type DetailedError = Error & { detail?: string };
+
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as { error?: string }).error || `Request failed (${res.status})`);
+  if (!res.ok) {
+    const err: DetailedError = new Error((data as { error?: string }).error || `Request failed (${res.status})`);
+    err.detail = (data as { detail?: string }).detail || `HTTP ${res.status}`;
+    throw err;
+  }
   return data as T;
 }
 
@@ -178,7 +185,12 @@ export default function MandiWeatherPage() {
     queryFn: () => {
       const p = new URLSearchParams();
       Object.entries(applied).forEach(([k, v]) => v.trim() && p.set(k, v.trim()));
-      return getJson<MandiResult>(`/api/mandi?${p}`).catch((serverError: Error) => mandiFromBrowser(applied).catch(() => Promise.reject(serverError)));
+      return getJson<MandiResult>(`/api/mandi?${p}`).catch((serverError: DetailedError) =>
+        mandiFromBrowser(applied).catch((browserError: Error) => {
+          serverError.detail = `Server: ${serverError.detail ?? '—'} | This phone: ${browserError.message || String(browserError)}`;
+          return Promise.reject(serverError);
+        }),
+      );
     },
     staleTime: 10 * 60_000,
   });
@@ -383,6 +395,12 @@ export default function MandiWeatherPage() {
             <div className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">
               <TriangleAlert className="h-4 w-4" aria-hidden /> {(mandiQ.error as Error).message}
               <Btn theme={theme} size="sm" variant="ghost" icon={RefreshCw} onClick={() => void mandiQ.refetch()}>Retry</Btn>
+              {(mandiQ.error as DetailedError).detail && (
+                <details className="w-full text-xs text-rose-900/80">
+                  <summary className="cursor-pointer">Technical details (for the site owner)</summary>
+                  <p className="mt-1 break-words font-mono">{(mandiQ.error as DetailedError).detail}</p>
+                </details>
+              )}
             </div>
           )}
           {mandiQ.data && rows.length === 0 && (

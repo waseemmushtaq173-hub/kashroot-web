@@ -14,6 +14,7 @@ import 'server-only';
 
 import { MANDI_SAMPLE_KEY, mandiUrl, parseMandi, type MandiQuery, type MandiRecord } from '@/lib/mandi-shared';
 import { fetchAgmarknet } from '@/lib/server/agmarknet';
+import { causeCode, govFetch, type GovResponse } from '@/lib/server/govFetch';
 
 export type { MandiQuery, MandiRecord };
 
@@ -44,8 +45,8 @@ export async function fetchMandiPrices(query: MandiQuery): Promise<MandiResult> 
       return { records: a.records, total: a.records.length, usingSampleKey: false, fetchedAt: new Date().toISOString(), source: 'Agmarknet (agmarknet.gov.in)' };
     }
   } catch (err) {
-    firstFailure = err instanceof Error ? err.message : String(err);
-    console.error('Agmarknet 2.0:', firstFailure);
+    firstFailure = `Agmarknet: ${[err instanceof Error ? err.message : String(err), causeCode(err)].filter(Boolean).join(' · ')}`;
+    console.error(firstFailure);
   }
   // 2. data.gov.in as the backup.
   try {
@@ -61,20 +62,16 @@ async function fetchDataGovIn(query: MandiQuery): Promise<MandiResult> {
   const url = mandiUrl(query, key || MANDI_SAMPLE_KEY);
   // data.gov.in is often slow and occasionally drops a request: one retry on
   // a timeout, network error or 5xx, inside the route's time limit.
-  let res: Response | undefined;
+  let res: GovResponse | undefined;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      res = await fetch(url, {
-        headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0 (compatible; KashRoot/1.0; +https://kashroot-web.vercel.app)' },
-        next: { revalidate: 900 },
-        signal: AbortSignal.timeout(12_000),
-      });
+      res = await govFetch(url, { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0 (compatible; KashRoot/1.0; +https://kashroot-web.vercel.app)' }, 12_000);
       if (res.status < 500) break;
     } catch (err) {
       if (attempt === 1) {
         // fetch() hides the real reason in `cause` (e.g. a certificate or reset error).
         const cause = (err as { cause?: { code?: string; message?: string } })?.cause;
-        const why = [err instanceof Error ? err.message : String(err), cause?.code, cause?.message].filter(Boolean).join(' · ');
+        const why = ['data.gov.in:', err instanceof Error ? err.message : String(err), cause?.code, cause?.message].filter(Boolean).join(' · ');
         throw new MandiError(err instanceof Error && err.name === 'TimeoutError' ? 'timeout' : 'network', why);
       }
     }

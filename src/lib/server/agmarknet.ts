@@ -16,6 +16,7 @@
 import 'server-only';
 
 import type { MandiQuery, MandiRecord } from '@/lib/mandi-shared';
+import { govFetch } from '@/lib/server/govFetch';
 
 const API = 'https://api.agmarknet.gov.in/v1';
 const HEADERS = {
@@ -39,7 +40,7 @@ let cache: Catalog | null = null;
 const norm = (v: string) => v.toLowerCase().replace(/&/g, 'and').replace(/[^a-z]/g, '');
 
 async function get<T>(path: string, timeout = 12_000): Promise<T> {
-  const res = await fetch(`${API}/${path}`, { headers: HEADERS, signal: AbortSignal.timeout(timeout), next: { revalidate: 900 } });
+  const res = await govFetch(`${API}/${path}`, HEADERS, timeout);
   if (!res.ok) throw new AgmarknetError(`Agmarknet answered ${res.status} for ${path.split('?')[0]}`);
   return (await res.json()) as T;
 }
