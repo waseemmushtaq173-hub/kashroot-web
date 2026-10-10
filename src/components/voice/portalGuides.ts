@@ -58,9 +58,9 @@ export const PORTAL_GUIDES: Partial<Record<PortalId, Guide>> = {
     ur: 'یہ کھاد اور دوا بیچنے والوں کا پورٹل ہے۔ ہر بیچ کو اس کے بیچ کوڈ اور رجسٹریشن نمبر کے ساتھ شامل کریں، پھر "Register all" دبائیں تاکہ کسان جانچ سکیں۔ Compliance میں KashRoot سے تصدیق مانگیں۔ Payouts میں اپنی ادائیگی کی تفصیل شامل کریں۔',
   },
   admin: {
-    en: 'This is the Admin portal. Approve agronomists and dealers under Approvals, look at reported fake batches there too, and review KYC and disputes.',
-    hi: 'यह एडमिन पोर्टल है। Approvals में विशेषज्ञों और विक्रेताओं को मंज़ूरी दें, वहीं नक़ली बैच की शिकायतें देखें, और KYC व विवाद देखें।',
-    ur: 'یہ ایڈمن پورٹل ہے۔ Approvals میں ماہرین اور بیچنے والوں کو منظوری دیں، وہیں نقلی بیچ کی شکایتیں دیکھیں، اور KYC اور تنازعات دیکھیں۔',
+    en: 'This is the Admin portal. Under Approvals, approve agronomists and dealers, and see fake batches reported by farmers. Problems shows orders a buyer reported; call both sides to help. Platform numbers shows how many people use KashRoot and what they do.',
+    hi: 'यह एडमिन पोर्टल है। Approvals में विशेषज्ञों और विक्रेताओं को मंज़ूरी दें और किसानों की बताई नक़ली बैच देखें। Problems में वे ऑर्डर हैं जिनमें ख़रीदार ने शिकायत की है; दोनों से बात करके मदद करें। Platform numbers में दिखता है कि कितने लोग KashRoot इस्तेमाल कर रहे हैं।',
+    ur: 'یہ ایڈمن پورٹل ہے۔ Approvals میں ماہرین اور بیچنے والوں کو منظوری دیں اور کسانوں کی بتائی نقلی بیچ دیکھیں۔ Problems میں وہ آرڈر ہیں جن میں خریدار نے شکایت کی ہے؛ دونوں سے بات کر کے مدد کریں۔ Platform numbers میں نظر آتا ہے کہ کتنے لوگ KashRoot استعمال کر رہے ہیں۔',
   },
 };
 

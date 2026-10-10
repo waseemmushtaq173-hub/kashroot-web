@@ -704,6 +704,42 @@ language sql stable security definer set search_path = public as $$
   from public.fertilizer_batches b where b.batch_code = upper(trim(p_code))
 $$;
 
+-- ───────────────────────── admin numbers ─────────────────────────
+-- Counts across the platform for the Admin portal (admins only).
+create or replace function public.kr_admin_stats() returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.kr_has_role('ADMIN') then raise exception 'Only KashRoot admins can see this'; end if;
+  return jsonb_build_object(
+    'accounts', (select count(*) from auth.users),
+    'accounts_7d', (select count(*) from auth.users where created_at > now() - interval '7 days'),
+    'portals', coalesce((
+      select jsonb_object_agg(r, n) from (
+        select r, count(*) as n
+        from auth.users u,
+          jsonb_array_elements_text(case when jsonb_typeof(u.raw_user_meta_data -> 'roles') = 'array'
+            then u.raw_user_meta_data -> 'roles'
+            else jsonb_build_array(coalesce(u.raw_user_meta_data ->> 'role', 'FARMER')) end) as r
+        group by r) x), '{}'::jsonb),
+    'products_on_sale', (select count(*) from public.market_listings where active and quantity > 0),
+    'orders', coalesce((select jsonb_object_agg(status, n) from (select status, count(*) as n from public.market_orders group by status) x), '{}'::jsonb),
+    'orders_paid_value', (select coalesce(sum(amount), 0) from public.market_orders where status = 'completed'),
+    'cold_stores', (select count(*) from public.rental_listings where kind = 'cold_store' and active),
+    'machinery', (select count(*) from public.rental_listings where kind = 'machinery' and active),
+    'bookings', coalesce((select jsonb_object_agg(status, n) from (select status, count(*) as n from public.rental_bookings group by status) x), '{}'::jsonb),
+    'advisory_total', (select count(*) from public.advisory_requests),
+    'advisory_waiting', (select count(*) from public.advisory_requests where status in ('open', 'accepted')),
+    'consignments', (select count(*) from public.consignments),
+    'consignments_live', (select count(*) from public.consignments where status = 'in_transit'),
+    'batches', (select count(*) from public.fertilizer_batches),
+    'batch_reports', (select count(*) from public.batch_reports),
+    'orchard_blocks', (select count(*) from public.orchard_blocks),
+    'spray_logs', (select count(*) from public.spray_logs)
+  );
+end $$;
+revoke execute on function public.kr_admin_stats() from public, anon;
+grant execute on function public.kr_admin_stats() to authenticated;
+
 -- ───────────────────────── grants ─────────────────────────
 grant select on public.rental_listings, public.market_listings, public.fertilizer_batches to anon;
 grant select, insert, update, delete on

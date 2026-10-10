@@ -41,17 +41,24 @@ export function PortalGuide({ portal }: { portal: PortalId }) {
     if (!guide) return;
     stop();
     setNote(null);
+    let say: SpeechLang = l;
     if (l === 'ks') {
-      // Kashmiri: the AI explains the page in Kashmiri, then it is read aloud.
-      await ask('Explain this page to me simply, step by step: what is it for and which buttons do I press?', 'ks');
-      return;
+      const ai = configured ?? (await fetch('/api/ai').then((r) => r.json()).then((d) => Boolean(d.configured)).catch(() => true));
+      if (ai) {
+        // Kashmiri: the AI explains the page in Kashmiri, then it is read aloud.
+        await ask('Explain this page to me simply, step by step: what is it for and which buttons do I press?', 'ks');
+        return;
+      }
+      // No AI yet: Urdu is the closest written guide a Kashmiri speaker follows.
+      say = 'ur';
+      setNote('Kashmiri needs the AI assistant, which is not connected yet — reading the guide in Urdu.');
     }
     setReading(true);
-    const text = l === 'hi' ? guide.hi : l === 'ur' ? guide.ur : guide.en;
-    const result = await speak(text, l, l === 'ur' ? guide.hi : undefined, () => setReading(false));
+    const text = say === 'hi' ? guide.hi : say === 'ur' ? guide.ur : guide.en;
+    const result = await speak(text, say, say === 'ur' ? guide.hi : undefined, () => setReading(false));
     if (result !== 'spoken') {
       setReading(false);
-      setNote(result === 'no-voice' ? NO_VOICE_HELP[l] : 'This browser cannot read aloud.');
+      setNote(result === 'no-voice' ? NO_VOICE_HELP[say] : 'This browser cannot read aloud.');
     }
   };
 
@@ -136,7 +143,7 @@ export function PortalGuide({ portal }: { portal: PortalId }) {
 
   if (!guide) return null;
   const last = [...turns].reverse().find((t) => t.role === 'assistant');
-  const shownText = lang === 'hi' ? guide.hi : lang === 'ur' ? guide.ur : lang === 'en' ? guide.en : null;
+  const shownText = lang === 'hi' ? guide.hi : lang === 'ur' || (lang === 'ks' && configured === false) ? guide.ur : lang === 'en' ? guide.en : null;
 
   return (
     <>

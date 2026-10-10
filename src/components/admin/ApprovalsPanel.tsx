@@ -2,17 +2,16 @@
 
 /**
  * Admin → Approvals: agronomists and dealers who applied (role_requests),
- * everyone holding a staff role (staff_roles), farmers' reports of
- * suspicious fertiliser / pesticide batches, and orders a buyer reported a
- * problem with (market_orders, status "disputed"). Approving calls kr_grant_role,
+ * everyone holding a staff role (staff_roles), and farmers' reports of
+ * suspicious fertiliser / pesticide batches. Approving calls kr_grant_role,
  * which only works for admins (checked in the database).
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Check, Flag, GraduationCap, Loader2, PackageX, Phone, ShieldCheck, Store, UserX, X } from 'lucide-react';
+import { Check, Flag, GraduationCap, Loader2, ShieldCheck, Store, UserX, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Badge, Btn, EmptyState, PORTAL_THEMES, Panel } from '@/components/portal/kit';
-import { ago, dbMessage, inr, supabase } from '@/lib/db/client';
+import { ago, dbMessage, supabase } from '@/lib/db/client';
 
 const theme = PORTAL_THEMES.admin ?? PORTAL_THEMES.expert;
 
@@ -41,34 +40,18 @@ interface BatchReport {
   created_at: string;
 }
 
-interface ReportedOrder {
-  id: string;
-  product: string;
-  quantity: number;
-  unit: string;
-  amount: number;
-  buyer_name: string;
-  buyer_phone: string;
-  buyer_note: string | null;
-  delivery_address: string;
-  created_at: string;
-  market_listings: { seller_name: string; phone: string } | null;
-}
-
 export function ApprovalsPanel() {
   const [requests, setRequests] = useState<RoleRequest[] | null>(null);
   const [staff, setStaff] = useState<StaffRole[]>([]);
   const [reports, setReports] = useState<BatchReport[]>([]);
-  const [disputes, setDisputes] = useState<ReportedOrder[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [r, s, b, d] = await Promise.all([
+    const [r, s, b] = await Promise.all([
       supabase.from('role_requests').select('*').order('created_at', { ascending: false }).limit(200),
       supabase.from('staff_roles').select('user_id, role, granted_at').order('granted_at', { ascending: false }),
       supabase.from('batch_reports').select('id, batch_code, note, created_at').order('id', { ascending: false }).limit(50),
-      supabase.from('market_orders').select('id, product, quantity, unit, amount, buyer_name, buyer_phone, buyer_note, delivery_address, created_at, market_listings(seller_name, phone)').eq('status', 'disputed').order('created_at', { ascending: false }).limit(50),
     ]);
     if (r.error) {
       setError(dbMessage(r.error));
@@ -79,7 +62,6 @@ export function ApprovalsPanel() {
     setRequests((r.data ?? []) as RoleRequest[]);
     setStaff((s.data ?? []) as StaffRole[]);
     setReports((b.data ?? []) as BatchReport[]);
-    setDisputes((d.data ?? []) as unknown as ReportedOrder[]);
   }, []);
 
   useEffect(() => {
@@ -153,28 +135,6 @@ export function ApprovalsPanel() {
                 {s.role !== 'ADMIN' && (
                   <Btn theme={theme} size="sm" variant="ghost" icon={UserX} disabled={busy !== null} onClick={() => void run(`${s.user_id}${s.role}`, () => supabase.rpc('kr_revoke_role', { p_user: s.user_id, p_role: s.role }), 'Role removed')}>Remove</Btn>
                 )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </Panel>
-
-      <Panel theme={theme} title="Orders with a problem" icon={PackageX} className="lg:col-span-2">
-        {disputes.length === 0 ? (
-          <p className="text-sm text-slate-600">No buyer has reported a problem with an order.</p>
-        ) : (
-          <ul className="space-y-2">
-            {disputes.map((o) => (
-              <li key={o.id} className="rounded-xl bg-white/80 p-3 text-sm ring-1 ring-slate-900/5">
-                <p className="font-semibold text-slate-900">{o.quantity} {o.unit} · {o.product} · {inr(o.amount)} <span className="text-xs font-normal text-slate-500">{ago(o.created_at)}</span></p>
-                {o.buyer_note && <p className="mt-1 text-rose-800">“{o.buyer_note}”</p>}
-                <p className="mt-1 text-slate-700">
-                  Buyer: {o.buyer_name} · <a href={`tel:${o.buyer_phone}`} className="inline-flex items-center gap-1 font-semibold text-sky-800"><Phone className="h-3.5 w-3.5" aria-hidden /> {o.buyer_phone}</a>
-                  {o.market_listings && (
-                    <> · Seller: {o.market_listings.seller_name} · <a href={`tel:${o.market_listings.phone}`} className="inline-flex items-center gap-1 font-semibold text-sky-800"><Phone className="h-3.5 w-3.5" aria-hidden /> {o.market_listings.phone}</a></>
-                  )}
-                </p>
-                <p className="text-xs text-slate-500">Deliver to: {o.delivery_address}</p>
               </li>
             ))}
           </ul>
