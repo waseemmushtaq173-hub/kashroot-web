@@ -1,5 +1,8 @@
 import type { SVGProps } from 'react';
 
+import { Emblem, Wordmark } from '@/components/brand/Emblem';
+import { brandSerif } from '@/lib/fonts';
+
 /**
  * Shikara — the KashRoot brand mark.
  *
@@ -83,11 +86,8 @@ export function Shikara({
 }
 
 /**
- * BrandMark — the mark locked up with the wordmark.
- *
- * The mark sits in a sharp brand rectangle rather than floating loose, so the
- * lockup and the wordmark share a baseline grid. Sized by `size` so the same
- * lockup works in the header, the footer and a hero panel.
+ * BrandMark — the emblem locked up with the wordmark, for headers, footers
+ * and hero panels. Sized by `size`.
  */
 export function BrandMark({
   className = '',
@@ -96,22 +96,13 @@ export function BrandMark({
   className?: string;
   size?: 'sm' | 'md' | 'lg';
 }) {
-  const box = { sm: 'h-8 w-8', md: 'h-9 w-9', lg: 'h-12 w-12' }[size];
-  const mark = { sm: 'h-5 w-5', md: 'h-6 w-6', lg: 'h-8 w-8' }[size];
-  const word = { sm: 'text-lg', md: 'text-xl', lg: 'text-2xl' }[size];
+  const box = { sm: 'h-8 w-8', md: 'h-10 w-10', lg: 'h-14 w-14' }[size];
+  const word = { sm: 'text-lg', md: 'text-[1.4rem]', lg: 'text-3xl' }[size];
 
   return (
     <span className={`inline-flex items-center gap-2.5 ${className}`}>
-      <span
-        className={`${box} inline-flex shrink-0 items-center justify-center bg-kr-primary-500 text-white`}
-      >
-        <Shikara className={mark} />
-      </span>
-      <span
-        className={`font-heading font-bold tracking-tight text-kr-text-primary ${word}`}
-      >
-        KashRoot
-      </span>
+      <Emblem className={`${box} shrink-0 drop-shadow-[0_4px_10px_rgba(6,61,48,0.35)]`} />
+      <Wordmark className={`${brandSerif.className} text-kr-text-primary ${word}`} />
     </span>
   );
 }

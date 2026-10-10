@@ -1,15 +1,47 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#F59E0B"/>
-      <stop offset="1" stop-color="#EA580C"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0E5A45"/>
+      <stop offset="0.55" stop-color="#063D30"/>
+      <stop offset="1" stop-color="#02221B"/>
     </linearGradient>
+    <radialGradient id="glow" cx="0.3" cy="0.22" r="0.75">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="0.6" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#FFF1C1"/>
+      <stop offset="0.35" stop-color="#F1C76A"/>
+      <stop offset="0.7" stop-color="#C8902F"/>
+      <stop offset="1" stop-color="#8E5E17"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F7DC97"/>
+      <stop offset="0.5" stop-color="#B9842C"/>
+      <stop offset="1" stop-color="#F3D388"/>
+    </linearGradient>
+    <clipPath id="half"><rect x="60" y="0" width="60" height="120"/></clipPath>
   </defs>
-  <rect width="120" height="120" rx="26" fill="url(#g)"/>
-  <g transform="translate(10 25) scale(0.8333)" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M14 54 L38 22 L52 36 L72 12 L96 54"/>
-    <path d="M2 58 H28 M92 58 H118 M14 68 H42 M78 68 H106"/>
-    <path d="M26 51 Q28 56 32 58 Q60 74 88 58 Q92 56 94 51"/>
-    <path d="M48 58 V41 M72 58 V41 M40 47 Q60 28 80 47"/>
+  <rect width="120" height="120" rx="28" fill="url(#bg)"/>
+  <rect width="120" height="120" rx="28" fill="url(#glow)"/>
+  <rect x="5" y="5" width="110" height="110" rx="23.5" fill="none" stroke="url(#rim)" stroke-width="1.6" opacity="0.9"/>
+  <!-- Chinar leaf: five broad, soft lobes -->
+  <path fill="url(#gold)" d="M60 13 C65.5 21 70 29 70.5 38.5 C76 33 82 30 90 28.5 C88.5 37 86 44.5 82.5 51 C88.5 52 94 54 100 57.5 C93.5 64.5 85 70 76.5 72 C72 75.5 66.5 77.5 60 78.5 C53.5 77.5 48 75.5 43.5 72 C35 70 26.5 64.5 20 57.5 C26 54 31.5 52 37.5 51 C34 44.5 31.5 37 30 28.5 C38 30 44 33 49.5 38.5 C50 29 54.5 21 60 13 Z"/>
+  <path d="M60 13 C65.5 21 70 29 70.5 38.5 C76 33 82 30 90 28.5 C88.5 37 86 44.5 82.5 51 C88.5 52 94 54 100 57.5 C93.5 64.5 85 70 76.5 72 C72 75.5 66.5 77.5 60 78.5 C53.5 77.5 48 75.5 43.5 72 C35 70 26.5 64.5 20 57.5 C26 54 31.5 52 37.5 51 C34 44.5 31.5 37 30 28.5 C38 30 44 33 49.5 38.5 C50 29 54.5 21 60 13 Z" fill="#7A4E12" opacity="0.28" clip-path="url(#half)"/>
+  <!-- Veins -->
+  <g fill="none" stroke="#063D30" stroke-width="1.3" stroke-linecap="round" opacity="0.8">
+    <path d="M60 76 L60 22"/>
+    <path d="M60 66 L84 35"/>
+    <path d="M60 66 L36 35"/>
+    <path d="M60 71 L93 58"/>
+    <path d="M60 71 L27 58"/>
+  </g>
+  <!-- Stem flowing into roots -->
+  <g fill="none" stroke="url(#gold)" stroke-linecap="round">
+    <path d="M60 78 L60 106" stroke-width="2.6"/>
+    <path d="M60 87 C58.5 95 52 99 44 103" stroke-width="2.1"/>
+    <path d="M60 87 C61.5 95 68 99 76 103" stroke-width="2.1"/>
+    <path d="M55 97 C52.5 100 51 103.5 50.5 108" stroke-width="1.5"/>
+    <path d="M65 97 C67.5 100 69 103.5 69.5 108" stroke-width="1.5"/>
   </g>
 </svg>

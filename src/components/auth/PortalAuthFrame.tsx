@@ -7,11 +7,13 @@
  */
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { ArrowLeft, Check, Leaf } from 'lucide-react';
+import { ArrowLeft, Check } from 'lucide-react';
 
 import { PORTAL_LOGIN } from '@/components/auth/portalLoginConfig';
+import { Emblem, Wordmark } from '@/components/brand/Emblem';
 import { ValleyScene } from '@/components/three/ValleyScene';
 import type { PortalId } from '@/lib/auth/roles';
+import { brandSerif } from '@/lib/fonts';
 
 export function PortalAuthFrame({ portal, labelledBy, children }: { portal: PortalId; labelledBy: string; children: ReactNode }) {
   const copy = PORTAL_LOGIN[portal];
@@ -30,10 +32,8 @@ export function PortalAuthFrame({ portal, labelledBy, children }: { portal: Port
 
           <div className="flex items-center justify-between gap-3">
             <Link href="/" className={`inline-flex items-center gap-2 rounded-xl text-white no-underline hover:no-underline ${focusRing}`}>
-              <span className="grid h-8 w-8 place-items-center rounded-lg bg-white/20 text-white ring-1 ring-white/40 backdrop-blur">
-                <Leaf className="h-4 w-4" aria-hidden />
-              </span>
-              <span className="text-base font-semibold tracking-tight">KashRoot</span>
+              <Emblem className="h-9 w-9 drop-shadow-[0_4px_12px_rgba(0,0,0,0.35)]" />
+              <Wordmark className={`${brandSerif.className} text-lg text-white`} />
             </Link>
             <Link href="/" className={`inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-sm font-semibold text-white no-underline ring-1 ring-white/40 backdrop-blur transition hover:bg-white/30 hover:no-underline ${focusRing}`}>
               <ArrowLeft className="h-4 w-4" aria-hidden /> Back to home
