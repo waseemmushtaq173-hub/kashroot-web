@@ -1,19 +1,69 @@
 'use client';
 
+/**
+ * Create an account (Supabase sign-up). The account type recolours the page
+ * and its 3D valley. Email/SMS codes are asked for only when the site has a
+ * provider for them; otherwise Supabase's confirmation email verifies the
+ * address and the mobile number is optional.
+ */
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import { AlertCircle, Loader2, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
-import { authApi, type RegisterDto } from '@/lib/api/auth';
-import { loginHref, REGISTER_ROLES } from '@/lib/auth/roles';
-import { ApiError } from '@/lib/api/client';
+import { AlertCircle, ArrowRight, Check, CheckCircle2, Eye, EyeOff, Leaf, Loader2, Mail, ShoppingBag, Smartphone, Store, Truck, type LucideIcon } from 'lucide-react';
+
+import { setAuthTheme, type AuthThemeId } from '@/components/auth/AuthShell';
 import { ContactOtp } from '@/components/auth/ContactOtp';
+import { authApi, type RegisterDto } from '@/lib/api/auth';
+import { ApiError } from '@/lib/api/client';
+import { loginHref, REGISTER_ROLES } from '@/lib/auth/roles';
 import { getKycConfig } from '@/lib/kyc/kyc-service';
 
 type RegisterRole = RegisterDto['role'];
-const ROLE_EMOJI: Record<RegisterRole, string> = { FARMER: '🌾', BUYER: '🛒', SELLER: '🏪', PROVIDER: '🚚' };
+
+const ROLE_STYLE: Record<RegisterRole, { icon: LucideIcon; theme: AuthThemeId; hint: string; tile: string; selected: string; button: string; ring: string; text: string }> = {
+  FARMER: {
+    icon: Leaf,
+    theme: 'farmer',
+    hint: 'Sell my harvest',
+    tile: 'from-emerald-400 to-green-600 shadow-emerald-600/30',
+    selected: 'bg-gradient-to-br from-emerald-50 to-lime-50 ring-2 ring-emerald-500',
+    button: 'from-emerald-600 to-teal-600 shadow-emerald-600/30',
+    ring: 'focus:ring-emerald-500',
+    text: 'text-emerald-700',
+  },
+  BUYER: {
+    icon: ShoppingBag,
+    theme: 'buyer',
+    hint: 'Source produce',
+    tile: 'from-sky-400 to-indigo-500 shadow-indigo-500/30',
+    selected: 'bg-gradient-to-br from-sky-50 to-indigo-50 ring-2 ring-sky-500',
+    button: 'from-sky-600 to-indigo-600 shadow-indigo-600/30',
+    ring: 'focus:ring-sky-500',
+    text: 'text-sky-700',
+  },
+  SELLER: {
+    icon: Store,
+    theme: 'seller',
+    hint: 'Sell inputs & packaging',
+    tile: 'from-amber-400 to-orange-500 shadow-orange-500/30',
+    selected: 'bg-gradient-to-br from-amber-50 to-orange-50 ring-2 ring-amber-500',
+    button: 'from-amber-500 to-orange-600 shadow-orange-600/30',
+    ring: 'focus:ring-amber-500',
+    text: 'text-amber-700',
+  },
+  PROVIDER: {
+    icon: Truck,
+    theme: 'logistics',
+    hint: 'Transport & cold chain',
+    tile: 'from-teal-400 to-cyan-700 shadow-cyan-700/30',
+    selected: 'bg-gradient-to-br from-teal-50 to-cyan-50 ring-2 ring-teal-500',
+    button: 'from-teal-600 to-cyan-700 shadow-cyan-700/30',
+    ring: 'focus:ring-teal-500',
+    text: 'text-teal-700',
+  },
+};
 
 export default function RegisterPage() {
   return (
@@ -26,17 +76,17 @@ export default function RegisterPage() {
 function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const requested = REGISTER_ROLES.find((r) => r.role === searchParams.get('role'))?.role ?? 'FARMER';
+  const requested = (REGISTER_ROLES.find((r) => r.role === searchParams.get('role'))?.role ?? 'FARMER') as RegisterRole;
   const [showPw, setShowPw] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<RegisterRole>(requested as RegisterRole);
-
-  // Contact verification (codes are checked on the server — see ContactOtp)
+  const [selectedRole, setSelectedRole] = useState<RegisterRole>(requested);
   const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
-  // Codes are only asked for when the site has an email/SMS provider; without
-  // one, Supabase's own confirmation email verifies the address for free.
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
+  // Codes only when the site has an email/SMS provider (see /api/kyc/config).
   const [contactConfig, setContactConfig] = useState<{ sms: boolean; email: boolean } | null>(null);
+
   useEffect(() => {
     let live = true;
     void getKycConfig().then((c) => live && setContactConfig({ sms: c.sms, email: c.email }));
@@ -45,7 +95,14 @@ function RegisterForm() {
     };
   }, []);
 
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const style = ROLE_STYLE[selectedRole];
+  const portal = REGISTER_ROLES.find((r) => r.role === selectedRole)?.portal ?? 'farmer';
+
+  // Recolour the frame and its 3D valley for the chosen account type.
+  useEffect(() => {
+    setAuthTheme(style.theme);
+    return () => setAuthTheme('default');
+  }, [style.theme]);
 
   const {
     register,
@@ -53,64 +110,59 @@ function RegisterForm() {
     setValue,
     watch,
     formState: { errors },
-  } = useForm<RegisterDto & { confirmPassword: string }>({
-    defaultValues: {
-      role: requested as RegisterRole,
-    },
-  });
+  } = useForm<RegisterDto & { confirmPassword: string }>({ defaultValues: { role: requested } });
 
   const emailValue = watch('email', '');
   const phoneValue = watch('phone', '');
   const password = watch('password', '');
-
-  const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
 
   const registerMutation = useMutation({
     mutationFn: (dto: RegisterDto) => authApi.register(dto),
     onSuccess: (result, variables) => {
       setSuccess(true);
       setNeedsEmailConfirmation(result.needsEmailConfirmation);
-      // Sending them to /login would land on the partner and staff form; each
-      // role has its own sign-in. Skip the redirect entirely while the email
-      // is unconfirmed, because signing in would fail until the link is used.
       if (result.needsEmailConfirmation) return;
       const role = REGISTER_ROLES.find((r) => r.role === variables.role)?.portal ?? 'farmer';
-      setTimeout(() => {
-        router.push(loginHref(role));
-      }, 2000);
+      setTimeout(() => router.push(loginHref(role)), 2000);
     },
   });
 
-  const onSubmit = ({ confirmPassword, ...dto }: RegisterDto & { confirmPassword: string }) => {
+  const onSubmit = ({ confirmPassword: _confirm, ...dto }: RegisterDto & { confirmPassword: string }) => {
     dto.role = selectedRole;
     registerMutation.mutate(dto);
   };
 
-  const errorMsg = registerMutation.error instanceof ApiError
-    ? registerMutation.error.messages[0]
-    : registerMutation.error instanceof Error 
-    ? registerMutation.error.message 
-    : registerMutation.error ? 'Registration failed. Please try again.' : null;
+  const errorMsg =
+    registerMutation.error instanceof ApiError
+      ? registerMutation.error.messages[0]
+      : registerMutation.error instanceof Error
+        ? registerMutation.error.message
+        : registerMutation.error
+          ? 'Registration failed. Please try again.'
+          : null;
+
+  const input = `block w-full rounded-xl border-0 bg-white px-4 py-3.5 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 transition focus:ring-2 ${style.ring}`;
 
   if (success) {
     return (
-      <div style={{ textAlign: 'center', padding: '2rem 0' }}>
-        <CheckCircle2 style={{ width: '3rem', height: '3rem', color: '#16a34a', margin: '0 auto 1rem' }} />
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#111827' }}>Account created!</h2>
+      <div className="py-6 text-center">
+        <span className={`mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br text-white shadow-lg ${style.tile}`}>
+          <CheckCircle2 className="h-8 w-8" aria-hidden />
+        </span>
+        <h2 className="mt-5 text-2xl font-semibold tracking-tight text-slate-900">Account created!</h2>
         {needsEmailConfirmation ? (
           <>
-            <p style={{ color: '#4b5563', marginTop: '0.5rem' }}>
-              We emailed a confirmation link to <strong>{emailValue}</strong>. Click it (check Spam/Promotions too), then sign in.
+            <p className="mt-2 text-slate-600">
+              We emailed a confirmation link to <strong className="text-slate-900">{emailValue}</strong>. Click it (check Spam and Promotions too), then sign in.
             </p>
-            <Link href={loginHref(REGISTER_ROLES.find((r) => r.role === selectedRole)?.portal ?? 'farmer')} className="mt-4 inline-block rounded-xl bg-[#1B4332] px-5 py-3 font-semibold text-white no-underline hover:no-underline">
-              Go to sign in
+            <Link href={loginHref(portal)} className={`mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r px-6 py-3 font-semibold text-white no-underline shadow-lg hover:no-underline ${style.button}`}>
+              Go to sign in <ArrowRight className="h-4 w-4" aria-hidden />
             </Link>
           </>
         ) : (
-          <>
-            <p style={{ color: '#4b5563', marginTop: '0.5rem' }}>You have successfully registered. Redirecting to sign in…</p>
-            <Loader2 className="animate-spin" style={{ width: '1.25rem', height: '1.25rem', color: '#d97706', margin: '1rem auto 0' }} />
-          </>
+          <p className="mt-2 flex items-center justify-center gap-2 text-slate-600">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Taking you to sign in…
+          </p>
         )}
       </div>
     );
@@ -119,197 +171,165 @@ function RegisterForm() {
   const emailFormatOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test((emailValue ?? '').trim());
   const phoneDigits = (phoneValue ?? '').replace(/\D/g, '');
   const emailOk = contactConfig?.email ? isEmailVerified : emailFormatOk;
-  // Mobile is optional until SMS codes are connected; if typed it must look valid.
   const phoneOk = contactConfig?.sms ? isPhoneVerified : phoneDigits.length === 0 || /^(91)?[6-9]\d{9}$/.test(phoneDigits);
   const isFormValid = emailOk && phoneOk && agreedToTerms;
 
   return (
-    <div className="kr-glass shadow-2xl shadow-gray-200/50 rounded-[2rem] p-8 sm:p-10 border border-kr-border-default max-w-md w-full mx-auto relative z-10">
-      <h1 className="text-4xl font-extrabold text-[#1B4332] tracking-tight mb-2">Create your account</h1>
-      <p className="text-sm text-kr-text-secondary mb-8">
-        Already have an account?{' '}
-        <Link href={loginHref(REGISTER_ROLES.find((r) => r.role === selectedRole)?.portal ?? 'farmer')} className="text-[#E76F51] font-semibold hover:text-[#D65A3D] transition-colors">
+    <div>
+      <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+        Create your <span className={`bg-gradient-to-r bg-clip-text text-transparent ${style.button}`}>account</span>
+      </h1>
+      <p className="mt-2 text-sm text-slate-600">
+        Already have one?{' '}
+        <Link href={loginHref(portal)} className={`font-semibold hover:underline ${style.text}`}>
           Sign in
         </Link>
       </p>
 
       {errorMsg && (
-        <div className="bg-kr-badge-rejected-bg border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2 text-sm font-medium mb-6">
-          <AlertCircle className="w-5 h-5 flex-shrink-0" />
-          <p className="m-0">{errorMsg}</p>
+        <div role="alert" className="mt-5 flex items-start gap-2 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-800 ring-1 ring-rose-200">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          <p>{errorMsg}</p>
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
-        {/* Role selector */}
-        <div>
-          <label className="text-sm font-semibold text-kr-text-primary mb-1.5 block">I am a</label>
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-6 space-y-5">
+        <fieldset>
+          <legend className="mb-2 text-sm font-semibold text-slate-800">I am a</legend>
           <div className="grid grid-cols-2 gap-3">
-            {REGISTER_ROLES.map(({ role: r, label }) => {
-              const isSelected = selectedRole === r;
+            {REGISTER_ROLES.map(({ role, label }) => {
+              const r = role as RegisterRole;
+              const s = ROLE_STYLE[r];
+              const Icon = s.icon;
+              const on = selectedRole === r;
               return (
                 <button
                   type="button"
                   key={r}
-                  aria-pressed={isSelected}
+                  aria-pressed={on}
                   onClick={() => {
-                    setSelectedRole(r as RegisterRole);
-                    setValue('role', r as RegisterRole);
+                    setSelectedRole(r);
+                    setValue('role', r);
                   }}
-                  className={`border-2 rounded-xl p-4 font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                    isSelected
-                      ? 'bg-[#1B4332]/5 border-[#1B4332] text-[#1B4332] shadow-sm ring-1 ring-[#1B4332]'
-                      : 'kr-glass border-kr-border-default text-kr-text-secondary hover:border-[#1B4332]/30 hover:shadow-md'
-                  }`}
+                  className={`relative flex cursor-pointer items-center gap-3 rounded-2xl p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md ${on ? `${s.selected} shadow-md` : 'bg-white ring-1 ring-slate-200'}`}
                 >
-                  <span className="text-2xl" aria-hidden>{ROLE_EMOJI[r as RegisterRole]}</span>
-                  <span className="text-sm">{label}</span>
+                  <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br text-white shadow-lg ${s.tile}`}>
+                    <Icon className="h-5 w-5" aria-hidden />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block font-semibold text-slate-900">{label}</span>
+                    <span className="block truncate text-xs text-slate-500">{s.hint}</span>
+                  </span>
+                  {on && (
+                    <span className="absolute right-2 top-2 grid h-5 w-5 place-items-center rounded-full bg-white shadow">
+                      <Check className={`h-3.5 w-3.5 ${s.text}`} aria-hidden />
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
-        </div>
+        </fieldset>
 
-        {/* Full name */}
         <div>
-          <label htmlFor="fullName" className="text-sm font-semibold text-kr-text-primary mb-1.5 block">Full name</label>
+          <label htmlFor="fullName" className="mb-1.5 block text-sm font-semibold text-slate-800">Full name</label>
           <input
             id="fullName"
             type="text"
             autoComplete="name"
-            className="w-full px-4 py-3.5 rounded-xl border border-kr-border-default bg-kr-bg-sunken text-kr-text-primary placeholder:text-kr-text-disabled focus:bg-kr-bg-surface focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none"
-            {...register('fullName', {
-              required: 'Full name is required',
-              minLength: { value: 2, message: 'Name must be at least 2 characters' },
-            })}
+            placeholder="As on your Aadhaar"
+            className={input}
+            {...register('fullName', { required: 'Full name is required', minLength: { value: 2, message: 'Name must be at least 2 characters' } })}
           />
-          {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName.message}</p>}
+          {errors.fullName && <p className="mt-1 text-xs text-rose-600">{errors.fullName.message}</p>}
         </div>
 
-        {/* Email — a code when an email provider is connected, else Supabase's confirmation link */}
         {contactConfig?.email ? (
-          <ContactOtp
-            channel="email"
-            label="Email address"
-            value={emailValue ?? ''}
-            onChange={(v) => setValue('email', v)}
-            verified={isEmailVerified}
-            onVerified={() => setIsEmailVerified(true)}
-            onReset={() => setIsEmailVerified(false)}
-          />
+          <ContactOtp channel="email" label="Email address" value={emailValue ?? ''} onChange={(v) => setValue('email', v)} verified={isEmailVerified} onVerified={() => setIsEmailVerified(true)} onReset={() => setIsEmailVerified(false)} />
         ) : (
           <div>
-            <label htmlFor="reg-email" className="text-sm font-semibold text-kr-text-primary mb-1.5 block">Email address</label>
-            <input
-              id="reg-email"
-              type="email"
-              autoComplete="email"
-              value={emailValue ?? ''}
-              onChange={(e) => setValue('email', e.target.value)}
-              placeholder="you@example.com"
-              className="w-full px-4 py-3.5 rounded-xl border border-kr-border-default bg-white text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] outline-none"
-            />
+            <label htmlFor="reg-email" className="mb-1.5 block text-sm font-semibold text-slate-800">Email address</label>
+            <span className="relative block">
+              <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
+              <input id="reg-email" type="email" autoComplete="email" value={emailValue ?? ''} onChange={(e) => setValue('email', e.target.value)} placeholder="you@example.com" className={`${input} pl-10`} />
+            </span>
             <p className="mt-1 text-xs text-slate-500">We’ll email you a link to confirm this address.</p>
           </div>
         )}
 
-        {/* Mobile — SMS code when an SMS provider is connected, else optional */}
         {contactConfig?.sms ? (
-          <ContactOtp
-            channel="sms"
-            label="Mobile number"
-            value={phoneValue ?? ''}
-            onChange={(v) => setValue('phone', v)}
-            verified={isPhoneVerified}
-            onVerified={() => setIsPhoneVerified(true)}
-            onReset={() => setIsPhoneVerified(false)}
-          />
+          <ContactOtp channel="sms" label="Mobile number" value={phoneValue ?? ''} onChange={(v) => setValue('phone', v)} verified={isPhoneVerified} onVerified={() => setIsPhoneVerified(true)} onReset={() => setIsPhoneVerified(false)} />
         ) : (
           <div>
-            <label htmlFor="reg-phone" className="text-sm font-semibold text-kr-text-primary mb-1.5 block">
+            <label htmlFor="reg-phone" className="mb-1.5 block text-sm font-semibold text-slate-800">
               Mobile number <span className="font-normal text-slate-500">(optional)</span>
             </label>
-            <input
-              id="reg-phone"
-              type="tel"
-              inputMode="numeric"
-              autoComplete="tel-national"
-              value={phoneValue ?? ''}
-              onChange={(e) => setValue('phone', e.target.value.replace(/[^\d+ ]/g, '').slice(0, 14))}
-              placeholder="10-digit mobile number"
-              className="w-full px-4 py-3.5 rounded-xl border border-kr-border-default bg-white text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] outline-none"
-            />
-            {!phoneOk && <p className="mt-1 text-xs text-red-600">Enter a valid 10-digit Indian mobile number, or leave it empty.</p>}
+            <span className="relative block">
+              <Smartphone className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
+              <input
+                id="reg-phone"
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel-national"
+                value={phoneValue ?? ''}
+                onChange={(e) => setValue('phone', e.target.value.replace(/[^\d+ ]/g, '').slice(0, 14))}
+                placeholder="10-digit mobile number"
+                className={`${input} pl-10`}
+              />
+            </span>
+            {!phoneOk && <p className="mt-1 text-xs text-rose-600">Enter a valid 10-digit Indian mobile number, or leave it empty.</p>}
           </div>
         )}
 
-        {/* Password */}
-        <div>
-          <label htmlFor="reg-password" className="text-sm font-semibold text-kr-text-primary mb-1.5 block">Password</label>
-          <div className="relative">
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div>
+            <label htmlFor="reg-password" className="mb-1.5 block text-sm font-semibold text-slate-800">Password</label>
+            <span className="relative block">
+              <input
+                id="reg-password"
+                type={showPw ? 'text' : 'password'}
+                autoComplete="new-password"
+                className={`${input} pr-11`}
+                {...register('password', {
+                  required: 'Password is required',
+                  minLength: { value: 8, message: 'At least 8 characters' },
+                  pattern: { value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, message: 'Use upper- and lowercase letters and a number' },
+                })}
+              />
+              <button type="button" onClick={() => setShowPw((v) => !v)} aria-label={showPw ? 'Hide password' : 'Show password'} className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 cursor-pointer place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </span>
+            {errors.password && <p className="mt-1 text-xs text-rose-600">{errors.password.message}</p>}
+          </div>
+          <div>
+            <label htmlFor="confirm-password" className="mb-1.5 block text-sm font-semibold text-slate-800">Confirm password</label>
             <input
-              id="reg-password"
+              id="confirm-password"
               type={showPw ? 'text' : 'password'}
               autoComplete="new-password"
-              className="w-full px-4 py-3.5 pr-10 rounded-xl border border-kr-border-default bg-kr-bg-sunken text-kr-text-primary placeholder:text-kr-text-disabled focus:bg-kr-bg-surface focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none"
-              {...register('password', {
-                required: 'Password is required',
-                minLength: { value: 8, message: 'At least 8 characters' },
-                pattern: {
-                  value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-                  message: 'Must include uppercase, lowercase, and a number',
-                },
-              })}
+              className={input}
+              {...register('confirmPassword', { required: 'Please confirm your password', validate: (v) => v === password || 'Passwords do not match' })}
             />
-            <button
-              type="button"
-              onClick={() => setShowPw((v) => !v)}
-              className="absolute right-3 top-3.5 text-kr-text-disabled hover:text-kr-text-secondary transition-colors"
-            >
-              {showPw ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-            </button>
+            {errors.confirmPassword && <p className="mt-1 text-xs text-rose-600">{errors.confirmPassword.message}</p>}
           </div>
-          {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
         </div>
 
-        {/* Confirm password */}
-        <div>
-          <label htmlFor="confirm-password" className="text-sm font-semibold text-kr-text-primary mb-1.5 block">Confirm password</label>
-          <input
-            id="confirm-password"
-            type={showPw ? 'text' : 'password'}
-            autoComplete="new-password"
-            className="w-full px-4 py-3.5 rounded-xl border border-kr-border-default bg-kr-bg-sunken text-kr-text-primary placeholder:text-kr-text-disabled focus:bg-kr-bg-surface focus:ring-2 focus:ring-[#1B4332]/50 focus:border-[#1B4332] transition-all duration-200 outline-none"
-            {...register('confirmPassword', {
-              required: 'Please confirm your password',
-              validate: (v) => v === password || 'Passwords do not match',
-            })}
-          />
-          {errors.confirmPassword && <p className="text-red-500 text-xs mt-1">{errors.confirmPassword.message}</p>}
-        </div>
-
-        {/* T&C Checkbox */}
-        <div className="flex items-center mt-4">
-          <input
-            type="checkbox"
-            id="terms"
-            checked={agreedToTerms}
-            onChange={(e) => setAgreedToTerms(e.target.checked)}
-            className="w-4 h-4 text-[#1B4332] border-kr-border-default rounded focus:ring-[#1B4332]"
-          />
-          <label htmlFor="terms" className="ml-2 block text-sm text-kr-text-primary">
-            I agree to the <Link href="/terms" className="text-[#E76F51] hover:underline">Terms & Conditions</Link> & <Link href="/privacy" className="text-[#E76F51] hover:underline">Privacy Policy</Link>
-          </label>
-        </div>
+        <label htmlFor="terms" className="flex items-start gap-2.5 text-sm text-slate-700">
+          <input id="terms" type="checkbox" checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-600" />
+          <span>
+            I agree to the <Link href="/terms" className={`font-semibold hover:underline ${style.text}`}>Terms</Link> and <Link href="/privacy" className={`font-semibold hover:underline ${style.text}`}>Privacy Policy</Link>
+          </span>
+        </label>
 
         <button
           type="submit"
           disabled={!isFormValid || registerMutation.isPending}
-          className="w-full py-4 mt-4 bg-gradient-to-r from-[#E76F51] to-[#F4A261] hover:from-[#D65A3D] hover:to-[#E76F51] text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:-translate-y-0 disabled:hover:shadow-lg"
+          className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r px-5 py-4 text-base font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 ${style.button}`}
         >
-          {registerMutation.isPending ? (
-            <><Loader2 className="w-5 h-5 animate-spin" /> Creating account…</>
-          ) : 'Signup'}
+          {registerMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : null}
+          {registerMutation.isPending ? 'Creating account…' : 'Create account'}
+          {!registerMutation.isPending && <ArrowRight className="h-5 w-5" aria-hidden />}
         </button>
       </form>
     </div>

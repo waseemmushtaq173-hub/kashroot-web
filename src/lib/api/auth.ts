@@ -178,52 +178,6 @@ export const authApi = {
       }
     } as LoginResponse;
   },
-  verifyEmailOtp: async (email: string, code: string) => {
-    if (typeof window !== 'undefined') {
-      const expectedEmail = localStorage.getItem('mock_expected_email_otp');
-      if (expectedEmail && code !== expectedEmail) {
-        throw new Error('Invalid email verification code.');
-      }
-    }
-    return { message: 'Email OTP verified successfully' };
-  },
-  verifyMobileOtp: async (phone: string, code: string) => {
-    if (typeof window !== 'undefined') {
-      const expectedPhone = localStorage.getItem('mock_expected_phone_otp');
-      if (expectedPhone && code !== expectedPhone) {
-        throw new Error('Invalid mobile verification code.');
-      }
-    }
-    return { message: 'Mobile OTP verified successfully' };
-  },
-  verifyOtp: async (dto: VerifyOtpDto) => {
-    if (typeof window !== 'undefined') {
-      const expectedEmail = localStorage.getItem('mock_expected_email_otp');
-      const expectedPhone = localStorage.getItem('mock_expected_phone_otp');
-      // If we have stored OTPs, verify against them
-      if (expectedEmail && expectedPhone) {
-        if (dto.code !== expectedEmail || dto.phoneCode !== expectedPhone) {
-          throw new Error('Invalid verification codes. Please try again.');
-        }
-      }
-    }
-    return { message: 'OTP verified successfully' };
-  },
-  resendOtp: async (dto: ResendOtpDto) => {
-    const response = await fetch('/api/auth/otp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: dto.email, phone: dto.phone || '+10000000000' }),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.message || 'Failed to resend OTP');
-    
-    if (typeof window !== 'undefined') {
-      if (data.emailOtp) localStorage.setItem('mock_expected_email_otp', data.emailOtp);
-      if (data.phoneOtp) localStorage.setItem('mock_expected_phone_otp', data.phoneOtp);
-    }
-    return data;
-  },
   mfaSetup:      async ()                    => ({ qrCodeDataUrl: '', secret: '' } as MfaSetupResponse),
   mfaVerify:     async (dto: MfaVerifyDto)   => ({ message: 'MFA verified' } as MfaVerifyResponse),
   refresh:       async ()                    => ({ accessToken: 'mock_jwt_token' }),

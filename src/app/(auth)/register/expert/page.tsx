@@ -69,7 +69,7 @@ export default function ExpertRegistrationPage() {
   }
 
   return (
-    <div className="w-full max-w-lg mx-auto bg-kr-bg-surface p-8 border border-kr-border-default shadow-kr-card-md">
+    <div className="w-full">
       <h1 className="text-h2 font-heading text-kr-text-primary mb-1">Apply as an Expert</h1>
       <p className="text-body-sm text-kr-text-secondary mb-6">
         Join the KashRoot Knowledge Panel. Please submit your official credentials for verification.
