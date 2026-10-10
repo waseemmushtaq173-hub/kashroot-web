@@ -127,6 +127,17 @@ function RegisterForm() {
     },
   });
 
+  const [resendIn, setResendIn] = useState(0);
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = window.setTimeout(() => setResendIn((n) => n - 1), 1000);
+    return () => window.clearTimeout(t);
+  }, [resendIn]);
+  const resend = useMutation({
+    mutationFn: () => authApi.resendSignupEmail(String(emailValue ?? '').trim(), selectedRole),
+    onSuccess: () => setResendIn(60),
+  });
+
   const onSubmit = ({ confirmPassword: _confirm, ...dto }: RegisterDto & { confirmPassword: string }) => {
     dto.role = selectedRole;
     registerMutation.mutate(dto);
@@ -155,9 +166,22 @@ function RegisterForm() {
             <p className="mt-2 text-slate-600">
               We emailed a confirmation link to <strong className="text-slate-900">{emailValue}</strong>. Click it (check Spam and Promotions too), then sign in.
             </p>
-            <Link href={loginHref(portal)} className={`mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r px-6 py-3 font-semibold text-white no-underline shadow-lg hover:no-underline ${style.button}`}>
-              Go to sign in <ArrowRight className="h-4 w-4" aria-hidden />
-            </Link>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              <Link href={loginHref(portal)} className={`inline-flex items-center gap-2 rounded-xl bg-gradient-to-r px-6 py-3 font-semibold text-white no-underline shadow-lg hover:no-underline ${style.button}`}>
+                Go to sign in <ArrowRight className="h-4 w-4" aria-hidden />
+              </Link>
+              <button
+                type="button"
+                disabled={resendIn > 0 || resend.isPending}
+                onClick={() => resend.mutate()}
+                className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white px-5 py-3 font-semibold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {resend.isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
+                {resendIn > 0 ? `Resend in ${resendIn}s` : 'Resend email'}
+              </button>
+            </div>
+            {resend.isSuccess && resendIn > 0 && <p className="mt-3 text-sm text-emerald-700">Sent again — it can take a minute to arrive.</p>}
+            {resend.error && <p role="alert" className="mt-3 text-sm text-rose-700">{(resend.error as Error).message}</p>}
           </>
         ) : (
           <p className="mt-2 flex items-center justify-center gap-2 text-slate-600">
