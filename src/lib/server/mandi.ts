@@ -98,7 +98,12 @@ export async function fetchMandiPrices(query: MandiQuery): Promise<MandiResult> 
       });
       if (res.status < 500) break;
     } catch (err) {
-      if (attempt === 1) throw new MandiError(err instanceof Error && err.name === 'TimeoutError' ? 'timeout' : 'network', err instanceof Error ? err.message : String(err));
+      if (attempt === 1) {
+        // fetch() hides the real reason in `cause` (e.g. a certificate or reset error).
+        const cause = (err as { cause?: { code?: string; message?: string } })?.cause;
+        const why = [err instanceof Error ? err.message : String(err), cause?.code, cause?.message].filter(Boolean).join(' · ');
+        throw new MandiError(err instanceof Error && err.name === 'TimeoutError' ? 'timeout' : 'network', why);
+      }
     }
   }
   if (!res) throw new MandiError('network', 'No response');
