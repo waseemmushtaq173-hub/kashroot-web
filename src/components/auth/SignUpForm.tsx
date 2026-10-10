@@ -114,6 +114,12 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
   const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
   // Codes only when the site has an email/SMS provider (see /api/kyc/config).
   const [contactConfig, setContactConfig] = useState<{ sms: boolean; email: boolean } | null>(null);
+  // A provider that fails on the site's side (bad key, unverified sender)
+  // must not lock everyone out of signing up: that check becomes optional.
+  const [smsDown, setSmsDown] = useState(false);
+  const [emailDown, setEmailDown] = useState(false);
+  const smsRequired = Boolean(contactConfig?.sms) && !smsDown;
+  const emailRequired = Boolean(contactConfig?.email) && !emailDown;
 
   useEffect(() => {
     let live = true;
@@ -225,8 +231,8 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
 
   const emailFormatOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test((emailValue ?? '').trim());
   const phoneDigits = (phoneValue ?? '').replace(/\D/g, '');
-  const emailOk = contactConfig?.email ? isEmailVerified : emailFormatOk;
-  const phoneOk = contactConfig?.sms ? isPhoneVerified : phoneDigits.length === 0 || /^(91)?[6-9]\d{9}$/.test(phoneDigits);
+  const emailOk = emailRequired ? isEmailVerified : isEmailVerified || emailFormatOk;
+  const phoneOk = smsRequired ? isPhoneVerified : isPhoneVerified || phoneDigits.length === 0 || /^(91)?[6-9]\d{9}$/.test(phoneDigits);
   const isFormValid = emailOk && phoneOk && agreedToTerms;
 
   return (
@@ -328,7 +334,8 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
             channel="email"
             label="Email address"
             accent={otpAccent}
-            required={contactConfig ? contactConfig.email : undefined}
+            required={contactConfig ? emailRequired : undefined}
+            onUnavailable={() => setEmailDown(true)}
             value={emailValue ?? ''}
             onChange={(v) => {
               setValue('email', v);
@@ -342,7 +349,8 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
             channel="sms"
             label="Mobile number"
             accent={otpAccent}
-            required={contactConfig ? contactConfig.sms : undefined}
+            required={contactConfig ? smsRequired : undefined}
+            onUnavailable={() => setSmsDown(true)}
             value={phoneValue ?? ''}
             onChange={(v) => {
               setValue('phone', v);
@@ -352,7 +360,7 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
             onVerified={() => setIsPhoneVerified(true)}
             onReset={() => setIsPhoneVerified(false)}
           />
-          {!phoneOk && !contactConfig?.sms && <p className="text-xs text-rose-600">Enter a valid 10-digit Indian mobile number, or leave it empty.</p>}
+          {!phoneOk && !smsRequired && <p className="text-xs text-rose-600">Enter a valid 10-digit Indian mobile number, or leave it empty.</p>}
         </div>
 
         <div className="grid gap-5 sm:grid-cols-2">

@@ -27,7 +27,7 @@ export function GET() {
   if (emailProvider === 'Resend' && !has('RESEND_FROM')) problems.push('RESEND_FROM is not set, so Resend can only email your own Resend account address. Add GMAIL_USER and GMAIL_APP_PASSWORD (used automatically), or verify a domain in Resend and set RESEND_FROM.');
 
   return NextResponse.json({
-    smsOtp: secret && smsConfigured() ? `on (${smsProvider})` : 'off',
+    smsOtp: secret && smsConfigured() ? `on (${smsProvider}${smsProvider === 'Fast2SMS' ? `, route ${(process.env.FAST2SMS_ROUTE ?? 'otp').trim() || 'otp'}` : ''})` : 'off',
     emailOtp: secret && emailConfigured() ? `on (${emailProvider})` : 'off',
     found: { OTP_SECRET: has('OTP_SECRET'), FAST2SMS_API_KEY: has('FAST2SMS_API_KEY'), GMAIL_USER: has('GMAIL_USER'), GMAIL_APP_PASSWORD: has('GMAIL_APP_PASSWORD'), RESEND_API_KEY: has('RESEND_API_KEY'), RESEND_FROM: has('RESEND_FROM'), MSG91_AUTH_KEY: has('MSG91_AUTH_KEY'), TWILIO_ACCOUNT_SID: has('TWILIO_ACCOUNT_SID') },
     problems,

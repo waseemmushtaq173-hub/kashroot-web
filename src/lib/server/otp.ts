@@ -51,6 +51,26 @@ export function emailConfigured() {
   return emailProvider() !== null;
 }
 
+/**
+ * Fast2SMS route, FAST2SMS_ROUTE:
+ *   otp (default) — cheapest; Fast2SMS first requires website verification
+ *                   (dashboard → OTP Message).
+ *   q             — Quick SMS: no verification or DLT, costs more per SMS and
+ *                   comes from a random number.
+ *   dlt           — your DLT-approved template: FAST2SMS_SENDER_ID and
+ *                   FAST2SMS_TEMPLATE_ID (the code fills its {#var#}).
+ */
+function fast2smsBody(mobile10: string, code: string) {
+  const route = (process.env.FAST2SMS_ROUTE ?? 'otp').trim().toLowerCase();
+  if (route === 'q') {
+    return { route: 'q', message: `${code} is your KashRoot verification code. It expires in 10 minutes. Do not share it.`, language: 'english', flash: 0, numbers: mobile10 };
+  }
+  if (route === 'dlt') {
+    return { route: 'dlt', sender_id: process.env.FAST2SMS_SENDER_ID?.trim(), message: process.env.FAST2SMS_TEMPLATE_ID?.trim(), variables_values: code, flash: 0, numbers: mobile10 };
+  }
+  return { route: 'otp', variables_values: code, numbers: mobile10, flash: 0 };
+}
+
 /** An SMS provider refused the message; its text is safe to show. */
 export class SmsProviderError extends Error {}
 
@@ -78,7 +98,7 @@ async function sendSms(mobile10: string, code: string) {
     method: 'POST',
     // Keys pasted from a .env file often keep their quotes; Fast2SMS rejects those.
     headers: { authorization: process.env.FAST2SMS_API_KEY!.trim().replace(/^["']+|["']+$/g, '').trim(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ route: 'otp', variables_values: code, numbers: mobile10, flash: 0 }),
+    body: JSON.stringify(fast2smsBody(mobile10, code)),
     signal: AbortSignal.timeout(15_000),
   });
   const j = await res.json().catch(() => ({}));

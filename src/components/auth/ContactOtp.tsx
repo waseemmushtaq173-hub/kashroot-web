@@ -42,12 +42,14 @@ export interface ContactOtpProps {
   required?: boolean;
   /** One line under the title. */
   hint?: string;
+  /** The site cannot send this kind of code right now (not the visitor's fault). */
+  onUnavailable?: () => void;
 }
 
 const INPUT = 'block w-full rounded-xl border-0 bg-white px-3.5 py-2.5 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 disabled:bg-slate-50 disabled:text-slate-500';
 const BUTTON = 'inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50';
 
-export function ContactOtp({ channel, value, onChange, onVerified, verified, onReset, label, accent = EMERALD, required, hint }: ContactOtpProps) {
+export function ContactOtp({ channel, value, onChange, onVerified, verified, onReset, label, accent = EMERALD, required, hint, onUnavailable }: ContactOtpProps) {
   const id = useId();
   const [token, setToken] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState('');
@@ -74,6 +76,7 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
     try {
       const res = await fetch('/api/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel, to: value }) });
       const data = await res.json().catch(() => ({}));
+      if (!res.ok && (data.unavailable || data.configured === false)) onUnavailable?.();
       if (!res.ok) throw new Error(data.error ?? 'Could not send the OTP.');
       setToken(data.token);
       setSentTo(data.to);

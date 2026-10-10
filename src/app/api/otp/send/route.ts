@@ -25,13 +25,13 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error('OTP send failed:', err instanceof Error ? err.message : err);
     if ((err as { code?: string })?.code === 'EAUTH') {
-      return NextResponse.json({ error: 'The site’s email sender was refused by Gmail. The site owner needs to check GMAIL_USER and GMAIL_APP_PASSWORD.' }, { status: 502 });
+      return NextResponse.json({ error: 'The site’s email sender was refused by Gmail, so this step is optional for now.', unavailable: true }, { status: 502 });
     }
     // Provider messages (e.g. Fast2SMS "Insufficient balance") say what to fix; they hold no secrets.
     const reason = err instanceof SmsProviderError ? ` (${err.message})` : '';
     // A rejected key or empty balance is the site's problem, not the visitor's number.
     const siteSide = err instanceof SmsProviderError && /auth|key|balance|wallet|recharge|verif|blocked|disabled/i.test(err.message);
-    const advice = siteSide ? ' This is a problem with the site’s SMS setup, not your number — please try again later.' : ' Check the number and try again.';
-    return NextResponse.json({ error: channel === 'sms' ? `The SMS could not be sent${reason}.${advice}` : 'The email could not be sent. Check the address and try again.' }, { status: 502 });
+    const advice = siteSide ? ' This is a problem with the site’s SMS setup, not your number — you can continue without it for now.' : ' Check the number and try again.';
+    return NextResponse.json({ error: channel === 'sms' ? `The SMS could not be sent${reason}.${advice}` : 'The email could not be sent. Check the address and try again.', unavailable: siteSide }, { status: 502 });
   }
 }
