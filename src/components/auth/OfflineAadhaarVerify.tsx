@@ -16,7 +16,7 @@ const INPUT = 'block w-full rounded-xl border-0 bg-white px-4 py-3 text-slate-90
 
 export function OfflineAadhaarVerify({ onVerified }: { onVerified: (result: OfflineAadhaarResult, mobile: string) => void }) {
   const ids = { mobile: useId(), file: useId(), code: useId() };
-  const [mode, setMode] = useState<'zip' | 'qr'>('zip');
+  const [mode, setMode] = useState<'zip' | 'qr'>('qr');
   const [mobile, setMobile] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [shareCode, setShareCode] = useState('');
@@ -42,8 +42,8 @@ export function OfflineAadhaarVerify({ onVerified }: { onVerified: (result: Offl
           <ShieldCheck className="h-5 w-5" aria-hidden />
         </span>
         <div>
-          <p className="font-semibold text-slate-900">Verify Aadhaar for free</p>
-          <p className="text-sm text-slate-600">Checked against UIDAI’s digital signature — nothing is stored except your name and the last 4 digits.</p>
+          <p className="font-semibold text-slate-900">Verify Aadhaar in one step</p>
+          <p className="text-sm text-slate-600">Scan the QR on your Aadhaar. UIDAI’s digital signature is checked — we keep only your name and the last 4 digits.</p>
         </div>
       </div>
 
@@ -54,8 +54,8 @@ export function OfflineAadhaarVerify({ onVerified }: { onVerified: (result: Offl
 
       <div role="group" aria-label="Verification method" className="inline-flex rounded-xl bg-white/80 p-1 ring-1 ring-emerald-200">
         {([
-          ['zip', 'Offline e-KYC file', FileArchive],
           ['qr', 'Scan Aadhaar QR', QrCode],
+          ['zip', 'Other way: e-KYC file', FileArchive],
         ] as const).map(([id, label, Icon]) => (
           <button
             key={id}
@@ -106,7 +106,9 @@ export function OfflineAadhaarVerify({ onVerified }: { onVerified: (result: Offl
         </div>
       ) : (
         <div className="space-y-2">
-          <p className="text-sm text-slate-700">Scan the QR code printed on your Aadhaar letter or PVC card, or shown in the mAadhaar app.</p>
+          <p className="text-sm text-slate-700">
+            Point your camera at the <strong>big QR code on your Aadhaar card</strong> (or the one in the mAadhaar app) — that’s all. Or upload a clear photo of it.
+          </p>
           <QrScanner disabled={busy} onResult={(text) => void run(() => verifyAadhaarQr(text, mobile))} />
           {busy && <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Checking UIDAI’s signature…</p>}
         </div>
