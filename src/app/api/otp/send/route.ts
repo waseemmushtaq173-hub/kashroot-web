@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   if (!target) return NextResponse.json({ error: channel === 'sms' ? 'Enter a valid 10-digit Indian mobile number.' : 'Enter a valid email address.' }, { status: 400 });
   if (!hasSigningSecret() || (channel === 'sms' ? !smsConfigured() : !emailConfigured())) {
     return NextResponse.json(
-      { configured: false, error: channel === 'sms' ? 'SMS codes are not connected yet. The site owner needs to add an SMS provider (MSG91, Twilio or Fast2SMS) and OTP_SECRET.' : 'Email codes are not connected yet. The site owner needs to add RESEND_API_KEY (or Gmail SMTP) and OTP_SECRET.' },
+      { configured: false, error: channel === 'sms' ? 'SMS OTPs are not switched on for this site yet, so this step is optional for now.' : 'Email OTPs are not switched on for this site yet, so this step is optional for now.' },
       { status: 503 },
     );
   }
@@ -24,6 +24,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ token, to: channel === 'sms' ? `••••••${target.slice(-4)}` : target });
   } catch (err) {
     console.error('OTP send failed:', err instanceof Error ? err.message : err);
+    if ((err as { code?: string })?.code === 'EAUTH') {
+      return NextResponse.json({ error: 'The site’s email sender was refused by Gmail. The site owner needs to check GMAIL_USER and GMAIL_APP_PASSWORD.' }, { status: 502 });
+    }
     return NextResponse.json({ error: channel === 'sms' ? 'The SMS could not be sent. Check the number and try again.' : 'The email could not be sent. Check the address and try again.' }, { status: 502 });
   }
 }

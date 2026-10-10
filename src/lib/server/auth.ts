@@ -7,10 +7,12 @@
 import 'server-only';
 import { createClient, type User } from '@supabase/supabase-js';
 
+import { supabaseAnonKey, supabaseOrigin } from '@/lib/supabase-config';
+
 export async function requireUser(request: Request): Promise<User | null> {
   const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '').trim();
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = supabaseOrigin(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const anon = supabaseAnonKey(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
   if (!token || !url || !anon) return null;
   const client = createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data, error } = await client.auth.getUser(token);

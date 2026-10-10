@@ -29,7 +29,10 @@ const NOT_SET_UP = 'Sign-in is not set up on this site yet: the owner must add N
 
 /** Plain-language versions of Supabase auth errors. */
 function friendlyAuthError(message: string | undefined, fallback: string): string {
+  // Setup problems explained by the /api/supabase proxy: show them as written.
+  if (message?.startsWith('[setup] ')) return message.slice(8);
   const m = (message ?? '').toLowerCase();
+  if (m.includes('invalid api key') || m.includes('no api key')) return 'The sign-in key saved for this site is wrong. In Supabase open Project Settings → API Keys, copy the anon (publishable) key, put it in Vercel as NEXT_PUBLIC_SUPABASE_ANON_KEY and redeploy.';
   if (m.includes('email not confirmed')) return 'Your email is not confirmed yet. Open the confirmation link we emailed you (check Spam/Promotions too), then sign in.';
   if (m.includes('invalid login credentials')) return 'Wrong email or password. If you have not created an account yet, use Create an account.';
   if (m.includes('already registered') || m.includes('already been registered')) return 'An account with this email already exists. Sign in instead, or use Forgot password.';

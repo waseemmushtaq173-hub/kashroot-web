@@ -82,7 +82,7 @@ async function sendEmail(email: string, code: string) {
   }
   const nodemailer = (await import('nodemailer')).default;
   await nodemailer
-    .createTransport({ service: 'gmail', auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD } })
+    .createTransport({ service: 'gmail', auth: { user: process.env.GMAIL_USER?.trim(), pass: process.env.GMAIL_APP_PASSWORD?.replace(/\s/g, '') } })
     .sendMail({ from: `KashRoot <${process.env.GMAIL_USER}>`, to: email, subject, html });
 }
 

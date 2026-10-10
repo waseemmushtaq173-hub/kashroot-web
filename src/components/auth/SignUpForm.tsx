@@ -16,7 +16,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import { AlertCircle, ArrowRight, Check, CheckCircle2, Eye, EyeOff, GraduationCap, Leaf, Loader2, Mail, ShoppingBag, Smartphone, Store, Truck, type LucideIcon } from 'lucide-react';
+import { AlertCircle, ArrowRight, Check, CheckCircle2, Eye, EyeOff, GraduationCap, Leaf, Loader2, ShoppingBag, Store, Truck, type LucideIcon } from 'lucide-react';
 
 import { setAuthTheme, type AuthThemeId } from '@/components/auth/AuthShell';
 import { ContactOtp } from '@/components/auth/ContactOtp';
@@ -126,6 +126,7 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
   const style = ROLE_STYLE[selectedRole];
   const RoleIcon = style.icon;
   const look = lookFor(portal, selectedRole);
+  const otpAccent = { button: look.button, ring: look.ring, text: look.text, tile: look.tile };
   // Where this account signs in: the portal it came from, else its role's portal.
   const homePortal: PortalId = portal ?? REGISTER_ROLES.find((r) => r.role === selectedRole)?.portal ?? 'farmer';
 
@@ -322,42 +323,37 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
           {errors.fullName && <p className="mt-1 text-xs text-rose-600">{errors.fullName.message}</p>}
         </div>
 
-        {contactConfig?.email ? (
-          <ContactOtp channel="email" label="Email address" value={emailValue ?? ''} onChange={(v) => setValue('email', v)} verified={isEmailVerified} onVerified={() => setIsEmailVerified(true)} onReset={() => setIsEmailVerified(false)} />
-        ) : (
-          <div>
-            <label htmlFor="reg-email" className="mb-1.5 block text-sm font-semibold text-slate-800">Email address</label>
-            <span className="relative block">
-              <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
-              <input id="reg-email" type="email" autoComplete="email" value={emailValue ?? ''} onChange={(e) => setValue('email', e.target.value)} placeholder="you@example.com" className={`${input} pl-10`} />
-            </span>
-            <p className="mt-1 text-xs text-slate-500">We’ll email you a link to confirm this address.</p>
-          </div>
-        )}
-
-        {contactConfig?.sms ? (
-          <ContactOtp channel="sms" label="Mobile number" value={phoneValue ?? ''} onChange={(v) => setValue('phone', v)} verified={isPhoneVerified} onVerified={() => setIsPhoneVerified(true)} onReset={() => setIsPhoneVerified(false)} />
-        ) : (
-          <div>
-            <label htmlFor="reg-phone" className="mb-1.5 block text-sm font-semibold text-slate-800">
-              Mobile number <span className="font-normal text-slate-500">(optional)</span>
-            </label>
-            <span className="relative block">
-              <Smartphone className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
-              <input
-                id="reg-phone"
-                type="tel"
-                inputMode="numeric"
-                autoComplete="tel-national"
-                value={phoneValue ?? ''}
-                onChange={(e) => setValue('phone', e.target.value.replace(/[^\d+ ]/g, '').slice(0, 14))}
-                placeholder="10-digit mobile number"
-                className={`${input} pl-10`}
-              />
-            </span>
-            {!phoneOk && <p className="mt-1 text-xs text-rose-600">Enter a valid 10-digit Indian mobile number, or leave it empty.</p>}
-          </div>
-        )}
+        <div className="space-y-3">
+          <ContactOtp
+            channel="email"
+            label="Email address"
+            accent={otpAccent}
+            required={contactConfig ? contactConfig.email : undefined}
+            value={emailValue ?? ''}
+            onChange={(v) => {
+              setValue('email', v);
+              setIsEmailVerified(false);
+            }}
+            verified={isEmailVerified}
+            onVerified={() => setIsEmailVerified(true)}
+            onReset={() => setIsEmailVerified(false)}
+          />
+          <ContactOtp
+            channel="sms"
+            label="Mobile number"
+            accent={otpAccent}
+            required={contactConfig ? contactConfig.sms : undefined}
+            value={phoneValue ?? ''}
+            onChange={(v) => {
+              setValue('phone', v);
+              setIsPhoneVerified(false);
+            }}
+            verified={isPhoneVerified}
+            onVerified={() => setIsPhoneVerified(true)}
+            onReset={() => setIsPhoneVerified(false)}
+          />
+          {!phoneOk && !contactConfig?.sms && <p className="text-xs text-rose-600">Enter a valid 10-digit Indian mobile number, or leave it empty.</p>}
+        </div>
 
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
