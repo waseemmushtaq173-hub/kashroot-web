@@ -3,8 +3,10 @@
 import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LayoutGrid, ChevronDown, Home, LogOut } from 'lucide-react';
+import { LayoutGrid, ChevronDown, Home, LogOut, UserRound } from 'lucide-react';
 import { BrandMark } from '@/components/brand/Shikara';
+import { MyDetailsPanel } from '@/components/portal/MyDetailsPanel';
+import { MY_DETAILS } from '@/components/portal/myDetailsConfig';
 import { authApi } from '@/lib/api/auth';
 import { loginHref, PORTAL_IDS, PORTALS, type PortalId } from '@/lib/auth/roles';
 
@@ -107,35 +109,9 @@ export function SiteHeader({
   portal?: PortalId | null;
 }) {
   const light = tone === 'light';
-  const router = useRouter();
 
   if (portal) {
-    const signOut = async () => {
-      await authApi.logout();
-      router.replace(loginHref(portal));
-    };
-    return (
-      <header className="sticky top-0 z-40 border-b border-slate-900/5 bg-white/75 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] backdrop-blur-xl">
-        <nav aria-label="Portal" className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-          <div className="flex min-w-0 items-center gap-3">
-            <Link href="/" className="shrink-0 text-slate-900 no-underline hover:no-underline">
-              <BrandMark />
-            </Link>
-            <span className="hidden truncate rounded-full bg-slate-900/5 px-3 py-1 text-xs font-semibold text-slate-700 sm:inline">
-              {PORTALS[portal].label} portal
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Link href="/" className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 no-underline transition hover:bg-white hover:text-slate-900 hover:no-underline">
-              <Home className="h-4 w-4" aria-hidden /> Home
-            </Link>
-            <button type="button" onClick={signOut} className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-900/10 bg-white/80 px-3 py-2 text-sm font-semibold text-slate-800 transition hover:bg-white">
-              <LogOut className="h-4 w-4" aria-hidden /> Sign out
-            </button>
-          </div>
-        </nav>
-      </header>
-    );
+    return <PortalHeader portal={portal} />;
   }
 
   const navLink = light
@@ -235,5 +211,44 @@ export function SiteFooter({ tone = 'dark' }: { tone?: SiteTone }) {
         </div>
       </div>
     </footer>
+  );
+}
+
+/** Inside a portal: brand, the portal's name, My details, Home and Sign out — no portal picker. */
+function PortalHeader({ portal }: { portal: PortalId }) {
+  const router = useRouter();
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const hasDetailsForm = Boolean(MY_DETAILS[portal]);
+  const signOut = async () => {
+    await authApi.logout();
+    router.replace(loginHref(portal));
+  };
+  return (
+    <header className="sticky top-0 z-40 border-b border-slate-900/5 bg-white/75 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] backdrop-blur-xl">
+      <nav aria-label="Portal" className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+        <div className="flex min-w-0 items-center gap-3">
+          <Link href="/" className="shrink-0 text-slate-900 no-underline hover:no-underline">
+            <BrandMark />
+          </Link>
+          <span className="hidden truncate rounded-full bg-slate-900/5 px-3 py-1 text-xs font-semibold text-slate-700 sm:inline">
+            {PORTALS[portal].label} portal
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {hasDetailsForm && (
+            <button type="button" onClick={() => setDetailsOpen(true)} className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-slate-800 transition hover:bg-white">
+              <UserRound className="h-4 w-4" aria-hidden /> <span className="hidden sm:inline">My details</span>
+            </button>
+          )}
+          <Link href="/" className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 no-underline transition hover:bg-white hover:text-slate-900 hover:no-underline">
+            <Home className="h-4 w-4" aria-hidden /> Home
+          </Link>
+          <button type="button" onClick={signOut} className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-900/10 bg-white/80 px-3 py-2 text-sm font-semibold text-slate-800 transition hover:bg-white">
+            <LogOut className="h-4 w-4" aria-hidden /> Sign out
+          </button>
+        </div>
+      </nav>
+      {detailsOpen && <MyDetailsPanel portal={portal} open onClose={() => setDetailsOpen(false)} />}
+    </header>
   );
 }
