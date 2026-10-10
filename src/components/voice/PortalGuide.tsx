@@ -51,7 +51,7 @@ export function PortalGuide({ portal }: { portal: PortalId }) {
       }
       // No AI yet: Urdu is the closest written guide a Kashmiri speaker follows.
       say = 'ur';
-      setNote('Kashmiri needs the AI assistant, which is not connected yet — reading the guide in Urdu.');
+      setNote('Reading the guide in Urdu — a Kashmiri guide needs the full AI assistant.');
     }
     setReading(true);
     const text = say === 'hi' ? guide.hi : say === 'ur' ? guide.ur : guide.en;
@@ -207,7 +207,7 @@ export function PortalGuide({ portal }: { portal: PortalId }) {
                 )}
               </div>
             )}
-            {configured === false && <p className="mt-2 text-xs text-amber-800">Questions need the AI assistant, which the site owner has not connected yet. The guide above still works.</p>}
+            {configured === false && <p className="mt-2 text-xs text-slate-600">Basic mode: ask about mandi prices, the weather, or how to do something on KashRoot.</p>}
             {note && <p role="status" className="mt-2 text-xs text-amber-800">{note}</p>}
           </div>
         </section>

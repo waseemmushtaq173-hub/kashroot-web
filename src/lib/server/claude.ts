@@ -40,7 +40,8 @@ export function claudeClient(timeout = 45_000): Anthropic | null {
   return key ? new Anthropic({ apiKey: key, timeout, maxRetries: 1 }) : null;
 }
 
-export const NOT_CONNECTED = 'The AI helper is not connected yet. The site owner needs to add ANTHROPIC_API_KEY in Vercel and redeploy.';
+/** Shown to farmers when no ANTHROPIC_API_KEY is set (the owner sets it in Vercel). */
+export const NOT_CONNECTED = 'Automatic photo checks are not switched on yet. Press Ask an expert instead — an agronomist will look at your photo and answer.';
 
 /** Plain words and an HTTP status for a failed Claude call. */
 export function claudeFailure(err: unknown): { status: number; error: string } {

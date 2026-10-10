@@ -36,6 +36,7 @@ import { PortalShell } from '@/components/layout/PortalShell';
 import { SellerDesk } from '@/components/market/SellerDesk';
 import { Btn, PORTAL_THEMES, Panel, Tile } from '@/components/portal/kit';
 import { inr, loadAccount, type Account } from '@/lib/db/client';
+import { dryHours } from '@/lib/sprayWindow';
 import type { MarketListing, MarketOrder } from '@/lib/db/market';
 
 const theme = PORTAL_THEMES.farmer;
@@ -191,25 +192,6 @@ interface Weather {
   daily: { date: string; max: number; min: number; precipitation: number }[];
 }
 
-/** Dry daylight hours left today (rain chance under 30%), as "14:00–18:00". */
-function dryHours(w: Weather): string | null {
-  const today = w.current.time.slice(0, 10);
-  const nowHour = Number(w.current.time.slice(11, 13));
-  const hours = w.hourly.filter((h) => h.time.startsWith(today)).map((h) => ({ hour: Number(h.time.slice(11, 13)), p: h.precipitationProbability }));
-  let best: [number, number] | null = null;
-  let start: number | null = null;
-  for (const { hour, p } of hours) {
-    const ok = hour >= Math.max(nowHour, 6) && hour <= 19 && p < 30;
-    if (ok && start === null) start = hour;
-    if ((!ok || hour === 19) && start !== null) {
-      const end = ok ? hour + 1 : hour;
-      if (end - start >= 2 && (!best || end - start > best[1] - best[0])) best = [start, end];
-      start = null;
-    }
-  }
-  return best ? `${String(best[0]).padStart(2, '0')}:00–${String(best[1]).padStart(2, '0')}:00` : null;
-}
-
 function TodayWeather({ district }: { district?: string }) {
   const place = district?.trim() || 'Srinagar';
   const [w, setW] = useState<Weather | null>(null);
@@ -229,7 +211,7 @@ function TodayWeather({ district }: { district?: string }) {
     };
   }, [place]);
 
-  const dry = w ? dryHours(w) : null;
+  const dry = w ? dryHours(w.current.time, w.hourly) : null;
   const rainToday = w?.daily[0]?.precipitation ?? 0;
 
   return (

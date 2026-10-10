@@ -97,7 +97,7 @@ export function VoiceConcierge() {
 
       {configured === false && (
         <p role="alert" className="relative mt-4 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
-          <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> The voice assistant is not connected yet. The site owner needs to add ANTHROPIC_API_KEY in Vercel and redeploy.
+          <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> Basic mode: ask about mandi prices, the weather and spraying, or how to use KashRoot. For crop problems, use Ask an expert.
         </p>
       )}
 

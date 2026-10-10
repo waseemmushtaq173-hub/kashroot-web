@@ -1,7 +1,10 @@
 /**
  * The KashRoot voice/text assistant, powered by Claude.
  *
- * GET  /api/ai → { configured }   (is ANTHROPIC_API_KEY set — no secrets returned)
+ * GET  /api/ai → { configured, basic }   (is ANTHROPIC_API_KEY set — no secrets returned)
+ *
+ * Without a key the assistant still answers, in basic mode (basicAssistant.ts):
+ * mandi prices, weather and how to use KashRoot, matched by keywords.
  * POST /api/ai
  *   { query, lang?: 'en'|'hi'|'ur'|'ks', history?: {role,text}[], speakAs?: 'hi',
  *     page?: string  // where the person is (portal guide), e.g. "Farmer portal: …buttons…" }
@@ -14,7 +17,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
 
-import { asLang, claudeClient, claudeConfigured, claudeFailure, LANGUAGE, MODEL, NOT_CONNECTED, speechInstruction, splitSpeech, textOf, throttled } from '@/lib/server/claude';
+import { asLang, claudeClient, claudeConfigured, claudeFailure, LANGUAGE, MODEL, speechInstruction, splitSpeech, textOf, throttled } from '@/lib/server/claude';
+import { basicAnswer } from '@/lib/server/basicAssistant';
 import { fetchMandiPrices } from '@/lib/server/mandi';
 import { forecast, geocode } from '@/lib/server/weather';
 
@@ -113,7 +117,8 @@ async function runTool(name: string, input: Record<string, unknown>): Promise<un
 }
 
 export function GET() {
-  return NextResponse.json({ configured: claudeConfigured() }, { headers: { 'cache-control': 'no-store' } });
+  const configured = claudeConfigured();
+  return NextResponse.json({ configured, basic: !configured }, { headers: { 'cache-control': 'no-store' } });
 }
 
 export async function POST(req: Request) {
@@ -130,7 +135,11 @@ export async function POST(req: Request) {
   if (!query) return NextResponse.json({ error: 'Say or type a question.' }, { status: 400 });
 
   const client = claudeClient();
-  if (!client) return NextResponse.json({ error: NOT_CONNECTED }, { status: 503 });
+  if (!client) {
+    // No AI key: answer what can be answered from live data and fixed help.
+    const a = await basicAnswer(query, lang);
+    return NextResponse.json({ reply: a.reply, lang, basic: true, ...(a.speech ? { speech: a.speech } : {}) });
+  }
 
   // Per-turn instructions go after the stable system prompt so it stays cacheable.
   let instruction = `Reply in ${LANGUAGE[lang]}.`;
