@@ -39,6 +39,7 @@ import {
 import { PortalShell } from '@/components/layout/PortalShell';
 import { Badge, Btn, EmptyState, INPUT, PORTAL_THEMES, Panel, inr } from '@/components/portal/kit';
 import { Tilt3D } from '@/components/three/Tilt3D';
+import { MANDI_SAMPLE_KEY, mandiUrl, parseMandi, type MandiQuery, type MandiRecord } from '@/lib/mandi-shared';
 
 const theme = PORTAL_THEMES.buyer;
 
@@ -55,23 +56,25 @@ interface Forecast {
   daily: { date: string; max: number; min: number; precipitation: number; code: number }[];
   source: string;
 }
-interface MandiRecord {
-  state: string;
-  district: string;
-  market: string;
-  commodity: string;
-  variety: string;
-  grade: string;
-  arrivalDate: string;
-  minPrice: number;
-  maxPrice: number;
-  modalPrice: number;
-}
 interface MandiResult {
   records: MandiRecord[];
   usingSampleKey: boolean;
   fetchedAt: string;
   source: string;
+  /** Fetched by this browser straight from data.gov.in (server could not reach it). */
+  direct?: boolean;
+}
+
+/**
+ * When the server cannot reach data.gov.in (some government servers refuse
+ * cloud hosts), ask data.gov.in from this browser instead, with its public
+ * sample key (limited to 10 reports).
+ */
+async function mandiFromBrowser(query: MandiQuery): Promise<MandiResult> {
+  const res = await fetch(mandiUrl({ ...query, limit: 10 }, MANDI_SAMPLE_KEY), { headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error(`data.gov.in answered ${res.status}`);
+  const records = parseMandi(await res.json(), query);
+  return { records, usingSampleKey: true, fetchedAt: new Date().toISOString(), source: 'Agmarknet via data.gov.in', direct: true };
 }
 
 const STATES = [
@@ -175,7 +178,7 @@ export default function MandiWeatherPage() {
     queryFn: () => {
       const p = new URLSearchParams();
       Object.entries(applied).forEach(([k, v]) => v.trim() && p.set(k, v.trim()));
-      return getJson<MandiResult>(`/api/mandi?${p}`);
+      return getJson<MandiResult>(`/api/mandi?${p}`).catch((serverError: Error) => mandiFromBrowser(applied).catch(() => Promise.reject(serverError)));
     },
     staleTime: 10 * 60_000,
   });
@@ -443,7 +446,9 @@ export default function MandiWeatherPage() {
           {mandiQ.data && (
             <p className="mt-3 text-xs text-slate-500">
               Source: {mandiQ.data.source}, prices in ₹ per quintal as published (÷100 for per kg). Fetched {new Date(mandiQ.data.fetchedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}.
-              {mandiQ.data.usingSampleKey && ' Showing the limited public sample — the site owner can add a free data.gov.in key for the full feed.'}
+              {mandiQ.data.direct
+                ? ' Loaded straight from data.gov.in by your browser (the latest 10 reports).'
+                : mandiQ.data.usingSampleKey && ' Showing the limited public sample — the site owner can add a free data.gov.in key for the full feed.'}
             </p>
           )}
         </Panel>
