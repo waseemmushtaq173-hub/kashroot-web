@@ -181,3 +181,54 @@ function delay(ms: number, signal?: AbortSignal): Promise<void> {
     signal?.addEventListener('abort', () => { clearTimeout(timer); reject(signal.reason); }, { once: true });
   });
 }
+
+// ---------------------------------------------------------------------------
+// Free offline Aadhaar (UIDAI-signed Offline e-KYC ZIP or Secure QR)
+// ---------------------------------------------------------------------------
+
+export interface KycConfig {
+  /** Paid online checks (Aadhaar OTP, DigiLocker, PAN) are connected. */
+  online: boolean;
+  offline: boolean;
+  sms: boolean;
+  email: boolean;
+}
+
+const OFFLINE_ONLY: KycConfig = { online: false, offline: true, sms: false, email: false };
+
+export async function getKycConfig(): Promise<KycConfig> {
+  try {
+    const res = await fetch('/api/kyc/config', { cache: 'no-store' });
+    return res.ok ? ((await res.json()) as KycConfig) : OFFLINE_ONLY;
+  } catch {
+    return OFFLINE_ONLY;
+  }
+}
+
+export interface OfflineAadhaarResult extends IdentityVerification {
+  method: 'AADHAAR_OFFLINE_XML' | 'AADHAAR_SECURE_QR';
+  name: string;
+  dateOfBirth: string;
+  state: string;
+  generatedAt: string | null;
+  mobileMatches: boolean | null;
+}
+
+async function offlineResult(res: Response): Promise<OfflineAadhaarResult> {
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) throw new KycUnavailableError(data.error ?? 'Please sign in again.');
+  if (!res.ok) throw new Error(data.error ?? 'Verification failed. Please try again.');
+  return { ...data, referenceId: data.documentId } as OfflineAadhaarResult;
+}
+
+export async function verifyOfflineZip(file: File, shareCode: string, mobile: string): Promise<OfflineAadhaarResult> {
+  const form = new FormData();
+  form.set('file', file);
+  form.set('shareCode', shareCode);
+  if (mobile) form.set('mobile', mobile);
+  return offlineResult(await authFetch('/api/kyc/aadhaar/offline', { method: 'POST', body: form }));
+}
+
+export async function verifyAadhaarQr(qr: string, mobile: string): Promise<OfflineAadhaarResult> {
+  return offlineResult(await authFetch('/api/kyc/aadhaar/qr', { method: 'POST', body: JSON.stringify({ qr, mobile }) }));
+}

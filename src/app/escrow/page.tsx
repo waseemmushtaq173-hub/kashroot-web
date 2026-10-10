@@ -65,9 +65,9 @@ export default function EscrowPage() {
     setKyc({
       submittedAt: new Date().toISOString(),
       role: s.role,
-      method: s.identity.method === 'DIGILOCKER' ? 'DigiLocker' : 'Aadhaar OTP',
+      method: { DIGILOCKER: 'DigiLocker', AADHAAR_OTP: 'Aadhaar OTP', AADHAAR_OFFLINE_XML: 'UIDAI offline e-KYC', AADHAAR_SECURE_QR: 'UIDAI secure QR' }[s.identity.method],
       aadhaarLast4: s.identity.aadhaarLast4,
-      panVerifiedBy: s.identity.panVerifiedBy === 'DIGILOCKER' ? 'DigiLocker' : 'Income Tax database',
+      panVerifiedBy: { DIGILOCKER: 'DigiLocker', PAN_API: 'Income Tax database', FORMAT_ONLY: 'format check (online check pending)' }[s.identity.panVerifiedBy],
       bank: `${s.bank.bankName} ••••${s.bank.accountNumber.slice(-4)}`,
     });
     localStorage.setItem('kyc_status', 'submitted');
@@ -89,7 +89,7 @@ export default function EscrowPage() {
       description="Payments are held safely and released to the seller only after the buyer confirms delivery."
       actions={kycButton}
       kpis={[
-        { label: 'Your verification', value: kyc ? 'Verified' : 'Not yet', trend: kyc ? `${kyc.method} · PAN via ${kyc.panVerifiedBy}` : 'Aadhaar, PAN, mobile and email' },
+        { label: 'Your verification', value: kyc ? 'Verified' : 'Not yet', trend: kyc ? `${kyc.method} · PAN: ${kyc.panVerifiedBy}` : 'Free with UIDAI’s offline e-KYC or Aadhaar QR' },
         { label: 'Accepted deals', value: String(deals.length), trend: deals.length ? 'Ready to fund' : 'Accept a quote in the Buyer portal' },
         { label: 'Value of deals', value: deals.length ? inr.format(deals.reduce((sum, d) => sum + dealValue(d), 0)) : '—', trend: 'From your accepted quotes' },
       ]}
@@ -121,7 +121,7 @@ export default function EscrowPage() {
             <dl className="grid gap-2.5 text-sm">
               {[
                 ['Identity', `${kyc.method}${kyc.aadhaarLast4 ? ` · Aadhaar ••••${kyc.aadhaarLast4}` : ''}`],
-                ['PAN', `Verified via ${kyc.panVerifiedBy}`],
+                ['PAN', kyc.panVerifiedBy],
                 ['Payout account', kyc.bank],
                 ['Verified on', new Date(kyc.submittedAt).toLocaleDateString('en-IN')],
               ].map(([k, v]) => (
@@ -136,7 +136,7 @@ export default function EscrowPage() {
               theme={theme}
               icon={IdCard}
               title="Verify once, trade safely"
-              text="Aadhaar (OTP to your Aadhaar-linked mobile, or DigiLocker), PAN against the Income Tax records, plus your mobile and email."
+              text="Aadhaar checked against UIDAI’s digital signature (free with the offline e-KYC file or Aadhaar QR), your PAN, and your contact details."
               action={kycButton}
             />
           )}

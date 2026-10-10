@@ -50,6 +50,7 @@ import {
   X as XIcon,
 } from 'lucide-react';
 import { ContactOtp } from '@/components/auth/ContactOtp';
+import { OfflineAadhaarVerify } from '@/components/auth/OfflineAadhaarVerify';
 import {
   IfscNotFoundError,
   lookupIfsc,
@@ -58,6 +59,9 @@ import {
   verifyAadhaarOtp,
   verifyPan,
   verifyWithDigiLocker,
+  getKycConfig,
+  type KycConfig,
+  type OfflineAadhaarResult,
   type PanCheck,
   type IdentityVerification,
   type IfscDetails,
@@ -82,13 +86,13 @@ export type KycRole = 'FARMER' | 'BUYER' | 'SELLER';
 export interface KycSubmission {
   role: KycRole;
   identity: {
-    method: 'DIGILOCKER' | 'AADHAAR_OTP';
+    method: 'DIGILOCKER' | 'AADHAAR_OTP' | 'AADHAAR_OFFLINE_XML' | 'AADHAAR_SECURE_QR';
     /** Verifier's reference — stored instead of the Aadhaar number. */
     referenceId: string;
     aadhaarLast4: string;
     pan: string;
     /** How the PAN was confirmed: Income Tax check, or shared from DigiLocker. */
-    panVerifiedBy: 'PAN_API' | 'DIGILOCKER';
+    panVerifiedBy: 'PAN_API' | 'DIGILOCKER' | 'FORMAT_ONLY';
     /** Verified contact details for escrow alerts. */
     mobile: string;
     email: string;
@@ -449,8 +453,20 @@ function useIdentityVerification() {
   const [email, setEmail] = useState('');
   const [mobileOk, setMobileOk] = useState(false);
   const [emailOk, setEmailOk] = useState(false);
+  // Which checks are live: free offline until the KYC provider keys are added.
+  const [config, setConfig] = useState<KycConfig | null>(null);
+  const [preferOffline, setPreferOffline] = useState(false);
+  const [aadhaarMobile, setAadhaarMobile] = useState<{ number: string; matches: boolean | null } | null>(null);
   // Bumped on every reset, so a response for an abandoned attempt is ignored.
   const attempt = useRef(0);
+
+  useEffect(() => {
+    let live = true;
+    void getKycConfig().then((c) => live && setConfig(c));
+    return () => {
+      live = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -555,6 +571,15 @@ function useIdentityVerification() {
     }
   };
 
+  const acceptOffline = (r: OfflineAadhaarResult, mobileTyped: string) => {
+    attempt.current++;
+    setVerified({ referenceId: r.referenceId, aadhaarLast4: r.aadhaarLast4, method: r.method });
+    setAadhaarMobile(mobileTyped ? { number: mobileTyped, matches: r.mobileMatches } : null);
+    if (r.name) setPanName(r.name);
+    const dob = /^(\d{2})-(\d{2})-(\d{4})$/.exec(r.dateOfBirth);
+    if (dob) setPanDob(`${dob[3]}-${dob[2]}-${dob[1]}`);
+  };
+
   /** Back to an unverified Aadhaar, keeping the typed number for editing. */
   const resetAadhaar = () => {
     attempt.current++;
@@ -568,20 +593,29 @@ function useIdentityVerification() {
     setDigiLocker('idle');
     setDigiLockerError(null);
     setPanShared(false);
+    setAadhaarMobile(null);
   };
 
+  const online = config?.online === true;
+  const offlineMode = !online || preferOffline;
   const panApiOk = panCheck?.valid === true && panCheck.nameMatch && panCheck.dobMatch;
-  const panConfirmed = isValidPan(pan) && (panApiOk || panShared);
+  // Online: PAN must be confirmed by the Income Tax check or DigiLocker. Offline
+  // (free): the format is checked now and the PAN is re-checked once online.
+  const panConfirmed = isValidPan(pan) && (panApiOk || panShared || !online);
+  const mobileFromAadhaar = aadhaarMobile?.matches === true;
+  // Codes are required only for channels the site has a provider for.
+  const mobileDone = config?.sms ? mobileOk || mobileFromAadhaar : true;
+  const emailDone = config?.email ? emailOk : true;
   const result: KycSubmission['identity'] | null =
-    verified && panConfirmed && mobileOk && emailOk
+    verified && panConfirmed && mobileDone && emailDone
       ? {
           method: verified.method,
           referenceId: verified.referenceId,
           aadhaarLast4: verified.aadhaarLast4,
           pan,
-          panVerifiedBy: panApiOk ? 'PAN_API' : 'DIGILOCKER',
-          mobile,
-          email,
+          panVerifiedBy: panApiOk ? 'PAN_API' : panShared ? 'DIGILOCKER' : 'FORMAT_ONLY',
+          mobile: mobileOk ? mobile : mobileFromAadhaar ? aadhaarMobile!.number : '',
+          email: emailOk ? email : '',
         }
       : null;
 
@@ -634,6 +668,13 @@ function useIdentityVerification() {
     setMobileOk,
     emailOk,
     setEmailOk,
+    config,
+    online,
+    offlineMode,
+    setPreferOffline,
+    acceptOffline,
+    aadhaarMobile,
+    mobileFromAadhaar,
     result,
   };
 }
@@ -658,7 +699,7 @@ function IdentityStep({
         headingRef={headingRef}
         Icon={IdCardIcon}
         title="Verify your identity"
-        description="DigiLocker or Aadhaar OTP, then PAN and your contact details — all checked against official records."
+        description="Aadhaar (checked against UIDAI), then PAN and your contact details."
       />
 
       <div className="space-y-6">
@@ -674,15 +715,28 @@ function IdentityStep({
               <p className="font-semibold text-slate-900">Aadhaar verified</p>
               <p className="text-sm tabular-nums text-slate-600">
                 {maskAadhaar(model.verified.aadhaarLast4)} · via{' '}
-                {model.verified.method === 'DIGILOCKER' ? 'DigiLocker' : 'Aadhaar OTP'}
+                {({ DIGILOCKER: 'DigiLocker', AADHAAR_OTP: 'Aadhaar OTP', AADHAAR_OFFLINE_XML: 'UIDAI offline e-KYC', AADHAAR_SECURE_QR: 'UIDAI secure QR' } as const)[model.verified.method]}
+                {model.aadhaarMobile && (model.aadhaarMobile.matches === true ? ' · mobile matches Aadhaar' : model.aadhaarMobile.matches === false ? ' · mobile does not match Aadhaar' : '')}
               </p>
             </div>
             <button type="button" onClick={model.resetAadhaar} className={`text-sm ${BTN_LINK}`}>
               Change
             </button>
           </div>
+        ) : model.offlineMode ? (
+          <>
+            <OfflineAadhaarVerify onVerified={model.acceptOffline} />
+            {model.online && (
+              <button type="button" onClick={() => model.setPreferOffline(false)} className={`text-sm ${BTN_LINK}`}>
+                Use online verification (Aadhaar OTP or DigiLocker) instead
+              </button>
+            )}
+          </>
         ) : (
           <>
+            <button type="button" onClick={() => model.setPreferOffline(true)} className={`text-sm ${BTN_LINK}`}>
+              Prefer the free offline check? Upload UIDAI’s e-KYC file or scan your Aadhaar QR
+            </button>
             <button
               type="button"
               onClick={model.startDigiLocker}
@@ -845,7 +899,13 @@ function IdentityStep({
           </div>
         </Field>
 
-        {model.panShared ? (
+        {!model.online ? (
+          panOk && (
+            <p className="rounded-2xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
+              PAN format checked. It will be confirmed with the Income Tax Department automatically once online checks are switched on.
+            </p>
+          )
+        ) : model.panShared ? (
           <p className="flex items-center gap-2 rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-900 ring-1 ring-emerald-200">
             <CheckIcon className="h-4 w-4" /> PAN shared from DigiLocker (issued by the Income Tax Department).
           </p>
@@ -873,8 +933,20 @@ function IdentityStep({
 
         <div className="space-y-4 rounded-2xl bg-white/70 p-4 ring-1 ring-slate-200">
           <p className="text-sm font-semibold text-slate-900">Contact for escrow alerts</p>
-          <ContactOtp channel="sms" label="Mobile number" value={model.mobile} onChange={model.setMobile} verified={model.mobileOk} onVerified={() => model.setMobileOk(true)} onReset={() => model.setMobileOk(false)} />
-          <ContactOtp channel="email" label="Email address" value={model.email} onChange={model.setEmail} verified={model.emailOk} onVerified={() => model.setEmailOk(true)} onReset={() => model.setEmailOk(false)} />
+          {model.mobileFromAadhaar ? (
+            <p className="flex items-center gap-2 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900 ring-1 ring-emerald-200">
+              <CheckIcon className="h-4 w-4" /> Mobile ••••••{model.aadhaarMobile!.number.slice(-4)} matches the number registered with Aadhaar.
+            </p>
+          ) : model.config?.sms ? (
+            <ContactOtp channel="sms" label="Mobile number" value={model.mobile} onChange={model.setMobile} verified={model.mobileOk} onVerified={() => model.setMobileOk(true)} onReset={() => model.setMobileOk(false)} />
+          ) : (
+            <p className="text-sm text-slate-600">SMS codes aren’t switched on yet — add the mobile registered with Aadhaar above to confirm it for free.</p>
+          )}
+          {model.config?.email ? (
+            <ContactOtp channel="email" label="Email address" value={model.email} onChange={model.setEmail} verified={model.emailOk} onVerified={() => model.setEmailOk(true)} onReset={() => model.setEmailOk(false)} />
+          ) : (
+            <p className="text-sm text-slate-600">Email confirmation switches on when the site’s email service is connected.</p>
+          )}
         </div>
       </div>
     </>
