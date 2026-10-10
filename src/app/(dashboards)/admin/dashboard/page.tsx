@@ -268,7 +268,7 @@ function ExpertPanel() {
           icon={ShieldCheck}
           title="No applications waiting"
           text="Agronomists who register through the expert sign-up appear here for review."
-          action={<Btn theme={theme} variant="soft" href="/register/expert">Open expert sign-up</Btn>}
+          action={<Btn theme={theme} variant="soft" href="/register/agronomist">Open expert sign-up</Btn>}
         />
       ) : (
         <div className="flex flex-col gap-4 rounded-2xl bg-white/70 p-4 ring-1 ring-slate-900/5 lg:flex-row lg:items-start lg:justify-between">

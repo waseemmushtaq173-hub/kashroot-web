@@ -85,13 +85,34 @@ export const REGISTER_ROLES: { role: AccountRole; portal: PortalId; label: strin
   { role: 'PROVIDER', portal: 'logistics', label: 'Logistics' },
 ];
 
+/** Account types a person can create themselves. */
+export type SignUpRole = 'FARMER' | 'BUYER' | 'SELLER' | 'PROVIDER';
+
+/**
+ * Every portal except admin has its own create-account page
+ * (/register/<portal>) with the account type already fixed — nobody who came
+ * through a portal is asked which kind of account they want. Shared portals
+ * create the account most of their users need: growers for tools, rental,
+ * tracking and advisory; input sellers for agro-dealers.
+ */
+export const SIGNUP_ROLE: Partial<Record<PortalId, SignUpRole>> = {
+  farmer: 'FARMER',
+  buyer: 'BUYER',
+  seller: 'SELLER',
+  logistics: 'PROVIDER',
+  kissan: 'FARMER',
+  rental: 'FARMER',
+  tracking: 'FARMER',
+  dealer: 'SELLER',
+  expert: 'FARMER',
+};
+
+export const SIGNUP_PORTALS = PORTAL_IDS.filter((id) => SIGNUP_ROLE[id]);
+
 /** Auxiliary auth routes in this app. */
 export const AUTH_ROUTES = {
-  /** Register, optionally with the account type preselected. */
-  register: (portal?: PortalId) => {
-    const role = REGISTER_ROLES.find((r) => r.portal === portal)?.role;
-    return role ? `/register?role=${role}` : '/register';
-  },
+  /** A portal's own create-account page, or the general one with a picker. */
+  register: (portal?: PortalId) => (portal && SIGNUP_ROLE[portal] ? `/register/${portal}` : '/register'),
   forgotPassword: '/forgot-password',
 } as const;
 

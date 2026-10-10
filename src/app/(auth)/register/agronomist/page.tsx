@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { AlertCircle, Loader2, UploadCloud, FileText } from 'lucide-react';
 import { authApi } from '@/lib/api/auth';
-import { tokenStore } from '@/lib/api/client';
+import { loginHref } from '@/lib/auth/roles';
 
 export default function ExpertRegistrationPage() {
   const router = useRouter();
@@ -14,44 +14,25 @@ export default function ExpertRegistrationPage() {
   const [success, setSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const { register, handleSubmit } = useForm();
+  const { register, handleSubmit } = useForm<Record<string, string>>();
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: Record<string, string>) => {
     setLoading(true);
     setErrorMsg(null);
     try {
-      // Mocked Backend Request
-      await new Promise(resolve => setTimeout(resolve, 600));
-
-      // Save application state locally to mock backend behaviour
-      if (typeof window !== 'undefined') {
-        // Never keep credentials in browser storage.
-        const { password: _password, ...profile } = data;
-        const expertData = {
-          ...profile,
-          status: 'PENDING_VERIFICATION'
-        };
-        localStorage.setItem('expert_application', JSON.stringify(expertData));
-        localStorage.setItem('kr_mock_role', 'EXPERT');
-        
-        // Auto-login to bypass OTP for this demo step as requested in prompt rules
-        const res = await authApi.login({ email: data.email, password: data.password });
-        if (res.accessToken) {
-          localStorage.setItem('auth_token', res.accessToken);
-          document.cookie = `auth_token=${res.accessToken}; path=/; max-age=86400; SameSite=Lax`;
-          localStorage.setItem('user_role', 'EXPERT');
-          document.cookie = `user_role=EXPERT; path=/; max-age=86400; SameSite=Lax`;
-          localStorage.setItem('auth_email', data.email);
-        }
-      }
+      const { password, ...profile } = data;
+      await authApi.register({ email: data.email, password, fullName: data.fullName, role: 'EXPERT', portal: 'expert' });
+      // Credential review stays in this browser until an advisory API exists.
+      // Never keep the password.
+      localStorage.setItem('expert_application', JSON.stringify({ ...profile, status: 'PENDING_VERIFICATION' }));
 
       setSuccess(true);
       setTimeout(() => {
-        router.push('/expert');
+        router.push(loginHref('expert', '/expert'));
       }, 1500);
 
-    } catch (e: any) {
-      setErrorMsg(e.message || 'Registration failed');
+    } catch (e) {
+      setErrorMsg(e instanceof Error && e.message ? e.message : 'Registration failed');
     } finally {
       setLoading(false);
     }
@@ -62,7 +43,7 @@ export default function ExpertRegistrationPage() {
       <div className="text-center py-8">
         <FileText className="w-12 h-12 text-kr-primary-600 mx-auto mb-4" />
         <h2 className="text-h2 font-heading text-kr-text-primary">Application Submitted</h2>
-        <p className="text-kr-text-secondary mt-2">Your credentials are now under review. Redirecting...</p>
+        <p className="text-kr-text-secondary mt-2">Your account is created and your credentials are under review. Taking you to sign in…</p>
         <Loader2 className="animate-spin w-5 h-5 text-kr-primary-600 mx-auto mt-4" />
       </div>
     );
@@ -159,7 +140,7 @@ export default function ExpertRegistrationPage() {
         </button>
 
         <p className="text-center text-caption text-kr-text-secondary mt-4">
-          Already verified? <Link href="/login" className="text-kr-text-brand hover:underline font-medium">Sign in</Link>
+          Already verified? <Link href={loginHref('expert')} className="text-kr-text-brand hover:underline font-medium">Sign in</Link>
         </p>
       </form>
     </div>

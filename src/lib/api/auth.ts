@@ -16,12 +16,12 @@
  */
 
 import { api } from './client';
-import { loginHref, portalForRole } from '@/lib/auth/roles';
+import { loginHref, portalForRole, type PortalId } from '@/lib/auth/roles';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 
-function confirmRedirect(role: RegisterDto['role']): string | undefined {
+function confirmRedirect(role: RegisterDto['role'], from?: PortalId): string | undefined {
   if (typeof window === 'undefined') return undefined;
-  const portal = portalForRole(role) ?? 'farmer';
+  const portal = from ?? portalForRole(role) ?? 'farmer';
   return `${window.location.origin}${loginHref(portal)}?verified=1`;
 }
 
@@ -56,9 +56,11 @@ export type UserRole =
 export interface RegisterDto {
   email:    string;
   password: string;
-  role:     'FARMER' | 'BUYER' | 'SELLER' | 'PROVIDER';
+  role:     'FARMER' | 'BUYER' | 'SELLER' | 'PROVIDER' | 'EXPERT';
   fullName: string;
   phone?:   string;
+  /** The portal the person signed up from; the confirmation link returns there. */
+  portal?:  PortalId;
 }
 
 export interface LoginDto {
@@ -139,7 +141,7 @@ export const authApi = {
       options: {
         // The confirmation link opens this site's sign-in for the chosen portal
         // (without it Supabase uses its "Site URL", often still localhost).
-        emailRedirectTo: confirmRedirect(dto.role),
+        emailRedirectTo: confirmRedirect(dto.role, dto.portal),
         data: {
           full_name: dto.fullName,
           role: dto.role,
@@ -193,9 +195,9 @@ export const authApi = {
     } as LoginResponse;
   },
   /** Sends the sign-up confirmation email again. */
-  resendSignupEmail: async (email: string, role: RegisterDto['role']) => {
+  resendSignupEmail: async (email: string, role: RegisterDto['role'], portal?: PortalId) => {
     if (!supabaseConfigured) throw new Error(NOT_SET_UP);
-    const { error } = await supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: confirmRedirect(role) } });
+    const { error } = await supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: confirmRedirect(role, portal) } });
     if (error) throw new Error(friendlyAuthError(error.message, 'Could not resend the email.'));
   },
   mfaSetup:      async ()                    => ({ qrCodeDataUrl: '', secret: '' } as MfaSetupResponse),
