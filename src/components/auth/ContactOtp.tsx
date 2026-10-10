@@ -7,7 +7,7 @@
  * only ever in the person's SMS or inbox — the browser holds a signed token.
  */
 import { useEffect, useId, useState } from 'react';
-import { CheckCircle2, Loader2, Mail, MessageCircle, Send, ShieldCheck, Smartphone } from 'lucide-react';
+import { CheckCircle2, Loader2, Mail, Send, ShieldCheck, Smartphone } from 'lucide-react';
 
 /** Full class strings for the panel's accent colour. */
 export interface OtpAccent {
@@ -42,10 +42,10 @@ export interface ContactOtpProps {
   required?: boolean;
   /** One line under the title. */
   hint?: string;
-  /** Phone only: how the code can be delivered. A switch appears when there are two. */
+  /** Phone only: the routes the code goes out by — all at once. */
   routes?: PhoneRoute[];
-  /** The site cannot send by this route right now (not the visitor's fault). */
-  onUnavailable?: (route: PhoneRoute | 'email') => void;
+  /** The site cannot send this code right now (not the visitor's fault). */
+  onUnavailable?: () => void;
 }
 
 export type PhoneRoute = 'sms' | 'whatsapp';
@@ -69,10 +69,9 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
   }, [wait]);
 
   const sms = channel === 'sms';
-  const [picked, setRoute] = useState<PhoneRoute>(routes[0] ?? 'sms');
-  // The routes arrive after the site config loads; fall back to the first one offered.
-  const route: PhoneRoute = routes.includes(picked) ? picked : (routes[0] ?? 'sms');
-  const sendVia = sms ? route : 'email';
+  const [sentVia, setSentVia] = useState<string[]>([]);
+  const routeNames = routes.map((r) => (r === 'whatsapp' ? 'WhatsApp' : 'SMS'));
+  const joinNames = (names: string[]) => names.join(' and ');
   const Icon = sms ? Smartphone : Mail;
   const title = sms ? 'Verify mobile number' : 'Verify email';
   const fieldLabel = label ?? (sms ? 'Mobile number' : 'Email address');
@@ -82,11 +81,12 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
     setBusy('send');
     setError(null);
     try {
-      const res = await fetch('/api/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel: sendVia, to: value }) });
+      const res = await fetch('/api/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel, to: value }) });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok && (data.unavailable || data.configured === false)) onUnavailable?.(sendVia);
+      if (!res.ok && (data.unavailable || data.configured === false)) onUnavailable?.();
       if (!res.ok) throw new Error(data.error ?? 'Could not send the OTP.');
       setToken(data.token);
+      setSentVia(Array.isArray(data.via) ? data.via : []);
       setSentTo(data.to);
       setCode('');
       setWait(30);
@@ -128,7 +128,7 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
               <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${required ? 'bg-rose-100 text-rose-700' : 'bg-slate-200 text-slate-600'}`}>{required ? 'Required' : 'Optional'}</span>
             )}
           </p>
-          <p className="text-xs text-slate-500">{verified ? value : hint ?? (sms ? (route === 'whatsapp' ? 'We’ll send a 6-digit OTP to this number on WhatsApp.' : 'We’ll text a 6-digit OTP to this number.') : 'We’ll email a 6-digit OTP to this address.')}</p>
+          <p className="text-xs text-slate-500">{verified ? value : hint ?? (sms ? `We’ll send a 6-digit OTP to this number by ${joinNames(routeNames)}.` : 'We’ll email a 6-digit OTP to this address.')}</p>
         </div>
         {verified && onReset && (
           <button type="button" onClick={onReset} className="cursor-pointer text-sm font-semibold text-emerald-800 hover:underline">
@@ -139,28 +139,6 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
 
       {!verified && (
         <div className="mt-3 space-y-2.5">
-          {sms && routes.length > 1 && (
-            <div role="group" aria-label="Send the OTP by" className="inline-flex rounded-xl bg-white p-1 ring-1 ring-slate-200">
-              {routes.map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  aria-pressed={route === r}
-                  onClick={() => {
-                    setRoute(r);
-                    setToken(null);
-                    setCode('');
-                    setError(null);
-                    setWait(0);
-                  }}
-                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition ${route === r ? (r === 'whatsapp' ? 'bg-[#25D366] text-white shadow-sm' : 'bg-slate-900 text-white shadow-sm') : 'text-slate-600 hover:bg-slate-50'}`}
-                >
-                  {r === 'whatsapp' ? <MessageCircle className="h-4 w-4" aria-hidden /> : <Smartphone className="h-4 w-4" aria-hidden />}
-                  {r === 'whatsapp' ? 'WhatsApp' : 'Text (SMS)'}
-                </button>
-              ))}
-            </div>
-          )}
           <div className="flex gap-2">
             <label htmlFor={id} className="sr-only">{fieldLabel}</label>
             <span className="relative flex-1">
@@ -213,7 +191,7 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
             </button>
           </div>
 
-          {token && !error && <p className="text-xs text-slate-600">OTP sent{sms && route === 'whatsapp' ? ' on WhatsApp' : ''} to <span className="font-semibold">{sentTo}</span>. It expires in 10 minutes.</p>}
+          {token && !error && <p className="text-xs text-slate-600">OTP sent{sms && sentVia.length ? ` by ${joinNames(sentVia)}` : ''} to <span className="font-semibold">{sentTo}</span>. It expires in 10 minutes.</p>}
           {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
         </div>
       )}

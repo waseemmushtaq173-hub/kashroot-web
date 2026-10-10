@@ -116,10 +116,10 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
   const [contactConfig, setContactConfig] = useState<{ sms: boolean; whatsapp: boolean; email: boolean } | null>(null);
   // A provider that fails on the site's side (bad key, unverified sender)
   // must not lock everyone out of signing up: that check becomes optional.
-  const [phoneDown, setPhoneDown] = useState<PhoneRoute[]>([]);
+  const [phoneDown, setPhoneDown] = useState(false);
   const [emailDown, setEmailDown] = useState(false);
   const phoneRoutes: PhoneRoute[] = contactConfig ? [...(contactConfig.sms ? (['sms'] as const) : []), ...(contactConfig.whatsapp ? (['whatsapp'] as const) : [])] : [];
-  const smsRequired = phoneRoutes.some((r) => !phoneDown.includes(r));
+  const smsRequired = phoneRoutes.length > 0 && !phoneDown;
   const emailRequired = Boolean(contactConfig?.email) && !emailDown;
 
   useEffect(() => {
@@ -352,7 +352,7 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
             accent={otpAccent}
             required={contactConfig ? smsRequired : undefined}
             routes={phoneRoutes.length ? phoneRoutes : undefined}
-            onUnavailable={(r) => setPhoneDown((down) => (r === 'email' || down.includes(r) ? down : [...down, r]))}
+            onUnavailable={() => setPhoneDown(true)}
             value={phoneValue ?? ''}
             onChange={(v) => {
               setValue('phone', v);

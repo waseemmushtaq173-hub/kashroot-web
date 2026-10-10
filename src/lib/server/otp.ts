@@ -159,14 +159,34 @@ async function sendEmail(email: string, code: string) {
     .sendMail({ from: `KashRoot <${process.env.GMAIL_USER}>`, to: email, subject, html });
 }
 
-export async function sendCode(channel: Channel, to: string): Promise<string> {
+/**
+ * Sends one code. A mobile code (channel 'sms') goes out by every phone route
+ * the site has — SMS and WhatsApp at the same time — and succeeds when at
+ * least one delivers; 'whatsapp' alone sends only by WhatsApp.
+ */
+export async function sendCode(channel: Channel, to: string): Promise<{ token: string; via: string[] }> {
   const code = String(randomInt(100000, 1000000));
-  if (channel === 'sms') await sendSms(to, code);
-  else if (channel === 'whatsapp') await sendWhatsapp(to, code);
-  else await sendEmail(to, code);
+  let via: string[];
+  if (channel === 'email') {
+    await sendEmail(to, code);
+    via = ['email'];
+  } else {
+    const routes: [string, (m: string, c: string) => Promise<void>][] = [];
+    if (channel === 'sms' && smsConfigured()) routes.push(['SMS', sendSms]);
+    if (whatsappConfigured()) routes.push(['WhatsApp', sendWhatsapp]);
+    const results = await Promise.allSettled(routes.map(([, send]) => send(to, code)));
+    via = routes.filter((_, i) => results[i].status === 'fulfilled').map(([name]) => name);
+    const failures = results.flatMap((r) => (r.status === 'rejected' ? [r.reason] : []));
+    failures.forEach((err) => console.error('OTP route failed:', err instanceof Error ? err.message : err));
+    if (via.length === 0) {
+      // Every route failed: report them all (provider text is safe to show).
+      if (failures.length > 0 && failures.every((e) => e instanceof SmsProviderError)) throw new SmsProviderError(failures.map((e) => (e as Error).message).join('; '));
+      throw failures[0] ?? new Error('No phone route is configured');
+    }
+  }
   const payload = { id: randomUUID(), ch: channel, to, exp: Date.now() + TTL_MS };
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  return `${body}.${sign(`${body}|${code}`)}`;
+  return { token: `${body}.${sign(`${body}|${code}`)}`, via };
 }
 
 export function checkCode(token: string, code: string): { ok: true; channel: Channel; to: string; id: string } | { ok: false; reason: string } {
