@@ -9,8 +9,9 @@
  *   My orders: the buyer's orders and the next step on each.
  *   Sell here: a seller's products, orders received and payout details.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { BadgeCheck, Loader2, MapPin, Package, Phone, Search, ShieldCheck, ShoppingCart, Store } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -26,9 +27,18 @@ import { browseListings, buyerOrders, placeOrder, PRODUCE, SUBCATEGORIES, type M
 const theme = PORTAL_THEMES.buyer;
 
 export default function ComparePricesPage() {
+  return (
+    <Suspense>
+      <ComparePrices />
+    </Suspense>
+  );
+}
+
+function ComparePrices() {
+  const params = useSearchParams();
   const [account, setAccount] = useState<Account | null | undefined>(undefined);
-  const [tab, setTab] = useState<'compare' | 'orders' | 'sell'>('compare');
-  const [category, setCategory] = useState<MarketCategory>('supplies');
+  const [tab, setTab] = useState<'compare' | 'orders' | 'sell'>(params.get('tab') === 'orders' ? 'orders' : params.get('tab') === 'sell' ? 'sell' : 'compare');
+  const [category, setCategory] = useState<MarketCategory>(params.get('category') === 'produce' ? 'produce' : 'supplies');
   const [kind, setKind] = useState('All');
   const [search, setSearch] = useState('');
   const [verifiedOnly, setVerifiedOnly] = useState(false);

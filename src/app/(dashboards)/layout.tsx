@@ -163,7 +163,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2.5 text-sm sm:px-6 lg:px-8">
             <p className="flex items-center gap-2 text-emerald-950">
               <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden />
-              Verify your identity once to trade with escrow — it covers every KashRoot portal.
+              Verify your identity once so buyers and sellers can trust you — it covers every KashRoot portal.
             </p>
             <button type="button" onClick={() => setShowKyc(true)} className="cursor-pointer rounded-lg bg-emerald-700 px-3 py-1.5 font-semibold text-white hover:bg-emerald-800">
               Verify now

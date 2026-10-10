@@ -93,7 +93,7 @@ export interface KycSubmission {
     pan: string;
     /** How the PAN was confirmed: Income Tax check, or shared from DigiLocker. */
     panVerifiedBy: 'PAN_API' | 'DIGILOCKER' | 'FORMAT_ONLY';
-    /** Verified contact details for escrow alerts. */
+    /** Verified contact details for order and payment alerts. */
     mobile: string;
     email: string;
   };
@@ -941,7 +941,7 @@ function IdentityStep({
             )}
 
             <div className="space-y-4 rounded-2xl bg-white/70 p-4 ring-1 ring-slate-200">
-              <p className="text-sm font-semibold text-slate-900">Contact for escrow alerts</p>
+              <p className="text-sm font-semibold text-slate-900">Contact for order alerts</p>
               {model.mobileFromAadhaar ? (
                 <p className="flex items-center gap-2 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900 ring-1 ring-emerald-200">
                   <CheckIcon className="h-4 w-4" /> Mobile ••••••{model.aadhaarMobile!.number.slice(-4)} matches the number registered with Aadhaar.
@@ -1132,8 +1132,8 @@ function BankStep({
         title={isBuyer ? 'Add your refund account' : 'Add your payout account'}
         description={
           isBuyer
-            ? 'Escrow refunds and settlements are paid into this account.'
-            : 'Payments released from escrow are sent to this account.'
+            ? 'Refunds from sellers can be sent to this account.'
+            : 'Kept with your verified identity. Buyers pay you to the UPI / bank you add under Payouts.'
         }
       />
 

@@ -14,20 +14,27 @@ import { ProductForm, productProblem } from '@/components/market/ProductForm';
 import { PayoutForm } from '@/components/payments/PayoutForm';
 import { Badge, Btn, EmptyState, Modal, Panel, type PortalTheme } from '@/components/portal/kit';
 import { inr, type Account } from '@/lib/db/client';
-import { deleteListing, myListings, saveListing, sellerOrders, updateListing, type ListingInput, type MarketListing, type MarketOrder } from '@/lib/db/market';
+import { deleteListing, myListings, saveListing, sellerOrders, updateListing, type ListingInput, type MarketCategory, type MarketListing, type MarketOrder } from '@/lib/db/market';
 import { myPayout, type PayoutAccount } from '@/lib/db/rentals';
 
-export function blankProduct(account: Account): ListingInput {
-  return { seller_name: account.business || account.name, phone: account.phone, district: account.district, category: 'supplies', subcategory: 'Packaging', product: '', variety: '', grade: '', unit: 'piece', price: 0, quantity: 0, details: '', photo: null };
+export function blankProduct(account: Account, category: MarketCategory = 'supplies'): ListingInput {
+  const produce = category === 'produce';
+  return { seller_name: account.business || account.name, phone: account.phone, district: account.district, category, subcategory: produce ? 'Apple' : 'Packaging', product: '', variety: '', grade: '', unit: produce ? 'box' : 'piece', price: 0, quantity: 0, details: '', photo: null };
 }
 
-export function SellerDesk({ account, theme, show = 'all', onLoaded }: { account: Account; theme: PortalTheme; show?: 'all' | 'products' | 'orders' | 'payouts'; onLoaded?: (products: MarketListing[], orders: MarketOrder[]) => void }) {
+export function SellerDesk({ account, theme, show = 'all', category = 'supplies', addRequest = 0, onLoaded }: { account: Account; theme: PortalTheme; show?: 'all' | 'products' | 'orders' | 'payouts'; category?: MarketCategory; addRequest?: number; onLoaded?: (products: MarketListing[], orders: MarketOrder[]) => void }) {
   const [products, setProducts] = useState<MarketListing[] | null>(null);
   const [orders, setOrders] = useState<MarketOrder[]>([]);
   const [payout, setPayout] = useState<PayoutAccount | null | undefined>(undefined);
   const [editing, setEditing] = useState<{ id?: string; data: ListingInput } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Bumping addRequest (e.g. a "List produce" button outside) opens the form.
+  const [seenAdd, setSeenAdd] = useState(0);
+  if (addRequest !== seenAdd) {
+    setSeenAdd(addRequest);
+    if (addRequest > 0) setEditing({ data: blankProduct(account, category) });
+  }
 
   const reload = useCallback(async () => {
     try {
@@ -100,9 +107,9 @@ export function SellerDesk({ account, theme, show = 'all', onLoaded }: { account
       )}
 
       {(show === 'all' || show === 'products') && (
-        <Panel theme={theme} title="My products" icon={Boxes} className={show === 'products' ? 'lg:col-span-2' : ''} action={<Btn theme={theme} size="sm" icon={PlusCircle} onClick={() => setEditing({ data: blankProduct(account) })}>Add product</Btn>}>
+        <Panel theme={theme} title={category === 'produce' ? 'My produce on sale' : 'My products'} icon={Boxes} className={show === 'products' ? 'lg:col-span-2' : ''} action={<Btn theme={theme} size="sm" icon={PlusCircle} onClick={() => setEditing({ data: blankProduct(account, category) })}>{category === 'produce' ? 'List produce' : 'Add product'}</Btn>}>
           {products.length === 0 ? (
-            <EmptyState theme={theme} icon={Boxes} title="Nothing listed yet" text="Add your products with price and stock. They appear on Price Comparison for buyers and farmers right away." />
+            <EmptyState theme={theme} icon={Boxes} title="Nothing listed yet" text={category === 'produce' ? 'List your apples, walnuts or saffron with price and quantity. Buyers see them on Price Comparison right away and can order.' : 'Add your products with price and stock. They appear on Price Comparison for buyers and farmers right away.'} />
           ) : (
             <ul className="space-y-3">
               {products.map((p) => {
@@ -146,7 +153,7 @@ export function SellerDesk({ account, theme, show = 'all', onLoaded }: { account
           open
           wide
           onClose={() => setEditing(null)}
-          title={editing.id ? 'Edit product' : 'Add a product'}
+          title={editing.id ? 'Edit' : category === 'produce' ? 'List your produce' : 'Add a product'}
           footer={
             <>
               <Btn theme={theme} variant="ghost" onClick={() => setEditing(null)}>Cancel</Btn>

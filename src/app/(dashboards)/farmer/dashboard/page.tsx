@@ -1,130 +1,100 @@
 'use client';
 
 /**
- * Farmer portal — overview, produce lots and orders.
+ * Farmer portal — overview, produce on sale, orders and payment details.
  *
- * Lots and orders have no farmer-scoped API yet, so they live in the browser
- * via usePersistentState (keys kr_farmer_lots / kr_farmer_orders). Every
- * control acts on that data or links to a page that exists.
+ * Produce is listed on the shared marketplace (market_listings, category
+ * "produce"), so buyers see it on Price Comparison on any phone and can
+ * order. Orders are pay-after-delivery: the buyer pays the farmer directly by
+ * UPI / bank once the goods arrive. Today's weather comes from Open-Meteo for
+ * the farmer's district (My details).
  */
-import { useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Activity,
   ArrowRight,
+  Banknote,
   Bot,
   CalendarDays,
-  CheckCircle2,
   CloudSun,
   Droplets,
   FlaskConical,
-  IndianRupee,
+  Loader2,
+  MessageCircleQuestion,
   Package,
-  Pause,
-  Pencil,
-  Play,
   PlusCircle,
-  ShieldCheck,
   ShoppingCart,
   Sprout,
   Store,
-  Trash2,
+  Thermometer,
   TrendingUp,
-  Truck,
   Warehouse,
-  MessageCircleQuestion,
 } from 'lucide-react';
-import { toast } from 'sonner';
 
 import { PortalShell } from '@/components/layout/PortalShell';
-import {
-  Badge,
-  Btn,
-  EmptyState,
-  Field,
-  INPUT,
-  Modal,
-  PORTAL_THEMES,
-  Panel,
-  Tile,
-  inr,
-} from '@/components/portal/kit';
-import { FARMER_LOTS_KEY, SEED_LOTS, type Lot } from '@/lib/farmer-lots';
-import { usePersistentState } from '@/lib/portal-store';
+import { SellerDesk } from '@/components/market/SellerDesk';
+import { Btn, PORTAL_THEMES, Panel, Tile } from '@/components/portal/kit';
+import { inr, loadAccount, type Account } from '@/lib/db/client';
+import type { MarketListing, MarketOrder } from '@/lib/db/market';
 
 const theme = PORTAL_THEMES.farmer;
+type Tab = 'overview' | 'lots' | 'orders' | 'payouts';
+const TABS: Tab[] = ['overview', 'lots', 'orders', 'payouts'];
 
-
-type OrderStage = 'awaiting' | 'dispatched' | 'delivered' | 'paid';
-
-interface Order {
-  id: string;
-  item: string;
-  buyer: string;
-  amount: number;
-  stage: OrderStage;
+export default function FarmerDashboardPage() {
+  return (
+    <Suspense>
+      <FarmerDashboard />
+    </Suspense>
+  );
 }
 
+function FarmerDashboard() {
+  const params = useSearchParams();
+  const initial = params.get('tab') as Tab | null;
+  const [tab, setTab] = useState<Tab>(initial && TABS.includes(initial) ? initial : 'overview');
+  const [addRequest, setAddRequest] = useState(params.get('add') === '1' ? 1 : 0);
+  const [account, setAccount] = useState<Account | null | undefined>(undefined);
+  const [stats, setStats] = useState<{ products: MarketListing[]; orders: MarketOrder[] } | null>(null);
 
-const SEED_ORDERS: Order[] = [
-  { id: 'ORD-9921', item: '200 boxes Grade-A Delicious', buyer: 'Fresh Valley Retail', amount: 145000, stage: 'awaiting' },
-  { id: 'ORD-9918', item: '50 kg Premium Walnut', buyer: 'NutriMart Wholesale', amount: 82500, stage: 'dispatched' },
-  { id: 'ORD-9907', item: '120 boxes Gala', buyer: 'Metro Fruit Co.', amount: 96000, stage: 'paid' },
-];
+  useEffect(() => {
+    void loadAccount().then(setAccount).catch(() => setAccount(null));
+  }, []);
 
-const STAGES: Record<OrderStage, { label: string; tone: 'amber' | 'blue' | 'violet' | 'green'; next?: OrderStage; action?: string }> = {
-  awaiting: { label: 'Awaiting dispatch', tone: 'amber', next: 'dispatched', action: 'Mark dispatched' },
-  dispatched: { label: 'In transit', tone: 'blue', next: 'delivered', action: 'Mark delivered' },
-  delivered: { label: 'Buyer inspecting', tone: 'violet', next: 'paid', action: 'Confirm payout' },
-  paid: { label: 'Paid out', tone: 'green' },
-};
-
-export default function FarmerDashboard() {
-  const [tab, setTab] = useState('overview');
-  const [lots, setLots] = usePersistentState<Lot[]>(FARMER_LOTS_KEY, SEED_LOTS);
-  const [orders, setOrders] = usePersistentState<Order[]>('kr_farmer_orders', SEED_ORDERS);
-  const [editing, setEditing] = useState<Lot | null>(null);
-  const [price, setPrice] = useState('');
-
-  const received = orders.filter((o) => o.stage === 'paid').reduce((sum, o) => sum + o.amount, 0);
-  const inEscrow = orders.filter((o) => o.stage !== 'paid').reduce((sum, o) => sum + o.amount, 0);
-  const liveLots = lots.filter((l) => l.status === 'live').length;
-
-  const advance = (order: Order) => {
-    const next = STAGES[order.stage].next;
-    if (!next) return;
-    setOrders((all) => all.map((o) => (o.id === order.id ? { ...o, stage: next } : o)));
-    toast.success(`${order.id}: ${STAGES[next].label}`);
+  const onLoaded = useCallback((products: MarketListing[], orders: MarketOrder[]) => setStats({ products, orders }), []);
+  const listProduce = () => {
+    setTab('lots');
+    setAddRequest((n) => n + 1);
   };
 
-  const savePrice = () => {
-    const value = Number(price);
-    if (!editing || !Number.isFinite(value) || value <= 0) return;
-    setLots((all) => all.map((l) => (l.id === editing.id ? { ...l, price: value } : l)));
-    toast.success(`${editing.crop} now ${inr.format(value)} / ${editing.unit}`);
-    setEditing(null);
-  };
+  const products = stats?.products ?? [];
+  const orders = stats?.orders ?? [];
+  const toAct = orders.filter((o) => ['placed', 'accepted', 'paid'].includes(o.status)).length;
+  const received = orders.filter((o) => o.status === 'completed').reduce((s, o) => s + Number(o.amount), 0);
+  const onSale = products.filter((p) => p.active && Number(p.quantity) > 0).length;
 
   return (
     <PortalShell
-      title="Salaam, welcome back"
-      description="Your orchard at a glance — lots on the market, orders in escrow and today’s spray window."
+      title={account?.name ? `Salaam, ${account.name.split(' ')[0]}` : 'Salaam, welcome back'}
+      description="Sell your harvest, follow your orders, and check today’s weather before you spray."
       eyebrow="Farmer portal"
       theme="farmer"
       kpis={[
-        { label: 'Total received', value: inr.format(received), trend: 'Released from escrow' },
-        { label: 'In escrow', value: inr.format(inEscrow), trend: `${orders.filter((o) => o.stage !== 'paid').length} open orders` },
-        { label: 'Live lots', value: String(liveLots), trend: `${lots.reduce((s, l) => s + l.interest, 0)} buyer enquiries` },
-        { label: 'Orchard grade', value: 'A+', trend: 'Residue test passed' },
+        { label: 'Money received', value: inr(received), trend: 'Paid to you directly' },
+        { label: 'Orders to act on', value: String(toAct), trend: 'Accept, ship, confirm payment' },
+        { label: 'Produce on sale', value: String(onSale), trend: 'On Price Comparison' },
       ]}
       tabs={[
         { id: 'overview', label: 'Overview', icon: Sprout },
-        { id: 'lots', label: 'My lots', icon: Store, count: lots.length },
-        { id: 'orders', label: 'Orders', icon: Package, count: orders.length },
+        { id: 'lots', label: 'My produce', icon: Store, count: products.length || undefined },
+        { id: 'orders', label: 'Orders', icon: Package, count: toAct || undefined },
+        { id: 'payouts', label: 'Payouts', icon: Banknote },
       ]}
       activeTab={tab}
-      onTabChange={setTab}
+      onTabChange={(id) => setTab(id as Tab)}
       actions={
-        <Btn theme={theme} variant="white" icon={PlusCircle} href="/farmer/listings/new">
+        <Btn theme={theme} variant="white" icon={PlusCircle} onClick={listProduce}>
           List produce
         </Btn>
       }
@@ -133,24 +103,24 @@ export default function FarmerDashboard() {
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <Tile theme={theme} icon={PlusCircle} label="Sell produce" hint="Create a new lot" href="/farmer/listings/new" />
-              <Tile theme={theme} icon={Warehouse} label="Cold storage" hint="Rent CA space & machinery" href="/rental/dashboard" />
-              <Tile theme={theme} icon={ShoppingCart} label="Buy inputs" hint="Verified supplies" href="/supplies" />
+              <Tile theme={theme} icon={PlusCircle} label="Sell produce" hint="List apples, walnuts…" onClick={listProduce} />
+              <Tile theme={theme} icon={Warehouse} label="Cold storage" hint="Book CA space & machinery" href="/rental/dashboard" />
+              <Tile theme={theme} icon={ShoppingCart} label="Buy inputs" hint="Compare dealer prices" href="/compare-prices" />
               <Tile theme={theme} icon={MessageCircleQuestion} label="Ask an expert" hint="Agronomist answers" href="/expert" />
-              <Tile theme={theme} icon={Activity} label="Orchard health" hint="Risk map & sprays" href="/orchard-health" />
-              <Tile theme={theme} icon={CalendarDays} label="Season planner" hint="Tasks & ROI" href="/season-planner" />
-              <Tile theme={theme} icon={TrendingUp} label="Mandi rates" hint="Live prices" href="/mandi-weather" />
+              <Tile theme={theme} icon={Activity} label="Orchard health" hint="Scab map, photo check" href="/orchard-health" />
+              <Tile theme={theme} icon={CalendarDays} label="Season planner" hint="Tasks & costs" href="/season-planner" />
+              <Tile theme={theme} icon={TrendingUp} label="Mandi rates" hint="Today’s prices" href="/mandi-weather" />
               <Tile theme={theme} icon={FlaskConical} label="Test inputs" hint="Spot fake batches" href="/farmer/tester" />
             </div>
 
             <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-700 via-emerald-600 to-amber-600 p-7 text-white shadow-lg">
               <h3 className="font-sans text-2xl font-bold">Ready to harvest?</h3>
               <p className="mt-1 max-w-md text-white/90">
-                List apples, walnuts or saffron and reach verified buyers across India — payment held in escrow until delivery.
+                List apples, walnuts or saffron with your price. Buyers order on Price Comparison and pay you directly by UPI once the goods reach them.
               </p>
               <div className="mt-5 flex flex-wrap gap-2">
-                <Btn theme={theme} variant="white" icon={PlusCircle} href="/farmer/listings/new">
-                  List your product
+                <Btn theme={theme} variant="white" icon={PlusCircle} onClick={listProduce}>
+                  List your produce
                 </Btn>
                 <Btn theme={theme} variant="white" icon={Bot} href="/farmer/assistant">
                   Ask the assistant
@@ -160,7 +130,7 @@ export default function FarmerDashboard() {
 
             <Panel
               theme={theme}
-              title="Orders needing you"
+              title="Orders"
               icon={Package}
               action={
                 <Btn theme={theme} variant="ghost" size="sm" onClick={() => setTab('orders')}>
@@ -168,183 +138,130 @@ export default function FarmerDashboard() {
                 </Btn>
               }
             >
-              <OrderList orders={orders.filter((o) => o.stage !== 'paid')} onAdvance={advance} />
+              {toAct ? (
+                <p className="text-slate-700"><strong>{toAct}</strong> order{toAct === 1 ? '' : 's'} need you. Open <button type="button" onClick={() => setTab('orders')} className="cursor-pointer font-semibold text-emerald-800 underline">Orders</button> to accept, ship or confirm payment.</p>
+              ) : (
+                <p className="text-slate-600">No orders need you right now. When a buyer orders your produce, it appears in Orders.</p>
+              )}
             </Panel>
           </div>
 
           <div className="space-y-6">
-            <Panel theme={theme} title="Today in the orchard" icon={CloudSun}>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-2xl bg-amber-50 p-4 text-center ring-1 ring-amber-100">
-                  <CloudSun className="mx-auto h-7 w-7 text-amber-600" aria-hidden />
-                  <p className="mt-1 text-2xl font-bold">24°C</p>
-                  <p className="text-xs text-slate-600">Mostly sunny</p>
-                </div>
-                <div className="rounded-2xl bg-teal-50 p-4 text-center ring-1 ring-teal-100">
-                  <Droplets className="mx-auto h-7 w-7 text-teal-600" aria-hidden />
-                  <p className="mt-1 text-2xl font-bold">Low</p>
-                  <p className="text-xs text-slate-600">Scab risk</p>
-                </div>
-              </div>
-              <p className="mt-4 rounded-xl bg-emerald-50 p-3 text-center text-sm font-medium text-emerald-800 ring-1 ring-emerald-100">
-                Best spray window: 4:00 PM – 7:00 PM
-              </p>
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <Btn theme={theme} variant="soft" size="sm" href="/weather-alerts">Weather alerts</Btn>
-                <Btn theme={theme} variant="soft" size="sm" href="/orchard-health">Log a spray</Btn>
-              </div>
-            </Panel>
-
-            <Panel theme={theme} title="Escrow protection" icon={ShieldCheck}>
-              <p className="text-sm text-slate-600">
-                Every order’s money is locked before you dispatch, and released when the buyer confirms delivery.
-              </p>
-              <Btn theme={theme} variant="soft" className="mt-4 w-full" href="/escrow">
-                Open escrow tracker
+            <TodayWeather district={account?.district} />
+            <Panel theme={theme} title="How you get paid" icon={Banknote}>
+              <ol className="list-decimal space-y-1 pl-5 text-sm text-slate-700">
+                <li>A buyer orders your produce.</li>
+                <li>You accept and send it.</li>
+                <li>The buyer checks it and pays you directly by UPI / bank.</li>
+                <li>You press “Money received”.</li>
+              </ol>
+              <Btn theme={theme} variant="soft" className="mt-4 w-full" onClick={() => setTab('payouts')}>
+                Add your UPI / bank details
               </Btn>
             </Panel>
           </div>
         </div>
       )}
 
-      {tab === 'lots' && (
-        <Panel
-          theme={theme}
-          title="My produce lots"
-          icon={Store}
-          action={<Btn theme={theme} icon={PlusCircle} href="/farmer/listings/new">New lot</Btn>}
-        >
-          {lots.length === 0 ? (
-            <EmptyState
-              theme={theme}
-              icon={Store}
-              title="No lots yet"
-              text="Create your first lot to start receiving buyer enquiries."
-              action={<Btn theme={theme} href="/farmer/listings/new">Create a lot</Btn>}
-            />
-          ) : (
-            <ul className="divide-y divide-slate-900/5">
-              {lots.map((lot) => (
-                <li key={lot.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-xs text-slate-500">{lot.id}</p>
-                    <p className="font-semibold text-slate-900">
-                      {lot.crop} <span className="font-normal text-slate-500">· Grade {lot.grade} · {lot.quantity}</span>
-                    </p>
-                    <p className="mt-1 flex flex-wrap items-center gap-2 text-sm">
-                      <span className="font-bold text-emerald-800">{inr.format(lot.price)} / {lot.unit}</span>
-                      {lot.status === 'live' ? <Badge tone="green">Live</Badge> : <Badge>Paused</Badge>}
-                      <Badge tone="blue">{lot.interest} enquiries</Badge>
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Btn
-                      theme={theme}
-                      variant="soft"
-                      size="sm"
-                      icon={Pencil}
-                      onClick={() => {
-                        setEditing(lot);
-                        setPrice(String(lot.price));
-                      }}
-                    >
-                      Edit price
-                    </Btn>
-                    <Btn
-                      theme={theme}
-                      variant="soft"
-                      size="sm"
-                      icon={lot.status === 'live' ? Pause : Play}
-                      onClick={() => {
-                        setLots((all) => all.map((l) => (l.id === lot.id ? { ...l, status: l.status === 'live' ? 'paused' : 'live' } : l)));
-                        toast.success(lot.status === 'live' ? `${lot.crop} paused` : `${lot.crop} is live again`);
-                      }}
-                    >
-                      {lot.status === 'live' ? 'Pause' : 'Resume'}
-                    </Btn>
-                    <Btn
-                      theme={theme}
-                      variant="danger"
-                      size="sm"
-                      icon={Trash2}
-                      onClick={() => {
-                        setLots((all) => all.filter((l) => l.id !== lot.id));
-                        toast.success(`${lot.crop} removed`);
-                      }}
-                    >
-                      Remove
-                    </Btn>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
-      )}
-
-      {tab === 'orders' && (
-        <Panel theme={theme} title="All orders" icon={Package}>
-          <OrderList orders={orders} onAdvance={advance} />
-        </Panel>
-      )}
-
-      <Modal
-        open={editing !== null}
-        onClose={() => setEditing(null)}
-        title={editing ? `Price for ${editing.crop}` : 'Edit price'}
-        footer={
-          <>
-            <Btn theme={theme} variant="ghost" onClick={() => setEditing(null)}>Cancel</Btn>
-            <Btn theme={theme} icon={IndianRupee} onClick={savePrice}>Save price</Btn>
-          </>
-        }
-      >
-        <Field label={`Price per ${editing?.unit ?? 'unit'} (₹)`}>
-          <input
-            type="number"
-            min={1}
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            className={INPUT}
+      {/* Kept mounted so the KPIs above stay current on every tab. */}
+      {account === undefined ? (
+        tab !== 'overview' && <p className="flex items-center gap-2 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>
+      ) : account === null ? (
+        tab !== 'overview' && <p role="alert" className="rounded-2xl bg-amber-50 p-4 text-amber-900 ring-1 ring-amber-200">Sign in again to manage your produce.</p>
+      ) : (
+        <div className={tab === 'overview' ? 'hidden' : ''}>
+          <SellerDesk
+            account={account}
+            theme={theme}
+            category="produce"
+            show={tab === 'lots' ? 'products' : tab === 'payouts' ? 'payouts' : 'orders'}
+            addRequest={addRequest}
+            onLoaded={onLoaded}
           />
-        </Field>
-      </Modal>
+        </div>
+      )}
     </PortalShell>
   );
 }
 
-function OrderList({ orders, onAdvance }: { orders: Order[]; onAdvance: (o: Order) => void }) {
-  if (orders.length === 0) {
-    return <EmptyState theme={theme} icon={CheckCircle2} title="All caught up" text="No orders need your attention right now." />;
+interface Weather {
+  place: { name: string };
+  current: { time: string; temperature: number; humidity: number; precipitation: number; wind: number };
+  hourly: { time: string; precipitationProbability: number }[];
+  daily: { date: string; max: number; min: number; precipitation: number }[];
+}
+
+/** Dry daylight hours left today (rain chance under 30%), as "14:00–18:00". */
+function dryHours(w: Weather): string | null {
+  const today = w.current.time.slice(0, 10);
+  const nowHour = Number(w.current.time.slice(11, 13));
+  const hours = w.hourly.filter((h) => h.time.startsWith(today)).map((h) => ({ hour: Number(h.time.slice(11, 13)), p: h.precipitationProbability }));
+  let best: [number, number] | null = null;
+  let start: number | null = null;
+  for (const { hour, p } of hours) {
+    const ok = hour >= Math.max(nowHour, 6) && hour <= 19 && p < 30;
+    if (ok && start === null) start = hour;
+    if ((!ok || hour === 19) && start !== null) {
+      const end = ok ? hour + 1 : hour;
+      if (end - start >= 2 && (!best || end - start > best[1] - best[0])) best = [start, end];
+      start = null;
+    }
   }
+  return best ? `${String(best[0]).padStart(2, '0')}:00–${String(best[1]).padStart(2, '0')}:00` : null;
+}
+
+function TodayWeather({ district }: { district?: string }) {
+  const place = district?.trim() || 'Srinagar';
+  const [w, setW] = useState<Weather | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/weather?q=${encodeURIComponent(place)}`)
+      .then(async (r) => {
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error ?? 'Weather is not available right now.');
+        if (live) setW(j as Weather);
+      })
+      .catch((err) => live && setError(err instanceof Error ? err.message : 'Weather is not available right now.'));
+    return () => {
+      live = false;
+    };
+  }, [place]);
+
+  const dry = w ? dryHours(w) : null;
+  const rainToday = w?.daily[0]?.precipitation ?? 0;
+
   return (
-    <ul className="space-y-3">
-      {orders.map((order) => {
-        const stage = STAGES[order.stage];
-        return (
-          <li
-            key={order.id}
-            className="flex flex-col gap-3 rounded-2xl bg-white/70 p-4 ring-1 ring-slate-900/5 sm:flex-row sm:items-center sm:justify-between"
-          >
-            <div>
-              <p className="text-xs text-slate-500">{order.id} · {order.buyer}</p>
-              <p className="font-semibold text-slate-900">{order.item}</p>
-              <p className="mt-1 flex items-center gap-2 text-sm">
-                <span className="font-bold text-emerald-800">{inr.format(order.amount)}</span>
-                <Badge tone={stage.tone}>{stage.label}</Badge>
-              </p>
+    <Panel theme={theme} title={`Today in ${w?.place.name ?? place}`} icon={CloudSun}>
+      {error ? (
+        <p className="text-sm text-slate-600">{error}</p>
+      ) : !w ? (
+        <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading weather…</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-2xl bg-amber-50 p-4 text-center ring-1 ring-amber-100">
+              <Thermometer className="mx-auto h-7 w-7 text-amber-600" aria-hidden />
+              <p className="mt-1 text-2xl font-bold">{Math.round(w.current.temperature)}°C</p>
+              <p className="text-xs text-slate-600">{Math.round(w.daily[0]?.min ?? 0)}° / {Math.round(w.daily[0]?.max ?? 0)}° today</p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {stage.action && (
-                <Btn theme={theme} size="sm" icon={Truck} onClick={() => onAdvance(order)}>
-                  {stage.action}
-                </Btn>
-              )}
-              <Btn theme={theme} variant="soft" size="sm" href="/escrow">Escrow</Btn>
+            <div className="rounded-2xl bg-teal-50 p-4 text-center ring-1 ring-teal-100">
+              <Droplets className="mx-auto h-7 w-7 text-teal-600" aria-hidden />
+              <p className="mt-1 text-2xl font-bold">{rainToday.toFixed(1)} mm</p>
+              <p className="text-xs text-slate-600">Rain today · humidity {Math.round(w.current.humidity)}%</p>
             </div>
-          </li>
-        );
-      })}
-    </ul>
+          </div>
+          <p className={`mt-4 rounded-xl p-3 text-center text-sm font-medium ring-1 ${dry ? 'bg-emerald-50 text-emerald-800 ring-emerald-100' : 'bg-amber-50 text-amber-900 ring-amber-100'}`}>
+            {dry ? `Dry hours for spraying today: ${dry}` : 'Rain likely for the rest of today — better not to spray.'}
+          </p>
+          <p className="mt-2 text-center text-xs text-slate-500">Open-Meteo forecast{district ? '' : ' · add your district in My details for your own village'}</p>
+        </>
+      )}
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <Btn theme={theme} variant="soft" size="sm" href="/orchard-health">Scab risk map</Btn>
+        <Btn theme={theme} variant="soft" size="sm" href="/orchard-health">Log a spray</Btn>
+      </div>
+    </Panel>
   );
 }
