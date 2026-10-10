@@ -1,29 +1,50 @@
 'use client';
 
 /**
- * Reads a QR code from the camera or from a photo. Uses the browser's
- * BarcodeDetector when available (fast on Android Chrome), else jsQR.
- * Aadhaar Secure QRs are dense — good light and filling the frame help.
+ * Reads a QR code from the camera or from a photo. Aadhaar Secure QRs are
+ * very dense, so three readers are tried in turn: the browser's
+ * BarcodeDetector (Android Chrome, macOS), ZXing compiled to WebAssembly
+ * (strong on dense codes, works everywhere — its .wasm is served from this
+ * site), then jsQR.
  */
 import { useEffect, useRef, useState } from 'react';
 import { Camera, ImageUp, Loader2, X } from 'lucide-react';
 
 type Detector = { detect: (src: CanvasImageSource) => Promise<{ rawValue: string }[]> };
 
-async function decodeCanvas(canvas: HTMLCanvasElement): Promise<string | null> {
+let zxingReady: Promise<typeof import('zxing-wasm/reader')> | null = null;
+function zxing() {
+  zxingReady ??= import('zxing-wasm/reader').then((mod) => {
+    mod.prepareZXingModule({
+      overrides: { locateFile: (path: string, prefix: string) => (path.endsWith('.wasm') ? '/vendor/zxing_reader-3.1.5.wasm' : prefix + path) },
+    });
+    return mod;
+  });
+  return zxingReady;
+}
+
+async function decodeCanvas(canvas: HTMLCanvasElement, thorough = false): Promise<string | null> {
   const w = window as unknown as { BarcodeDetector?: new (o: { formats: string[] }) => Detector };
   if (w.BarcodeDetector) {
     try {
       const found = await new w.BarcodeDetector({ formats: ['qr_code'] }).detect(canvas);
       if (found[0]?.rawValue) return found[0].rawValue;
     } catch {
-      /* fall through to jsQR */
+      /* fall through */
     }
   }
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return null;
-  const { default: jsQR } = await import('jsqr');
   const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  try {
+    const { readBarcodes } = await zxing();
+    const found = await readBarcodes(img, { formats: ['QRCode'], tryHarder: true, tryRotate: thorough, tryInvert: thorough, tryDownscale: true, maxNumberOfSymbols: 1 });
+    const hit = found.find((r) => r.isValid && r.text);
+    if (hit) return hit.text;
+  } catch {
+    /* fall through to jsQR */
+  }
+  const { default: jsQR } = await import('jsqr');
   return jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' })?.data ?? null;
 }
 
@@ -95,13 +116,18 @@ export function QrScanner({ onResult, disabled }: { onResult: (text: string) => 
     try {
       const bitmap = await createImageBitmap(file);
       const canvas = canvasRef.current!;
-      const scale = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
-      canvas.width = Math.round(bitmap.width * scale);
-      canvas.height = Math.round(bitmap.height * scale);
-      canvas.getContext('2d')?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-      const text = await decodeCanvas(canvas);
+      // Dense codes read best near native size; very large photos are tried smaller too.
+      let text: string | null = null;
+      for (const max of [2400, 1600, 1000]) {
+        const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+        canvas.width = Math.round(bitmap.width * scale);
+        canvas.height = Math.round(bitmap.height * scale);
+        canvas.getContext('2d')?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        text = await decodeCanvas(canvas, true);
+        if (text || scale === 1) break;
+      }
       if (text) onResult(text);
-      else setError('No QR code found in that photo. Crop close to the QR and make sure it is sharp.');
+      else setError('No QR code found in that photo. Take it straight-on in good light, with the QR filling most of the picture and in sharp focus.');
     } catch {
       setError('Could not read that image.');
     } finally {
