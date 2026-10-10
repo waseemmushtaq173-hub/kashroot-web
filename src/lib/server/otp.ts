@@ -58,7 +58,7 @@ export function whatsappConfigured() {
 }
 
 async function sendWhatsapp(mobile10: string, code: string) {
-  const version = process.env.WHATSAPP_API_VERSION?.trim() || 'v21.0';
+  const version = process.env.WHATSAPP_API_VERSION?.trim() || 'v25.0';
   const res = await fetch(`https://graph.facebook.com/${version}/${process.env.WHATSAPP_PHONE_NUMBER_ID!.trim()}/messages`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN!.trim()}`, 'Content-Type': 'application/json' },
