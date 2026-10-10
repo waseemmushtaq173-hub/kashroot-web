@@ -19,6 +19,10 @@ export interface Account {
   district: string;
   village: string;
   lang: SpeechLang | null;
+  /** Shop / business name from any portal's My details. */
+  business: string;
+  /** Fertiliser / pesticide licence number, if given. */
+  licence: string;
   /** ADMIN, EXPERT, DEALER — granted by an admin. */
   staff: string[];
 }
@@ -58,6 +62,8 @@ export async function loadAccount(): Promise<Account | null> {
     district: pick('district') || pick('city'),
     village: pick('village'),
     lang: langFromPreference(pick('language')),
+    business: pick('shop') || pick('business'),
+    licence: pick('licence'),
     staff: staff.error ? [] : (staff.data ?? []).map((r) => String(r.role)),
   };
 }

@@ -4,10 +4,13 @@
  * Agro-dealer portal — batch-coded inventory, licence compliance, batch
  * manifest upload to the authenticity registry, and payouts.
  *
- * Data lives in the browser (kr_dealer_*) until a dealer API exists. The
- * manifest is read locally (CSV: name,batch,expiry,stock[,manufacturer]) and never uploaded.
+ * Stock and licence files are kept on this device (kr_dealer_*); registering
+ * a batch writes it to the shared registry farmers check (fertilizer_batches),
+ * with the dealer's name and district. Dealers can ask KashRoot to verify
+ * them (Compliance tab); payout details live in payout_accounts. The manifest
+ * is read locally (CSV: name,batch,expiry,stock[,manufacturer,type,registration]).
  */
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Banknote,
@@ -25,8 +28,11 @@ import {
 import { toast } from 'sonner';
 
 import { PortalShell } from '@/components/layout/PortalShell';
-import { PayoutPanel } from '@/components/portal/PayoutPanel';
+import { PayoutForm } from '@/components/payments/PayoutForm';
 import { Badge, Btn, EmptyState, Field, INPUT, Modal, PORTAL_THEMES, Panel, Tile } from '@/components/portal/kit';
+import { myRoleRequest, requestStaffRole } from '@/lib/db/advisory';
+import { dbMessage, loadAccount, type Account } from '@/lib/db/client';
+import { myPayout, type PayoutAccount } from '@/lib/db/rentals';
 import { localId, usePersistentState } from '@/lib/portal-store';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 
@@ -40,8 +46,19 @@ interface Batch {
   stock: number;
   /** Optional; defaults to "Not specified" in the registry. */
   manufacturer?: string;
+  type?: ProductType;
+  /** CIB&RC registration (pesticides) or FCO / licence number. */
+  registration?: string;
   registered: boolean;
 }
+
+type ProductType = 'fertilizer' | 'pesticide' | 'seed' | 'other';
+const TYPES: { id: ProductType; label: string }[] = [
+  { id: 'fertilizer', label: 'Fertiliser' },
+  { id: 'pesticide', label: 'Pesticide / fungicide' },
+  { id: 'seed', label: 'Seed / sapling' },
+  { id: 'other', label: 'Other' },
+];
 
 interface Licence {
   id: string;
@@ -50,14 +67,10 @@ interface Licence {
   verified: boolean;
 }
 
-const SEED_BATCHES: Batch[] = [
-  { id: 'B-1', name: 'Mancozeb 75% WP (1 kg)', batch: 'MZ-24-1187', expiry: '2027-03-31', stock: 140, registered: false },
-  { id: 'B-2', name: 'Horticultural mineral oil (5 L)', batch: 'HMO-25-0442', expiry: '2027-08-15', stock: 36, registered: false },
-  { id: 'B-3', name: 'Calcium nitrate (25 kg)', batch: 'CN-25-2290', expiry: '2026-11-30', stock: 18, registered: false },
-];
+const NO_BATCHES: Batch[] = [];
 
-const SEED_LICENCES: Licence[] = [
-  { id: 'L-1', name: 'Insecticide selling licence', verified: true, file: 'licence-insecticide.pdf' },
+const LICENCES: Licence[] = [
+  { id: 'L-1', name: 'Insecticide selling licence', verified: false },
   { id: 'L-2', name: 'Fertiliser dealer registration', verified: false },
   { id: 'L-3', name: 'Seed dealer licence', verified: false },
   { id: 'L-4', name: 'GST registration certificate', verified: false },
@@ -65,12 +78,20 @@ const SEED_LICENCES: Licence[] = [
 
 const daysUntil = (date: string) => Math.ceil((Date.parse(date) - Date.now()) / 86_400_000);
 
-const EMPTY_BATCH = { name: '', batch: '', expiry: '', stock: '', manufacturer: '' };
+const EMPTY_BATCH = { name: '', batch: '', expiry: '', stock: '', manufacturer: '', type: 'fertilizer' as ProductType, registration: '' };
 
 export default function DealerDashboardPage() {
   const [tab, setTab] = useState('inventory');
-  const [batches, setBatches] = usePersistentState<Batch[]>('kr_dealer_batches', SEED_BATCHES);
-  const [licences, setLicences] = usePersistentState<Licence[]>('kr_dealer_licences', SEED_LICENCES);
+  const [batches, setBatches] = usePersistentState<Batch[]>('kr_dealer_batches_v2', NO_BATCHES);
+  const [licences, setLicences] = usePersistentState<Licence[]>('kr_dealer_licences_v2', LICENCES);
+  const [account, setAccount] = useState<Account | null>(null);
+  const [payout, setPayout] = useState<PayoutAccount | null | undefined>(undefined);
+  useEffect(() => {
+    void loadAccount().then((a) => {
+      setAccount(a);
+      if (a) void myPayout(a.id).then(setPayout).catch(() => setPayout(null));
+    });
+  }, []);
   const [addOpen, setAddOpen] = useState(false);
   const [draft, setDraft] = useState(EMPTY_BATCH);
   const manifestInput = useRef<HTMLInputElement>(null);
@@ -84,28 +105,39 @@ export default function DealerDashboardPage() {
   const addBatch = () => {
     const stock = Number(draft.stock);
     if (!draft.name.trim() || !draft.batch.trim() || !draft.expiry || !(stock >= 0)) return toast.error('Fill product, batch code, expiry and stock.');
-    setBatches((all) => [{ id: localId('B'), name: draft.name.trim(), batch: draft.batch.trim().toUpperCase(), expiry: draft.expiry, stock, manufacturer: draft.manufacturer.trim() || undefined, registered: false }, ...all]);
+    setBatches((all) => [{ id: localId('B'), name: draft.name.trim(), batch: draft.batch.trim().toUpperCase(), expiry: draft.expiry, stock, manufacturer: draft.manufacturer.trim() || undefined, type: draft.type, registration: draft.registration.trim() || undefined, registered: false }, ...all]);
     setDraft(EMPTY_BATCH);
     setAddOpen(false);
     toast.success('Batch added — register it so farmers can verify it');
   };
 
-  /**
-   * Write batches to the shared registry farmers verify against. Only accounts
-   * an admin approved as DEALER / MANUFACTURER can write (database policy).
-   */
+  /** Writes batches to the shared registry farmers verify against, with this dealer's name. */
   const pushToRegistry = async (list: Batch[]): Promise<boolean> => {
     if (!supabaseConfigured) {
       toast.error('The batch registry is not connected on this site yet.');
       return false;
     }
+    if (!account) {
+      toast.error('Please sign in again to register batches.');
+      return false;
+    }
     const { error } = await supabase.from('fertilizer_batches').upsert(
-      list.map((b) => ({ batch_code: b.batch, product: b.name, manufacturer: b.manufacturer || 'Not specified', expiry_date: b.expiry || null })),
+      list.map((b) => ({
+        batch_code: b.batch,
+        product: b.name,
+        manufacturer: b.manufacturer || 'Not specified',
+        expiry_date: b.expiry || null,
+        product_type: b.type ?? 'fertilizer',
+        registration_no: b.registration ?? null,
+        dealer_name: account.business || account.name,
+        dealer_licence: account.licence || null,
+        dealer_district: account.district || null,
+      })),
       { onConflict: 'batch_code' },
     );
     if (error) {
-      const denied = /row-level security|permission|JWT|not authorized/i.test(error.message);
-      toast.error(denied ? 'Your account is not approved to register batches yet — ask the KashRoot admin to approve you as a dealer.' : `Registry error: ${error.message}`);
+      const taken = /row-level security/i.test(error.message);
+      toast.error(taken ? 'One of these batch codes is already registered by another dealer. Check the code on the pack.' : dbMessage(error, 'Could not register the batches.'));
       return false;
     }
     const codes = new Set(list.map((b) => b.batch));
@@ -125,7 +157,17 @@ export default function DealerDashboardPage() {
       .filter((c) => c.length >= 4 && c[0] && !/^name$/i.test(c[0]));
     const parsed: Batch[] = rows
       .filter(([, batch, expiry, stock]) => batch && !Number.isNaN(Date.parse(expiry)) && Number(stock) >= 0)
-      .map(([name, batch, expiry, stock, manufacturer]) => ({ id: localId('B'), name, batch: batch.toUpperCase(), expiry, stock: Number(stock), manufacturer: manufacturer || undefined, registered: false }));
+      .map(([name, batch, expiry, stock, manufacturer, type, registration]) => ({
+        id: localId('B'),
+        name,
+        batch: batch.toUpperCase(),
+        expiry,
+        stock: Number(stock),
+        manufacturer: manufacturer || undefined,
+        type: TYPES.some((t) => t.id === type?.toLowerCase()) ? (type.toLowerCase() as ProductType) : 'fertilizer',
+        registration: registration || undefined,
+        registered: false,
+      }));
     if (parsed.length === 0) return toast.error('No valid rows. Use CSV columns: name,batch,expiry (YYYY-MM-DD),stock');
     setBatches((all) => [...parsed, ...all.filter((b) => !parsed.some((p) => p.batch === b.batch))]);
     toast.success(`${parsed.length} batch(es) imported from ${file.name}`);
@@ -259,10 +301,12 @@ export default function DealerDashboardPage() {
                 </table>
               </div>
             )}
-            <p className="mt-4 text-xs text-slate-500">Manifest format: CSV with columns <code>name,batch,expiry,stock,manufacturer</code> (expiry as YYYY-MM-DD).</p>
+            <p className="mt-4 text-xs text-slate-500">Manifest format: CSV with columns <code>name,batch,expiry,stock,manufacturer,type,registration</code> (expiry as YYYY-MM-DD; type is fertilizer, pesticide, seed or other).</p>
           </Panel>
         </div>
       )}
+
+      {tab === 'compliance' && account && <DealerVerification account={account} />}
 
       {tab === 'compliance' && (
         <Panel theme={theme} title="Licences & registrations" icon={ClipboardCheck}>
@@ -292,7 +336,7 @@ export default function DealerDashboardPage() {
         </Panel>
       )}
 
-      {tab === 'payouts' && <PayoutPanel theme={theme} storageKey="kr_dealer_payout" />}
+      {tab === 'payouts' && <div className="max-w-xl"><PayoutForm theme={theme} payout={payout} onSaved={setPayout} intro="Buyers who order from you in Price Comparison pay here after delivery. Only someone with a live order sees these." /></div>}
 
       <Modal
         open={addOpen}
@@ -311,6 +355,14 @@ export default function DealerDashboardPage() {
               <input className={INPUT} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="e.g. Captan 50% WP (500 g)" />
             </Field>
           </div>
+          <Field label="Type">
+            <select className={INPUT} value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value as ProductType })}>
+              {TYPES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
+          </Field>
+          <Field label={draft.type === 'pesticide' ? 'CIB&RC registration no.' : 'Registration / FCO no. (optional)'}>
+            <input className={INPUT} value={draft.registration} onChange={(e) => setDraft({ ...draft, registration: e.target.value })} placeholder="As printed on the pack" />
+          </Field>
           <Field label="Batch code">
             <input className={`${INPUT} uppercase`} value={draft.batch} onChange={(e) => setDraft({ ...draft, batch: e.target.value })} placeholder="e.g. CP-25-0091" />
           </Field>
@@ -328,5 +380,55 @@ export default function DealerDashboardPage() {
         </div>
       </Modal>
     </PortalShell>
+  );
+}
+
+/** Ask KashRoot to verify this dealer; farmers then see “verified dealer” on its batches. */
+function DealerVerification({ account }: { account: Account }) {
+  const verified = account.staff.includes('DEALER') || account.staff.includes('ADMIN');
+  const [status, setStatus] = useState<string | null | undefined>(undefined);
+  const [form, setForm] = useState({ shop: account.business, licence: account.licence, phone: account.phone });
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (verified) return;
+    void myRoleRequest('DEALER', account.id).then((r) => setStatus(r?.status ?? null)).catch(() => setStatus(null));
+  }, [account.id, verified]);
+
+  const apply = async () => {
+    if (form.licence.trim().length < 4) return toast.error('Enter your fertiliser or pesticide licence number.');
+    setBusy(true);
+    try {
+      await requestStaffRole('DEALER', { name: form.shop.trim() || account.name, phone: form.phone, email: account.email, details: `Licence: ${form.licence.trim()}${account.district ? ` · ${account.district}` : ''}` });
+      setStatus('pending');
+      toast.success('Sent — the KashRoot admin will check your licence');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not send.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Panel theme={theme} title="KashRoot verified dealer" icon={ShieldCheck} className="mb-6">
+      {verified ? (
+        <p className="flex items-center gap-2 text-sm font-semibold text-emerald-800"><CheckCircle2 className="h-5 w-5" aria-hidden /> You are verified. Farmers checking your batches see “KashRoot-verified dealer”.</p>
+      ) : status === 'pending' ? (
+        <p className="text-sm text-slate-700">Your request is with the KashRoot admin. Until then farmers see your batches as registered by a dealer not yet verified.</p>
+      ) : status === undefined ? null : (
+        <form className="grid gap-4 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end" onSubmit={(e) => { e.preventDefault(); void apply(); }}>
+          <Field label="Shop name">
+            <input className={INPUT} value={form.shop} onChange={(e) => setForm({ ...form, shop: e.target.value })} />
+          </Field>
+          <Field label="Licence number">
+            <input className={INPUT} value={form.licence} onChange={(e) => setForm({ ...form, licence: e.target.value })} placeholder="Fertiliser / insecticide licence" />
+          </Field>
+          <Field label="Mobile">
+            <input className={INPUT} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          </Field>
+          <Btn theme={theme} type="submit" icon={ShieldCheck} disabled={busy}>Get verified</Btn>
+          {status === 'rejected' && <p className="text-sm text-rose-700 sm:col-span-4">Your last request was not approved. Check the licence number and try again.</p>}
+        </form>
+      )}
+    </Panel>
   );
 }

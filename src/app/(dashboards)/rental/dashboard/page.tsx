@@ -11,11 +11,12 @@
  * Data: rental_listings, rental_bookings, payout_accounts (shared database).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Banknote, Boxes, CalendarDays, CheckCircle2, Loader2, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, Search, Snowflake, Store, Tractor, Trash2, Warehouse, XCircle } from 'lucide-react';
+import { Boxes, CalendarDays, CheckCircle2, Loader2, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, Search, Snowflake, Store, Tractor, Trash2, Warehouse, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { PortalShell } from '@/components/layout/PortalShell';
 import { PayDirect } from '@/components/payments/PayDirect';
+import { PayoutForm } from '@/components/payments/PayoutForm';
 import { Badge, Btn, EmptyState, Field, INPUT, Modal, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { inr, loadAccount, type Account } from '@/lib/db/client';
 import {
@@ -29,7 +30,6 @@ import {
   myPayout,
   requestBooking,
   saveListing,
-  savePayout,
   setAvailability,
   UNIT_LABEL,
   type ListingInput,
@@ -418,7 +418,7 @@ function OwnerPanel({ account, owned, incoming, onChange }: { account: Account; 
         )}
       </Panel>
 
-      <PayoutForm payout={payout} onSaved={setPayout} />
+      <PayoutForm theme={theme} payout={payout} onSaved={setPayout} />
 
       {others.length > 0 && (
         <Panel theme={theme} title="Booking history" icon={CalendarDays} className="lg:col-span-2">
@@ -500,64 +500,5 @@ function ListingForm({ value: v, onChange }: { value: ListingInput; onChange: (v
         </Field>
       </div>
     </div>
-  );
-}
-
-function PayoutForm({ payout, onSaved }: { payout: PayoutAccount | null | undefined; onSaved: (p: PayoutAccount) => void }) {
-  const [form, setForm] = useState<PayoutAccount>({ account_name: '', upi_id: '', account_number: '', ifsc: '', bank_name: '' });
-  const [loadedFrom, setLoadedFrom] = useState<PayoutAccount | null | undefined>(undefined);
-  const [busy, setBusy] = useState(false);
-  if (payout !== loadedFrom) {
-    setLoadedFrom(payout);
-    if (payout) setForm({ ...payout, upi_id: payout.upi_id ?? '', account_number: payout.account_number ?? '', ifsc: payout.ifsc ?? '', bank_name: payout.bank_name ?? '' });
-  }
-
-  const save = async () => {
-    if (form.account_name.trim().length < 2) return toast.error('Add the account holder’s name.');
-    const upiOk = !form.upi_id || /^[A-Za-z0-9._-]{2,64}@[A-Za-z]{2,64}$/.test(form.upi_id.trim());
-    const bankOk = !form.account_number || (/^\d{6,20}$/.test(form.account_number.replace(/\s/g, '')) && /^[A-Z]{4}0[A-Z0-9]{6}$/.test((form.ifsc ?? '').trim().toUpperCase()));
-    if (!upiOk) return toast.error('That UPI ID does not look right (e.g. name@okhdfcbank).');
-    if (!bankOk) return toast.error('Check the account number and IFSC (e.g. JAKA0SHOPIA).');
-    if (!form.upi_id && !form.account_number) return toast.error('Add a UPI ID or a bank account.');
-    setBusy(true);
-    try {
-      await savePayout(form);
-      onSaved(form);
-      toast.success('Payment details saved — farmers who book will see them');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not save.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Panel theme={theme} title="Where farmers pay you" icon={Banknote}>
-      {payout === undefined ? (
-        <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>
-      ) : (
-        <form className="grid gap-4" onSubmit={(e) => { e.preventDefault(); void save(); }}>
-          <p className="text-sm text-slate-600">Only farmers with a booking at your store see these. Money comes straight to you.</p>
-          <Field label="Account holder name">
-            <input className={INPUT} value={form.account_name} onChange={(e) => setForm({ ...form, account_name: e.target.value })} />
-          </Field>
-          <Field label="UPI ID" hint="Easiest for farmers: PhonePe, Google Pay, Paytm, BHIM.">
-            <input className={INPUT} value={form.upi_id ?? ''} onChange={(e) => setForm({ ...form, upi_id: e.target.value })} placeholder="e.g. valleyfresh@okhdfcbank" />
-          </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Bank account number (optional)">
-              <input className={INPUT} inputMode="numeric" value={form.account_number ?? ''} onChange={(e) => setForm({ ...form, account_number: e.target.value })} />
-            </Field>
-            <Field label="IFSC">
-              <input className={INPUT} value={form.ifsc ?? ''} onChange={(e) => setForm({ ...form, ifsc: e.target.value.toUpperCase() })} placeholder="e.g. JAKA0SHOPIA" />
-            </Field>
-          </div>
-          <Field label="Bank name">
-            <input className={INPUT} value={form.bank_name ?? ''} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} placeholder="e.g. J&K Bank" />
-          </Field>
-          <Btn theme={theme} type="submit" icon={Banknote} disabled={busy}>{busy ? 'Saving…' : 'Save payment details'}</Btn>
-        </form>
-      )}
-    </Panel>
   );
 }
