@@ -54,7 +54,7 @@ function ago(time: string): string {
   return `${Math.round(mins / 1440)} days ago`;
 }
 
-function VehicleLookup() {
+function VehicleLookup({ onUseCode }: { onUseCode: () => void }) {
   const [plate, setPlate] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<{ text: string; setup?: boolean } | null>(null);
@@ -119,7 +119,16 @@ function VehicleLookup() {
         </form>
         {error && (
           <div role="alert" className={`mt-4 flex items-start gap-2 rounded-2xl p-4 text-sm ring-1 ${error.setup ? 'bg-amber-50 text-amber-900 ring-amber-200' : 'bg-rose-50 text-rose-800 ring-rose-200'}`}>
-            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> {error.text}
+            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            {error.setup ? (
+              <div>
+                <p>Finding any truck by its number plate needs Government (ULIP) access, which KashRoot does not have yet.</p>
+                <p className="mt-1">To follow your load live, ask your transporter for the KashRoot tracking code (it starts with KR-) and enter it under Track.</p>
+                <Btn theme={theme} size="sm" className="mt-3" icon={MapPinned} onClick={onUseCode}>Track with a code</Btn>
+              </div>
+            ) : (
+              error.text
+            )}
           </div>
         )}
       </Panel>
@@ -240,7 +249,7 @@ export default function TrackingPage() {
         </div>
       )}
       {tab === 'mine' && <MyConsignments list={mine} onChange={() => void reload()} onTrack={(c) => { setActive(c); setCode(c); setTab('track'); }} />}
-      {tab === 'vehicle' && <VehicleLookup />}
+      {tab === 'vehicle' && <VehicleLookup onUseCode={() => setTab('track')} />}
     </PortalShell>
   );
 }

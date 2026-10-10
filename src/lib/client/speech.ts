@@ -69,6 +69,10 @@ function chunks(text: string): string[] {
 
 export type SpeakResult = 'spoken' | 'no-voice' | 'unsupported';
 
+/** Bumped by every speak / stop, so a reading that was waiting for the
+ * phone's voices does not start after something newer replaced it. */
+let epoch = 0;
+
 /**
  * Reads `text` aloud in `lang`. `speech` is the Devanagari copy for a Hindi
  * voice when the device has no Urdu/Kashmiri voice. Calls `onEnd` when done.
@@ -77,7 +81,12 @@ export async function speak(text: string, lang: SpeechLang, speech?: string, onE
   const synth = typeof window !== 'undefined' ? window.speechSynthesis : undefined;
   if (!synth) return 'unsupported';
   synth.cancel();
+  const mine = ++epoch;
   const voices = await loadVoices();
+  if (mine !== epoch) {
+    onEnd?.();
+    return 'spoken';
+  }
   let code = VOICE_CODE[lang];
   let say = text;
   let voice = bestVoice(voices, code);
@@ -113,6 +122,7 @@ export async function speak(text: string, lang: SpeechLang, speech?: string, onE
 }
 
 export const stopSpeaking = () => {
+  epoch++;
   if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
 };
 

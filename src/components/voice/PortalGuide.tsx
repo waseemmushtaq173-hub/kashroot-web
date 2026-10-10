@@ -30,6 +30,12 @@ export function PortalGuide({ portal }: { portal: PortalId }) {
   const { turns, ask, thinking, speaking, say, stop, configured } = useAssistant({ page });
   const stopListening = useRef<(() => void) | null>(null);
   const autoOpened = useRef(false);
+  const autoRead = useRef<number | null>(null);
+  /** The person chose something themselves: drop the pending automatic reading. */
+  const cancelAutoRead = () => {
+    if (autoRead.current !== null) window.clearTimeout(autoRead.current);
+    autoRead.current = null;
+  };
 
   const readGuide = async (l: SpeechLang = lang) => {
     if (!guide) return;
@@ -49,6 +55,22 @@ export function PortalGuide({ portal }: { portal: PortalId }) {
     }
   };
 
+  // Once the person starts using the page itself (not a window that opened
+  // by itself), the guide must not pop up or stay over what they are doing.
+  const busy = useRef(false);
+  useEffect(() => {
+    const onDown = (e: PointerEvent) => {
+      const t = e.target instanceof Element ? e.target : null;
+      if (t && !t.closest('dialog, #portal-guide, [aria-controls="portal-guide"]')) {
+        busy.current = true;
+        // Tapping the page tucks the guide away (it keeps talking); Help reopens it.
+        setOpen(false);
+      }
+    };
+    window.addEventListener('pointerdown', onDown, true);
+    return () => window.removeEventListener('pointerdown', onDown, true);
+  }, []);
+
   // First visit to this portal on this phone: open the guide and read it.
   useEffect(() => {
     if (!guide || autoOpened.current) return;
@@ -57,7 +79,6 @@ export function PortalGuide({ portal }: { portal: PortalId }) {
     let seen = false;
     try {
       seen = localStorage.getItem(key) === '1';
-      localStorage.setItem(key, '1');
     } catch {
       /* storage blocked */
     }
@@ -68,12 +89,23 @@ export function PortalGuide({ portal }: { portal: PortalId }) {
         setLang(l);
         if (seen) return;
         // Wait until any other window (e.g. the identity check) is closed,
-        // so only one thing talks to the farmer at a time.
+        // so only one thing talks to the farmer at a time — but give up if
+        // they have already started on the page; the Help button stays.
+        const until = Date.now() + 60_000;
         const show = () => {
+          if (busy.current || Date.now() > until) return;
           if (document.querySelector('dialog[open]')) return void window.setTimeout(show, 1000);
+          try {
+            localStorage.setItem(key, '1');
+          } catch {
+            /* storage blocked */
+          }
           setOpen(true);
           // Browsers allow speech right after a tap (sign-in, or closing that window).
-          window.setTimeout(() => void readGuide(l), 600);
+          autoRead.current = window.setTimeout(() => {
+            autoRead.current = null;
+            void readGuide(l);
+          }, 600);
         };
         show();
       });
@@ -81,6 +113,7 @@ export function PortalGuide({ portal }: { portal: PortalId }) {
   }, [portal]);
 
   const askByVoice = () => {
+    cancelAutoRead();
     if (listening) {
       stopListening.current?.();
       return;
@@ -121,15 +154,22 @@ export function PortalGuide({ portal }: { portal: PortalId }) {
         <section id="portal-guide" aria-label="Help for this page" className="fixed inset-x-3 bottom-20 z-40 max-h-[75svh] overflow-y-auto rounded-3xl bg-white p-5 shadow-[0_24px_70px_rgba(15,23,42,0.35)] ring-1 ring-slate-900/10 sm:inset-x-auto sm:right-6 sm:w-[26rem]">
           <div className="flex items-start justify-between gap-3">
             <p className="text-lg font-semibold text-slate-900">How to use this page</p>
-            <button type="button" aria-label="Close help" onClick={() => { stop(); stopSpeaking(); setOpen(false); }} className="grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200">
+            <button type="button" aria-label="Close help" onClick={() => { cancelAutoRead(); stop(); stopSpeaking(); setOpen(false); }} className="grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200">
               <X className="h-4 w-4" aria-hidden />
             </button>
           </div>
-          <LangPicker className="mt-3" value={lang} onChange={(l) => { setLang(l); stop(); stopSpeaking(); setReading(false); }} />
+          <LangPicker className="mt-3" value={lang} onChange={(l) => { cancelAutoRead(); setLang(l); stop(); stopSpeaking(); setReading(false); }} />
 
           <button
             type="button"
-            onClick={() => (reading || speaking ? (stop(), stopSpeaking(), setReading(false)) : void readGuide())}
+            onClick={() => {
+              cancelAutoRead();
+              if (reading || speaking) {
+                stop();
+                stopSpeaking();
+                setReading(false);
+              } else void readGuide();
+            }}
             className="mt-4 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-orange-600 px-4 py-4 text-base font-bold text-white hover:bg-orange-700"
           >
             {reading || speaking ? <Square className="h-5 w-5" aria-hidden /> : thinking ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <Volume2 className="h-5 w-5" aria-hidden />}
