@@ -8,9 +8,10 @@
  * (kr_expert_*) until an advisory API exists.
  */
 import { useState, useSyncExternalStore } from 'react';
-import { BookOpen, CheckCircle2, Edit3, FlaskConical, ImagePlus, Lock, MessageCircle, Send, ShieldAlert, Stethoscope } from 'lucide-react';
+import { BookOpen, CheckCircle2, Edit3, FlaskConical, ImagePlus, Lock, MessageCircle, Send, ShieldAlert, Stethoscope, Video } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { VideoConsult } from '@/components/advisory/VideoConsult';
 import { PortalShell } from '@/components/layout/PortalShell';
 import { Badge, Btn, EmptyState, Field, INPUT, Modal, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { localId, usePersistentState } from '@/lib/portal-store';
@@ -206,6 +207,7 @@ export default function ExpertDashboard() {
       tabs={[
         { id: 'library', label: 'Library', icon: BookOpen },
         { id: 'ask', label: isExpert ? 'Answer queue' : 'Ask an agronomist', icon: MessageCircle, count: isExpert ? open.length : undefined },
+        { id: 'video', label: 'Video call', icon: Video },
         { id: 'soil', label: 'Soil test', icon: FlaskConical },
       ]}
       activeTab={tab}
@@ -281,6 +283,8 @@ export default function ExpertDashboard() {
           </Panel>
         </div>
       )}
+
+      {tab === 'video' && <VideoConsult isExpert={isExpert} />}
 
       {tab === 'soil' && (
         <div className="grid gap-6 lg:grid-cols-[1fr_1.3fr]">
