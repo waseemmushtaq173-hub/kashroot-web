@@ -5,7 +5,10 @@ import { useSelectedLayoutSegment, useRouter } from 'next/navigation';
 import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
 import { ReactNode, useEffect, useState } from 'react';
 
-import { KYCPanel } from '@/components/auth/KYCPanel';
+import { ShieldCheck } from 'lucide-react';
+
+import { KYCPanel, type KycRole } from '@/components/auth/KYCPanel';
+import { supabase } from '@/lib/supabase';
 import { tokenStore } from '@/lib/api/auth';
 import { loginHref, PORTALS, portalForSegment } from '@/lib/auth/roles';
 
@@ -28,6 +31,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   const [userRole, setUserRole] = useState<string | null>(null);
   const [showKyc, setShowKyc] = useState(false);
+  // KYC is one check per person: asked once, then a reminder banner until done.
+  const [kycDone, setKycDone] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -40,9 +45,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       } else {
         setUserRole(localStorage.getItem('user_role'));
         
-        // Trigger KYC Panel if status is pending
-        if (localStorage.getItem('kyc_status') === 'pending') {
+        const kyc = localStorage.getItem('kyc_status');
+        setKycDone(kyc === 'submitted');
+        // Open the KYC panel by itself only the first time after signing up.
+        if (kyc === 'pending') {
           setShowKyc(true);
+          localStorage.setItem('kyc_status', 'later');
         }
 
         setIsAuthenticated(true);
@@ -110,6 +118,19 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <div className="kr-light flex min-h-screen flex-col bg-gradient-to-br from-emerald-50 via-white to-amber-50 text-slate-900">
       <SiteHeader tone="light" portal={portal} />
+      {!kycDone && (
+        <div className="border-b border-emerald-900/10 bg-emerald-50/90">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2.5 text-sm sm:px-6 lg:px-8">
+            <p className="flex items-center gap-2 text-emerald-950">
+              <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden />
+              Verify your identity once to trade with escrow — it covers every KashRoot portal.
+            </p>
+            <button type="button" onClick={() => setShowKyc(true)} className="cursor-pointer rounded-lg bg-emerald-700 px-3 py-1.5 font-semibold text-white hover:bg-emerald-800">
+              Verify now
+            </button>
+          </div>
+        </div>
+      )}
       <div className="flex flex-1 flex-col">
         {children}
       </div>
@@ -117,11 +138,23 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <KYCPanel
         open={showKyc}
         onClose={() => setShowKyc(false)}
-        defaultRole={userRole === 'FARMER' || userRole === 'BUYER' || userRole === 'SELLER' ? userRole : undefined}
+        defaultRole={kycRoleFor(required ?? userRole)}
         // No self-service KYC endpoint exists yet: mark it submitted (under
         // review), never "verified" — nobody has reviewed it.
-        onComplete={() => localStorage.setItem('kyc_status', 'submitted')}
+        onComplete={() => {
+          localStorage.setItem('kyc_status', 'submitted');
+          setKycDone(true);
+          // Remember it on the account, so other devices don't ask again.
+          void supabase.auth.updateUser({ data: { kyc_status: 'submitted' } }).catch(() => undefined);
+        }}
       />
     </div>
   );
+}
+
+/** The KYC role for a portal or account role; logistics providers receive payouts like sellers. */
+function kycRoleFor(role: string | null | undefined): KycRole | undefined {
+  if (role === 'FARMER' || role === 'BUYER' || role === 'SELLER') return role;
+  if (role === 'PROVIDER') return 'SELLER';
+  return undefined;
 }

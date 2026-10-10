@@ -111,6 +111,7 @@ interface KYCPanelProps {
   onClose: () => void;
   /** Persist the verified details. Throw to keep the panel open with the message. */
   onComplete?: (submission: KycSubmission) => void | Promise<void>;
+  /** Known role (e.g. the portal the person is in): the Role step is skipped. */
   defaultRole?: KycRole;
 }
 
@@ -155,7 +156,9 @@ export function KYCPanel({ open, onClose, onComplete, defaultRole }: KYCPanelPro
   const pressStartedOnBackdrop = useRef(false);
   const focusStepOnRender = useRef(false);
 
-  const [step, setStep] = useState<Step>('role');
+  // Inside a portal the role is already known, so don't ask for it again.
+  const steps = defaultRole ? STEPS.filter((s) => s.id !== 'role') : STEPS;
+  const [step, setStep] = useState<Step>(defaultRole ? 'identity' : 'role');
   const [role, setRole] = useState<KycRole | null>(defaultRole ?? null);
   const identity = useIdentityVerification();
   const bank = useBankDetails();
@@ -226,7 +229,7 @@ export function KYCPanel({ open, onClose, onComplete, defaultRole }: KYCPanelPro
     }
   };
 
-  const stepIndex = STEPS.findIndex((s) => s.id === step);
+  const stepIndex = steps.findIndex((s) => s.id === step);
   const closeDialog = () => dialogRef.current?.close();
 
   return (
@@ -273,7 +276,7 @@ export function KYCPanel({ open, onClose, onComplete, defaultRole }: KYCPanelPro
             </button>
           </div>
 
-          {step !== 'done' && <Stepper currentIndex={stepIndex} onSelect={goTo} />}
+          {step !== 'done' && <Stepper steps={steps} currentIndex={stepIndex} onSelect={goTo} />}
         </header>
 
         {step === 'done' ? (
@@ -299,13 +302,13 @@ export function KYCPanel({ open, onClose, onComplete, defaultRole }: KYCPanelPro
               <div className="flex items-center justify-between gap-3">
                 <button
                   type="button"
-                  onClick={() => goTo(STEPS[stepIndex - 1]?.id ?? 'role')}
-                  className={`${BTN_SECONDARY} ${step === 'role' ? 'invisible' : ''}`}
+                  onClick={() => goTo(steps[stepIndex - 1]?.id ?? steps[0].id)}
+                  className={`${BTN_SECONDARY} ${stepIndex <= 0 ? 'invisible' : ''}`}
                 >
                   Back
                 </button>
                 <p className="hidden text-xs font-medium text-slate-500 sm:block">
-                  Step {stepIndex + 1} of {STEPS.length}
+                  Step {stepIndex + 1} of {steps.length}
                 </p>
                 <button type="submit" disabled={!canContinue || submitting} className={BTN_PRIMARY}>
                   {step !== 'bank' ? (
@@ -1289,10 +1292,10 @@ function DoneView({
 // Shared pieces
 // =============================================================================
 
-function Stepper({ currentIndex, onSelect }: { currentIndex: number; onSelect: (step: Step) => void }) {
+function Stepper({ steps, currentIndex, onSelect }: { steps: readonly { id: FormStep; label: string }[]; currentIndex: number; onSelect: (step: Step) => void }) {
   return (
-    <ol className="mt-5 grid grid-cols-3 gap-3">
-      {STEPS.map((s, i) => {
+    <ol className={`mt-5 grid gap-3 ${steps.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+      {steps.map((s, i) => {
         const complete = i < currentIndex;
         const active = i === currentIndex;
         return (

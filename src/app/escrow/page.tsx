@@ -56,6 +56,9 @@ const subscribe = (cb: () => void) => {
 
 export default function EscrowPage() {
   const signedIn = useSyncExternalStore(subscribe, () => Boolean(localStorage.getItem('auth_token')), () => false);
+  // The signed-in account's role, so KYC doesn't ask for it again.
+  const accountRole = useSyncExternalStore(subscribe, () => localStorage.getItem('user_role'), () => null);
+  const kycRole = accountRole === 'FARMER' || accountRole === 'BUYER' || accountRole === 'SELLER' ? accountRole : accountRole === 'PROVIDER' ? 'SELLER' : undefined;
   const [kycOpen, setKycOpen] = useState(false);
   const [kyc, setKyc] = usePersistentState<KycRecord | null>('kr_kyc_record', NO_KYC);
   const [inquiries] = usePersistentState<Inquiry[]>('kr_buyer_inquiries', NO_INQUIRIES);
@@ -94,7 +97,7 @@ export default function EscrowPage() {
         { label: 'Value of deals', value: deals.length ? inr.format(deals.reduce((sum, d) => sum + dealValue(d), 0)) : '—', trend: 'From your accepted quotes' },
       ]}
     >
-      <KYCPanel open={kycOpen} onClose={() => setKycOpen(false)} onComplete={onComplete} />
+      <KYCPanel open={kycOpen} onClose={() => setKycOpen(false)} onComplete={onComplete} defaultRole={kycRole} />
 
       <Panel theme={theme} title="How escrow protects both sides" icon={ShieldCheck}>
         <ol className="grid gap-4 md:grid-cols-5">

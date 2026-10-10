@@ -109,6 +109,8 @@ export interface LoginResponse {
   accountRole:   UserRole | null;
   /** Mobile number saved on the account, if any (for the sign-in OTP). */
   phone:         string | null;
+  /** KYC already submitted from any device. */
+  kycSubmitted:  boolean;
   requiresMfa:   boolean;   // true for admin roles with MFA enabled
   user:          AuthUser;
 }
@@ -189,6 +191,7 @@ export const authApi = {
       accessToken: data.session.access_token,
       accountRole: metadataRole ?? null,
       phone: (data.user.user_metadata?.phone as string | undefined) || data.user.phone || null,
+      kycSubmitted: data.user.user_metadata?.kyc_status === 'submitted',
       requiresMfa: false,
       user: {
         id: data.user.id,

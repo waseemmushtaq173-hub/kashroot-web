@@ -35,7 +35,7 @@ const LEGACY_OK: PortalId[] = ['farmer', 'buyer', 'seller'];
 
 interface OtpStep {
   /** Held back until the code is verified; the dashboards open only after tokenStore has it. */
-  session: { accessToken: string; role: string };
+  session: { accessToken: string; role: string; kycSubmitted: boolean };
   channel: 'sms' | 'email';
   to: string;
   routes: PhoneRoute[];
@@ -75,8 +75,10 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
     tokenStore.setToken(session.accessToken, session.role);
     localStorage.setItem('auth_email', email.trim());
     localStorage.setItem('auth_portal', portal);
-    // First sign-in on this browser: ask the dashboard to open the KYC panel.
-    if (!localStorage.getItem('kyc_status')) localStorage.setItem('kyc_status', 'pending');
+    // KYC done on any device: never ask again. Otherwise the dashboard opens
+    // the KYC panel once, the first time on this browser.
+    if (session.kycSubmitted) localStorage.setItem('kyc_status', 'submitted');
+    else if (!localStorage.getItem('kyc_status')) localStorage.setItem('kyc_status', 'pending');
     router.replace(destination);
   };
 
@@ -116,7 +118,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
         return;
       }
 
-      const session = { accessToken: data.accessToken, role: required ?? accountRole ?? 'FARMER' };
+      const session = { accessToken: data.accessToken, role: required ?? accountRole ?? 'FARMER', kycSubmitted: data.kycSubmitted };
       const config = await getKycConfig();
       const phone = (data.phone ?? '').replace(/\D/g, '').slice(-10);
       const phoneRoutes: PhoneRoute[] = [...(config.sms ? (['sms'] as const) : []), ...(config.whatsapp ? (['whatsapp'] as const) : [])];
