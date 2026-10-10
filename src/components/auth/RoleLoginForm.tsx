@@ -10,6 +10,9 @@
  *   - role portals (farmer, buyer, seller, logistics, admin) refuse accounts of
  *     another role and point to the right sign-in;
  *   - shared portals accept any account.
+ * Then a one-time code: to the mobile number on the account by SMS and
+ * WhatsApp together (email when there is no mobile or phone codes fail on the
+ * site's side). The dashboards open only once it is verified.
  * Accounts created before roles were saved have no role: they may use the
  * farmer, buyer and seller portals (bound to that portal, as before), but not
  * the logistics or admin portals.
@@ -21,12 +24,23 @@ import { useRouter } from 'next/navigation';
 import { useId, useState, type FormEvent } from 'react';
 import { ArrowRight, CircleAlert, Eye, EyeOff, Loader2 } from 'lucide-react';
 
+import { ContactOtp, type PhoneRoute } from '@/components/auth/ContactOtp';
 import { PortalAuthFrame } from '@/components/auth/PortalAuthFrame';
 import { PORTAL_LOGIN } from '@/components/auth/portalLoginConfig';
 import { authApi, tokenStore } from '@/lib/api/auth';
 import { AUTH_ROUTES, loginHref, PORTALS, portalForRole, safeNextPath, type PortalId } from '@/lib/auth/roles';
+import { getKycConfig } from '@/lib/kyc/kyc-service';
 
 const LEGACY_OK: PortalId[] = ['farmer', 'buyer', 'seller'];
+
+interface OtpStep {
+  /** Held back until the code is verified; the dashboards open only after tokenStore has it. */
+  session: { accessToken: string; role: string };
+  channel: 'sms' | 'email';
+  to: string;
+  routes: PhoneRoute[];
+  emailFallback: string | null;
+}
 
 export interface RoleLoginFormProps {
   portal: PortalId;
@@ -48,11 +62,30 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   const [showPassword, setShowPassword] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<{ text: string; portal?: PortalId } | null>(null);
+  // Second step: a one-time code to the account's mobile (SMS + WhatsApp) or email.
+  const [step, setStep] = useState<OtpStep | null>(null);
+  const [codesDown, setCodesDown] = useState(false);
 
   const destination = safeNextPath(next, info.home);
   const focusRing = `focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${theme.outline}`;
   const inputClass = `block w-full rounded-xl border-0 bg-white/90 px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 shadow-sm ring-1 ring-inset ring-slate-200 transition focus:outline-none focus:ring-2 ${theme.inputFocus}`;
   const canSubmit = email.trim() !== '' && password !== '' && !pending;
+
+  const finish = (session: OtpStep['session']) => {
+    tokenStore.setToken(session.accessToken, session.role);
+    localStorage.setItem('auth_email', email.trim());
+    localStorage.setItem('auth_portal', portal);
+    // First sign-in on this browser: ask the dashboard to open the KYC panel.
+    if (!localStorage.getItem('kyc_status')) localStorage.setItem('kyc_status', 'pending');
+    router.replace(destination);
+  };
+
+  const cancelStep = async () => {
+    await authApi.logout();
+    setStep(null);
+    setCodesDown(false);
+    setPassword('');
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -83,20 +116,72 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
         return;
       }
 
-      tokenStore.setToken(data.accessToken, required ?? accountRole ?? 'FARMER');
-      localStorage.setItem('auth_email', email.trim());
-      localStorage.setItem('auth_portal', portal);
-      // First sign-in on this browser: ask the dashboard to open the KYC panel.
-      if (!localStorage.getItem('kyc_status')) localStorage.setItem('kyc_status', 'pending');
-
+      const session = { accessToken: data.accessToken, role: required ?? accountRole ?? 'FARMER' };
+      const config = await getKycConfig();
+      const phone = (data.phone ?? '').replace(/\D/g, '').slice(-10);
+      const phoneRoutes: PhoneRoute[] = [...(config.sms ? (['sms'] as const) : []), ...(config.whatsapp ? (['whatsapp'] as const) : [])];
+      const emailFallback = config.email ? email.trim() : null;
+      if (/^[6-9]\d{9}$/.test(phone) && phoneRoutes.length > 0) {
+        setStep({ session, channel: 'sms', to: phone, routes: phoneRoutes, emailFallback });
+        return;
+      }
+      if (emailFallback) {
+        setStep({ session, channel: 'email', to: emailFallback, routes: [], emailFallback: null });
+        return;
+      }
       navigating = true;
-      router.replace(destination);
+      finish(session);
     } catch (err) {
       setError({ text: err instanceof Error && err.message ? err.message : 'Failed to sign in. Please check your connection.' });
     } finally {
       if (!navigating) setPending(false);
     }
   };
+
+  if (step) {
+    const phoneStep = step.channel === 'sms';
+    return (
+      <PortalAuthFrame portal={portal} labelledBy={ids.heading}>
+        <h2 id={ids.heading} className="text-2xl font-semibold tracking-tight text-slate-900">
+          Verify it’s you
+        </h2>
+        <p className="mt-1 text-sm text-slate-600">
+          {phoneStep ? 'We’re sending a one-time code to the mobile number on your account.' : 'We’re emailing a one-time code to the address on your account.'}
+        </p>
+        <div className="mt-6">
+          <ContactOtp
+            key={step.channel}
+            channel={step.channel}
+            label={phoneStep ? 'Mobile number' : 'Email address'}
+            value={step.to}
+            onChange={() => undefined}
+            locked
+            autoSend
+            required
+            routes={phoneStep ? step.routes : undefined}
+            verified={false}
+            onVerified={() => finish(step.session)}
+            onUnavailable={() => {
+              // Phone codes failing on the site's side: fall back to email, then let them in.
+              if (phoneStep && step.emailFallback) setStep({ ...step, channel: 'email', to: step.emailFallback, routes: [], emailFallback: null });
+              else setCodesDown(true);
+            }}
+          />
+        </div>
+        {codesDown && (
+          <button type="button" onClick={() => finish(step.session)} className={`mt-4 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-sm font-semibold shadow-lg ${theme.button} ${focusRing}`}>
+            Continue to {info.label} <ArrowRight className="h-4 w-4" aria-hidden />
+          </button>
+        )}
+        <p className="mt-6 border-t border-slate-900/5 pt-3 text-sm text-slate-600">
+          Not you?{' '}
+          <button type="button" onClick={() => void cancelStep()} className={`cursor-pointer rounded font-semibold text-slate-800 underline-offset-4 hover:underline ${focusRing}`}>
+            Sign out and use another account
+          </button>
+        </p>
+      </PortalAuthFrame>
+    );
+  }
 
   return (
     <PortalAuthFrame portal={portal} labelledBy={ids.heading}>

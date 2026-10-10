@@ -6,7 +6,7 @@
  * Verify OTP. Codes come from /api/otp/send + /api/otp/verify; the code is
  * only ever in the person's SMS or inbox — the browser holds a signed token.
  */
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { CheckCircle2, Loader2, Mail, Send, ShieldCheck, Smartphone } from 'lucide-react';
 
 /** Full class strings for the panel's accent colour. */
@@ -46,6 +46,10 @@ export interface ContactOtpProps {
   routes?: PhoneRoute[];
   /** The site cannot send this code right now (not the visitor's fault). */
   onUnavailable?: () => void;
+  /** The address can't be edited (e.g. the number saved on the account). */
+  locked?: boolean;
+  /** Send the code as soon as the panel opens. */
+  autoSend?: boolean;
 }
 
 export type PhoneRoute = 'sms' | 'whatsapp';
@@ -53,7 +57,7 @@ export type PhoneRoute = 'sms' | 'whatsapp';
 const INPUT = 'block w-full rounded-xl border-0 bg-white px-3.5 py-2.5 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 disabled:bg-slate-50 disabled:text-slate-500';
 const BUTTON = 'inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50';
 
-export function ContactOtp({ channel, value, onChange, onVerified, verified, onReset, label, accent = EMERALD, required, hint, routes = ['sms'], onUnavailable }: ContactOtpProps) {
+export function ContactOtp({ channel, value, onChange, onVerified, verified, onReset, label, accent = EMERALD, required, hint, routes = ['sms'], onUnavailable, locked = false, autoSend = false }: ContactOtpProps) {
   const id = useId();
   const [token, setToken] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState('');
@@ -97,6 +101,16 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
     }
   };
 
+  // Send once on open (the ref keeps React's double effect run from sending twice).
+  const autoSent = useRef(false);
+  useEffect(() => {
+    if (!autoSend || autoSent.current || !valid) return;
+    autoSent.current = true;
+    void send();
+    // Runs once on open; `send` reads the current value itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSend, valid]);
+
   const verify = async () => {
     if (!token || code.length !== 6) return;
     setBusy('verify');
@@ -130,7 +144,7 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
           </p>
           <p className="text-xs text-slate-500">{verified ? value : hint ?? (sms ? `We’ll send a 6-digit OTP to this number by ${joinNames(routeNames)}.` : 'We’ll email a 6-digit OTP to this address.')}</p>
         </div>
-        {verified && onReset && (
+        {verified && onReset && !locked && (
           <button type="button" onClick={onReset} className="cursor-pointer text-sm font-semibold text-emerald-800 hover:underline">
             Change
           </button>
@@ -149,6 +163,7 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
                 inputMode={sms ? 'numeric' : 'email'}
                 autoComplete={sms ? 'tel-national' : 'email'}
                 value={value}
+                readOnly={locked}
                 onChange={(e) => {
                   onChange(sms ? e.target.value.replace(/[^\d+ ]/g, '').slice(0, 14) : e.target.value);
                   if (token) {
@@ -182,7 +197,7 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
                   void verify();
                 }
               }}
-              placeholder={token ? 'Enter 6-digit OTP' : 'OTP'}
+              placeholder={token ? '••••••' : 'OTP'}
               className={`${INPUT} flex-1 text-center font-mono tracking-[0.3em] ${accent.ring}`}
             />
             <button type="button" onClick={() => void verify()} disabled={!token || code.length !== 6 || busy !== null} className={`${BUTTON} bg-white text-slate-900 ring-1 ring-inset ring-slate-300 hover:bg-slate-50`}>

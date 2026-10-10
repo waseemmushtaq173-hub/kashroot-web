@@ -107,6 +107,8 @@ export interface LoginResponse {
   accessToken:   string;
   /** Role recorded on the account (Supabase metadata); null if none was saved. */
   accountRole:   UserRole | null;
+  /** Mobile number saved on the account, if any (for the sign-in OTP). */
+  phone:         string | null;
   requiresMfa:   boolean;   // true for admin roles with MFA enabled
   user:          AuthUser;
 }
@@ -186,6 +188,7 @@ export const authApi = {
     return {
       accessToken: data.session.access_token,
       accountRole: metadataRole ?? null,
+      phone: (data.user.user_metadata?.phone as string | undefined) || data.user.phone || null,
       requiresMfa: false,
       user: {
         id: data.user.id,
