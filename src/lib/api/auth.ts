@@ -101,12 +101,38 @@ export interface RegisterResponse {
   userId: string | null;
   /** True when Supabase wants the email confirmed before the first sign-in. */
   needsEmailConfirmation: boolean;
+  /** The email already had a KashRoot account: this portal was added to it. */
+  joinedExisting?: boolean;
+}
+
+/** Portals anyone can add to their own account; staff roles are granted by an admin. */
+export const SELF_JOIN_ROLES = ['FARMER', 'BUYER', 'SELLER', 'PROVIDER'] as const;
+
+type MetaUser = { app_metadata?: Record<string, unknown>; user_metadata?: Record<string, unknown> };
+
+/** Every role on an account: the sign-up role, portals added later, and admin-set roles. */
+export function rolesOf(user: MetaUser | null | undefined): string[] {
+  const meta = user?.user_metadata ?? {};
+  const listed = Array.isArray(meta.roles) ? meta.roles.filter((r): r is string => typeof r === 'string') : [];
+  const single = [meta.role, user?.app_metadata?.role].filter((r): r is string => typeof r === 'string');
+  return [...new Set([...single, ...listed])];
+}
+
+/** Adds a portal role to the signed-in account (kept in user_metadata.roles). */
+async function addRoleToSession(role: string, extra: Record<string, unknown> = {}): Promise<string[]> {
+  const { data } = await supabase.auth.getUser();
+  const roles = [...new Set([...rolesOf(data.user), role])];
+  const { error } = await supabase.auth.updateUser({ data: { ...extra, roles } });
+  if (error) throw new Error(friendlyAuthError(error.message, 'Could not add this portal to your account.'));
+  return roles;
 }
 
 export interface LoginResponse {
   accessToken:   string;
   /** Role recorded on the account (Supabase metadata); null if none was saved. */
   accountRole:   UserRole | null;
+  /** Every portal role on the account, plus staff roles (ADMIN, EXPERT, DEALER). */
+  accountRoles:  string[];
   /** Mobile number saved on the account, if any (for the sign-in OTP). */
   phone:         string | null;
   /** KYC already submitted from any device. */
@@ -152,14 +178,35 @@ export const authApi = {
         data: {
           full_name: dto.fullName,
           role: dto.role,
+          roles: [dto.role],
           ...(dto.phone ? { phone: dto.phone } : {}),
         },
       },
     });
 
+    // Supabase answers an already-registered email with an error, or (when email
+    // confirmation is on) with a user that has no identities. One email is one
+    // KashRoot account: with the right password, this portal is added to it.
+    const exists = (error && /already (been )?registered|already exists/i.test(error.message)) || (!error && data.user && data.user.identities?.length === 0);
+    if (exists) {
+      const joined = await supabase.auth.signInWithPassword({ email: dto.email, password: dto.password });
+      if (joined.error) {
+        const m = joined.error.message.toLowerCase();
+        if (m.includes('email not confirmed')) throw new Error(friendlyAuthError(joined.error.message, ''));
+        throw new Error('You already have a KashRoot account with this email (for another portal). To use the same account here, enter the password you made it with — or use Forgot password on the sign-in page.');
+      }
+      try {
+        const meta = joined.data.user.user_metadata ?? {};
+        await addRoleToSession(dto.role, {
+          ...(meta.full_name ? {} : { full_name: dto.fullName }),
+          ...(meta.phone || !dto.phone ? {} : { phone: dto.phone }),
+        });
+      } finally {
+        await supabase.auth.signOut().catch(() => undefined);
+      }
+      return { userId: joined.data.user.id, needsEmailConfirmation: false, joinedExisting: true };
+    }
     if (error) throw new Error(friendlyAuthError(error.message, 'Failed to register account'));
-    // Supabase answers an already-registered email with a user that has no identities.
-    if (data.user && data.user.identities?.length === 0) throw new Error(friendlyAuthError('already registered', ''));
 
     // With "Confirm email" switched on for the Supabase project, signUp
     // returns a user but no session: the link has to be clicked before
@@ -187,9 +234,13 @@ export const authApi = {
     // it wins over user_metadata, which the user can edit.
     const metadataRole = (data.user.app_metadata?.role ?? data.user.user_metadata?.role) as UserRole | undefined;
     const mockRole = (typeof window !== 'undefined' && localStorage.getItem('kr_mock_role')) as UserRole || 'FARMER';
+    // Staff roles (admin, expert, dealer) are granted by an admin in the database.
+    const staff = await supabase.from('staff_roles').select('role').eq('user_id', data.user.id);
+    const staffRoles = staff.error ? [] : (staff.data ?? []).map((r) => String(r.role));
     return {
       accessToken: data.session.access_token,
       accountRole: metadataRole ?? null,
+      accountRoles: [...new Set([...rolesOf(data.user), ...staffRoles])],
       phone: (data.user.user_metadata?.phone as string | undefined) || data.user.phone || null,
       kycSubmitted: data.user.user_metadata?.kyc_status === 'submitted',
       requiresMfa: false,
@@ -203,6 +254,11 @@ export const authApi = {
       }
     } as LoginResponse;
   },
+  /** Adds a portal (FARMER, BUYER, SELLER, PROVIDER) to the signed-in account. */
+  addPortalRole: async (role: (typeof SELF_JOIN_ROLES)[number]): Promise<string[]> => {
+    if (!supabaseConfigured) throw new Error(NOT_SET_UP);
+    return addRoleToSession(role);
+  },
   /** Sends the sign-up confirmation email again. */
   resendSignupEmail: async (email: string, role: RegisterDto['role'], portal?: PortalId) => {
     if (!supabaseConfigured) throw new Error(NOT_SET_UP);
@@ -214,12 +270,24 @@ export const authApi = {
   refresh:       async ()                    => ({ accessToken: 'mock_jwt_token' }),
   logout:        async ()                    => { tokenStore.removeToken(); await supabase.auth.signOut().catch(() => undefined); },
 };
+/** Roles saved at sign-in on this browser (see tokenStore.setToken). */
+export function storedRoles(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const list = JSON.parse(localStorage.getItem('user_roles') ?? '[]');
+    return Array.isArray(list) ? list.filter((r): r is string => typeof r === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
 export const tokenStore = {
   getToken: () => (typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null),
-  setToken: (token: string, role?: string) => {
+  setToken: (token: string, role?: string, roles?: string[]) => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('auth_token', token);
       document.cookie = `auth_token=${token}; path=/; max-age=86400; SameSite=Lax`;
+      if (roles) localStorage.setItem('user_roles', JSON.stringify(roles));
       if (role) {
         localStorage.setItem('user_role', role);
         document.cookie = `user_role=${role}; path=/; max-age=86400; SameSite=Lax`;
@@ -230,6 +298,7 @@ export const tokenStore = {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user_role');
+      localStorage.removeItem('user_roles');
       document.cookie = 'auth_token=; path=/; max-age=0; SameSite=Lax';
       document.cookie = 'user_role=; path=/; max-age=0; SameSite=Lax';
     }

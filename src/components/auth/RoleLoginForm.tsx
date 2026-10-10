@@ -5,10 +5,12 @@
  * portal supplies its story, colours and 3D scene mood (portalLoginConfig);
  * this component owns the layout, the credential form and what happens after.
  *
- * Sign-in: Supabase email + password (authApi.login), then the account's role
- * is checked against the portal:
- *   - role portals (farmer, buyer, seller, logistics, admin) refuse accounts of
- *     another role and point to the right sign-in;
+ * Sign-in: Supabase email + password (authApi.login), then the account's roles
+ * are checked against the portal. One email is one KashRoot account that can
+ * hold several portals:
+ *   - farmer, buyer, seller and logistics: an account without that portal is
+ *     offered to add it (its details for each portal stay separate);
+ *   - admin: only accounts an admin has granted the role;
  *   - shared portals accept any account.
  * Then a one-time code: to the mobile number on the account by SMS and
  * WhatsApp together (email when there is no mobile or phone codes fail on the
@@ -22,20 +24,31 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useId, useState, type FormEvent } from 'react';
-import { ArrowRight, CircleAlert, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { ArrowRight, CircleAlert, Eye, EyeOff, Loader2, PlusCircle } from 'lucide-react';
 
 import { ContactOtp, type PhoneRoute } from '@/components/auth/ContactOtp';
 import { PortalAuthFrame } from '@/components/auth/PortalAuthFrame';
 import { PORTAL_LOGIN } from '@/components/auth/portalLoginConfig';
-import { authApi, tokenStore } from '@/lib/api/auth';
+import { authApi, SELF_JOIN_ROLES, tokenStore } from '@/lib/api/auth';
 import { AUTH_ROUTES, loginHref, PORTALS, portalForRole, safeNextPath, type PortalId } from '@/lib/auth/roles';
 import { getKycConfig } from '@/lib/kyc/kyc-service';
 
 const LEGACY_OK: PortalId[] = ['farmer', 'buyer', 'seller'];
 
+type JoinRole = (typeof SELF_JOIN_ROLES)[number];
+const isJoinRole = (role: string | null): role is JoinRole => (SELF_JOIN_ROLES as readonly string[]).includes(role ?? '');
+
+interface Session {
+  accessToken: string;
+  role: string;
+  roles: string[];
+  kycSubmitted: boolean;
+  phone: string | null;
+}
+
 interface OtpStep {
   /** Held back until the code is verified; the dashboards open only after tokenStore has it. */
-  session: { accessToken: string; role: string; kycSubmitted: boolean };
+  session: Session;
   channel: 'sms' | 'email';
   to: string;
   routes: PhoneRoute[];
@@ -65,14 +78,17 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   // Second step: a one-time code to the account's mobile (SMS + WhatsApp) or email.
   const [step, setStep] = useState<OtpStep | null>(null);
   const [codesDown, setCodesDown] = useState(false);
+  // Signed in with an account that doesn't have this portal yet: offer to add it.
+  const [join, setJoin] = useState<{ session: Session; has: string[] } | null>(null);
+  const [joining, setJoining] = useState(false);
 
   const destination = safeNextPath(next, info.home);
   const focusRing = `focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${theme.outline}`;
   const inputClass = `block w-full rounded-xl border-0 bg-white/90 px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 shadow-sm ring-1 ring-inset ring-slate-200 transition focus:outline-none focus:ring-2 ${theme.inputFocus}`;
   const canSubmit = email.trim() !== '' && password !== '' && !pending;
 
-  const finish = (session: OtpStep['session']) => {
-    tokenStore.setToken(session.accessToken, session.role);
+  const finish = (session: Session) => {
+    tokenStore.setToken(session.accessToken, session.role, session.roles);
     localStorage.setItem('auth_email', email.trim());
     localStorage.setItem('auth_portal', portal);
     // KYC done on any device: never ask again. Otherwise the dashboard opens
@@ -85,6 +101,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   const cancelStep = async () => {
     await authApi.logout();
     setStep(null);
+    setJoin(null);
     setCodesDown(false);
     setPassword('');
   };
@@ -100,45 +117,103 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
       if (!data.accessToken) throw new Error('Sign-in did not return a session. Please try again.');
 
       const accountRole = data.accountRole;
+      const roles = data.accountRoles;
       const required = info.requiredRole;
-      if (required && accountRole && accountRole !== required) {
+      const session: Session = { accessToken: data.accessToken, role: required ?? accountRole ?? 'FARMER', roles, kycSubmitted: data.kycSubmitted, phone: data.phone };
+
+      if (required && roles.length > 0 && !roles.includes(required)) {
+        // Same person, another portal: offer to add it to this account.
+        if (isJoinRole(required)) {
+          setJoin({ session, has: roles });
+          return;
+        }
         await authApi.logout();
-        const home = portalForRole(accountRole);
+        const home = portalForRole(accountRole ?? roles[0]);
         setError({
-          text: home
-            ? `This account is registered for the ${PORTALS[home].label} portal.`
-            : `This account cannot open the ${info.label} portal.`,
+          text: required === 'ADMIN' ? 'This account is not a KashRoot admin.' : `This account cannot open the ${info.label} portal.`,
           portal: home ?? undefined,
         });
         return;
       }
-      if (required && !accountRole && !LEGACY_OK.includes(portal)) {
+      if (required && roles.length === 0 && !LEGACY_OK.includes(portal)) {
         await authApi.logout();
         setError({ text: `This account is not set up for the ${info.label} portal. Ask an administrator to enable it.` });
         return;
       }
 
-      const session = { accessToken: data.accessToken, role: required ?? accountRole ?? 'FARMER', kycSubmitted: data.kycSubmitted };
-      const config = await getKycConfig();
-      const phone = (data.phone ?? '').replace(/\D/g, '').slice(-10);
-      const phoneRoutes: PhoneRoute[] = [...(config.sms ? (['sms'] as const) : []), ...(config.whatsapp ? (['whatsapp'] as const) : [])];
-      const emailFallback = config.email ? email.trim() : null;
-      if (/^[6-9]\d{9}$/.test(phone) && phoneRoutes.length > 0) {
-        setStep({ session, channel: 'sms', to: phone, routes: phoneRoutes, emailFallback });
-        return;
-      }
-      if (emailFallback) {
-        setStep({ session, channel: 'email', to: emailFallback, routes: [], emailFallback: null });
-        return;
-      }
-      navigating = true;
-      finish(session);
+      navigating = await startCodeStep(session);
     } catch (err) {
       setError({ text: err instanceof Error && err.message ? err.message : 'Failed to sign in. Please check your connection.' });
     } finally {
       if (!navigating) setPending(false);
     }
   };
+
+  /** One-time code to the account's mobile or email; returns true when it went straight in. */
+  const startCodeStep = async (session: Session): Promise<boolean> => {
+    const config = await getKycConfig();
+    const phone = (session.phone ?? '').replace(/\D/g, '').slice(-10);
+    const phoneRoutes: PhoneRoute[] = [...(config.sms ? (['sms'] as const) : []), ...(config.whatsapp ? (['whatsapp'] as const) : [])];
+    const emailFallback = config.email ? email.trim() : null;
+    if (/^[6-9]\d{9}$/.test(phone) && phoneRoutes.length > 0) {
+      setStep({ session, channel: 'sms', to: phone, routes: phoneRoutes, emailFallback });
+      return false;
+    }
+    if (emailFallback) {
+      setStep({ session, channel: 'email', to: emailFallback, routes: [], emailFallback: null });
+      return false;
+    }
+    finish(session);
+    return true;
+  };
+
+  const addThisPortal = async () => {
+    if (!join || !isJoinRole(info.requiredRole)) return;
+    setJoining(true);
+    setError(null);
+    try {
+      const roles = await authApi.addPortalRole(info.requiredRole);
+      const session = { ...join.session, roles: [...new Set([...join.session.roles, ...roles])] };
+      setJoin(null);
+      await startCodeStep(session);
+    } catch (err) {
+      setError({ text: err instanceof Error ? err.message : 'Could not add this portal. Please try again.' });
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  if (join) {
+    const has = join.has.map((r) => portalForRole(r)).filter((p): p is PortalId => Boolean(p)).map((p) => PORTALS[p].label);
+    return (
+      <PortalAuthFrame portal={portal} labelledBy={ids.heading}>
+        <h2 id={ids.heading} className="text-2xl font-semibold tracking-tight text-slate-900">
+          Add the {info.label} portal to your account?
+        </h2>
+        <p className="mt-2 text-sm text-slate-600">
+          {has.length ? <>This account is already set up for <strong className="text-slate-900">{has.join(', ')}</strong>. </> : null}
+          You can use the same email and password for the {info.label} portal too. Your {info.label} details are kept separately from your other portals.
+        </p>
+        {error && (
+          <p role="alert" className="mt-4 flex items-start gap-2 rounded-xl bg-rose-50 p-3 text-sm text-rose-800 ring-1 ring-rose-200">
+            <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> {error.text}
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={() => void addThisPortal()}
+          disabled={joining}
+          className={`mt-6 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-sm font-semibold shadow-lg transition disabled:cursor-not-allowed disabled:opacity-60 ${theme.button} ${focusRing}`}
+        >
+          {joining ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <PlusCircle className="h-4 w-4" aria-hidden />}
+          Yes, add the {info.label} portal
+        </button>
+        <button type="button" onClick={() => void cancelStep()} className={`mt-3 w-full cursor-pointer rounded-xl px-5 py-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 ${focusRing}`}>
+          No, sign out
+        </button>
+      </PortalAuthFrame>
+    );
+  }
 
   if (step) {
     const phoneStep = step.channel === 'sms';

@@ -9,7 +9,7 @@ import { ShieldCheck } from 'lucide-react';
 
 import { KYCPanel, type KycRole } from '@/components/auth/KYCPanel';
 import { supabase } from '@/lib/supabase';
-import { tokenStore } from '@/lib/api/auth';
+import { authApi, SELF_JOIN_ROLES, storedRoles, tokenStore } from '@/lib/api/auth';
 import { loginHref, PORTALS, portalForSegment } from '@/lib/auth/roles';
 
 /**
@@ -30,6 +30,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [userRoles, setUserRoles] = useState<string[]>([]);
+  const [joining, setJoining] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
   const [showKyc, setShowKyc] = useState(false);
   // KYC is one check per person: asked once, then a reminder banner until done.
   const [kycDone, setKycDone] = useState(false);
@@ -44,7 +47,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         router.replace(portal ? loginHref(portal, window.location.pathname) : '/login');
       } else {
         setUserRole(localStorage.getItem('user_role'));
-        
+        setUserRoles(storedRoles());
+
         const kyc = localStorage.getItem('kyc_status');
         setKycDone(kyc === 'submitted');
         // Open the KYC panel by itself only the first time after signing up,
@@ -72,7 +76,25 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   const portal = portalForSegment(segment);
   const required = portal ? PORTALS[portal].requiredRole : null;
-  const authorized = !userRole || !required || userRole === required;
+  // One account can hold several portals (see RoleLoginForm).
+  const authorized = !userRole || !required || userRole === required || userRoles.includes(required);
+  const canJoin = (SELF_JOIN_ROLES as readonly string[]).includes(required ?? '');
+  const joinPortal = async () => {
+    if (!required || !canJoin) return;
+    setJoining(true);
+    setJoinError(null);
+    try {
+      const roles = await authApi.addPortalRole(required as (typeof SELF_JOIN_ROLES)[number]);
+      localStorage.setItem('user_roles', JSON.stringify(roles));
+      localStorage.setItem('user_role', required);
+      setUserRoles(roles);
+      setUserRole(required);
+    } catch (err) {
+      setJoinError(err instanceof Error ? err.message : 'Could not add this portal.');
+    } finally {
+      setJoining(false);
+    }
+  };
   const requiredRoleMsg = portal ? PORTALS[portal].label : '';
 
   if (!authorized) {
@@ -81,14 +103,29 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <SiteHeader tone="light" />
         <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
           <div className="max-w-lg rounded-3xl bg-white/80 p-8 shadow-[0_20px_60px_rgba(15,23,42,0.12)] ring-1 ring-slate-900/5 backdrop-blur-xl">
-            <h2 className="mb-3 font-sans text-2xl font-bold text-slate-900">This portal needs a different account</h2>
+            <h2 className="mb-3 font-sans text-2xl font-bold text-slate-900">{canJoin ? `Add the ${requiredRoleMsg} portal?` : 'This portal needs a different account'}</h2>
             <p className="mb-2 text-slate-700">
-              You&apos;re signed in as <strong className="rounded bg-slate-100 px-2 py-0.5">{userRole}</strong>.
+              You&apos;re signed in with a <strong className="rounded bg-slate-100 px-2 py-0.5">{userRole}</strong> account.
             </p>
             <p className="mb-8 text-slate-600">
-              Sign in with a <strong>{requiredRoleMsg}</strong> account to open this portal.
+              {canJoin ? (
+                <>The same account can use the <strong>{requiredRoleMsg}</strong> portal too. Your {requiredRoleMsg} details are kept separately.</>
+              ) : (
+                <>Sign in with a <strong>{requiredRoleMsg}</strong> account to open this portal.</>
+              )}
             </p>
+            {joinError && <p role="alert" className="mb-4 text-sm text-rose-700">{joinError}</p>}
             <div className="flex flex-wrap justify-center gap-3">
+              {canJoin && (
+                <button
+                  type="button"
+                  onClick={() => void joinPortal()}
+                  disabled={joining}
+                  className="cursor-pointer rounded-xl bg-emerald-700 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-emerald-800 disabled:opacity-60"
+                >
+                  {joining ? 'Adding…' : `Yes, add the ${requiredRoleMsg} portal`}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -96,9 +133,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                   const portal = portalForSegment(segment);
                   router.replace(portal ? loginHref(portal, window.location.pathname) : '/login');
                 }}
-                className="cursor-pointer rounded-xl bg-emerald-700 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-emerald-800"
+                className={canJoin ? 'cursor-pointer rounded-xl bg-white px-6 py-3 font-semibold text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-50' : 'cursor-pointer rounded-xl bg-emerald-700 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-emerald-800'}
               >
-                Open the {requiredRoleMsg} sign-in
+                {canJoin ? 'Use a different account' : `Open the ${requiredRoleMsg} sign-in`}
               </button>
               <button
                 type="button"

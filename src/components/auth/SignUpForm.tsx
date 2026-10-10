@@ -112,6 +112,8 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
+  // The email already had an account: this portal was added to it.
+  const [joinedExisting, setJoinedExisting] = useState(false);
   // Codes only when the site has an email/SMS provider (see /api/kyc/config).
   const [contactConfig, setContactConfig] = useState<{ sms: boolean; whatsapp: boolean; email: boolean } | null>(null);
   // A provider that fails on the site's side (bad key, unverified sender)
@@ -160,9 +162,10 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
     mutationFn: (dto: RegisterDto) => authApi.register(dto),
     onSuccess: (result) => {
       setSuccess(true);
+      setJoinedExisting(Boolean(result.joinedExisting));
       setNeedsEmailConfirmation(result.needsEmailConfirmation);
       if (result.needsEmailConfirmation) return;
-      setTimeout(() => router.push(loginHref(homePortal)), 2000);
+      setTimeout(() => router.push(loginHref(homePortal)), result.joinedExisting ? 4000 : 2000);
     },
   });
 
@@ -198,7 +201,12 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
         <span className={`mx-auto grid h-16 w-16 place-items-center rounded-2xl ${look.tile}`}>
           <CheckCircle2 className="h-8 w-8" aria-hidden />
         </span>
-        <h2 className="mt-5 text-2xl font-semibold tracking-tight text-slate-900">Account created!</h2>
+        <h2 className="mt-5 text-2xl font-semibold tracking-tight text-slate-900">{joinedExisting ? `${PORTALS[homePortal].label} portal added!` : 'Account created!'}</h2>
+        {joinedExisting && (
+          <p className="mt-2 text-slate-600">
+            You already had a KashRoot account with <strong className="text-slate-900">{emailValue}</strong>. The {PORTALS[homePortal].label} portal is now part of it — sign in with the same email and password. Your {PORTALS[homePortal].label} details are kept separately.
+          </p>
+        )}
         {needsEmailConfirmation ? (
           <>
             <p className="mt-2 text-slate-600">
