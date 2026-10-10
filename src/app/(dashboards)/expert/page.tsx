@@ -1,20 +1,26 @@
 'use client';
 
 /**
- * Advisory & knowledge hub — disease protocols and SOPs, ask-an-agronomist
- * queries (experts get an answer queue instead), and soil-test kit orders.
- *
- * Queries, published advisories and kit orders live in the browser
- * (kr_expert_*) until an advisory API exists.
+ * Advisory portal.
+ *   Farmers: ask a question, book a soil test or request a video call (with
+ *   an instant AI first answer), then follow replies — readable aloud.
+ *   Approved experts (staff role EXPERT, granted in Admin → Approvals): a live
+ *   queue of every request, replies, and in-browser video calls.
+ *   Anyone else: apply to join as an agronomist.
+ * Requests and replies live in the shared database (advisory_requests /
+ * advisory_messages), so they reach the other side on any device.
  */
-import { useState, useSyncExternalStore } from 'react';
-import { BookOpen, CheckCircle2, Edit3, FlaskConical, ImagePlus, Lock, MessageCircle, Send, ShieldAlert, Stethoscope, Video } from 'lucide-react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { BookOpen, CheckCircle2, ClipboardList, FlaskConical, GraduationCap, Inbox, Loader2, MessageCircle, Send, ShieldAlert, Stethoscope, Video } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { VideoConsult } from '@/components/advisory/VideoConsult';
+import { AskForm } from '@/components/advisory/AskForm';
+import { RequestThread } from '@/components/advisory/RequestThread';
 import { PortalShell } from '@/components/layout/PortalShell';
-import { Badge, Btn, EmptyState, Field, INPUT, Modal, PORTAL_THEMES, Panel } from '@/components/portal/kit';
-import { localId, usePersistentState } from '@/lib/portal-store';
+import { Badge, Btn, EmptyState, Field, INPUT, PORTAL_THEMES, Panel } from '@/components/portal/kit';
+import { KIND_LABEL, listRequests, myRoleRequest, requestStaffRole, STATUS_LABEL, type AdvisoryRequest, type RequestKind, type RequestStatus } from '@/lib/db/advisory';
+import { ago, loadAccount, supabaseConfigured, type Account } from '@/lib/db/client';
 
 const theme = PORTAL_THEMES.expert;
 
@@ -26,367 +32,253 @@ interface Article {
   body: string[];
 }
 
-interface Query {
-  id: string;
-  crop: string;
-  question: string;
-  photo?: string;
-  answer?: string;
-  askedAt: number;
-}
-
-type KitStage = 'requested' | 'delivered' | 'sample-sent' | 'report';
-interface KitOrder {
-  id: string;
-  plot: string;
-  crop: string;
-  stage: KitStage;
-}
-
-const BUILT_IN: Article[] = [
-  {
-    id: 'A-1',
-    kind: 'protocol',
-    title: 'Apple scab (Venturia inaequalis)',
-    status: 'High alert · pre-bloom to petal fall',
-    body: [
-      'Silver tip to green tip: Dodine 65 WP (60 g/100 L) or Captan 50 WP (300 g/100 L).',
-      'Pink bud: Mancozeb 75 WP (300 g/100 L) or Propineb 70 WP (300 g/100 L).',
-      'Prune the canopy open for airflow to keep leaf wetness down.',
-    ],
-  },
-  {
-    id: 'A-2',
-    kind: 'protocol',
-    title: 'San José scale',
-    body: ['Horticultural mineral oil at 2% during delayed dormancy (late Feb / early March). Never spray in freezing temperatures.'],
-  },
-  {
-    id: 'A-3',
-    kind: 'protocol',
-    title: 'Walnut blight (Xanthomonas arboricola)',
-    body: ['Copper oxychloride 50 WP (300 g/100 L) at early leaf emergence and pre-bloom; repeat post-bloom after heavy spring rain.'],
-  },
-  {
-    id: 'A-4',
-    kind: 'sop',
-    title: 'High-density apple planting',
-    body: ['Rootstocks M9 or MM106. Pits 3×3×3 ft, rows 3 m apart, trees 1 m apart. Install drip and trellis before planting.'],
-  },
-  {
-    id: 'A-5',
-    kind: 'sop',
-    title: 'Saffron corm grading & soil prep',
-    body: ['Plant corms heavier than 8 g. Dip in Carbendazim 50 WP (2 g/L) for 30 minutes. Aim for soil pH 6.5–7.5 on well-drained upland soil.'],
-  },
-  {
-    id: 'A-6',
-    kind: 'sop',
-    title: 'NPK for bearing apple trees',
-    body: ['Soil-test first. Baseline for 10+ year trees: 700 g N, 350 g P₂O₅, 700 g K₂O per tree in split doses.'],
-  },
+const LIBRARY: Article[] = [
+  { id: 'A-1', kind: 'protocol', title: 'Apple scab (Venturia inaequalis)', status: 'High alert · pre-bloom to petal fall', body: ['Protect from green tip onwards, especially before forecast rain; a curative spray must follow an infection period within the time on the label.', 'Rotate fungicide groups (e.g. dodine, captan, mancozeb, difenoconazole) as advised by SKUAST-K / the horticulture department, and follow label doses.', 'Rake and destroy fallen leaves in autumn; prune for an open canopy so leaves dry fast.'] },
+  { id: 'A-2', kind: 'protocol', title: 'San José scale', body: ['Horticultural mineral oil at delayed dormancy (late February / early March) on a dry, frost-free day.', 'Scrape and destroy heavily infested twigs; check fruit for red-halo spots at harvest.'] },
+  { id: 'A-3', kind: 'protocol', title: 'Walnut blight (Xanthomonas arboricola)', body: ['Copper-based sprays at early leaf emergence and before bloom; repeat after heavy spring rain as per label.', 'Avoid wetting leaves and nuts when irrigating.'] },
+  { id: 'A-4', kind: 'sop', title: 'High-density apple planting', body: ['Rootstocks such as M9 or MM106; trellis and drip installed before planting.', 'Get a soil test first and correct pH and nutrients before the first season.'] },
+  { id: 'A-5', kind: 'sop', title: 'Saffron corm grading & soil prep', body: ['Plant healthy corms heavier than about 8 g on well-drained upland soil.', 'Remove soft or rotting corms; ask your agriculture officer about corm treatment before planting.'] },
+  { id: 'A-6', kind: 'sop', title: 'Taking a soil sample', body: ['Take 10–15 spots across the field in a zig-zag, 0–15 cm deep (0–30 cm for orchards, near the drip line).', 'Mix in a clean bucket, take about half a kilo, dry it in the shade and label it with your name, field and crop.'] },
 ];
 
-const CANNED: Record<string, string> = {
-  Apple: 'From your description this looks like early scab. Spray Captan 50 WP at 300 g/100 L now and again in 10 days, and remove fallen leaves. Send a close-up of the leaf underside if spots keep spreading.',
-  Walnut: 'Black lesions on young nuts after rain usually mean walnut blight. Use copper oxychloride 50 WP at 300 g/100 L and avoid overhead irrigation.',
-  Saffron: 'Yellowing with soft corms points to corm rot. Lift and discard affected corms, improve drainage, and treat healthy corms with Carbendazim before replanting.',
-  Cherry: 'Cracking after rain is common close to harvest. Keep soil moisture even and consider a calcium chloride spray (0.5%) from fruit colour change.',
-  Other: 'Thanks — an agronomist will follow up. Meanwhile, isolate affected plants and avoid spraying until the cause is confirmed.',
-};
+const STATUS_TONE = { open: 'amber', accepted: 'blue', answered: 'green', closed: 'slate' } as const;
+const KIND_ICON: Record<RequestKind, typeof MessageCircle> = { question: MessageCircle, soil_test: FlaskConical, video_call: Video };
 
-const KIT_STAGES: Record<KitStage, { label: string; tone: 'amber' | 'violet' | 'blue' | 'green'; next?: KitStage; action?: string }> = {
-  requested: { label: 'Kit dispatched', tone: 'amber', next: 'delivered', action: 'I received the kit' },
-  delivered: { label: 'Kit with you', tone: 'violet', next: 'sample-sent', action: 'I posted my sample' },
-  'sample-sent': { label: 'Sample at the lab', tone: 'blue', next: 'report', action: 'Check for report' },
-  report: { label: 'Report ready', tone: 'green' },
-};
-
-const NO_ARTICLES: Article[] = [];
-const NO_QUERIES: Query[] = [];
-const NO_KITS: KitOrder[] = [];
-const NO_APPLICATION: { status?: string } | null = null;
-
-const subscribeRole = (cb: () => void) => {
-  window.addEventListener('storage', cb);
-  return () => window.removeEventListener('storage', cb);
-};
-const readRole = () => localStorage.getItem('user_role');
-
-export default function ExpertDashboard() {
-  const role = useSyncExternalStore(subscribeRole, readRole, () => null);
-  const isExpert = role === 'EXPERT';
-  const [application] = usePersistentState<{ status?: string } | null>('expert_application', NO_APPLICATION);
-  const awaitingVerification = isExpert && application?.status === 'PENDING_VERIFICATION';
-
-  const [tab, setTab] = useState('library');
-  const [articles, setArticles] = usePersistentState<Article[]>('kr_expert_articles', NO_ARTICLES);
-  const [queries, setQueries] = usePersistentState<Query[]>('kr_expert_queries', NO_QUERIES);
-  const [kits, setKits] = usePersistentState<KitOrder[]>('kr_expert_kits', NO_KITS);
-
-  const [ask, setAsk] = useState({ crop: 'Apple', question: '', photo: '' });
-  const [publishOpen, setPublishOpen] = useState(false);
-  const [draft, setDraft] = useState({ kind: 'protocol' as Article['kind'], title: '', body: '' });
-  const [answering, setAnswering] = useState<Query | null>(null);
-  const [answerText, setAnswerText] = useState('');
-  const [kit, setKit] = useState({ plot: '', crop: 'Apple' });
-
-  const library = [...articles, ...BUILT_IN];
-  const open = queries.filter((q) => !q.answer);
-
-  const submitQuestion = () => {
-    if (ask.question.trim().length < 10) return toast.error('Describe the problem in a sentence or two.');
-    const q: Query = { id: localId('Q'), crop: ask.crop, question: ask.question.trim(), photo: ask.photo || undefined, askedAt: Date.now() };
-    setQueries((all) => [q, ...all]);
-    setAsk({ crop: ask.crop, question: '', photo: '' });
-    toast.success('Question sent to an agronomist');
-    if (!isExpert) {
-      setTimeout(() => {
-        setQueries((all) => all.map((x) => (x.id === q.id && !x.answer ? { ...x, answer: CANNED[q.crop] ?? CANNED.Other } : x)));
-        toast.success('An agronomist replied to your question');
-      }, 5000);
-    }
-  };
-
-  const publish = () => {
-    if (!draft.title.trim() || draft.body.trim().length < 20) return toast.error('Add a title and at least a couple of sentences.');
-    setArticles((all) => [{ id: localId('A'), kind: draft.kind, title: draft.title.trim(), body: draft.body.trim().split(/\n+/) }, ...all]);
-    setDraft({ kind: 'protocol', title: '', body: '' });
-    setPublishOpen(false);
-    toast.success('Advisory published to farmers');
-  };
-
-  const sendAnswer = () => {
-    if (!answering || answerText.trim().length < 10) return toast.error('Write a short answer first.');
-    setQueries((all) => all.map((x) => (x.id === answering.id ? { ...x, answer: answerText.trim() } : x)));
-    setAnswering(null);
-    setAnswerText('');
-    toast.success('Answer sent to the farmer');
-  };
-
-  const orderKit = () => {
-    if (!kit.plot.trim()) return toast.error('Name the plot so we can label your report.');
-    setKits((all) => [{ id: localId('KIT'), plot: kit.plot.trim(), crop: kit.crop, stage: 'requested' }, ...all]);
-    setKit({ plot: '', crop: kit.crop });
-    toast.success('Soil test kit on its way');
-  };
-
-  const articleList = (kind: Article['kind']) => (
-    <ul className="space-y-3">
-      {library.filter((a) => a.kind === kind).map((a) => (
-        <li key={a.id} className="rounded-2xl bg-white/70 p-4 ring-1 ring-slate-900/5">
-          <div className="flex flex-wrap items-center gap-2">
-            {kind === 'sop' && <BookOpen className="h-4 w-4 text-purple-700" aria-hidden />}
-            <h3 className="font-semibold text-slate-900">{a.title}</h3>
-            {a.status && <Badge tone="amber">{a.status}</Badge>}
-            {!BUILT_IN.includes(a) && <Badge tone="violet">New</Badge>}
-          </div>
-          {a.body.length > 1 ? (
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
-              {a.body.map((line) => <li key={line}>{line}</li>)}
-            </ul>
-          ) : (
-            <p className="mt-2 text-sm text-slate-700">{a.body[0]}</p>
-          )}
-        </li>
-      ))}
-    </ul>
+export default function AdvisoryPage() {
+  return (
+    <Suspense>
+      <Advisory />
+    </Suspense>
   );
+}
+
+function Advisory() {
+  const params = useSearchParams();
+  const [account, setAccount] = useState<Account | null | undefined>(undefined);
+  const [requests, setRequests] = useState<AdvisoryRequest[]>([]);
+  const [listError, setListError] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [tab, setTab] = useState<string | null>(null);
+  const [filter, setFilter] = useState<'open' | 'mine' | 'answered' | 'all'>('open');
+
+  useEffect(() => {
+    void loadAccount().then(setAccount);
+  }, []);
+
+  const isExpert = Boolean(account?.staff.some((r) => r === 'EXPERT' || r === 'ADMIN'));
+  const requestedTab = params.get('tab');
+  const askKind: RequestKind = requestedTab === 'video' ? 'video_call' : requestedTab === 'soil' ? 'soil_test' : 'question';
+  const activeTab = tab ?? (isExpert ? 'queue' : requestedTab === 'library' ? 'library' : 'ask');
+
+  const refresh = useCallback(async () => {
+    if (!account) return;
+    try {
+      setRequests(await listRequests(isExpert ? {} : { mine: account.id }));
+      setListError(null);
+    } catch (err) {
+      setListError(err instanceof Error ? err.message : 'Could not load requests.');
+    }
+  }, [account, isExpert]);
+
+  useEffect(() => {
+    let live = true;
+    const tick = async () => {
+      if (live) await refresh();
+    };
+    void tick();
+    const id = window.setInterval(() => void tick(), 20000);
+    return () => {
+      live = false;
+      window.clearInterval(id);
+    };
+  }, [refresh]);
+
+  const shown = useMemo(() => {
+    if (!isExpert) return requests;
+    if (filter === 'open') return requests.filter((r) => r.status === 'open' || (r.status === 'accepted' && r.expert_id === account?.id));
+    if (filter === 'mine') return requests.filter((r) => r.expert_id === account?.id);
+    if (filter === 'answered') return requests.filter((r) => r.status === 'answered');
+    return requests;
+  }, [account?.id, filter, isExpert, requests]);
+
+  const openCount = requests.filter((r) => r.status === 'open').length;
+  const calls = requests.filter((r) => r.kind === 'video_call' && r.status !== 'closed').length;
+  const answered = requests.filter((r) => r.status === 'answered' || r.status === 'closed').length;
+
+  if (account === undefined) {
+    return <p className="flex items-center gap-2 p-10 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>;
+  }
+
+  const tabs = isExpert
+    ? [
+        { id: 'queue', label: 'Requests', icon: Inbox, count: openCount },
+        { id: 'library', label: 'Library', icon: BookOpen },
+      ]
+    : [
+        { id: 'ask', label: 'Ask an expert', icon: Stethoscope },
+        { id: 'mine', label: 'My requests', icon: ClipboardList, count: requests.filter((r) => r.status === 'answered' || r.status === 'accepted').length || undefined },
+        { id: 'library', label: 'Library', icon: BookOpen },
+      ];
 
   return (
     <PortalShell
-      title="Advisory & knowledge hub"
-      description="Disease protocols, orchard SOPs and direct answers from agronomists — plus soil testing at your door."
+      title="Advisory & experts"
+      description={isExpert ? 'Farmers’ questions, soil-test requests and video calls — answer them here.' : 'Ask an agronomist, book a soil test or talk on video. Answers can be read aloud in your language.'}
       eyebrow={isExpert ? 'Expert desk' : 'Advisory'}
       theme="expert"
-      kpis={[
-        { label: 'Protocols & SOPs', value: String(library.length), trend: `${articles.length} published here` },
-        { label: isExpert ? 'Open queries' : 'Your questions', value: String(isExpert ? open.length : queries.length), trend: `${queries.filter((q) => q.answer).length} answered` },
-        { label: 'Soil tests', value: String(kits.length), trend: `${kits.filter((k) => k.stage === 'report').length} reports ready` },
-      ]}
-      tabs={[
-        { id: 'library', label: 'Library', icon: BookOpen },
-        { id: 'ask', label: isExpert ? 'Answer queue' : 'Ask an agronomist', icon: MessageCircle, count: isExpert ? open.length : undefined },
-        { id: 'video', label: 'Video call', icon: Video },
-        { id: 'soil', label: 'Soil test', icon: FlaskConical },
-      ]}
-      activeTab={tab}
-      onTabChange={setTab}
-      actions={
-        isExpert ? (
-          <Btn theme={theme} variant="white" icon={awaitingVerification ? Lock : Edit3} disabled={awaitingVerification} onClick={() => setPublishOpen(true)}>Publish advisory</Btn>
-        ) : (
-          <Btn theme={theme} variant="white" icon={MessageCircle} onClick={() => setTab('ask')}>Ask an agronomist</Btn>
-        )
+      kpis={
+        isExpert
+          ? [
+              { label: 'Waiting for an expert', value: String(openCount), trend: 'All farmers' },
+              { label: 'Video calls', value: String(calls), trend: 'Not closed' },
+              { label: 'Answered', value: String(answered), trend: 'Answered or solved' },
+            ]
+          : [
+              { label: 'Your requests', value: String(requests.length), trend: `${openCount} waiting` },
+              { label: 'Answered', value: String(answered), trend: 'By experts' },
+              { label: 'Video calls', value: String(calls), trend: 'Requested' },
+            ]
       }
+      tabs={tabs}
+      activeTab={activeTab}
+      onTabChange={(id) => {
+        setTab(id);
+        setOpenId(null);
+      }}
     >
-      {awaitingVerification && (
-        <p className="mb-6 flex items-start gap-2 rounded-2xl bg-amber-50 p-4 text-sm text-amber-900 ring-1 ring-amber-200">
-          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-          Your credentials are being verified by the platform admin. Publishing and answering unlock once you are approved.
-        </p>
-      )}
-
-      {tab === 'library' && (
+      {!supabaseConfigured || account === null ? (
+        <Panel theme={theme}>
+          <EmptyState theme={theme} icon={ShieldAlert} title="Please sign in again" text="Your session has ended. Sign in to the Advisory portal to continue." />
+        </Panel>
+      ) : openId ? (
+        <RequestThread requestId={openId} account={account} asExpert={isExpert} onBack={() => { setOpenId(null); void refresh(); }} />
+      ) : activeTab === 'ask' ? (
+        <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+          <Panel theme={theme} title="Ask an expert" icon={Stethoscope}>
+            <AskForm key={askKind} account={account} initialKind={askKind} onSent={(r) => { setRequests((all) => [r, ...all]); setOpenId(r.id); }} />
+          </Panel>
+          <Panel theme={theme} title="How it works" icon={CheckCircle2}>
+            <ol className="space-y-3 text-sm text-slate-700">
+              <li><strong className="text-slate-900">1.</strong> Tell us the problem — type it or tap <em>Speak</em>, and add a photo.</li>
+              <li><strong className="text-slate-900">2.</strong> You get an instant first suggestion from KashRoot AI, which you can listen to.</li>
+              <li><strong className="text-slate-900">3.</strong> An agronomist checks and replies. Soil tests and video calls are accepted by an expert, who may also phone you.</li>
+              <li><strong className="text-slate-900">4.</strong> Find every answer under <em>My requests</em>, on any phone you sign in on.</li>
+            </ol>
+          </Panel>
+        </div>
+      ) : activeTab === 'library' ? (
         <div className="grid gap-6 lg:grid-cols-2">
-          <Panel theme={theme} title="Disease management protocols" icon={ShieldAlert}>
-            {articleList('protocol')}
+          <Panel theme={theme} title="Disease management" icon={ShieldAlert}>
+            <ArticleList kind="protocol" />
           </Panel>
-          <Panel theme={theme} title="Best practices & SOPs" icon={CheckCircle2}>
-            {articleList('sop')}
+          <Panel theme={theme} title="Good practice" icon={CheckCircle2}>
+            <ArticleList kind="sop" />
           </Panel>
+          {!isExpert && <ExpertApply account={account} />}
         </div>
-      )}
-
-      {tab === 'ask' && (
-        <div className="grid gap-6 lg:grid-cols-[1fr_1.3fr]">
-          <Panel theme={theme} title={isExpert ? 'Post a question for the network' : 'Describe the problem'} icon={Stethoscope}>
-            <form className="grid gap-4" onSubmit={(e) => { e.preventDefault(); submitQuestion(); }}>
-              <Field label="Crop">
-                <select className={INPUT} value={ask.crop} onChange={(e) => setAsk({ ...ask, crop: e.target.value })}>
-                  {Object.keys(CANNED).map((c) => <option key={c}>{c}</option>)}
-                </select>
-              </Field>
-              <Field label="What are you seeing?">
-                <textarea rows={4} className={INPUT} value={ask.question} onChange={(e) => setAsk({ ...ask, question: e.target.value })} placeholder="e.g. Olive-green spots on leaves after last week's rain" />
-              </Field>
-              <Field label="Photo (optional)" hint={ask.photo ? `Attached: ${ask.photo}` : 'A close-up helps the diagnosis.'}>
-                <span className="flex items-center gap-2">
-                  <ImagePlus className="h-4 w-4 text-purple-700" aria-hidden />
-                  <input type="file" accept="image/*" className="text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-purple-50 file:px-3 file:py-1.5 file:text-purple-800" onChange={(e) => setAsk({ ...ask, photo: e.target.files?.[0]?.name ?? '' })} />
-                </span>
-              </Field>
-              <Btn theme={theme} type="submit" icon={Send}>Send question</Btn>
-            </form>
-          </Panel>
-          <Panel theme={theme} title={isExpert ? 'Answer queue' : 'Your questions'} icon={MessageCircle}>
-            {queries.length === 0 ? (
-              <EmptyState theme={theme} icon={MessageCircle} title="No questions yet" text={isExpert ? 'Farmer questions land here.' : 'Ask about a pest, disease or nutrient problem — replies usually come in minutes.'} />
-            ) : (
-              <ul className="space-y-3">
-                {queries.map((q) => (
-                  <li key={q.id} className="rounded-2xl bg-white/70 p-4 ring-1 ring-slate-900/5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge tone="violet">{q.crop}</Badge>
-                      {q.answer ? <Badge tone="green">Answered</Badge> : <Badge tone="amber">Waiting for agronomist</Badge>}
-                      {q.photo && <span className="text-xs text-slate-500">📎 {q.photo}</span>}
-                    </div>
-                    <p className="mt-2 text-sm text-slate-800">{q.question}</p>
-                    {q.answer && <p className="mt-3 rounded-xl bg-purple-50 p-3 text-sm text-purple-950">{q.answer}</p>}
-                    {isExpert && !q.answer && (
-                      <Btn theme={theme} size="sm" className="mt-3" icon={awaitingVerification ? Lock : Send} disabled={awaitingVerification} onClick={() => { setAnswering(q); setAnswerText(''); }}>Answer</Btn>
-                    )}
+      ) : (
+        <Panel theme={theme} title={isExpert ? 'Requests from farmers' : 'My requests'} icon={Inbox}>
+          {isExpert && (
+            <div role="group" aria-label="Show" className="mb-4 flex flex-wrap gap-2">
+              {([['open', 'Waiting'], ['mine', 'Accepted by me'], ['answered', 'Answered'], ['all', 'All']] as const).map(([id, label]) => (
+                <button key={id} type="button" aria-pressed={filter === id} onClick={() => setFilter(id)} className={`cursor-pointer rounded-full px-3.5 py-1.5 text-sm font-semibold ${filter === id ? theme.solid : 'bg-white text-slate-700 ring-1 ring-slate-200'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          {listError ? (
+            <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800">{listError}</p>
+          ) : shown.length === 0 ? (
+            <EmptyState theme={theme} icon={Inbox} title={isExpert ? 'Nothing waiting' : 'No requests yet'} text={isExpert ? 'New questions, soil tests and video calls from farmers appear here by themselves.' : 'Ask a question, book a soil test or request a video call.'} />
+          ) : (
+            <ul className="space-y-3">
+              {shown.map((r) => {
+                const Icon = KIND_ICON[r.kind];
+                return (
+                  <li key={r.id}>
+                    <button type="button" onClick={() => setOpenId(r.id)} className="flex w-full cursor-pointer items-start gap-3 rounded-2xl bg-white/80 p-4 text-left ring-1 ring-slate-900/5 transition hover:-translate-y-0.5 hover:shadow-md">
+                      <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${theme.tile}`}><Icon className="h-5 w-5" aria-hidden /></span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span className="font-semibold text-slate-900">{KIND_LABEL[r.kind]}{r.crop ? ` · ${r.crop}` : ''}</span>
+                          <Badge tone={STATUS_TONE[r.status as RequestStatus]}>{STATUS_LABEL[r.status as RequestStatus]}</Badge>
+                        </span>
+                        <span className="mt-1 line-clamp-2 block text-sm text-slate-700">{r.message}</span>
+                        <span className="mt-1 block text-xs text-slate-500">{isExpert ? `${r.farmer_name}${r.district ? ` · ${r.district}` : ''} · ` : ''}{ago(r.updated_at)}</span>
+                      </span>
+                    </button>
                   </li>
-                ))}
-              </ul>
-            )}
-          </Panel>
-        </div>
+                );
+              })}
+            </ul>
+          )}
+        </Panel>
       )}
-
-      {tab === 'video' && <VideoConsult isExpert={isExpert} />}
-
-      {tab === 'soil' && (
-        <div className="grid gap-6 lg:grid-cols-[1fr_1.3fr]">
-          <Panel theme={theme} title="Order a soil test kit" icon={FlaskConical}>
-            <p className="mb-4 text-sm text-slate-600">NPK, pH, organic carbon and micronutrients. The report comes with a fertiliser plan for your crop.</p>
-            <form className="grid gap-4" onSubmit={(e) => { e.preventDefault(); orderKit(); }}>
-              <Field label="Plot name">
-                <input className={INPUT} value={kit.plot} onChange={(e) => setKit({ ...kit, plot: e.target.value })} placeholder="e.g. Upper terrace block" />
-              </Field>
-              <Field label="Crop">
-                <select className={INPUT} value={kit.crop} onChange={(e) => setKit({ ...kit, crop: e.target.value })}>
-                  {['Apple', 'Walnut', 'Saffron', 'Cherry', 'Almond', 'Vegetables'].map((c) => <option key={c}>{c}</option>)}
-                </select>
-              </Field>
-              <Btn theme={theme} type="submit" icon={FlaskConical}>Request soil test kit</Btn>
-            </form>
-          </Panel>
-          <Panel theme={theme} title="Your soil tests" icon={CheckCircle2}>
-            {kits.length === 0 ? (
-              <EmptyState theme={theme} icon={FlaskConical} title="No tests yet" text="Order a kit to get a fertiliser plan for your plot." />
-            ) : (
-              <ul className="space-y-3">
-                {kits.map((k) => {
-                  const st = KIT_STAGES[k.stage];
-                  return (
-                    <li key={k.id} className="rounded-2xl bg-white/70 p-4 ring-1 ring-slate-900/5">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div>
-                          <p className="text-xs text-slate-500">{k.id} · {k.crop}</p>
-                          <p className="font-semibold text-slate-900">{k.plot}</p>
-                        </div>
-                        <Badge tone={st.tone}>{st.label}</Badge>
-                      </div>
-                      {k.stage === 'report' ? (
-                        <dl className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-                          {[['pH', '6.8'], ['Nitrogen', 'Medium'], ['Phosphorus', 'Low'], ['Potassium', 'High']].map(([l, v]) => (
-                            <div key={l} className="rounded-xl bg-purple-50 p-2 text-center"><dt className="text-xs text-purple-700">{l}</dt><dd className="font-semibold text-purple-950">{v}</dd></div>
-                          ))}
-                          <p className="col-span-full text-xs text-slate-600">Plan: add 350 g P₂O₅ per bearing tree before flowering; hold back potash this season.</p>
-                        </dl>
-                      ) : (
-                        <Btn theme={theme} size="sm" variant="soft" className="mt-3" onClick={() => { setKits((all) => all.map((x) => (x.id === k.id ? { ...x, stage: st.next! } : x))); toast.success(KIT_STAGES[st.next!].label); }}>
-                          {st.action}
-                        </Btn>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </Panel>
-        </div>
-      )}
-
-      <Modal
-        open={publishOpen}
-        onClose={() => setPublishOpen(false)}
-        title="Publish an advisory"
-        wide
-        footer={
-          <>
-            <Btn theme={theme} variant="ghost" onClick={() => setPublishOpen(false)}>Cancel</Btn>
-            <Btn theme={theme} icon={Edit3} onClick={publish}>Publish</Btn>
-          </>
-        }
-      >
-        <div className="grid gap-4">
-          <Field label="Type">
-            <select className={INPUT} value={draft.kind} onChange={(e) => setDraft({ ...draft, kind: e.target.value as Article['kind'] })}>
-              <option value="protocol">Disease protocol</option>
-              <option value="sop">Best practice / SOP</option>
-            </select>
-          </Field>
-          <Field label="Title">
-            <input className={INPUT} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="e.g. Powdery mildew in nurseries" />
-          </Field>
-          <Field label="Guidance" hint="One step per line.">
-            <textarea rows={5} className={INPUT} value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} />
-          </Field>
-        </div>
-      </Modal>
-
-      <Modal
-        open={answering !== null}
-        onClose={() => setAnswering(null)}
-        title="Answer farmer query"
-        footer={
-          <>
-            <Btn theme={theme} variant="ghost" onClick={() => setAnswering(null)}>Cancel</Btn>
-            <Btn theme={theme} icon={Send} onClick={sendAnswer}>Send answer</Btn>
-          </>
-        }
-      >
-        {answering && (
-          <div className="grid gap-4">
-            <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700"><strong>{answering.crop}:</strong> {answering.question}</p>
-            <Field label="Your answer">
-              <textarea rows={5} className={INPUT} value={answerText} onChange={(e) => setAnswerText(e.target.value)} />
-            </Field>
-          </div>
-        )}
-      </Modal>
     </PortalShell>
+  );
+}
+
+function ArticleList({ kind }: { kind: Article['kind'] }) {
+  return (
+    <ul className="space-y-3">
+      {LIBRARY.filter((a) => a.kind === kind).map((a) => (
+        <li key={a.id} className="rounded-2xl bg-white/70 p-4 ring-1 ring-slate-900/5">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-semibold text-slate-900">{a.title}</h3>
+            {a.status && <Badge tone="amber">{a.status}</Badge>}
+          </div>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
+            {a.body.map((line) => <li key={line}>{line}</li>)}
+          </ul>
+        </li>
+      ))}
+      <li className="text-xs text-slate-500">General guidance — always follow the product label and your local horticulture department.</li>
+    </ul>
+  );
+}
+
+function ExpertApply({ account }: { account: Account }) {
+  const [status, setStatus] = useState<string | null | undefined>(undefined);
+  const [form, setForm] = useState({ phone: account.phone, details: '' });
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void myRoleRequest('EXPERT', account.id).then((r) => setStatus(r?.status ?? null)).catch(() => setStatus(null));
+  }, [account.id]);
+
+  const apply = async () => {
+    if (form.details.trim().length < 10) return toast.error('Tell us your qualification and where you work.');
+    setBusy(true);
+    try {
+      await requestStaffRole('EXPERT', { name: account.name, phone: form.phone, email: account.email, details: form.details.trim() });
+      setStatus('pending');
+      toast.success('Application sent — the KashRoot admin will review it');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not send.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Panel theme={theme} title="Are you an agronomist?" icon={GraduationCap} className="lg:col-span-2">
+      {status === 'pending' ? (
+        <p className="text-sm text-slate-700">Your application is with the KashRoot admin. Once approved, this portal shows the farmers’ request queue.</p>
+      ) : status === 'rejected' ? (
+        <p className="text-sm text-slate-700">Your last application was not approved. Contact KashRoot support, or apply again with more details below.</p>
+      ) : null}
+      {status !== 'pending' && status !== undefined && (
+        <form className="grid gap-4 sm:grid-cols-[1fr_2fr_auto] sm:items-end" onSubmit={(e) => { e.preventDefault(); void apply(); }}>
+          <Field label="Mobile">
+            <input className={INPUT} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          </Field>
+          <Field label="Qualification and where you work">
+            <input className={INPUT} value={form.details} onChange={(e) => setForm({ ...form, details: e.target.value })} placeholder="e.g. MSc Horticulture, SKUAST-K; Horticulture Development Officer, Shopian" />
+          </Field>
+          <Btn theme={theme} type="submit" icon={Send} disabled={busy}>Apply</Btn>
+        </form>
+      )}
+    </Panel>
   );
 }

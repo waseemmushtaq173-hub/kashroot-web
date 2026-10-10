@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { ApprovalsPanel } from '@/components/admin/ApprovalsPanel';
 import { PortalShell } from '@/components/layout/PortalShell';
 import { Badge, Btn, EmptyState, Field, INPUT, Modal, PORTAL_THEMES, Panel, inr } from '@/components/portal/kit';
 import { analyticsApi, disputesApi, kycApi, type AnalyticsSummary, type Dispute, type KycSubmission } from '@/lib/api/admin';
@@ -80,18 +81,6 @@ const DEMO_REGIONS = [
   { id: 'lake', name: 'Lakeside' },
   { id: 'river', name: 'Riverside' },
 ];
-
-interface ExpertApplication {
-  fullName?: string;
-  email?: string;
-  degree?: string;
-  institution?: string;
-  license?: string;
-  specialization?: string;
-  experience?: string;
-  status?: string;
-}
-const NO_APPLICATION: ExpertApplication | null = null;
 
 function demoSummary(regionId: string, start: string, end: string): AnalyticsSummary {
   const days = Math.max(1, Math.round((Date.parse(end) - Date.parse(start)) / 864e5) + 1);
@@ -255,45 +244,6 @@ function KycPanel() {
 }
 
 // ─── Expert credentials ───
-
-function ExpertPanel() {
-  const [app, setApp] = usePersistentState<ExpertApplication | null>('expert_application', NO_APPLICATION);
-  const pending = app?.status === 'PENDING_VERIFICATION';
-
-  return (
-    <Panel theme={theme} title="Expert credential verification" icon={GraduationCap}>
-      {!pending || !app ? (
-        <EmptyState
-          theme={theme}
-          icon={ShieldCheck}
-          title="No applications waiting"
-          text="Agronomists who register through the expert sign-up appear here for review."
-          action={<Btn theme={theme} variant="soft" href="/register/agronomist">Open expert sign-up</Btn>}
-        />
-      ) : (
-        <div className="flex flex-col gap-4 rounded-2xl bg-white/70 p-4 ring-1 ring-slate-900/5 lg:flex-row lg:items-start lg:justify-between">
-          <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
-            <div className="sm:col-span-2 flex items-center gap-2"><dt className="sr-only">Name</dt><dd className="font-semibold text-slate-900">{app.fullName ?? 'Unnamed applicant'}</dd><Badge tone="amber">pending</Badge></div>
-            {([
-              ['Email', app.email],
-              ['Degree', app.degree],
-              ['Institution', app.institution],
-              ['Licence no.', app.license],
-              ['Specialisation', app.specialization],
-              ['Experience', app.experience ? `${app.experience} years` : undefined],
-            ] as const).map(([k, v]) => (
-              <div key={k} className="flex gap-2"><dt className="text-slate-500">{k}:</dt><dd className="text-slate-800">{v || '—'}</dd></div>
-            ))}
-          </dl>
-          <div className="flex gap-2">
-            <Btn theme={theme} size="sm" icon={Check} onClick={() => { setApp({ ...app, status: 'VERIFIED_EXPERT' }); toast.success('Expert verified — they can now publish advisories'); }}>Approve</Btn>
-            <Btn theme={theme} size="sm" variant="danger" icon={X} onClick={() => { setApp(null); toast.success('Application rejected'); }}>Reject</Btn>
-          </div>
-        </div>
-      )}
-    </Panel>
-  );
-}
 
 // ─── Disputes ───
 
@@ -510,7 +460,7 @@ export default function AdminConsolePage() {
       ]}
       tabs={[
         { id: 'kyc', label: 'KYC queue', icon: Users, count: kycCount },
-        { id: 'expert', label: 'Expert KYC', icon: GraduationCap },
+        { id: 'expert', label: 'Approvals', icon: GraduationCap },
         { id: 'disputes', label: 'Disputes', icon: Gavel, count: openDisputes },
         { id: 'analytics', label: 'Analytics', icon: BarChart3 },
       ]}
@@ -518,7 +468,7 @@ export default function AdminConsolePage() {
       onTabChange={setTab}
     >
       {tab === 'kyc' && <KycPanel />}
-      {tab === 'expert' && <ExpertPanel />}
+      {tab === 'expert' && <ApprovalsPanel />}
       {tab === 'disputes' && <DisputesPanel adminRole={adminRole} />}
       {tab === 'analytics' && <AnalyticsPanel adminRole={adminRole} />}
     </PortalShell>
