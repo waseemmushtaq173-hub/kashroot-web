@@ -13,6 +13,7 @@
  *
  * A server component; the interactive sections are client islands.
  */
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 
@@ -27,7 +28,17 @@ import { VoiceConcierge } from '@/components/voice/VoiceConcierge';
 import { SiteFooter, SiteHeader } from '@/components/layout/SiteHeader';
 import { loginHref } from '@/lib/auth/roles';
 import { seasonForDate } from '@/lib/seasons';
+import { SITE_URL } from '@/lib/site';
 import { GLASS, TOOL_ORDER, TOOLS, type ToolId } from '@/lib/tools';
+
+// Only the home page is canonical to "/"; other pages keep their own address.
+export const metadata: Metadata = { alternates: { canonical: '/' } };
+
+/** Tells search engines the site's name and logo, so a search for "KashRoot" shows it by name. */
+const BRAND_JSON_LD = JSON.stringify([
+  { '@context': 'https://schema.org', '@type': 'WebSite', name: 'KashRoot', alternateName: ['Kash Root', 'kashroot'], url: `${SITE_URL}/` },
+  { '@context': 'https://schema.org', '@type': 'Organization', name: 'KashRoot', url: `${SITE_URL}/`, logo: `${SITE_URL}/icons/icon-512.png` },
+]);
 
 // Re-render hourly so the hero opens on the current season, not the build's.
 export const revalidate = 3600;
@@ -60,6 +71,7 @@ const BUTTON_LINK = 'no-underline hover:no-underline';
 export default function HomePage() {
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: BRAND_JSON_LD }} />
       <HeroShowcase initialSeason={seasonForDate(new Date())}>
         <SiteHeader tone="light" showRoleSignIn />
 

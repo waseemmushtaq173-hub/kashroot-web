@@ -23,7 +23,7 @@ export const dynamicParams = false;
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { portal } = await params;
-  return { title: isPortalId(portal) ? `Create a ${PORTALS[portal].label} account | KashRoot` : 'Create an account | KashRoot' };
+  return { title: isPortalId(portal) ? `Create a ${PORTALS[portal].label} account` : 'Create an account' };
 }
 
 export default async function PortalRegisterPage({ params }: Props) {

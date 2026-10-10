@@ -23,7 +23,7 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: LoginPageProps): Promise<Metadata> {
   const { role } = await params;
-  return { title: isPortalId(role) ? `${PORTALS[role].label} sign in | KashRoot` : 'Sign in | KashRoot' };
+  return { title: isPortalId(role) ? `${PORTALS[role].label} sign in` : 'Sign in' };
 }
 
 function first(value: string | string[] | undefined): string | undefined {

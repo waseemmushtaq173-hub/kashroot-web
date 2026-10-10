@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 import { InfoPage } from '@/components/layout/InfoPage';
 
-export const metadata: Metadata = { title: 'Terms & Conditions — KashRoot' };
+export const metadata: Metadata = { title: 'Terms & Conditions' };
 
 export default function TermsPage() {
   return (

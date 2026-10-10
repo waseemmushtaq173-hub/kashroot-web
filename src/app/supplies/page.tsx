@@ -3,7 +3,7 @@ import { SiteFooter, SiteHeader } from '@/components/layout/SiteHeader';
 import { SuppliesBrowser } from '@/components/supplies/SuppliesBrowser';
 
 export const metadata: Metadata = {
-  title: 'Horticulture & agriculture supplies — KashRoot',
+  title: 'Horticulture & agriculture supplies',
   description:
     'Compare packaging, machinery and input prices across suppliers for valley horticulture. See every offer for the same item side by side.',
 };

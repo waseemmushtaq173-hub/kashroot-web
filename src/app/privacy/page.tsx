@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 import { InfoPage } from '@/components/layout/InfoPage';
 
-export const metadata: Metadata = { title: 'Privacy Policy — KashRoot' };
+export const metadata: Metadata = { title: 'Privacy Policy' };
 
 export default function PrivacyPage() {
   return (

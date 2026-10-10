@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 import { InfoPage } from '@/components/layout/InfoPage';
 
-export const metadata: Metadata = { title: 'Support — KashRoot' };
+export const metadata: Metadata = { title: 'Support' };
 
 export default function SupportPage() {
   return (

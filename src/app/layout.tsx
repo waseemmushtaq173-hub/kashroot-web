@@ -17,7 +17,6 @@ export const metadata: Metadata = {
   description: DESCRIPTION,
   applicationName: "KashRoot",
   keywords: ["mandi rates", "apple price today", "Agmarknet", "orchard", "escrow", "farmers", "horticulture", "Shopian", "Sopore", "walnut", "saffron", "weather for farmers"],
-  alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     siteName: "KashRoot",
