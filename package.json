@@ -10,6 +10,7 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
     "@capacitor/android": "^8.5.2",
     "@capacitor/core": "^8.5.2",
     "@prisma/client": "^5.22.0",

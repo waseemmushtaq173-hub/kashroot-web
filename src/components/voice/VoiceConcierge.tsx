@@ -6,10 +6,12 @@
  * Speech API); answers come from /api/ai, which reads live mandi and weather
  * data for prices and forecasts.
  *
- * Support: recognition works in Chrome/Edge/Safari (not Firefox) and needs
- * HTTPS + internet; the typed box works everywhere. Spoken replies need a
- * voice for the language installed on the device — Hindi is common, Urdu is
- * not; when missing, the reply is shown as text and the user is told why.
+ * Support: recognition works in Chrome/Edge/Safari (not Firefox; Brave
+ * blocks it) and needs HTTPS + internet; the typed box works everywhere.
+ * Replies are spoken with the most natural voice the device has for the
+ * language. Urdu voices are rare, so when only a Hindi voice exists the
+ * assistant also returns the Urdu answer in Devanagari and the Hindi voice
+ * reads it — the words and pronunciation are the same.
  */
 import { useEffect, useRef, useState } from 'react';
 import { Loader2, Mic, MicOff, Send, Sparkles, Square, Volume2 } from 'lucide-react';
@@ -31,6 +33,31 @@ interface Turn {
   role: 'user' | 'assistant';
   text: string;
   lang: Lang;
+  /** Urdu answer in Devanagari, for a Hindi voice. */
+  speech?: string;
+}
+
+const NATURAL = /natural|neural|online|google|premium|enhanced|siri/i;
+
+/** The most natural installed voice for a language, if any. */
+function bestVoice(voices: SpeechSynthesisVoice[], code: string): SpeechSynthesisVoice | undefined {
+  const prefix = code.slice(0, 2).toLowerCase();
+  const matching = voices.filter((v) => v.lang.toLowerCase().replace('_', '-').startsWith(prefix));
+  const exact = matching.filter((v) => v.lang.toLowerCase().replace('_', '-') === code.toLowerCase());
+  return exact.find((v) => NATURAL.test(v.name)) ?? matching.find((v) => NATURAL.test(v.name)) ?? exact[0] ?? matching[0];
+}
+
+/** Voices load asynchronously in Chrome; wait briefly for them. */
+function loadVoices(): Promise<SpeechSynthesisVoice[]> {
+  const synth = typeof window !== 'undefined' ? window.speechSynthesis : undefined;
+  if (!synth) return Promise.resolve([]);
+  const now = synth.getVoices();
+  if (now.length) return Promise.resolve(now);
+  return new Promise((resolve) => {
+    const done = () => resolve(synth.getVoices());
+    synth.addEventListener('voiceschanged', done, { once: true });
+    setTimeout(done, 1200);
+  });
 }
 
 /* Minimal typing for the prefixed Web Speech recognition API. */
@@ -85,18 +112,28 @@ export function VoiceConcierge() {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
   }, [turns, thinking]);
 
-  const speak = (text: string, l: Lang) => {
+  const speak = async (turn: Pick<Turn, 'text' | 'lang' | 'speech'>) => {
     const synth = window.speechSynthesis;
     if (!synth) {
       setNotice('This browser cannot speak replies aloud.');
       return;
     }
     synth.cancel();
-    const code = LANGS.find((x) => x.id === l)!.speech;
-    const voices = synth.getVoices();
-    const voice = voices.find((v) => v.lang === code) ?? voices.find((v) => v.lang.toLowerCase().startsWith(l));
-    if (!voice && l !== 'en') {
-      setNotice(`No ${l === 'hi' ? 'Hindi' : 'Urdu'} voice is installed on this device, so the reply is shown as text. Adding the language in your phone’s text-to-speech settings enables spoken replies.`);
+    const voices = await loadVoices();
+    let code = LANGS.find((x) => x.id === turn.lang)!.speech;
+    let text = turn.text;
+    let voice = bestVoice(voices, code);
+    // No Urdu voice: read the Devanagari copy with a Hindi voice.
+    if (!voice && turn.lang === 'ur' && turn.speech) {
+      const hindi = bestVoice(voices, 'hi-IN');
+      if (hindi) {
+        voice = hindi;
+        code = 'hi-IN';
+        text = turn.speech;
+      }
+    }
+    if (!voice && turn.lang !== 'en') {
+      setNotice(`No ${turn.lang === 'hi' ? 'Hindi' : 'Urdu or Hindi'} voice is installed on this device, so the reply is shown as text. Add Hindi in your phone’s or computer’s text-to-speech settings (Google Text-to-speech on Android, Speech settings on Windows) to hear replies.`);
       return;
     }
     const parts = chunks(text);
@@ -114,6 +151,13 @@ export function VoiceConcierge() {
     });
   };
 
+  /** Urdu without an Urdu voice but with a Hindi one: ask for a Devanagari copy too. */
+  const needsDevanagari = async (l: Lang) => {
+    if (l !== 'ur') return false;
+    const voices = await loadVoices();
+    return !bestVoice(voices, 'ur-IN') && Boolean(bestVoice(voices, 'hi-IN'));
+  };
+
   const ask = async (text: string, l: Lang) => {
     const question = text.trim();
     if (!question || thinking) return;
@@ -123,15 +167,16 @@ export function VoiceConcierge() {
     setDraft('');
     setThinking(true);
     try {
+      const speakAs = (await needsDevanagari(l)) ? 'hi' : undefined;
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: question, lang: l, history }),
+        body: JSON.stringify({ query: question, lang: l, history, speakAs }),
       });
-      const data = (await res.json()) as { reply?: string; error?: string };
-      const reply = data.reply ?? data.error ?? 'Sorry, something went wrong.';
-      setTurns((all) => [...all, { role: 'assistant', text: reply, lang: l }]);
-      if (data.reply) speak(reply, l);
+      const data = (await res.json()) as { reply?: string; error?: string; speech?: string };
+      const turn: Turn = { role: 'assistant', text: data.reply ?? data.error ?? 'Sorry, something went wrong.', lang: l, speech: data.speech };
+      setTurns((all) => [...all, turn]);
+      if (data.reply) void speak(turn);
     } catch {
       setTurns((all) => [...all, { role: 'assistant', text: 'I could not reach the assistant. Check your internet connection.', lang: l }]);
     } finally {
@@ -171,7 +216,8 @@ export function VoiceConcierge() {
         'not-allowed': 'Microphone permission was blocked. Allow the microphone for this site and try again.',
         'no-speech': 'I did not hear anything. Tap the mic and speak.',
         'language-not-supported': 'This browser cannot listen in that language yet — please type instead.',
-        network: 'Voice recognition needs an internet connection.',
+        network: 'Voice input could not connect. Some browsers, such as Brave, block it — use Chrome or Edge, or type your question.',
+        'service-not-allowed': 'This browser does not allow voice input (Brave blocks it). Use Chrome or Edge, or type your question.',
       };
       setNotice(msg[e.error] ?? 'Voice input stopped. Please try again.');
     };
@@ -262,7 +308,7 @@ export function VoiceConcierge() {
                 >
                   {t.text}
                   {t.role === 'assistant' && (
-                    <button type="button" aria-label="Play this answer" onClick={() => speak(t.text, t.lang)} className="ms-2 inline-flex cursor-pointer align-middle text-slate-400 hover:text-orange-600">
+                    <button type="button" aria-label="Play this answer" onClick={() => void speak(t)} className="ms-2 inline-flex cursor-pointer align-middle text-slate-400 hover:text-orange-600">
                       <Volume2 className="h-4 w-4" />
                     </button>
                   )}
