@@ -1,7 +1,7 @@
 /**
  * GET /api/mandi?state=&district=&market=&commodity=&limit=
- * Live Agmarknet prices (Rs/quintal) via data.gov.in. Never fabricates: an
- * empty board is returned as an empty list.
+ * Live Agmarknet prices (Rs/quintal) from agmarknet.gov.in, with data.gov.in
+ * as the backup. Never fabricates: an empty board is returned as an empty list.
  */
 import { NextResponse } from 'next/server';
 
@@ -11,10 +11,10 @@ import { fetchMandiPrices, MandiError } from '@/lib/server/mandi';
 export const maxDuration = 60;
 
 const WHY: Record<MandiError['kind'], string> = {
-  timeout: 'The government mandi price service (data.gov.in) is very slow right now and did not answer in time. Try again in a minute.',
-  network: 'Could not connect to the government mandi price service (data.gov.in). Try again in a minute.',
+  timeout: 'The government mandi price services (Agmarknet and data.gov.in) are very slow right now and did not answer in time. Try again in a minute.',
+  network: 'Could not connect to the government mandi price services (Agmarknet and data.gov.in). Try again in a minute.',
   key: 'The government data service refused this site’s API key. The site owner needs to check DATA_GOV_IN_API_KEY.',
-  upstream: 'The government mandi price service (data.gov.in) is having trouble right now. Try again in a minute.',
+  upstream: 'The government mandi price services (Agmarknet and data.gov.in) are having trouble right now. Try again in a minute.',
 };
 
 export async function GET(request: Request) {
