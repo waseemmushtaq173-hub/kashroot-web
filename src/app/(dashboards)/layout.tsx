@@ -47,8 +47,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         
         const kyc = localStorage.getItem('kyc_status');
         setKycDone(kyc === 'submitted');
-        // Open the KYC panel by itself only the first time after signing up.
-        if (kyc === 'pending') {
+        // Open the KYC panel by itself only the first time after signing up,
+        // and only in portals where money changes hands.
+        const moneyPortal = ['farmer', 'buyer', 'seller', 'logistics'].includes(portalForSegment(segment) ?? '');
+        if (kyc === 'pending' && moneyPortal) {
           setShowKyc(true);
           localStorage.setItem('kyc_status', 'later');
         }
@@ -118,7 +120,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <div className="kr-light flex min-h-screen flex-col bg-gradient-to-br from-emerald-50 via-white to-amber-50 text-slate-900">
       <SiteHeader tone="light" portal={portal} />
-      {!kycDone && (
+      {!kycDone && portal && ['farmer', 'buyer', 'seller', 'logistics'].includes(portal) && (
         <div className="border-b border-emerald-900/10 bg-emerald-50/90">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2.5 text-sm sm:px-6 lg:px-8">
             <p className="flex items-center gap-2 text-emerald-950">

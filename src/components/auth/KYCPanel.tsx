@@ -160,7 +160,7 @@ export function KYCPanel({ open, onClose, onComplete, defaultRole }: KYCPanelPro
   const steps = defaultRole ? STEPS.filter((s) => s.id !== 'role') : STEPS;
   const [step, setStep] = useState<Step>(defaultRole ? 'identity' : 'role');
   const [role, setRole] = useState<KycRole | null>(defaultRole ?? null);
-  const identity = useIdentityVerification();
+  const identity = useIdentityVerification(role === 'FARMER');
   const bank = useBankDetails();
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -432,7 +432,7 @@ function RoleStep({
 
 type OtpPhase = 'idle' | 'sending' | 'verifying';
 
-function useIdentityVerification() {
+function useIdentityVerification(simple = false) {
   const [aadhaar, setAadhaarValue] = useState('');
   const [txnId, setTxnId] = useState<string | null>(null);
   const [otpPhase, setOtpPhase] = useState<OtpPhase>('idle');
@@ -604,11 +604,12 @@ function useIdentityVerification() {
   const panApiOk = panCheck?.valid === true && panCheck.nameMatch && panCheck.dobMatch;
   // Online: PAN must be confirmed by the Income Tax check or DigiLocker. Offline
   // (free): the format is checked now and the PAN is re-checked once online.
-  const panConfirmed = isValidPan(pan) && (panApiOk || panShared || !online);
+  const panConfirmed = (simple && pan.trim() === '') || (isValidPan(pan) && (panApiOk || panShared || !online));
   const mobileFromAadhaar = aadhaarMobile?.matches === true;
   // Codes are required only for channels the site has a provider for.
-  const mobileDone = config?.sms ? mobileOk || mobileFromAadhaar : true;
-  const emailDone = config?.email ? emailOk : true;
+  // Farmers confirmed their mobile and email when signing up; don't ask again.
+  const mobileDone = simple || !config?.sms ? true : mobileOk || mobileFromAadhaar;
+  const emailDone = simple || !config?.email ? true : emailOk;
   const result: KycSubmission['identity'] | null =
     verified && panConfirmed && mobileDone && emailDone
       ? {
@@ -623,6 +624,7 @@ function useIdentityVerification() {
       : null;
 
   return {
+    simple,
     aadhaar,
     setAadhaar: (value: string) => setAadhaarValue(formatAadhaar(value)),
     aadhaarValid,
@@ -695,14 +697,16 @@ function IdentityStep({
   const busy = model.otpPhase !== 'idle' || model.digiLocker === 'connecting';
   const panProblem = panError(model.pan);
   const panOk = isValidPan(model.pan);
+  const [showExtras, setShowExtras] = useState(false);
+  const extras = !model.simple || showExtras;
 
   return (
     <>
       <StepHeading
         headingRef={headingRef}
         Icon={IdCardIcon}
-        title="Verify your identity"
-        description="Aadhaar (checked against UIDAI), then PAN and your contact details."
+        title={model.simple ? 'Verify your Aadhaar' : 'Verify your identity'}
+        description={model.simple ? 'That’s all a farmer needs — your mobile and email were already confirmed when you signed up.' : 'Aadhaar (checked against UIDAI), then PAN and your contact details.'}
       />
 
       <div className="space-y-6">
@@ -868,89 +872,97 @@ function IdentityStep({
           </>
         )}
 
-        <Field
-          id={panId}
-          label="PAN"
-          hint={
-            panOk ? (
-              <span className="inline-flex items-center gap-1 font-medium text-emerald-700">
-                <CheckIcon className="h-3.5 w-3.5" />
-                {panHolderType(model.pan)} PAN
-              </span>
-            ) : (
-              'Permanent Account Number, exactly as printed on your PAN card.'
-            )
-          }
-          error={panProblem}
-        >
-          <div className="relative">
-            <input
+        {extras ? (
+          <>
+            <Field
               id={panId}
-              value={model.pan}
-              onChange={(e) => model.setPan(e.target.value)}
-              autoComplete="off"
-              autoCapitalize="characters"
-              spellCheck={false}
-              placeholder="ABCDE1234F"
-              aria-invalid={panProblem ? true : undefined}
-              aria-describedby={describedBy(panId, panProblem)}
-              className={`${inputClass(!!panProblem)} pr-11 uppercase tracking-[0.2em]`}
-            />
-            {panOk && (
-              <CheckIcon className="pointer-events-none absolute right-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-emerald-600" />
+              label="PAN"
+              hint={
+                panOk ? (
+                  <span className="inline-flex items-center gap-1 font-medium text-emerald-700">
+                    <CheckIcon className="h-3.5 w-3.5" />
+                    {panHolderType(model.pan)} PAN
+                  </span>
+                ) : (
+                  'Permanent Account Number, exactly as printed on your PAN card.'
+                )
+              }
+              error={panProblem}
+            >
+              <div className="relative">
+                <input
+                  id={panId}
+                  value={model.pan}
+                  onChange={(e) => model.setPan(e.target.value)}
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  placeholder="ABCDE1234F"
+                  aria-invalid={panProblem ? true : undefined}
+                  aria-describedby={describedBy(panId, panProblem)}
+                  className={`${inputClass(!!panProblem)} pr-11 uppercase tracking-[0.2em]`}
+                />
+                {panOk && (
+                  <CheckIcon className="pointer-events-none absolute right-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-emerald-600" />
+                )}
+              </div>
+            </Field>
+
+            {!model.online ? (
+              panOk && (
+                <p className="rounded-2xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
+                  PAN format checked. It will be confirmed with the Income Tax Department automatically once online checks are switched on.
+                </p>
+              )
+            ) : model.panShared ? (
+              <p className="flex items-center gap-2 rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-900 ring-1 ring-emerald-200">
+                <CheckIcon className="h-4 w-4" /> PAN shared from DigiLocker (issued by the Income Tax Department).
+              </p>
+            ) : model.panApiOk ? (
+              <p className="flex items-center gap-2 rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-900 ring-1 ring-emerald-200">
+                <CheckIcon className="h-4 w-4" /> PAN verified with the Income Tax database — name and date of birth match.
+              </p>
+            ) : (
+              <div className="grid gap-3 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+                <label className="text-sm font-medium text-slate-800">
+                  Name as on PAN
+                  <input value={model.panName} onChange={(e) => model.setPanName(e.target.value)} autoComplete="name" className={`${inputClass(false)} mt-1.5`} />
+                </label>
+                <label className="text-sm font-medium text-slate-800">
+                  Date of birth
+                  <input type="date" value={model.panDob} onChange={(e) => model.setPanDob(e.target.value)} className={`${inputClass(false)} mt-1.5`} />
+                </label>
+                <button type="button" onClick={model.checkPan} disabled={!panOk || !model.panName.trim() || !model.panDob || model.panBusy} className={BTN_PRIMARY}>
+                  {model.panBusy && <SpinnerIcon className="h-4 w-4 animate-spin" />}
+                  Verify PAN
+                </button>
+                {model.panCheckError && <p role="alert" className="text-sm text-rose-700 sm:col-span-3">{model.panCheckError}</p>}
+              </div>
             )}
-          </div>
-        </Field>
 
-        {!model.online ? (
-          panOk && (
-            <p className="rounded-2xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
-              PAN format checked. It will be confirmed with the Income Tax Department automatically once online checks are switched on.
-            </p>
-          )
-        ) : model.panShared ? (
-          <p className="flex items-center gap-2 rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-900 ring-1 ring-emerald-200">
-            <CheckIcon className="h-4 w-4" /> PAN shared from DigiLocker (issued by the Income Tax Department).
-          </p>
-        ) : model.panApiOk ? (
-          <p className="flex items-center gap-2 rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-900 ring-1 ring-emerald-200">
-            <CheckIcon className="h-4 w-4" /> PAN verified with the Income Tax database — name and date of birth match.
-          </p>
+            <div className="space-y-4 rounded-2xl bg-white/70 p-4 ring-1 ring-slate-200">
+              <p className="text-sm font-semibold text-slate-900">Contact for escrow alerts</p>
+              {model.mobileFromAadhaar ? (
+                <p className="flex items-center gap-2 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900 ring-1 ring-emerald-200">
+                  <CheckIcon className="h-4 w-4" /> Mobile ••••••{model.aadhaarMobile!.number.slice(-4)} matches the number registered with Aadhaar.
+                </p>
+              ) : model.config?.sms ? (
+                <ContactOtp channel="sms" label="Mobile number" value={model.mobile} onChange={model.setMobile} verified={model.mobileOk} onVerified={() => model.setMobileOk(true)} onReset={() => model.setMobileOk(false)} />
+              ) : (
+                <p className="text-sm text-slate-600">SMS codes aren’t switched on yet — add the mobile registered with Aadhaar above to confirm it for free.</p>
+              )}
+              {model.config?.email ? (
+                <ContactOtp channel="email" label="Email address" value={model.email} onChange={model.setEmail} verified={model.emailOk} onVerified={() => model.setEmailOk(true)} onReset={() => model.setEmailOk(false)} />
+              ) : (
+                <p className="text-sm text-slate-600">Email confirmation switches on when the site’s email service is connected.</p>
+              )}
+            </div>
+          </>
         ) : (
-          <div className="grid gap-3 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200 sm:grid-cols-[1fr_auto_auto] sm:items-end">
-            <label className="text-sm font-medium text-slate-800">
-              Name as on PAN
-              <input value={model.panName} onChange={(e) => model.setPanName(e.target.value)} autoComplete="name" className={`${inputClass(false)} mt-1.5`} />
-            </label>
-            <label className="text-sm font-medium text-slate-800">
-              Date of birth
-              <input type="date" value={model.panDob} onChange={(e) => model.setPanDob(e.target.value)} className={`${inputClass(false)} mt-1.5`} />
-            </label>
-            <button type="button" onClick={model.checkPan} disabled={!panOk || !model.panName.trim() || !model.panDob || model.panBusy} className={BTN_PRIMARY}>
-              {model.panBusy && <SpinnerIcon className="h-4 w-4 animate-spin" />}
-              Verify PAN
-            </button>
-            {model.panCheckError && <p role="alert" className="text-sm text-rose-700 sm:col-span-3">{model.panCheckError}</p>}
-          </div>
+          <button type="button" onClick={() => setShowExtras(true)} className={`text-sm ${BTN_LINK}`}>
+            Have a PAN card? Add it (optional)
+          </button>
         )}
-
-        <div className="space-y-4 rounded-2xl bg-white/70 p-4 ring-1 ring-slate-200">
-          <p className="text-sm font-semibold text-slate-900">Contact for escrow alerts</p>
-          {model.mobileFromAadhaar ? (
-            <p className="flex items-center gap-2 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900 ring-1 ring-emerald-200">
-              <CheckIcon className="h-4 w-4" /> Mobile ••••••{model.aadhaarMobile!.number.slice(-4)} matches the number registered with Aadhaar.
-            </p>
-          ) : model.config?.sms ? (
-            <ContactOtp channel="sms" label="Mobile number" value={model.mobile} onChange={model.setMobile} verified={model.mobileOk} onVerified={() => model.setMobileOk(true)} onReset={() => model.setMobileOk(false)} />
-          ) : (
-            <p className="text-sm text-slate-600">SMS codes aren’t switched on yet — add the mobile registered with Aadhaar above to confirm it for free.</p>
-          )}
-          {model.config?.email ? (
-            <ContactOtp channel="email" label="Email address" value={model.email} onChange={model.setEmail} verified={model.emailOk} onVerified={() => model.setEmailOk(true)} onReset={() => model.setEmailOk(false)} />
-          ) : (
-            <p className="text-sm text-slate-600">Email confirmation switches on when the site’s email service is connected.</p>
-          )}
-        </div>
       </div>
     </>
   );
