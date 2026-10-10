@@ -29,6 +29,9 @@ export async function POST(request: Request) {
     }
     // Provider messages (e.g. Fast2SMS "Insufficient balance") say what to fix; they hold no secrets.
     const reason = err instanceof SmsProviderError ? ` (${err.message})` : '';
-    return NextResponse.json({ error: channel === 'sms' ? `The SMS could not be sent${reason}. Check the number and try again.` : 'The email could not be sent. Check the address and try again.' }, { status: 502 });
+    // A rejected key or empty balance is the site's problem, not the visitor's number.
+    const siteSide = err instanceof SmsProviderError && /auth|key|balance|wallet|recharge|verif|blocked|disabled/i.test(err.message);
+    const advice = siteSide ? ' This is a problem with the site’s SMS setup, not your number — please try again later.' : ' Check the number and try again.';
+    return NextResponse.json({ error: channel === 'sms' ? `The SMS could not be sent${reason}.${advice}` : 'The email could not be sent. Check the address and try again.' }, { status: 502 });
   }
 }

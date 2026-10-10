@@ -76,7 +76,8 @@ async function sendSms(mobile10: string, code: string) {
   }
   const res = await fetch('https://www.fast2sms.com/dev/bulkV2', {
     method: 'POST',
-    headers: { authorization: process.env.FAST2SMS_API_KEY!.trim(), 'Content-Type': 'application/json' },
+    // Keys pasted from a .env file often keep their quotes; Fast2SMS rejects those.
+    headers: { authorization: process.env.FAST2SMS_API_KEY!.trim().replace(/^["']+|["']+$/g, '').trim(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ route: 'otp', variables_values: code, numbers: mobile10, flash: 0 }),
     signal: AbortSignal.timeout(15_000),
   });
