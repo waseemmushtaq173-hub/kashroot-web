@@ -19,11 +19,16 @@ import type { MandiQuery, MandiRecord } from '@/lib/mandi-shared';
 import { govFetch } from '@/lib/server/govFetch';
 
 const API = 'https://api.agmarknet.gov.in/v1';
-const HEADERS = {
+const HEADERS: Record<string, string> = {
   Accept: 'application/json, text/plain, */*',
   'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Mobile Safari/537.36',
   Referer: 'https://agmarknet.gov.in/',
   Origin: 'https://agmarknet.gov.in',
+};
+/** Plain headers, as other working clients of this API send. */
+const PLAIN_HEADERS: Record<string, string> = {
+  Accept: 'application/json',
+  'User-Agent': 'KashRoot/1.0 (+https://kashroot-web.vercel.app)',
 };
 
 export class AgmarknetError extends Error {}
@@ -40,9 +45,25 @@ let cache: Catalog | null = null;
 const norm = (v: string) => v.toLowerCase().replace(/&/g, 'and').replace(/[^a-z]/g, '');
 
 async function get<T>(path: string, timeout = 12_000): Promise<T> {
-  const res = await govFetch(`${API}/${path}`, HEADERS, timeout);
-  if (!res.ok) throw new AgmarknetError(`Agmarknet answered ${res.status} for ${path.split('?')[0]}`);
+  let res = await govFetch(`${API}/${path}`, HEADERS, timeout);
+  // A 4xx can be the browser-style headers: ask again the plain way.
+  if (res.status >= 400 && res.status < 500) {
+    const first = await res.text().catch(() => '');
+    res = await govFetch(`${API}/${path}`, PLAIN_HEADERS, timeout);
+    if (!res.ok) {
+      const second = await res.text().catch(() => '');
+      throw new AgmarknetError(`Agmarknet answered ${res.status} for ${path.split('?')[0]}: ${(second || first).replace(/\s+/g, ' ').slice(0, 300)}`);
+    }
+  }
+  if (!res.ok) throw new AgmarknetError(`Agmarknet answered ${res.status} for ${path.split('?')[0]}: ${(await res.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 300)}`);
   return (await res.json()) as T;
+}
+
+/** For /api/mandi/diagnose: what the filters list contains (keys and one sample of each). */
+export async function filtersShape(): Promise<Record<string, unknown>> {
+  const raw = await get<Record<string, unknown>>('daily-price-arrival/filters');
+  const f = (raw.state_data ? raw : (raw.data as Record<string, unknown>) ?? {}) as Record<string, unknown>;
+  return Object.fromEntries(Object.entries(f).map(([k, v]) => [k, Array.isArray(v) ? { count: v.length, first: v[0] } : typeof v]));
 }
 
 async function catalog(): Promise<Catalog> {
@@ -56,7 +77,22 @@ async function catalog(): Promise<Catalog> {
   const raw = await get<Filters>('daily-price-arrival/filters');
   const f = raw.state_data ? raw : raw.data ?? {};
   const commodities: { id: number; name: string }[] = [];
-  let path: string | null = 'commodities?page_size=500';
+  // Prefer the crop ids from the filters list (the ids the price report uses,
+  // per other working clients); otherwise read the commodities list.
+  for (const list of Object.values(f as Record<string, unknown>)) {
+    if (!Array.isArray(list) || !list.length || typeof list[0] !== 'object') continue;
+    const sample = list[0] as Record<string, unknown>;
+    const nameKey = Object.keys(sample).find((k) => /cmdt.*name|commodity.*name/i.test(k));
+    const idKey = Object.keys(sample).find((k) => /^(cmdt_?id|commodity_?id)$/i.test(k)) ?? (nameKey ? Object.keys(sample).find((k) => k === 'id') : undefined);
+    if (!nameKey || !idKey) continue;
+    for (const c of list as Record<string, unknown>[]) {
+      const id = Number(c[idKey]);
+      const name = String(c[nameKey] ?? '');
+      if (Number.isFinite(id) && name && !commodities.some((x) => x.id === id)) commodities.push({ id, name });
+    }
+    break;
+  }
+  let path: string | null = commodities.length ? null : 'commodities?page_size=500';
   for (let page = 0; path && page < 6; page++) {
     const r: { results?: { id: number; cmdt_name: string }[]; data?: { id: number; cmdt_name: string }[]; next_page?: string | null; next?: string | null } = await get(path);
     for (const c of r.results ?? r.data ?? []) if (!commodities.some((x) => x.id === c.id)) commodities.push({ id: c.id, name: c.cmdt_name });
@@ -182,6 +218,7 @@ export async function diagnoseAgmarknet(commodityName = 'Apple', stateName = 'Ja
   try {
     const cat = await catalog();
     steps.catalogue = { states: cat.states.length, markets: cat.markets.length, commodities: cat.commodities.length };
+    steps.filters = await filtersShape().catch((e) => String(e));
     const c = match(cat.commodities, commodityName);
     const s = match(cat.states, stateName);
     steps.matched = { commodity: c ?? null, state: s ?? null };

@@ -29,6 +29,7 @@ export interface GovResponse {
   ok: boolean;
   status: number;
   json: () => Promise<unknown>;
+  text: () => Promise<string>;
 }
 
 /** The reason fetch() hides in `cause` (e.g. a certificate or reset error). */
@@ -99,7 +100,7 @@ function getWith(url: string, headers: Record<string, string>, ca: string[], tim
       res.on('end', () => {
         const body = Buffer.concat(chunks).toString('utf8');
         const status = res.statusCode ?? 0;
-        resolve({ ok: status >= 200 && status < 300, status, json: async () => JSON.parse(body) });
+        resolve({ ok: status >= 200 && status < 300, status, json: async () => JSON.parse(body), text: async () => body });
       });
       res.on('error', reject);
     });
@@ -115,7 +116,7 @@ export async function govFetch(url: string, headers: Record<string, string>, tim
   if (known?.length) return getWith(url, headers, [...roots(), ...known], timeout);
   try {
     const res = await fetch(url, { headers, signal: AbortSignal.timeout(timeout), next: { revalidate: 900 } });
-    return { ok: res.ok, status: res.status, json: () => res.json() };
+    return { ok: res.ok, status: res.status, json: () => res.json(), text: () => res.text() };
   } catch (err) {
     if (!CHAIN_ERRORS.has(causeCode(err) ?? '')) throw err;
     const found = await missingIntermediates(hostname, Number(port) || 443).catch(() => []);
