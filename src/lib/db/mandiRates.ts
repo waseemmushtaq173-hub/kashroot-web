@@ -27,6 +27,10 @@ export interface MandiRate {
   rate_date: string;
   note: string | null;
   created_at: string;
+  /** Accuracy: not yet checked, confirmed, someone reported it wrong, or wrong (decided by KashRoot). */
+  status?: 'pending' | 'verified' | 'disputed' | 'wrong';
+  confirms?: number;
+  reports?: number;
 }
 
 export type RateInput = Pick<MandiRate, 'reporter_name' | 'phone' | 'state' | 'district' | 'mandi' | 'commodity' | 'variety' | 'grade' | 'unit' | 'box_kg' | 'min_price' | 'modal_price' | 'max_price' | 'note'>;
@@ -37,14 +41,15 @@ export const KNOWN_CROPS = ['Apple', 'Walnut', 'Almond', 'Cherry', 'Pear', 'Plum
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
-/** The latest rate per mandi, crop, variety and grade from the last few days. */
+/** Each reporter's latest rate per mandi, crop, variety and grade from the last few days. */
 export async function recentRates(days = 4): Promise<MandiRate[]> {
   const since = iso(new Date(Date.now() - days * 86_400_000));
   const { data, error } = await supabase.from('mandi_rates').select('*').gte('rate_date', since).order('rate_date', { ascending: false }).order('created_at', { ascending: false }).limit(1000);
   if (error) throw new Error(dbMessage(error, 'Could not load the mandi rates.'));
   const seen = new Set<string>();
-  return ((data ?? []) as MandiRate[]).filter((r) => {
-    const k = `${r.mandi}|${r.commodity}|${r.variety ?? ''}|${r.grade ?? ''}`.toLowerCase();
+  // Rates KashRoot found wrong are never shown; the next-latest one is.
+  return ((data ?? []) as MandiRate[]).filter((r) => r.status !== 'wrong').filter((r) => {
+    const k = `${r.posted_by}|${r.mandi}|${r.commodity}|${r.variety ?? ''}|${r.grade ?? ''}`.toLowerCase();
     if (seen.has(k)) return false;
     seen.add(k);
     return true;

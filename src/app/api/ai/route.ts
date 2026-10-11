@@ -126,6 +126,7 @@ async function runTool(name: string, input: Record<string, unknown>): Promise<un
           max: r.max_price,
           date: r.rate_date,
           reporter: r.reporter_name,
+          checked: r.status === 'verified' ? 'confirmed by another trader, a farmer or KashRoot' : 'not yet confirmed',
           note: r.note,
         })),
         posted_note: all.length && !ours.length ? 'Nothing posted for the exact area asked; these are other mandis.' : undefined,

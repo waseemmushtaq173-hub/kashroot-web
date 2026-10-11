@@ -21,11 +21,14 @@ export async function postedRates(commodity: string, days = 4): Promise<PostedRa
   const crop = commodity.replace(/\(.*\)/, '').replace(/[*,()]/g, ' ').trim();
   const params = new URLSearchParams({ select: '*', rate_date: `gte.${istDate(-days)}`, order: 'rate_date.desc,created_at.desc', limit: '500' });
   if (crop) params.set('commodity', `ilike.*${crop}*`);
-  const res = await fetch(`${origin}/rest/v1/mandi_rates?${params}`, {
-    headers: { apikey: key, authorization: `Bearer ${key}` },
-    signal: AbortSignal.timeout(6_000),
-    cache: 'no-store',
-  });
+  const read = (p: URLSearchParams) =>
+    fetch(`${origin}/rest/v1/mandi_rates?${p}`, { headers: { apikey: key, authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(6_000), cache: 'no-store' });
+  // Only rates that are confirmed or not yet questioned — never ones reported wrong.
+  const checked = new URLSearchParams(params);
+  checked.set('status', 'in.(verified,pending)');
+  let res = await read(checked);
+  // Before the rate-checking SQL is run there is no status column yet.
+  if (res.status === 400) res = await read(params);
   if (!res.ok) throw new Error(`KashRoot rates could not be read (HTTP ${res.status}).`);
   const seen = new Set<string>();
   return ((await res.json()) as PostedRate[]).filter((r) => {

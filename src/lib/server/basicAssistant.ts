@@ -195,7 +195,8 @@ function postedAnswer(lang: Lang, crop: Crop, place: Place | undefined, rates: P
   const exact = place ? rates.filter((r) => at(r, place.name) || place.keys.some((k) => at(r, k))) : [];
   const near = place && !exact.length ? rates.filter((r) => norm(r.district ?? '').includes(norm(place.district))) : [];
   const chosen = exact.length ? exact : near.length ? near : rates;
-  const top = chosen.slice().sort((a, b) => b.rate_date.localeCompare(a.rate_date)).slice(0, 4);
+  // Newest first; on the same day, confirmed rates before unchecked ones.
+  const top = chosen.slice().sort((a, b) => b.rate_date.localeCompare(a.rate_date) || Number(b.status === 'verified') - Number(a.status === 'verified')).slice(0, 4);
   const missed = place && !exact.length && !near.length;
   return answer(lang, (l) => {
     const lines = top.map((r) => {

@@ -12,14 +12,14 @@
  */
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { BookOpen, CheckCircle2, ClipboardList, FlaskConical, GraduationCap, Inbox, Loader2, MessageCircle, Send, ShieldAlert, Stethoscope, Video } from 'lucide-react';
-import { toast } from 'sonner';
+import { BookOpen, CheckCircle2, ClipboardList, FlaskConical, GraduationCap, Inbox, Loader2, MessageCircle, ShieldAlert, Stethoscope, Video, Wallet } from 'lucide-react';
 
 import { AskForm } from '@/components/advisory/AskForm';
 import { RequestThread } from '@/components/advisory/RequestThread';
 import { PortalShell } from '@/components/layout/PortalShell';
-import { Badge, Btn, EmptyState, Field, INPUT, PORTAL_THEMES, Panel } from '@/components/portal/kit';
-import { KIND_LABEL, listRequests, myRoleRequest, requestStaffRole, STATUS_LABEL, type AdvisoryRequest, type RequestKind, type RequestStatus } from '@/lib/db/advisory';
+import { Badge, Btn, EmptyState, PORTAL_THEMES, Panel } from '@/components/portal/kit';
+import { RoleApplicationForm } from '@/components/staff/RoleApplicationForm';
+import { KIND_LABEL, listRequests, myRoleRequest, STATUS_LABEL, type AdvisoryRequest, type RequestKind, type RequestStatus } from '@/lib/db/advisory';
 import { ago, loadAccount, supabaseConfigured, type Account } from '@/lib/db/client';
 
 const theme = PORTAL_THEMES.expert;
@@ -57,7 +57,8 @@ function Advisory() {
   const [account, setAccount] = useState<Account | null | undefined>(undefined);
   const [requests, setRequests] = useState<AdvisoryRequest[]>([]);
   const [listError, setListError] = useState<string | null>(null);
-  const [openId, setOpenId] = useState<string | null>(null);
+  // ?request=<id> opens one request (e.g. from Admin → Contributors).
+  const [openId, setOpenId] = useState<string | null>(params.get('request'));
   const [tab, setTab] = useState<string | null>(null);
   const [filter, setFilter] = useState<'open' | 'mine' | 'answered' | 'all'>('open');
 
@@ -140,6 +141,7 @@ function Advisory() {
             ]
       }
       tabs={tabs}
+      actions={isExpert ? <Btn theme={theme} variant="white" icon={Wallet} href="/contributions">My work &amp; pay</Btn> : undefined}
       activeTab={activeTab}
       onTabChange={(id) => {
         setTab(id);
@@ -240,44 +242,23 @@ function ArticleList({ kind }: { kind: Article['kind'] }) {
 
 function ExpertApply({ account }: { account: Account }) {
   const [status, setStatus] = useState<string | null | undefined>(undefined);
-  const [form, setForm] = useState({ phone: account.phone, details: '' });
-  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     void myRoleRequest('EXPERT', account.id).then((r) => setStatus(r?.status ?? null)).catch(() => setStatus(null));
   }, [account.id]);
 
-  const apply = async () => {
-    if (form.details.trim().length < 10) return toast.error('Tell us your qualification and where you work.');
-    setBusy(true);
-    try {
-      await requestStaffRole('EXPERT', { name: account.name, phone: form.phone, email: account.email, details: form.details.trim() });
-      setStatus('pending');
-      toast.success('Application sent — the KashRoot admin will review it');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not send.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <Panel theme={theme} title="Are you an agronomist?" icon={GraduationCap} className="lg:col-span-2">
       {status === 'pending' ? (
-        <p className="text-sm text-slate-700">Your application is with the KashRoot admin. Once approved, this portal shows the farmers’ request queue.</p>
-      ) : status === 'rejected' ? (
-        <p className="text-sm text-slate-700">Your last application was not approved. Contact KashRoot support, or apply again with more details below.</p>
-      ) : null}
-      {status !== 'pending' && status !== undefined && (
-        <form className="grid gap-4 sm:grid-cols-[1fr_2fr_auto] sm:items-end" onSubmit={(e) => { e.preventDefault(); void apply(); }}>
-          <Field label="Mobile">
-            <input className={INPUT} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-          </Field>
-          <Field label="Qualification and where you work">
-            <input className={INPUT} value={form.details} onChange={(e) => setForm({ ...form, details: e.target.value })} placeholder="e.g. MSc Horticulture, SKUAST-K; Horticulture Development Officer, Shopian" />
-          </Field>
-          <Btn theme={theme} type="submit" icon={Send} disabled={busy}>Apply</Btn>
-        </form>
+        <p className="text-sm text-slate-700">Your application is with the KashRoot admin, who will phone you to check it. Once approved, this portal shows the farmers’ request queue.</p>
+      ) : (
+        <>
+          <p className="mb-4 text-sm text-slate-700">
+            {status === 'rejected' ? 'Your last application was not approved. You can apply again with clearer details and photo. ' : ''}
+            Answer farmers’ questions, soil tests and video calls. KashRoot checks your qualification before approving, and answers that help farmers are counted as your work, for payment.
+          </p>
+          {status !== undefined && <RoleApplicationForm role="EXPERT" account={account} theme={theme} onSent={() => setStatus('pending')} />}
+        </>
       )}
     </Panel>
   );

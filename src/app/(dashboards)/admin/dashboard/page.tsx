@@ -5,6 +5,8 @@
  *   Approvals:        agronomists / dealers who applied, staff roles,
  *                     farmers' reports of suspicious batches.
  *   Problems:         orders a buyer pressed "Report a problem" on.
+ *   Contributors:     mandi rates and expert answers to check, pay per
+ *                     accepted contribution, who is owed and "Mark paid".
  *   Platform numbers: real counts (kr_admin_stats) — sign-ups per portal,
  *                     orders, cold-store bookings, expert requests…
  *
@@ -12,15 +14,16 @@
  * and every query above is limited to admins in the database itself.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { BarChart3, GraduationCap, PackageX } from 'lucide-react';
+import { BarChart3, GraduationCap, PackageX, Wallet } from 'lucide-react';
 
 import { ApprovalsPanel } from '@/components/admin/ApprovalsPanel';
+import { ContributorsPanel } from '@/components/admin/ContributorsPanel';
 import { PlatformNumbers, loadAdminStats } from '@/components/admin/PlatformNumbers';
 import { ReportedOrders, loadReportedOrders } from '@/components/admin/ReportedOrders';
 import { PortalShell } from '@/components/layout/PortalShell';
 import { supabase } from '@/lib/db/client';
 
-type Tab = 'approvals' | 'problems' | 'numbers';
+type Tab = 'approvals' | 'problems' | 'contributors' | 'numbers';
 
 interface Counts {
   waiting: number;
@@ -69,6 +72,7 @@ export default function AdminConsolePage() {
       tabs={[
         { id: 'approvals', label: 'Approvals', icon: GraduationCap, count: counts?.waiting || undefined },
         { id: 'problems', label: 'Problems', icon: PackageX, count: counts?.problems || undefined },
+        { id: 'contributors', label: 'Contributors', icon: Wallet },
         { id: 'numbers', label: 'Platform numbers', icon: BarChart3 },
       ]}
       activeTab={tab}
@@ -79,6 +83,7 @@ export default function AdminConsolePage() {
     >
       {tab === 'approvals' && <ApprovalsPanel />}
       {tab === 'problems' && <ReportedOrders />}
+      {tab === 'contributors' && <ContributorsPanel />}
       {tab === 'numbers' && <PlatformNumbers />}
     </PortalShell>
   );

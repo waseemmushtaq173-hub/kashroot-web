@@ -3,11 +3,12 @@
 /**
  * One advisory request and its conversation, for the farmer who asked and
  * for experts. Replies can be read aloud; the expert can accept, reply,
- * start a video call and close; the farmer can follow up and join the call.
+ * start a video call and close; the farmer can follow up, join the call and
+ * say whether the answer helped (which accepts the expert's work for pay).
  * New replies appear by themselves (checked every 8 seconds).
  */
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Loader2, Phone, Send, Sparkles, UserRound, Video } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Loader2, Phone, Send, Sparkles, ThumbsDown, ThumbsUp, UserRound, Video } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { VideoCall } from '@/components/advisory/VideoCall';
@@ -16,6 +17,7 @@ import { MicButton, SpeakButton } from '@/components/voice/VoiceButtons';
 import { isRtl, scriptLang } from '@/lib/client/speech';
 import { getRequest, KIND_LABEL, listMessages, sendMessage, setRequest, STATUS_LABEL, type AdvisoryMessage, type AdvisoryRequest } from '@/lib/db/advisory';
 import { ago, type Account } from '@/lib/db/client';
+import { adviceRating, rateAdvice } from '@/lib/db/contributions';
 
 const theme = PORTAL_THEMES.expert;
 
@@ -34,17 +36,19 @@ export function RequestThread({ requestId, account, asExpert, onBack }: { reques
   const [busy, setBusy] = useState(false);
   const [inCall, setInCall] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [rating, setRating] = useState<'helpful' | 'not_helpful' | null | undefined>(undefined);
 
   const refresh = useCallback(async () => {
     try {
-      const [r, m] = await Promise.all([getRequest(requestId), listMessages(requestId)]);
+      const [r, m, rated] = await Promise.all([getRequest(requestId), listMessages(requestId), asExpert ? Promise.resolve(undefined) : adviceRating(requestId)]);
       setReq(r);
       setMessages(m);
+      setRating(rated);
       setLoadError(null);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Could not load this request.');
     }
-  }, [requestId]);
+  }, [requestId, asExpert]);
 
   useEffect(() => {
     let live = true;
@@ -167,6 +171,17 @@ export function RequestThread({ requestId, account, asExpert, onBack }: { reques
         })}
         {messages.length === 0 && <li className="text-sm text-slate-500">No replies yet. You will see them here.</li>}
       </ol>
+
+      {!asExpert && req.farmer_id === account.id && rating !== undefined && messages.some((m) => m.sender_role === 'expert') && (
+        <div className="rounded-3xl bg-white/80 p-4 ring-1 ring-slate-900/5">
+          <p className="text-sm font-semibold text-slate-800">Did the expert’s answer help you?</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Btn theme={theme} size="sm" variant={rating === 'helpful' ? 'solid' : 'soft'} icon={ThumbsUp} aria-pressed={rating === 'helpful'} disabled={busy} onClick={() => void act(() => rateAdvice(req.id, true), 'Thank you — the expert will be told')}>Yes, it helped</Btn>
+            <Btn theme={theme} size="sm" variant={rating === 'not_helpful' ? 'danger' : 'ghost'} icon={ThumbsDown} aria-pressed={rating === 'not_helpful'} disabled={busy} onClick={() => void act(() => rateAdvice(req.id, false), 'Thank you — KashRoot will look at it')}>No</Btn>
+          </div>
+          {rating === 'not_helpful' && <p className="mt-2 text-xs text-slate-600">You can also write below what is still wrong, and the expert will answer again.</p>}
+        </div>
+      )}
 
       {req.status !== 'closed' && (asExpert || req.farmer_id === account.id) && (
         <div className="rounded-3xl bg-white/80 p-4 ring-1 ring-slate-900/5">

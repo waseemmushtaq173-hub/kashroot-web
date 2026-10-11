@@ -4,17 +4,21 @@
  * "Today's rates from the mandis": daily rates posted on KashRoot by approved
  * mandi reporters — traders, commission agents and staff at the mandi —
  * grouped by mandi, latest first. Reporters post from here; anyone signed in
- * can apply to become one (an admin approves in Admin → Approvals).
+ * can apply to become one (with an ID photo; an admin phones them and
+ * approves in Admin → Approvals). Anyone signed in can mark a rate Correct or
+ * Wrong; confirmed rates count as the reporter's paid work.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { BadgeCheck, Loader2, Megaphone, PlusCircle, Trash2, UserPlus } from 'lucide-react';
+import { BadgeCheck, Loader2, Megaphone, PlusCircle, ThumbsDown, ThumbsUp, Trash2, UserPlus, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Badge, Btn, EmptyState, Field, INPUT, Modal, Panel, type PortalTheme } from '@/components/portal/kit';
+import { RoleApplicationForm } from '@/components/staff/RoleApplicationForm';
 import { loginHref } from '@/lib/auth/roles';
-import { myRoleRequest, requestStaffRole } from '@/lib/db/advisory';
+import { myRoleRequest } from '@/lib/db/advisory';
 import { loadAccount, type Account } from '@/lib/db/client';
+import { checkRate, myRateChecks } from '@/lib/db/contributions';
 import { KNOWN_CROPS, KNOWN_MANDIS, perKg, postRate, recentRates, removeRate, type MandiRate, type RateInput } from '@/lib/db/mandiRates';
 
 const rupees = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
@@ -26,6 +30,12 @@ function when(iso: string): string {
   return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 }
 
+function CheckBadge({ status }: { status?: MandiRate['status'] }) {
+  if (status === 'verified') return <Badge tone="green">✓ Confirmed</Badge>;
+  if (status === 'disputed') return <Badge tone="amber">Being checked</Badge>;
+  return <Badge tone="slate">Not yet checked</Badge>;
+}
+
 export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodity?: string }) {
   const [rates, setRates] = useState<MandiRate[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +43,8 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
   const [request, setRequest] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [myChecks, setMyChecks] = useState<Map<string, 'correct' | 'wrong'>>(new Map());
+  const [reporting, setReporting] = useState<MandiRate | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -55,6 +67,7 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
       .then(async (a) => {
         if (!live) return;
         setAccount(a);
+        if (a) void myRateChecks(a.id).then((m) => live && setMyChecks(m)).catch(() => undefined);
         if (a && !a.staff.includes('REPORTER') && !a.staff.includes('ADMIN')) {
           const r = await myRoleRequest('REPORTER', a.id).catch(() => null);
           if (live) setRequest(r?.status ?? null);
@@ -77,8 +90,23 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
     return { matching, byMandi: [...groups.entries()] };
   }, [rates, wanted]);
 
+  const verify = async (r: MandiRate, correct: boolean, note?: string) => {
+    try {
+      const status = await checkRate(r.id, correct, note);
+      setMyChecks((m) => new Map(m).set(r.id, correct ? 'correct' : 'wrong'));
+      toast.success(correct ? (status === 'verified' ? 'Thanks — this rate is now confirmed' : 'Thanks — your check is saved') : 'Thanks — KashRoot will check this rate');
+      setReporting(null);
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not save your check.');
+    }
+  };
+
   const action = canPost ? (
-    <Btn theme={theme} size="sm" icon={PlusCircle} onClick={() => setPosting(true)}>Post today’s rate</Btn>
+    <div className="flex flex-wrap gap-2">
+      <Btn theme={theme} size="sm" variant="soft" icon={Wallet} href="/contributions">My work &amp; pay</Btn>
+      <Btn theme={theme} size="sm" icon={PlusCircle} onClick={() => setPosting(true)}>Post today’s rate</Btn>
+    </div>
   ) : account ? (
     request === 'pending' ? <Badge tone="amber">Reporter application waiting for approval</Badge> : <Btn theme={theme} size="sm" variant="soft" icon={UserPlus} onClick={() => setApplying(true)}>Post rates for your mandi</Btn>
   ) : account === null ? (
@@ -87,7 +115,7 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
 
   return (
     <Panel theme={theme} title="Today’s rates from the mandis" icon={Megaphone} action={action}>
-      <p className="mb-4 text-sm text-slate-600">Posted on KashRoot by traders and commission agents at each mandi, approved by KashRoot. Each rate shows who posted it and when.</p>
+      <p className="mb-4 text-sm text-slate-600">Posted on KashRoot by traders and commission agents at each mandi, approved by KashRoot. Each rate shows who posted it and when. <strong>Confirmed</strong> means another trader, a farmer or KashRoot checked it. Were you at the mandi? Press <em>Correct</em> or <em>Wrong</em>.</p>
       {rates === null ? (
         <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading rates…</p>
       ) : error ? (
@@ -101,7 +129,7 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
             {byMandi.map(([mandi, list]) => (
               <div key={mandi} className="overflow-x-auto rounded-2xl ring-1 ring-slate-900/5">
                 <p className="bg-emerald-50/80 px-4 py-2 font-semibold text-emerald-950">{mandi} <span className="text-xs font-normal text-emerald-800">{list[0].district ? `${list[0].district}, ` : ''}{list[0].state}</span></p>
-                <table className="w-full min-w-[640px] bg-white/80 text-left text-sm">
+                <table className="w-full min-w-[780px] bg-white/80 text-left text-sm">
                   <thead className="text-xs uppercase tracking-wider text-slate-500">
                     <tr>
                       <th className="px-4 py-2">Crop · variety · grade</th>
@@ -109,6 +137,7 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
                       <th className="px-4 py-2 text-right">Modal</th>
                       <th className="px-4 py-2 text-right">Max</th>
                       <th className="px-4 py-2">Posted</th>
+                      <th className="px-4 py-2">Checked</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900/5">
@@ -132,6 +161,19 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
                               </button>
                             )}
                           </td>
+                          <td className="px-4 py-2 text-xs">
+                            <CheckBadge status={r.status} />
+                            {account && r.posted_by !== account.id && (
+                              <span className="mt-1.5 flex gap-1.5">
+                                <button type="button" aria-pressed={myChecks.get(r.id) === 'correct'} onClick={() => void verify(r, true)} className={`inline-flex cursor-pointer items-center gap-1 rounded-full px-2 py-1 font-semibold ring-1 ${myChecks.get(r.id) === 'correct' ? 'bg-emerald-600 text-white ring-emerald-600' : 'bg-white text-emerald-800 ring-emerald-200 hover:bg-emerald-50'}`}>
+                                  <ThumbsUp className="h-3 w-3" aria-hidden /> Correct
+                                </button>
+                                <button type="button" aria-pressed={myChecks.get(r.id) === 'wrong'} onClick={() => setReporting(r)} className={`inline-flex cursor-pointer items-center gap-1 rounded-full px-2 py-1 font-semibold ring-1 ${myChecks.get(r.id) === 'wrong' ? 'bg-rose-600 text-white ring-rose-600' : 'bg-white text-rose-800 ring-rose-200 hover:bg-rose-50'}`}>
+                                  <ThumbsDown className="h-3 w-3" aria-hidden /> Wrong
+                                </button>
+                              </span>
+                            )}
+                          </td>
                         </tr>
                       );
                     })}
@@ -144,6 +186,7 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
       )}
       {posting && account && <PostRateModal theme={theme} account={account} commodity={commodity} onClose={() => setPosting(false)} onPosted={() => { setPosting(false); void load(); }} />}
       {applying && account && <ApplyModal theme={theme} account={account} onClose={() => setApplying(false)} onSent={() => { setApplying(false); setRequest('pending'); }} />}
+      {reporting && <WrongRateModal theme={theme} rate={reporting} onClose={() => setReporting(null)} onSend={(note) => verify(reporting, false, note)} />}
     </Panel>
   );
 }
@@ -216,30 +259,32 @@ function PostRateModal({ theme, account, commodity, onClose, onPosted }: { theme
 }
 
 function ApplyModal({ theme, account, onClose, onSent }: { theme: PortalTheme; account: Account; onClose: () => void; onSent: () => void }) {
-  const [details, setDetails] = useState('');
+  return (
+    <Modal open wide onClose={onClose} title="Post rates for your mandi">
+      <p className="mb-4 text-sm text-slate-700">Traders, commission agents and mandi staff can post each day’s rates for farmers. KashRoot checks who you are — your licence or ID, and a phone call — before you can post. Rates that turn out correct are counted as your work, for payment.</p>
+      <RoleApplicationForm role="REPORTER" account={account} theme={theme} onSent={onSent} />
+    </Modal>
+  );
+}
+
+function WrongRateModal({ theme, rate, onClose, onSend }: { theme: PortalTheme; rate: MandiRate; onClose: () => void; onSend: (note: string) => Promise<void> }) {
+  const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const send = async () => {
-    if (details.trim().length < 10) return toast.error('Tell KashRoot which mandi you work at and your role there.');
     setBusy(true);
-    try {
-      await requestStaffRole('REPORTER', { name: account.name, phone: account.phone, email: account.email, details: details.trim() });
-      toast.success('Application sent — KashRoot will approve you');
-      onSent();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not send your application.');
-    } finally {
-      setBusy(false);
-    }
+    await onSend(note);
+    setBusy(false);
   };
   return (
-    <Modal open onClose={onClose} title="Post rates for your mandi" footer={<><Btn theme={theme} variant="ghost" onClick={onClose}>Cancel</Btn><Btn theme={theme} icon={UserPlus} disabled={busy} onClick={() => void send()}>{busy ? 'Sending…' : 'Apply'}</Btn></>}>
-      <p className="text-sm text-slate-700">Traders, commission agents and mandi staff can post each day’s rates for farmers. KashRoot checks who you are before you can post.</p>
+    <Modal open onClose={onClose} title="This rate is wrong" footer={<><Btn theme={theme} variant="ghost" onClick={onClose}>Cancel</Btn><Btn theme={theme} variant="danger" icon={ThumbsDown} disabled={busy} onClick={() => void send()}>{busy ? 'Sending…' : 'Report wrong rate'}</Btn></>}>
+      <p className="text-sm text-slate-700">
+        {rate.commodity}{rate.variety ? ` ${rate.variety}` : ''} at {rate.mandi}: {rupees(rate.modal_price)} per {rate.unit}, posted by {rate.reporter_name}. KashRoot will check it with the mandi.
+      </p>
       <div className="mt-4">
-        <Field label="Your mandi and your role there">
-          <textarea rows={3} className={INPUT} value={details} onChange={(e) => setDetails(e.target.value)} placeholder="e.g. Commission agent, shop 14, Sopore fruit mandi" />
+        <Field label="What was the right rate? (optional)">
+          <textarea rows={2} className={INPUT} value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} placeholder="e.g. ₹800 a box this morning" />
         </Field>
       </div>
-      <p className="mt-2 text-xs text-slate-500">Applying as {account.name} · {account.phone || account.email}</p>
     </Modal>
   );
 }

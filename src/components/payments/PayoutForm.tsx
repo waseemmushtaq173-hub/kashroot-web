@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { Btn, Field, INPUT, Panel, type PortalTheme } from '@/components/portal/kit';
 import { savePayout, type PayoutAccount } from '@/lib/db/rentals';
 
-export function PayoutForm({ theme, payout, onSaved, intro = 'Only farmers with a booking at your store see these. Money comes straight to you.' }: { theme: PortalTheme; payout: PayoutAccount | null | undefined; onSaved: (p: PayoutAccount) => void; intro?: string }) {
+export function PayoutForm({ theme, payout, onSaved, intro = 'Only farmers with a booking at your store see these. Money comes straight to you.', title = 'Where farmers pay you' }: { theme: PortalTheme; payout: PayoutAccount | null | undefined; onSaved: (p: PayoutAccount) => void; intro?: string; title?: string }) {
   const [form, setForm] = useState<PayoutAccount>({ account_name: '', upi_id: '', account_number: '', ifsc: '', bank_name: '' });
   const [loadedFrom, setLoadedFrom] = useState<PayoutAccount | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
@@ -41,7 +41,7 @@ export function PayoutForm({ theme, payout, onSaved, intro = 'Only farmers with 
   };
 
   return (
-    <Panel theme={theme} title="Where farmers pay you" icon={Banknote}>
+    <Panel theme={theme} title={title} icon={Banknote}>
       {payout === undefined ? (
         <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>
       ) : (

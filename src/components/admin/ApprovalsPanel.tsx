@@ -1,16 +1,18 @@
 'use client';
 
 /**
- * Admin → Approvals: agronomists, dealers and mandi reporters who applied (role_requests),
+ * Admin → Approvals: agronomists, dealers and mandi reporters who applied (role_requests)
+ * with their workplace, licence number and ID photo — the admin phones them
+ * and ticks "I phoned" before Approve works —
  * everyone holding a staff role (staff_roles), and farmers' reports of
  * suspicious fertiliser / pesticide batches. Approving calls kr_grant_role,
  * which only works for admins (checked in the database).
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Check, Flag, GraduationCap, Loader2, Megaphone, ShieldCheck, Store, UserX, X, type LucideIcon } from 'lucide-react';
+import { Check, Flag, GraduationCap, Loader2, Megaphone, Phone, ShieldCheck, Store, UserX, X, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { Badge, Btn, EmptyState, PORTAL_THEMES, Panel } from '@/components/portal/kit';
+import { Badge, Btn, EmptyState, Modal, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { ago, dbMessage, supabase } from '@/lib/db/client';
 
 const theme = PORTAL_THEMES.admin ?? PORTAL_THEMES.expert;
@@ -23,6 +25,10 @@ interface RoleRequest {
   phone: string | null;
   email: string | null;
   details: string | null;
+  /** Added by the contributors SQL: mandi / workplace, licence number, ID photo. */
+  place?: string | null;
+  licence?: string | null;
+  id_photo?: string | null;
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
 }
@@ -52,12 +58,17 @@ export function ApprovalsPanel() {
   const [reports, setReports] = useState<BatchReport[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [names, setNames] = useState<Map<string, string>>(new Map());
+  const [phoned, setPhoned] = useState<Set<string>>(new Set());
+  const [bigPhoto, setBigPhoto] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [r, s, b] = await Promise.all([
-      supabase.from('role_requests').select('*').order('created_at', { ascending: false }).limit(200),
+    // Pending applications in full (with the ID photo); everyone else only by name.
+    const [r, s, b, n] = await Promise.all([
+      supabase.from('role_requests').select('*').eq('status', 'pending').order('created_at', { ascending: false }).limit(100),
       supabase.from('staff_roles').select('user_id, role, granted_at').order('granted_at', { ascending: false }),
       supabase.from('batch_reports').select('id, batch_code, note, created_at').order('id', { ascending: false }).limit(50),
+      supabase.from('role_requests').select('user_id, full_name').limit(1000),
     ]);
     if (r.error) {
       setError(dbMessage(r.error));
@@ -68,6 +79,7 @@ export function ApprovalsPanel() {
     setRequests((r.data ?? []) as RoleRequest[]);
     setStaff((s.data ?? []) as StaffRole[]);
     setReports((b.data ?? []) as BatchReport[]);
+    setNames(new Map(((n.data ?? []) as { user_id: string; full_name: string }[]).map((x) => [x.user_id, x.full_name])));
   }, []);
 
   useEffect(() => {
@@ -90,8 +102,7 @@ export function ApprovalsPanel() {
     await load();
   };
 
-  const names = new Map((requests ?? []).map((r) => [r.user_id, r.full_name]));
-  const pending = (requests ?? []).filter((r) => r.status === 'pending');
+  const pending = requests ?? [];
 
   if (requests === null) return <p className="flex items-center gap-2 p-6 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>;
 
@@ -114,10 +125,36 @@ export function ApprovalsPanel() {
                     <span className="text-xs font-normal text-slate-500">{ago(r.created_at)}</span>
                   </p>
                   <p className="mt-1 text-sm text-slate-700">{r.details || 'No details given'}</p>
-                  <p className="mt-1 text-xs text-slate-500">{[r.phone, r.email].filter(Boolean).join(' · ')}</p>
+                  {(r.place || r.licence) && (
+                    <p className="mt-1 text-sm text-slate-700">
+                      {r.place && <><span className="text-slate-500">{r.role === 'REPORTER' ? 'Mandi: ' : 'Works at: '}</span>{r.place}</>}
+                      {r.place && r.licence && ' · '}
+                      {r.licence && <><span className="text-slate-500">Licence / ID no.: </span>{r.licence}</>}
+                    </p>
+                  )}
+                  <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                    {r.phone && (
+                      <a href={`tel:+91${r.phone.replace(/\D/g, '').slice(-10)}`} className="inline-flex items-center gap-1 font-semibold text-sky-800">
+                        <Phone className="h-3.5 w-3.5" aria-hidden /> Call {r.phone}
+                      </a>
+                    )}
+                    {r.email && <span>{r.email}</span>}
+                  </p>
+                  {r.id_photo ? (
+                    <button type="button" onClick={() => setBigPhoto(r.id_photo ?? null)} className="mt-2 block cursor-zoom-in" aria-label={`Open ${r.full_name}’s ID photo`}>
+                      {/* eslint-disable-next-line @next/next/no-img-element -- stored data URL */}
+                      <img src={r.id_photo} alt={`${r.full_name}’s licence or ID`} className="h-24 rounded-lg object-cover ring-1 ring-slate-200" />
+                    </button>
+                  ) : r.role !== 'DEALER' ? (
+                    <p className="mt-2 text-xs font-semibold text-amber-800">No ID photo sent — ask for one before approving.</p>
+                  ) : null}
+                  <label className="mt-2 flex items-center gap-2 text-sm text-slate-800">
+                    <input type="checkbox" checked={phoned.has(r.id)} onChange={(e) => setPhoned((all) => { const next = new Set(all); if (e.target.checked) next.add(r.id); else next.delete(r.id); return next; })} />
+                    I phoned them and checked the photo
+                  </label>
                 </div>
                 <div className="flex shrink-0 gap-2">
-                  <Btn theme={theme} size="sm" icon={Check} disabled={busy !== null} onClick={() => void run(r.id, () => supabase.rpc('kr_grant_role', { p_user: r.user_id, p_role: r.role }), `${r.full_name} approved`)}>Approve</Btn>
+                  <Btn theme={theme} size="sm" icon={Check} disabled={busy !== null || !phoned.has(r.id)} title={phoned.has(r.id) ? undefined : 'Phone them and tick the box first'} onClick={() => void run(r.id, () => supabase.rpc('kr_grant_role', { p_user: r.user_id, p_role: r.role }), `${r.full_name} approved`)}>Approve</Btn>
                   <Btn theme={theme} size="sm" variant="danger" icon={X} disabled={busy !== null} onClick={() => void run(r.id, () => supabase.rpc('kr_reject_role', { p_request: r.id }), 'Application rejected')}>Reject</Btn>
                 </div>
               </li>
@@ -161,6 +198,12 @@ export function ApprovalsPanel() {
           </ul>
         )}
       </Panel>
+      {bigPhoto && (
+        <Modal open wide onClose={() => setBigPhoto(null)} title="Licence / ID photo">
+          {/* eslint-disable-next-line @next/next/no-img-element -- stored data URL */}
+          <img src={bigPhoto} alt="Licence or ID, full size" className="mx-auto max-h-[70svh] rounded-xl object-contain" />
+        </Modal>
+      )}
     </div>
   );
 }
