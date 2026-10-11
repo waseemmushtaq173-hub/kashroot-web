@@ -17,6 +17,7 @@ import { useAssistant } from '@/lib/client/assistant';
 import { isRtl, listen, NO_VOICE_HELP, noListenHelp, speak, stopSpeaking, type SpeechLang } from '@/lib/client/speech';
 import { PORTALS, type PortalId } from '@/lib/auth/roles';
 import { loadAccount } from '@/lib/db/client';
+import { rememberedLang, rememberLang } from '@/lib/langDetect';
 
 export function PortalGuide({ portal }: { portal: PortalId }) {
   const guide = PORTAL_GUIDES[portal];
@@ -46,7 +47,7 @@ export function PortalGuide({ portal }: { portal: PortalId }) {
       const ai = configured ?? (await fetch('/api/ai').then((r) => r.json()).then((d) => Boolean(d.configured)).catch(() => true));
       if (ai) {
         // Kashmiri: the AI explains the page in Kashmiri, then it is read aloud.
-        await ask('Explain this page to me simply, step by step: what is it for and which buttons do I press?', 'ks');
+        await ask('Explain this page to me simply, step by step: what is it for and which buttons do I press?', 'ks', { exact: true });
         return;
       }
       // No AI yet: Urdu is the closest written guide a Kashmiri speaker follows.
@@ -92,7 +93,7 @@ export function PortalGuide({ portal }: { portal: PortalId }) {
     void loadAccount()
       .catch(() => null)
       .then((a) => {
-        const l = a?.lang ?? 'en';
+        const l = a?.lang ?? rememberedLang() ?? 'en';
         setLang(l);
         if (seen) return;
         // Wait until any other window (e.g. the identity check) is closed,
@@ -165,7 +166,7 @@ export function PortalGuide({ portal }: { portal: PortalId }) {
               <X className="h-4 w-4" aria-hidden />
             </button>
           </div>
-          <LangPicker className="mt-3" value={lang} onChange={(l) => { cancelAutoRead(); setLang(l); stop(); stopSpeaking(); setReading(false); }} />
+          <LangPicker className="mt-3" value={lang} onChange={(l) => { cancelAutoRead(); setLang(l); rememberLang(l); stop(); stopSpeaking(); setReading(false); }} />
 
           <button
             type="button"

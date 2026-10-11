@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { needsDevanagari, NO_VOICE_HELP, speak, stopSpeaking, type SpeechLang } from '@/lib/client/speech';
+import { detectReplyLang, rememberLang } from '@/lib/langDetect';
 import { navigationFor } from '@/lib/navIntent';
 
 export interface Turn {
@@ -64,9 +65,13 @@ export function useAssistant(opts: { page?: string } = {}) {
   }, []);
 
   const ask = useCallback(
-    async (text: string, lang: SpeechLang) => {
+    async (text: string, picked: SpeechLang, how: { exact?: boolean } = {}) => {
       const question = text.trim();
       if (!question || thinking) return;
+      // Answer in the language they asked in (Urdu script → Urdu, Hindi → Hindi…).
+      // (Not for KashRoot's own instructions, e.g. the guide: those keep the chosen language.)
+      const lang = how.exact ? picked : detectReplyLang(question, picked);
+      if (lang !== picked) rememberLang(lang);
       setNotice(null);
       // "Open cold storage", "मंडी दिखाओ": act at once, on the phone — no server, no AI.
       const nav = navigationFor(question, lang);
@@ -86,7 +91,7 @@ export function useAssistant(opts: { page?: string } = {}) {
         const res = await fetch('/api/ai', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: question, lang, history, speakAs, page: opts.page }),
+          body: JSON.stringify({ query: question, lang, exact: how.exact || undefined, history, speakAs, page: opts.page }),
         });
         const data = (await res.json().catch(() => ({}))) as { reply?: string; error?: string; speech?: string; aiError?: string };
         // The AI failed and basic mode answered: say why, for the site owner.

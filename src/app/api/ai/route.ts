@@ -18,6 +18,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
 
 import { asLang, claudeClient, claudeConfigured, claudeFailure, LANGUAGE, MODEL, speechInstruction, splitSpeech, textOf, throttled } from '@/lib/server/claude';
+import { detectReplyLang } from '@/lib/langDetect';
 import { basicAnswer, quickIntent } from '@/lib/server/basicAssistant';
 import { fetchMandiPrices } from '@/lib/server/mandi';
 import { forecast, geocode } from '@/lib/server/weather';
@@ -123,14 +124,14 @@ export function GET() {
 
 export async function POST(req: Request) {
   if (throttled(req, 20)) return NextResponse.json({ error: 'Too many questions at once. Please wait a minute.' }, { status: 429 });
-  let body: { query?: string; lang?: string; history?: { role: string; text: string }[]; speakAs?: string; page?: string };
+  let body: { query?: string; lang?: string; exact?: boolean; history?: { role: string; text: string }[]; speakAs?: string; page?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
   }
   const query = body.query?.trim().slice(0, 600);
-  const lang = asLang(body.lang);
+  const lang = body.exact ? asLang(body.lang) : detectReplyLang(body.query ?? '', asLang(body.lang));
   const wantDevanagari = (lang === 'ur' || lang === 'ks') && body.speakAs === 'hi';
   if (!query) return NextResponse.json({ error: 'Say or type a question.' }, { status: 400 });
 

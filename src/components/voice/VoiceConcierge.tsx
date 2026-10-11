@@ -16,6 +16,7 @@ import { LangPicker } from '@/components/voice/VoiceButtons';
 import { useAssistant } from '@/lib/client/assistant';
 import { isRtl, listen, noListenHelp, recognitionAvailable, type SpeechLang } from '@/lib/client/speech';
 import { loadAccount } from '@/lib/db/client';
+import { detectReplyLang, rememberedLang, rememberLang } from '@/lib/langDetect';
 
 const SUGGESTIONS: Record<SpeechLang, string[]> = {
   en: ['Today’s apple prices', 'Rain forecast for my district this week', 'How do I control apple scab?', 'How do I book cold storage?'],
@@ -42,7 +43,10 @@ export function VoiceConcierge() {
       const ok = recognitionAvailable();
       setCanListen(ok);
       setListenHelp(ok ? null : noListenHelp());
+      const remembered = rememberedLang();
+      if (remembered) setLang(remembered);
     });
+    // A language saved in My details wins over what this phone remembers.
     void loadAccount().then((a) => a?.lang && setLang(a.lang)).catch(() => undefined);
     return () => {
       cancelAnimationFrame(id);
@@ -56,6 +60,9 @@ export function VoiceConcierge() {
 
   const send = (text: string) => {
     setDraft('');
+    // Switch the buttons (and the microphone) to the language they used.
+    const used = detectReplyLang(text, lang);
+    if (used !== lang) setLang(used);
     void ask(text, lang);
   };
 
@@ -92,7 +99,7 @@ export function VoiceConcierge() {
           <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">Ask KashRoot anything</h2>
           <p className="mt-1 text-sm text-slate-600">Prices, weather, crop care and how to use KashRoot — speak, and hear the answer in Kashmiri, Urdu, Hindi or English.</p>
         </div>
-        <LangPicker value={lang} onChange={setLang} />
+        <LangPicker value={lang} onChange={(l) => { setLang(l); rememberLang(l); }} />
       </div>
 
       {configured === false && (
