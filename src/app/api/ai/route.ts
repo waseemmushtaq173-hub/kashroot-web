@@ -171,9 +171,6 @@ export async function POST(req: Request) {
         tools: TOOLS,
         messages,
         output_config: { effort: 'low' },
-        // If a safety check declines, Anthropic re-runs it on its recommended fallback model.
-        betas: ['server-side-fallback-2026-07-01'],
-        fallbacks: 'default',
       });
 
       if (response.stop_reason === 'refusal') {

@@ -7,7 +7,8 @@ import 'server-only';
 
 import Anthropic from '@anthropic-ai/sdk';
 
-export const MODEL = 'claude-opus-5-5';
+/** Claude Haiku 5.5: the low-cost model, so a small credit covers thousands of farmer questions. */
+export const MODEL = 'claude-haiku-5-5';
 
 export type Lang = 'en' | 'hi' | 'ur' | 'ks';
 export const LANGS: Lang[] = ['en', 'hi', 'ur', 'ks'];

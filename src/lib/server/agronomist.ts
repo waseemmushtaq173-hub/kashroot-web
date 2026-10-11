@@ -17,7 +17,6 @@ Many farmers cannot read well and listen to your answer through a phone's voice,
 
 Be honest about uncertainty: say what is most likely, what else it could be, and what to check. For chemicals, name the type or common active ingredient, never a dose — tell the farmer to follow the label and to confirm with the local horticulture or agriculture department. Prefer cultural and safe practices first. Mention the pre-harvest waiting period when fruit is close to picking. Never invent registrations, prices or research.`;
 
-const FALLBACKS = { betas: ['server-side-fallback-2026-07-01'] as Anthropic.AnthropicBeta[], fallbacks: 'default' as const };
 
 export interface AdviseInput {
   crop?: string;
@@ -53,7 +52,6 @@ export async function adviseFarmer(input: AdviseInput): Promise<{ text: string; 
     system: [{ type: 'text', text: AGRONOMIST, cache_control: { type: 'ephemeral' } }],
     messages: [{ role: 'user', content }],
     output_config: { effort: 'low' },
-    ...FALLBACKS,
   });
   if (res.stop_reason === 'refusal') return { text: 'Sorry, I cannot help with that. An agronomist will reply to you.' };
   return splitSpeech(textOf(res.content));
@@ -121,7 +119,6 @@ Write every text field in ${LANGUAGE[input.lang]}.`,
       },
     ],
     output_config: { effort: 'medium', format: { type: 'json_schema', schema: DIAGNOSIS_SCHEMA } },
-    ...FALLBACKS,
   });
   if (res.stop_reason === 'refusal') throw new Error('refused');
   return JSON.parse(textOf(res.content)) as Diagnosis;
@@ -187,7 +184,6 @@ export async function readLabel(input: { photo: string; lang: Lang; today: strin
       },
     ],
     output_config: { effort: 'medium', format: { type: 'json_schema', schema: LABEL_SCHEMA } },
-    ...FALLBACKS,
   });
   if (res.stop_reason === 'refusal') throw new Error('refused');
   return JSON.parse(textOf(res.content)) as LabelReading;
