@@ -11,7 +11,8 @@
  *   → { reply, lang, speech? }  (speech: the reply in Devanagari, for a Hindi voice)
  *
  * Prices and weather are never answered from memory: Claude calls the tools,
- * which read live Agmarknet and Open-Meteo data. It also knows how KashRoot
+ * which read rates posted by KashRoot's approved mandi reporters, Agmarknet
+ * and Open-Meteo data. It also knows how KashRoot
  * is laid out, so it can walk someone who cannot read through the site.
  */
 import Anthropic from '@anthropic-ai/sdk';
@@ -21,6 +22,7 @@ import { asLang, claudeClient, claudeConfigured, claudeFailure, LANGUAGE, MODEL,
 import { detectReplyLang } from '@/lib/langDetect';
 import { basicAnswer, quickIntent } from '@/lib/server/basicAssistant';
 import { fetchMandiPrices } from '@/lib/server/mandi';
+import { postedRates } from '@/lib/server/postedRates';
 import { forecast, geocode } from '@/lib/server/weather';
 
 export const maxDuration = 60;
@@ -35,6 +37,7 @@ For crop care, give safe, widely accepted practice for orchards in the region, t
 
 You also guide people around the KashRoot website. Name buttons and tabs exactly as written. The site has:
 - Home page: voice assistant (this), live mandi rates and weather, Orchard Health, fertiliser check, and a card for every portal. On phones, the Menu button at the top right opens everything.
+- Mandi & Weather page: "Today’s rates from the mandis" — daily rates posted by approved mandi reporters (traders and commission agents at the mandi), with who posted and when. A trader signs in and presses "Post rates for your mandi" to apply; once KashRoot approves, "Post today’s rate" appears.
 - Farmer portal: press List produce, choose the crop, write the price and how many boxes, then Save; buyers see it on Price Comparison. Orders tab: Accept, then Mark shipped, then Money received once the buyer pays. Payouts tab: the farmer's UPI ID or bank account, where buyers pay.
 - Price Comparison (also Buyer portal): compare farm inputs or fruit and produce, cheapest first; press Order, give quantity and address. Pay after delivery: nothing is paid up front; when the goods arrive the buyer presses I received the goods in My orders and pays the seller directly from a UPI app, then types the payment number. KashRoot does not hold money. Seller portal: Add product, accept and ship orders, Payouts for UPI or bank details.
 - Rental portal: Cold storage tab shows cold stores with free boxes; press Book, choose boxes and months, then pay the owner by UPI and enter the payment number. My cold store tab is for owners to list their store and confirm bookings. Machinery tab for tractors and sprayers.
@@ -51,7 +54,7 @@ const TOOLS: Anthropic.Beta.BetaTool[] = [
   {
     name: 'get_mandi_prices',
     description:
-      'Live wholesale mandi prices from Agmarknet (Government of India) for one commodity, optionally narrowed to an Indian state, district or market. Returns up to 12 recent rows with min, max and modal price in INR per quintal and the arrival date. Use for any question about crop rates or market prices.',
+      'Mandi (wholesale market) prices for one commodity, optionally narrowed to an Indian state, district or market. Returns two sources: "posted_on_kashroot" — the latest rates posted on KashRoot in the last 4 days by approved mandi reporters (traders and commission agents at the mandi), each with its unit (box, kg or quintal), box weight, min/modal/max price, date and reporter; and "agmarknet" — the Government of India feed in INR per quintal, which is often unavailable. Prefer posted_on_kashroot, say which source and date each rate is from, and never guess a rate. Use for any question about crop rates or market prices.',
     input_schema: {
       type: 'object',
       properties: {
@@ -90,12 +93,45 @@ async function runTool(name: string, input: Record<string, unknown>): Promise<un
     if (name === 'get_mandi_prices') {
       const commodity = str(input.commodity);
       if (!commodity) return { result: 'BAD_INPUT', note: 'commodity is required' };
-      const r = await withBudget(fetchMandiPrices({ commodity, state: str(input.state), district: str(input.district), market: str(input.market), limit: 200 }));
-      if (r.records.length === 0) return { result: 'NO_DATA', note: 'No market reported this commodity for that area in the current feed.' };
+      const [state, district, market] = [str(input.state), str(input.district), str(input.market)];
+      const [posted, gov] = await Promise.allSettled([
+        withBudget(postedRates(commodity)),
+        withBudget(fetchMandiPrices({ commodity, state, district, market, limit: 200 })),
+      ]);
+      // "Parimpora (Srinagar)" matches "Parimpora", "Srinagar" and "Parimpora mandi".
+      const near = (v: string | null, want?: string) => {
+        if (!want) return true;
+        const [a, b] = [(v ?? '').toLowerCase(), want.toLowerCase()];
+        return Boolean(a) && (a.includes(b) || b.includes(a.replace(/\s*\(.*\)/, '')));
+      };
+      const ours = posted.status === 'fulfilled' ? posted.value.filter((r) => near(r.state, state) && (near(r.mandi, market) || near(r.district, market)) && (near(r.district, district) || near(r.mandi, district))) : [];
+      const all = posted.status === 'fulfilled' ? posted.value : [];
+      const rows = gov.status === 'fulfilled' ? gov.value.records : [];
+      if (!all.length && !rows.length) {
+        return gov.status === 'rejected'
+          ? { result: 'SERVICE_UNAVAILABLE', note: `No rate for this crop was posted on KashRoot in the last 4 days, and Agmarknet did not answer (${gov.reason instanceof Error ? gov.reason.message : String(gov.reason)}).` }
+          : { result: 'NO_DATA', note: 'No rate for this crop was posted on KashRoot in the last 4 days, and no market reported it for that area in the Agmarknet feed.' };
+      }
       return {
-        unit: 'INR per quintal',
-        source: r.source,
-        rows: r.records.slice(0, 12).map((x) => ({ market: x.market, district: x.district, state: x.state, variety: x.variety, date: x.arrivalDate, min: x.minPrice, max: x.maxPrice, modal: x.modalPrice })),
+        posted_on_kashroot: (ours.length ? ours : all).slice(0, 12).map((r) => ({
+          mandi: r.mandi,
+          district: r.district,
+          state: r.state,
+          crop: r.commodity,
+          variety: r.variety,
+          grade: r.grade,
+          unit: r.unit === 'box' ? `INR per box${r.box_kg ? ` of ${r.box_kg} kg` : ''}` : `INR per ${r.unit}`,
+          min: r.min_price,
+          modal: r.modal_price,
+          max: r.max_price,
+          date: r.rate_date,
+          reporter: r.reporter_name,
+          note: r.note,
+        })),
+        posted_note: all.length && !ours.length ? 'Nothing posted for the exact area asked; these are other mandis.' : undefined,
+        agmarknet: rows.length
+          ? { unit: 'INR per quintal', source: gov.status === 'fulfilled' ? gov.value.source : undefined, rows: rows.slice(0, 12).map((x) => ({ market: x.market, district: x.district, state: x.state, variety: x.variety, date: x.arrivalDate, min: x.minPrice, max: x.maxPrice, modal: x.modalPrice })) }
+          : { result: gov.status === 'rejected' ? 'SERVICE_UNAVAILABLE' : 'NO_DATA' },
       };
     }
     if (name === 'get_weather') {

@@ -2,7 +2,8 @@
  * The assistant's free "basic mode", used when no AI key is set: typed or
  * spoken questions in English, Hindi, Urdu or Kashmiri are matched by
  * keywords and answered from live data or fixed how-to answers —
- *   • mandi prices  → Agmarknet / data.gov.in (fetchMandiPrices)
+ *   • mandi prices  → rates posted on KashRoot by approved mandi reporters,
+ *                     then Agmarknet / data.gov.in (fetchMandiPrices)
  *   • weather/spray → Open-Meteo, with today's dry hours for spraying
  *   • how to …      → where to go on KashRoot and which button to press
  * Kashmiri is answered in Urdu (closest written form). For Urdu and
@@ -13,6 +14,7 @@ import 'server-only';
 
 import type { Lang } from '@/lib/server/claude';
 import { fetchMandiPrices, type MandiQuery, type MandiRecord } from '@/lib/server/mandi';
+import { istDate, perKilo, postedRates, type PostedRate } from '@/lib/server/postedRates';
 import { forecast, geocode, type Forecast } from '@/lib/server/weather';
 import { dryHours } from '@/lib/sprayWindow';
 import { has, norm } from '@/lib/textMatch';
@@ -26,10 +28,13 @@ export interface BasicAnswer {
 export interface BasicDeps {
   prices: (q: MandiQuery) => Promise<{ records: MandiRecord[] }>;
   weather: (place: string) => Promise<Forecast | null>;
+  /** Rates posted on KashRoot by mandi reporters, for one crop. */
+  posted?: (crop: string) => Promise<PostedRate[]>;
 }
 
 const defaultDeps: BasicDeps = {
   prices: fetchMandiPrices,
+  posted: (crop) => postedRates(crop),
   weather: async (name) => {
     const place = (await geocode(name))[0];
     return place ? forecast(place) : null;
@@ -168,16 +173,72 @@ function day(iso: string, l: 'en' | 'hi' | 'ur'): string {
   return d.toLocaleDateString(l === 'en' ? 'en-IN' : l === 'hi' ? 'hi-IN' : 'ur-IN', { day: 'numeric', month: 'long', timeZone: 'UTC' });
 }
 
-async function priceAnswer(lang: Lang, crop: (typeof COMMODITIES)[number], place: (typeof PLACES)[number] | undefined, deps: BasicDeps): Promise<BasicAnswer> {
+type Crop = (typeof COMMODITIES)[number];
+type Place = (typeof PLACES)[number];
+
+const UNIT: Record<PostedRate['unit'], Text> = {
+  box: { en: 'a box', hi: 'प्रति पेटी', ur: 'فی پیٹی' },
+  kg: { en: 'a kilo', hi: 'प्रति किलो', ur: 'فی کلو' },
+  quintal: { en: 'a quintal', hi: 'प्रति क्विंटल', ur: 'فی کوئنٹل' },
+};
+
+function postedDay(iso: string, l: 'en' | 'hi' | 'ur'): string {
+  if (iso === istDate()) return { en: 'today', hi: 'आज', ur: 'آج' }[l];
+  if (iso === istDate(-1)) return { en: 'yesterday', hi: 'कल', ur: 'کل' }[l];
+  return { en: `on ${day(iso, l)}`, hi: `${day(iso, l)} को`, ur: `${day(iso, l)} کو` }[l];
+}
+
+/** Rates reporters posted on KashRoot, nearest mandi first; null when none were posted. */
+function postedAnswer(lang: Lang, crop: Crop, place: Place | undefined, rates: PostedRate[]): BasicAnswer | null {
+  if (!rates.length) return null;
+  const at = (r: PostedRate, v: string) => norm(v).includes(norm(r.mandi)) || norm(r.mandi).includes(norm(v));
+  const exact = place ? rates.filter((r) => at(r, place.name) || place.keys.some((k) => at(r, k))) : [];
+  const near = place && !exact.length ? rates.filter((r) => norm(r.district ?? '').includes(norm(place.district))) : [];
+  const chosen = exact.length ? exact : near.length ? near : rates;
+  const top = chosen.slice().sort((a, b) => b.rate_date.localeCompare(a.rate_date)).slice(0, 4);
+  const missed = place && !exact.length && !near.length;
+  return answer(lang, (l) => {
+    const lines = top.map((r) => {
+      const kind = [r.variety, r.grade].filter(Boolean).join(' ');
+      const kg = r.unit === 'kg' ? null : perKilo(r, r.modal_price);
+      const box = r.unit === 'box' && r.box_kg ? { en: ` of ${r.box_kg} kg`, hi: ` (${r.box_kg} किलो)`, ur: ` (${r.box_kg} کلو)` }[l] : '';
+      const perKg = kg === null ? '' : { en: `, about ${rupees(kg)} a kilo`, hi: `, यानी लगभग ${rupees(kg)} प्रति किलो`, ur: `، یعنی تقریباً ${rupees(kg)} فی کلو` }[l];
+      const mandi = marketName(r.mandi, l);
+      const what = kind ? ` ${kind}` : '';
+      return l === 'en'
+        ? `${mandi} ${postedDay(r.rate_date, l)}:${what} ${rupees(r.modal_price)} ${UNIT[r.unit].en}${box}${perKg}`
+        : l === 'hi'
+          ? `${mandi} में ${postedDay(r.rate_date, l)}:${what} ${rupees(r.modal_price)} ${UNIT[r.unit].hi}${box}${perKg}`
+          : `${mandi} میں ${postedDay(r.rate_date, l)}:${what} ${rupees(r.modal_price)} ${UNIT[r.unit].ur}${box}${perKg}`;
+    });
+    const head = {
+      en: `${crop.label.en} rates from the mandis${missed ? ` (none posted from ${place!.label.en}; other mandis)` : ''}: `,
+      hi: `${crop.label.hi} के मंडी भाव${missed ? ` (${place!.label.hi} से कोई भाव नहीं आया; दूसरी मंडियाँ)` : ''}: `,
+      ur: `${crop.label.ur} کے منڈی بھاؤ${missed ? ` (${place!.label.ur} سے کوئی بھاؤ نہیں آیا؛ دوسری منڈیاں)` : ''}: `,
+    }[l];
+    const tail = {
+      en: '. Posted on KashRoot by approved mandi reporters.',
+      hi: '। ये भाव KashRoot के मंज़ूर मंडी रिपोर्टरों ने भेजे हैं।',
+      ur: '۔ یہ بھاؤ KashRoot کے منظور شدہ منڈی رپورٹروں نے بھیجے ہیں۔',
+    }[l];
+    return head + lines.join(l === 'ur' ? '؛ ' : '; ') + tail;
+  });
+}
+
+async function priceAnswer(lang: Lang, crop: Crop, place: Place | undefined, deps: BasicDeps): Promise<BasicAnswer> {
+  const posted = deps.posted ? await deps.posted(crop.label.en).catch(() => []) : [];
+  const fromReporters = postedAnswer(lang, crop, place, posted);
+  if (fromReporters) return fromReporters;
+
   const state = place?.state ?? 'Jammu and Kashmir';
   let rows: MandiRecord[];
   try {
     rows = (await deps.prices({ commodity: crop.name, state, limit: 200 })).records;
   } catch {
     return answer(lang, (l) => ({
-      en: `The government mandi price service is not answering right now, so I can't tell you today's ${crop.label.en} rate. Please try again in a little while.`,
-      hi: `सरकारी मंडी भाव सेवा अभी जवाब नहीं दे रही, इसलिए आज का ${crop.label.hi} का भाव नहीं बता सकता। थोड़ी देर बाद फिर पूछें।`,
-      ur: `سرکاری منڈی بھاؤ سروس ابھی جواب نہیں دے رہی، اس لیے آج کا ${crop.label.ur} کا بھاؤ نہیں بتا سکتا۔ تھوڑی دیر بعد دوبارہ پوچھیں۔`,
+      en: `No ${crop.label.en} rate has been posted on KashRoot in the last few days, and the government mandi price service is not answering, so I can't tell you today's rate. Please check again later.`,
+      hi: `पिछले कुछ दिनों में KashRoot पर ${crop.label.hi} का कोई भाव नहीं आया, और सरकारी मंडी भाव सेवा जवाब नहीं दे रही, इसलिए आज का भाव नहीं बता सकता। थोड़ी देर बाद फिर पूछें।`,
+      ur: `پچھلے کچھ دنوں میں KashRoot پر ${crop.label.ur} کا کوئی بھاؤ نہیں آیا، اور سرکاری منڈی بھاؤ سروس جواب نہیں دے رہی، اس لیے آج کا بھاؤ نہیں بتا سکتا۔ تھوڑی دیر بعد دوبارہ پوچھیں۔`,
     })[l]);
   }
   const near = place ? rows.filter((r) => [r.market, r.district].some((v) => norm(v).includes(norm(place.name)) || norm(v).includes(norm(place.district)))) : [];

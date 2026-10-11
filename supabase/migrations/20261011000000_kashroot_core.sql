@@ -27,7 +27,7 @@ end $$;
 -- ───────────────────────── staff roles ─────────────────────────
 create table if not exists public.staff_roles (
   user_id    uuid not null references auth.users (id) on delete cascade,
-  role       text not null check (role in ('ADMIN', 'EXPERT', 'DEALER')),
+  role       text not null check (role in ('ADMIN', 'EXPERT', 'DEALER', 'REPORTER')),
   granted_by uuid references auth.users (id) on delete set null,
   granted_at timestamptz not null default now(),
   primary key (user_id, role)
@@ -46,7 +46,7 @@ create policy "Own roles, admins see all" on public.staff_roles for select to au
 create table if not exists public.role_requests (
   id         uuid primary key default gen_random_uuid(),
   user_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
-  role       text not null check (role in ('EXPERT', 'DEALER')),
+  role       text not null check (role in ('EXPERT', 'DEALER', 'REPORTER')),
   full_name  text not null check (char_length(full_name) between 1 and 80),
   phone      text check (char_length(phone) <= 20),
   email      text check (char_length(email) <= 120),
@@ -67,7 +67,7 @@ create or replace function public.kr_request_role(p_role text, p_name text, p_ph
 returns void language plpgsql security definer set search_path = public as $$
 begin
   if auth.uid() is null then raise exception 'Sign in first'; end if;
-  if p_role not in ('EXPERT', 'DEALER') then raise exception 'Unknown role'; end if;
+  if p_role not in ('EXPERT', 'DEALER', 'REPORTER') then raise exception 'Unknown role'; end if;
   insert into public.role_requests (user_id, role, full_name, phone, email, details)
   values (auth.uid(), p_role, p_name, p_phone, p_email, p_details)
   on conflict (user_id, role) do update
@@ -80,7 +80,7 @@ create or replace function public.kr_grant_role(p_user uuid, p_role text) return
 language plpgsql security definer set search_path = public as $$
 begin
   if not public.kr_has_role('ADMIN') then raise exception 'Only an admin can do this'; end if;
-  if p_role not in ('ADMIN', 'EXPERT', 'DEALER') then raise exception 'Unknown role'; end if;
+  if p_role not in ('ADMIN', 'EXPERT', 'DEALER', 'REPORTER') then raise exception 'Unknown role'; end if;
   insert into public.staff_roles (user_id, role, granted_by) values (p_user, p_role, auth.uid())
   on conflict do nothing;
   update public.role_requests set status = 'approved', decided_by = auth.uid(), decided_at = now()

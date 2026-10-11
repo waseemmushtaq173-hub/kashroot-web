@@ -58,11 +58,11 @@ export default function AdminConsolePage() {
   return (
     <PortalShell
       title="Governance console"
-      description="Approve agronomists and dealers, help with reported orders, and see how KashRoot is being used."
+      description="Approve agronomists, dealers and mandi reporters, help with reported orders, and see how KashRoot is being used."
       eyebrow="Platform admin"
       theme="admin"
       kpis={[
-        { label: 'Waiting for approval', value: n(counts?.waiting), trend: 'Agronomists and dealers' },
+        { label: 'Waiting for approval', value: n(counts?.waiting), trend: 'Agronomists, dealers, mandi reporters' },
         { label: 'Orders with a problem', value: n(counts?.problems), trend: 'Reported by buyers' },
         { label: 'Accounts', value: n(counts?.accounts), trend: counts ? `${counts.accounts7d} new this week` : 'Loading' },
       ]}

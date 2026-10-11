@@ -38,6 +38,7 @@ import {
 
 import { PortalShell } from '@/components/layout/PortalShell';
 import { Badge, Btn, EmptyState, INPUT, PORTAL_THEMES, Panel, inr } from '@/components/portal/kit';
+import { PostedRates } from '@/components/mandi/PostedRates';
 import { Tilt3D } from '@/components/three/Tilt3D';
 import { MANDI_SAMPLE_KEY, mandiUrl, parseMandi, type MandiQuery, type MandiRecord } from '@/lib/mandi-shared';
 
@@ -350,6 +351,11 @@ export default function MandiWeatherPage() {
           </div>
         )}
       </Panel>
+
+      {/* ── Rates posted by approved mandi reporters ───────── */}
+      <div className="mt-6">
+        <PostedRates theme={theme} commodity={applied.commodity} />
+      </div>
 
       {/* ── Mandi ─────────────────────────────────────────── */}
       <div className="mt-6">

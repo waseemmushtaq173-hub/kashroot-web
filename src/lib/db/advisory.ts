@@ -110,13 +110,13 @@ export async function setRequest(requestId: string, action: 'accept' | 'close' |
   if (error) fail(error, 'Could not update the request.');
 }
 
-/** Experts and dealers apply; an admin approves (Admin portal → Approvals). */
-export async function requestStaffRole(role: 'EXPERT' | 'DEALER', input: { name: string; phone: string; email: string; details: string }): Promise<void> {
+/** Experts, dealers and mandi reporters apply; an admin approves (Admin portal → Approvals). */
+export async function requestStaffRole(role: 'EXPERT' | 'DEALER' | 'REPORTER', input: { name: string; phone: string; email: string; details: string }): Promise<void> {
   const { error } = await supabase.rpc('kr_request_role', { p_role: role, p_name: input.name, p_phone: input.phone, p_email: input.email, p_details: input.details });
   if (error) fail(error, 'Could not send your application.');
 }
 
-export async function myRoleRequest(role: 'EXPERT' | 'DEALER', userId: string): Promise<{ status: string } | null> {
+export async function myRoleRequest(role: 'EXPERT' | 'DEALER' | 'REPORTER', userId: string): Promise<{ status: string } | null> {
   const { data } = await supabase.from('role_requests').select('status').eq('role', role).eq('user_id', userId).maybeSingle();
   return (data as { status: string } | null) ?? null;
 }

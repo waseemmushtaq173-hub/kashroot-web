@@ -1,13 +1,13 @@
 'use client';
 
 /**
- * Admin → Approvals: agronomists and dealers who applied (role_requests),
+ * Admin → Approvals: agronomists, dealers and mandi reporters who applied (role_requests),
  * everyone holding a staff role (staff_roles), and farmers' reports of
  * suspicious fertiliser / pesticide batches. Approving calls kr_grant_role,
  * which only works for admins (checked in the database).
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Check, Flag, GraduationCap, Loader2, ShieldCheck, Store, UserX, X } from 'lucide-react';
+import { Check, Flag, GraduationCap, Loader2, Megaphone, ShieldCheck, Store, UserX, X, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Badge, Btn, EmptyState, PORTAL_THEMES, Panel } from '@/components/portal/kit';
@@ -18,7 +18,7 @@ const theme = PORTAL_THEMES.admin ?? PORTAL_THEMES.expert;
 interface RoleRequest {
   id: string;
   user_id: string;
-  role: 'EXPERT' | 'DEALER';
+  role: 'EXPERT' | 'DEALER' | 'REPORTER';
   full_name: string;
   phone: string | null;
   email: string | null;
@@ -26,6 +26,12 @@ interface RoleRequest {
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
 }
+
+const ROLE_LOOK: Record<RoleRequest['role'], { label: string; tone: 'violet' | 'red' | 'green'; icon: LucideIcon; colour: string }> = {
+  EXPERT: { label: 'Agronomist', tone: 'violet', icon: GraduationCap, colour: 'text-purple-700' },
+  DEALER: { label: 'Dealer', tone: 'red', icon: Store, colour: 'text-rose-700' },
+  REPORTER: { label: 'Mandi reporter', tone: 'green', icon: Megaphone, colour: 'text-emerald-700' },
+};
 
 interface StaffRole {
   user_id: string;
@@ -95,16 +101,16 @@ export function ApprovalsPanel() {
         {error ? (
           <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800">{error}</p>
         ) : pending.length === 0 ? (
-          <EmptyState theme={theme} icon={ShieldCheck} title="Nobody waiting" text="Agronomists apply from the Advisory portal, dealers from the Agro-dealer portal. Their applications appear here." />
+          <EmptyState theme={theme} icon={ShieldCheck} title="Nobody waiting" text="Agronomists apply from the Advisory portal, dealers from the Agro-dealer portal, mandi reporters from Mandi & Weather. Their applications appear here." />
         ) : (
           <ul className="space-y-3">
             {pending.map((r) => (
               <li key={r.id} className="flex flex-col gap-3 rounded-2xl bg-white/80 p-4 ring-1 ring-slate-900/5 lg:flex-row lg:items-center lg:justify-between">
                 <div className="min-w-0">
                   <p className="flex flex-wrap items-center gap-2 font-semibold text-slate-900">
-                    {r.role === 'EXPERT' ? <GraduationCap className="h-4 w-4 text-purple-700" aria-hidden /> : <Store className="h-4 w-4 text-rose-700" aria-hidden />}
+                    <RoleIcon role={r.role} />
                     {r.full_name}
-                    <Badge tone={r.role === 'EXPERT' ? 'violet' : 'red'}>{r.role === 'EXPERT' ? 'Agronomist' : 'Dealer'}</Badge>
+                    <Badge tone={ROLE_LOOK[r.role]?.tone ?? 'slate'}>{ROLE_LOOK[r.role]?.label ?? r.role}</Badge>
                     <span className="text-xs font-normal text-slate-500">{ago(r.created_at)}</span>
                   </p>
                   <p className="mt-1 text-sm text-slate-700">{r.details || 'No details given'}</p>
@@ -129,7 +135,7 @@ export function ApprovalsPanel() {
               <li key={`${s.user_id}-${s.role}`} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                 <span className="min-w-0">
                   <span className="font-semibold text-slate-900">{names.get(s.user_id) ?? 'Account'}</span>{' '}
-                  <Badge tone={s.role === 'ADMIN' ? 'blue' : s.role === 'EXPERT' ? 'violet' : 'red'}>{s.role}</Badge>
+                  <Badge tone={s.role === 'ADMIN' ? 'blue' : ROLE_LOOK[s.role as RoleRequest['role']]?.tone ?? 'slate'}>{ROLE_LOOK[s.role as RoleRequest['role']]?.label ?? s.role}</Badge>
                   <span className="block truncate font-mono text-xs text-slate-400">{s.user_id}</span>
                 </span>
                 {s.role !== 'ADMIN' && (
@@ -157,4 +163,11 @@ export function ApprovalsPanel() {
       </Panel>
     </div>
   );
+}
+
+function RoleIcon({ role }: { role: RoleRequest['role'] }) {
+  const look = ROLE_LOOK[role];
+  if (!look) return null;
+  const Icon = look.icon;
+  return <Icon className={`h-4 w-4 ${look.colour}`} aria-hidden />;
 }
