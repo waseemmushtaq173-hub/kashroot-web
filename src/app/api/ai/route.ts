@@ -201,7 +201,10 @@ export async function POST(req: Request) {
     }
     return NextResponse.json({ reply: 'Sorry, that took too many steps. Please ask in a simpler way.', lang });
   } catch (err) {
+    // The AI could not answer: still answer what basic mode can (prices,
+    // weather, how-to), so the farmer is never left with an error.
     const f = claudeFailure(err);
-    return NextResponse.json({ error: f.error }, { status: f.status });
+    const a = await basicAnswer(query, lang);
+    return NextResponse.json({ reply: a.reply, lang, basic: true, aiError: f.error, ...(a.speech ? { speech: a.speech } : {}) });
   }
 }
