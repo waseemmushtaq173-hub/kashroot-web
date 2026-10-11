@@ -34,6 +34,8 @@ export interface MandiResult {
   usingSampleKey: boolean;
   fetchedAt: string;
   source: string;
+  /** Some states were not read in time (all-India search): ask again for the rest. */
+  partial?: boolean;
 }
 
 export async function fetchMandiPrices(query: MandiQuery): Promise<MandiResult> {
@@ -42,7 +44,7 @@ export async function fetchMandiPrices(query: MandiQuery): Promise<MandiResult> 
   try {
     const a = await fetchAgmarknet(query);
     if (a.records.length || !process.env.DATA_GOV_IN_API_KEY) {
-      return { records: a.records, total: a.records.length, usingSampleKey: false, fetchedAt: new Date().toISOString(), source: 'Agmarknet (agmarknet.gov.in)' };
+      return { records: a.records, total: a.records.length, usingSampleKey: false, fetchedAt: new Date().toISOString(), source: 'Agmarknet (agmarknet.gov.in)', partial: a.partial };
     }
   } catch (err) {
     firstFailure = `Agmarknet: ${[err instanceof Error ? err.message : String(err), causeCode(err)].filter(Boolean).join(' · ')}`;

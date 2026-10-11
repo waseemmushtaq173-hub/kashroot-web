@@ -151,12 +151,18 @@ interface Report {
   data?: Report;
 }
 
-async function monthReport(year: number, month: number, stateId: number, commodityIds: number[]): Promise<Report> {
+/** The crop id Agmarknet accepted last time, per crop name: tried first. */
+const acceptedId = new Map<string, number>();
+
+async function monthReport(year: number, month: number, stateId: number, commodityIds: number[], crop = ''): Promise<Report> {
   const tried: string[] = [];
-  for (const commodityId of commodityIds) {
+  const known = acceptedId.get(crop);
+  const ids = known !== undefined ? [known, ...commodityIds.filter((i) => i !== known)] : commodityIds;
+  for (const commodityId of ids) {
     const q = new URLSearchParams({ year: String(year), month: String(month), stateId: String(stateId), commodityId: String(commodityId), includeExcel: 'false' });
     try {
       const raw = await get<Report>(`prices-and-arrivals/date-wise/specific-commodity?${q}`, 15_000);
+      if (crop) acceptedId.set(crop, commodityId);
       return raw.markets || raw.columns ? raw : raw.data ?? raw;
     } catch (err) {
       tried.push(`commodityId ${commodityId}: ${err instanceof Error ? err.message : String(err)}`);
@@ -165,35 +171,46 @@ async function monthReport(year: number, month: number, stateId: number, commodi
   throw new AgmarknetError(tried.join(' | '));
 }
 
-/** Prices for one commodity in the given states, newest first (₹ per quintal). */
-export async function fetchAgmarknet(query: MandiQuery): Promise<{ records: MandiRecord[]; states: string[] }> {
+/** Prices for one commodity — in one state, or in every state when none is chosen —
+ * as the latest report from each mandi (and variety), newest first (₹ per quintal). */
+export async function fetchAgmarknet(query: MandiQuery): Promise<{ records: MandiRecord[]; states: string[]; partial: boolean }> {
   const cat = await catalog();
   const commodity = match(cat.commodities, query.commodity || 'Apple');
   if (!commodity) throw new AgmarknetError(`Agmarknet has no commodity called ${query.commodity}`);
-  const wantedStates = query.state ? [query.state] : ['Jammu and Kashmir', 'Himachal Pradesh', 'Delhi'];
-  const states = wantedStates.map((s) => match(cat.states, s)).filter((s): s is { id: number; name: string } => Boolean(s));
-  if (!states.length) throw new AgmarknetError(`Agmarknet has no state called ${query.state}`);
+  let states: { id: number; name: string }[];
+  if (query.state) {
+    const one = match(cat.states, query.state);
+    if (!one) throw new AgmarknetError(`Agmarknet has no state called ${query.state}`);
+    states = [one];
+  } else {
+    // Every state; Jammu and Kashmir first, as it also tells us early whether
+    // Agmarknet accepts the request at all.
+    const jk = match(cat.states, 'Jammu and Kashmir');
+    states = jk ? [jk, ...cat.states.filter((x) => x.id !== jk.id)] : [...cat.states];
+  }
 
   const now = new Date(Date.now() + 5.5 * 3600_000); // IST
-  const months = [
-    { y: now.getUTCFullYear(), m: now.getUTCMonth() + 1 },
-    { y: now.getUTCMonth() === 0 ? now.getUTCFullYear() - 1 : now.getUTCFullYear(), m: now.getUTCMonth() === 0 ? 12 : now.getUTCMonth() },
-  ];
+  const thisMonth = { y: now.getUTCFullYear(), m: now.getUTCMonth() + 1 };
+  const lastMonth = { y: now.getUTCMonth() === 0 ? now.getUTCFullYear() - 1 : now.getUTCFullYear(), m: now.getUTCMonth() === 0 ? 12 : now.getUTCMonth() };
+  // Early in the month the new month has few reports: also read last month.
+  const alsoLastMonth = states.length === 1 || now.getUTCDate() <= 10;
 
   const records: MandiRecord[] = [];
-  let answered = false;
   const failures: string[] = [];
-  for (const state of states) {
-    for (const { y, m } of months) {
+  let answered = false;
+
+  const readState = async (state: { id: number; name: string }) => {
+    for (const { y, m } of alsoLastMonth ? [thisMonth, lastMonth] : [thisMonth]) {
       let report: Report;
       try {
-        report = await monthReport(y, m, state.id, commodity.ids);
+        report = await monthReport(y, m, state.id, commodity.ids, commodity.name);
       } catch (err) {
         failures.push(`${state.name} ${m}/${y}: ${err instanceof Error ? err.message : String(err)}`);
         continue;
       }
       answered = true;
       if (report.success === false) continue;
+      const before = records.length;
       const cols = report.columns ?? [];
       const keyFor = (re: RegExp, fallback: string) => cols.find((c) => re.test(c.title ?? '') || re.test(c.key ?? ''))?.key ?? fallback;
       const kMin = keyFor(/min/i, 'minimumPrice');
@@ -201,8 +218,8 @@ export async function fetchAgmarknet(query: MandiQuery): Promise<{ records: Mand
       const kModal = keyFor(/modal/i, 'modalPrice');
       const kGrade = keyFor(/grade/i, 'grade');
       for (const market of report.markets ?? []) {
-        const m = cat.markets.find((x) => x.stateId === state.id && norm(x.name) === norm(market.marketName));
-        const district = m ? cat.districts.get(m.districtId) ?? '' : '';
+        const mk = cat.markets.find((x) => x.stateId === state.id && norm(x.name) === norm(market.marketName));
+        const district = mk ? cat.districts.get(mk.districtId) ?? '' : '';
         if (query.district && district && !norm(district).includes(norm(query.district))) continue;
         if (query.market && !norm(market.marketName).includes(norm(query.market))) continue;
         for (const day of market.dates ?? []) {
@@ -224,14 +241,41 @@ export async function fetchAgmarknet(query: MandiQuery): Promise<{ records: Mand
           }
         }
       }
-      // The current month already has rows: no need for last month.
-      if (records.some((r) => r.state === state.name)) break;
+      if (records.length > before) break; // this month has reports: last month not needed
     }
-  }
-  // Say exactly what Agmarknet replied, so the cause shows on screen.
+  };
+
+  // The first state alone: if Agmarknet refuses it, the request itself is wrong —
+  // stop and say why instead of asking 36 more times.
+  await readState(states[0]);
   if (!answered) throw new AgmarknetError(`Agmarknet refused the price report — ${failures[0] ?? 'no reply'}`.slice(0, 600));
-  records.sort((a, b) => b.arrivalDate.localeCompare(a.arrivalDate) || a.market.localeCompare(b.market));
-  return { records: records.slice(0, Math.min(query.limit ?? 200, 500)), states: states.map((s) => s.name) };
+
+  // The rest, six at a time, within the route's time limit.
+  const deadline = Date.now() + 35_000;
+  let next = 1;
+  let partial = false;
+  const worker = async () => {
+    while (next < states.length) {
+      if (Date.now() > deadline) {
+        partial = true;
+        return;
+      }
+      await readState(states[next++]);
+    }
+  };
+  await Promise.all(Array.from({ length: 6 }, worker));
+
+  // One row per mandi and variety: its latest report.
+  records.sort((a, b) => b.arrivalDate.localeCompare(a.arrivalDate));
+  const seen = new Set<string>();
+  const latest = records.filter((r) => {
+    const k = `${r.state}|${r.market}|${r.variety}|${r.grade}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  latest.sort((a, b) => a.state.localeCompare(b.state) || a.market.localeCompare(b.market) || b.arrivalDate.localeCompare(a.arrivalDate));
+  return { records: latest.slice(0, Math.min(query.limit ?? 1000, 2000)), states: states.map((x) => x.name), partial };
 }
 
 /** What Agmarknet answers right now, for /api/mandi/diagnose (no secrets involved). */
@@ -246,7 +290,7 @@ export async function diagnoseAgmarknet(commodityName = 'Apple', stateName = 'Ja
     steps.matched = { commodity: c ?? null, state: s ?? null };
     if (c && s) {
       const now = new Date();
-      const r = await monthReport(now.getFullYear(), now.getMonth() + 1, s.id, c.ids);
+      const r = await monthReport(now.getFullYear(), now.getMonth() + 1, s.id, c.ids, c.name);
       steps.report = {
         success: r.success,
         title: r.title,

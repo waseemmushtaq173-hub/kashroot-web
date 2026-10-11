@@ -10,7 +10,7 @@
  *
  * Nothing is invented: empty feeds and service errors are shown as such.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowDownWideNarrow,
@@ -63,6 +63,8 @@ interface MandiResult {
   source: string;
   /** Fetched by this browser straight from data.gov.in (server could not reach it). */
   direct?: boolean;
+  /** All-India search: some states were not read in time. */
+  partial?: boolean;
 }
 
 /**
@@ -200,8 +202,20 @@ export default function MandiWeatherPage() {
     const list = [...(mandiQ.data?.records ?? [])];
     if (sort === 'price-asc') list.sort((a, b) => a.modalPrice - b.modalPrice);
     else if (sort === 'price-desc') list.sort((a, b) => b.modalPrice - a.modalPrice);
+    else list.sort((a, b) => b.arrivalDate.localeCompare(a.arrivalDate) || a.market.localeCompare(b.market));
     return list;
   }, [mandiQ.data, sort]);
+  /** Rows by state (Jammu and Kashmir first), each in the chosen order. */
+  const byState = useMemo(() => {
+    const groups = new Map<string, MandiRecord[]>();
+    for (const r of rows) groups.set(r.state, [...(groups.get(r.state) ?? []), r]);
+    return [...groups.entries()].sort(([a], [b]) => (/jammu/i.test(a) ? -1 : /jammu/i.test(b) ? 1 : a.localeCompare(b)));
+  }, [rows]);
+  const showState = (state: string) => {
+    const next = { ...filters, state, district: '', market: '' };
+    setFilters(next);
+    setApplied(next);
+  };
   const stats = useMemo(() => {
     if (rows.length === 0) return null;
     const modal = rows.map((r) => r.modalPrice).filter((n) => n > 0);
@@ -427,8 +441,14 @@ export default function MandiWeatherPage() {
               </div>
             </div>
           )}
+          {rows.length > 0 && byState.length > 1 && (
+            <p className="mt-5 text-sm text-slate-700">
+              <strong>{byState.length} states</strong> · {new Set(rows.map((r) => `${r.state}|${r.market}`)).size} mandis reporting {applied.commodity || 'this crop'} — the latest report from each. Tap a state to see only its mandis.
+              {mandiQ.data?.partial && <span className="block text-amber-800">Some states took too long to answer; press Show prices again to load the rest.</span>}
+            </p>
+          )}
           {rows.length > 0 && (
-            <div className="mt-5 overflow-x-auto rounded-2xl ring-1 ring-slate-900/5">
+            <div className="mt-3 overflow-x-auto rounded-2xl ring-1 ring-slate-900/5">
               <table className="w-full min-w-[760px] bg-white/80 text-left text-sm">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
                   <tr>
@@ -441,21 +461,35 @@ export default function MandiWeatherPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-900/5">
-                  {rows.slice(0, 150).map((r, i) => (
-                    <tr key={`${r.market}-${r.variety}-${r.arrivalDate}-${i}`} className="hover:bg-sky-50/60">
-                      <td className="px-4 py-3">
-                        <p className="font-semibold text-slate-900">{r.market}</p>
-                        <p className="text-xs text-slate-500">{r.district}, {r.state}</p>
-                      </td>
-                      <td className="px-4 py-3 text-slate-700">{r.commodity}{r.variety ? ` · ${r.variety}` : ''}{r.grade && r.grade !== 'FAQ' ? ` · ${r.grade}` : ''}</td>
-                      <td className="px-4 py-3">
-                        <span className="text-slate-800">{dayName(r.arrivalDate)}</span>
-                        {daysOld(r.arrivalDate) > 2 && <span className="block text-xs text-amber-700">{daysOld(r.arrivalDate)} days old</span>}
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums text-slate-600">{inr.format(r.minPrice * factor)}</td>
-                      <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">{inr.format(r.modalPrice * factor)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-slate-600">{inr.format(r.maxPrice * factor)}</td>
-                    </tr>
+                  {byState.map(([state, list]) => (
+                    <Fragment key={state}>
+                      {byState.length > 1 && (
+                        <tr className="bg-sky-50/80">
+                          <td colSpan={6} className="px-4 py-2">
+                            <button type="button" onClick={() => showState(state)} className="cursor-pointer font-semibold text-sky-900 hover:underline" title={`Show only ${state}`}>
+                              {state}
+                            </button>
+                            <span className="ms-2 text-xs text-sky-800">{new Set(list.map((r) => r.market)).size} mandis · {list.length} reports</span>
+                          </td>
+                        </tr>
+                      )}
+                      {list.map((r, i) => (
+                        <tr key={`${state}-${r.market}-${r.variety}-${r.arrivalDate}-${i}`} className="hover:bg-sky-50/60">
+                          <td className="px-4 py-3">
+                            <p className="font-semibold text-slate-900">{r.market}</p>
+                            <p className="text-xs text-slate-500">{r.district ? `${r.district}, ` : ''}{r.state}</p>
+                          </td>
+                          <td className="px-4 py-3 text-slate-700">{r.commodity}{r.variety ? ` · ${r.variety}` : ''}{r.grade && r.grade !== 'FAQ' ? ` · ${r.grade}` : ''}</td>
+                          <td className="px-4 py-3">
+                            <span className="text-slate-800">{dayName(r.arrivalDate)}</span>
+                            {daysOld(r.arrivalDate) > 2 && <span className="block text-xs text-amber-700">{daysOld(r.arrivalDate)} days old</span>}
+                          </td>
+                          <td className="px-4 py-3 text-right tabular-nums text-slate-600">{inr.format(r.minPrice * factor)}</td>
+                          <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">{inr.format(r.modalPrice * factor)}</td>
+                          <td className="px-4 py-3 text-right tabular-nums text-slate-600">{inr.format(r.maxPrice * factor)}</td>
+                        </tr>
+                      ))}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>

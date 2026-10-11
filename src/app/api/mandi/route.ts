@@ -26,7 +26,7 @@ export async function GET(request: Request) {
       district: pick('district'),
       market: pick('market'),
       commodity: pick('commodity'),
-      limit: Math.min(Number(q.get('limit')) || 150, 500),
+      limit: Math.min(Number(q.get('limit')) || 1000, 2000),
     });
     return NextResponse.json(result, { headers: { 'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=1800' } });
   } catch (err) {
