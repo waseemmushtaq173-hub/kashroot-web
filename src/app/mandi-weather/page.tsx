@@ -409,6 +409,7 @@ export default function MandiWeatherPage() {
             <div className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">
               <TriangleAlert className="h-4 w-4" aria-hidden /> {(mandiQ.error as Error).message}
               <Btn theme={theme} size="sm" variant="ghost" icon={RefreshCw} onClick={() => void mandiQ.refetch()}>Retry</Btn>
+              <a href="https://agmarknet.gov.in/" target="_blank" rel="noreferrer" className="text-sm font-semibold text-rose-900 underline">Open agmarknet.gov.in</a>
               {(mandiQ.error as DetailedError).detail && (
                 <details className="w-full text-xs text-rose-900/80">
                   <summary className="cursor-pointer">Technical details (for the site owner)</summary>

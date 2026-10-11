@@ -10,6 +10,9 @@ import { fetchMandiPrices, MandiError } from '@/lib/server/mandi';
 // data.gov.in can take a while; allow for one slow attempt plus a retry.
 export const maxDuration = 60;
 
+const BLOCKED =
+  'The government mandi price services are not allowing websites to read prices automatically right now (Agmarknet asks for a CAPTCHA and data.gov.in refuses server connections). You can see today’s official prices on agmarknet.gov.in.';
+
 const WHY: Record<MandiError['kind'], string> = {
   timeout: 'The government mandi price services (Agmarknet and data.gov.in) are very slow right now and did not answer in time. Try again in a minute.',
   network: 'Could not connect to the government mandi price services (Agmarknet and data.gov.in). Try again in a minute.',
@@ -30,8 +33,11 @@ export async function GET(request: Request) {
     });
     return NextResponse.json(result, { headers: { 'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=1800' } });
   } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    // Agmarknet now asks for a CAPTCHA and data.gov.in refuses servers: say so plainly.
+    const blocked = /CAPTCHA_REQUIRED|captcha/i.test(detail);
     return NextResponse.json(
-      { error: err instanceof MandiError ? WHY[err.kind] : WHY.upstream, detail: err instanceof Error ? err.message : String(err) },
+      { error: blocked ? BLOCKED : err instanceof MandiError ? WHY[err.kind] : WHY.upstream, detail, blocked },
       { status: 502 },
     );
   }
