@@ -300,6 +300,6 @@ export async function basicAnswer(query: string, lang: Lang, deps: BasicDeps = d
   }
   const help = HELP.find((h) => has(q, h.keys));
   if (help) return answer(lang, (l) => pick(help.text, l));
-  if (has(q, GREET)) return answer(lang, (l) => ({ en: 'Salaam! ', hi: 'सलाम! ', ur: 'السلام علیکم! ' })[l] + pick(INTRO, l));
+  if (has(q, GREET)) return answer(lang, (l) => ({ en: 'Hello! ', hi: 'नमस्ते! ', ur: 'خوش آمدید! ' })[l] + pick(INTRO, l));
   return answer(lang, (l) => pick(INTRO, l));
 }

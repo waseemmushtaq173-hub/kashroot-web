@@ -77,7 +77,7 @@ function FarmerDashboard() {
 
   return (
     <PortalShell
-      title={account?.name ? `Salaam, ${account.name.split(' ')[0]}` : 'Salaam, welcome back'}
+      title={account?.name ? `Welcome, ${account.name.split(' ')[0]}` : 'Welcome back'}
       description="Sell your harvest, follow your orders, and check today’s weather before you spray."
       eyebrow="Farmer portal"
       theme="farmer"

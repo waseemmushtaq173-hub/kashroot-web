@@ -88,7 +88,9 @@ export function useAssistant(opts: { page?: string } = {}) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: question, lang, history, speakAs, page: opts.page }),
         });
-        const data = (await res.json().catch(() => ({}))) as { reply?: string; error?: string; speech?: string };
+        const data = (await res.json().catch(() => ({}))) as { reply?: string; error?: string; speech?: string; aiError?: string };
+        // The AI failed and basic mode answered: say why, for the site owner.
+        if (data.aiError) setNotice(`Basic answer — the full AI did not answer. ${data.aiError}`);
         if (data.reply) turn = { role: 'assistant', text: data.reply, lang, speech: data.speech };
         else {
           if (res.status === 503) setConfigured(false);

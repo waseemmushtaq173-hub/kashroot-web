@@ -54,7 +54,10 @@ export function claudeFailure(err: unknown): { status: number; error: string } {
   if (err instanceof Anthropic.APIError) {
     console.error('Claude API error', err.status, err.message);
     if (err.status === 400 && /credit balance/i.test(err.message)) return { status: 502, error: 'The AI helper has run out of credit. The site owner needs to top up the Anthropic account.' };
-    return { status: 502, error: 'The AI helper could not answer just now. Please try again.' };
+    // Anthropic's own reason (never the key), so a screenshot shows what to fix.
+    const body = (err as { error?: { error?: { type?: string; message?: string } } }).error?.error;
+    const why = `${err.status ?? ''} ${body?.type ?? ''}: ${body?.message ?? err.message}`.replace(/\s+/g, ' ').trim().slice(0, 220);
+    return { status: 502, error: `The AI helper could not answer just now. Please try again. (Technical: ${why})` };
   }
   console.error('Claude call failed:', err);
   return { status: 502, error: 'The AI helper could not be reached. Please try again.' };
