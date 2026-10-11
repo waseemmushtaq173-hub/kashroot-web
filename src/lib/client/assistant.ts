@@ -6,8 +6,10 @@
  * cannot read is never left with silence.
  */
 import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { needsDevanagari, NO_VOICE_HELP, speak, stopSpeaking, type SpeechLang } from '@/lib/client/speech';
+import { navigationFor } from '@/lib/navIntent';
 
 export interface Turn {
   role: 'user' | 'assistant';
@@ -27,6 +29,7 @@ const SORRY: Record<SpeechLang, { text: string; speech?: string }> = {
 };
 
 export function useAssistant(opts: { page?: string } = {}) {
+  const router = useRouter();
   const [turns, setTurns] = useState<Turn[]>([]);
   const [thinking, setThinking] = useState(false);
   const [speaking, setSpeaking] = useState(false);
@@ -65,6 +68,15 @@ export function useAssistant(opts: { page?: string } = {}) {
       const question = text.trim();
       if (!question || thinking) return;
       setNotice(null);
+      // "Open cold storage", "मंडी दिखाओ": act at once, on the phone — no server, no AI.
+      const nav = navigationFor(question, lang);
+      if (nav) {
+        const done: Turn = { role: 'assistant', text: nav.say, lang, speech: nav.speech };
+        setTurns((all) => [...all, { role: 'user', text: question, lang }, done]);
+        void say(done);
+        router.push(nav.href);
+        return;
+      }
       const history = turns.filter((t) => !t.error).slice(-6).map(({ role, text: t }) => ({ role, text: t }));
       setTurns((all) => [...all, { role: 'user', text: question, lang }]);
       setThinking(true);
@@ -91,7 +103,7 @@ export function useAssistant(opts: { page?: string } = {}) {
       // Errors are spoken too, in the person's language.
       void say(turn.error ? { ...SORRY[lang], lang } : turn);
     },
-    [opts.page, say, thinking, turns],
+    [opts.page, router, say, thinking, turns],
   );
 
   return { turns, ask, thinking, speaking, say, stop, notice, setNotice, configured };

@@ -18,7 +18,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
 
 import { asLang, claudeClient, claudeConfigured, claudeFailure, LANGUAGE, MODEL, speechInstruction, splitSpeech, textOf, throttled } from '@/lib/server/claude';
-import { basicAnswer } from '@/lib/server/basicAssistant';
+import { basicAnswer, quickIntent } from '@/lib/server/basicAssistant';
 import { fetchMandiPrices } from '@/lib/server/mandi';
 import { forecast, geocode } from '@/lib/server/weather';
 
@@ -135,6 +135,12 @@ export async function POST(req: Request) {
   if (!query) return NextResponse.json({ error: 'Say or type a question.' }, { status: 400 });
 
   const client = claudeClient();
+  // Prices, weather and how-to questions: answered at once from live data,
+  // without waiting for (or paying for) the AI. Crop problems still go to it.
+  if (client && quickIntent(query)) {
+    const a = await basicAnswer(query, lang);
+    return NextResponse.json({ reply: a.reply, lang, quick: true, ...(a.speech ? { speech: a.speech } : {}) });
+  }
   if (!client) {
     // No AI key: answer what can be answered from live data and fixed help.
     const a = await basicAnswer(query, lang);

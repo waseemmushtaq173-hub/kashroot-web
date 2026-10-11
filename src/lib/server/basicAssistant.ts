@@ -15,6 +15,7 @@ import type { Lang } from '@/lib/server/claude';
 import { fetchMandiPrices, type MandiQuery, type MandiRecord } from '@/lib/server/mandi';
 import { forecast, geocode, type Forecast } from '@/lib/server/weather';
 import { dryHours } from '@/lib/sprayWindow';
+import { has, norm } from '@/lib/textMatch';
 
 type Text = { en: string; hi: string; ur: string };
 export interface BasicAnswer {
@@ -35,18 +36,7 @@ const defaultDeps: BasicDeps = {
   },
 };
 
-/** Lower-case, and drop the vowel marks that vary in Urdu/Kashmiri and Hindi spelling. */
-export function norm(s: string): string {
-  return s
-    .normalize('NFC')
-    .toLowerCase()
-    .replace(/[ً-ٰٟۖ-ۭ]/g, '')
-    .replace(/[ۄۆۇ]/g, 'و')
-    .replace(/[ۍێيى]/g, 'ی')
-    .replace(/ك/g, 'ک')
-    .replace(/[ँं़]/g, '');
-}
-const has = (q: string, keys: string[]) => keys.some((k) => q.includes(norm(k)));
+export { norm };
 
 // ── what people ask about ──
 
@@ -271,6 +261,24 @@ async function weatherAnswer(lang: Lang, place: (typeof PLACES)[number] | undefi
     }[l];
     return parts.filter(Boolean).join(' ');
   });
+}
+
+/**
+ * Questions basic mode answers fully and at once (prices, weather, how to
+ * use the site) — worth answering without the AI even when it is connected.
+ * Crop problems and anything unrecognised go to the AI.
+ */
+export function quickIntent(query: string): boolean {
+  const q = ` ${norm(query)} `;
+  const weatherAsked = has(q, SPRAY) || has(q, WEATHER);
+  const priceAsked = has(q, PRICE);
+  if (weatherAsked && !priceAsked) return true;
+  if (priceAsked && COMMODITIES.some((c) => has(q, c.keys))) return true;
+  const help = HELP.find((h) => has(q, h.keys));
+  if (!help || help === HELP[0]) return false; // crop care, disease, pests: the AI answers
+  // "Which fertiliser for walnut?" is crop care; "is this batch fake?" is the check.
+  if (help.keys.includes('fertiliser') && !has(q, ['check', 'fake', 'nakli', 'batch', 'genuine', 'asli', 'real', 'नकली', 'जाँच', 'जांच', 'असली', 'بیچ نمبر', 'جانچ', 'نقلی', 'اصلی'])) return false;
+  return true;
 }
 
 export async function basicAnswer(query: string, lang: Lang, deps: BasicDeps = defaultDeps): Promise<BasicAnswer> {
