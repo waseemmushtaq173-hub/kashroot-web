@@ -9,6 +9,14 @@ import Anthropic from '@anthropic-ai/sdk';
 
 /** Claude Haiku 5.5: the low-cost model, so a small credit covers thousands of farmer questions. */
 export const MODEL = 'claude-haiku-5-5';
+/**
+ * Photo checks (leaf/fruit diagnosis, fertiliser label reading) must be as
+ * accurate as possible, so they use Claude Opus 5.5 — the most accurate at
+ * reading images — at a few rupees per photo.
+ */
+export const VISION_MODEL = 'claude-opus-5-5';
+/** Opus 5.5: if a safety check declines, Anthropic re-runs it on its recommended fallback model. */
+export const VISION_FALLBACKS = { betas: ['server-side-fallback-2026-07-01'] as Anthropic.AnthropicBeta[], fallbacks: 'default' as const };
 
 export type Lang = 'en' | 'hi' | 'ur' | 'ks';
 export const LANGS: Lang[] = ['en', 'hi', 'ur', 'ks'];

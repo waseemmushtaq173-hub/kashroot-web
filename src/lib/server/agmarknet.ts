@@ -37,7 +37,8 @@ interface Catalog {
   states: { id: number; name: string }[];
   districts: Map<number, string>;
   markets: { name: string; stateId: number; districtId: number }[];
-  commodities: { id: number; name: string }[];
+  /** A crop can have a different id in the filters list and the commodities list: keep both. */
+  commodities: { ids: number[]; name: string }[];
   at: number;
 }
 let cache: Catalog | null = null;
@@ -45,11 +46,11 @@ let cache: Catalog | null = null;
 const norm = (v: string) => v.toLowerCase().replace(/&/g, 'and').replace(/[^a-z]/g, '');
 
 async function get<T>(path: string, timeout = 12_000): Promise<T> {
-  let res = await govFetch(`${API}/${path}`, HEADERS, timeout);
-  // A 4xx can be the browser-style headers: ask again the plain way.
+  let res = await govFetch(`${API}/${path}`, PLAIN_HEADERS, timeout);
+  // A 4xx can depend on the headers: ask again the way the Agmarknet website does.
   if (res.status >= 400 && res.status < 500) {
     const first = await res.text().catch(() => '');
-    res = await govFetch(`${API}/${path}`, PLAIN_HEADERS, timeout);
+    res = await govFetch(`${API}/${path}`, HEADERS, timeout);
     if (!res.ok) {
       const second = await res.text().catch(() => '');
       throw new AgmarknetError(`Agmarknet answered ${res.status} for ${path.split('?')[0]}: ${(second || first).replace(/\s+/g, ' ').slice(0, 300)}`);
@@ -76,26 +77,37 @@ async function catalog(): Promise<Catalog> {
   };
   const raw = await get<Filters>('daily-price-arrival/filters');
   const f = raw.state_data ? raw : raw.data ?? {};
-  const commodities: { id: number; name: string }[] = [];
-  // Prefer the crop ids from the filters list (the ids the price report uses,
-  // per other working clients); otherwise read the commodities list.
+  const commodities: { ids: number[]; name: string }[] = [];
+  const add = (id: number, name: string) => {
+    if (!Number.isFinite(id) || !name) return;
+    const known = commodities.find((c) => norm(c.name) === norm(name));
+    if (!known) commodities.push({ ids: [id], name });
+    else if (!known.ids.includes(id)) known.ids.push(id);
+  };
+  // Crops in the filters list (the ids other working clients send)…
   for (const list of Object.values(f as Record<string, unknown>)) {
     if (!Array.isArray(list) || !list.length || typeof list[0] !== 'object') continue;
     const sample = list[0] as Record<string, unknown>;
     const nameKey = Object.keys(sample).find((k) => /cmdt.*name|commodity.*name/i.test(k));
     const idKey = Object.keys(sample).find((k) => /^(cmdt_?id|commodity_?id)$/i.test(k)) ?? (nameKey ? Object.keys(sample).find((k) => k === 'id') : undefined);
     if (!nameKey || !idKey) continue;
-    for (const c of list as Record<string, unknown>[]) {
-      const id = Number(c[idKey]);
-      const name = String(c[nameKey] ?? '');
-      if (Number.isFinite(id) && name && !commodities.some((x) => x.id === id)) commodities.push({ id, name });
-    }
+    for (const c of list as Record<string, unknown>[]) add(Number(c[idKey]), String(c[nameKey] ?? ''));
     break;
   }
-  let path: string | null = commodities.length ? null : 'commodities?page_size=500';
+  // …and in the commodities list.
+  let path: string | null = 'commodities?page_size=500';
   for (let page = 0; path && page < 6; page++) {
-    const r: { results?: { id: number; cmdt_name: string }[]; data?: { id: number; cmdt_name: string }[]; next_page?: string | null; next?: string | null } = await get(path);
-    for (const c of r.results ?? r.data ?? []) if (!commodities.some((x) => x.id === c.id)) commodities.push({ id: c.id, name: c.cmdt_name });
+    let r: { results?: Record<string, unknown>[]; data?: Record<string, unknown>[]; next_page?: string | null; next?: string | null };
+    try {
+      r = await get(path);
+    } catch (err) {
+      if (commodities.length) break;
+      throw err;
+    }
+    for (const c of r.results ?? r.data ?? []) {
+      add(Number(c.id), String(c.cmdt_name ?? ''));
+      if (c.cmdt_id !== undefined) add(Number(c.cmdt_id), String(c.cmdt_name ?? ''));
+    }
     const next = r.next_page ?? r.next ?? null;
     path = next && next.includes('/v1/') ? next.slice(next.indexOf('/v1/') + 4) : null;
   }
@@ -139,10 +151,18 @@ interface Report {
   data?: Report;
 }
 
-async function monthReport(year: number, month: number, stateId: number, commodityId: number): Promise<Report> {
-  const q = new URLSearchParams({ year: String(year), month: String(month), stateId: String(stateId), commodityId: String(commodityId), includeExcel: 'false' });
-  const raw = await get<Report>(`prices-and-arrivals/date-wise/specific-commodity?${q}`, 15_000);
-  return raw.markets || raw.columns ? raw : raw.data ?? raw;
+async function monthReport(year: number, month: number, stateId: number, commodityIds: number[]): Promise<Report> {
+  const tried: string[] = [];
+  for (const commodityId of commodityIds) {
+    const q = new URLSearchParams({ year: String(year), month: String(month), stateId: String(stateId), commodityId: String(commodityId), includeExcel: 'false' });
+    try {
+      const raw = await get<Report>(`prices-and-arrivals/date-wise/specific-commodity?${q}`, 15_000);
+      return raw.markets || raw.columns ? raw : raw.data ?? raw;
+    } catch (err) {
+      tried.push(`commodityId ${commodityId}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  throw new AgmarknetError(tried.join(' | '));
 }
 
 /** Prices for one commodity in the given states, newest first (₹ per quintal). */
@@ -162,13 +182,14 @@ export async function fetchAgmarknet(query: MandiQuery): Promise<{ records: Mand
 
   const records: MandiRecord[] = [];
   let answered = false;
+  const failures: string[] = [];
   for (const state of states) {
     for (const { y, m } of months) {
       let report: Report;
       try {
-        report = await monthReport(y, m, state.id, commodity.id);
+        report = await monthReport(y, m, state.id, commodity.ids);
       } catch (err) {
-        if (states.length === 1) throw err;
+        failures.push(`${state.name} ${m}/${y}: ${err instanceof Error ? err.message : String(err)}`);
         continue;
       }
       answered = true;
@@ -207,7 +228,8 @@ export async function fetchAgmarknet(query: MandiQuery): Promise<{ records: Mand
       if (records.some((r) => r.state === state.name)) break;
     }
   }
-  if (!answered) throw new AgmarknetError('Agmarknet did not answer');
+  // Say exactly what Agmarknet replied, so the cause shows on screen.
+  if (!answered) throw new AgmarknetError(`Agmarknet refused the price report — ${failures[0] ?? 'no reply'}`.slice(0, 600));
   records.sort((a, b) => b.arrivalDate.localeCompare(a.arrivalDate) || a.market.localeCompare(b.market));
   return { records: records.slice(0, Math.min(query.limit ?? 200, 500)), states: states.map((s) => s.name) };
 }
@@ -224,7 +246,7 @@ export async function diagnoseAgmarknet(commodityName = 'Apple', stateName = 'Ja
     steps.matched = { commodity: c ?? null, state: s ?? null };
     if (c && s) {
       const now = new Date();
-      const r = await monthReport(now.getFullYear(), now.getMonth() + 1, s.id, c.id);
+      const r = await monthReport(now.getFullYear(), now.getMonth() + 1, s.id, c.ids);
       steps.report = {
         success: r.success,
         title: r.title,

@@ -9,13 +9,13 @@ import 'server-only';
 
 import Anthropic from '@anthropic-ai/sdk';
 
-import { claudeClient, imageBlock, LANGUAGE, MODEL, speechInstruction, splitSpeech, textOf, type Lang } from '@/lib/server/claude';
+import { claudeClient, imageBlock, LANGUAGE, MODEL, speechInstruction, splitSpeech, textOf, VISION_FALLBACKS, VISION_MODEL, type Lang } from '@/lib/server/claude';
 
 const AGRONOMIST = `You are KashRoot's agronomist assistant for orchard and field crops in Jammu and Kashmir, Himachal Pradesh and nearby hill regions — apple, pear, cherry, walnut, almond, apricot, plum, saffron, rice, maize and vegetables.
 
 Many farmers cannot read well and listen to your answer through a phone's voice, so write short, plain spoken sentences: no markdown, no bullet symbols, no emojis.
 
-Be honest about uncertainty: say what is most likely, what else it could be, and what to check. For chemicals, name the type or common active ingredient, never a dose — tell the farmer to follow the label and to confirm with the local horticulture or agriculture department. Prefer cultural and safe practices first. Mention the pre-harvest waiting period when fruit is close to picking. Never invent registrations, prices or research.`;
+Be honest about uncertainty: say what is most likely, what else it could be, and what to check. For chemicals, follow the current spray schedule of SKUAST-Kashmir and the J&K Department of Horticulture and say that is the source; recommend only active ingredients registered by CIB&RC for that crop and problem; name the type or common active ingredient, never a dose — tell the farmer to follow the label and to confirm with the local horticulture or agriculture department. Prefer cultural and safe practices first. Mention the pre-harvest waiting period when fruit is close to picking. Never invent registrations, prices or research.`;
 
 
 export interface AdviseInput {
@@ -101,7 +101,8 @@ export async function diagnosePhoto(input: { photo: string; crop?: string; notes
   const image = imageBlock(input.photo);
   if (!image) throw new Error('bad-image');
   const res = await client.beta.messages.create({
-    model: MODEL,
+    model: VISION_MODEL,
+    ...VISION_FALLBACKS,
     max_tokens: 6000,
     system: [{ type: 'text', text: AGRONOMIST, cache_control: { type: 'ephemeral' } }],
     messages: [
@@ -169,7 +170,8 @@ export async function readLabel(input: { photo: string; lang: Lang; today: strin
   const image = imageBlock(input.photo);
   if (!image) throw new Error('bad-image');
   const res = await client.beta.messages.create({
-    model: MODEL,
+    model: VISION_MODEL,
+    ...VISION_FALLBACKS,
     max_tokens: 5000,
     system: [
       {
