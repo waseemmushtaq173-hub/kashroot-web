@@ -26,6 +26,7 @@ export async function GET(req: Request) {
       model: MODEL,
       // Enough to recognise the key without revealing it.
       key: key ? `${key.slice(0, 10)}…${key.slice(-4)} (${key.length} characters)` : 'missing',
+      workspace: process.env.ANTHROPIC_WORKSPACE_ID?.trim() || 'not set',
       status: e.status ?? null,
       type: e.error?.error?.type ?? (err instanceof Anthropic.APIConnectionError ? 'connection_error' : null),
       message: e.error?.error?.message ?? e.message ?? String(err),

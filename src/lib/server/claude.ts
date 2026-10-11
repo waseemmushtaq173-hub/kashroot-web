@@ -38,7 +38,11 @@ export const claudeConfigured = () => Boolean(process.env.ANTHROPIC_API_KEY?.tri
 
 export function claudeClient(timeout = 45_000): Anthropic | null {
   const key = process.env.ANTHROPIC_API_KEY?.trim();
-  return key ? new Anthropic({ apiKey: key, timeout, maxRetries: 1 }) : null;
+  if (!key) return null;
+  // A key not tied to a workspace must name one on every request
+  // (ANTHROPIC_WORKSPACE_ID, "wrkspc_…" from the Claude Console).
+  const workspace = process.env.ANTHROPIC_WORKSPACE_ID?.trim();
+  return new Anthropic({ apiKey: key, timeout, maxRetries: 1, ...(workspace ? { defaultHeaders: { 'anthropic-workspace-id': workspace } } : {}) });
 }
 
 /** Shown to farmers when no ANTHROPIC_API_KEY is set (the owner sets it in Vercel). */
