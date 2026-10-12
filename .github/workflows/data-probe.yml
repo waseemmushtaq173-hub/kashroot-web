@@ -18,7 +18,7 @@ jobs:
           mkdir -p t && grep -v "^import 'server-only'" src/lib/server/places.ts > t/places.ts
           cat > t/run.ts <<'TS'
           import { geocode, placeName } from './places.ts';
-          const qs = ['chitragam kalan shopian', 'chitragam', 'pinjoora shopian', 'zainapora', 'zainapora shopian', 'keller shopian', 'shopian', 'sopore', 'tral', '192303', 'wachi shopian', 'kulgam'];
+          const qs = ['chitragam kalan shopian', 'chitragam', 'zainapora', 'tral', 'keller shopian', 'srinagar', 'pinjoora shopian', 'wachi'];
           for (const q of qs) {
             for (const deep of [false, true]) {
               const r = await geocode(q, { deep });

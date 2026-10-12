@@ -32,15 +32,35 @@ const NORTH = { minLng: 72.5, minLat: 32.2, maxLng: 80.5, maxLat: 37.1 };
 const words = (s: string) => s.toLowerCase().split(/[\s,]+/).filter((w) => w.length > 1);
 const clean = (s: string) => s.replace(/[^\p{L}\p{N}\s,.'-]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
 
+// How many map services answered during this server instance's last search (to tell
+// "no such place" from "the map services are down").
+let answered = 0;
+
 async function getJson<T>(url: string, init: RequestInit = {}): Promise<T | null> {
   try {
-    const res = await fetch(url, { ...init, headers: { 'User-Agent': UA, Accept: 'application/json', ...(init.headers ?? {}) }, next: { revalidate: 86_400 }, signal: AbortSignal.timeout(12_000) });
+    const res = await fetch(url, { ...init, headers: { 'User-Agent': UA, Accept: 'application/json', ...(init.headers ?? {}) }, next: { revalidate: 86_400 }, signal: AbortSignal.timeout(9_000) });
     if (!res.ok) return null;
-    return (await res.json()) as T;
+    const json = (await res.json()) as T;
+    answered++;
+    return json;
   } catch {
     return null;
   }
 }
+
+const title = (w: string) => w.charAt(0).toUpperCase() + w.slice(1);
+
+/**
+ * District headquarters and big towns of J&K and Ladakh, so the common names
+ * work even when every map service is down.
+ */
+const KNOWN: Record<string, Place> = Object.fromEntries(
+  ([
+    ['Srinagar', 34.0837, 74.7973], ['Anantnag', 33.7311, 75.1487], ['Baramulla', 34.198, 74.3636], ['Budgam', 34.021, 74.721],
+    ['Bandipora', 34.417, 74.643], ['Ganderbal', 34.216, 74.774], ['Kulgam', 33.645, 75.019], ['Kupwara', 34.531, 74.255],
+    ['Pulwama', 33.874, 74.899], ['Shopian', 33.717, 74.834], ['Sopore', 34.286, 74.462], ['Jammu', 32.7266, 74.857], ['Leh', 34.1526, 77.5771],
+  ] as const).map(([name, lat, lng]) => [name.toLowerCase(), { name, admin: name === 'Leh' ? 'Ladakh' : 'Jammu and Kashmir', country: 'India', lat, lng }]),
+);
 
 async function openMeteo(name: string): Promise<Place[]> {
   const q = new URLSearchParams({ name, count: '8', language: 'en', format: 'json', countryCode: 'IN' });
@@ -77,7 +97,14 @@ async function photon(text: string): Promise<Place[]> {
   const places = all.filter((f) => f.properties.osm_key === 'place' || f.properties.osm_key === 'boundary');
   const typed = words(text).filter((w) => w.length >= 4);
   const named = all.filter((f) => !places.includes(f) && typed.some((w) => (f.properties.name ?? '').toLowerCase().includes(w)));
-  return (places.length ? places : named).map(photonPlace).filter((p): p is Place => p !== null);
+  if (places.length) return places.map(photonPlace).filter((p): p is Place => p !== null);
+  return named
+    .map((f) => {
+      const p = photonPlace(f);
+      const word = typed.find((w) => (f.properties.name ?? '').toLowerCase().includes(w));
+      return p && word ? { ...p, name: title(word), admin: `near ${title((f.properties.name ?? '').toLowerCase())}${p.admin ? `, ${p.admin}` : ''}` } : null;
+    })
+    .filter((p): p is Place => p !== null);
 }
 
 interface NominatimRow {
@@ -106,7 +133,9 @@ function merge(lists: Place[][]): Place[] {
   const out: Place[] = [];
   for (const p of lists.flat()) {
     if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng)) continue;
-    const dup = out.some((o) => Math.abs(o.lat - p.lat) < 0.015 && Math.abs(o.lng - p.lng) < 0.015 && o.name.toLowerCase().split(' ')[0] === p.name.toLowerCase().split(' ')[0]);
+    const near = (d: number) => out.find((o) => Math.abs(o.lat - p.lat) < d && Math.abs(o.lng - p.lng) < d && o.name.toLowerCase().split(' ')[0] === p.name.toLowerCase().split(' ')[0]);
+    // The same name within ~1.5 km is the same place; a town and its district share a name within ~10 km.
+    const dup = near(0.015) ?? (p.name.toLowerCase() === p.admin.toLowerCase().split(',')[0]?.trim() ? near(0.1) : undefined);
     if (!dup) out.push(p);
   }
   return out;
@@ -117,7 +146,7 @@ function rank(places: Place[], typed: string[]): Place[] {
   const score = (p: Place) => {
     const name = p.name.toLowerCase();
     const all = `${name} ${p.admin.toLowerCase()}`;
-    let s = 0;
+    let s = typed.join(' ') === name ? 6 : 0;
     for (const w of typed) {
       if (name.includes(w)) s += 3;
       else if (all.includes(w)) s += 2;
@@ -137,6 +166,8 @@ export async function geocode(input: string, { deep = false }: { deep?: boolean 
   const text = clean(input);
   if (!text) return [];
   const typed = words(text);
+  answered = 0;
+  const known = KNOWN[text.toLowerCase()];
 
   // A 6-digit PIN code (e.g. 192303) — the post office area.
   if (/^\d{6}$/.test(text)) {
@@ -152,7 +183,8 @@ export async function geocode(input: string, { deep = false }: { deep?: boolean 
   // (first 4 letters — "pinjoora" still finds Pinjura), not just the district.
   const stem = typed[0]?.slice(0, 4) ?? '';
   if (typed.length > 1) found = found.filter((p) => p.name.toLowerCase().includes(stem));
-  if (found.length) return rank(found, typed).slice(0, 8);
+  if (known) return merge([[known], rank(found, typed)]).slice(0, 8);
+  if (found.length) return withLookAlikeNote(rank(found, typed), typed).slice(0, 8);
 
   // 2. "village district": drop the last words (usually the district) and look for the
   //    village alone — but only inside the district that was typed, never a look-alike
@@ -170,21 +202,22 @@ export async function geocode(input: string, { deep = false }: { deep?: boolean 
   // 3. The village is not on any public map: use the district or town that was typed, and say so.
   for (let n = 1; n < parts.length; n++) {
     const tail = parts.slice(n).join(' ');
-    found = merge(await Promise.all([openMeteo(tail), photon(tail)]));
+    const k = KNOWN[tail.toLowerCase()];
+    found = k ? [k] : merge(await Promise.all([openMeteo(tail), photon(tail)]));
     if (found.length) {
       const missing = parts.slice(0, n).join(' ');
-      return rank(found, words(tail))
-        .slice(0, 3)
-        .map((p) => ({ ...p, note: `“${missing}” is not on the public map yet — showing ${p.name}. For your exact spot, press “Use my location”.` }));
+      const best = KNOWN[tail.toLowerCase()] ?? rank(found, words(tail))[0];
+      return [{ ...best, note: `“${missing}” is not on the public map yet — showing ${best.name}. For your exact spot, press “Use my location”.` }];
     }
   }
 
-  // 4. A one-word name that only matches look-alikes elsewhere: show them, marked as guesses.
-  if (parts.length === 1) {
-    found = merge(await Promise.all([photon(text)]));
-    return rank(found, typed).slice(0, 5);
-  }
+  if (!answered) throw new Error('The map services did not respond');
   return [];
+}
+
+/** Places spelt differently from what was typed ("chitragam" → Chatrugam) are marked, so nobody picks the wrong village by mistake. */
+function withLookAlikeNote(places: Place[], typed: string[]): Place[] {
+  return places.map((p) => (typed.some((w) => p.name.toLowerCase().includes(w)) ? p : { ...p, note: p.note ?? `Spelt differently from “${typed.join(' ')}” — check it is your area (${p.admin || p.name}) before choosing.` }));
 }
 
 /** "Chitragam, Shopian, Jammu and Kashmir" for a GPS point, or null. */
