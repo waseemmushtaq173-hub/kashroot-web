@@ -1,0 +1,36 @@
+# One-off check (removed again after reading the result): which map services
+# find small Kashmir villages, and where the Government's official pesticide
+# lists are published.
+name: data-probe
+on:
+  push:
+    paths: ['.github/workflows/data-probe.yml']
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Geocoders
+        run: |
+          UA='KashRoot/1.0 (+https://kashroot-web.vercel.app)'
+          enc() { python3 -c 'import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))' "$1"; }
+          for Q in "chitragam kalan shopian" "chitragam kalan" "chitragam" "pinjoora shopian" "keller shopian" "wachi" "zainapora" "hirpora shopian" "chitragam kalan, shopian, jammu and kashmir"; do
+            E=$(enc "$Q")
+            echo "=== $Q"
+            echo "-- open-meteo"; curl -sS -m 20 "https://geocoding-api.open-meteo.com/v1/search?name=$E&count=5&countryCode=IN" | python3 -c 'import json,sys;d=json.load(sys.stdin);[print(r["name"],"|",r.get("admin2"),"|",r.get("admin1"),r["latitude"],r["longitude"]) for r in d.get("results",[])]' || true
+            echo "-- photon"; curl -sS -m 20 -A "$UA" "https://photon.komoot.io/api/?q=$E&limit=5&lang=en&bbox=72.5,32.2,80.5,37.1" | python3 -c 'import json,sys;d=json.load(sys.stdin);[print(f["properties"].get("name"),"|",f["properties"].get("osm_value"),"|",f["properties"].get("county"),"|",f["properties"].get("district"),"|",f["properties"].get("state"),f["geometry"]["coordinates"]) for f in d.get("features",[])]' || true
+            echo "-- nominatim"; curl -sS -m 20 -A "$UA" "https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&countrycodes=in&limit=5&accept-language=en&q=$E" | python3 -c 'import json,sys;d=json.load(sys.stdin);[print(r.get("name"),"|",r.get("addresstype"),"|",r["display_name"][:120],r["lat"],r["lon"]) for r in d]' || true
+            sleep 1.2
+          done
+          echo "=== reverse 33.71,74.83"
+          curl -sS -m 20 -A "$UA" "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=33.71&lon=74.83&zoom=14&addressdetails=1&accept-language=en" | head -c 800; echo
+          curl -sS -m 20 -A "$UA" "https://photon.komoot.io/reverse?lat=33.71&lon=74.83&lang=en" | head -c 600; echo
+      - name: Pesticide lists (CIB&RC / PPQS)
+        run: |
+          UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/128 Safari/537.36'
+          sudo apt-get install -y -qq poppler-utils >/dev/null 2>&1 || true
+          for U in "https://ppqs.gov.in/divisions/cib-rc" "https://ppqs.gov.in/divisions/cib-rc/registered-products" "https://ppqs.gov.in/divisions/cib-rc/pesticides-banned-refused-registration-restricted-use" "https://ppqs.gov.in/en/divisions/cib-rc"; do
+            curl -sSL -m 40 -A "$UA" -o p.html -w "$U HTTP %{http_code} %{content_type}\n" "$U" || echo "fail $U"
+            grep -oiE 'href="[^"]*"[^>]*>[^<]{0,120}' p.html | grep -iE 'ban|restrict|regist|refus|pdf' | head -40 || true
+          done
