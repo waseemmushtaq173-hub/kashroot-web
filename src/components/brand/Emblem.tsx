@@ -1,67 +1,55 @@
 import { useId, type SVGProps } from 'react';
 
+/** Outline of a chinar leaf: five pointed, toothed lobes (120×120 box). */
+export const CHINAR_PATH =
+  'M60.0 5.0 L62.5 11.6 L65.5 9.9 L66.5 17.1 L70.5 15.5 L70.0 24.8 L73.5 24.8 L69.5 40.2 L76.5 34.7 L78.0 28.7 L81.5 31.4 L86.0 24.2 L88.0 28.1 L97.0 19.9 L104.0 17.1 L101.5 26.5 L99.5 34.7 L95.0 36.4 L97.5 41.9 L90.5 48.5 L93.5 51.8 L84.0 60.0 L91.0 62.8 L95.0 60.6 L96.0 67.7 L102.5 74.3 L97.0 76.5 L99.0 84.2 L90.0 82.0 L88.0 88.6 L80.0 82.0 L76.5 85.9 L69.0 78.7 L62.5 83.1 L61.5 86.4 L57.5 83.1 L51.0 78.7 L43.5 85.9 L40.0 82.0 L32.0 88.6 L30.0 82.0 L21.0 84.2 L23.0 76.5 L17.5 74.3 L24.0 67.7 L25.0 60.6 L29.0 62.8 L36.0 60.0 L26.5 51.8 L29.5 48.5 L22.5 41.9 L25.0 36.4 L20.5 34.7 L18.5 26.5 L16.0 17.1 L23.0 19.9 L32.0 28.1 L34.0 24.2 L38.5 31.4 L42.0 28.7 L43.5 34.7 L50.5 40.2 L46.5 24.8 L50.0 24.8 L49.5 15.5 L53.5 17.1 L54.5 9.9 L57.5 11.6 L60.0 5.0 Z';
+
 /**
- * The KashRoot emblem: a chinar leaf in gold foil growing from its roots,
- * on a deep emerald tile with a fine gold rim. The chinar is the Valley's
- * tree; the roots are the "Root" in the name — growers and the land they
- * trade from.
+ * The KashRoot emblem: an autumn chinar leaf — the Valley's tree — on a warm
+ * walnut tile, with "KashRoot" lightly engraved across the leaf (pressed in,
+ * not printed, so it reads as texture first and as a name up close).
  *
  * Gradient ids are made unique per instance, so several emblems can sit on
- * one page. Decorative by default; pass `title` to label it.
+ * one page. Decorative by default; pass `title` to label it. `tile={false}`
+ * draws the leaf alone, for light backgrounds.
  */
-export function Emblem({ title, ...props }: SVGProps<SVGSVGElement> & { title?: string }) {
+export function Emblem({ title, tile = true, ...props }: SVGProps<SVGSVGElement> & { title?: string; tile?: boolean }) {
   const id = useId().replace(/[^a-zA-Z0-9]/g, '');
   const u = (name: string) => `${name}-${id}`;
-  const leaf =
-    'M60 13 C65.5 21 70 29 70.5 38.5 C76 33 82 30 90 28.5 C88.5 37 86 44.5 82.5 51 C88.5 52 94 54 100 57.5 C93.5 64.5 85 70 76.5 72 C72 75.5 66.5 77.5 60 78.5 C53.5 77.5 48 75.5 43.5 72 C35 70 26.5 64.5 20 57.5 C26 54 31.5 52 37.5 51 C34 44.5 31.5 37 30 28.5 C38 30 44 33 49.5 38.5 C50 29 54.5 21 60 13 Z';
   return (
     <svg viewBox="0 0 120 120" role={title ? 'img' : undefined} aria-hidden={title ? undefined : true} aria-label={title} {...props}>
       {title ? <title>{title}</title> : null}
       <defs>
-        <linearGradient id={u('bg')} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#0E5A45" />
-          <stop offset="0.55" stopColor="#063D30" />
-          <stop offset="1" stopColor="#02221B" />
+        <linearGradient id={u('wood')} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#6E3B22" />
+          <stop offset="1" stopColor="#3B1D0F" />
         </linearGradient>
-        <radialGradient id={u('glow')} cx="0.3" cy="0.22" r="0.75">
-          <stop offset="0" stopColor="#FFFFFF" stopOpacity="0.22" />
-          <stop offset="0.6" stopColor="#FFFFFF" stopOpacity="0" />
-        </radialGradient>
-        <linearGradient id={u('gold')} x1="0.15" y1="0" x2="0.85" y2="1">
-          <stop offset="0" stopColor="#FFF1C1" />
-          <stop offset="0.35" stopColor="#F1C76A" />
-          <stop offset="0.7" stopColor="#C8902F" />
-          <stop offset="1" stopColor="#8E5E17" />
-        </linearGradient>
-        <linearGradient id={u('rim')} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#F7DC97" />
-          <stop offset="0.5" stopColor="#B9842C" />
-          <stop offset="1" stopColor="#F3D388" />
+        <linearGradient id={u('leaf')} x1="0.2" y1="0" x2="0.8" y2="1">
+          <stop offset="0" stopColor="#FFB560" />
+          <stop offset="0.5" stopColor="#F28A2E" />
+          <stop offset="1" stopColor="#D5601B" />
         </linearGradient>
         <clipPath id={u('half')}>
           <rect x="60" y="0" width="60" height="120" />
         </clipPath>
       </defs>
-      <rect width="120" height="120" rx="28" fill={`url(#${u('bg')})`} />
-      <rect width="120" height="120" rx="28" fill={`url(#${u('glow')})`} />
-      <rect x="5" y="5" width="110" height="110" rx="23.5" fill="none" stroke={`url(#${u('rim')})`} strokeWidth="1.6" opacity="0.9" />
-      <path d={leaf} fill={`url(#${u('gold')})`} />
-      {/* The far half sits in shade, like folded foil. */}
-      <path d={leaf} fill="#7A4E12" opacity="0.28" clipPath={`url(#${u('half')})`} />
-      <g fill="none" stroke="#063D30" strokeWidth="1.3" strokeLinecap="round" opacity="0.8">
-        <path d="M60 76 L60 22" />
-        <path d="M60 66 L84 35" />
-        <path d="M60 66 L36 35" />
-        <path d="M60 71 L93 58" />
-        <path d="M60 71 L27 58" />
+      {tile && <rect width="120" height="120" rx="26" fill={`url(#${u('wood')})`} />}
+      <path d={CHINAR_PATH} fill={`url(#${u('leaf')})`} stroke="#C4561A" strokeWidth="0.6" strokeLinejoin="round" />
+      {/* The far half sits a shade darker, as the leaf turns in the light. */}
+      <path d={CHINAR_PATH} fill="#B9521A" opacity="0.14" clipPath={`url(#${u('half')})`} />
+      <g fill="none" stroke="#FFD2A1" strokeWidth="0.9" strokeLinecap="round" opacity="0.7">
+        <path d="M60 84 L60 12" />
+        <path d="M60 74 L100 22" />
+        <path d="M60 74 L20 22" />
+        <path d="M60 79 L101 75" />
+        <path d="M60 79 L19 75" />
       </g>
-      <g fill="none" stroke={`url(#${u('gold')})`} strokeLinecap="round">
-        <path d="M60 78 L60 106" strokeWidth="2.6" />
-        <path d="M60 87 C58.5 95 52 99 44 103" strokeWidth="2.1" />
-        <path d="M60 87 C61.5 95 68 99 76 103" strokeWidth="2.1" />
-        <path d="M55 97 C52.5 100 51 103.5 50.5 108" strokeWidth="1.5" />
-        <path d="M65 97 C67.5 100 69 103.5 69.5 108" strokeWidth="1.5" />
+      {/* Engraved name: a dark cut with a light lower edge. */}
+      <g fontFamily="Georgia, 'Times New Roman', serif" fontWeight="700" fontSize="11" textAnchor="middle" letterSpacing="0.4">
+        <text x="60.45" y="58.6" fill="#FFE4C2" opacity="0.42">KashRoot</text>
+        <text x="60" y="58" fill="#94380C" opacity="0.48">KashRoot</text>
       </g>
+      <path d="M60.3 84 C60.6 94 61 104 60.4 114" fill="none" stroke="#C2361F" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }

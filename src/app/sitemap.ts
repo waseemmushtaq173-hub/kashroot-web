@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 
-import { PORTAL_IDS, SIGNUP_PORTALS } from '@/lib/auth/roles';
+import { PUBLIC_PORTAL_IDS, SIGNUP_PORTALS } from '@/lib/auth/roles';
 import { SITE_URL } from '@/lib/site';
 
 /** Public pages for search engines. Signed-in dashboards are left out. */
@@ -19,7 +19,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     page('/support', 0.4, 'monthly'),
     page('/terms', 0.2, 'monthly'),
     page('/privacy', 0.2, 'monthly'),
-    ...PORTAL_IDS.filter((p) => p !== 'admin').map((p) => page(`/login/${p}`, 0.5, 'monthly')),
+    ...PUBLIC_PORTAL_IDS.map((p) => page(`/login/${p}`, 0.5, 'monthly')),
     ...SIGNUP_PORTALS.map((p) => page(`/register/${p}`, 0.5, 'monthly')),
   ];
 }

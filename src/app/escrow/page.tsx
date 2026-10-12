@@ -129,6 +129,24 @@ export default function EscrowPage() {
         <p className="mt-4 text-sm text-slate-600">Cold-store bookings are paid straight to the cold-store owner’s UPI, and the owner confirms your space.</p>
       </Panel>
 
+      <div className="mt-6 grid gap-6 lg:grid-cols-3">
+        <Panel theme={theme} title="Why pay after delivery?" icon={ShieldCheck}>
+          <p className="text-sm text-slate-700">
+            Holding other people’s money in the middle needs a licence from the Reserve Bank of India. Until KashRoot has one, the safest way is: <strong>you never pay before you have the goods</strong>, and money goes straight from your UPI app to the seller — never through KashRoot.
+          </p>
+        </Panel>
+        <Panel theme={theme} title="Pay and receive by UPI" icon={BadgeIndianRupee}>
+          <p className="text-sm text-slate-700">
+            To pay, press <strong>Pay with UPI app</strong> on your order or booking — PhonePe, Google Pay, Paytm or BHIM opens with the amount filled in — or scan the QR shown there. To receive, add your UPI ID in your portal’s <strong>Payouts</strong>; your own QR appears there to show to the person paying you.
+          </p>
+        </Panel>
+        <Panel theme={theme} title="Everyone is verified" icon={IdCard}>
+          <p className="text-sm text-slate-700">
+            Before anyone can sell, order, book or receive money, they verify their identity with <strong>Aadhaar</strong> (checked against UIDAI’s digital signature) and, where required, <strong>PAN</strong>. Only the last 4 digits are kept — never the full number.
+          </p>
+        </Panel>
+      </div>
+
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_1.4fr]">
         <Panel theme={theme} title="Your verification" icon={IdCard}>
           {kyc ? (

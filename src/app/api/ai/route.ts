@@ -22,6 +22,7 @@ import { asLang, claudeClient, claudeConfigured, claudeFailure, LANGUAGE, MODEL,
 import { detectReplyLang } from '@/lib/langDetect';
 import { basicAnswer, quickIntent } from '@/lib/server/basicAssistant';
 import { fetchMandiPrices } from '@/lib/server/mandi';
+import { bhashiniConfigured, toKashmiri } from '@/lib/server/bhashini';
 import { postedRates } from '@/lib/server/postedRates';
 import { forecast, geocode } from '@/lib/server/weather';
 
@@ -156,7 +157,38 @@ async function runTool(name: string, input: Record<string, unknown>): Promise<un
 
 export function GET() {
   const configured = claudeConfigured();
-  return NextResponse.json({ configured, basic: !configured }, { headers: { 'cache-control': 'no-store' } });
+  return NextResponse.json({ configured, basic: !configured, kashmiri: bhashiniConfigured() ? 'bhashini' : configured ? 'ai' : 'urdu' }, { headers: { 'cache-control': 'no-store' } });
+}
+
+/**
+ * Kashmiri from English: Bhashini (the government's translator) when it is
+ * set up, else the AI itself. Returns null when neither can do it.
+ */
+async function kashmiriFrom(english: string, wantDevanagari: boolean, client: Anthropic | null): Promise<{ reply: string; speech?: string } | null> {
+  if (bhashiniConfigured()) {
+    try {
+      const [reply, speech] = await Promise.all([toKashmiri(english, 'Arab'), wantDevanagari ? toKashmiri(english, 'Deva').catch(() => undefined) : Promise.resolve(undefined)]);
+      return { reply, ...(speech ? { speech } : {}) };
+    } catch {
+      /* fall through to the AI */
+    }
+  }
+  if (!client) return null;
+  try {
+    const response = await client.beta.messages.create({
+      model: MODEL,
+      max_tokens: 3000,
+      system: `You translate a farm assistant's answer for a farmer in Kashmir. Write it in ${LANGUAGE.ks}. Keep numbers, prices, units, place names and button names (in English) exactly as they are. Output only the translation.${wantDevanagari ? ` ${speechInstruction('ks')}` : ''}`,
+      messages: [{ role: 'user', content: english }],
+      output_config: { effort: 'low' },
+    });
+    const full = textOf(response.content);
+    if (!full) return null;
+    const { text, speech } = splitSpeech(full);
+    return { reply: text, ...(wantDevanagari && speech ? { speech } : {}) };
+  } catch {
+    return null;
+  }
 }
 
 export async function POST(req: Request) {
@@ -173,22 +205,32 @@ export async function POST(req: Request) {
   if (!query) return NextResponse.json({ error: 'Say or type a question.' }, { status: 400 });
 
   const client = claudeClient();
+  const kashmiriTranslator = lang === 'ks' && bhashiniConfigured();
   // Prices, weather and how-to questions: answered at once from live data,
   // without waiting for (or paying for) the AI. Crop problems still go to it.
-  if (client && quickIntent(query)) {
-    const a = await basicAnswer(query, lang);
-    return NextResponse.json({ reply: a.reply, lang, quick: true, ...(a.speech ? { speech: a.speech } : {}) });
-  }
-  if (!client) {
-    // No AI key: answer what can be answered from live data and fixed help.
-    const a = await basicAnswer(query, lang);
-    return NextResponse.json({ reply: a.reply, lang, basic: true, ...(a.speech ? { speech: a.speech } : {}) });
+  // Built-in answers exist in English, Hindi and Urdu only — for Kashmiri they
+  // are translated (Bhashini), or the AI answers in Kashmiri itself.
+  if ((client && quickIntent(query)) || !client) {
+    if (lang === 'ks' && (kashmiriTranslator || client)) {
+      const en = await basicAnswer(query, 'en');
+      const ks = await kashmiriFrom(en.reply, wantDevanagari, client);
+      if (ks) return NextResponse.json({ ...ks, lang, quick: true });
+    } else {
+      const a = await basicAnswer(query, lang);
+      return NextResponse.json({ reply: a.reply, lang, ...(client ? { quick: true } : { basic: true }), ...(a.speech ? { speech: a.speech } : {}) });
+    }
+    if (!client) {
+      // No AI and no translator: the closest written language (Urdu).
+      const a = await basicAnswer(query, lang);
+      return NextResponse.json({ reply: a.reply, lang, basic: true, ...(a.speech ? { speech: a.speech } : {}) });
+    }
   }
 
   // Per-turn instructions go after the stable system prompt so it stays cacheable.
-  let instruction = `Reply in ${LANGUAGE[lang]}.`;
+  // With Bhashini, the AI answers in English and Bhashini writes the Kashmiri.
+  let instruction = kashmiriTranslator ? 'Reply in simple English; it will be translated into Kashmiri.' : `Reply in ${LANGUAGE[lang]}.`;
   if (lang === 'ks') instruction += ' The question may have come through Urdu speech recognition; understand it as Kashmiri or Urdu.';
-  if (wantDevanagari) instruction += ` ${speechInstruction(lang)}`;
+  if (wantDevanagari && !kashmiriTranslator) instruction += ` ${speechInstruction(lang)}`;
   const page = body.page?.trim().slice(0, 1200);
   if (page) instruction += ` The person is on this KashRoot page right now: ${page}`;
 
@@ -240,6 +282,10 @@ export async function POST(req: Request) {
 
       const full = textOf(response.content);
       if (!full) return NextResponse.json({ reply: 'Sorry, I could not form an answer. Please ask again.', lang });
+      if (kashmiriTranslator) {
+        const ks = await kashmiriFrom(full, wantDevanagari, client);
+        if (ks) return NextResponse.json({ ...ks, lang });
+      }
       const { text, speech } = splitSpeech(full);
       return NextResponse.json({ reply: text, lang, ...(wantDevanagari && speech ? { speech } : {}) });
     }

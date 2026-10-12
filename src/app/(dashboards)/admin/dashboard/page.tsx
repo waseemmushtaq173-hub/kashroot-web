@@ -7,6 +7,7 @@
  *   Problems:         orders a buyer pressed "Report a problem" on.
  *   Contributors:     mandi rates and expert answers to check, pay per
  *                     accepted contribution, who is owed and "Mark paid".
+ *   Security:         admin code, identity-check (KYC) rules, protections.
  *   Platform numbers: real counts (kr_admin_stats) — sign-ups per portal,
  *                     orders, cold-store bookings, expert requests…
  *
@@ -14,16 +15,18 @@
  * and every query above is limited to admins in the database itself.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { BarChart3, GraduationCap, PackageX, Wallet } from 'lucide-react';
+import { BarChart3, GraduationCap, LockKeyhole, PackageX, Wallet } from 'lucide-react';
 
+import { AdminLock } from '@/components/admin/AdminLock';
 import { ApprovalsPanel } from '@/components/admin/ApprovalsPanel';
 import { ContributorsPanel } from '@/components/admin/ContributorsPanel';
 import { PlatformNumbers, loadAdminStats } from '@/components/admin/PlatformNumbers';
 import { ReportedOrders, loadReportedOrders } from '@/components/admin/ReportedOrders';
+import { SecurityPanel } from '@/components/admin/SecurityPanel';
 import { PortalShell } from '@/components/layout/PortalShell';
 import { supabase } from '@/lib/db/client';
 
-type Tab = 'approvals' | 'problems' | 'contributors' | 'numbers';
+type Tab = 'approvals' | 'problems' | 'contributors' | 'numbers' | 'security';
 
 interface Counts {
   waiting: number;
@@ -33,6 +36,15 @@ interface Counts {
 }
 
 export default function AdminConsolePage() {
+  // Signed in is not enough: the admin's own code opens the console.
+  return (
+    <AdminLock>
+      <AdminConsole />
+    </AdminLock>
+  );
+}
+
+function AdminConsole() {
   const [tab, setTab] = useState<Tab>('approvals');
   const [counts, setCounts] = useState<Counts | null>(null);
 
@@ -74,6 +86,7 @@ export default function AdminConsolePage() {
         { id: 'problems', label: 'Problems', icon: PackageX, count: counts?.problems || undefined },
         { id: 'contributors', label: 'Contributors', icon: Wallet },
         { id: 'numbers', label: 'Platform numbers', icon: BarChart3 },
+        { id: 'security', label: 'Security', icon: LockKeyhole },
       ]}
       activeTab={tab}
       onTabChange={(id) => {
@@ -85,6 +98,7 @@ export default function AdminConsolePage() {
       {tab === 'problems' && <ReportedOrders />}
       {tab === 'contributors' && <ContributorsPanel />}
       {tab === 'numbers' && <PlatformNumbers />}
+      {tab === 'security' && <SecurityPanel />}
     </PortalShell>
   );
 }

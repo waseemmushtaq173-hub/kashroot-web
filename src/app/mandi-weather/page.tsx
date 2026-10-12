@@ -39,6 +39,7 @@ import {
 import { PortalShell } from '@/components/layout/PortalShell';
 import { Badge, Btn, EmptyState, INPUT, PORTAL_THEMES, Panel, inr } from '@/components/portal/kit';
 import { PostedRates } from '@/components/mandi/PostedRates';
+import { perKg, recentRates } from '@/lib/db/mandiRates';
 import { Tilt3D } from '@/components/three/Tilt3D';
 import { MANDI_SAMPLE_KEY, mandiUrl, parseMandi, type MandiQuery, type MandiRecord } from '@/lib/mandi-shared';
 
@@ -227,6 +228,18 @@ export default function MandiWeatherPage() {
     return { avg: modal.reduce((s, n) => s + n, 0) / modal.length, hi, lo, latest };
   }, [rows]);
 
+  // Rates posted by KashRoot's approved mandi reporters: the headline numbers
+  // fall back to these while the government feeds block automatic access.
+  const postedQ = useQuery({ queryKey: ['posted-rates'], queryFn: () => recentRates(), staleTime: 5 * 60_000 });
+  const posted = useMemo(() => {
+    const want = applied.commodity.trim().toLowerCase();
+    const list = (postedQ.data ?? []).filter((r) => !want || r.commodity.toLowerCase().includes(want) || want.includes(r.commodity.toLowerCase()));
+    const kg = list.map((r) => perKg(r, r.modal_price)).filter((n): n is number => n !== null && n > 0);
+    if (!kg.length) return null;
+    const latest = list.reduce((a, b) => (b.rate_date > a.rate_date ? b : a)).rate_date;
+    return { avgKg: kg.reduce((s, n) => s + n, 0) / kg.length, count: kg.length, mandis: new Set(list.map((r) => r.mandi)).size, latest };
+  }, [postedQ.data, applied.commodity]);
+
   const f = weatherQ.data;
   const [, condLabel, CondIcon] = f ? wmo(f.current.code) : [[], '', Cloud];
 
@@ -236,11 +249,15 @@ export default function MandiWeatherPage() {
       theme="buyer"
       eyebrow="Live mandi rates & weather"
       title="Today’s prices, today’s sky"
-      description="Government-published wholesale prices from mandis across India, with the local forecast that decides when you pick, spray and ship."
+      description="Daily rates posted by checked traders at Kashmir’s mandis, government-published prices when their service is open, and the local forecast that decides when you pick, spray and ship."
       kpis={[
         { label: 'Weather', value: f ? `${Math.round(f.current.temperature)} °C` : '—', trend: f ? `${condLabel} · ${f.place.name}` : weatherQ.isError ? 'Unavailable right now' : 'Loading…' },
-        { label: `${applied.commodity || 'All'} — average modal`, value: stats ? inr.format(stats.avg * factor) : '—', trend: stats ? `per ${unit} · ${rows.length} reports` : mandiQ.isError ? 'Unavailable right now' : mandiQ.isLoading ? 'Loading…' : 'No reports yet' },
-        { label: 'Latest arrival date', value: stats ? dayName(stats.latest) : '—', trend: stats ? (daysOld(stats.latest) === 0 ? 'Reported today' : `${daysOld(stats.latest)} day(s) ago`) : 'Agmarknet' },
+        stats || !posted
+          ? { label: `${applied.commodity || 'All'} — average modal`, value: stats ? inr.format(stats.avg * factor) : '—', trend: stats ? `per ${unit} · ${rows.length} reports` : mandiQ.isError ? 'Unavailable right now' : mandiQ.isLoading ? 'Loading…' : 'No reports yet' }
+          : { label: `${applied.commodity || 'All'} — mandi average`, value: `${inr.format(posted.avgKg * (unit === 'kg' ? 1 : 100))}`, trend: `per ${unit} · ${posted.count} rate${posted.count === 1 ? '' : 's'} from ${posted.mandis} mandi${posted.mandis === 1 ? '' : 's'} on KashRoot` },
+        stats || !posted
+          ? { label: 'Latest arrival date', value: stats ? dayName(stats.latest) : '—', trend: stats ? (daysOld(stats.latest) === 0 ? 'Reported today' : `${daysOld(stats.latest)} day(s) ago`) : 'Agmarknet' }
+          : { label: 'Latest rate posted', value: dayName(posted.latest), trend: daysOld(posted.latest) === 0 ? 'Posted today by mandi reporters' : `${daysOld(posted.latest)} day(s) ago` },
       ]}
     >
       {/* ── Weather ───────────────────────────────────────── */}

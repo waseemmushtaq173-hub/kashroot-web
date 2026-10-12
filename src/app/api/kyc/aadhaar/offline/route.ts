@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server';
 
 import { OfflineKycError, verifyOfflineXmlZip } from '@/lib/server/aadhaar-offline';
 import { requireUser } from '@/lib/server/auth';
+import { recordKyc } from '@/lib/server/kycRecord';
 import { rateLimited } from '@/lib/server/sign';
 import { SIGN_IN_FIRST } from '../../notConfigured';
 
@@ -19,7 +20,8 @@ export async function POST(request: Request) {
   if (file.size > 2 * 1024 * 1024) return NextResponse.json({ error: 'That file is too large to be an Aadhaar Offline e-KYC ZIP.' }, { status: 400 });
   try {
     const result = verifyOfflineXmlZip(Buffer.from(await file.arrayBuffer()), String(form?.get('shareCode') ?? ''), String(form?.get('mobile') ?? '') || undefined);
-    return NextResponse.json(result);
+    const recorded = await recordKyc(request, 'aadhaar', { last4: result.aadhaarLast4, name: result.name, method: result.method });
+    return NextResponse.json({ ...result, recorded });
   } catch (err) {
     if (err instanceof OfflineKycError) return NextResponse.json({ error: err.message }, { status: 400 });
     return NextResponse.json({ error: 'Could not check the file. Please try again.' }, { status: 500 });

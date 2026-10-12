@@ -51,8 +51,9 @@ interface ToolAction {
 /** Primary + secondary CTA per card. Logins carry the tool as `next`. */
 const TOOL_ACTIONS: Record<ToolId, { primary: ToolAction; secondary: ToolAction }> = {
   escrow: {
-    primary: { label: 'Buy, pay after delivery', href: loginHref('buyer', TOOLS.escrow.href) },
-    secondary: { label: 'Sell your produce', href: loginHref('seller', TOOLS.escrow.href) },
+    // Public: how paying works (UPI after delivery, identity checks) — no sign-in.
+    primary: { label: 'How safe payment works', href: TOOLS.escrow.href },
+    secondary: { label: 'Buy produce', href: '/compare-prices?category=produce' },
   },
   mandi: {
     primary: { label: 'Open farmer portal', href: loginHref('farmer', '/farmer/dashboard') },

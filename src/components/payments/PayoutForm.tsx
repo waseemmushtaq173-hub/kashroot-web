@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { Banknote, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { UpiQr } from '@/components/payments/UpiQr';
 import { Btn, Field, INPUT, Panel, type PortalTheme } from '@/components/portal/kit';
 import { savePayout, type PayoutAccount } from '@/lib/db/rentals';
 
@@ -65,6 +66,12 @@ export function PayoutForm({ theme, payout, onSaved, intro = 'Only farmers with 
             <input className={INPUT} value={form.bank_name ?? ''} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} placeholder="e.g. J&K Bank" />
           </Field>
           <Btn theme={theme} type="submit" icon={Banknote} disabled={busy}>{busy ? 'Saving…' : 'Save payment details'}</Btn>
+          {payout?.upi_id && (
+            <div className="border-t border-slate-900/5 pt-4">
+              <p className="mb-2 text-sm font-semibold text-slate-800">Receive money: show this QR to the person paying you</p>
+              <UpiQr upi={payout.upi_id} name={payout.account_name} caption={`Pays ${payout.upi_id}. They type the amount in their UPI app.`} />
+            </div>
+          )}
         </form>
       )}
     </Panel>

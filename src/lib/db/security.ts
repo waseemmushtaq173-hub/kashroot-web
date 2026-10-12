@@ -1,0 +1,88 @@
+'use client';
+
+/**
+ * Admin lock and KYC status (supabase/migrations/20261014000000_trust_and_security.sql).
+ *   Admin: after signing in, an admin also enters their own access code; the
+ *   database refuses admin actions until then.
+ *   KYC: money actions (selling, ordering, bookings, payout details) need a
+ *   verified Aadhaar — and PAN when the admin switches that on. Checks are
+ *   recorded by the KashRoot server only.
+ */
+import { dbMessage, supabase } from '@/lib/db/client';
+
+export type AdminStatus = 'not_admin' | 'no_code' | 'blocked' | 'locked' | 'unlocked';
+
+const fail = (error: { message?: string; code?: string } | null, fallback: string): never => {
+  throw new Error(error?.message && !/schema cache|does not exist/i.test(error.message) ? error.message : dbMessage(error, fallback));
+};
+
+/** null when the security SQL has not been run yet (no lock exists then). */
+export async function adminStatus(): Promise<AdminStatus | null> {
+  const { data, error } = await supabase.rpc('kr_admin_status');
+  if (error) return null;
+  return data as AdminStatus;
+}
+
+export async function setAdminCode(code: string, oldCode?: string): Promise<void> {
+  const { error } = await supabase.rpc('kr_admin_set_code', { p_new: code, p_old: oldCode ?? null });
+  if (error) fail(error, 'Could not save the admin code.');
+}
+
+/** 'unlocked' | 'wrong' | 'blocked' | 'no_code' */
+export async function unlockAdmin(code: string): Promise<string> {
+  const { data, error } = await supabase.rpc('kr_admin_unlock', { p_code: code });
+  if (error) fail(error, 'Could not check the code.');
+  return String(data);
+}
+
+export async function lockAdminNow(): Promise<void> {
+  await supabase.rpc('kr_admin_lock_now');
+}
+
+export interface KycRules {
+  kyc_required: boolean;
+  pan_required: boolean;
+  /** The server can record checks (KYC_DB_SECRET is set up). */
+  recording: boolean;
+}
+
+export interface KycStatus {
+  aadhaar_last4: string | null;
+  aadhaar_name: string | null;
+  aadhaar_method: string | null;
+  aadhaar_verified_at: string | null;
+  pan_last4: string | null;
+  pan_verified_at: string | null;
+}
+
+/** null when the security SQL has not been run yet. */
+export async function kycRules(): Promise<KycRules | null> {
+  const { data, error } = await supabase.rpc('kr_kyc_rules');
+  if (error || !data) return null;
+  return data as KycRules;
+}
+
+export async function myKyc(userId: string): Promise<KycStatus | null> {
+  const { data, error } = await supabase.from('kyc_status').select('aadhaar_last4, aadhaar_name, aadhaar_method, aadhaar_verified_at, pan_last4, pan_verified_at').eq('user_id', userId).maybeSingle();
+  if (error) return null;
+  return (data as KycStatus | null) ?? null;
+}
+
+/** What is still missing for money actions: null when nothing is. */
+export function kycMissing(rules: KycRules | null, status: KycStatus | null): 'aadhaar' | 'pan' | null {
+  if (!rules?.kyc_required) return null;
+  if (!status?.aadhaar_verified_at) return 'aadhaar';
+  if (rules.pan_required && !status.pan_verified_at) return 'pan';
+  return null;
+}
+
+export async function setKycRules(required: boolean, pan: boolean): Promise<void> {
+  const { error } = await supabase.rpc('kr_set_kyc_rules', { p_required: required, p_pan: pan });
+  if (error) fail(error, 'Could not save.');
+}
+
+/** Report a suspicious fertiliser batch — signed in or not. */
+export async function reportBatch(code: string, note: string, phone?: string): Promise<void> {
+  const { error } = await supabase.rpc('kr_report_batch', { p_code: code, p_note: note, p_phone: phone ?? null });
+  if (error) fail(error, 'Could not send the report.');
+}

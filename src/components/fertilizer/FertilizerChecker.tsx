@@ -11,10 +11,9 @@
  *      that dealer and how many farmers reported the batch. Not found is NOT
  *      proof of a fake, and the result says so.
  *   3. Lab report → Fertiliser (Control) Order, 1985 minimums.
- * Signed-in farmers can report a suspicious product to the KashRoot admin.
+ * Anyone — signed in or not — can report a suspicious product to the KashRoot admin.
  */
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { Camera, CheckCircle2, CircleAlert, Flag, FlaskConical, Loader2, ScanLine, ShieldCheck, XCircle } from 'lucide-react';
 
 import { LangPicker, SpeakButton } from '@/components/voice/VoiceButtons';
@@ -22,6 +21,7 @@ import { checkAgainstFco, FCO_PRODUCTS } from '@/lib/fertilizer/fco';
 import { compressImage } from '@/lib/client/image';
 import { isRtl, type SpeechLang } from '@/lib/client/speech';
 import { dbMessage, loadAccount, supabase, supabaseConfigured, type Account } from '@/lib/db/client';
+import { reportBatch } from '@/lib/db/security';
 
 interface BatchRow {
   batch_code: string;
@@ -220,9 +220,9 @@ function BatchResult({ lookup, account, onPhoto }: { lookup: Lookup; account: Ac
 function ReportBatch({ code, account }: { code: string; account: Account | null }) {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState('');
+  const [phone, setPhone] = useState('');
   const [state, setState] = useState<'idle' | 'sending' | 'sent' | string>('idle');
-  if (state === 'sent') return <p className="mt-3 text-sm font-semibold text-emerald-800">Reported to the KashRoot admin. Thank you.</p>;
-  if (!account) return <p className="mt-3 text-xs text-slate-600">Suspect a fake? <Link href="/login/farmer" className="font-semibold underline">Sign in</Link> to report it, and tell your district agriculture officer.</p>;
+  if (state === 'sent') return <p className="mt-3 text-sm font-semibold text-emerald-800">Reported to the KashRoot admin. Thank you. Please also tell your district agriculture officer.</p>;
   if (!open) {
     return (
       <button type="button" onClick={() => setOpen(true)} className="mt-3 inline-flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-rose-800 hover:underline">
@@ -232,16 +232,26 @@ function ReportBatch({ code, account }: { code: string; account: Account | null 
   }
   const send = async () => {
     if (note.trim().length < 3) return setState('Say what looked wrong.');
+    const digits = phone.replace(/\D/g, '');
+    if (digits && digits.length < 10) return setState('Write a 10-digit mobile number, or leave it empty.');
     setState('sending');
-    const { error } = await supabase.from('batch_reports').insert({ batch_code: code.slice(0, 40), note: note.trim().slice(0, 500) });
-    setState(error ? dbMessage(error, 'Could not send the report.') : 'sent');
+    try {
+      await reportBatch(code.slice(0, 40), note.trim().slice(0, 500), digits || undefined);
+      setState('sent');
+    } catch (err) {
+      setState(err instanceof Error ? err.message : 'Could not send the report.');
+    }
   };
   return (
     <div className="mt-3 space-y-2">
       <textarea rows={2} className={INPUT} value={note} onChange={(e) => setNote(e.target.value)} placeholder="What looked wrong? e.g. torn seal, different MRP, no registration number" />
+      {!account && (
+        <input className={INPUT} inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Your mobile (optional) — so KashRoot can call you back" />
+      )}
       <button type="button" disabled={state === 'sending'} onClick={() => void send()} className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-rose-700 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-800 disabled:opacity-60">
         <Flag className="h-4 w-4" aria-hidden /> Send report
       </button>
+      <p className="text-xs text-slate-500">No account needed.</p>
       {state !== 'idle' && state !== 'sending' && <p role="alert" className="text-sm text-rose-800">{state}</p>}
     </div>
   );

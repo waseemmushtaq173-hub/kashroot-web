@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { OfflineKycError, verifySecureQr } from '@/lib/server/aadhaar-offline';
 import { requireUser } from '@/lib/server/auth';
+import { recordKyc } from '@/lib/server/kycRecord';
 import { rateLimited } from '@/lib/server/sign';
 import { SIGN_IN_FIRST } from '../../notConfigured';
 
@@ -13,7 +14,9 @@ export async function POST(request: Request) {
   const { qr, mobile } = (await request.json().catch(() => ({}))) as { qr?: string; mobile?: string };
   if (!qr || qr.length > 20_000) return NextResponse.json({ error: 'Scan the QR code on your Aadhaar.' }, { status: 400 });
   try {
-    return NextResponse.json(verifySecureQr(qr, mobile || undefined));
+    const result = verifySecureQr(qr, mobile || undefined);
+    const recorded = await recordKyc(request, 'aadhaar', { last4: result.aadhaarLast4, name: result.name, method: result.method });
+    return NextResponse.json({ ...result, recorded });
   } catch (err) {
     if (err instanceof OfflineKycError) return NextResponse.json({ error: err.message }, { status: 400 });
     return NextResponse.json({ error: 'Could not check the QR. Please try again.' }, { status: 500 });

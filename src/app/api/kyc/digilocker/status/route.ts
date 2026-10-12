@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 
 import { requireUser } from '@/lib/server/auth';
+import { recordKyc } from '@/lib/server/kycRecord';
 import { digilockerStatus, sandboxConfigured } from '@/lib/server/sandbox';
 import { verifySignature } from '@/lib/server/sign';
 import { KYC_NOT_CONFIGURED, providerFailure, SIGN_IN_FIRST } from '../../notConfigured';
@@ -15,7 +16,13 @@ export async function GET(request: Request) {
   const ticket = q.get('ticket') ?? '';
   if (!session || !verifySignature(`${user.id}|${session}`, ticket)) return NextResponse.json({ error: 'Unknown DigiLocker session.' }, { status: 400 });
   try {
-    return NextResponse.json(await digilockerStatus(session));
+    const result = await digilockerStatus(session);
+    let recorded = false;
+    if (result.status === 'succeeded') {
+      if (result.aadhaar) recorded = await recordKyc(request, 'aadhaar', { last4: result.aadhaarLast4, method: 'DIGILOCKER' });
+      if (result.pan) recorded = (await recordKyc(request, 'pan', { method: 'DIGILOCKER' })) || recorded;
+    }
+    return NextResponse.json({ ...result, recorded });
   } catch (err) {
     return providerFailure(err);
   }

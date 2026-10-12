@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 
 import { requireUser } from '@/lib/server/auth';
+import { recordKyc } from '@/lib/server/kycRecord';
 import { aadhaarVerifyOtp, sandboxConfigured } from '@/lib/server/sandbox';
 import { rateLimited } from '@/lib/server/sign';
 import { KYC_NOT_CONFIGURED, providerFailure, SIGN_IN_FIRST } from '../../notConfigured';
@@ -15,9 +16,12 @@ export async function POST(request: Request) {
   if (rateLimited(`aadhaar-verify:${user.id}`, 10, 30 * 60_000)) return NextResponse.json({ error: 'Too many attempts. Request a new OTP later.' }, { status: 429 });
   try {
     const person = await aadhaarVerifyOtp(String(referenceId), String(otp));
+    const aadhaarLast4 = /^\d{4}$/.test(String(last4)) ? String(last4) : '';
+    const recorded = await recordKyc(request, 'aadhaar', { last4: aadhaarLast4, name: person.name, method: 'AADHAAR_OTP' });
     return NextResponse.json({
+      recorded,
       referenceId: String(referenceId),
-      aadhaarLast4: /^\d{4}$/.test(String(last4)) ? String(last4) : '',
+      aadhaarLast4,
       name: person.name,
       dateOfBirth: person.dateOfBirth,
       yearOfBirth: person.yearOfBirth,

@@ -9,7 +9,7 @@ import { redirect } from 'next/navigation';
 import { ArrowRight } from 'lucide-react';
 
 import { PORTAL_LOGIN } from '@/components/auth/portalLoginConfig';
-import { loginHref, PORTAL_IDS, PORTALS, portalForRole, safeNextPath, type PortalId } from '@/lib/auth/roles';
+import { loginHref, PORTALS, portalForRole, PUBLIC_PORTAL_IDS, safeNextPath, type PortalId } from '@/lib/auth/roles';
 
 export const metadata: Metadata = { title: 'Choose your sign-in' };
 
@@ -31,7 +31,7 @@ export default async function LoginChooserPage({ searchParams }: { searchParams:
       <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Choose your portal</h1>
       <p className="mt-2 text-slate-600">Each portal has its own sign-in.</p>
       <ul className="mt-8 grid gap-3 sm:grid-cols-2">
-        {PORTAL_IDS.map((id) => {
+        {PUBLIC_PORTAL_IDS.map((id) => {
           const copy = PORTAL_LOGIN[id];
           const Icon = copy.icon;
           return (

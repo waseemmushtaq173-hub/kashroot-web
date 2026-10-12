@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { Copy, Loader2, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { UpiQr } from '@/components/payments/UpiQr';
 import { Btn, INPUT, type PortalTheme } from '@/components/portal/kit';
 import { inr } from '@/lib/db/client';
 import { paymentDetails, upiLink, type PayoutAccount } from '@/lib/db/rentals';
@@ -86,6 +87,7 @@ export function PayDirect({
           </button>
         </div>
       )}
+      {details.upi_id && <UpiQr upi={details.upi_id} name={details.account_name} amount={amount} note={note} caption="On another phone or a computer? Scan this with any UPI app — the amount is filled in." />}
       {details.account_number && (
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
           <dt className="text-slate-500">Account</dt>

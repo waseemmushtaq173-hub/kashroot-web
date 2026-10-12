@@ -13,7 +13,18 @@ const ROMAN_HINDUSTANI = new Set([
   'seb', 'akhrot', 'khad', 'dawai', 'dawa', 'bimari', 'keeda', 'paisa', 'kholo', 'dikhao', 'chalo',
 ]);
 
+/** "Answer in Kashmiri", "kashmiri mein batao", "کٲشرِس منز" … — an explicit request wins. */
+const ASKED: [ReplyLang, RegExp][] = [
+  ['ks', /\b(koshur|kashur|kaashur)\b|\b(in|mein|me|main)\s+kashmiri\b|\bkashmiri\s+(mein|me|main|language|zaban|zubaan)\b|\b(answer|reply|speak|talk|say|bolo|batao)\b.*\bkashmiri\b|कश्मीरी में|कॉशुर|کٲشرِس منز|کٲشُر|کاشُر|کشمیری میں/i],
+  ['ur', /\b(in|mein|me)\s+urdu\b|\burdu\s+(mein|me|main)\b|اردو میں/i],
+  ['hi', /\b(in|mein|me)\s+hindi\b|\bhindi\s+(mein|me|main)\b|हिंदी में|हिन्दी में/i],
+  ['en', /\bin english\b|\benglish\s+(mein|me|main)\b|अंग्रेज़ी में|انگریزی میں/i],
+];
+
 export function detectReplyLang(text: string, picked: ReplyLang): ReplyLang {
+  for (const [lang, re] of ASKED) if (re.test(text)) return lang;
+  // Letters only Kashmiri uses (ٲ ٕ ۄ ؠ ۆ ٚ): Kashmiri, whatever was picked.
+  if (/[ٲٕۄؠۆٚ]/.test(text)) return 'ks';
   if (/[؀-ۿ]/.test(text)) return picked === 'ks' ? 'ks' : 'ur'; // Urdu / Kashmiri script
   if (/[ऀ-ॿ]/.test(text)) return 'hi'; // Devanagari
   const words = text.toLowerCase().match(/[a-z]+/g) ?? [];

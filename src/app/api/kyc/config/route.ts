@@ -5,6 +5,7 @@
  */
 import { NextResponse } from 'next/server';
 
+import { kycRecordingConfigured } from '@/lib/server/kycRecord';
 import { emailConfigured, smsConfigured, whatsappConfigured } from '@/lib/server/otp';
 import { sandboxConfigured } from '@/lib/server/sandbox';
 import { hasSigningSecret } from '@/lib/server/sign';
@@ -16,6 +17,8 @@ export function GET() {
   return NextResponse.json({
     online: sandboxConfigured(),
     offline: true,
+    // Whether this server can record checks in the database (KYC_DB_SECRET set).
+    recording: kycRecordingConfigured(),
     sms: signing && smsConfigured(),
     whatsapp: signing && whatsappConfigured(),
     email: signing && emailConfigured(),

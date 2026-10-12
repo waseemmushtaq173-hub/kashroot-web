@@ -8,7 +8,7 @@ import { BrandMark } from '@/components/brand/Shikara';
 import { MyDetailsPanel } from '@/components/portal/MyDetailsPanel';
 import { MY_DETAILS } from '@/components/portal/myDetailsConfig';
 import { authApi } from '@/lib/api/auth';
-import { loginHref, PORTAL_IDS, PORTALS, type PortalId } from '@/lib/auth/roles';
+import { loginHref, PORTALS, PUBLIC_PORTAL_IDS, type PortalId } from '@/lib/auth/roles';
 
 /**
  * `dark` (default) is the original look for the dark dashboards. `light` is for
@@ -24,7 +24,7 @@ export type SiteTone = 'dark' | 'light';
  * carry portal cards.
  */
 const MENU_ITEMS = [
-  ...PORTAL_IDS.map((id) => ({ title: `${PORTALS[id].label} portal`, href: PORTALS[id].home, desc: PORTALS[id].tagline })),
+  ...PUBLIC_PORTAL_IDS.map((id) => ({ title: `${PORTALS[id].label} portal`, href: PORTALS[id].home, desc: PORTALS[id].tagline })),
   { title: 'Orchard Health', href: '/orchard-health', desc: 'Risk map, diagnosis & spray logs' },
   { title: 'Season Planner', href: '/season-planner', desc: 'Calendar & ROI calculator' },
   { title: 'Traceability', href: '/traceability', desc: 'Origin, cold chain & grades' },

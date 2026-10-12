@@ -162,7 +162,9 @@ export async function savePayout(input: PayoutAccount): Promise<void> {
 }
 
 /** upi://pay link that opens PhonePe, Google Pay, Paytm or BHIM with the amount filled in. */
-export function upiLink(p: { upi: string; name: string; amount: number; note: string }): string {
-  const q = new URLSearchParams({ pa: p.upi, pn: p.name, am: p.amount.toFixed(2), cu: 'INR', tn: p.note.slice(0, 50) });
+export function upiLink(p: { upi: string; name: string; amount?: number; note: string }): string {
+  const q = new URLSearchParams({ pa: p.upi, pn: p.name, cu: 'INR', tn: p.note.slice(0, 50) });
+  // Without an amount the payer types it in their UPI app.
+  if (p.amount && p.amount > 0) q.set('am', p.amount.toFixed(2));
   return `upi://pay?${q.toString()}`;
 }

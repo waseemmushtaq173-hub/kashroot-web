@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Check, ExternalLink, GraduationCap, IndianRupee, Loader2, Megaphone, Phone, RefreshCw, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { UpiQr } from '@/components/payments/UpiQr';
 import { Badge, Btn, EmptyState, Field, INPUT, Modal, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { ago } from '@/lib/db/client';
 import {
@@ -33,6 +34,7 @@ import {
   type WorkKind,
 } from '@/lib/db/contributions';
 import type { MandiRate } from '@/lib/db/mandiRates';
+import { upiLink } from '@/lib/db/rentals';
 
 const theme = PORTAL_THEMES.admin ?? PORTAL_THEMES.expert;
 const rupees = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
@@ -265,6 +267,14 @@ function MarkPaidModal({ person, onClose, onDone }: { person: Contributor; onClo
         Pay <strong>{rupees(person.due)}</strong> for {person.unpaid} accepted contribution{person.unpaid === 1 ? '' : 's'} from your UPI app or bank to{' '}
         <strong>{person.upi_id ?? (person.account_number ? `account ••${person.account_number.slice(-4)}, IFSC ${person.ifsc ?? ''}` : 'their payment details (not added yet — ask them to add UPI in My work & pay)')}</strong>. Then write the payment reference here.
       </p>
+      {person.upi_id && (
+        <div className="mt-4 flex flex-wrap items-center gap-4">
+          <a href={upiLink({ upi: person.upi_id, name: person.name, amount: person.due, note: 'KashRoot contributor pay' })} className="inline-flex items-center gap-2 rounded-xl bg-indigo-700 px-4 py-2.5 text-sm font-semibold text-white no-underline hover:bg-indigo-800 hover:no-underline">
+            <IndianRupee className="h-4 w-4" aria-hidden /> Pay {rupees(person.due)} with UPI app
+          </a>
+          <UpiQr upi={person.upi_id} name={person.name} amount={person.due} note="KashRoot contributor pay" size={140} />
+        </div>
+      )}
       <div className="mt-4">
         <Field label="UPI transaction ID or bank reference">
           <input className={INPUT} value={ref} onChange={(e) => setRef(e.target.value)} placeholder="e.g. 428311234567" />

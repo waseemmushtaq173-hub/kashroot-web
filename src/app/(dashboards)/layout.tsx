@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 
 import { useSelectedLayoutSegment, useRouter } from 'next/navigation';
 import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useState } from 'react';
 
 import { ShieldCheck } from 'lucide-react';
 
@@ -12,6 +12,10 @@ import { PortalGuide } from '@/components/voice/PortalGuide';
 import { supabase } from '@/lib/supabase';
 import { authApi, SELF_JOIN_ROLES, storedRoles, tokenStore } from '@/lib/api/auth';
 import { loginHref, PORTALS, portalForSegment } from '@/lib/auth/roles';
+import { kycMissing, kycRules, myKyc, type KycRules, type KycStatus } from '@/lib/db/security';
+
+/** Portals where money changes hands: identity checks (KYC) apply here. */
+const MONEY_PORTALS = ['farmer', 'buyer', 'seller', 'logistics', 'rental', 'trader'];
 
 /**
  * Each dashboard segment belongs to one portal (see lib/auth/roles). Signed-out
@@ -37,6 +41,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [showKyc, setShowKyc] = useState(false);
   // KYC is one check per person: asked once, then a reminder banner until done.
   const [kycDone, setKycDone] = useState(false);
+  // The verified record in the database (written only by the KashRoot server).
+  const [kyc, setKyc] = useState<{ rules: KycRules | null; status: KycStatus | null } | null>(null);
+  const refreshKyc = useCallback(async () => {
+    const [rules, { data }] = await Promise.all([kycRules(), supabase.auth.getUser()]);
+    const status = data.user ? await myKyc(data.user.id) : null;
+    setKyc({ rules, status });
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -65,6 +76,18 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       setIsMounted(true);
     }
   }, [router, segment]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let live = true;
+    const run = async () => {
+      if (live) await refreshKyc();
+    };
+    void run();
+    return () => {
+      live = false;
+    };
+  }, [isAuthenticated, refreshKyc]);
 
   if (!isMounted || !isAuthenticated) {
     // Prevent flicker and layout shift while checking credentials
@@ -158,12 +181,16 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <div className="kr-light flex min-h-screen flex-col bg-gradient-to-br from-emerald-50 via-white to-amber-50 text-slate-900">
       <SiteHeader tone="light" portal={portal} />
-      {!kycDone && portal && ['farmer', 'buyer', 'seller', 'logistics'].includes(portal) && (
-        <div className="border-b border-emerald-900/10 bg-emerald-50/90">
+      {portal && MONEY_PORTALS.includes(portal) && (kyc?.rules?.kyc_required ? kycMissing(kyc.rules, kyc.status) : !kycDone && !kyc?.status?.aadhaar_verified_at) && (
+        <div className={`border-b ${kyc?.rules?.kyc_required ? 'border-amber-900/10 bg-amber-50' : 'border-emerald-900/10 bg-emerald-50/90'}`}>
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2.5 text-sm sm:px-6 lg:px-8">
-            <p className="flex items-center gap-2 text-emerald-950">
-              <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden />
-              Verify your identity once so buyers and sellers can trust you — it covers every KashRoot portal.
+            <p className={`flex items-center gap-2 ${kyc?.rules?.kyc_required ? 'text-amber-950' : 'text-emerald-950'}`}>
+              <ShieldCheck className={`h-4 w-4 shrink-0 ${kyc?.rules?.kyc_required ? 'text-amber-700' : 'text-emerald-700'}`} aria-hidden />
+              {kyc?.rules?.kyc_required
+                ? kycMissing(kyc.rules, kyc.status) === 'pan'
+                  ? 'Your Aadhaar is verified. Verify your PAN too before you sell, buy, book or receive money on KashRoot.'
+                  : `Verify your Aadhaar${kyc.rules.pan_required ? ' and PAN' : ''} before you sell, buy, book or receive money on KashRoot. It protects you and the people you trade with.`
+                : 'Verify your identity once so buyers and sellers can trust you — it covers every KashRoot portal.'}
             </p>
             <button type="button" onClick={() => setShowKyc(true)} className="cursor-pointer rounded-lg bg-emerald-700 px-3 py-1.5 font-semibold text-white hover:bg-emerald-800">
               Verify now
@@ -182,9 +209,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         defaultRole={kycRoleFor(required ?? userRole)}
         // No self-service KYC endpoint exists yet: mark it submitted (under
         // review), never "verified" — nobody has reviewed it.
-        onComplete={() => {
+        onComplete={async () => {
           localStorage.setItem('kyc_status', 'submitted');
           setKycDone(true);
+          await refreshKyc();
           // Remember it on the account, so other devices don't ask again.
           void supabase.auth.updateUser({ data: { kyc_status: 'submitted' } }).catch(() => undefined);
         }}

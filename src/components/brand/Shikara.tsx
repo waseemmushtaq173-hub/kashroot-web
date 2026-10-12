@@ -104,7 +104,7 @@ export function BrandMark({
 
   return (
     <span className={`inline-flex items-center gap-2.5 ${className}`}>
-      <Emblem className={`${box} shrink-0 drop-shadow-[0_4px_10px_rgba(6,61,48,0.35)]`} />
+      <Emblem className={`${box} shrink-0 drop-shadow-[0_4px_10px_rgba(59,29,15,0.35)]`} />
       <Wordmark className={`${brandSerif.className} text-kr-text-primary ${word} ${compactOnPhone ? 'hidden sm:inline' : ''}`} />
     </span>
   );

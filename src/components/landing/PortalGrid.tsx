@@ -10,7 +10,7 @@ import { ArrowUpRight } from 'lucide-react';
 import { PORTAL_LOGIN } from '@/components/auth/portalLoginConfig';
 import { PORTAL_THEMES, type PortalThemeId } from '@/components/portal/kit';
 import { Tilt3D } from '@/components/three/Tilt3D';
-import { PORTAL_IDS, PORTALS, type PortalId } from '@/lib/auth/roles';
+import { PORTALS, PUBLIC_PORTAL_IDS, type PortalId } from '@/lib/auth/roles';
 
 const KIT_THEME: Record<PortalId, PortalThemeId> = {
   farmer: 'farmer',
@@ -29,7 +29,7 @@ const KIT_THEME: Record<PortalId, PortalThemeId> = {
 export function PortalGrid() {
   return (
     <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {PORTAL_IDS.map((id) => {
+      {PUBLIC_PORTAL_IDS.map((id) => {
         const copy = PORTAL_LOGIN[id];
         const theme = PORTAL_THEMES[KIT_THEME[id]];
         const Icon = copy.icon;

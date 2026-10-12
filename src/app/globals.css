@@ -3,6 +3,8 @@
 @tailwind utilities;
 
 :root {
+  /* Light only: stops phone browsers' forced dark mode from repainting pages. */
+  color-scheme: only light;
   --kr-chinar-amber: #D9622B;
   --kr-dal-teal: #0E7C86;
   --kr-saffron-gold: #E8A317;

@@ -70,8 +70,12 @@ export function verifyOfflineXmlZip(zipBytes: Buffer, shareCode: string, mobile?
   let xml: string;
   try {
     const zip = new AdmZip(zipBytes);
-    const entry = zip.getEntries().find((e) => !e.isDirectory && /\.xml$/i.test(e.entryName));
+    const entries = zip.getEntries();
+    const entry = entries.find((e) => !e.isDirectory && /\.xml$/i.test(e.entryName));
     if (!entry) throw new Error('no xml');
+    // UIDAI's file is one small XML. Refuse look-alikes that claim a huge
+    // unpacked size (a "zip bomb" meant to exhaust the server's memory).
+    if (entries.length > 3 || entry.header.size > 2 * 1024 * 1024) throw new Error('not an Aadhaar file');
     const data = zip.readFile(entry, shareCode);
     if (!data) throw new Error('decrypt');
     xml = data.toString('utf8');

@@ -111,7 +111,7 @@ function FarmerDashboard() {
               <Tile theme={theme} icon={Activity} label="Orchard health" hint="Scab map, photo check" href="/orchard-health" />
               <Tile theme={theme} icon={CalendarDays} label="Season planner" hint="Tasks & costs" href="/season-planner" />
               <Tile theme={theme} icon={TrendingUp} label="Mandi rates" hint="Today’s prices" href="/mandi-weather" />
-              <Tile theme={theme} icon={FlaskConical} label="Test inputs" hint="Spot fake batches" href="/farmer/tester" />
+              <Tile theme={theme} icon={FlaskConical} label="Test inputs" hint="Spot fake batches" href="/supplies/tester" />
             </div>
 
             <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-700 via-emerald-600 to-amber-600 p-7 text-white shadow-lg">

@@ -34,6 +34,10 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#047857",
+  // The design is light only. Without this, phones with "dark mode for web
+  // pages" (Chrome, Samsung Internet, Mi browser) repaint every page dark and
+  // greyed out — cards, photos and text all look jumbled.
+  colorScheme: "only light",
 };
 
 export default function RootLayout({

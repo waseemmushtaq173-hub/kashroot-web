@@ -60,6 +60,13 @@ export const PORTALS: Record<PortalId, PortalInfo> = {
 
 export const PORTAL_IDS = Object.keys(PORTALS) as PortalId[];
 
+/**
+ * Portals shown to the public (home page, menu, sign-in chooser). The Admin
+ * portal is never listed: only the owner knows its address, and it also needs
+ * the admin's own access code after signing in.
+ */
+export const PUBLIC_PORTAL_IDS = PORTAL_IDS.filter((id) => id !== 'admin');
+
 export function isPortalId(value: string): value is PortalId {
   return value in PORTALS;
 }
