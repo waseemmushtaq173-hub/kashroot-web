@@ -49,6 +49,7 @@ export function AccountsPanel() {
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [kind, setKind] = useState('all');
+  const [when, setWhen] = useState<'any' | 'week' | 'never'>('any');
   const [loadedAt, setLoadedAt] = useState(0);
 
   const load = useCallback(async () => {
@@ -77,9 +78,12 @@ export function AccountsPanel() {
   const shown = useMemo(() => {
     const t = q.trim().toLowerCase();
     return (rows ?? []).filter(
-      (r) => (kind === 'all' || r.roles.includes(kind) || r.staff.includes(kind)) && (!t || `${r.full_name} ${r.email} ${r.phone} ${r.district}`.toLowerCase().includes(t)),
+      (r) =>
+        (kind === 'all' || r.roles.includes(kind) || r.staff.includes(kind)) &&
+        (when === 'any' || (when === 'never' ? !r.last_sign_in_at : Boolean(r.last_sign_in_at && loadedAt - Date.parse(r.last_sign_in_at) < 7 * 86_400_000))) &&
+        (!t || `${r.full_name} ${r.email} ${r.phone} ${r.district}`.toLowerCase().includes(t)),
     );
-  }, [rows, q, kind]);
+  }, [rows, q, kind, when, loadedAt]);
   const active7d = (rows ?? []).filter((r) => r.last_sign_in_at && loadedAt - Date.parse(r.last_sign_in_at) < 7 * 86_400_000).length;
 
   const download = () => {
@@ -121,6 +125,14 @@ export function AccountsPanel() {
               <select className={INPUT} value={kind} onChange={(e) => setKind(e.target.value)}>
                 <option value="all">All kinds</option>
                 {kinds.map((k) => <option key={k} value={k}>{label(k)}</option>)}
+              </select>
+            </label>
+            <label>
+              <span className="sr-only">Signed in</span>
+              <select className={INPUT} value={when} onChange={(e) => setWhen(e.target.value as 'any' | 'week' | 'never')}>
+                <option value="any">Any time</option>
+                <option value="week">Signed in this week</option>
+                <option value="never">Never signed in</option>
               </select>
             </label>
           </div>

@@ -16,7 +16,7 @@
  * Who may enter is decided by staff_roles (kr_make_admin / kr_grant_role),
  * and every query above is limited to admins in the database itself.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { BarChart3, GraduationCap, LockKeyhole, PackageX, Users, Wallet } from 'lucide-react';
 
 import { AccountsPanel } from '@/components/admin/AccountsPanel';
@@ -36,6 +36,8 @@ interface Counts {
   problems: number;
   accounts: number;
   accounts7d: number;
+  /** Accounts that signed in during the last 7 days (null if unknown). */
+  active7d: number | null;
 }
 
 export default function AdminConsolePage() {
@@ -49,15 +51,22 @@ export default function AdminConsolePage() {
 
 function AdminConsole() {
   const [tab, setTab] = useState<Tab>('approvals');
+  // Becomes true once the admin picks a tab, so loading never switches it.
+  const opened = useRef(false);
   const [counts, setCounts] = useState<Counts | null>(null);
 
   const load = useCallback(async () => {
-    const [requests, problems, stats] = await Promise.all([
+    const [requests, problems, stats, accounts] = await Promise.all([
       supabase.from('role_requests').select('id').eq('status', 'pending'),
       loadReportedOrders().catch(() => []),
       loadAdminStats().catch(() => null),
+      supabase.rpc('kr_admin_accounts'),
     ]);
-    setCounts({ waiting: requests.data?.length ?? 0, problems: problems.length, accounts: stats?.accounts ?? 0, accounts7d: stats?.accounts_7d ?? 0 });
+    const now = Date.now();
+    const signedIn = accounts.error ? null : ((accounts.data ?? []) as { last_sign_in_at: string | null }[]).filter((a) => a.last_sign_in_at && now - Date.parse(a.last_sign_in_at) < 7 * 86_400_000).length;
+    setCounts({ waiting: requests.data?.length ?? 0, problems: problems.length, accounts: stats?.accounts ?? 0, accounts7d: stats?.accounts_7d ?? 0, active7d: signedIn });
+    // Nothing waiting for approval: open on the list of accounts.
+    if (!requests.data?.length) setTab((t) => (t === 'approvals' && !opened.current ? 'accounts' : t));
   }, []);
 
   useEffect(() => {
@@ -72,6 +81,13 @@ function AdminConsole() {
   }, [load]);
 
   const n = (v?: number) => (counts ? String(v ?? 0) : '…');
+  const show = (id: Tab) => {
+    opened.current = true;
+    setTab(id);
+    void load();
+    // On a phone the tab content is below the cards: bring it into view.
+    window.setTimeout(() => document.querySelector('nav[aria-label$="sections"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  };
 
   return (
     <PortalShell
@@ -80,9 +96,14 @@ function AdminConsole() {
       eyebrow="Platform admin"
       theme="admin"
       kpis={[
-        { label: 'Waiting for approval', value: n(counts?.waiting), trend: 'Agronomists, dealers, Mandi Helpers' },
-        { label: 'Orders with a problem', value: n(counts?.problems), trend: 'Reported by buyers' },
-        { label: 'Accounts', value: n(counts?.accounts), trend: counts ? `${counts.accounts7d} new this week — see the Accounts tab` : 'Loading' },
+        { label: 'Waiting for approval', value: n(counts?.waiting), trend: 'Agronomists, dealers, Mandi Helpers', onClick: () => show('approvals') },
+        { label: 'Orders with a problem', value: n(counts?.problems), trend: 'Reported by buyers', onClick: () => show('problems') },
+        {
+          label: 'Accounts',
+          value: n(counts?.accounts),
+          trend: counts ? `${counts.accounts7d} new this week${counts.active7d !== null ? ` · ${counts.active7d} signed in this week` : ''} — tap to see who` : 'Loading',
+          onClick: () => show('accounts'),
+        },
       ]}
       tabs={[
         { id: 'approvals', label: 'Approvals', icon: GraduationCap, count: counts?.waiting || undefined },
@@ -93,10 +114,7 @@ function AdminConsole() {
         { id: 'security', label: 'Security', icon: LockKeyhole },
       ]}
       activeTab={tab}
-      onTabChange={(id) => {
-        setTab(id as Tab);
-        void load();
-      }}
+      onTabChange={(id) => show(id as Tab)}
     >
       {tab === 'approvals' && <ApprovalsPanel />}
       {tab === 'accounts' && <AccountsPanel />}

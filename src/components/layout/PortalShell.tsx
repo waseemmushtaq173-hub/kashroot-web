@@ -29,6 +29,8 @@ export interface KPI {
   label: string;
   value: string;
   trend?: string;
+  /** Makes the card a button (e.g. open the tab with the details). */
+  onClick?: () => void;
 }
 
 export interface NavItem {
@@ -126,11 +128,22 @@ export function PortalShell({
           <div className={`relative z-10 -mt-6 mx-3 grid gap-3 sm:mx-6 ${kpis.length >= 4 ? 'grid-cols-2 lg:grid-cols-4' : kpis.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'}`}>
             {kpis.map((kpi) => (
               <Tilt3D key={kpi.label} className="rounded-2xl" max={7}>
-                <div className={`${GLASS_CARD} h-full p-4 [transform-style:preserve-3d]`}>
-                  <p className="text-xs font-medium uppercase tracking-wider text-slate-500">{kpi.label}</p>
-                  <p data-depth className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{kpi.value}</p>
-                  {kpi.trend && <p className={`mt-0.5 text-xs font-medium ${theme.accent}`}>{kpi.trend}</p>}
-                </div>
+                {(() => {
+                  const body = (
+                    <>
+                      <p className="text-xs font-medium uppercase tracking-wider text-slate-500">{kpi.label}</p>
+                      <p data-depth className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{kpi.value}</p>
+                      {kpi.trend && <p className={`mt-0.5 text-xs font-medium ${theme.accent}`}>{kpi.trend}</p>}
+                    </>
+                  );
+                  return kpi.onClick ? (
+                    <button type="button" onClick={kpi.onClick} className={`${GLASS_CARD} block h-full w-full cursor-pointer p-4 text-left transition hover:ring-2 hover:ring-indigo-300 ${FOCUS} ${theme.outline} [transform-style:preserve-3d]`}>
+                      {body}
+                    </button>
+                  ) : (
+                    <div className={`${GLASS_CARD} h-full p-4 [transform-style:preserve-3d]`}>{body}</div>
+                  );
+                })()}
               </Tilt3D>
             ))}
           </div>
