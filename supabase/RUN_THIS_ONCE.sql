@@ -1,0 +1,1819 @@
+-- KashRoot: ALL database setup in one file.
+-- Supabase → SQL Editor → New query → paste this whole file → Run.
+-- Safe to run more than once: it only adds what is missing and updates functions.
+-- Generated from supabase/migrations/ (oldest first).
+
+-- ════════ 20261010000000_fertilizer_batches.sql ════════
+-- Shared fertiliser / agro-input batch registry.
+-- Anyone can look a batch up; only accounts an administrator has approved as
+-- DEALER, MANUFACTURER or ADMIN (set in app_metadata, which users cannot edit)
+-- can register or edit batches.
+--
+-- Run once: Supabase dashboard → SQL Editor → paste → Run.
+-- Approve a dealer: Authentication → Users → user → edit "Raw app meta data":
+--   { "role": "DEALER" }
+
+create table if not exists public.fertilizer_batches (
+  batch_code    text primary key check (char_length(batch_code) between 3 and 40),
+  product       text not null,
+  manufacturer  text not null,
+  grade         text,
+  mfg_date      date,
+  expiry_date   date,
+  registered_by uuid default auth.uid() references auth.users (id) on delete set null,
+  registered_at timestamptz not null default now()
+);
+
+alter table public.fertilizer_batches enable row level security;
+
+drop policy if exists "Anyone can verify a batch" on public.fertilizer_batches;
+create policy "Anyone can verify a batch"
+  on public.fertilizer_batches for select
+  using (true);
+
+drop policy if exists "Approved dealers register batches" on public.fertilizer_batches;
+create policy "Approved dealers register batches"
+  on public.fertilizer_batches for insert to authenticated
+  with check (
+    coalesce(auth.jwt() -> 'app_metadata' ->> 'role', '') in ('DEALER', 'MANUFACTURER', 'ADMIN')
+    and registered_by = auth.uid()
+  );
+
+drop policy if exists "Dealers edit their own batches" on public.fertilizer_batches;
+create policy "Dealers edit their own batches"
+  on public.fertilizer_batches for update to authenticated
+  using (registered_by = auth.uid())
+  with check (registered_by = auth.uid());
+
+-- ════════ 20261011000000_kashroot_core.sql ════════
+-- KashRoot shared data, used by every portal:
+--   * staff roles (admin, agronomist/expert, verified dealer) and requests for them
+--   * advisory: questions, soil-test bookings and video calls between farmers and experts
+--   * rentals: cold stores and machinery, with bookings paid straight to the owner by UPI
+--   * marketplace listings and pay-after-delivery orders
+--   * payout (bank / UPI) details, shown only to the other side of a booking or order
+--   * consignments tracked by the driver's phone GPS
+--   * orchard blocks and spray logs
+--   * an open fertiliser / pesticide batch registry with dealer verification
+--
+-- Run once: Supabase dashboard → SQL Editor → New query → paste this file → Run.
+-- It is safe to run again. Then make yourself the admin (same SQL Editor):
+--   select public.kr_make_admin('you@example.com');
+--
+-- Every table has row-level security. Status changes that involve both sides
+-- (accepting a booking, confirming a payment) go through the kr_* functions,
+-- which check who is calling, so nobody can edit the other side's fields.
+
+-- ───────────────────────── helpers ─────────────────────────
+create or replace function public.kr_touch() returns trigger
+language plpgsql as $$
+begin
+  new.updated_at := now();
+  return new;
+end $$;
+
+-- ───────────────────────── staff roles ─────────────────────────
+create table if not exists public.staff_roles (
+  user_id    uuid not null references auth.users (id) on delete cascade,
+  role       text not null check (role in ('ADMIN', 'EXPERT', 'DEALER', 'REPORTER')),
+  granted_by uuid references auth.users (id) on delete set null,
+  granted_at timestamptz not null default now(),
+  primary key (user_id, role)
+);
+alter table public.staff_roles enable row level security;
+
+create or replace function public.kr_has_role(wanted text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.staff_roles where user_id = auth.uid() and role = wanted)
+$$;
+
+drop policy if exists "Own roles, admins see all" on public.staff_roles;
+create policy "Own roles, admins see all" on public.staff_roles for select to authenticated
+  using (user_id = auth.uid() or public.kr_has_role('ADMIN'));
+
+create table if not exists public.role_requests (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  role       text not null check (role in ('EXPERT', 'DEALER', 'REPORTER')),
+  full_name  text not null check (char_length(full_name) between 1 and 80),
+  phone      text check (char_length(phone) <= 20),
+  email      text check (char_length(email) <= 120),
+  details    text check (char_length(details) <= 1000),
+  status     text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  decided_by uuid references auth.users (id) on delete set null,
+  decided_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique (user_id, role)
+);
+alter table public.role_requests enable row level security;
+drop policy if exists "Own requests, admins see all" on public.role_requests;
+create policy "Own requests, admins see all" on public.role_requests for select to authenticated
+  using (user_id = auth.uid() or public.kr_has_role('ADMIN'));
+
+-- Ask to be an expert or a verified dealer (asking again resets it to pending).
+create or replace function public.kr_request_role(p_role text, p_name text, p_phone text, p_email text, p_details text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'Sign in first'; end if;
+  if p_role not in ('EXPERT', 'DEALER', 'REPORTER') then raise exception 'Unknown role'; end if;
+  insert into public.role_requests (user_id, role, full_name, phone, email, details)
+  values (auth.uid(), p_role, p_name, p_phone, p_email, p_details)
+  on conflict (user_id, role) do update
+    set full_name = excluded.full_name, phone = excluded.phone, email = excluded.email,
+        details = excluded.details, status = 'pending', decided_by = null, decided_at = null, created_at = now()
+    where public.role_requests.status <> 'approved';
+end $$;
+
+create or replace function public.kr_grant_role(p_user uuid, p_role text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.kr_has_role('ADMIN') then raise exception 'Only an admin can do this'; end if;
+  if p_role not in ('ADMIN', 'EXPERT', 'DEALER', 'REPORTER') then raise exception 'Unknown role'; end if;
+  insert into public.staff_roles (user_id, role, granted_by) values (p_user, p_role, auth.uid())
+  on conflict do nothing;
+  update public.role_requests set status = 'approved', decided_by = auth.uid(), decided_at = now()
+  where user_id = p_user and role = p_role;
+end $$;
+
+create or replace function public.kr_reject_role(p_request uuid) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.kr_has_role('ADMIN') then raise exception 'Only an admin can do this'; end if;
+  update public.role_requests set status = 'rejected', decided_by = auth.uid(), decided_at = now()
+  where id = p_request and status = 'pending';
+end $$;
+
+create or replace function public.kr_revoke_role(p_user uuid, p_role text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.kr_has_role('ADMIN') then raise exception 'Only an admin can do this'; end if;
+  if p_user = auth.uid() and p_role = 'ADMIN' then raise exception 'You cannot remove your own admin role'; end if;
+  delete from public.staff_roles where user_id = p_user and role = p_role;
+end $$;
+
+-- First admin. Run from the SQL Editor only (not callable from the website).
+create or replace function public.kr_make_admin(p_email text) returns text
+language plpgsql security definer set search_path = public as $$
+declare uid uuid;
+begin
+  select id into uid from auth.users where lower(email) = lower(trim(p_email));
+  if uid is null then return 'No account with that email: create it on the website first.'; end if;
+  insert into public.staff_roles (user_id, role) values (uid, 'ADMIN') on conflict do nothing;
+  return 'Done: ' || p_email || ' is now a KashRoot admin.';
+end $$;
+revoke execute on function public.kr_make_admin(text) from public, anon, authenticated;
+
+-- ───────────────────────── advisory ─────────────────────────
+create table if not exists public.advisory_requests (
+  id             uuid primary key default gen_random_uuid(),
+  farmer_id      uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  farmer_name    text not null check (char_length(farmer_name) between 1 and 80),
+  farmer_phone   text check (char_length(farmer_phone) <= 20),
+  district       text check (char_length(district) <= 80),
+  kind           text not null check (kind in ('question', 'soil_test', 'video_call')),
+  crop           text check (char_length(crop) <= 60),
+  message        text not null check (char_length(message) between 1 and 2000),
+  photo          text check (photo is null or (photo like 'data:image/%' and char_length(photo) <= 600000)),
+  preferred_time text check (char_length(preferred_time) <= 80),
+  lang           text not null default 'en' check (lang in ('en', 'hi', 'ur', 'ks')),
+  status         text not null default 'open' check (status in ('open', 'accepted', 'answered', 'closed')),
+  expert_id      uuid references auth.users (id) on delete set null,
+  expert_name    text check (char_length(expert_name) <= 80),
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
+);
+create index if not exists advisory_requests_farmer on public.advisory_requests (farmer_id, created_at desc);
+create index if not exists advisory_requests_status on public.advisory_requests (status, created_at desc);
+alter table public.advisory_requests enable row level security;
+drop trigger if exists advisory_requests_touch on public.advisory_requests;
+create trigger advisory_requests_touch before update on public.advisory_requests for each row execute function public.kr_touch();
+
+create or replace function public.kr_can_see_request(p_request uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.advisory_requests r
+    where r.id = p_request
+      and (r.farmer_id = auth.uid() or public.kr_has_role('EXPERT') or public.kr_has_role('ADMIN'))
+  )
+$$;
+
+drop policy if exists "Farmers see theirs, experts see all" on public.advisory_requests;
+create policy "Farmers see theirs, experts see all" on public.advisory_requests for select to authenticated
+  using (farmer_id = auth.uid() or public.kr_has_role('EXPERT') or public.kr_has_role('ADMIN'));
+drop policy if exists "Farmers open requests" on public.advisory_requests;
+create policy "Farmers open requests" on public.advisory_requests for insert to authenticated
+  with check (farmer_id = auth.uid() and status = 'open' and expert_id is null and expert_name is null);
+
+create table if not exists public.advisory_messages (
+  id          bigint generated always as identity primary key,
+  request_id  uuid not null references public.advisory_requests (id) on delete cascade,
+  sender_id   uuid default auth.uid() references auth.users (id) on delete set null,
+  sender_role text not null check (sender_role in ('farmer', 'expert', 'ai')),
+  sender_name text check (char_length(sender_name) <= 80),
+  body        text not null check (char_length(body) between 1 and 4000),
+  created_at  timestamptz not null default now()
+);
+create index if not exists advisory_messages_request on public.advisory_messages (request_id, id);
+alter table public.advisory_messages enable row level security;
+drop policy if exists "Participants read messages" on public.advisory_messages;
+create policy "Participants read messages" on public.advisory_messages for select to authenticated
+  using (public.kr_can_see_request(request_id));
+drop policy if exists "Participants write messages" on public.advisory_messages;
+create policy "Participants write messages" on public.advisory_messages for insert to authenticated
+  with check (
+    sender_id = auth.uid() and (
+      (sender_role in ('farmer', 'ai') and exists (select 1 from public.advisory_requests r where r.id = request_id and r.farmer_id = auth.uid()))
+      or (sender_role = 'expert' and (public.kr_has_role('EXPERT') or public.kr_has_role('ADMIN')))
+    )
+  );
+
+-- A reply moves the request along: expert reply → answered; farmer follow-up → open again.
+create or replace function public.kr_after_message() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  update public.advisory_requests r set
+    status = case
+      when r.status = 'closed' then r.status
+      when new.sender_role = 'expert' then case when r.kind = 'video_call' and r.status = 'accepted' then 'accepted' else 'answered' end
+      when new.sender_role = 'farmer' and r.status = 'answered' then 'open'
+      else r.status end,
+    expert_id   = coalesce(r.expert_id, case when new.sender_role = 'expert' then new.sender_id end),
+    expert_name = coalesce(r.expert_name, case when new.sender_role = 'expert' then new.sender_name end)
+  where r.id = new.request_id;
+  return new;
+end $$;
+drop trigger if exists advisory_messages_after on public.advisory_messages;
+create trigger advisory_messages_after after insert on public.advisory_messages for each row execute function public.kr_after_message();
+
+-- accept (expert takes it / will join the call), close, reopen.
+create or replace function public.kr_advisory_set(p_request uuid, p_action text, p_name text default null) returns void
+language plpgsql security definer set search_path = public as $$
+declare r public.advisory_requests;
+begin
+  select * into r from public.advisory_requests where id = p_request for update;
+  if not found then raise exception 'Request not found'; end if;
+  if p_action = 'accept' then
+    if not (public.kr_has_role('EXPERT') or public.kr_has_role('ADMIN')) then raise exception 'Only an approved expert can accept'; end if;
+    if r.status = 'closed' then raise exception 'This request is closed'; end if;
+    update public.advisory_requests set status = 'accepted', expert_id = auth.uid(), expert_name = coalesce(nullif(trim(p_name), ''), expert_name) where id = p_request;
+  elsif p_action = 'close' then
+    if not (r.farmer_id = auth.uid() or r.expert_id = auth.uid() or public.kr_has_role('ADMIN')) then raise exception 'Not allowed'; end if;
+    update public.advisory_requests set status = 'closed' where id = p_request;
+  elsif p_action = 'reopen' then
+    if r.farmer_id <> auth.uid() then raise exception 'Not allowed'; end if;
+    update public.advisory_requests set status = 'open' where id = p_request;
+  else
+    raise exception 'Unknown action';
+  end if;
+end $$;
+
+-- Video-call signalling (WebRTC offer/answer/ICE), read by polling.
+create table if not exists public.call_signals (
+  id         bigint generated always as identity primary key,
+  request_id uuid not null references public.advisory_requests (id) on delete cascade,
+  sender_id  uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  kind       text not null check (kind in ('join', 'offer', 'answer', 'ice', 'bye')),
+  payload    jsonb,
+  created_at timestamptz not null default now()
+);
+create index if not exists call_signals_request on public.call_signals (request_id, id);
+alter table public.call_signals enable row level security;
+drop policy if exists "Call participants read signals" on public.call_signals;
+create policy "Call participants read signals" on public.call_signals for select to authenticated
+  using (public.kr_can_see_request(request_id));
+drop policy if exists "Call participants send signals" on public.call_signals;
+create policy "Call participants send signals" on public.call_signals for insert to authenticated
+  with check (sender_id = auth.uid() and public.kr_can_see_request(request_id) and octet_length(coalesce(payload::text, '')) <= 20000);
+
+-- ───────────────────────── payout details ─────────────────────────
+create table if not exists public.payout_accounts (
+  user_id        uuid primary key default auth.uid() references auth.users (id) on delete cascade,
+  account_name   text not null check (char_length(account_name) between 2 and 80),
+  upi_id         text check (upi_id is null or upi_id ~ '^[A-Za-z0-9._-]{2,64}@[A-Za-z]{2,64}$'),
+  account_number text check (account_number is null or account_number ~ '^[0-9]{6,20}$'),
+  ifsc           text check (ifsc is null or ifsc ~ '^[A-Z]{4}0[A-Z0-9]{6}$'),
+  bank_name      text check (char_length(bank_name) <= 80),
+  updated_at     timestamptz not null default now(),
+  check (upi_id is not null or (account_number is not null and ifsc is not null))
+);
+alter table public.payout_accounts enable row level security;
+drop trigger if exists payout_accounts_touch on public.payout_accounts;
+create trigger payout_accounts_touch before update on public.payout_accounts for each row execute function public.kr_touch();
+drop policy if exists "Own payout details" on public.payout_accounts;
+create policy "Own payout details" on public.payout_accounts for all to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- ───────────────────────── rentals ─────────────────────────
+create table if not exists public.rental_listings (
+  id          uuid primary key default gen_random_uuid(),
+  owner_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  kind        text not null check (kind in ('cold_store', 'machinery')),
+  title       text not null check (char_length(title) between 2 and 100),
+  owner_name  text not null check (char_length(owner_name) between 1 and 80),
+  phone       text not null check (char_length(phone) between 6 and 20),
+  district    text not null check (char_length(district) between 2 and 80),
+  address     text check (char_length(address) <= 200),
+  unit        text not null check (unit in ('box_month', 'day', 'hour')),
+  capacity    integer not null check (capacity between 1 and 10000000),
+  available   integer not null check (available >= 0),
+  rate        numeric(12, 2) not null check (rate >= 0),
+  min_units   integer not null default 1 check (min_units >= 1),
+  temperature text check (char_length(temperature) <= 40),
+  details     text check (char_length(details) <= 1000),
+  active      boolean not null default true,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  check (available <= capacity)
+);
+create index if not exists rental_listings_kind on public.rental_listings (kind, district) where active;
+alter table public.rental_listings enable row level security;
+drop trigger if exists rental_listings_touch on public.rental_listings;
+create trigger rental_listings_touch before update on public.rental_listings for each row execute function public.kr_touch();
+drop policy if exists "Anyone browses active listings" on public.rental_listings;
+create policy "Anyone browses active listings" on public.rental_listings for select
+  using (active or owner_id = auth.uid());
+drop policy if exists "Owners add listings" on public.rental_listings;
+create policy "Owners add listings" on public.rental_listings for insert to authenticated with check (owner_id = auth.uid());
+drop policy if exists "Owners edit listings" on public.rental_listings;
+create policy "Owners edit listings" on public.rental_listings for update to authenticated using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+drop policy if exists "Owners remove listings" on public.rental_listings;
+create policy "Owners remove listings" on public.rental_listings for delete to authenticated using (owner_id = auth.uid());
+
+create table if not exists public.rental_bookings (
+  id           uuid primary key default gen_random_uuid(),
+  listing_id   uuid not null references public.rental_listings (id) on delete cascade,
+  owner_id     uuid references auth.users (id) on delete cascade,
+  renter_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  renter_name  text not null check (char_length(renter_name) between 1 and 80),
+  renter_phone text not null check (char_length(renter_phone) between 6 and 20),
+  units        integer not null check (units >= 1),
+  duration     integer not null check (duration between 1 and 365),
+  start_date   date not null,
+  amount       numeric(12, 2) not null default 0,
+  payment_ref  text check (payment_ref is null or payment_ref ~ '^[A-Za-z0-9]{6,30}$'),
+  status       text not null default 'requested' check (status in ('requested', 'paid', 'confirmed', 'rejected', 'cancelled', 'completed')),
+  owner_note   text check (char_length(owner_note) <= 300),
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+create index if not exists rental_bookings_renter on public.rental_bookings (renter_id, created_at desc);
+create index if not exists rental_bookings_owner on public.rental_bookings (owner_id, created_at desc);
+alter table public.rental_bookings enable row level security;
+drop trigger if exists rental_bookings_touch on public.rental_bookings;
+create trigger rental_bookings_touch before update on public.rental_bookings for each row execute function public.kr_touch();
+
+-- Price and owner always come from the listing, never from the browser.
+create or replace function public.kr_before_booking() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare l public.rental_listings;
+begin
+  select * into l from public.rental_listings where id = new.listing_id;
+  if not found or not l.active then raise exception 'This listing is not available'; end if;
+  if l.owner_id = new.renter_id then raise exception 'You cannot book your own listing'; end if;
+  if new.units < l.min_units then raise exception 'Minimum booking is % %', l.min_units, case when l.unit = 'box_month' then 'boxes' else 'units' end; end if;
+  if new.units > l.available then raise exception 'Only % available right now', l.available; end if;
+  if new.status not in ('requested', 'paid') then raise exception 'New bookings start as requested or paid'; end if;
+  if new.status = 'paid' and new.payment_ref is null then raise exception 'Enter the UPI / bank reference number of your payment'; end if;
+  new.owner_id := l.owner_id;
+  new.amount := round(l.rate * new.units * new.duration, 2);
+  new.owner_note := null;
+  return new;
+end $$;
+drop trigger if exists rental_bookings_before on public.rental_bookings;
+create trigger rental_bookings_before before insert on public.rental_bookings for each row execute function public.kr_before_booking();
+
+drop policy if exists "Renters and owners see bookings" on public.rental_bookings;
+create policy "Renters and owners see bookings" on public.rental_bookings for select to authenticated
+  using (renter_id = auth.uid() or owner_id = auth.uid());
+drop policy if exists "Renters request bookings" on public.rental_bookings;
+create policy "Renters request bookings" on public.rental_bookings for insert to authenticated
+  with check (renter_id = auth.uid());
+
+-- renter: pay, cancel · owner: confirm (holds the space), reject, complete (frees it)
+create or replace function public.kr_booking_action(p_booking uuid, p_action text, p_ref text default null, p_note text default null)
+returns public.rental_bookings language plpgsql security definer set search_path = public as $$
+declare b public.rental_bookings; l public.rental_listings;
+begin
+  select * into b from public.rental_bookings where id = p_booking for update;
+  if not found then raise exception 'Booking not found'; end if;
+  select * into l from public.rental_listings where id = b.listing_id for update;
+  if p_action = 'pay' then
+    if b.renter_id <> auth.uid() then raise exception 'Not your booking'; end if;
+    if b.status not in ('requested', 'paid') then raise exception 'This booking can no longer be paid'; end if;
+    if p_ref is null or p_ref !~ '^[A-Za-z0-9]{6,30}$' then raise exception 'Enter the 12-digit UPI reference (UTR) from your payment app'; end if;
+    update public.rental_bookings set status = 'paid', payment_ref = p_ref where id = p_booking returning * into b;
+  elsif p_action = 'cancel' then
+    if b.renter_id <> auth.uid() then raise exception 'Not your booking'; end if;
+    if b.status not in ('requested', 'paid') then raise exception 'Only bookings not yet confirmed can be cancelled'; end if;
+    update public.rental_bookings set status = 'cancelled' where id = p_booking returning * into b;
+  elsif p_action = 'confirm' then
+    if b.owner_id <> auth.uid() then raise exception 'Only the owner can confirm'; end if;
+    if b.status not in ('requested', 'paid') then raise exception 'This booking is already %', b.status; end if;
+    if l.available < b.units then raise exception 'Not enough space left: % available', l.available; end if;
+    update public.rental_listings set available = available - b.units where id = l.id;
+    update public.rental_bookings set status = 'confirmed', owner_note = left(p_note, 300) where id = p_booking returning * into b;
+  elsif p_action = 'reject' then
+    if b.owner_id <> auth.uid() then raise exception 'Only the owner can reject'; end if;
+    if b.status not in ('requested', 'paid') then raise exception 'This booking is already %', b.status; end if;
+    update public.rental_bookings set status = 'rejected', owner_note = left(p_note, 300) where id = p_booking returning * into b;
+  elsif p_action = 'complete' then
+    if b.owner_id <> auth.uid() then raise exception 'Only the owner can close a booking'; end if;
+    if b.status <> 'confirmed' then raise exception 'Only confirmed bookings can be completed'; end if;
+    update public.rental_listings set available = least(capacity, available + b.units) where id = l.id;
+    update public.rental_bookings set status = 'completed' where id = p_booking returning * into b;
+  else
+    raise exception 'Unknown action';
+  end if;
+  return b;
+end $$;
+
+-- ───────────────────────── marketplace ─────────────────────────
+create table if not exists public.market_listings (
+  id          uuid primary key default gen_random_uuid(),
+  seller_id   uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  seller_name text not null check (char_length(seller_name) between 1 and 80),
+  phone       text not null check (char_length(phone) between 6 and 20),
+  district    text not null check (char_length(district) between 2 and 80),
+  category    text not null check (category in ('produce', 'supplies')),
+  product     text not null check (char_length(product) between 2 and 80),
+  variety     text check (char_length(variety) <= 60),
+  grade       text check (char_length(grade) <= 30),
+  unit        text not null check (unit in ('kg', 'box', 'quintal', 'bag', 'litre', 'piece')),
+  price       numeric(12, 2) not null check (price > 0),
+  quantity    numeric(12, 2) not null check (quantity >= 0),
+  details     text check (char_length(details) <= 1000),
+  photo       text check (photo is null or (photo like 'data:image/%' and char_length(photo) <= 600000)),
+  active      boolean not null default true,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+alter table public.market_listings add column if not exists subcategory text check (char_length(subcategory) <= 40);
+create index if not exists market_listings_product on public.market_listings (category, lower(product)) where active;
+
+-- Which sellers KashRoot has verified (dealer or admin), for the badge on listings.
+create or replace function public.kr_verified_sellers(p_ids uuid[]) returns setof uuid
+language sql stable security definer set search_path = public as $$
+  select distinct user_id from public.staff_roles where user_id = any(p_ids) and role in ('DEALER', 'ADMIN')
+$$;
+alter table public.market_listings enable row level security;
+drop trigger if exists market_listings_touch on public.market_listings;
+create trigger market_listings_touch before update on public.market_listings for each row execute function public.kr_touch();
+drop policy if exists "Anyone browses market listings" on public.market_listings;
+create policy "Anyone browses market listings" on public.market_listings for select using (active or seller_id = auth.uid());
+drop policy if exists "Sellers add listings" on public.market_listings;
+create policy "Sellers add listings" on public.market_listings for insert to authenticated with check (seller_id = auth.uid());
+drop policy if exists "Sellers edit listings" on public.market_listings;
+create policy "Sellers edit listings" on public.market_listings for update to authenticated using (seller_id = auth.uid()) with check (seller_id = auth.uid());
+drop policy if exists "Sellers remove listings" on public.market_listings;
+create policy "Sellers remove listings" on public.market_listings for delete to authenticated using (seller_id = auth.uid());
+
+create table if not exists public.market_orders (
+  id               uuid primary key default gen_random_uuid(),
+  listing_id       uuid references public.market_listings (id) on delete set null,
+  seller_id        uuid references auth.users (id) on delete cascade,
+  buyer_id         uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  buyer_name       text not null check (char_length(buyer_name) between 1 and 80),
+  buyer_phone      text not null check (char_length(buyer_phone) between 6 and 20),
+  delivery_address text not null check (char_length(delivery_address) between 5 and 300),
+  product          text,
+  unit             text,
+  quantity         numeric(12, 2) not null check (quantity > 0),
+  unit_price       numeric(12, 2),
+  amount           numeric(12, 2) not null default 0,
+  payment_ref      text check (payment_ref is null or payment_ref ~ '^[A-Za-z0-9]{6,30}$'),
+  status           text not null default 'placed' check (status in ('placed', 'accepted', 'shipped', 'delivered', 'paid', 'completed', 'cancelled', 'rejected', 'disputed')),
+  seller_note      text check (char_length(seller_note) <= 300),
+  buyer_note       text check (char_length(buyer_note) <= 300),
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
+);
+create index if not exists market_orders_buyer on public.market_orders (buyer_id, created_at desc);
+create index if not exists market_orders_seller on public.market_orders (seller_id, created_at desc);
+alter table public.market_orders enable row level security;
+drop trigger if exists market_orders_touch on public.market_orders;
+create trigger market_orders_touch before update on public.market_orders for each row execute function public.kr_touch();
+
+create or replace function public.kr_before_order() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare l public.market_listings;
+begin
+  select * into l from public.market_listings where id = new.listing_id;
+  if not found or not l.active then raise exception 'This product is no longer listed'; end if;
+  if l.seller_id = new.buyer_id then raise exception 'You cannot order your own product'; end if;
+  if new.quantity > l.quantity then raise exception 'Only % % available', l.quantity, l.unit; end if;
+  new.seller_id := l.seller_id;
+  new.product := l.product || coalesce(' · ' || l.variety, '');
+  new.unit := l.unit;
+  new.unit_price := l.price;
+  new.amount := round(l.price * new.quantity, 2);
+  new.status := 'placed';
+  new.payment_ref := null;
+  new.seller_note := null;
+  return new;
+end $$;
+drop trigger if exists market_orders_before on public.market_orders;
+create trigger market_orders_before before insert on public.market_orders for each row execute function public.kr_before_order();
+
+drop policy if exists "Buyers and sellers see orders" on public.market_orders;
+create policy "Buyers and sellers see orders" on public.market_orders for select to authenticated
+  using (buyer_id = auth.uid() or seller_id = auth.uid());
+-- A buyer's "Report a problem" reaches KashRoot: admins see disputed orders.
+drop policy if exists "Admins see reported orders" on public.market_orders;
+create policy "Admins see reported orders" on public.market_orders for select to authenticated
+  using (status = 'disputed' and public.kr_has_role('ADMIN'));
+drop policy if exists "Buyers place orders" on public.market_orders;
+create policy "Buyers place orders" on public.market_orders for insert to authenticated with check (buyer_id = auth.uid());
+
+-- Pay after delivery: seller accept → ship; buyer confirms delivery → pays the seller
+-- directly by UPI and enters the reference → seller confirms the money arrived.
+create or replace function public.kr_order_action(p_order uuid, p_action text, p_ref text default null, p_note text default null)
+returns public.market_orders language plpgsql security definer set search_path = public as $$
+declare o public.market_orders; l public.market_listings;
+begin
+  select * into o from public.market_orders where id = p_order for update;
+  if not found then raise exception 'Order not found'; end if;
+  if p_action in ('accept', 'reject', 'ship', 'confirm_payment') then
+    if o.seller_id <> auth.uid() then raise exception 'Only the seller can do this'; end if;
+  elsif p_action in ('cancel', 'delivered', 'pay', 'dispute') then
+    if o.buyer_id <> auth.uid() then raise exception 'Only the buyer can do this'; end if;
+  else
+    raise exception 'Unknown action';
+  end if;
+
+  if p_action = 'accept' then
+    if o.status <> 'placed' then raise exception 'Order is already %', o.status; end if;
+    select * into l from public.market_listings where id = o.listing_id for update;
+    if found then
+      if l.quantity < o.quantity then raise exception 'Only % % left in stock', l.quantity, l.unit; end if;
+      update public.market_listings set quantity = quantity - o.quantity where id = l.id;
+    end if;
+    update public.market_orders set status = 'accepted', seller_note = left(p_note, 300) where id = p_order returning * into o;
+  elsif p_action = 'reject' then
+    if o.status <> 'placed' then raise exception 'Order is already %', o.status; end if;
+    update public.market_orders set status = 'rejected', seller_note = left(p_note, 300) where id = p_order returning * into o;
+  elsif p_action = 'ship' then
+    if o.status <> 'accepted' then raise exception 'Accept the order first'; end if;
+    update public.market_orders set status = 'shipped', seller_note = coalesce(left(p_note, 300), seller_note) where id = p_order returning * into o;
+  elsif p_action = 'cancel' then
+    if o.status <> 'placed' then raise exception 'The seller has already accepted this order'; end if;
+    update public.market_orders set status = 'cancelled' where id = p_order returning * into o;
+  elsif p_action = 'delivered' then
+    if o.status not in ('accepted', 'shipped') then raise exception 'Order is %', o.status; end if;
+    update public.market_orders set status = 'delivered' where id = p_order returning * into o;
+  elsif p_action = 'pay' then
+    if o.status not in ('delivered', 'paid') then raise exception 'Confirm the delivery first'; end if;
+    if p_ref is null or p_ref !~ '^[A-Za-z0-9]{6,30}$' then raise exception 'Enter the 12-digit UPI reference (UTR) from your payment app'; end if;
+    update public.market_orders set status = 'paid', payment_ref = p_ref where id = p_order returning * into o;
+  elsif p_action = 'dispute' then
+    if o.status in ('completed', 'cancelled', 'rejected') then raise exception 'Order is %', o.status; end if;
+    update public.market_orders set status = 'disputed', buyer_note = left(p_note, 300) where id = p_order returning * into o;
+  elsif p_action = 'confirm_payment' then
+    if o.status <> 'paid' then raise exception 'The buyer has not marked this order paid yet'; end if;
+    update public.market_orders set status = 'completed' where id = p_order returning * into o;
+  end if;
+  return o;
+end $$;
+
+-- Who to pay: the owner's / seller's payout details, only for a renter or buyer
+-- with a live booking or order with them.
+create or replace function public.kr_payment_details(p_kind text, p_id uuid)
+returns table (account_name text, upi_id text, account_number text, ifsc text, bank_name text)
+language plpgsql stable security definer set search_path = public as $$
+declare payee uuid;
+begin
+  if p_kind = 'booking' then
+    select owner_id into payee from public.rental_bookings where id = p_id and renter_id = auth.uid() and status in ('requested', 'paid', 'confirmed');
+  elsif p_kind = 'order' then
+    select seller_id into payee from public.market_orders where id = p_id and buyer_id = auth.uid() and status in ('accepted', 'shipped', 'delivered', 'paid');
+  end if;
+  if payee is null then return; end if;
+  return query select a.account_name, a.upi_id, a.account_number, a.ifsc, a.bank_name from public.payout_accounts a where a.user_id = payee;
+end $$;
+
+-- ───────────────────────── consignments ─────────────────────────
+create table if not exists public.consignments (
+  code         text primary key default ('KR-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8))),
+  owner_id     uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  vehicle_no   text check (char_length(vehicle_no) <= 20),
+  driver_name  text check (char_length(driver_name) <= 80),
+  driver_phone text check (char_length(driver_phone) <= 20),
+  origin       text not null check (char_length(origin) between 2 and 120),
+  destination  text not null check (char_length(destination) between 2 and 120),
+  cargo        text check (char_length(cargo) <= 120),
+  status       text not null default 'booked' check (status in ('booked', 'in_transit', 'delivered', 'cancelled')),
+  driver_token text not null default replace(gen_random_uuid()::text, '-', ''),
+  last_lat     double precision,
+  last_lng     double precision,
+  last_accuracy real,
+  last_seen    timestamptz,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+alter table public.consignments enable row level security;
+drop trigger if exists consignments_touch on public.consignments;
+create trigger consignments_touch before update on public.consignments for each row execute function public.kr_touch();
+drop policy if exists "Owners manage consignments" on public.consignments;
+create policy "Owners manage consignments" on public.consignments for all to authenticated
+  using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+
+create table if not exists public.consignment_points (
+  id    bigint generated always as identity primary key,
+  code  text not null references public.consignments (code) on delete cascade,
+  lat   double precision not null,
+  lng   double precision not null,
+  at    timestamptz not null default now()
+);
+create index if not exists consignment_points_code on public.consignment_points (code, id desc);
+alter table public.consignment_points enable row level security;
+-- No direct access: read through kr_track, written by kr_driver_ping.
+
+-- Anyone with the code sees where the load is (never the driver link).
+create or replace function public.kr_track(p_code text) returns jsonb
+language sql stable security definer set search_path = public as $$
+  select case when c.code is null then null else jsonb_build_object(
+    'code', c.code, 'vehicle_no', c.vehicle_no, 'driver_name', c.driver_name, 'driver_phone', c.driver_phone,
+    'origin', c.origin, 'destination', c.destination, 'cargo', c.cargo, 'status', c.status,
+    'last_lat', c.last_lat, 'last_lng', c.last_lng, 'last_accuracy', c.last_accuracy, 'last_seen', c.last_seen,
+    'created_at', c.created_at,
+    'trail', coalesce((select jsonb_agg(jsonb_build_object('lat', p.lat, 'lng', p.lng, 'at', p.at) order by p.id)
+                       from (select * from public.consignment_points where code = c.code order by id desc limit 60) p), '[]'::jsonb)
+  ) end
+  from (select 1) one left join public.consignments c on c.code = upper(trim(p_code))
+$$;
+
+create or replace function public.kr_driver_view(p_token text) returns jsonb
+language sql stable security definer set search_path = public as $$
+  select jsonb_build_object('code', code, 'origin', origin, 'destination', destination, 'cargo', cargo,
+                            'vehicle_no', vehicle_no, 'status', status, 'last_seen', last_seen)
+  from public.consignments where driver_token = p_token
+$$;
+
+create or replace function public.kr_driver_ping(p_token text, p_lat double precision, p_lng double precision, p_accuracy real default null)
+returns text language plpgsql security definer set search_path = public as $$
+declare c public.consignments;
+begin
+  if p_lat is null or p_lng is null or p_lat not between -90 and 90 or p_lng not between -180 and 180 then raise exception 'Bad location'; end if;
+  select * into c from public.consignments where driver_token = p_token for update;
+  if not found then raise exception 'This driver link is not valid'; end if;
+  if c.status in ('delivered', 'cancelled') then return c.status; end if;
+  -- At most one stored point every 20 seconds.
+  if c.last_seen is not null and c.last_seen > now() - interval '20 seconds' then return c.status; end if;
+  update public.consignments set last_lat = p_lat, last_lng = p_lng, last_accuracy = p_accuracy, last_seen = now(),
+    status = case when status = 'booked' then 'in_transit' else status end
+  where code = c.code;
+  insert into public.consignment_points (code, lat, lng) values (c.code, p_lat, p_lng);
+  delete from public.consignment_points where code = c.code and id not in (select id from public.consignment_points where code = c.code order by id desc limit 500);
+  return 'in_transit';
+end $$;
+
+create or replace function public.kr_driver_delivered(p_token text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  update public.consignments set status = 'delivered' where driver_token = p_token and status in ('booked', 'in_transit');
+  if not found then raise exception 'This driver link is not valid'; end if;
+end $$;
+
+-- ───────────────────────── orchard ─────────────────────────
+create table if not exists public.orchard_blocks (
+  id         uuid primary key default gen_random_uuid(),
+  owner_id   uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  name       text not null check (char_length(name) between 1 and 60),
+  variety    text check (char_length(variety) <= 60),
+  place      text check (char_length(place) <= 120),
+  lat        double precision check (lat between -90 and 90),
+  lng        double precision check (lng between -180 and 180),
+  wet_bias   smallint not null default 0 check (wet_bias between -6 and 12),
+  created_at timestamptz not null default now()
+);
+alter table public.orchard_blocks enable row level security;
+drop policy if exists "Own orchard blocks" on public.orchard_blocks;
+create policy "Own orchard blocks" on public.orchard_blocks for all to authenticated
+  using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+
+create table if not exists public.spray_logs (
+  id         uuid primary key default gen_random_uuid(),
+  owner_id   uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  block_id   uuid references public.orchard_blocks (id) on delete cascade,
+  block_name text not null check (char_length(block_name) between 1 and 60),
+  product    text not null check (char_length(product) between 1 and 80),
+  phi_days   integer not null check (phi_days between 0 and 180),
+  sprayed_on date not null,
+  note       text check (char_length(note) <= 300),
+  created_at timestamptz not null default now()
+);
+alter table public.spray_logs enable row level security;
+drop policy if exists "Own spray logs" on public.spray_logs;
+create policy "Own spray logs" on public.spray_logs for all to authenticated
+  using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+
+-- ───────────────────────── fertiliser / pesticide registry ─────────────────────────
+-- (fertilizer_batches comes from 20261010000000_fertilizer_batches.sql)
+alter table public.fertilizer_batches add column if not exists product_type text not null default 'fertilizer';
+alter table public.fertilizer_batches add column if not exists registration_no text;
+alter table public.fertilizer_batches add column if not exists dealer_name text;
+alter table public.fertilizer_batches add column if not exists dealer_licence text;
+alter table public.fertilizer_batches add column if not exists dealer_district text;
+do $$ begin
+  alter table public.fertilizer_batches add constraint fertilizer_batches_type check (product_type in ('fertilizer', 'pesticide', 'seed', 'other'));
+exception when duplicate_object then null; end $$;
+
+-- Any signed-in dealer can register; farmers see whether KashRoot has verified that dealer.
+drop policy if exists "Approved dealers register batches" on public.fertilizer_batches;
+drop policy if exists "Signed-in dealers register batches" on public.fertilizer_batches;
+create policy "Signed-in dealers register batches" on public.fertilizer_batches for insert to authenticated
+  with check (registered_by = auth.uid());
+drop policy if exists "Dealers remove their own batches" on public.fertilizer_batches;
+create policy "Dealers remove their own batches" on public.fertilizer_batches for delete to authenticated
+  using (registered_by = auth.uid());
+
+create table if not exists public.batch_reports (
+  id          bigint generated always as identity primary key,
+  batch_code  text not null check (char_length(batch_code) between 1 and 40),
+  reporter_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  note        text not null check (char_length(note) between 3 and 500),
+  created_at  timestamptz not null default now()
+);
+alter table public.batch_reports enable row level security;
+drop policy if exists "Report a suspicious batch" on public.batch_reports;
+create policy "Report a suspicious batch" on public.batch_reports for insert to authenticated with check (reporter_id = auth.uid());
+drop policy if exists "Own reports, admins see all" on public.batch_reports;
+create policy "Own reports, admins see all" on public.batch_reports for select to authenticated
+  using (reporter_id = auth.uid() or public.kr_has_role('ADMIN'));
+
+-- Batch lookup for farmers: the batch plus whether KashRoot has verified the dealer.
+create or replace function public.kr_check_batch(p_code text) returns jsonb
+language sql stable security definer set search_path = public as $$
+  select to_jsonb(b) - 'registered_by' || jsonb_build_object(
+    'dealer_verified',
+      exists (select 1 from public.staff_roles s where s.user_id = b.registered_by and s.role in ('DEALER', 'ADMIN'))
+      or exists (select 1 from auth.users u where u.id = b.registered_by and u.raw_app_meta_data ->> 'role' in ('DEALER', 'MANUFACTURER', 'ADMIN')),
+    'reports', (select count(*) from public.batch_reports r where r.batch_code = b.batch_code)
+  )
+  from public.fertilizer_batches b where b.batch_code = upper(trim(p_code))
+$$;
+
+-- ───────────────────────── admin numbers ─────────────────────────
+-- Counts across the platform for the Admin portal (admins only).
+create or replace function public.kr_admin_stats() returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.kr_has_role('ADMIN') then raise exception 'Only KashRoot admins can see this'; end if;
+  return jsonb_build_object(
+    'accounts', (select count(*) from auth.users),
+    'accounts_7d', (select count(*) from auth.users where created_at > now() - interval '7 days'),
+    'portals', coalesce((
+      select jsonb_object_agg(r, n) from (
+        select r, count(*) as n
+        from auth.users u,
+          jsonb_array_elements_text(case when jsonb_typeof(u.raw_user_meta_data -> 'roles') = 'array'
+            then u.raw_user_meta_data -> 'roles'
+            else jsonb_build_array(coalesce(u.raw_user_meta_data ->> 'role', 'FARMER')) end) as r
+        group by r) x), '{}'::jsonb),
+    'products_on_sale', (select count(*) from public.market_listings where active and quantity > 0),
+    'orders', coalesce((select jsonb_object_agg(status, n) from (select status, count(*) as n from public.market_orders group by status) x), '{}'::jsonb),
+    'orders_paid_value', (select coalesce(sum(amount), 0) from public.market_orders where status = 'completed'),
+    'cold_stores', (select count(*) from public.rental_listings where kind = 'cold_store' and active),
+    'machinery', (select count(*) from public.rental_listings where kind = 'machinery' and active),
+    'bookings', coalesce((select jsonb_object_agg(status, n) from (select status, count(*) as n from public.rental_bookings group by status) x), '{}'::jsonb),
+    'advisory_total', (select count(*) from public.advisory_requests),
+    'advisory_waiting', (select count(*) from public.advisory_requests where status in ('open', 'accepted')),
+    'consignments', (select count(*) from public.consignments),
+    'consignments_live', (select count(*) from public.consignments where status = 'in_transit'),
+    'batches', (select count(*) from public.fertilizer_batches),
+    'batch_reports', (select count(*) from public.batch_reports),
+    'orchard_blocks', (select count(*) from public.orchard_blocks),
+    'spray_logs', (select count(*) from public.spray_logs)
+  );
+end $$;
+revoke execute on function public.kr_admin_stats() from public, anon;
+grant execute on function public.kr_admin_stats() to authenticated;
+
+-- ───────────────────────── grants ─────────────────────────
+grant select on public.rental_listings, public.market_listings, public.fertilizer_batches to anon;
+grant select, insert, update, delete on
+  public.staff_roles, public.role_requests, public.advisory_requests, public.advisory_messages, public.call_signals,
+  public.payout_accounts, public.rental_listings, public.rental_bookings, public.market_listings, public.market_orders,
+  public.consignments, public.orchard_blocks, public.spray_logs, public.fertilizer_batches, public.batch_reports
+  to authenticated;
+grant usage, select on all sequences in schema public to authenticated;
+grant execute on function public.kr_track(text), public.kr_driver_view(text), public.kr_driver_ping(text, double precision, double precision, real),
+  public.kr_driver_delivered(text), public.kr_check_batch(text), public.kr_verified_sellers(uuid[]) to anon, authenticated;
+
+-- ════════ 20261012000000_mandi_rates.sql ════════
+-- KashRoot: daily mandi rates posted by approved reporters (traders,
+-- commission agents, staff at the mandi). Government price services now
+-- block automatic access (Agmarknet asks for a CAPTCHA, data.gov.in refuses
+-- connections), so rates come straight from people at the mandi.
+--
+-- Run after 20261011000000_kashroot_core.sql. Safe to run again.
+-- A person applies as a mandi reporter on the Mandi page; an admin approves
+-- them in Admin → Approvals (role REPORTER).
+
+-- ── the REPORTER role ──
+alter table public.staff_roles drop constraint if exists staff_roles_role_check;
+alter table public.staff_roles add constraint staff_roles_role_check check (role in ('ADMIN', 'EXPERT', 'DEALER', 'REPORTER'));
+alter table public.role_requests drop constraint if exists role_requests_role_check;
+alter table public.role_requests add constraint role_requests_role_check check (role in ('EXPERT', 'DEALER', 'REPORTER'));
+
+create or replace function public.kr_request_role(p_role text, p_name text, p_phone text, p_email text, p_details text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'Sign in first'; end if;
+  if p_role not in ('EXPERT', 'DEALER', 'REPORTER') then raise exception 'Unknown role'; end if;
+  insert into public.role_requests (user_id, role, full_name, phone, email, details)
+  values (auth.uid(), p_role, p_name, p_phone, p_email, p_details)
+  on conflict (user_id, role) do update
+    set full_name = excluded.full_name, phone = excluded.phone, email = excluded.email,
+        details = excluded.details, status = 'pending', decided_by = null, decided_at = null, created_at = now()
+    where public.role_requests.status <> 'approved';
+end $$;
+
+create or replace function public.kr_grant_role(p_user uuid, p_role text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.kr_has_role('ADMIN') then raise exception 'Only an admin can do this'; end if;
+  if p_role not in ('ADMIN', 'EXPERT', 'DEALER', 'REPORTER') then raise exception 'Unknown role'; end if;
+  insert into public.staff_roles (user_id, role, granted_by) values (p_user, p_role, auth.uid())
+  on conflict do nothing;
+  update public.role_requests set status = 'approved', decided_by = auth.uid(), decided_at = now()
+  where user_id = p_user and role = p_role;
+end $$;
+
+-- ── the rates ──
+create table if not exists public.mandi_rates (
+  id            uuid primary key default gen_random_uuid(),
+  posted_by     uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  reporter_name text not null check (char_length(reporter_name) between 1 and 80),
+  phone         text check (char_length(phone) <= 20),
+  state         text not null default 'Jammu and Kashmir' check (char_length(state) between 2 and 60),
+  district      text check (char_length(district) <= 60),
+  mandi         text not null check (char_length(mandi) between 2 and 80),
+  commodity     text not null check (char_length(commodity) between 2 and 60),
+  variety       text check (char_length(variety) <= 60),
+  grade         text check (char_length(grade) <= 30),
+  unit          text not null check (unit in ('box', 'kg', 'quintal')),
+  box_kg        numeric check (box_kg is null or (box_kg > 0 and box_kg <= 100)),
+  min_price     numeric not null check (min_price > 0 and min_price < 10000000),
+  modal_price   numeric not null check (modal_price > 0 and modal_price < 10000000),
+  max_price     numeric not null check (max_price > 0 and max_price < 10000000),
+  rate_date     date not null default ((now() at time zone 'Asia/Kolkata')::date),
+  note          text check (char_length(note) <= 200),
+  created_at    timestamptz not null default now(),
+  check (min_price <= modal_price and modal_price <= max_price)
+);
+create index if not exists mandi_rates_recent on public.mandi_rates (rate_date desc, mandi, commodity);
+alter table public.mandi_rates enable row level security;
+
+drop policy if exists "Anyone can read mandi rates" on public.mandi_rates;
+create policy "Anyone can read mandi rates" on public.mandi_rates for select using (true);
+
+-- Only approved reporters (or admins) post, for today or yesterday, as themselves.
+drop policy if exists "Reporters post rates" on public.mandi_rates;
+create policy "Reporters post rates" on public.mandi_rates for insert to authenticated
+  with check (
+    posted_by = auth.uid()
+    and (public.kr_has_role('REPORTER') or public.kr_has_role('ADMIN'))
+    and rate_date between ((now() at time zone 'Asia/Kolkata')::date - 1) and ((now() at time zone 'Asia/Kolkata')::date)
+  );
+drop policy if exists "Reporters fix their own rates" on public.mandi_rates;
+create policy "Reporters fix their own rates" on public.mandi_rates for update to authenticated
+  using (posted_by = auth.uid() or public.kr_has_role('ADMIN'))
+  with check (
+    public.kr_has_role('ADMIN')
+    or (posted_by = auth.uid()
+        and rate_date between ((now() at time zone 'Asia/Kolkata')::date - 1) and ((now() at time zone 'Asia/Kolkata')::date))
+  );
+drop policy if exists "Reporters remove their own rates" on public.mandi_rates;
+create policy "Reporters remove their own rates" on public.mandi_rates for delete to authenticated
+  using (posted_by = auth.uid() or public.kr_has_role('ADMIN'));
+
+grant select on public.mandi_rates to anon;
+grant select, insert, update, delete on public.mandi_rates to authenticated;
+
+-- ════════ 20261013000000_contributors.sql ════════
+-- KashRoot: checking the people who add information (mandi reporters,
+-- agronomists), checking each mandi rate for accuracy, and recording every
+-- accepted contribution so contributors can be paid for their work.
+--
+-- Run after 20261012000000_mandi_rates.sql. Safe to run again.
+--
+--   1. Proof with an application: the mandi / workplace, a licence or
+--      registration number and a photo of a licence or ID card. Only the
+--      applicant and admins can see it. The admin also phones the applicant.
+--   2. Each mandi rate is checked: other people mark it Correct or Wrong;
+--      two reporters posting the same rate confirm each other; an admin
+--      decides disputed rates. Rates marked wrong are not shown to farmers.
+--   3. contributions: one row per rate posted or farmer request answered,
+--      pending → accepted / rejected. pay_rates holds ₹ per accepted
+--      contribution (0 = not decided yet); admins mark people paid.
+
+-- ───────────────────────── 1. proof with an application ─────────────────────────
+alter table public.role_requests add column if not exists place text check (char_length(place) <= 120);
+alter table public.role_requests add column if not exists licence text check (char_length(licence) <= 80);
+alter table public.role_requests add column if not exists id_photo text check (id_photo is null or (id_photo like 'data:image/%' and char_length(id_photo) <= 600000));
+
+-- Called right after kr_request_role, for the caller's own pending application.
+create or replace function public.kr_role_proof(p_role text, p_place text, p_licence text, p_photo text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'Sign in first'; end if;
+  if p_photo is not null and (p_photo not like 'data:image/%' or char_length(p_photo) > 600000) then
+    raise exception 'The photo is too large. Take it again a little further away.';
+  end if;
+  update public.role_requests
+     set place = left(nullif(trim(p_place), ''), 120), licence = left(nullif(trim(p_licence), ''), 80), id_photo = p_photo
+   where user_id = auth.uid() and role = p_role and status = 'pending';
+  if not found then raise exception 'Apply first'; end if;
+end $$;
+
+-- ───────────────────────── 2. checking each mandi rate ─────────────────────────
+alter table public.mandi_rates add column if not exists status text not null default 'pending';
+alter table public.mandi_rates drop constraint if exists mandi_rates_status_check;
+alter table public.mandi_rates add constraint mandi_rates_status_check check (status in ('pending', 'verified', 'disputed', 'wrong'));
+alter table public.mandi_rates add column if not exists final boolean not null default false; -- decided by an admin
+alter table public.mandi_rates add column if not exists confirms int not null default 0;
+alter table public.mandi_rates add column if not exists reports int not null default 0;
+alter table public.mandi_rates add column if not exists checked_by uuid references auth.users (id) on delete set null;
+alter table public.mandi_rates add column if not exists checked_at timestamptz;
+
+create table if not exists public.mandi_rate_checks (
+  rate_id    uuid not null references public.mandi_rates (id) on delete cascade,
+  user_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  verdict    text not null check (verdict in ('correct', 'wrong')),
+  note       text check (char_length(note) <= 200),
+  created_at timestamptz not null default now(),
+  primary key (rate_id, user_id)
+);
+alter table public.mandi_rate_checks enable row level security;
+drop policy if exists "Own checks, checks on own rates, admins all" on public.mandi_rate_checks;
+create policy "Own checks, checks on own rates, admins all" on public.mandi_rate_checks for select to authenticated
+  using (
+    user_id = auth.uid() or public.kr_has_role('ADMIN')
+    or exists (select 1 from public.mandi_rates r where r.id = rate_id and r.posted_by = auth.uid())
+  );
+grant select on public.mandi_rate_checks to authenticated;
+
+-- The same rate from two different reporters (same mandi, crop, variety,
+-- grade, unit and day). Within 15 % they confirm each other; more than 30 %
+-- apart, both need an admin.
+create or replace function public.kr_rate_same(a public.mandi_rates, b public.mandi_rates) returns boolean
+language sql immutable as $$
+  select a.id <> b.id and a.posted_by <> b.posted_by and a.rate_date = b.rate_date and a.unit = b.unit
+     and lower(trim(a.mandi)) = lower(trim(b.mandi)) and lower(trim(a.commodity)) = lower(trim(b.commodity))
+     and lower(coalesce(trim(a.variety), '')) = lower(coalesce(trim(b.variety), ''))
+     and lower(coalesce(trim(a.grade), '')) = lower(coalesce(trim(b.grade), ''))
+     and coalesce(a.box_kg, 0) = coalesce(b.box_kg, 0)
+$$;
+
+-- Works out a rate's status from the checks, unless an admin decided it.
+create or replace function public.kr_rate_recount(p_rate uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  r public.mandi_rates;
+  c int; w int; strong int; agree boolean; clash boolean;
+begin
+  select * into r from public.mandi_rates where id = p_rate;
+  if not found or r.final then return; end if;
+  select count(*) filter (where k.verdict = 'correct'),
+         count(*) filter (where k.verdict = 'wrong'),
+         count(*) filter (where k.verdict = 'correct' and exists (select 1 from public.staff_roles s where s.user_id = k.user_id and s.role in ('REPORTER', 'ADMIN')))
+    into c, w, strong
+    from public.mandi_rate_checks k where k.rate_id = p_rate;
+  select coalesce(bool_or(abs(o.modal_price - r.modal_price) <= 0.15 * greatest(o.modal_price, r.modal_price)), false),
+         coalesce(bool_or(abs(o.modal_price - r.modal_price) > 0.30 * greatest(o.modal_price, r.modal_price)), false)
+    into agree, clash
+    from public.mandi_rates o where public.kr_rate_same(o, r) and o.status <> 'wrong';
+  perform set_config('kr.trusted', 'on', true);
+  update public.mandi_rates set
+    confirms = c,
+    reports = w,
+    status = case when w > 0 or clash then 'disputed' when strong >= 1 or c >= 2 or agree then 'verified' else 'pending' end
+  where id = p_rate;
+  perform set_config('kr.trusted', 'off', true);
+end $$;
+revoke execute on function public.kr_rate_recount(uuid) from public, anon, authenticated;
+
+-- A new rate always starts unchecked; an edit by its reporter cannot set the
+-- check fields, and changing the price starts the checking again.
+create or replace function public.kr_rate_before() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if current_setting('kr.trusted', true) = 'on' then return new; end if;
+  if tg_op = 'INSERT' then
+    new.status := 'pending'; new.final := false; new.confirms := 0; new.reports := 0; new.checked_by := null; new.checked_at := null;
+    return new;
+  end if;
+  new.status := old.status; new.final := old.final; new.confirms := old.confirms; new.reports := old.reports;
+  new.checked_by := old.checked_by; new.checked_at := old.checked_at; new.posted_by := old.posted_by;
+  if (new.mandi, new.commodity, new.variety, new.grade, new.unit, new.box_kg, new.min_price, new.modal_price, new.max_price)
+     is distinct from (old.mandi, old.commodity, old.variety, old.grade, old.unit, old.box_kg, old.min_price, old.modal_price, old.max_price) then
+    new.status := 'pending'; new.final := false; new.confirms := 0; new.reports := 0; new.checked_by := null; new.checked_at := null;
+    delete from public.mandi_rate_checks where rate_id = old.id;
+  end if;
+  return new;
+end $$;
+drop trigger if exists mandi_rates_before on public.mandi_rates;
+create trigger mandi_rates_before before insert or update on public.mandi_rates for each row execute function public.kr_rate_before();
+
+-- Keeps the reporter's contribution in step with the rate, and re-checks
+-- rates for the same mandi and crop.
+create or replace function public.kr_rate_after() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare o record;
+begin
+  if tg_op = 'DELETE' then
+    delete from public.contributions where kind = 'mandi_rate' and ref_id = old.id::text and paid_at is null;
+    for o in select m.id from public.mandi_rates m where public.kr_rate_same(m, old) loop
+      perform public.kr_rate_recount(o.id);
+    end loop;
+    return old;
+  end if;
+  insert into public.contributions (user_id, kind, ref_id, title, status, decided_at)
+  values (
+    new.posted_by, 'mandi_rate', new.id::text,
+    left(format('%s%s · %s · ₹%s per %s · %s', new.commodity, coalesce(' ' || new.variety, ''), new.mandi, new.modal_price, new.unit, to_char(new.rate_date, 'DD Mon')), 160),
+    case new.status when 'verified' then 'accepted' when 'wrong' then 'rejected' else 'pending' end,
+    case when new.status in ('verified', 'wrong') then now() end
+  )
+  on conflict (kind, ref_id, user_id) do update
+    set status = excluded.status, title = excluded.title, decided_at = excluded.decided_at, final = new.final
+    where public.contributions.paid_at is null;
+  if current_setting('kr.trusted', true) is distinct from 'on' then
+    perform public.kr_rate_recount(new.id);
+    for o in select m.id from public.mandi_rates m where public.kr_rate_same(m, new) loop
+      perform public.kr_rate_recount(o.id);
+    end loop;
+  end if;
+  return new;
+end $$;
+
+-- Anyone signed in (another trader, a farmer back from the mandi) says
+-- whether a rate is right. Not on your own rate.
+create or replace function public.kr_check_rate(p_rate uuid, p_correct boolean, p_note text default null) returns text
+language plpgsql security definer set search_path = public as $$
+declare r public.mandi_rates;
+begin
+  if auth.uid() is null then raise exception 'Sign in first'; end if;
+  select * into r from public.mandi_rates where id = p_rate;
+  if not found then raise exception 'Rate not found'; end if;
+  if r.posted_by = auth.uid() then raise exception 'You cannot check your own rate'; end if;
+  insert into public.mandi_rate_checks (rate_id, user_id, verdict, note)
+  values (p_rate, auth.uid(), case when p_correct then 'correct' else 'wrong' end, left(nullif(trim(p_note), ''), 200))
+  on conflict (rate_id, user_id) do update set verdict = excluded.verdict, note = excluded.note, created_at = now();
+  perform public.kr_rate_recount(p_rate);
+  return (select status from public.mandi_rates where id = p_rate);
+end $$;
+
+-- An admin's final word on a rate.
+create or replace function public.kr_decide_rate(p_rate uuid, p_ok boolean) returns void
+language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  if not public.kr_has_role('ADMIN') then raise exception 'Only an admin can do this'; end if;
+  perform set_config('kr.trusted', 'on', true);
+  update public.mandi_rates
+     set status = case when p_ok then 'verified' else 'wrong' end, final = true, checked_by = auth.uid(), checked_at = now()
+   where id = p_rate;
+  get diagnostics n = row_count;
+  perform set_config('kr.trusted', 'off', true);
+  if n = 0 then raise exception 'Rate not found'; end if;
+end $$;
+
+-- ───────────────────────── 3. contributions and pay ─────────────────────────
+create table if not exists public.contributions (
+  id          bigint generated always as identity primary key,
+  user_id     uuid not null references auth.users (id) on delete cascade,
+  kind        text not null check (kind in ('mandi_rate', 'answer', 'soil_test', 'video_call')),
+  ref_id      text not null,
+  title       text check (char_length(title) <= 160),
+  status      text not null default 'pending' check (status in ('pending', 'accepted', 'rejected')),
+  final       boolean not null default false, -- decided by an admin
+  decided_at  timestamptz,
+  paid_at     timestamptz,
+  paid_amount numeric check (paid_amount >= 0),
+  paid_ref    text check (char_length(paid_ref) <= 80),
+  created_at  timestamptz not null default now(),
+  unique (kind, ref_id, user_id)
+);
+create index if not exists contributions_user on public.contributions (user_id, created_at desc);
+create index if not exists contributions_status on public.contributions (status, created_at desc);
+alter table public.contributions enable row level security;
+drop policy if exists "Own contributions, admins all" on public.contributions;
+create policy "Own contributions, admins all" on public.contributions for select to authenticated
+  using (user_id = auth.uid() or public.kr_has_role('ADMIN'));
+grant select on public.contributions to authenticated;
+
+-- The trigger above writes contributions, so it is created after the table.
+drop trigger if exists mandi_rates_after on public.mandi_rates;
+create trigger mandi_rates_after after insert or update or delete on public.mandi_rates for each row execute function public.kr_rate_after();
+
+-- Rates posted before this file was run count too.
+insert into public.contributions (user_id, kind, ref_id, title)
+select r.posted_by, 'mandi_rate', r.id::text, left(format('%s%s · %s · ₹%s per %s · %s', r.commodity, coalesce(' ' || r.variety, ''), r.mandi, r.modal_price, r.unit, to_char(r.rate_date, 'DD Mon')), 160)
+from public.mandi_rates r
+on conflict (kind, ref_id, user_id) do nothing;
+
+-- Farmers say whether an expert's answer helped.
+alter table public.advisory_requests add column if not exists farmer_rating text;
+alter table public.advisory_requests drop constraint if exists advisory_requests_farmer_rating_check;
+alter table public.advisory_requests add constraint advisory_requests_farmer_rating_check check (farmer_rating in ('helpful', 'not_helpful'));
+
+-- An expert's first reply on a request is one contribution.
+create or replace function public.kr_advice_contribution() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare r public.advisory_requests;
+begin
+  if new.sender_role <> 'expert' or new.sender_id is null then return new; end if;
+  select * into r from public.advisory_requests where id = new.request_id;
+  insert into public.contributions (user_id, kind, ref_id, title, status, decided_at)
+  values (
+    new.sender_id,
+    case r.kind when 'question' then 'answer' else r.kind end,
+    new.request_id::text,
+    left(format('%s%s · %s%s', case r.kind when 'question' then 'Answer' when 'soil_test' then 'Soil test' else 'Video call' end,
+                coalesce(' · ' || r.crop, ''), r.farmer_name, coalesce(', ' || r.district, '')), 160),
+    case when r.farmer_rating = 'helpful' then 'accepted' else 'pending' end,
+    case when r.farmer_rating = 'helpful' then now() end
+  )
+  on conflict (kind, ref_id, user_id) do nothing;
+  return new;
+end $$;
+drop trigger if exists advisory_messages_contribution on public.advisory_messages;
+create trigger advisory_messages_contribution after insert on public.advisory_messages for each row execute function public.kr_advice_contribution();
+
+-- Expert replies sent before this file was run count too.
+insert into public.contributions (user_id, kind, ref_id, title)
+select distinct on (m.sender_id, m.request_id)
+       m.sender_id, case r.kind when 'question' then 'answer' else r.kind end, m.request_id::text,
+       left(format('%s%s · %s%s', case r.kind when 'question' then 'Answer' when 'soil_test' then 'Soil test' else 'Video call' end,
+                   coalesce(' · ' || r.crop, ''), r.farmer_name, coalesce(', ' || r.district, '')), 160)
+from public.advisory_messages m join public.advisory_requests r on r.id = m.request_id
+where m.sender_role = 'expert' and m.sender_id is not null
+on conflict (kind, ref_id, user_id) do nothing;
+
+create or replace function public.kr_rate_advice(p_request uuid, p_helpful boolean) returns void
+language plpgsql security definer set search_path = public as $$
+declare r public.advisory_requests;
+begin
+  select * into r from public.advisory_requests where id = p_request;
+  if not found or r.farmer_id is distinct from auth.uid() then raise exception 'Only the farmer who asked can say this'; end if;
+  if not exists (select 1 from public.advisory_messages m where m.request_id = p_request and m.sender_role = 'expert') then
+    raise exception 'No expert has answered yet';
+  end if;
+  update public.advisory_requests set farmer_rating = case when p_helpful then 'helpful' else 'not_helpful' end where id = p_request;
+  -- "Helped" accepts the experts' work; "did not help" leaves it for an admin.
+  update public.contributions
+     set status = case when p_helpful then 'accepted' else 'pending' end,
+         decided_at = case when p_helpful then now() end
+   where ref_id = p_request::text and kind in ('answer', 'soil_test', 'video_call') and not final and paid_at is null;
+end $$;
+
+-- An admin accepts or rejects any contribution (rates go through kr_decide_rate).
+create or replace function public.kr_decide_work(p_id bigint, p_ok boolean) returns void
+language plpgsql security definer set search_path = public as $$
+declare c public.contributions;
+begin
+  if not public.kr_has_role('ADMIN') then raise exception 'Only an admin can do this'; end if;
+  select * into c from public.contributions where id = p_id;
+  if not found then raise exception 'Not found'; end if;
+  if c.paid_at is not null then raise exception 'Already paid'; end if;
+  if c.kind = 'mandi_rate' then
+    perform public.kr_decide_rate(c.ref_id::uuid, p_ok);
+  else
+    update public.contributions set status = case when p_ok then 'accepted' else 'rejected' end, final = true, decided_at = now() where id = p_id;
+  end if;
+end $$;
+
+-- ₹ paid for each accepted contribution. 0 means not decided yet.
+create table if not exists public.pay_rates (
+  kind       text primary key check (kind in ('mandi_rate', 'answer', 'soil_test', 'video_call')),
+  amount     numeric not null default 0 check (amount >= 0 and amount <= 100000),
+  updated_at timestamptz not null default now()
+);
+insert into public.pay_rates (kind) values ('mandi_rate'), ('answer'), ('soil_test'), ('video_call') on conflict do nothing;
+alter table public.pay_rates enable row level security;
+drop trigger if exists pay_rates_touch on public.pay_rates;
+create trigger pay_rates_touch before update on public.pay_rates for each row execute function public.kr_touch();
+drop policy if exists "Everyone signed in sees pay rates" on public.pay_rates;
+create policy "Everyone signed in sees pay rates" on public.pay_rates for select to authenticated using (true);
+drop policy if exists "Admins set pay rates" on public.pay_rates;
+create policy "Admins set pay rates" on public.pay_rates for update to authenticated
+  using (public.kr_has_role('ADMIN')) with check (public.kr_has_role('ADMIN'));
+grant select, update on public.pay_rates to authenticated;
+
+-- Admin: everyone who has contributed, what is owed and where to pay.
+create or replace function public.kr_contributors()
+returns table (
+  user_id uuid, name text, email text, phone text, roles text[],
+  accepted bigint, pending bigint, rejected bigint, unpaid bigint, due numeric, paid numeric,
+  upi_id text, account_number text, ifsc text, last_at timestamptz
+)
+language plpgsql stable security definer set search_path = public as $$
+#variable_conflict use_column
+begin
+  if not public.kr_has_role('ADMIN') then raise exception 'Only an admin can do this'; end if;
+  return query
+  select c.user_id,
+         coalesce(nullif(u.raw_user_meta_data ->> 'full_name', ''), split_part(u.email::text, '@', 1)),
+         u.email::text,
+         coalesce(nullif(u.raw_user_meta_data ->> 'phone', ''),
+                  (select rr.phone from public.role_requests rr where rr.user_id = c.user_id and rr.phone is not null order by rr.created_at desc limit 1)),
+         (select array_agg(s.role order by s.role) from public.staff_roles s where s.user_id = c.user_id),
+         count(*) filter (where c.status = 'accepted'),
+         count(*) filter (where c.status = 'pending'),
+         count(*) filter (where c.status = 'rejected'),
+         count(*) filter (where c.status = 'accepted' and c.paid_at is null),
+         coalesce(sum(p.amount) filter (where c.status = 'accepted' and c.paid_at is null), 0),
+         coalesce(sum(c.paid_amount), 0),
+         pa.upi_id, pa.account_number, pa.ifsc,
+         max(c.created_at)
+    from public.contributions c
+    join auth.users u on u.id = c.user_id
+    left join public.pay_rates p on p.kind = c.kind
+    left join public.payout_accounts pa on pa.user_id = c.user_id
+   group by c.user_id, u.raw_user_meta_data, u.email, pa.upi_id, pa.account_number, pa.ifsc
+   order by max(c.created_at) desc;
+end $$;
+
+-- Admin: after paying someone (UPI / bank), record it. Returns the total.
+create or replace function public.kr_mark_paid(p_user uuid, p_ref text) returns numeric
+language plpgsql security definer set search_path = public as $$
+declare total numeric;
+begin
+  if not public.kr_has_role('ADMIN') then raise exception 'Only an admin can do this'; end if;
+  with paid as (
+    update public.contributions c
+       set paid_at = now(), paid_ref = left(nullif(trim(p_ref), ''), 80),
+           paid_amount = coalesce((select p.amount from public.pay_rates p where p.kind = c.kind), 0)
+     where c.user_id = p_user and c.status = 'accepted' and c.paid_at is null
+    returning c.paid_amount
+  )
+  select coalesce(sum(paid_amount), 0) into total from paid;
+  return total;
+end $$;
+
+-- ════════ 20261014000000_trust_and_security.sql ════════
+-- KashRoot: admin lock, identity checks (KYC) before money moves, and fake
+-- fertiliser reports without an account.
+--
+-- Run after 20261013000000_contributors.sql. Safe to run again.
+--
+--   1. Admin lock. Being an admin is not enough to open the Admin portal:
+--      each sign-in must also enter the admin's own access code (6–32
+--      characters). Five wrong codes block it for 15 minutes. The database
+--      itself refuses admin actions until the code is entered, so hiding the
+--      portal is not the only protection.
+--   2. KYC before money. Selling, ordering, booking cold storage, listing a
+--      store and adding UPI / bank details need a verified Aadhaar (and PAN,
+--      when PAN checking is switched on). Verification is recorded only by
+--      the KashRoot server, which proves itself with a secret (see
+--      kr_kyc_secret below) — a user cannot mark themselves verified.
+--   3. Anyone can report a suspicious fertiliser batch, signed in or not.
+--      The public count shown to farmers counts only signed-in reporters, so
+--      anonymous reports cannot be used to smear a genuine batch.
+
+-- ───────────────────────── 1. admin lock ─────────────────────────
+create table if not exists public.admin_lock (
+  user_id      uuid primary key references auth.users (id) on delete cascade,
+  salt         text not null,
+  code_hash    text not null,
+  failed       int not null default 0,
+  locked_until timestamptz,
+  updated_at   timestamptz not null default now()
+);
+create table if not exists public.admin_unlocks (
+  session_id text primary key,
+  user_id    uuid not null references auth.users (id) on delete cascade,
+  expires_at timestamptz not null
+);
+alter table public.admin_lock enable row level security;
+alter table public.admin_unlocks enable row level security;
+-- No policies: only the functions below (running as the owner) touch these.
+revoke all on public.admin_lock, public.admin_unlocks from anon, authenticated;
+
+-- Slow, salted hash of the code (5,000 rounds of SHA-256).
+create or replace function public.kr_hash_code(p_salt text, p_code text) returns text
+language plpgsql immutable set search_path = public as $$
+declare h bytea := convert_to(p_salt || ':' || p_code, 'UTF8');
+begin
+  for i in 1..5000 loop
+    h := sha256(h || convert_to(p_salt, 'UTF8'));
+  end loop;
+  return encode(h, 'hex');
+end $$;
+revoke execute on function public.kr_hash_code(text, text) from public, anon, authenticated;
+
+create or replace function public.kr_is_admin_account() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.staff_roles where user_id = auth.uid() and role = 'ADMIN')
+$$;
+
+create or replace function public.kr_session_id() returns text
+language sql stable as $$
+  select nullif(auth.jwt() ->> 'session_id', '')
+$$;
+
+-- No code set yet → not locked (the Admin portal asks for one straight away).
+create or replace function public.kr_admin_unlocked() returns boolean
+language sql stable security definer set search_path = public as $$
+  select not exists (select 1 from public.admin_lock where user_id = auth.uid())
+      or exists (
+        select 1 from public.admin_unlocks u
+         where u.user_id = auth.uid() and u.session_id = public.kr_session_id() and u.expires_at > now()
+      )
+$$;
+
+-- Every admin check in KashRoot goes through here, so the lock covers them all.
+create or replace function public.kr_has_role(wanted text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.staff_roles where user_id = auth.uid() and role = wanted)
+     and (wanted <> 'ADMIN' or public.kr_admin_unlocked())
+$$;
+
+-- 'not_admin' | 'no_code' | 'blocked' | 'locked' | 'unlocked'
+create or replace function public.kr_admin_status() returns text
+language plpgsql stable security definer set search_path = public as $$
+declare l public.admin_lock;
+begin
+  if not public.kr_is_admin_account() then return 'not_admin'; end if;
+  select * into l from public.admin_lock where user_id = auth.uid();
+  if not found then return 'no_code'; end if;
+  if l.locked_until is not null and l.locked_until > now() then return 'blocked'; end if;
+  if public.kr_admin_unlocked() then return 'unlocked'; end if;
+  return 'locked';
+end $$;
+
+-- First time: set the code. Later: change it (needs the current code too).
+create or replace function public.kr_admin_set_code(p_new text, p_old text default null) returns void
+language plpgsql security definer set search_path = public as $$
+declare l public.admin_lock; s text;
+begin
+  if not public.kr_is_admin_account() then raise exception 'Only an admin can do this'; end if;
+  if public.kr_session_id() is null then raise exception 'Sign in again'; end if;
+  if p_new is null or char_length(p_new) < 6 or char_length(p_new) > 32 or p_new !~ '^[A-Za-z0-9@#$%&*!?._-]+$' then
+    raise exception 'The admin code must be 6 to 32 letters, numbers or symbols';
+  end if;
+  select * into l from public.admin_lock where user_id = auth.uid();
+  if found then
+    if not public.kr_admin_unlocked() or p_old is null or public.kr_hash_code(l.salt, p_old) <> l.code_hash then
+      raise exception 'Enter your current admin code to change it';
+    end if;
+  end if;
+  s := replace(gen_random_uuid()::text, '-', '');
+  insert into public.admin_lock (user_id, salt, code_hash, failed, locked_until, updated_at)
+  values (auth.uid(), s, public.kr_hash_code(s, p_new), 0, null, now())
+  on conflict (user_id) do update set salt = excluded.salt, code_hash = excluded.code_hash, failed = 0, locked_until = null, updated_at = now();
+  insert into public.admin_unlocks (session_id, user_id, expires_at) values (public.kr_session_id(), auth.uid(), now() + interval '12 hours')
+  on conflict (session_id) do update set user_id = excluded.user_id, expires_at = excluded.expires_at;
+end $$;
+
+-- Enter the code for this sign-in (lasts 12 hours). 'unlocked' | 'wrong' | 'blocked' | 'no_code'
+create or replace function public.kr_admin_unlock(p_code text) returns text
+language plpgsql security definer set search_path = public as $$
+declare l public.admin_lock;
+begin
+  if not public.kr_is_admin_account() then raise exception 'Only an admin can do this'; end if;
+  if public.kr_session_id() is null then raise exception 'Sign in again'; end if;
+  select * into l from public.admin_lock where user_id = auth.uid() for update;
+  if not found then return 'no_code'; end if;
+  if l.locked_until is not null and l.locked_until > now() then return 'blocked'; end if;
+  if p_code is null or public.kr_hash_code(l.salt, p_code) <> l.code_hash then
+    update public.admin_lock
+       set failed = case when failed + 1 >= 5 then 0 else failed + 1 end,
+           locked_until = case when failed + 1 >= 5 then now() + interval '15 minutes' else locked_until end
+     where user_id = auth.uid();
+    return case when l.failed + 1 >= 5 then 'blocked' else 'wrong' end;
+  end if;
+  update public.admin_lock set failed = 0, locked_until = null where user_id = auth.uid();
+  delete from public.admin_unlocks where expires_at < now();
+  insert into public.admin_unlocks (session_id, user_id, expires_at) values (public.kr_session_id(), auth.uid(), now() + interval '12 hours')
+  on conflict (session_id) do update set user_id = excluded.user_id, expires_at = excluded.expires_at;
+  return 'unlocked';
+end $$;
+
+-- Lock again now (e.g. when leaving a shared computer).
+create or replace function public.kr_admin_lock_now() returns void
+language sql security definer set search_path = public as $$
+  delete from public.admin_unlocks where user_id = auth.uid() and session_id = public.kr_session_id()
+$$;
+
+-- Forgot the code? Run from the SQL Editor only: select public.kr_admin_reset_code('you@example.com');
+create or replace function public.kr_admin_reset_code(p_email text) returns text
+language plpgsql security definer set search_path = public as $$
+declare uid uuid;
+begin
+  select id into uid from auth.users where lower(email) = lower(trim(p_email));
+  if uid is null then return 'No account with that email.'; end if;
+  delete from public.admin_lock where user_id = uid;
+  delete from public.admin_unlocks where user_id = uid;
+  return 'Admin code removed. Sign in to the Admin portal to set a new one.';
+end $$;
+revoke execute on function public.kr_admin_reset_code(text) from public, anon, authenticated;
+
+grant execute on function public.kr_admin_status(), public.kr_admin_set_code(text, text), public.kr_admin_unlock(text), public.kr_admin_lock_now() to authenticated;
+
+-- ───────────────────────── 2. KYC before money ─────────────────────────
+create table if not exists public.kyc_status (
+  user_id             uuid primary key references auth.users (id) on delete cascade,
+  aadhaar_last4       text check (aadhaar_last4 ~ '^[0-9]{4}$'),
+  aadhaar_name        text check (char_length(aadhaar_name) <= 120),
+  aadhaar_method      text check (char_length(aadhaar_method) <= 40),
+  aadhaar_verified_at timestamptz,
+  pan_last4           text check (pan_last4 ~ '^[A-Z0-9]{4}$'),
+  pan_name            text check (char_length(pan_name) <= 120),
+  pan_verified_at     timestamptz,
+  updated_at          timestamptz not null default now()
+);
+alter table public.kyc_status enable row level security;
+drop policy if exists "Own KYC, admins all" on public.kyc_status;
+create policy "Own KYC, admins all" on public.kyc_status for select to authenticated
+  using (user_id = auth.uid() or public.kr_has_role('ADMIN'));
+grant select on public.kyc_status to authenticated;
+
+create table if not exists public.kr_settings (
+  id           int primary key default 1 check (id = 1),
+  kyc_required boolean not null default false,
+  pan_required boolean not null default false,
+  kyc_secret   text,
+  updated_at   timestamptz not null default now()
+);
+insert into public.kr_settings (id) values (1) on conflict do nothing;
+alter table public.kr_settings enable row level security;
+revoke all on public.kr_settings from anon, authenticated;
+
+-- Run from the SQL Editor only: select public.kr_kyc_secret();
+-- It returns a long random text; paste it into Vercel as KYC_DB_SECRET.
+create or replace function public.kr_kyc_secret() returns text
+language plpgsql security definer set search_path = public as $$
+declare s text;
+begin
+  update public.kr_settings
+     set kyc_secret = coalesce(kyc_secret, replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '')),
+         updated_at = now()
+   where id = 1
+  returning kyc_secret into s;
+  return s;
+end $$;
+revoke execute on function public.kr_kyc_secret() from public, anon, authenticated;
+
+-- Called by the KashRoot server (with the signed-in user's token) after it has
+-- checked an Aadhaar or PAN. Without the secret it does nothing.
+create or replace function public.kr_record_kyc(p_secret text, p_kind text, p_last4 text, p_name text, p_method text) returns boolean
+language plpgsql security definer set search_path = public as $$
+declare s text;
+begin
+  if auth.uid() is null then return false; end if;
+  select kyc_secret into s from public.kr_settings where id = 1;
+  if s is null or p_secret is null or p_secret <> s then return false; end if;
+  if p_kind = 'aadhaar' then
+    insert into public.kyc_status (user_id, aadhaar_last4, aadhaar_name, aadhaar_method, aadhaar_verified_at, updated_at)
+    values (auth.uid(), nullif(p_last4, ''), left(nullif(trim(p_name), ''), 120), left(p_method, 40), now(), now())
+    on conflict (user_id) do update set aadhaar_last4 = coalesce(excluded.aadhaar_last4, public.kyc_status.aadhaar_last4),
+      aadhaar_name = coalesce(excluded.aadhaar_name, public.kyc_status.aadhaar_name), aadhaar_method = excluded.aadhaar_method,
+      aadhaar_verified_at = now(), updated_at = now();
+  elsif p_kind = 'pan' then
+    insert into public.kyc_status (user_id, pan_last4, pan_name, pan_verified_at, updated_at)
+    values (auth.uid(), nullif(upper(p_last4), ''), left(nullif(trim(p_name), ''), 120), now(), now())
+    on conflict (user_id) do update set pan_last4 = coalesce(excluded.pan_last4, public.kyc_status.pan_last4),
+      pan_name = coalesce(excluded.pan_name, public.kyc_status.pan_name), pan_verified_at = now(), updated_at = now();
+  else
+    return false;
+  end if;
+  return true;
+end $$;
+grant execute on function public.kr_record_kyc(text, text, text, text, text) to authenticated;
+
+-- What is required, and whether the server can record checks (no secrets returned).
+create or replace function public.kr_kyc_rules() returns jsonb
+language sql stable security definer set search_path = public as $$
+  select jsonb_build_object('kyc_required', kyc_required, 'pan_required', pan_required, 'recording', kyc_secret is not null)
+  from public.kr_settings where id = 1
+$$;
+grant execute on function public.kr_kyc_rules() to anon, authenticated;
+
+create or replace function public.kr_set_kyc_rules(p_required boolean, p_pan boolean) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.kr_has_role('ADMIN') then raise exception 'Only an admin can do this'; end if;
+  if p_required and (select kyc_secret is null from public.kr_settings where id = 1) then
+    raise exception 'Set up KYC recording first (KYC_DB_SECRET), or nobody could pass the check';
+  end if;
+  update public.kr_settings set kyc_required = p_required, pan_required = p_pan, updated_at = now() where id = 1;
+end $$;
+grant execute on function public.kr_set_kyc_rules(boolean, boolean) to authenticated;
+
+-- Has this account done the KYC that money actions need?
+create or replace function public.kr_kyc_ok() returns boolean
+language sql stable security definer set search_path = public as $$
+  select not s.kyc_required
+      or exists (
+        select 1 from public.kyc_status k
+         where k.user_id = auth.uid() and k.aadhaar_verified_at is not null
+           and (not s.pan_required or k.pan_verified_at is not null)
+      )
+  from public.kr_settings s where s.id = 1
+$$;
+grant execute on function public.kr_kyc_ok() to authenticated;
+
+-- Restrictive policies: these are added to (ANDed with) the existing rules.
+drop policy if exists "KYC before selling" on public.market_listings;
+create policy "KYC before selling" on public.market_listings as restrictive for insert to authenticated with check (public.kr_kyc_ok());
+drop policy if exists "KYC before ordering" on public.market_orders;
+create policy "KYC before ordering" on public.market_orders as restrictive for insert to authenticated with check (public.kr_kyc_ok());
+drop policy if exists "KYC before listing a store" on public.rental_listings;
+create policy "KYC before listing a store" on public.rental_listings as restrictive for insert to authenticated with check (public.kr_kyc_ok());
+drop policy if exists "KYC before booking" on public.rental_bookings;
+create policy "KYC before booking" on public.rental_bookings as restrictive for insert to authenticated with check (public.kr_kyc_ok());
+drop policy if exists "KYC before adding payout details" on public.payout_accounts;
+create policy "KYC before adding payout details" on public.payout_accounts as restrictive for insert to authenticated with check (public.kr_kyc_ok());
+drop policy if exists "KYC before changing payout details" on public.payout_accounts;
+create policy "KYC before changing payout details" on public.payout_accounts as restrictive for update to authenticated using (true) with check (public.kr_kyc_ok());
+
+-- ───────────────────────── 3. fake-batch reports without an account ─────────────────────────
+alter table public.batch_reports alter column reporter_id drop not null;
+alter table public.batch_reports add column if not exists phone text check (phone is null or phone ~ '^[0-9]{10}$');
+
+create or replace function public.kr_report_batch(p_code text, p_note text, p_phone text default null) returns void
+language plpgsql security definer set search_path = public as $$
+declare code text := upper(trim(p_code)); phone text := nullif(right(regexp_replace(coalesce(p_phone, ''), '\D', '', 'g'), 10), '');
+begin
+  if code is null or char_length(code) not between 1 and 40 then raise exception 'Write the batch number'; end if;
+  if p_note is null or char_length(trim(p_note)) < 3 then raise exception 'Say what looked wrong'; end if;
+  if phone is not null and char_length(phone) <> 10 then phone := null; end if;
+  if auth.uid() is null then
+    -- Anonymous: a few per batch per day, and a daily ceiling overall.
+    if (select count(*) from public.batch_reports where reporter_id is null and batch_code = code and created_at > now() - interval '1 day') >= 5
+       or (select count(*) from public.batch_reports where reporter_id is null and created_at > now() - interval '1 day') >= 300 then
+      raise exception 'Many reports were already sent today. Please tell your district agriculture officer as well.';
+    end if;
+  elsif exists (select 1 from public.batch_reports where reporter_id = auth.uid() and batch_code = code and created_at > now() - interval '1 day') then
+    return; -- already reported today
+  end if;
+  insert into public.batch_reports (batch_code, reporter_id, note, phone)
+  values (code, auth.uid(), left(trim(p_note), 500), phone);
+end $$;
+grant execute on function public.kr_report_batch(text, text, text) to anon, authenticated;
+
+-- The public count shows signed-in farmers only (anonymous reports go to the admin).
+create or replace function public.kr_check_batch(p_code text) returns jsonb
+language sql stable security definer set search_path = public as $$
+  select to_jsonb(b) - 'registered_by' || jsonb_build_object(
+    'dealer_verified',
+      exists (select 1 from public.staff_roles s where s.user_id = b.registered_by and s.role in ('DEALER', 'ADMIN'))
+      or exists (select 1 from auth.users u where u.id = b.registered_by and u.raw_app_meta_data ->> 'role' in ('DEALER', 'MANUFACTURER', 'ADMIN')),
+    'reports', (select count(distinct r.reporter_id) from public.batch_reports r where r.batch_code = b.batch_code and r.reporter_id is not null)
+  )
+  from public.fertilizer_batches b where b.batch_code = upper(trim(p_code))
+$$;
+
+-- ════════ 20261015000000_admin_team.sql ════════
+-- KashRoot: the admin team.
+-- The owner (the admin made in the SQL Editor with kr_make_admin) can give
+-- Admin access to a partner by their account email, and take it away. Partners
+-- can use the Admin portal but cannot add or remove admins, so nobody can
+-- lock the owner out. Each admin chooses their own admin code the first time
+-- they open the portal.
+-- Run after 20261014000000_trust_and_security.sql. Safe to run again.
+
+-- The owner: an admin whose role was not given by another admin.
+create or replace function public.kr_is_owner() returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.kr_has_role('ADMIN')
+     and exists (select 1 from public.staff_roles where user_id = auth.uid() and role = 'ADMIN' and granted_by is null)
+$$;
+revoke execute on function public.kr_is_owner() from public, anon;
+grant execute on function public.kr_is_owner() to authenticated;
+
+-- Approving staff stays with every admin; giving Admin itself is owner-only.
+create or replace function public.kr_grant_role(p_user uuid, p_role text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.kr_has_role('ADMIN') then raise exception 'Only an admin can do this'; end if;
+  if p_role not in ('ADMIN', 'EXPERT', 'DEALER', 'REPORTER') then raise exception 'Unknown role'; end if;
+  if p_role = 'ADMIN' and not public.kr_is_owner() then raise exception 'Only the owner can give Admin access'; end if;
+  insert into public.staff_roles (user_id, role, granted_by) values (p_user, p_role, auth.uid())
+  on conflict do nothing;
+  update public.role_requests set status = 'approved', decided_by = auth.uid(), decided_at = now()
+  where user_id = p_user and role = p_role;
+end $$;
+
+create or replace function public.kr_revoke_role(p_user uuid, p_role text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.kr_has_role('ADMIN') then raise exception 'Only an admin can do this'; end if;
+  if p_user = auth.uid() and p_role = 'ADMIN' then raise exception 'You cannot remove your own admin role'; end if;
+  if p_role = 'ADMIN' and not public.kr_is_owner() then raise exception 'Only the owner can remove Admin access'; end if;
+  delete from public.staff_roles where user_id = p_user and role = p_role;
+  -- A removed admin's code goes too: if they are added again they choose a new one.
+  if p_role = 'ADMIN' then delete from public.admin_lock where user_id = p_user; end if;
+end $$;
+
+create or replace function public.kr_add_admin(p_email text) returns text
+language plpgsql security definer set search_path = public as $$
+declare uid uuid;
+begin
+  if not public.kr_is_owner() then raise exception 'Only the owner can give Admin access'; end if;
+  select id into uid from auth.users where lower(email) = lower(trim(p_email));
+  if uid is null then
+    raise exception 'No KashRoot account with that email. Ask them to create an account first (any portal), then add them again.';
+  end if;
+  insert into public.staff_roles (user_id, role, granted_by) values (uid, 'ADMIN', auth.uid())
+  on conflict do nothing;
+  return trim(p_email);
+end $$;
+revoke execute on function public.kr_add_admin(text) from public, anon;
+grant execute on function public.kr_add_admin(text) to authenticated;
+
+create or replace function public.kr_admin_team()
+returns table (user_id uuid, email text, full_name text, granted_at timestamptz, has_code boolean, is_me boolean, is_owner boolean)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.kr_has_role('ADMIN') then raise exception 'Only an admin can do this'; end if;
+  return query
+    select s.user_id, u.email::text, coalesce(u.raw_user_meta_data ->> 'full_name', '')::text, s.granted_at,
+           exists (select 1 from public.admin_lock l where l.user_id = s.user_id),
+           s.user_id = auth.uid(),
+           s.granted_by is null
+      from public.staff_roles s join auth.users u on u.id = s.user_id
+     where s.role = 'ADMIN'
+     order by s.granted_at;
+end $$;
+revoke execute on function public.kr_admin_team() from public, anon;
+grant execute on function public.kr_admin_team() to authenticated;
+
+-- ════════ 20261016000000_admin_accounts.sql ════════
+-- KashRoot: the list of accounts for the Admin portal (Admin → Accounts).
+-- Who signed up, for which portal, when they joined and last signed in,
+-- whether the email is confirmed and the identity checked. Admins only
+-- (signed in, with the admin code entered). Passwords are never read.
+-- Run after 20261015000000_admin_team.sql. Safe to run again.
+
+create or replace function public.kr_admin_accounts()
+returns table (
+  user_id uuid, email text, full_name text, phone text, roles text[], portals text[], staff text[],
+  district text, joined_at timestamptz, last_sign_in_at timestamptz, email_confirmed boolean,
+  aadhaar_verified boolean, pan_verified boolean
+)
+language plpgsql stable security definer set search_path = public, auth as $$
+begin
+  if not public.kr_has_role('ADMIN') then raise exception 'Only KashRoot admins can see this'; end if;
+  return query
+    select
+      u.id,
+      u.email::text,
+      coalesce(u.raw_user_meta_data ->> 'full_name', '')::text,
+      coalesce(nullif(u.raw_user_meta_data ->> 'phone', ''), nullif(u.phone::text, ''), '')::text,
+      -- The kind of account chosen at sign-up (FARMER, BUYER, SELLER, PROVIDER…).
+      coalesce((select array_agg(distinct r) from jsonb_array_elements_text(
+        case when jsonb_typeof(u.raw_user_meta_data -> 'roles') = 'array' then u.raw_user_meta_data -> 'roles'
+             else jsonb_build_array(coalesce(u.raw_user_meta_data ->> 'role', 'FARMER')) end) r), '{}')::text[],
+      -- Portals where they filled in "My details" (profile_farmer, profile_seller…).
+      coalesce((select array_agg(substr(k, 9) order by k) from jsonb_object_keys(coalesce(u.raw_user_meta_data, '{}'::jsonb)) k where k like 'profile\_%'), '{}')::text[],
+      coalesce((select array_agg(s.role order by s.role) from public.staff_roles s where s.user_id = u.id), '{}')::text[],
+      coalesce((select v ->> 'district' from jsonb_each(coalesce(u.raw_user_meta_data, '{}'::jsonb)) e(k, v)
+                 where k like 'profile\_%' and jsonb_typeof(v) = 'object' and coalesce(v ->> 'district', '') <> '' limit 1), '')::text,
+      u.created_at,
+      u.last_sign_in_at,
+      u.email_confirmed_at is not null,
+      exists (select 1 from public.kyc_status k where k.user_id = u.id and k.aadhaar_verified_at is not null),
+      exists (select 1 from public.kyc_status k where k.user_id = u.id and k.pan_verified_at is not null)
+    from auth.users u
+    order by coalesce(u.last_sign_in_at, u.created_at) desc
+    limit 2000;
+end $$;
+revoke execute on function public.kr_admin_accounts() from public, anon;
+grant execute on function public.kr_admin_accounts() to authenticated;
+
+-- ════════ 20261017000000_security_log.sql ════════
+-- KashRoot: security log (Admin → Security → Security log).
+-- Records, automatically and without anyone being able to edit them:
+--   admin code created / changed, wrong admin codes, the portal blocked after
+--   wrong codes, Admin portal opened / locked, admin accounts signing in,
+--   roles given or taken away, identity-check rules changed, contributors
+--   marked paid. Only admins (with the code entered) can read it; nobody can
+--   change or delete entries from the website. Kept for one year.
+-- Run after 20261016000000_admin_accounts.sql. Safe to run again.
+
+create table if not exists public.security_log (
+  id      bigint generated always as identity primary key,
+  at      timestamptz not null default now(),
+  user_id uuid,
+  email   text,
+  event   text not null,
+  detail  text
+);
+create index if not exists security_log_at on public.security_log (at desc);
+alter table public.security_log enable row level security;
+revoke all on public.security_log from anon, authenticated;
+grant select on public.security_log to authenticated;
+drop policy if exists security_log_admins on public.security_log;
+create policy security_log_admins on public.security_log for select to authenticated using (public.kr_has_role('ADMIN'));
+
+-- Writes one entry. `who` is the account the event is about (default: the caller).
+create or replace function public.kr_log(p_event text, p_detail text default null, p_who uuid default null) returns void
+language plpgsql security definer set search_path = public, auth as $$
+declare uid uuid := coalesce(p_who, auth.uid());
+begin
+  insert into public.security_log (user_id, email, event, detail)
+  values (uid, (select email from auth.users where id = uid), left(p_event, 200), left(p_detail, 500));
+  delete from public.security_log where at < now() - interval '1 year';
+end $$;
+revoke execute on function public.kr_log(text, text, uuid) from public, anon, authenticated;
+
+-- Admin code and wrong codes.
+create or replace function public.kr_log_admin_lock() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'INSERT' then
+    perform public.kr_log('Admin code created', null, new.user_id);
+  else
+    if new.code_hash is distinct from old.code_hash then perform public.kr_log('Admin code changed', null, new.user_id); end if;
+    if new.failed > old.failed then perform public.kr_log('Wrong admin code', 'attempt ' || new.failed, new.user_id); end if;
+    if new.locked_until is distinct from old.locked_until and new.locked_until > now() then
+      perform public.kr_log('Admin portal blocked for 15 minutes', 'too many wrong codes', new.user_id);
+    end if;
+  end if;
+  return null;
+end $$;
+drop trigger if exists kr_log_admin_lock on public.admin_lock;
+create trigger kr_log_admin_lock after insert or update on public.admin_lock for each row execute function public.kr_log_admin_lock();
+
+-- Admin portal opened / locked.
+create or replace function public.kr_log_admin_unlocks() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op in ('INSERT', 'UPDATE') then
+    perform public.kr_log('Admin portal opened', 'with the admin code', new.user_id);
+  elsif old.expires_at > now() then
+    perform public.kr_log('Admin portal locked', null, old.user_id);
+  end if;
+  return null;
+end $$;
+drop trigger if exists kr_log_admin_unlocks on public.admin_unlocks;
+create trigger kr_log_admin_unlocks after insert or update or delete on public.admin_unlocks for each row execute function public.kr_log_admin_unlocks();
+
+-- Roles given and taken away (admins, agronomists, dealers, Mandi Helpers).
+create or replace function public.kr_log_staff_roles() returns trigger
+language plpgsql security definer set search_path = public, auth as $$
+begin
+  if tg_op = 'INSERT' then
+    perform public.kr_log('Role given: ' || new.role, 'to ' || coalesce((select email from auth.users where id = new.user_id), new.user_id::text), coalesce(auth.uid(), new.user_id));
+  else
+    perform public.kr_log('Role removed: ' || old.role, 'from ' || coalesce((select email from auth.users where id = old.user_id), old.user_id::text), coalesce(auth.uid(), old.user_id));
+  end if;
+  return null;
+end $$;
+drop trigger if exists kr_log_staff_roles on public.staff_roles;
+create trigger kr_log_staff_roles after insert or delete on public.staff_roles for each row execute function public.kr_log_staff_roles();
+
+-- Identity-check (KYC) rules. The secret itself is never written to the log.
+create or replace function public.kr_log_settings() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.kyc_required is distinct from old.kyc_required or new.pan_required is distinct from old.pan_required then
+    perform public.kr_log('Identity-check rules changed', 'Aadhaar required: ' || new.kyc_required || ', PAN required: ' || new.pan_required);
+  end if;
+  if new.kyc_secret is distinct from old.kyc_secret then perform public.kr_log('KYC server secret changed'); end if;
+  return null;
+end $$;
+drop trigger if exists kr_log_settings on public.kr_settings;
+create trigger kr_log_settings after update on public.kr_settings for each row execute function public.kr_log_settings();
+
+-- Contributors marked paid (one entry per payment).
+create or replace function public.kr_log_paid() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare n int; total numeric;
+begin
+  select count(*), coalesce(sum(nr.paid_amount), 0) into n, total
+    from new_rows nr join old_rows o on o.id = nr.id
+   where o.paid_at is null and nr.paid_at is not null;
+  if n > 0 then perform public.kr_log('Contributors marked paid', n || ' item(s), ₹' || total); end if;
+  return null;
+end $$;
+drop trigger if exists kr_log_paid on public.contributions;
+create trigger kr_log_paid after update on public.contributions referencing new table as new_rows old table as old_rows
+  for each statement execute function public.kr_log_paid();
+
+-- Admin accounts signing in (so a stolen admin password is noticed).
+-- Supabase allows triggers on auth.users; if this project does not, it is skipped.
+create or replace function public.kr_log_admin_sign_in() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.last_sign_in_at is distinct from old.last_sign_in_at
+     and exists (select 1 from public.staff_roles where user_id = new.id and role = 'ADMIN') then
+    perform public.kr_log('Admin account signed in', null, new.id);
+  end if;
+  return null;
+end $$;
+do $$
+begin
+  drop trigger if exists kr_log_admin_sign_in on auth.users;
+  create trigger kr_log_admin_sign_in after update of last_sign_in_at on auth.users for each row execute function public.kr_log_admin_sign_in();
+exception when others then
+  raise notice 'Admin sign-in logging skipped: %', sqlerrm;
+end $$;
+
+-- ════════ Make kashroot08@gmail.com the owner admin ════════
+-- The result below says "Done" — or, if that account does not exist yet,
+-- create it on the website first (any portal) and run this file again.
+select public.kr_make_admin('kashroot08@gmail.com') as result;
