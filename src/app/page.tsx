@@ -13,7 +13,7 @@
  *
  * A server component; the interactive sections are client islands.
  */
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 
@@ -30,6 +30,13 @@ import { loginHref } from '@/lib/auth/roles';
 import { seasonForDate } from '@/lib/seasons';
 import { SITE_URL } from '@/lib/site';
 import { GLASS, TOOL_ORDER, TOOLS, type ToolId } from '@/lib/tools';
+
+// The home page looks the same on every phone: it is laid out 800px wide (the
+// three tool cards side by side, as on a large screen) and the phone shows
+// the whole width, scaled to fit. Pinch-zoom still works. Other pages keep
+// the normal phone layout, where forms and buttons need full-size text.
+// initialScale is cleared (null) so the phone may zoom out to fit all 800px.
+export const viewport: Viewport = { width: 800, initialScale: null as unknown as number, themeColor: '#047857', colorScheme: 'only light' };
 
 // Only the home page is canonical to "/"; other pages keep their own address.
 export const metadata: Metadata = { alternates: { canonical: '/' } };
