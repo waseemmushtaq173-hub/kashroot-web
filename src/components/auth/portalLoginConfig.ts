@@ -4,6 +4,7 @@
  */
 import {
   FlaskConical,
+  Megaphone,
   GraduationCap,
   Leaf,
   MapPinned,
@@ -216,6 +217,25 @@ export const PORTAL_LOGIN: Record<PortalId, PortalLoginCopy> = {
       outline: 'focus-visible:outline-purple-700',
       inputFocus: 'focus:ring-purple-500',
       sceneTint: 'from-purple-950/75 via-purple-900/30 to-transparent',
+    }),
+  },
+  trader: {
+    icon: Megaphone,
+    mood: 'autumn',
+    eyebrow: 'Mandi traders',
+    headline: 'Post today’s mandi rates',
+    description: 'Commission agents and traders post each day’s rates for farmers. KashRoot checks who you are, and accurate rates are counted as your paid work.',
+    highlights: ['Post rates for your mandi in a minute', 'Rates checked by other traders and farmers', 'Accurate rates earn you payment'],
+    theme: T({
+      canvas: 'bg-gradient-to-br from-teal-50 via-white to-amber-50',
+      iconTile: 'bg-gradient-to-br from-teal-400 to-cyan-700 text-white shadow-lg shadow-cyan-700/30',
+      eyebrow: 'text-teal-100',
+      bullet: 'text-teal-600',
+      button: 'bg-teal-700 text-white shadow-teal-700/25 hover:bg-teal-800',
+      link: 'text-teal-800 hover:text-teal-900 hover:underline underline-offset-4',
+      outline: 'focus-visible:outline-teal-700',
+      inputFocus: 'focus:ring-teal-500',
+      sceneTint: 'from-teal-950/75 via-teal-900/30 to-transparent',
     }),
   },
   admin: {

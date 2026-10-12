@@ -170,6 +170,18 @@ export const PORTAL_THEMES = {
     accent: 'text-cyan-700', outline: 'focus-visible:outline-cyan-700', leaf: '#0E7490',
     tabActive: 'bg-white text-cyan-800 shadow-sm ring-1 ring-cyan-200',
   }),
+  trader: T({
+    mood: 'autumn',
+    canvas: 'bg-gradient-to-br from-teal-50 via-white to-amber-50',
+    photo: '/seasons/autumn-garden.jpg', focus: '50% 45%',
+    heroTint: 'from-teal-950/75 via-teal-900/40 to-transparent',
+    eyebrow: 'bg-white/20 text-white ring-1 ring-white/40',
+    tile: 'bg-gradient-to-br from-teal-400 to-cyan-700 text-white shadow-lg shadow-cyan-700/25',
+    solid: 'bg-teal-700 text-white hover:bg-teal-800',
+    soft: 'bg-teal-50 text-teal-800 ring-1 ring-teal-200 hover:bg-teal-100',
+    accent: 'text-teal-700', outline: 'focus-visible:outline-teal-700', leaf: '#0F766E',
+    tabActive: 'bg-white text-teal-800 shadow-sm ring-1 ring-teal-200',
+  }),
   expert: T({
     mood: 'dusk',
     canvas: 'bg-gradient-to-br from-purple-50 via-white to-amber-50',

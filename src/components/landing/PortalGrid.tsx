@@ -22,12 +22,13 @@ const KIT_THEME: Record<PortalId, PortalThemeId> = {
   tracking: 'tracking',
   dealer: 'dealer',
   expert: 'expert',
+  trader: 'trader',
   admin: 'admin',
 };
 
 export function PortalGrid() {
   return (
-    <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+    <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {PORTAL_IDS.map((id) => {
         const copy = PORTAL_LOGIN[id];
         const theme = PORTAL_THEMES[KIT_THEME[id]];

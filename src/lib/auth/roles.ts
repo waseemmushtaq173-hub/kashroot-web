@@ -8,7 +8,7 @@
  * Two kinds of portal:
  *   - Role portals (farmer, buyer, seller, logistics, admin) belong to one
  *     account type. Signing in through them checks the account's role.
- *   - Shared portals (kissan tools, rental, tracking, dealer, expert) are
+ *   - Shared portals (kissan tools, rental, tracking, dealer, expert, trader) are
  *     open to any signed-in account; each still has its own sign-in page.
  *
  * SECURITY: the role checks here are UX. The account role comes from Supabase
@@ -29,6 +29,7 @@ export type PortalId =
   | 'tracking'
   | 'dealer'
   | 'expert'
+  | 'trader'
   | 'admin';
 
 export interface PortalInfo {
@@ -53,6 +54,7 @@ export const PORTALS: Record<PortalId, PortalInfo> = {
   tracking: { label: 'Tracking', requiredRole: null, home: '/tracking/dashboard', segment: 'tracking', tagline: 'Find any consignment' },
   dealer: { label: 'Agro-dealer', requiredRole: null, home: '/dealer/dashboard', segment: 'dealer', tagline: 'Batch-coded inputs & compliance' },
   expert: { label: 'Advisory', requiredRole: null, home: '/expert', segment: 'expert', tagline: 'Ask agronomists, soil tests' },
+  trader: { label: 'Mandi traders', requiredRole: null, home: '/trader/dashboard', segment: 'trader', tagline: 'Post daily mandi rates' },
   admin: { label: 'Admin', requiredRole: 'ADMIN', home: '/admin/dashboard', segment: 'admin', tagline: 'KYC, disputes & analytics' },
 };
 
@@ -93,7 +95,8 @@ export type SignUpRole = 'FARMER' | 'BUYER' | 'SELLER' | 'PROVIDER';
  * (/register/<portal>) with the account type already fixed — nobody who came
  * through a portal is asked which kind of account they want. Shared portals
  * create the account most of their users need: growers for tools, rental,
- * tracking and advisory; input sellers for agro-dealers.
+ * tracking and advisory; input sellers for agro-dealers; buyers for mandi
+ * traders (commission agents buy from farmers).
  */
 export const SIGNUP_ROLE: Partial<Record<PortalId, SignUpRole>> = {
   farmer: 'FARMER',
@@ -105,6 +108,7 @@ export const SIGNUP_ROLE: Partial<Record<PortalId, SignUpRole>> = {
   tracking: 'FARMER',
   dealer: 'SELLER',
   expert: 'FARMER',
+  trader: 'BUYER',
 };
 
 export const SIGNUP_PORTALS = PORTAL_IDS.filter((id) => SIGNUP_ROLE[id]);

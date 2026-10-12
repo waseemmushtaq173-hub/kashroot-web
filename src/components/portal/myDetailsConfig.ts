@@ -101,6 +101,17 @@ export const MY_DETAILS: Partial<Record<PortalId, DetailsForm>> = {
       { key: 'brands', label: 'Brands / manufacturers you stock', type: 'textarea', placeholder: 'e.g. IFFCO, Coromandel, NFL' },
     ],
   },
+  trader: {
+    title: 'My mandi details',
+    intro: 'Your name on every rate you post. Farmers trust rates more when they know who posted them.',
+    fields: [
+      { key: 'business', label: 'Shop / firm name', type: 'text', placeholder: 'e.g. Bhat Fruit Commission Agency', required: true },
+      { key: 'mandi', label: 'Your mandi', type: 'text', placeholder: 'e.g. Sopore fruit mandi', required: true },
+      { key: 'shop_no', label: 'Shop number (optional)', type: 'text', placeholder: 'e.g. 14' },
+      { key: 'kind', label: 'You are a', type: 'choice', options: ['Commission agent', 'Trader', 'Mandi staff', 'Grower association'] },
+      { key: 'products', label: 'Crops you deal in', type: 'multi', options: ['Apple', 'Walnut', 'Almond', 'Cherry', 'Pear', 'Plum', 'Saffron', 'Vegetables'] },
+    ],
+  },
   expert: {
     title: 'My profile',
     intro: 'Farmers see this when you answer questions or join a video call.',

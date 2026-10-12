@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 
 import { Badge, Btn, EmptyState, Field, INPUT, Modal, Panel, type PortalTheme } from '@/components/portal/kit';
 import { RoleApplicationForm } from '@/components/staff/RoleApplicationForm';
-import { loginHref } from '@/lib/auth/roles';
+import { AUTH_ROUTES, loginHref } from '@/lib/auth/roles';
 import { myRoleRequest } from '@/lib/db/advisory';
 import { loadAccount, type Account } from '@/lib/db/client';
 import { checkRate, myRateChecks } from '@/lib/db/contributions';
@@ -110,7 +110,11 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
   ) : account ? (
     request === 'pending' ? <Badge tone="amber">Reporter application waiting for approval</Badge> : <Btn theme={theme} size="sm" variant="soft" icon={UserPlus} onClick={() => setApplying(true)}>Post rates for your mandi</Btn>
   ) : account === null ? (
-    <Link href={loginHref('buyer', '/mandi-weather')} className="text-sm font-semibold text-sky-800 underline">Traders: sign in to post rates</Link>
+    <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-semibold">
+      <span className="text-slate-600">Traders:</span>
+      <Link href={loginHref('trader')} className="text-teal-800 underline">Sign in to post rates</Link>
+      <Link href={AUTH_ROUTES.register('trader')} className="text-teal-800 underline">Create a trader account</Link>
+    </span>
   ) : null;
 
   return (
