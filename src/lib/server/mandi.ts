@@ -12,7 +12,7 @@
  */
 import 'server-only';
 
-import { MANDI_SAMPLE_KEY, mandiUrl, parseMandi, type MandiQuery, type MandiRecord } from '@/lib/mandi-shared';
+import { MANDI_SAMPLE_KEY, mandiUrl, narrowMandi, parseMandi, titleCase, type MandiQuery, type MandiRecord } from '@/lib/mandi-shared';
 import { fetchAgmarknet } from '@/lib/server/agmarknet';
 import { causeCode, govFetch, type GovResponse } from '@/lib/server/govFetch';
 
@@ -36,9 +36,26 @@ export interface MandiResult {
   source: string;
   /** Some states were not read in time (all-India search): ask again for the rest. */
   partial?: boolean;
+  /** The exact district/market had no report today; a wider area is shown. */
+  widened?: string;
 }
 
+/**
+ * Prices for a state + crop, then narrowed to the district and market here:
+ * the government feeds only match names spelt exactly as they store them
+ * ("Anantnag", not "anantnag"), so the whole state is read and matched
+ * loosely. If the mandi asked for did not report today, nearby mandis are
+ * shown with a note instead of an empty page.
+ */
 export async function fetchMandiPrices(query: MandiQuery): Promise<MandiResult> {
+  const wide: MandiQuery = { state: titleCase(query.state), commodity: titleCase(query.commodity), limit: Math.max(query.limit ?? 1000, 1000) };
+  const result = await fetchStateWide(wide);
+  if (!query.district?.trim() && !query.market?.trim()) return result;
+  const n = narrowMandi(result.records, query.district, query.market, wide.state);
+  return { ...result, records: n.records, total: n.records.length, widened: n.widened };
+}
+
+async function fetchStateWide(query: MandiQuery): Promise<MandiResult> {
   // 1. Agmarknet 2.0 directly.
   let firstFailure = '';
   try {

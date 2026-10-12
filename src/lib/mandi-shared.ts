@@ -81,3 +81,62 @@ export function parseMandi(json: { records?: Record<string, unknown>[] }, query:
     .filter((r) => same(r.state, state) && same(r.district, district) && same(r.market, market) && same(r.commodity, commodity))
     .sort((a, b) => b.arrivalDate.localeCompare(a.arrivalDate) || a.market.localeCompare(b.market));
 }
+
+/** Letters only, lower case: "APMC/MAC Shopian" → "apmcmacshopian". */
+const letters = (v: string) => v.toLowerCase().replace(/[^a-z]/g, '');
+
+/**
+ * Does a mandi/district name match what someone typed, whatever the spelling
+ * or capitals? "anantnag" = "Anantnag"; "jablipora" ~ "Jablipora"; "shopian"
+ * matches "APMC/MAC Shopian". Also accepts the first 5 letters for Kashmiri
+ * spelling variants ("pulwama"/"pulwamah").
+ */
+export function placeMatches(name: string, typed: string): boolean {
+  const a = letters(name);
+  const b = letters(typed);
+  if (!b) return true;
+  return a.includes(b) || b.includes(a) || (b.length >= 5 && a.includes(b.slice(0, 5)));
+}
+
+export interface Narrowed {
+  records: MandiRecord[];
+  /** Set when the exact district/market had no report and a wider area is shown. */
+  widened?: string;
+}
+
+/**
+ * Keep the rows for the district and market asked for. When that mandi has not
+ * reported today, show the district's other mandis, then the state's — and say
+ * so — rather than an empty page.
+ */
+export function narrowMandi(records: MandiRecord[], district?: string, market?: string, state?: string): Narrowed {
+  const d = titleCase(district);
+  const m = titleCase(market);
+  const inDistrict = d ? records.filter((r) => placeMatches(r.district, d) || placeMatches(r.market, d)) : records;
+  if (m) {
+    const exact = inDistrict.filter((r) => placeMatches(r.market, m));
+    if (exact.length) return { records: exact };
+    const anyMarket = records.filter((r) => placeMatches(r.market, m));
+    if (anyMarket.length) return { records: anyMarket };
+    if (d && inDistrict.length) return { records: inDistrict, widened: `${m} has not reported to Agmarknet today — showing the other ${d} mandis that did.` };
+    if (records.length) return { records, widened: `${m}${d ? ` (${d})` : ''} has not reported to Agmarknet today — showing every ${state || 'reporting'} mandi that did.` };
+    return { records: [] };
+  }
+  if (d) {
+    if (inDistrict.length) return { records: inDistrict };
+    if (records.length) return { records, widened: `No mandi in ${d} has reported to Agmarknet today — showing every ${state || 'reporting'} mandi that did.` };
+  }
+  return { records };
+}
+
+/** "jammu and kashmir" → "Jammu and Kashmir", "apple" → "Apple" (the feeds match names exactly). */
+export function titleCase(v?: string): string | undefined {
+  const t = v?.trim().replace(/\s+/g, ' ');
+  if (!t) return undefined;
+  return t.toLowerCase().replace(/(^|[\s(/-])([a-z])/g, (_, pre: string, c: string) => pre + c.toUpperCase()).replace(/\b(And|Of|The)\b/g, (w, _x, i: number) => (i === 0 ? w : w.toLowerCase()));
+}
+
+/** "APMC/MAC Shopian" → "Shopian" (the mandi's place), for display. */
+export function mandiName(market: string): string {
+  return market.replace(/^\s*(APMC\/MAC|MAC\/APMC|APMC|MAC)[\s/-]+/i, '').replace(/\s*\((F&V|Fruit[^)]*)\)\s*$/i, '').trim() || market;
+}

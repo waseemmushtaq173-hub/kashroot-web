@@ -41,7 +41,7 @@ import { Badge, Btn, EmptyState, INPUT, PORTAL_THEMES, Panel, inr } from '@/comp
 import { PostedRates } from '@/components/mandi/PostedRates';
 import { perKg, recentRates } from '@/lib/db/mandiRates';
 import { Tilt3D } from '@/components/three/Tilt3D';
-import { MANDI_SAMPLE_KEY, mandiUrl, parseMandi, type MandiQuery, type MandiRecord } from '@/lib/mandi-shared';
+import { MANDI_SAMPLE_KEY, mandiName, mandiUrl, narrowMandi, parseMandi, titleCase, type MandiQuery, type MandiRecord } from '@/lib/mandi-shared';
 
 const theme = PORTAL_THEMES.buyer;
 
@@ -68,6 +68,8 @@ interface MandiResult {
   direct?: boolean;
   /** All-India search: some states were not read in time. */
   partial?: boolean;
+  /** The mandi/district asked for had no report today; nearby ones are shown. */
+  widened?: string;
 }
 
 /**
@@ -76,10 +78,11 @@ interface MandiResult {
  * sample key (limited to 10 reports).
  */
 async function mandiFromBrowser(query: MandiQuery): Promise<MandiResult> {
-  const res = await fetch(mandiUrl({ ...query, limit: 10 }, MANDI_SAMPLE_KEY), { headers: { Accept: 'application/json' } });
+  const wide = { state: titleCase(query.state), commodity: titleCase(query.commodity) };
+  const res = await fetch(mandiUrl({ ...wide, limit: 10 }, MANDI_SAMPLE_KEY), { headers: { Accept: 'application/json' } });
   if (!res.ok) throw new Error(`data.gov.in answered ${res.status}`);
-  const records = parseMandi(await res.json(), query);
-  return { records, usingSampleKey: true, fetchedAt: new Date().toISOString(), source: 'Agmarknet via data.gov.in', direct: true };
+  const n = narrowMandi(parseMandi(await res.json(), wide), query.district, query.market, wide.state);
+  return { records: n.records, widened: n.widened, usingSampleKey: true, fetchedAt: new Date().toISOString(), source: 'Agmarknet via data.gov.in', direct: true };
 }
 
 const STATES = [
@@ -182,7 +185,9 @@ export default function MandiWeatherPage() {
   // Mandi
   const [filters, setFilters] = useState({ state: '', district: '', market: '', commodity: 'Apple' });
   const [applied, setApplied] = useState(filters);
-  const [unit, setUnit] = useState<'quintal' | 'kg'>('quintal');
+  // Kashmir growers think in boxes: ₹ per box of `boxKg` kg (editable, default 17 kg).
+  const [unit, setUnit] = useState<'quintal' | 'kg' | 'box'>('box');
+  const [boxKg, setBoxKg] = useState(17);
   const [sort, setSort] = useState<'price-asc' | 'price-desc' | 'date'>('date');
 
   const mandiQ = useQuery({
@@ -200,7 +205,9 @@ export default function MandiWeatherPage() {
     staleTime: 10 * 60_000,
   });
 
-  const factor = unit === 'kg' ? 0.01 : 1;
+  // Agmarknet publishes ₹ per quintal (100 kg).
+  const factor = unit === 'kg' ? 0.01 : unit === 'box' ? (boxKg > 0 ? boxKg : 17) / 100 : 1;
+  const unitLabel = unit === 'box' ? `box (${boxKg} kg)` : unit;
   const rows = useMemo(() => {
     const list = [...(mandiQ.data?.records ?? [])];
     if (sort === 'price-asc') list.sort((a, b) => a.modalPrice - b.modalPrice);
@@ -219,15 +226,26 @@ export default function MandiWeatherPage() {
     setFilters(next);
     setApplied(next);
   };
-  const stats = useMemo(() => {
-    if (rows.length === 0) return null;
-    const modal = rows.map((r) => r.modalPrice).filter((n) => n > 0);
-    if (modal.length === 0) return null;
-    const hi = rows.reduce((a, b) => (b.modalPrice > a.modalPrice ? b : a));
-    const lo = rows.reduce((a, b) => (b.modalPrice > 0 && b.modalPrice < a.modalPrice ? b : a));
-    const latest = rows.reduce((a, b) => (b.arrivalDate > a.arrivalDate ? b : a)).arrivalDate;
-    return { avg: modal.reduce((s, n) => s + n, 0) / modal.length, hi, lo, latest };
+  /**
+   * Reports far from the rest (under a third or over three times the median)
+   * are usually typing slips in the feed (e.g. ₹300 instead of ₹3000 a
+   * quintal). They stay in the table, marked, but are left out of the best,
+   * lowest and average figures.
+   */
+  const unusual = useMemo(() => {
+    const sorted = rows.map((r) => r.modalPrice).filter((n) => n > 0).sort((a, b) => a - b);
+    if (sorted.length < 4) return new Set<MandiRecord>();
+    const median = sorted[Math.floor(sorted.length / 2)];
+    return new Set(rows.filter((r) => r.modalPrice <= 0 || r.modalPrice < median / 3 || r.modalPrice > median * 3));
   }, [rows]);
+  const stats = useMemo(() => {
+    const usable = rows.filter((r) => r.modalPrice > 0 && !unusual.has(r));
+    if (usable.length === 0) return null;
+    const hi = usable.reduce((a, b) => (b.modalPrice > a.modalPrice ? b : a));
+    const lo = usable.reduce((a, b) => (b.modalPrice < a.modalPrice ? b : a));
+    const latest = rows.reduce((a, b) => (b.arrivalDate > a.arrivalDate ? b : a)).arrivalDate;
+    return { avg: usable.reduce((s, r) => s + r.modalPrice, 0) / usable.length, hi, lo, latest, count: usable.length };
+  }, [rows, unusual]);
 
   // Rates posted by KashRoot's approved Mandi Helpers: the headline numbers
   // fall back to these while the government feeds block automatic access.
@@ -254,8 +272,8 @@ export default function MandiWeatherPage() {
       kpis={[
         { label: 'Weather', value: f ? `${Math.round(f.current.temperature)} °C` : '—', trend: f ? `${condLabel} · ${f.place.name}` : weatherQ.isError ? 'Unavailable right now' : 'Loading…' },
         stats || !posted
-          ? { label: `${applied.commodity || 'All'} — average modal`, value: stats ? inr.format(stats.avg * factor) : '—', trend: stats ? `per ${unit} · ${rows.length} reports` : mandiQ.isError ? 'Unavailable right now' : mandiQ.isLoading ? 'Loading…' : 'No reports yet' }
-          : { label: `${applied.commodity || 'All'} — mandi average`, value: `${inr.format(posted.avgKg * (unit === 'kg' ? 1 : 100))}`, trend: `per ${unit} · ${posted.count} rate${posted.count === 1 ? '' : 's'} from ${posted.mandis} mandi${posted.mandis === 1 ? '' : 's'} on KashRoot` },
+          ? { label: `${applied.commodity || 'All'} — average modal`, value: stats ? inr.format(stats.avg * factor) : '—', trend: stats ? `per ${unitLabel} · ${stats.count} reports` : mandiQ.isError ? 'Unavailable right now' : mandiQ.isLoading ? 'Loading…' : 'No reports yet' }
+          : { label: `${applied.commodity || 'All'} — mandi average`, value: `${inr.format(posted.avgKg * factor * 100)}`, trend: `per ${unitLabel} · ${posted.count} rate${posted.count === 1 ? '' : 's'} from ${posted.mandis} mandi${posted.mandis === 1 ? '' : 's'} on KashRoot` },
         stats || !posted
           ? { label: 'Latest arrival date', value: stats ? dayName(stats.latest) : '—', trend: stats ? (daysOld(stats.latest) === 0 ? 'Reported today' : `${daysOld(stats.latest)} day(s) ago`) : 'Agmarknet' }
           : { label: 'Latest rate posted', value: dayName(posted.latest), trend: daysOld(posted.latest) === 0 ? 'Posted today by Mandi Helpers' : `${daysOld(posted.latest)} day(s) ago` },
@@ -420,12 +438,21 @@ export default function MandiWeatherPage() {
                 {label}
               </Btn>
             ))}
-            <span className="ms-auto inline-flex rounded-xl bg-slate-900/5 p-1" role="group" aria-label="Price unit">
-              {(['quintal', 'kg'] as const).map((u) => (
-                <button key={u} type="button" aria-pressed={unit === u} onClick={() => setUnit(u)} className={`cursor-pointer rounded-lg px-3 py-1 text-sm font-semibold ${unit === u ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}`}>
-                  ₹ / {u}
-                </button>
-              ))}
+            <span className="ms-auto inline-flex flex-wrap items-center gap-2">
+              <span className="inline-flex rounded-xl bg-slate-900/5 p-1" role="group" aria-label="Price unit">
+                {(['box', 'kg', 'quintal'] as const).map((u) => (
+                  <button key={u} type="button" aria-pressed={unit === u} onClick={() => setUnit(u)} className={`cursor-pointer rounded-lg px-3 py-1 text-sm font-semibold ${unit === u ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}`}>
+                    ₹ / {u}
+                  </button>
+                ))}
+              </span>
+              {unit === 'box' && (
+                <label className="inline-flex items-center gap-1.5 text-sm text-slate-700">
+                  Box
+                  <input type="number" min={1} max={50} value={boxKg} onChange={(e) => setBoxKg(Math.min(50, Math.max(1, Number(e.target.value) || 17)))} className="w-16 rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm" aria-label="Box weight in kg" />
+                  kg
+                </label>
+              )}
             </span>
           </div>
 
@@ -443,9 +470,14 @@ export default function MandiWeatherPage() {
               )}
             </div>
           )}
+          {mandiQ.data?.widened && rows.length > 0 && (
+            <p className="mt-5 flex items-start gap-2 rounded-2xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> {mandiQ.data.widened}
+            </p>
+          )}
           {mandiQ.data && rows.length === 0 && (
             <div className="mt-6">
-              <EmptyState theme={theme} icon={Thermometer} title="No reports in the current feed" text={`No mandi has reported ${applied.commodity || 'that commodity'}${applied.state ? ` in ${applied.state}` : ''} in today’s Agmarknet data. Try another state or commodity.`} />
+              <EmptyState theme={theme} icon={Thermometer} title="No reports in the current feed" text={`No mandi has reported ${applied.commodity || 'that commodity'}${applied.state ? ` in ${applied.state}` : ''} to Agmarknet today. Mandis report only on days they trade — check the rates posted by Mandi Helpers above, or try All India.`} />
             </div>
           )}
           {stats && (
@@ -453,17 +485,17 @@ export default function MandiWeatherPage() {
               <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
                 <p className="text-xs uppercase tracking-wider text-emerald-800">Best price</p>
                 <p className="text-xl font-bold tabular-nums text-emerald-950">{inr.format(stats.hi.modalPrice * factor)}</p>
-                <p className="text-xs text-emerald-800">{stats.hi.market}, {stats.hi.district}</p>
+                <p className="text-xs text-emerald-800">{mandiName(stats.hi.market)}, {stats.hi.district} · per {unitLabel}</p>
               </div>
               <div className="rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-200">
                 <p className="text-xs uppercase tracking-wider text-sky-800">Average modal</p>
                 <p className="text-xl font-bold tabular-nums text-sky-950">{inr.format(stats.avg * factor)}</p>
-                <p className="text-xs text-sky-800">across {rows.length} reports</p>
+                <p className="text-xs text-sky-800">across {stats.count} reports · per {unitLabel}{unusual.size ? ` · ${unusual.size} unusual left out` : ''}</p>
               </div>
               <div className="rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200">
                 <p className="text-xs uppercase tracking-wider text-amber-800">Lowest price</p>
                 <p className="text-xl font-bold tabular-nums text-amber-950">{inr.format(stats.lo.modalPrice * factor)}</p>
-                <p className="text-xs text-amber-800">{stats.lo.market}, {stats.lo.district}</p>
+                <p className="text-xs text-amber-800">{mandiName(stats.lo.market)}, {stats.lo.district} · per {unitLabel}</p>
               </div>
             </div>
           )}
@@ -502,7 +534,7 @@ export default function MandiWeatherPage() {
                       {list.map((r, i) => (
                         <tr key={`${state}-${r.market}-${r.variety}-${r.arrivalDate}-${i}`} className="hover:bg-sky-50/60">
                           <td className="px-4 py-3">
-                            <p className="font-semibold text-slate-900">{r.market}</p>
+                            <p className="font-semibold text-slate-900" title={r.market}>{mandiName(r.market)} mandi</p>
                             <p className="text-xs text-slate-500">{r.district ? `${r.district}, ` : ''}{r.state}</p>
                           </td>
                           <td className="px-4 py-3 text-slate-700">{r.commodity}{r.variety ? ` · ${r.variety}` : ''}{r.grade && r.grade !== 'FAQ' ? ` · ${r.grade}` : ''}</td>
@@ -511,7 +543,10 @@ export default function MandiWeatherPage() {
                             {daysOld(r.arrivalDate) > 2 && <span className="block text-xs text-amber-700">{daysOld(r.arrivalDate)} days old</span>}
                           </td>
                           <td className="px-4 py-3 text-right tabular-nums text-slate-600">{inr.format(r.minPrice * factor)}</td>
-                          <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">{inr.format(r.modalPrice * factor)}</td>
+                          <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">
+                            {inr.format(r.modalPrice * factor)}
+                            {unusual.has(r) && <span className="block text-[11px] font-medium text-amber-700" title="Far from the other mandis' prices — possibly a typing slip in the government feed">unusual — check</span>}
+                          </td>
                           <td className="px-4 py-3 text-right tabular-nums text-slate-600">{inr.format(r.maxPrice * factor)}</td>
                         </tr>
                       ))}
@@ -523,7 +558,7 @@ export default function MandiWeatherPage() {
           )}
           {mandiQ.data && (
             <p className="mt-3 text-xs text-slate-500">
-              Source: {mandiQ.data.source}, prices in ₹ per quintal as published (÷100 for per kg). Fetched {new Date(mandiQ.data.fetchedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}.
+              Official prices that each mandi committee (APMC) reports to the Government’s Agmarknet, updated as mandis report each day. Source: {mandiQ.data.source}, published in ₹ per quintal (100 kg); shown per {unitLabel}. Modal = the most common price that day. Fetched {new Date(mandiQ.data.fetchedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}.
               {mandiQ.data.direct
                 ? ' Loaded straight from data.gov.in by your browser (the latest 10 reports).'
                 : mandiQ.data.usingSampleKey && ' Showing the limited public sample — the site owner can add a free data.gov.in key for the full feed.'}
