@@ -4,6 +4,8 @@
  * Admin portal — runs on the shared database only:
  *   Approvals:        agronomists / dealers who applied, staff roles,
  *                     farmers' reports of suspicious batches.
+ *   Accounts:         everyone with an account — who, which portal, joined,
+ *                     last signed in, verified (kr_admin_accounts).
  *   Problems:         orders a buyer pressed "Report a problem" on.
  *   Contributors:     mandi rates and expert answers to check, pay per
  *                     accepted contribution, who is owed and "Mark paid".
@@ -15,8 +17,9 @@
  * and every query above is limited to admins in the database itself.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { BarChart3, GraduationCap, LockKeyhole, PackageX, Wallet } from 'lucide-react';
+import { BarChart3, GraduationCap, LockKeyhole, PackageX, Users, Wallet } from 'lucide-react';
 
+import { AccountsPanel } from '@/components/admin/AccountsPanel';
 import { AdminLock } from '@/components/admin/AdminLock';
 import { ApprovalsPanel } from '@/components/admin/ApprovalsPanel';
 import { ContributorsPanel } from '@/components/admin/ContributorsPanel';
@@ -26,7 +29,7 @@ import { SecurityPanel } from '@/components/admin/SecurityPanel';
 import { PortalShell } from '@/components/layout/PortalShell';
 import { supabase } from '@/lib/db/client';
 
-type Tab = 'approvals' | 'problems' | 'contributors' | 'numbers' | 'security';
+type Tab = 'approvals' | 'accounts' | 'problems' | 'contributors' | 'numbers' | 'security';
 
 interface Counts {
   waiting: number;
@@ -79,10 +82,11 @@ function AdminConsole() {
       kpis={[
         { label: 'Waiting for approval', value: n(counts?.waiting), trend: 'Agronomists, dealers, Mandi Helpers' },
         { label: 'Orders with a problem', value: n(counts?.problems), trend: 'Reported by buyers' },
-        { label: 'Accounts', value: n(counts?.accounts), trend: counts ? `${counts.accounts7d} new this week` : 'Loading' },
+        { label: 'Accounts', value: n(counts?.accounts), trend: counts ? `${counts.accounts7d} new this week — see the Accounts tab` : 'Loading' },
       ]}
       tabs={[
         { id: 'approvals', label: 'Approvals', icon: GraduationCap, count: counts?.waiting || undefined },
+        { id: 'accounts', label: 'Accounts', icon: Users, count: counts?.accounts || undefined },
         { id: 'problems', label: 'Problems', icon: PackageX, count: counts?.problems || undefined },
         { id: 'contributors', label: 'Contributors', icon: Wallet },
         { id: 'numbers', label: 'Platform numbers', icon: BarChart3 },
@@ -95,6 +99,7 @@ function AdminConsole() {
       }}
     >
       {tab === 'approvals' && <ApprovalsPanel />}
+      {tab === 'accounts' && <AccountsPanel />}
       {tab === 'problems' && <ReportedOrders />}
       {tab === 'contributors' && <ContributorsPanel />}
       {tab === 'numbers' && <PlatformNumbers />}
