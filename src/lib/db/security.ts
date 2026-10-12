@@ -11,16 +11,25 @@
 import { dbMessage, supabase } from '@/lib/db/client';
 
 export type AdminStatus = 'not_admin' | 'no_code' | 'blocked' | 'locked' | 'unlocked';
+/** 'missing': the security SQL has not been run; 'offline': the check could not be made. */
+export type AdminCheck = AdminStatus | 'missing' | 'offline';
 
 const fail = (error: { message?: string; code?: string } | null, fallback: string): never => {
   throw new Error(error?.message && !/schema cache|does not exist/i.test(error.message) ? error.message : dbMessage(error, fallback));
 };
 
-/** null when the security SQL has not been run yet (no lock exists then). */
-export async function adminStatus(): Promise<AdminStatus | null> {
+/**
+ * The Admin portal stays closed unless this answers "unlocked" — a missing
+ * function or a failed check never opens it.
+ */
+export async function adminStatus(): Promise<AdminCheck> {
   const { data, error } = await supabase.rpc('kr_admin_status');
-  if (error) return null;
-  return data as AdminStatus;
+  if (error) {
+    const missing = error.code === 'PGRST202' || error.code === '42883' || /could not find the function|does not exist|schema cache/i.test(error.message ?? '');
+    return missing ? 'missing' : 'offline';
+  }
+  const s = String(data);
+  return (['not_admin', 'no_code', 'blocked', 'locked', 'unlocked'] as const).includes(s as AdminStatus) ? (s as AdminStatus) : 'offline';
 }
 
 export async function setAdminCode(code: string, oldCode?: string): Promise<void> {

@@ -5,20 +5,21 @@
  * their own access code each time (it stays open 12 hours on that device).
  * The first time, the admin chooses the code. The database itself refuses
  * admin actions until the code is entered, so this screen is not the only
- * protection.
+ * protection. It fails closed: if the lock is not set up in the database,
+ * or the check cannot be made, the console stays hidden.
  */
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { KeyRound, Loader2, LockKeyhole, ShieldAlert } from 'lucide-react';
+import { KeyRound, Loader2, LockKeyhole, RefreshCw, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { PortalShell } from '@/components/layout/PortalShell';
 import { Btn, Field, INPUT, PORTAL_THEMES, Panel } from '@/components/portal/kit';
-import { adminStatus, setAdminCode, unlockAdmin, type AdminStatus } from '@/lib/db/security';
+import { adminStatus, setAdminCode, unlockAdmin, type AdminCheck } from '@/lib/db/security';
 
 const theme = PORTAL_THEMES.admin ?? PORTAL_THEMES.expert;
 
 export function AdminLock({ children }: { children: ReactNode }) {
-  const [status, setStatus] = useState<AdminStatus | null | undefined>(undefined);
+  const [status, setStatus] = useState<AdminCheck | undefined>(undefined);
   const [code, setCode] = useState('');
   const [again, setAgain] = useState('');
   const [busy, setBusy] = useState(false);
@@ -36,8 +37,7 @@ export function AdminLock({ children }: { children: ReactNode }) {
     };
   }, [check]);
 
-  // null: the security SQL has not been run yet — nothing to unlock.
-  if (status === 'unlocked' || status === null) return <>{children}</>;
+  if (status === 'unlocked') return <>{children}</>;
 
   const create = async () => {
     if (code.length < 6) return setMessage('Use at least 6 letters or numbers.');
@@ -79,6 +79,17 @@ export function AdminLock({ children }: { children: ReactNode }) {
             <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Checking…</p>
           ) : status === 'not_admin' ? (
             <p className="flex items-start gap-2 text-sm text-slate-700"><ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-rose-700" aria-hidden /> This account is not a KashRoot admin.</p>
+          ) : status === 'missing' ? (
+            <div className="space-y-3 text-sm text-slate-700">
+              <p className="flex items-start gap-2 font-semibold text-rose-800"><ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> The admin lock is not switched on in the database yet, so the Admin portal stays closed.</p>
+              <p>In Supabase → SQL Editor, run the file <code>20261014000000_trust_and_security.sql</code> (then <code>20261015000000_admin_team.sql</code> and <code>20261016000000_admin_accounts.sql</code>). Then press Check again and create your admin code.</p>
+              <Btn theme={theme} variant="soft" icon={RefreshCw} onClick={() => { setStatus(undefined); void check(); }}>Check again</Btn>
+            </div>
+          ) : status === 'offline' ? (
+            <div className="space-y-3 text-sm text-slate-700">
+              <p className="flex items-start gap-2 text-rose-800"><ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> Could not check the admin lock — the portal stays closed. Check your internet and try again.</p>
+              <Btn theme={theme} variant="soft" icon={RefreshCw} onClick={() => { setStatus(undefined); void check(); }}>Try again</Btn>
+            </div>
           ) : status === 'blocked' ? (
             <p className="flex items-start gap-2 text-sm text-rose-800"><ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> Too many wrong codes. The Admin portal is blocked for 15 minutes.</p>
           ) : (
