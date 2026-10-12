@@ -9,6 +9,7 @@ import { MyDetailsPanel } from '@/components/portal/MyDetailsPanel';
 import { MY_DETAILS } from '@/components/portal/myDetailsConfig';
 import { authApi } from '@/lib/api/auth';
 import { loginHref, PORTALS, PUBLIC_PORTAL_IDS, type PortalId } from '@/lib/auth/roles';
+import { useShowAdmin } from '@/lib/client/adminDevice';
 
 /**
  * `dark` (default) is the original look for the dark dashboards. `light` is for
@@ -30,6 +31,12 @@ const MENU_ITEMS = [
   { title: 'Traceability', href: '/traceability', desc: 'Origin, cold chain & grades' },
 ];
 
+/** The menu, with the Admin portal added only on an admin's own device. */
+function useMenuItems() {
+  const showAdmin = useShowAdmin();
+  return showAdmin ? [{ title: 'Admin portal', href: PORTALS.admin.home, desc: PORTALS.admin.tagline }, ...MENU_ITEMS] : MENU_ITEMS;
+}
+
 /** Public pages and tools, for the phone menu (the bar has no room for them). */
 const EXPLORE_ITEMS = [
   { title: 'Produce marketplace', href: '/buyer/discover' },
@@ -45,6 +52,7 @@ const EXPLORE_ITEMS = [
  * needs "Desktop site" to be reached.
  */
 function MobileMenu({ showAuth }: { showAuth: boolean }) {
+  const menuItems = useMenuItems();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -99,7 +107,7 @@ function MobileMenu({ showAuth }: { showAuth: boolean }) {
             <Link key={p.href} href={p.href} onClick={close} className={item}>{p.title}</Link>
           ))}
           <p className={heading}>Portals & tools</p>
-          {MENU_ITEMS.map((p) => (
+          {menuItems.map((p) => (
             <Link key={p.href} href={p.href} onClick={close} className={item}>
               {p.title}
               <span className="block text-xs font-normal text-slate-500">{p.desc}</span>
@@ -113,6 +121,7 @@ function MobileMenu({ showAuth }: { showAuth: boolean }) {
 
 function PortalMenu({ onOpenPortals, tone }: { onOpenPortals?: () => void; tone: SiteTone }) {
   const light = tone === 'light';
+  const menuItems = useMenuItems();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -156,7 +165,7 @@ function PortalMenu({ onOpenPortals, tone }: { onOpenPortals?: () => void; tone:
               : 'border-white/25 bg-white/15 shadow-[0_24px_60px_-20px_rgba(7,11,26,0.6)]'
           }`}
         >
-          {MENU_ITEMS.map((p) => (
+          {menuItems.map((p) => (
             <Link
               key={p.href}
               href={p.href}

@@ -1,14 +1,16 @@
 'use client';
 
 /**
- * Admin → Security: the admin code (change it, lock now), the identity-check
- * rules for money actions (Aadhaar, PAN) and whether the server can record
- * checks, and a short list of protections that are on.
+ * Admin → Security: the admin team (who else can open Admin), the admin code
+ * (change it, lock now), the identity-check rules for money actions (Aadhaar,
+ * PAN) and whether the server can record checks, and a short list of
+ * protections that are on.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, CircleAlert, IdCard, KeyRound, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { AdminTeamPanel } from '@/components/admin/AdminTeamPanel';
 import { Btn, Field, INPUT, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { kycRules, lockAdminNow, setAdminCode, setKycRules, type KycRules } from '@/lib/db/security';
 
@@ -66,6 +68,7 @@ export function SecurityPanel() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
+      <AdminTeamPanel />
       <Panel theme={theme} title="Identity checks (KYC) before money" icon={IdCard} className="lg:col-span-2">
         {rules === undefined ? (
           <p className="text-sm text-slate-600">Loading…</p>
