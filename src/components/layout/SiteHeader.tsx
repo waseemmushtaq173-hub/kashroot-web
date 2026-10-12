@@ -9,7 +9,7 @@ import { MyDetailsPanel } from '@/components/portal/MyDetailsPanel';
 import { MY_DETAILS } from '@/components/portal/myDetailsConfig';
 import { authApi } from '@/lib/api/auth';
 import { loginHref, PORTALS, PUBLIC_PORTAL_IDS, type PortalId } from '@/lib/auth/roles';
-import { useShowAdmin } from '@/lib/client/adminDevice';
+import { useSecretAdminTap, useShowAdmin } from '@/lib/client/adminDevice';
 
 /**
  * `dark` (default) is the original look for the dark dashboards. `light` is for
@@ -199,6 +199,7 @@ export function SiteHeader({
   portal?: PortalId | null;
 }) {
   const light = tone === 'light';
+  const secretTap = useSecretAdminTap();
 
   if (portal) {
     return <PortalHeader portal={portal} />;
@@ -224,7 +225,7 @@ export function SiteHeader({
         }
         aria-label="Primary"
       >
-        <Link href="/" className={`shrink-0 ${light ? 'text-slate-900 no-underline hover:no-underline' : ''}`}>
+        <Link href="/" onClick={secretTap} className={`shrink-0 ${light ? 'text-slate-900 no-underline hover:no-underline' : ''}`}>
           <BrandMark />
         </Link>
 

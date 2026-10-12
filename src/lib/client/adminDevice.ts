@@ -7,7 +7,8 @@
  * (remembered on that device). Showing the card unlocks nothing — the Admin
  * portal still needs an admin account and that admin's own code.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { loadAccount } from '@/lib/db/client';
 
@@ -57,4 +58,25 @@ export function useShowAdmin(): boolean {
 export function RememberAdminDevice() {
   useEffect(() => rememberAdminDevice(), []);
   return null;
+}
+
+/**
+ * The owner's private way in on a new laptop or phone: tap the KashRoot logo
+ * in the top bar 5 times within 3 seconds. It opens the Admin sign-in, and
+ * from then on that device shows the Admin card. Nobody else is told about
+ * it, and it still needs an admin account and the admin code.
+ */
+export function useSecretAdminTap() {
+  const taps = useRef<number[]>([]);
+  const router = useRouter();
+  return (e: MouseEvent) => {
+    const now = Date.now();
+    taps.current = [...taps.current.filter((t) => now - t < 3000), now];
+    if (taps.current.length >= 5) {
+      e.preventDefault();
+      taps.current = [];
+      rememberAdminDevice();
+      router.push('/login/admin');
+    }
+  };
 }
