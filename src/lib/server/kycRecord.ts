@@ -1,5 +1,5 @@
 /**
- * Records a successful Aadhaar / PAN check in the database (kyc_status), as
+ * Records a successful Aadhaar / PAN check in the database (identity_checks), as
  * the signed-in user, proving it is the KashRoot server with KYC_DB_SECRET
  * (made by `select public.kr_kyc_secret();` in the Supabase SQL Editor).
  * Without the secret nothing is recorded and false is returned — users can

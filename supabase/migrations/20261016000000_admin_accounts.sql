@@ -31,8 +31,8 @@ begin
       u.created_at,
       u.last_sign_in_at,
       u.email_confirmed_at is not null,
-      exists (select 1 from public.kyc_status k where k.user_id = u.id and k.aadhaar_verified_at is not null),
-      exists (select 1 from public.kyc_status k where k.user_id = u.id and k.pan_verified_at is not null)
+      exists (select 1 from public.identity_checks k where k.user_id = u.id and k.aadhaar_verified_at is not null),
+      exists (select 1 from public.identity_checks k where k.user_id = u.id and k.pan_verified_at is not null)
     from auth.users u
     order by coalesce(u.last_sign_in_at, u.created_at) desc
     limit 2000;

@@ -72,7 +72,7 @@ export async function kycRules(): Promise<KycRules | null> {
 }
 
 export async function myKyc(userId: string): Promise<KycStatus | null> {
-  const { data, error } = await supabase.from('kyc_status').select('aadhaar_last4, aadhaar_name, aadhaar_method, aadhaar_verified_at, pan_last4, pan_verified_at').eq('user_id', userId).maybeSingle();
+  const { data, error } = await supabase.from('identity_checks').select('aadhaar_last4, aadhaar_name, aadhaar_method, aadhaar_verified_at, pan_last4, pan_verified_at').eq('user_id', userId).maybeSingle();
   if (error) return null;
   return (data as KycStatus | null) ?? null;
 }

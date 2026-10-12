@@ -1413,7 +1413,18 @@ revoke execute on function public.kr_admin_reset_code(text) from public, anon, a
 grant execute on function public.kr_admin_status(), public.kr_admin_set_code(text, text), public.kr_admin_unlock(text), public.kr_admin_lock_now() to authenticated;
 
 -- ───────────────────────── 2. KYC before money ─────────────────────────
-create table if not exists public.kyc_status (
+-- The table was first called kyc_status; that name clashes with an older
+-- database type of the same name (kept by the earlier KashRoot backend), so it
+-- is identity_checks now. A project that already has the table gets it renamed.
+do $$
+begin
+  if exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relname = 'kyc_status' and c.relkind = 'r')
+     and not exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relname = 'identity_checks') then
+    alter table public.kyc_status rename to identity_checks;
+  end if;
+end $$;
+
+create table if not exists public.identity_checks (
   user_id             uuid primary key references auth.users (id) on delete cascade,
   aadhaar_last4       text check (aadhaar_last4 ~ '^[0-9]{4}$'),
   aadhaar_name        text check (char_length(aadhaar_name) <= 120),
@@ -1424,11 +1435,11 @@ create table if not exists public.kyc_status (
   pan_verified_at     timestamptz,
   updated_at          timestamptz not null default now()
 );
-alter table public.kyc_status enable row level security;
-drop policy if exists "Own KYC, admins all" on public.kyc_status;
-create policy "Own KYC, admins all" on public.kyc_status for select to authenticated
+alter table public.identity_checks enable row level security;
+drop policy if exists "Own KYC, admins all" on public.identity_checks;
+create policy "Own KYC, admins all" on public.identity_checks for select to authenticated
   using (user_id = auth.uid() or public.kr_has_role('ADMIN'));
-grant select on public.kyc_status to authenticated;
+grant select on public.identity_checks to authenticated;
 
 create table if not exists public.kr_settings (
   id           int primary key default 1 check (id = 1),
@@ -1466,16 +1477,16 @@ begin
   select kyc_secret into s from public.kr_settings where id = 1;
   if s is null or p_secret is null or p_secret <> s then return false; end if;
   if p_kind = 'aadhaar' then
-    insert into public.kyc_status (user_id, aadhaar_last4, aadhaar_name, aadhaar_method, aadhaar_verified_at, updated_at)
+    insert into public.identity_checks (user_id, aadhaar_last4, aadhaar_name, aadhaar_method, aadhaar_verified_at, updated_at)
     values (auth.uid(), nullif(p_last4, ''), left(nullif(trim(p_name), ''), 120), left(p_method, 40), now(), now())
-    on conflict (user_id) do update set aadhaar_last4 = coalesce(excluded.aadhaar_last4, public.kyc_status.aadhaar_last4),
-      aadhaar_name = coalesce(excluded.aadhaar_name, public.kyc_status.aadhaar_name), aadhaar_method = excluded.aadhaar_method,
+    on conflict (user_id) do update set aadhaar_last4 = coalesce(excluded.aadhaar_last4, public.identity_checks.aadhaar_last4),
+      aadhaar_name = coalesce(excluded.aadhaar_name, public.identity_checks.aadhaar_name), aadhaar_method = excluded.aadhaar_method,
       aadhaar_verified_at = now(), updated_at = now();
   elsif p_kind = 'pan' then
-    insert into public.kyc_status (user_id, pan_last4, pan_name, pan_verified_at, updated_at)
+    insert into public.identity_checks (user_id, pan_last4, pan_name, pan_verified_at, updated_at)
     values (auth.uid(), nullif(upper(p_last4), ''), left(nullif(trim(p_name), ''), 120), now(), now())
-    on conflict (user_id) do update set pan_last4 = coalesce(excluded.pan_last4, public.kyc_status.pan_last4),
-      pan_name = coalesce(excluded.pan_name, public.kyc_status.pan_name), pan_verified_at = now(), updated_at = now();
+    on conflict (user_id) do update set pan_last4 = coalesce(excluded.pan_last4, public.identity_checks.pan_last4),
+      pan_name = coalesce(excluded.pan_name, public.identity_checks.pan_name), pan_verified_at = now(), updated_at = now();
   else
     return false;
   end if;
@@ -1507,7 +1518,7 @@ create or replace function public.kr_kyc_ok() returns boolean
 language sql stable security definer set search_path = public as $$
   select not s.kyc_required
       or exists (
-        select 1 from public.kyc_status k
+        select 1 from public.identity_checks k
          where k.user_id = auth.uid() and k.aadhaar_verified_at is not null
            and (not s.pan_required or k.pan_verified_at is not null)
       )
@@ -1675,8 +1686,8 @@ begin
       u.created_at,
       u.last_sign_in_at,
       u.email_confirmed_at is not null,
-      exists (select 1 from public.kyc_status k where k.user_id = u.id and k.aadhaar_verified_at is not null),
-      exists (select 1 from public.kyc_status k where k.user_id = u.id and k.pan_verified_at is not null)
+      exists (select 1 from public.identity_checks k where k.user_id = u.id and k.aadhaar_verified_at is not null),
+      exists (select 1 from public.identity_checks k where k.user_id = u.id and k.pan_verified_at is not null)
     from auth.users u
     order by coalesce(u.last_sign_in_at, u.created_at) desc
     limit 2000;
