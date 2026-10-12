@@ -6,8 +6,10 @@
 import { NextResponse } from 'next/server';
 
 import { placeName } from '@/lib/server/places';
+import { ipLimited, tooMany } from '@/lib/server/sign';
 
 export async function GET(request: Request) {
+  if (ipLimited(request, 'place', 30)) return tooMany();
   const q = new URL(request.url).searchParams;
   const lat = Math.round(Number(q.get('lat')) * 1000) / 1000;
   const lng = Math.round(Number(q.get('lng')) * 1000) / 1000;

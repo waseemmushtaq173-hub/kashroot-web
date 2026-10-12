@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { ipLimited, tooMany } from '@/lib/server/sign';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
+  if (ipLimited(request, 'notifications', 60)) return tooMany();
   // In a real app, parse the session/JWT.
   // For demo, we assume user_id is passed in headers or query.
   const { searchParams } = new URL(request.url);

@@ -8,15 +8,42 @@
  * protection. It fails closed: if the lock is not set up in the database,
  * or the check cannot be made, the console stays hidden.
  */
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { KeyRound, Loader2, LockKeyhole, RefreshCw, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { PortalShell } from '@/components/layout/PortalShell';
 import { Btn, Field, INPUT, PORTAL_THEMES, Panel } from '@/components/portal/kit';
-import { adminStatus, setAdminCode, unlockAdmin, type AdminCheck } from '@/lib/db/security';
+import { adminStatus, lockAdminNow, setAdminCode, unlockAdmin, type AdminCheck } from '@/lib/db/security';
 
 const theme = PORTAL_THEMES.admin ?? PORTAL_THEMES.expert;
+
+/** Admin locks itself after this long without a click, key press or touch. */
+const IDLE_MS = 15 * 60_000;
+
+/** While the console is open: lock it (in the database too) after 15 idle minutes. */
+function useIdleLock(active: boolean, onLock: () => void) {
+  const last = useRef(0);
+  useEffect(() => {
+    if (!active) return;
+    last.current = Date.now();
+    const touch = () => {
+      last.current = Date.now();
+    };
+    const events = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
+    events.forEach((e) => window.addEventListener(e, touch, { passive: true }));
+    const id = window.setInterval(() => {
+      if (Date.now() - last.current > IDLE_MS) {
+        window.clearInterval(id);
+        void lockAdminNow().finally(onLock);
+      }
+    }, 30_000);
+    return () => {
+      window.clearInterval(id);
+      events.forEach((e) => window.removeEventListener(e, touch));
+    };
+  }, [active, onLock]);
+}
 
 export function AdminLock({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AdminCheck | undefined>(undefined);
@@ -36,6 +63,12 @@ export function AdminLock({ children }: { children: ReactNode }) {
       live = false;
     };
   }, [check]);
+
+  const idleLocked = useCallback(() => {
+    setMessage('Locked after 15 minutes without use. Enter your admin code to continue.');
+    setStatus('locked');
+  }, []);
+  useIdleLock(status === 'unlocked', idleLocked);
 
   if (status === 'unlocked') return <>{children}</>;
 

@@ -6,10 +6,12 @@
 import { NextResponse } from 'next/server';
 
 import { wetSpells, type Hour } from '@/lib/scab';
+import { ipLimited, tooMany } from '@/lib/server/sign';
 
 export const maxDuration = 30;
 
 export async function GET(request: Request) {
+  if (ipLimited(request, 'orchard-scab', 30)) return tooMany();
   const q = new URL(request.url).searchParams;
   const lat = Number(q.get('lat'));
   const lng = Number(q.get('lng'));

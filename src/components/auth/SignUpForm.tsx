@@ -25,6 +25,7 @@ import { authApi, type RegisterDto } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
 import { loginHref, PORTALS, REGISTER_ROLES, SIGNUP_ROLE, type PortalId, type SignUpRole } from '@/lib/auth/roles';
 import { getKycConfig } from '@/lib/kyc/kyc-service';
+import { weakPassword } from '@/lib/auth/passwordRules';
 
 type RegisterRole = SignUpRole;
 
@@ -386,13 +387,18 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
                   required: 'Password is required',
                   minLength: { value: 8, message: 'At least 8 characters' },
                   pattern: { value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, message: 'Use upper- and lowercase letters and a number' },
+                  validate: (pw, values) => weakPassword(pw, String((values as { email?: string }).email ?? '')) ?? true,
                 })}
               />
               <button type="button" onClick={() => setShowPw((v) => !v)} aria-label={showPw ? 'Hide password' : 'Show password'} className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 cursor-pointer place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700">
                 {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </span>
-            {errors.password && <p className="mt-1 text-xs text-rose-600">{errors.password.message}</p>}
+            {errors.password ? (
+              <p className="mt-1 text-xs text-rose-600">{errors.password.message}</p>
+            ) : password && weakPassword(password, emailValue) ? (
+              <p className="mt-1 text-xs text-amber-700">{weakPassword(password, emailValue)}</p>
+            ) : null}
           </div>
           <div>
             <label htmlFor="confirm-password" className="mb-1.5 block text-sm font-semibold text-slate-800">Confirm password</label>

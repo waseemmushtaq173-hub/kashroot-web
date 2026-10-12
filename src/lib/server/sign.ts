@@ -38,5 +38,41 @@ export function rateLimited(key: string, max: number, windowMs: number): boolean
   const recent = (hits.get(key) ?? []).filter((t) => now - t < windowMs);
   recent.push(now);
   hits.set(key, recent);
+  // Keep memory bounded if someone floods the server with new keys.
+  if (hits.size > 20_000) {
+    for (const [k, times] of hits) if (!times.length || now - times[times.length - 1] > 3_600_000) hits.delete(k);
+    if (hits.size > 20_000) hits.clear();
+  }
   return recent.length > max;
+}
+
+/** How many times `key` was counted in the window, without counting this look. */
+export function recentCount(key: string, windowMs: number): number {
+  const now = Date.now();
+  return (hits.get(key) ?? []).filter((t) => now - t < windowMs).length;
+}
+
+/** Count one event for `key` (e.g. a wrong password). */
+export function countHit(key: string): void {
+  hits.set(key, [...(hits.get(key) ?? []).slice(-200), Date.now()]);
+}
+
+/** Forget `key` (e.g. after a correct password). */
+export function clearHits(key: string): void {
+  hits.delete(key);
+}
+
+/** The caller's IP address (Vercel sets x-forwarded-for; the first entry is the client). */
+export function clientIp(request: Request): string {
+  return (request.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || request.headers.get('x-real-ip') || 'unknown';
+}
+
+/** Per-IP limit for one endpoint: true when this caller made too many requests. */
+export function ipLimited(request: Request, name: string, max: number, windowMs = 60_000): boolean {
+  return rateLimited(`${name}:${clientIp(request)}`, max, windowMs);
+}
+
+/** A standard "slow down" reply. */
+export function tooMany(seconds = 60) {
+  return Response.json({ error: 'Too many requests. Please wait a minute and try again.' }, { status: 429, headers: { 'retry-after': String(seconds) } });
 }

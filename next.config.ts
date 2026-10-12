@@ -1,5 +1,43 @@
 import type { NextConfig } from "next";
 
+/** The origin of an env URL, or '' (e.g. the Supabase project, the old API). */
+const originOf = (url?: string, ws = false) => {
+  try {
+    const u = new URL(url ?? '');
+    return ws ? `${u.protocol === 'http:' ? 'ws' : 'wss'}://${u.host}` : u.origin;
+  } catch {
+    return '';
+  }
+};
+const supabase = originOf(process.env.NEXT_PUBLIC_SUPABASE_URL);
+const dev = process.env.NODE_ENV !== 'production';
+
+/**
+ * Content-Security-Policy: the browser may load scripts, styles and fonts only
+ * from KashRoot itself, images only from KashRoot and the few map/photo hosts
+ * it uses, and may send data only to KashRoot and the services listed. An
+ * injected script therefore cannot pull in outside code or send people's data
+ * to another site. ('unsafe-inline' scripts are still needed by Next.js's
+ * own start-up code; 'unsafe-eval' only in development.)
+ */
+const CSP = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${dev ? " 'unsafe-eval'" : ''}`,
+  "style-src 'self' 'unsafe-inline'",
+  `img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://images.unsplash.com https://upload.wikimedia.org ${supabase}`.trim(),
+  "font-src 'self' data:",
+  ['connect-src', "'self'", 'https://api.data.gov.in', supabase, originOf(supabase, true), originOf(process.env.NEXT_PUBLIC_API_URL), originOf(process.env.NEXT_PUBLIC_WS_URL), dev ? 'ws: http://localhost:* http://127.0.0.1:*' : ''].filter(Boolean).join(' '),
+  "media-src 'self' blob: data:",
+  "worker-src 'self' blob:",
+  "manifest-src 'self'",
+  "frame-src 'self'",
+  "frame-ancestors 'none'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  ...(dev ? [] : ['upgrade-insecure-requests']),
+].join('; ');
+
 const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
@@ -13,9 +51,7 @@ const nextConfig: NextConfig = {
   },
   // Old pages that called a separate backend (never deployed) now point at
   // the shared marketplace that works.
-  // Security headers on every response. The CSP part only blocks what
-  // KashRoot never needs (being framed by other sites, plugins, foreign
-  // <base> or form targets), so it cannot break the app's own features.
+  // Security headers on every response (see CSP above).
   async headers() {
     return [
       {
@@ -27,7 +63,11 @@ const nextConfig: NextConfig = {
           { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
           { key: 'Permissions-Policy', value: 'camera=(self), microphone=(self), geolocation=(self), payment=(), usb=(), serial=(), bluetooth=(), interest-cohort=()' },
           { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
-          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests" },
+          { key: 'Content-Security-Policy', value: CSP },
+          { key: 'Cross-Origin-Resource-Policy', value: 'same-site' },
+          { key: 'X-Permitted-Cross-Domain-Policies', value: 'none' },
+          { key: 'X-DNS-Prefetch-Control', value: 'off' },
+          { key: 'Origin-Agent-Cluster', value: '?1' },
         ],
       },
     ];

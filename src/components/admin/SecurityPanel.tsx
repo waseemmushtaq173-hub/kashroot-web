@@ -11,6 +11,7 @@ import { CheckCircle2, CircleAlert, IdCard, KeyRound, LockKeyhole, ShieldCheck }
 import { toast } from 'sonner';
 
 import { AdminTeamPanel } from '@/components/admin/AdminTeamPanel';
+import { SecurityLogPanel } from '@/components/admin/SecurityLogPanel';
 import { Btn, Field, INPUT, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { kycRules, lockAdminNow, setAdminCode, setKycRules, type KycRules } from '@/lib/db/security';
 
@@ -111,16 +112,22 @@ export function SecurityPanel() {
         <ul className="space-y-2 text-sm text-slate-700">
           {[
             'Admin portal unlisted, and locked with your code (5 wrong tries → blocked 15 minutes)',
+            'Admin locks itself after 15 minutes without use',
+            'Password guessing stopped: 8 wrong passwords → that account’s sign-in paused 15 minutes',
             'Every table protected by row-level security in the database',
             'Identity checks recorded only by the KashRoot server',
+            'Strict browser rules (CSP): scripts only from KashRoot, data sent only to KashRoot’s services',
             'Browser security headers: no framing, no sniffing, strict HTTPS, limited permissions',
-            'Sign-in, OTP, KYC and AI requests are rate-limited',
+            'Every server endpoint is rate-limited against floods',
+            'Security log of admin actions that nobody can edit',
           ].map((t) => (
             <li key={t} className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden /> {t}</li>
           ))}
         </ul>
         <Btn theme={theme} variant="danger" className="mt-4" icon={LockKeyhole} onClick={() => void lockAdminNow().then(() => window.location.reload())}>Lock Admin portal now</Btn>
       </Panel>
+
+      <SecurityLogPanel />
     </div>
   );
 }

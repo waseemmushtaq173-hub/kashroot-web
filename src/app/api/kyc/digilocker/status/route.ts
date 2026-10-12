@@ -6,8 +6,10 @@ import { recordKyc } from '@/lib/server/kycRecord';
 import { digilockerStatus, sandboxConfigured } from '@/lib/server/sandbox';
 import { verifySignature } from '@/lib/server/sign';
 import { KYC_NOT_CONFIGURED, providerFailure, SIGN_IN_FIRST } from '../../notConfigured';
+import { ipLimited, tooMany } from '@/lib/server/sign';
 
 export async function GET(request: Request) {
+  if (ipLimited(request, 'kyc-digilocker-status', 30)) return tooMany();
   const user = await requireUser(request);
   if (!user) return SIGN_IN_FIRST();
   if (!sandboxConfigured()) return KYC_NOT_CONFIGURED();

@@ -6,10 +6,12 @@ import { NextResponse } from 'next/server';
 
 import { requireUser } from '@/lib/server/auth';
 import { fastag, ulipConfigured, vahan } from '@/lib/server/ulip';
+import { ipLimited, tooMany } from '@/lib/server/sign';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
+  if (ipLimited(request, 'vehicle', 10)) return tooMany();
   if (!(await requireUser(request))) return NextResponse.json({ error: 'Sign in to track vehicles.' }, { status: 401 });
   if (!ulipConfigured()) {
     return NextResponse.json(

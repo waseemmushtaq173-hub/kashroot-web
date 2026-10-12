@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server';
 
 import { fetchMandiPrices, MandiError } from '@/lib/server/mandi';
+import { ipLimited, tooMany } from '@/lib/server/sign';
 
 // data.gov.in can take a while; allow for one slow attempt plus a retry.
 export const maxDuration = 60;
@@ -21,6 +22,7 @@ const WHY: Record<MandiError['kind'], string> = {
 };
 
 export async function GET(request: Request) {
+  if (ipLimited(request, 'mandi', 30)) return tooMany();
   const q = new URL(request.url).searchParams;
   const pick = (k: string) => q.get(k)?.slice(0, 80) || undefined;
   try {

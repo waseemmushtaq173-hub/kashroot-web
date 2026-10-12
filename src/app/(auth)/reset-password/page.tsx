@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { CheckCircle2, Eye, EyeOff, KeyRound, Loader2 } from 'lucide-react';
 
 import { supabase } from '@/lib/supabase';
+import { weakPassword } from '@/lib/auth/passwordRules';
 
 export default function ResetPasswordPage() {
   const [ready, setReady] = useState<'checking' | 'ok' | 'invalid'>('checking');
@@ -32,11 +33,11 @@ export default function ResetPasswordPage() {
     };
   }, []);
 
-  const strong = password.length >= 8 && /[a-z]/.test(password) && /[A-Z]/.test(password) && /\d/.test(password);
+  const strong = password.length >= 8 && /[a-z]/.test(password) && /[A-Z]/.test(password) && /\d/.test(password) && !weakPassword(password);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!strong) return setError('Use at least 8 characters with upper- and lowercase letters and a number.');
+    if (!strong) return setError(weakPassword(password) ?? 'Use at least 8 characters with upper- and lowercase letters and a number.');
     if (password !== confirm) return setError('The two passwords do not match.');
     setBusy(true);
     setError(null);

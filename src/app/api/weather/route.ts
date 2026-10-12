@@ -8,10 +8,12 @@
 import { NextResponse } from 'next/server';
 
 import { forecast, geocode, type Place } from '@/lib/server/weather';
+import { ipLimited, tooMany } from '@/lib/server/sign';
 
 export const maxDuration = 30;
 
 export async function GET(request: Request) {
+  if (ipLimited(request, 'weather', 60)) return tooMany();
   const q = new URL(request.url).searchParams;
   try {
     const search = q.get('search')?.trim();

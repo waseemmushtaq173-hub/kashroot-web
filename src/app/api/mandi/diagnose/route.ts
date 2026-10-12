@@ -7,11 +7,13 @@ import { NextResponse } from 'next/server';
 
 import { diagnoseAgmarknet } from '@/lib/server/agmarknet';
 import { fetchMandiPrices } from '@/lib/server/mandi';
+import { ipLimited, tooMany } from '@/lib/server/sign';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 export async function GET(request: Request) {
+  if (ipLimited(request, 'mandi-diagnose', 5)) return tooMany();
   const q = new URL(request.url).searchParams;
   const commodity = q.get('commodity')?.slice(0, 40) || 'Apple';
   const state = q.get('state')?.slice(0, 40) || 'Jammu and Kashmir';

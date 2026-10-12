@@ -11,6 +11,7 @@
 import { NextResponse } from 'next/server';
 
 import { IFSC_PATTERN } from '@/lib/kyc/validators';
+import { ipLimited, tooMany } from '@/lib/server/sign';
 
 const UPSTREAM = 'https://ifsc.razorpay.com';
 
@@ -24,6 +25,7 @@ interface RazorpayIfsc {
 }
 
 export async function GET(request: Request) {
+  if (ipLimited(request, 'ifsc', 20)) return tooMany();
   const code = (new URL(request.url).searchParams.get('code') ?? '').trim().toUpperCase();
   if (!IFSC_PATTERN.test(code)) {
     return NextResponse.json({ message: 'Malformed IFSC code' }, { status: 400 });
