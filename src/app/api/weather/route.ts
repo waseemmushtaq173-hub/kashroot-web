@@ -1,8 +1,9 @@
 /**
  * GET /api/weather?q=<place>          → forecast for the best match
  * GET /api/weather?lat=&lng=&name=     → forecast for coordinates
- * GET /api/weather?search=<text>       → matching places only
- * Data: Open-Meteo (CC BY 4.0).
+ * GET /api/weather?search=<text>       → matching places only (&deep=1 when the
+ *                                       person pressed Find: adds Nominatim)
+ * Data: Open-Meteo (CC BY 4.0); places also from OpenStreetMap (ODbL).
  */
 import { NextResponse } from 'next/server';
 
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
   const q = new URL(request.url).searchParams;
   try {
     const search = q.get('search')?.trim();
-    if (search) return NextResponse.json({ places: await geocode(search.slice(0, 60)) });
+    if (search) return NextResponse.json({ places: await geocode(search.slice(0, 80), { deep: q.get('deep') === '1' }) });
 
     let place: Place | undefined;
     const lat = Number(q.get('lat'));
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
       place = { name: q.get('name')?.slice(0, 60) || 'Your location', admin: '', country: 'India', lat, lng };
     } else {
       const name = (q.get('q') || q.get('district') || 'Srinagar').slice(0, 60);
-      place = (await geocode(name))[0];
+      place = (await geocode(name, { deep: true }))[0];
       if (!place) return NextResponse.json({ error: `No place called “${name}” was found.` }, { status: 404 });
     }
     return NextResponse.json(await forecast(place), { headers: { 'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=1200' } });

@@ -17,7 +17,7 @@ export function Emblem({ title, tile = true, ...props }: SVGProps<SVGSVGElement>
   const id = useId().replace(/[^a-zA-Z0-9]/g, '');
   const u = (name: string) => `${name}-${id}`;
   return (
-    <svg viewBox="0 0 120 120" role={title ? 'img' : undefined} aria-hidden={title ? undefined : true} aria-label={title} {...props}>
+    <svg viewBox="0 0 120 120" width={40} height={40} role={title ? 'img' : undefined} aria-hidden={title ? undefined : true} aria-label={title} {...props}>
       {title ? <title>{title}</title> : null}
       <defs>
         <linearGradient id={u('wood')} x1="0" y1="0" x2="1" y2="1">

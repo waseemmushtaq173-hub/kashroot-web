@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Admin → Approvals: agronomists, dealers and mandi reporters who applied (role_requests)
+ * Admin → Approvals: agronomists, dealers and Mandi Helpers who applied (role_requests)
  * with their workplace, licence number and ID photo — the admin phones them
  * and ticks "I phoned" before Approve works —
  * everyone holding a staff role (staff_roles), and farmers' reports of
@@ -36,7 +36,7 @@ interface RoleRequest {
 const ROLE_LOOK: Record<RoleRequest['role'], { label: string; tone: 'violet' | 'red' | 'green'; icon: LucideIcon; colour: string }> = {
   EXPERT: { label: 'Agronomist', tone: 'violet', icon: GraduationCap, colour: 'text-purple-700' },
   DEALER: { label: 'Dealer', tone: 'red', icon: Store, colour: 'text-rose-700' },
-  REPORTER: { label: 'Mandi reporter', tone: 'green', icon: Megaphone, colour: 'text-emerald-700' },
+  REPORTER: { label: 'Mandi Helper', tone: 'green', icon: Megaphone, colour: 'text-emerald-700' },
 };
 
 interface StaffRole {
@@ -112,7 +112,7 @@ export function ApprovalsPanel() {
         {error ? (
           <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800">{error}</p>
         ) : pending.length === 0 ? (
-          <EmptyState theme={theme} icon={ShieldCheck} title="Nobody waiting" text="Agronomists apply from the Advisory portal, dealers from the Agro-dealer portal, mandi reporters from Mandi & Weather. Their applications appear here." />
+          <EmptyState theme={theme} icon={ShieldCheck} title="Nobody waiting" text="Agronomists apply from the Advisory portal, dealers from the Agro-dealer portal, Mandi Helpers from Mandi & Weather. Their applications appear here." />
         ) : (
           <ul className="space-y-3">
             {pending.map((r) => (

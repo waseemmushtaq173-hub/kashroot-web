@@ -54,7 +54,7 @@ export const PORTALS: Record<PortalId, PortalInfo> = {
   tracking: { label: 'Tracking', requiredRole: null, home: '/tracking/dashboard', segment: 'tracking', tagline: 'Find any consignment' },
   dealer: { label: 'Agro-dealer', requiredRole: null, home: '/dealer/dashboard', segment: 'dealer', tagline: 'Batch-coded inputs & compliance' },
   expert: { label: 'Advisory', requiredRole: null, home: '/expert', segment: 'expert', tagline: 'Ask agronomists, soil tests' },
-  trader: { label: 'Mandi traders', requiredRole: null, home: '/trader/dashboard', segment: 'trader', tagline: 'Post daily mandi rates' },
+  trader: { label: 'Mandi Helpers', requiredRole: null, home: '/trader/dashboard', segment: 'trader', tagline: 'Post daily mandi rates for farmers' },
   admin: { label: 'Admin', requiredRole: 'ADMIN', home: '/admin/dashboard', segment: 'admin', tagline: 'KYC, disputes & analytics' },
 };
 

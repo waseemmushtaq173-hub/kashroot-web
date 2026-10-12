@@ -22,6 +22,9 @@ export function DriverShare({ token }: { token: string }) {
   const [now, setNow] = useState(0);
   const watch = useRef<number | null>(null);
   const lastPing = useRef(0);
+  // When the first GPS reading came in, to stop waiting for a precise fix forever.
+  const firstFix = useRef(0);
+  const [accuracy, setAccuracy] = useState<number | null>(null);
   const wake = useRef<WakeLock | null>(null);
 
   useEffect(() => {
@@ -49,6 +52,7 @@ export function DriverShare({ token }: { token: string }) {
 
   const stop = useCallback(() => {
     if (watch.current != null) navigator.geolocation.clearWatch(watch.current);
+    firstFix.current = 0;
     watch.current = null;
     void wake.current?.release().catch(() => undefined);
     wake.current = null;
@@ -73,6 +77,13 @@ export function DriverShare({ token }: { token: string }) {
     void keepAwake();
     watch.current = navigator.geolocation.watchPosition(
       async (pos) => {
+        setAccuracy(Math.round(pos.coords.accuracy));
+        if (!firstFix.current) firstFix.current = Date.now();
+        // A rough fix (mobile towers, ±1 km) would put the truck in the wrong village.
+        // Send only GPS-precise readings (±100 m); after 2 minutes without one, send the
+        // best available (±1 km) so the buyer still sees roughly where it is.
+        const waitedLong = Date.now() - Math.max(firstFix.current, lastPing.current) > 120_000;
+        if (pos.coords.accuracy > 100 && !(waitedLong && pos.coords.accuracy <= 1000)) return;
         if (Date.now() - lastPing.current < 45_000) return;
         lastPing.current = Date.now();
         try {
@@ -131,6 +142,11 @@ export function DriverShare({ token }: { token: string }) {
             <MapPin className="mx-auto h-10 w-10 animate-pulse" aria-hidden />
             <p className="mt-2 text-xl font-bold">Sharing your location</p>
             <p className="mt-1 text-emerald-50">{secs === null ? 'Getting GPS…' : `Last sent ${secs < 60 ? `${secs} s` : `${Math.round(secs / 60)} min`} ago`}</p>
+            {accuracy !== null && (
+              <p className="mt-1 text-sm text-emerald-50">
+                GPS accuracy ±{accuracy} m{accuracy > 100 ? ' — waiting for a better signal (stand in the open)' : ''}
+              </p>
+            )}
           </div>
           <p className="rounded-2xl bg-amber-50 p-4 text-amber-950 ring-1 ring-amber-200">
             Keep this page open. · यह पेज खुला रखें। · یہ صفحہ کھلا رکھیں۔

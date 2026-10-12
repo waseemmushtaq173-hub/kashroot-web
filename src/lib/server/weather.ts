@@ -5,13 +5,9 @@
  */
 import 'server-only';
 
-export interface Place {
-  name: string;
-  admin: string;
-  country: string;
-  lat: number;
-  lng: number;
-}
+import type { Place } from '@/lib/server/places';
+
+export { geocode, type Place } from '@/lib/server/places';
 
 export interface Forecast {
   place: Place;
@@ -27,21 +23,6 @@ function host(sub: 'api' | 'geocoding-api') {
   const key = process.env.OPEN_METEO_API_KEY?.trim();
   if (key && sub === 'api') return { base: 'https://customer-api.open-meteo.com', key };
   return { base: `https://${sub}.open-meteo.com`, key: undefined };
-}
-
-export async function geocode(name: string): Promise<Place[]> {
-  const url = new URL('https://geocoding-api.open-meteo.com/v1/search');
-  url.search = new URLSearchParams({ name, count: '8', language: 'en', format: 'json', countryCode: 'IN' }).toString();
-  const res = await fetch(url, { next: { revalidate: 86_400 }, signal: AbortSignal.timeout(15_000) });
-  if (!res.ok) throw new Error(`Geocoding answered ${res.status}`);
-  const json = (await res.json()) as { results?: { name: string; admin1?: string; admin2?: string; country?: string; latitude: number; longitude: number }[] };
-  return (json.results ?? []).map((r) => ({
-    name: r.name,
-    admin: [r.admin2, r.admin1].filter(Boolean).join(', '),
-    country: r.country ?? 'India',
-    lat: r.latitude,
-    lng: r.longitude,
-  }));
 }
 
 export async function forecast(place: Place): Promise<Forecast> {

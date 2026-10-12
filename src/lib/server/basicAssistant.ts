@@ -2,7 +2,7 @@
  * The assistant's free "basic mode", used when no AI key is set: typed or
  * spoken questions in English, Hindi, Urdu or Kashmiri are matched by
  * keywords and answered from live data or fixed how-to answers —
- *   • mandi prices  → rates posted on KashRoot by approved mandi reporters,
+ *   • mandi prices  → rates posted on KashRoot by approved Mandi Helpers,
  *                     then Agmarknet / data.gov.in (fetchMandiPrices)
  *   • weather/spray → Open-Meteo, with today's dry hours for spraying
  *   • how to …      → where to go on KashRoot and which button to press
@@ -28,7 +28,7 @@ export interface BasicAnswer {
 export interface BasicDeps {
   prices: (q: MandiQuery) => Promise<{ records: MandiRecord[] }>;
   weather: (place: string) => Promise<Forecast | null>;
-  /** Rates posted on KashRoot by mandi reporters, for one crop. */
+  /** Rates posted on KashRoot by Mandi Helpers, for one crop. */
   posted?: (crop: string) => Promise<PostedRate[]>;
 }
 
@@ -36,7 +36,7 @@ const defaultDeps: BasicDeps = {
   prices: fetchMandiPrices,
   posted: (crop) => postedRates(crop),
   weather: async (name) => {
-    const place = (await geocode(name))[0];
+    const place = (await geocode(name, { deep: true }))[0];
     return place ? forecast(place) : null;
   },
 };
@@ -218,7 +218,7 @@ function postedAnswer(lang: Lang, crop: Crop, place: Place | undefined, rates: P
       ur: `${crop.label.ur} کے منڈی بھاؤ${missed ? ` (${place!.label.ur} سے کوئی بھاؤ نہیں آیا؛ دوسری منڈیاں)` : ''}: `,
     }[l];
     const tail = {
-      en: '. Posted on KashRoot by approved mandi reporters.',
+      en: '. Posted on KashRoot by approved Mandi Helpers.',
       hi: '। ये भाव KashRoot के मंज़ूर मंडी रिपोर्टरों ने भेजे हैं।',
       ur: '۔ یہ بھاؤ KashRoot کے منظور شدہ منڈی رپورٹروں نے بھیجے ہیں۔',
     }[l];

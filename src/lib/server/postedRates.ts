@@ -1,5 +1,5 @@
 /**
- * Daily mandi rates posted on KashRoot by approved mandi reporters
+ * Daily mandi rates posted on KashRoot by approved Mandi Helpers
  * (mandi_rates), read on the server for the assistant. The table is public
  * to read, so the anon key is enough. Server-only.
  */

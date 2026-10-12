@@ -133,7 +133,10 @@ function merge(lists: Place[][]): Place[] {
   const out: Place[] = [];
   for (const p of lists.flat()) {
     if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng)) continue;
-    const near = (d: number) => out.find((o) => Math.abs(o.lat - p.lat) < d && Math.abs(o.lng - p.lng) < d && o.name.toLowerCase().split(' ')[0] === p.name.toLowerCase().split(' ')[0]);
+    const first = (x: Place) => x.name.toLowerCase().split(' ')[0];
+    // Same name, or one name inside the other ("Zainapora" and "CHC Zainapora").
+    const same = (o: Place) => first(o) === first(p) || o.name.toLowerCase().includes(first(p)) || p.name.toLowerCase().includes(first(o));
+    const near = (d: number) => out.find((o) => Math.abs(o.lat - p.lat) < d && Math.abs(o.lng - p.lng) < d && same(o));
     // The same name within ~1.5 km is the same place; a town and its district share a name within ~10 km.
     const dup = near(0.015) ?? (p.name.toLowerCase() === p.admin.toLowerCase().split(',')[0]?.trim() ? near(0.1) : undefined);
     if (!dup) out.push(p);
@@ -217,7 +220,7 @@ export async function geocode(input: string, { deep = false }: { deep?: boolean 
 
 /** Places spelt differently from what was typed ("chitragam" → Chatrugam) are marked, so nobody picks the wrong village by mistake. */
 function withLookAlikeNote(places: Place[], typed: string[]): Place[] {
-  return places.map((p) => (typed.some((w) => p.name.toLowerCase().includes(w)) ? p : { ...p, note: p.note ?? `Spelt differently from “${typed.join(' ')}” — check it is your area (${p.admin || p.name}) before choosing.` }));
+  return places.map((p) => (typed.some((w) => p.name.toLowerCase().includes(w.slice(0, 4))) ? p : { ...p, note: p.note ?? `Spelt differently from “${typed.join(' ')}” — check it is your area (${p.admin || p.name}) before choosing.` }));
 }
 
 /** "Chitragam, Shopian, Jammu and Kashmir" for a GPS point, or null. */

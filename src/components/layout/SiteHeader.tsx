@@ -28,7 +28,7 @@ const MENU_ITEMS = [
   ...PUBLIC_PORTAL_IDS.map((id) => ({ title: `${PORTALS[id].label} portal`, href: PORTALS[id].home, desc: PORTALS[id].tagline })),
   { title: 'Orchard Health', href: '/orchard-health', desc: 'Risk map, diagnosis & spray logs' },
   { title: 'Season Planner', href: '/season-planner', desc: 'Calendar & ROI calculator' },
-  { title: 'Traceability', href: '/traceability', desc: 'Origin, cold chain & grades' },
+  { title: 'Track a load', href: '/track', desc: 'Live position from the driver’s phone' },
 ];
 
 /** The menu, with the Admin portal added only on an admin's own device. */
@@ -40,7 +40,7 @@ function useMenuItems() {
 /** Public pages and tools, for the phone menu (the bar has no room for them). */
 const EXPLORE_ITEMS = [
   { title: 'Produce marketplace', href: '/buyer/discover' },
-  { title: 'Supplies', href: '/supplies' },
+  { title: 'Supplies', href: '/compare-prices?category=supplies' },
   { title: 'Compare prices', href: '/compare-prices' },
   { title: 'Mandi rates & weather', href: '/mandi-weather' },
   { title: 'Pay after delivery', href: '/escrow' },
@@ -232,7 +232,7 @@ export function SiteHeader({
           <Link href="/buyer/discover" className={navLink}>
             Produce
           </Link>
-          <Link href="/supplies" className={navLink}>
+          <Link href="/compare-prices?category=supplies" className={navLink}>
             Supplies
           </Link>
           <Link href="/compare-prices" className={navLink}>
@@ -289,7 +289,7 @@ export function SiteFooter({ tone = 'dark' }: { tone?: SiteTone }) {
           <Link href="/buyer/discover" className={footLink}>
             Produce marketplace
           </Link>
-          <Link href="/supplies" className={footLink}>
+          <Link href="/compare-prices?category=supplies" className={footLink}>
             Horticulture supplies
           </Link>
           <Link href="/farmer/dashboard" className={footLink}>

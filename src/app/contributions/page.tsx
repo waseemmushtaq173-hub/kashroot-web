@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * My work & pay — for mandi reporters and agronomists: every rate posted and
+ * My work & pay — for Mandi Helpers and agronomists: every rate posted and
  * every farmer answered, whether it was accepted (confirmed rate, or the
  * farmer said it helped), what KashRoot pays per accepted contribution, what
  * is owed and what was paid, and where KashRoot should pay.
@@ -75,14 +75,14 @@ export default function ContributionsPage() {
         <p className="flex items-center gap-2 p-6 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>
       ) : account === null ? (
         <Panel theme={theme}>
-          <EmptyState theme={theme} icon={Wallet} title="Sign in to see your work" text="Mandi reporters and agronomists see their contributions and payments here." action={<Btn theme={theme} href={loginHref('farmer', '/contributions')}>Sign in</Btn>} />
+          <EmptyState theme={theme} icon={Wallet} title="Sign in to see your work" text="Mandi Helpers and agronomists see their contributions and payments here." action={<Btn theme={theme} href={loginHref('farmer', '/contributions')}>Sign in</Btn>} />
         </Panel>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
           <div className="space-y-6">
             {!isStaff && (
               <p className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900 ring-1 ring-amber-200">
-                You are not a mandi reporter or agronomist yet. Apply on <Link href="/mandi-weather" className="font-semibold underline">Mandi &amp; Weather</Link> (“Post rates for your mandi”) or in the <Link href="/expert?tab=library" className="font-semibold underline">Advisory portal</Link> (“Are you an agronomist?”).
+                You are not a Mandi Helper or agronomist yet. Apply on <Link href="/mandi-weather" className="font-semibold underline">Mandi &amp; Weather</Link> (“Post rates for your mandi”) or in the <Link href="/expert?tab=library" className="font-semibold underline">Advisory portal</Link> (“Are you an agronomist?”).
               </p>
             )}
             <Panel theme={theme} title="My contributions" icon={ListChecks}>

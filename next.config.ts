@@ -4,6 +4,13 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Styles go inside each page instead of a separate file. On slow village
+  // networks (or when a phone holds an old copy of a page) a separate style
+  // file can fail to arrive, and the page then shows as plain unstyled text.
+  // Inline styles always arrive with the page, and save a round trip on 2G/3G.
+  experimental: {
+    inlineCss: true,
+  },
   // Old pages that called a separate backend (never deployed) now point at
   // the shared marketplace that works.
   // Security headers on every response. The CSP part only blocks what
@@ -33,6 +40,34 @@ const nextConfig: NextConfig = {
       { source: '/buyer/checkout/:id', destination: '/compare-prices?category=produce', permanent: false },
       // The fertiliser tester is public now (no sign-in): one page for everyone.
       { source: '/farmer/tester', destination: '/supplies/tester', permanent: true },
+      // Old demonstration pages that showed made-up people, prices and records.
+      // Each now opens the real, working page for the same job.
+      ...[
+        ['/admin/analytics', '/admin/dashboard'],
+        ['/admin/trust-safety', '/admin/dashboard'],
+        ['/buyer-desk', '/buyer/dashboard'],
+        ['/cold-store', '/rental/dashboard'],
+        ['/consumer', '/compare-prices?category=produce'],
+        ['/cooperative-hub', '/farmer/dashboard'],
+        ['/expert-desk', '/expert'],
+        ['/learn', '/expert'],
+        ['/government-insights', '/mandi-weather'],
+        ['/price-intelligence', '/mandi-weather'],
+        ['/weather-alerts', '/mandi-weather'],
+        ['/input-authenticity', '/supplies/tester'],
+        ['/lender-view', '/'],
+        ['/saathi', '/'],
+        ['/sustainability', '/'],
+        ['/schemes', '/farmer/dashboard'],
+        ['/supplier-marketplace', '/compare-prices?category=supplies'],
+        ['/supplies', '/compare-prices?category=supplies'],
+        ['/supplies/hardware', '/compare-prices?category=supplies'],
+        ['/supplies/hardware/compare', '/compare-prices?category=supplies'],
+        ['/waste-market', '/compare-prices?category=produce'],
+        ['/services', '/rental/dashboard'],
+        ['/services/:id', '/rental/dashboard'],
+        ['/traceability', '/track'],
+      ].map(([source, destination]) => ({ source, destination, permanent: false })),
     ];
   },
 };

@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Applying to add information on KashRoot — as a mandi reporter or an
+ * Applying to add information on KashRoot — as a Mandi Helper or an
  * agronomist. Besides the phone number, the applicant gives their mandi or
  * workplace, a licence / registration number and a photo of a licence or ID
  * card. Only the KashRoot admin sees these; the admin also phones the

@@ -222,7 +222,7 @@ export const PORTAL_LOGIN: Record<PortalId, PortalLoginCopy> = {
   trader: {
     icon: Megaphone,
     mood: 'autumn',
-    eyebrow: 'Mandi traders',
+    eyebrow: 'Mandi Helpers',
     headline: 'Post today’s mandi rates',
     description: 'Commission agents and traders post each day’s rates for farmers. KashRoot checks who you are, and accurate rates are counted as your paid work.',
     highlights: ['Post rates for your mandi in a minute', 'Rates checked by other traders and farmers', 'Accurate rates earn you payment'],

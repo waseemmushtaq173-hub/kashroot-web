@@ -2,8 +2,9 @@
 
 /**
  * Live position of a consignment from its driver's phone (kr_track),
- * refreshed every 30 seconds: status, last seen, a map of the trail, and a
- * button to call the driver.
+ * refreshed every 30 seconds: status, last seen, the village or town it is
+ * near (OpenStreetMap), roughly how far is left to the destination, a map of
+ * the trail, and a button to call the driver.
  */
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
@@ -20,11 +21,50 @@ const RouteMap = dynamic(() => import('@/components/tracking/RouteMap'), {
 
 const TONE = { booked: 'amber', in_transit: 'blue', delivered: 'green', cancelled: 'slate' } as const;
 
+/** Straight-line distance in km. */
+function km(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  const r = (d: number) => (d * Math.PI) / 180;
+  const h = Math.sin(r(b.lat - a.lat) / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(r(b.lng - a.lng) / 2) ** 2;
+  return 6371 * 2 * Math.asin(Math.sqrt(h));
+}
+
+/** The village/town at the truck's last position, and the destination's coordinates. */
+function usePlaces(lat: number | null | undefined, lng: number | null | undefined, destination: string | undefined) {
+  const [near, setNear] = useState<string | null>(null);
+  const [dest, setDest] = useState<{ name: string; admin: string; lat: number; lng: number } | null>(null);
+  const key = lat != null && lng != null ? `${lat.toFixed(3)},${lng.toFixed(3)}` : '';
+  useEffect(() => {
+    if (!key) return;
+    let live = true;
+    const [la, ln] = key.split(',');
+    fetch(`/api/place?lat=${la}&lng=${ln}`)
+      .then((r) => r.json())
+      .then((j: { name?: string | null }) => live && setNear(j.name ?? null))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [key]);
+  useEffect(() => {
+    if (!destination) return;
+    let live = true;
+    fetch(`/api/weather?search=${encodeURIComponent(destination)}&deep=1`)
+      .then((r) => r.json())
+      .then((j: { places?: { name: string; admin: string; lat: number; lng: number }[] }) => live && setDest(j.places?.[0] ?? null))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [destination]);
+  return { near, dest };
+}
+
 export function LiveTrack({ code }: { code: string }) {
   const [data, setData] = useState<Tracked | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   // When the data was last fetched — used to tell if the driver went quiet.
   const [checkedAt, setCheckedAt] = useState(0);
+  const { near, dest } = usePlaces(data?.last_lat, data?.last_lng, data?.destination);
 
   useEffect(() => {
     let live = true;
@@ -70,6 +110,16 @@ export function LiveTrack({ code }: { code: string }) {
           <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-700">
             <Clock className="h-4 w-4" aria-hidden /> {data.last_seen ? `Last position ${ago(data.last_seen)}${data.last_accuracy ? ` (±${Math.round(data.last_accuracy)} m)` : ''}` : 'The driver has not started sharing location yet.'}
           </p>
+          {data.last_seen && near && data.status !== 'delivered' && (
+            <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-slate-900">
+              <MapPinned className="h-4 w-4 text-cyan-700" aria-hidden /> Near {near}
+            </p>
+          )}
+          {data.last_lat != null && data.last_lng != null && dest && data.status === 'in_transit' && (
+            <p className="mt-1 text-sm text-slate-700">
+              About {Math.round(km({ lat: data.last_lat, lng: data.last_lng }, dest))} km left to {dest.name}{dest.admin ? ` (${dest.admin.split(',').slice(-2).join(',').trim()})` : ''}, in a straight line — the road is longer.
+            </p>
+          )}
           {stale && <p className="mt-1 text-sm text-amber-800">No update for over 30 minutes — the driver’s phone may be off or out of network.</p>}
         </div>
         {/^[6-9]\d{9}$/.test(phone) && (

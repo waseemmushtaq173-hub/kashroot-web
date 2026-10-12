@@ -50,6 +50,7 @@ interface Place {
   admin: string;
   lat: number;
   lng: number;
+  note?: string;
 }
 interface Forecast {
   place: Place;
@@ -228,7 +229,7 @@ export default function MandiWeatherPage() {
     return { avg: modal.reduce((s, n) => s + n, 0) / modal.length, hi, lo, latest };
   }, [rows]);
 
-  // Rates posted by KashRoot's approved mandi reporters: the headline numbers
+  // Rates posted by KashRoot's approved Mandi Helpers: the headline numbers
   // fall back to these while the government feeds block automatic access.
   const postedQ = useQuery({ queryKey: ['posted-rates'], queryFn: () => recentRates(), staleTime: 5 * 60_000 });
   const posted = useMemo(() => {
@@ -257,7 +258,7 @@ export default function MandiWeatherPage() {
           : { label: `${applied.commodity || 'All'} — mandi average`, value: `${inr.format(posted.avgKg * (unit === 'kg' ? 1 : 100))}`, trend: `per ${unit} · ${posted.count} rate${posted.count === 1 ? '' : 's'} from ${posted.mandis} mandi${posted.mandis === 1 ? '' : 's'} on KashRoot` },
         stats || !posted
           ? { label: 'Latest arrival date', value: stats ? dayName(stats.latest) : '—', trend: stats ? (daysOld(stats.latest) === 0 ? 'Reported today' : `${daysOld(stats.latest)} day(s) ago`) : 'Agmarknet' }
-          : { label: 'Latest rate posted', value: dayName(posted.latest), trend: daysOld(posted.latest) === 0 ? 'Posted today by mandi reporters' : `${daysOld(posted.latest)} day(s) ago` },
+          : { label: 'Latest rate posted', value: dayName(posted.latest), trend: daysOld(posted.latest) === 0 ? 'Posted today by Mandi Helpers' : `${daysOld(posted.latest)} day(s) ago` },
       ]}
     >
       {/* ── Weather ───────────────────────────────────────── */}
@@ -290,6 +291,7 @@ export default function MandiWeatherPage() {
                       <MapPin className="h-4 w-4 text-sky-600" aria-hidden />
                       <span className="font-medium text-slate-900">{p.name}</span>
                       <span className="truncate text-slate-500">{p.admin}</span>
+                      {p.note && <span className="sr-only">{p.note}</span>}
                     </button>
                   </li>
                 ))}
@@ -369,7 +371,7 @@ export default function MandiWeatherPage() {
         )}
       </Panel>
 
-      {/* ── Rates posted by approved mandi reporters ───────── */}
+      {/* ── Rates posted by approved Mandi Helpers ───────── */}
       <div className="mt-6">
         <PostedRates theme={theme} commodity={applied.commodity} />
       </div>

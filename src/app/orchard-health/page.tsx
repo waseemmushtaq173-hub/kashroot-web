@@ -392,7 +392,7 @@ function OrchardHealth() {
 
 function BlockModal({ value: v, onChange, onClose, onSave, onDelete }: { value: Omit<Block, 'id'> & { id?: string }; onChange: (v: Omit<Block, 'id'> & { id?: string }) => void; onClose: () => void; onSave: () => void; onDelete?: () => void }) {
   const [query, setQuery] = useState('');
-  const [places, setPlaces] = useState<{ name: string; admin: string; lat: number; lng: number }[]>([]);
+  const [places, setPlaces] = useState<{ name: string; admin: string; lat: number; lng: number; note?: string }[]>([]);
   const [busy, setBusy] = useState(false);
 
   const useGps = () => {
@@ -416,12 +416,13 @@ function BlockModal({ value: v, onChange, onClose, onSave, onDelete }: { value: 
     if (query.trim().length < 2) return;
     setBusy(true);
     try {
-      const res = await fetch(`/api/weather?search=${encodeURIComponent(query.trim())}`);
+      const res = await fetch(`/api/weather?search=${encodeURIComponent(query.trim())}&deep=1`);
       const data = await res.json();
+      if (!res.ok) throw new Error('down');
       setPlaces(data.places ?? []);
-      if (!data.places?.length) toast.error('No place found — try the nearest town.');
+      if (!data.places?.length) toast.error('No place found with that name. Check the spelling, try the nearest town, or press “Use my location” while standing in the orchard.');
     } catch {
-      toast.error('Search failed — check your internet.');
+      toast.error('The map search did not answer — check your internet, or press “Use my location”.');
     } finally {
       setBusy(false);
     }
@@ -462,8 +463,9 @@ function BlockModal({ value: v, onChange, onClose, onSave, onDelete }: { value: 
             <ul className="mt-2 max-h-40 overflow-y-auto rounded-xl ring-1 ring-slate-200">
               {places.map((p) => (
                 <li key={`${p.lat},${p.lng}`}>
-                  <button type="button" className="w-full cursor-pointer px-3 py-2 text-left text-sm hover:bg-emerald-50" onClick={() => { onChange({ ...v, lat: p.lat, lng: p.lng, place: `${p.name}${p.admin ? `, ${p.admin}` : ''}` }); setPlaces([]); }}>
+                  <button type="button" className="w-full cursor-pointer px-3 py-2 text-left text-sm hover:bg-emerald-50" onClick={() => { onChange({ ...v, lat: p.lat, lng: p.lng, place: p.note ? `${query.trim()} (near ${p.name})` : `${p.name}${p.admin ? `, ${p.admin}` : ''}` }); setPlaces([]); }}>
                     {p.name} <span className="text-slate-500">{p.admin}</span>
+                    {p.note && <span className="mt-0.5 block text-xs text-amber-800">{p.note}</span>}
                   </button>
                 </li>
               ))}

@@ -11,7 +11,7 @@
  *   → { reply, lang, speech? }  (speech: the reply in Devanagari, for a Hindi voice)
  *
  * Prices and weather are never answered from memory: Claude calls the tools,
- * which read rates posted by KashRoot's approved mandi reporters, Agmarknet
+ * which read rates posted by KashRoot's approved Mandi Helpers, Agmarknet
  * and Open-Meteo data. It also knows how KashRoot
  * is laid out, so it can walk someone who cannot read through the site.
  */
@@ -38,7 +38,7 @@ For crop care, give safe, widely accepted practice for orchards in the region, t
 
 You also guide people around the KashRoot website. Name buttons and tabs exactly as written. The site has:
 - Home page: voice assistant (this), live mandi rates and weather, Orchard Health, fertiliser check, and a card for every portal. On phones, the Menu button at the top right opens everything.
-- Mandi & Weather page: "Today’s rates from the mandis" — daily rates posted by approved mandi reporters (traders and commission agents at the mandi), with who posted and when. A trader signs in and presses "Post rates for your mandi" to apply; once KashRoot approves, "Post today’s rate" appears.
+- Mandi & Weather page: "Today’s rates from the mandis" — daily rates posted by approved Mandi Helpers (traders and commission agents at the mandi), with who posted and when. A trader signs in and presses "Post rates for your mandi" to apply; once KashRoot approves, "Post today’s rate" appears.
 - Farmer portal: press List produce, choose the crop, write the price and how many boxes, then Save; buyers see it on Price Comparison. Orders tab: Accept, then Mark shipped, then Money received once the buyer pays. Payouts tab: the farmer's UPI ID or bank account, where buyers pay.
 - Price Comparison (also Buyer portal): compare farm inputs or fruit and produce, cheapest first; press Order, give quantity and address. Pay after delivery: nothing is paid up front; when the goods arrive the buyer presses I received the goods in My orders and pays the seller directly from a UPI app, then types the payment number. KashRoot does not hold money. Seller portal: Add product, accept and ship orders, Payouts for UPI or bank details.
 - Rental portal: Cold storage tab shows cold stores with free boxes; press Book, choose boxes and months, then pay the owner by UPI and enter the payment number. My cold store tab is for owners to list their store and confirm bookings. Machinery tab for tractors and sprayers.
@@ -55,7 +55,7 @@ const TOOLS: Anthropic.Beta.BetaTool[] = [
   {
     name: 'get_mandi_prices',
     description:
-      'Mandi (wholesale market) prices for one commodity, optionally narrowed to an Indian state, district or market. Returns two sources: "posted_on_kashroot" — the latest rates posted on KashRoot in the last 4 days by approved mandi reporters (traders and commission agents at the mandi), each with its unit (box, kg or quintal), box weight, min/modal/max price, date and reporter; and "agmarknet" — the Government of India feed in INR per quintal, which is often unavailable. Prefer posted_on_kashroot, say which source and date each rate is from, and never guess a rate. Use for any question about crop rates or market prices.',
+      'Mandi (wholesale market) prices for one commodity, optionally narrowed to an Indian state, district or market. Returns two sources: "posted_on_kashroot" — the latest rates posted on KashRoot in the last 4 days by approved Mandi Helpers (traders and commission agents at the mandi), each with its unit (box, kg or quintal), box weight, min/modal/max price, date and reporter; and "agmarknet" — the Government of India feed in INR per quintal, which is often unavailable. Prefer posted_on_kashroot, say which source and date each rate is from, and never guess a rate. Use for any question about crop rates or market prices.',
     input_schema: {
       type: 'object',
       properties: {
@@ -139,7 +139,7 @@ async function runTool(name: string, input: Record<string, unknown>): Promise<un
     if (name === 'get_weather') {
       const placeName = str(input.place);
       if (!placeName) return { result: 'BAD_INPUT', note: 'place is required' };
-      const place = (await withBudget(geocode(placeName)))[0];
+      const place = (await withBudget(geocode(placeName, { deep: true })))[0];
       if (!place) return { result: 'NO_DATA', note: `No place called ${placeName} was found.` };
       const f = await withBudget(forecast(place));
       return {

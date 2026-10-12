@@ -110,7 +110,7 @@ export async function setRequest(requestId: string, action: 'accept' | 'close' |
   if (error) fail(error, 'Could not update the request.');
 }
 
-/** Experts, dealers and mandi reporters apply; an admin approves (Admin portal → Approvals). */
+/** Experts, dealers and Mandi Helpers apply; an admin approves (Admin portal → Approvals). */
 export async function requestStaffRole(role: 'EXPERT' | 'DEALER' | 'REPORTER', input: { name: string; phone: string; email: string; details: string }): Promise<void> {
   const { error } = await supabase.rpc('kr_request_role', { p_role: role, p_name: input.name, p_phone: input.phone, p_email: input.email, p_details: input.details });
   if (error) fail(error, 'Could not send your application.');

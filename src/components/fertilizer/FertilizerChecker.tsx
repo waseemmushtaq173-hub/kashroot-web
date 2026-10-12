@@ -164,7 +164,30 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
           <p className="mt-3 text-xs text-slate-500">Standards: Fertiliser (Control) Order, 1985, Schedule I headline values. A state fertiliser quality control lab report is the legal test.</p>
         </div>
       )}
+      {!compact && <OfficialChecks />}
     </div>
+  );
+}
+
+/**
+ * What the law requires and where the Government checks a doubtful product.
+ * India publishes no batch-number database, and the pesticide registry
+ * (CIB&RC, ppqs.gov.in) refuses automatic access — so KashRoot cannot ask the
+ * Government about a batch for you; these are the official routes.
+ */
+function OfficialChecks() {
+  return (
+    <section aria-labelledby="official-checks" className="mt-6 rounded-2xl bg-sky-50/80 p-4 text-sm text-slate-800 ring-1 ring-sky-200">
+      <h3 id="official-checks" className="flex items-center gap-2 font-semibold text-sky-950"><ShieldCheck className="h-5 w-5" aria-hidden /> Official checks (Government of India rules)</h3>
+      <ul className="mt-2 list-disc space-y-1.5 pl-5">
+        <li><strong>Fertiliser bag</strong> (Fertiliser Control Order, 1985): must print the manufacturer’s name, the fertiliser and its grade, net weight, batch number, date of manufacture and the MRP.</li>
+        <li><strong>Pesticide bottle or packet</strong> (Insecticides Act, 1968): must print the CIB&amp;RC registration number, batch number, manufacturing and expiry dates, the antidote, and the coloured warning triangle (red = most poisonous, then yellow, blue, green).</li>
+        <li>Buy only from a <strong>licensed dealer</strong> and take a <strong>bill with the batch number</strong> — without it a complaint is hard to prove.</li>
+        <li>Doubtful product: keep the bag/bottle and bill, and tell your district <strong>Chief Agriculture Officer</strong> (fertilisers) or <strong>Chief Horticulture Officer</strong> (orchard sprays). Their inspector can take a sample to the Government quality-control lab — that test is the legal proof.</li>
+        <li>Free advice and complaints: <a href="tel:18001801551" className="font-semibold text-sky-800 underline">Kisan Call Centre 1800-180-1551</a> (Government of India, every day 6 am – 10 pm, Kashmiri, Urdu, Hindi).</li>
+      </ul>
+      <p className="mt-2 text-xs text-slate-500">KashRoot’s batch registry is filled by dealers KashRoot has verified; it is not a Government list.</p>
+    </section>
   );
 }
 

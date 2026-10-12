@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Admin → Contributors: the work of mandi reporters and agronomists.
+ * Admin → Contributors: the work of Mandi Helpers and agronomists.
  *   • Rates to check — rates someone reported wrong, then ones nobody has
  *     checked yet: Accurate / Wrong (final; wrong rates are hidden).
  *   • Answers to check — experts' answers the farmer has not confirmed,
@@ -162,7 +162,7 @@ export function ContributorsPanel() {
 
       <Panel theme={theme} title="Contributors" icon={Users}>
         {people.length === 0 ? (
-          <EmptyState theme={theme} icon={Users} title="No contributions yet" text="When reporters post rates and experts answer farmers, they appear here with what they are owed." />
+          <EmptyState theme={theme} icon={Users} title="No contributions yet" text="When Mandi Helpers post rates and experts answer farmers, they appear here with what they are owed." />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[860px] text-left text-sm">
@@ -182,7 +182,7 @@ export function ContributorsPanel() {
                 {people.map((p) => (
                   <tr key={p.user_id} className="bg-white/70">
                     <td className="px-3 py-2">
-                      <span className="font-semibold text-slate-900">{p.name}</span> {(p.roles ?? []).map((r) => <Badge key={r} tone={r === 'REPORTER' ? 'green' : r === 'EXPERT' ? 'violet' : 'blue'}>{r === 'REPORTER' ? 'Mandi reporter' : r === 'EXPERT' ? 'Agronomist' : r}</Badge>)}
+                      <span className="font-semibold text-slate-900">{p.name}</span> {(p.roles ?? []).map((r) => <Badge key={r} tone={r === 'REPORTER' ? 'green' : r === 'EXPERT' ? 'violet' : 'blue'}>{r === 'REPORTER' ? 'Mandi Helper' : r === 'EXPERT' ? 'Agronomist' : r}</Badge>)}
                       <span className="block text-xs text-slate-500">{p.phone ? <a href={`tel:+91${p.phone.replace(/\D/g, '').slice(-10)}`} className="text-sky-800">{p.phone}</a> : p.email} · active {ago(p.last_at)}</span>
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">{p.accepted}</td>

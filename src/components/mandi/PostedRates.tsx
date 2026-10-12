@@ -2,7 +2,7 @@
 
 /**
  * "Today's rates from the mandis": daily rates posted on KashRoot by approved
- * mandi reporters — traders, commission agents and staff at the mandi —
+ * Mandi Helpers — traders, commission agents and staff at the mandi —
  * grouped by mandi, latest first. Reporters post from here; anyone signed in
  * can apply to become one (with an ID photo; an admin phones them and
  * approves in Admin → Approvals). Anyone signed in can mark a rate Correct or
@@ -108,12 +108,12 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
       <Btn theme={theme} size="sm" icon={PlusCircle} onClick={() => setPosting(true)}>Post today’s rate</Btn>
     </div>
   ) : account ? (
-    request === 'pending' ? <Badge tone="amber">Reporter application waiting for approval</Badge> : <Btn theme={theme} size="sm" variant="soft" icon={UserPlus} onClick={() => setApplying(true)}>Post rates for your mandi</Btn>
+    request === 'pending' ? <Badge tone="amber">Helper application waiting for approval</Badge> : <Btn theme={theme} size="sm" variant="soft" icon={UserPlus} onClick={() => setApplying(true)}>Post rates for your mandi</Btn>
   ) : account === null ? (
     <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-semibold">
-      <span className="text-slate-600">Traders:</span>
+      <span className="text-slate-600">Mandi Helpers:</span>
       <Link href={loginHref('trader')} className="text-teal-800 underline">Sign in to post rates</Link>
-      <Link href={AUTH_ROUTES.register('trader')} className="text-teal-800 underline">Create a trader account</Link>
+      <Link href={AUTH_ROUTES.register('trader')} className="text-teal-800 underline">Become a Mandi Helper</Link>
     </span>
   ) : null;
 
@@ -125,7 +125,7 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
       ) : error ? (
         <p role="alert" className="text-sm text-rose-800">{error}</p>
       ) : byMandi.length === 0 ? (
-        <EmptyState theme={theme} icon={Megaphone} title="No rates posted yet" text="Approved mandi reporters post each day’s rates here. Are you at a mandi? Use “Post rates for your mandi” above." />
+        <EmptyState theme={theme} icon={Megaphone} title="No rates posted yet" text="Approved Mandi Helpers post each day’s rates here. Are you at a mandi? Use “Post rates for your mandi” above." />
       ) : (
         <>
           {wanted && !matching.length && <p className="mb-3 text-sm text-amber-800">No {commodity} rate posted in the last few days — showing all crops.</p>}
@@ -157,7 +157,7 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
                           <td className="px-4 py-2 text-right font-semibold tabular-nums text-slate-900">{rupees(r.modal_price)}</td>
                           <td className="px-4 py-2 text-right tabular-nums text-slate-600">{rupees(r.max_price)}</td>
                           <td className="px-4 py-2 text-xs text-slate-600">
-                            <span className="font-semibold text-slate-800">{when(r.rate_date)}</span> · <BadgeCheck className="inline h-3.5 w-3.5 text-emerald-600" aria-label="Approved reporter" /> {r.reporter_name}
+                            <span className="font-semibold text-slate-800">{when(r.rate_date)}</span> · <BadgeCheck className="inline h-3.5 w-3.5 text-emerald-600" aria-label="Approved Mandi Helper" /> {r.reporter_name}
                             {r.note && <span className="block text-slate-500">{r.note}</span>}
                             {account && (r.posted_by === account.id || account.staff.includes('ADMIN')) && (
                               <button type="button" onClick={() => { if (window.confirm('Remove this rate?')) void removeRate(r.id).then(load).catch((e: Error) => toast.error(e.message)); }} className="ms-1 inline-flex cursor-pointer items-center gap-1 text-rose-700 hover:underline">

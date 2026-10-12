@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Mandi traders portal — for commission agents, traders and mandi staff who
+ * Mandi Helpers portal — for commission agents, traders and mandi staff who
  * post each day's rates for farmers.
  *   Not yet approved: apply with mandi, work, licence number and an ID photo
  *   (an admin phones them and approves in Admin → Approvals).
@@ -50,12 +50,12 @@ export default function TraderDashboardPage() {
 
   return (
     <PortalShell
-      title={account?.name ? `Welcome, ${account.name.split(' ')[0]}` : 'Mandi traders'}
+      title={account?.name ? `Welcome, ${account.name.split(' ')[0]}` : 'Mandi Helpers'}
       description="Post each day’s rates from your mandi for farmers. Accurate rates are counted as your paid work."
-      eyebrow="Mandi traders"
+      eyebrow="Mandi Helpers"
       theme="trader"
       kpis={[
-        { label: 'Your status', value: status, trend: approved ? 'You can post rates' : 'KashRoot checks every reporter' },
+        { label: 'Your status', value: status, trend: approved ? 'You can post rates' : 'KashRoot checks every Helper' },
         { label: 'Rates posted', value: String(work.length), trend: 'All time' },
         { label: 'Confirmed', value: String(confirmed), trend: 'Counted for payment' },
       ]}
@@ -69,7 +69,7 @@ export default function TraderDashboardPage() {
         <div className="space-y-6">
           {!approved && (
             <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
-              <Panel theme={theme} title={request === 'pending' ? 'Your application' : 'Become a mandi reporter'} icon={ClipboardCheck}>
+              <Panel theme={theme} title={request === 'pending' ? 'Your application' : 'Become a Mandi Helper'} icon={ClipboardCheck}>
                 {request === undefined ? (
                   <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>
                 ) : request === 'pending' ? (
