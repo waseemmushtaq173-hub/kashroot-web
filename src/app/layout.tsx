@@ -32,7 +32,13 @@ export const metadata: Metadata = {
   verification: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ? { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION } : undefined,
 };
 
+// Every page looks the same on every phone, like the home page: laid out
+// 800px wide (cards side by side, as on a large screen) and shown whole,
+// scaled to fit the phone. Pinch-zoom still works. initialScale is cleared
+// (null) so the phone may zoom out to fit all 800px.
 export const viewport: Viewport = {
+  width: 800,
+  initialScale: null as unknown as number,
   themeColor: "#047857",
   // The design is light only. Without this, phones with "dark mode for web
   // pages" (Chrome, Samsung Internet, Mi browser) repaint every page dark and
