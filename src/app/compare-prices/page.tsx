@@ -151,7 +151,43 @@ function ComparePrices() {
           ) : data === null ? (
             <p className="flex items-center gap-2 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading prices…</p>
           ) : shown.length === 0 ? (
-            <EmptyState theme={theme} icon={Package} title={data.listings.length ? 'Nothing matches' : 'No products listed yet'} text={data.listings.length ? 'Try another type or search.' : 'Sellers and dealers can list their products with “Sell here”.'} />
+            data.listings.length ? (
+              <EmptyState
+                theme={theme}
+                icon={Package}
+                title="Nothing matches"
+                text={verifiedOnly && data.listings.some((l) => !data.verified.has(l.seller_id)) ? 'Some products are from sellers KashRoot has not verified yet. Untick “Verified sellers only” to see them too.' : 'Try another type, or clear the search.'}
+                action={
+                  <Btn theme={theme} variant="soft" onClick={() => { setSearch(''); setKind('All'); setVerifiedOnly(false); }}>
+                    Show everything
+                  </Btn>
+                }
+              />
+            ) : (
+              // The marketplace only shows real products listed by real people — nothing made up.
+              <EmptyState
+                theme={theme}
+                icon={Package}
+                title={category === 'produce' ? 'No fruit or produce listed yet' : 'No farm inputs or supplies listed yet'}
+                text={
+                  category === 'produce'
+                    ? 'KashRoot shows only real produce listed by growers — nothing made up. Be the first: list your apples, walnuts or cherries with your price, and buyers can order and pay you by UPI after delivery.'
+                    : 'KashRoot shows only real products listed by dealers and sellers — nothing made up. Dealers and shops: list your fertilisers, sprays, cartons and tools with your price.'
+                }
+                action={
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Btn theme={theme} icon={Store} onClick={() => setTab('sell')}>
+                      {category === 'produce' ? 'List my produce' : 'List my products'}
+                    </Btn>
+                    {category === 'produce' ? (
+                      <Btn theme={theme} variant="soft" href="/mandi-weather">See today’s mandi prices</Btn>
+                    ) : (
+                      <Btn theme={theme} variant="soft" href="/supplies/tester">Check a fertiliser is genuine</Btn>
+                    )}
+                  </div>
+                }
+              />
+            )
           ) : (
             <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {shown.map((l, i) => {
