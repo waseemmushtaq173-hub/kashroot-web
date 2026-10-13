@@ -27,7 +27,7 @@ export async function GET(request: Request) {
     } else {
       const name = (q.get('q') || q.get('district') || 'Srinagar').slice(0, 60);
       place = (await geocode(name, { deep: true }))[0];
-      if (!place) return NextResponse.json({ error: `No place called “${name}” was found.` }, { status: 404 });
+      if (!place) return NextResponse.json({ error: `“${name}” is not on the public map. Add your district after the village (for example “Chitragam Shopian”), or press “Use my location”.` }, { status: 404 });
     }
     return NextResponse.json(await forecast(place), { headers: { 'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=1200' } });
   } catch (err) {

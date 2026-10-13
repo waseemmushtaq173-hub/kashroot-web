@@ -29,6 +29,8 @@ const UA = 'KashRoot/1.0 (+https://kashroot-web.vercel.app)';
 // India's far north (J&K, Ladakh, Himachal, Punjab) first; the rest of India still matches.
 const NORTH = { minLng: 72.5, minLat: 32.2, maxLng: 80.5, maxLat: 37.1 };
 
+// Words that are part of a village's name, not a district: "Chitragam Kalan", "Wahab Pora Bala".
+const QUALIFIER = /^(kalan|khurd|khas|bala|payeen|payen|pain|upper|lower|ulya|sufla)$/;
 const words = (s: string) => s.toLowerCase().split(/[\s,]+/).filter((w) => w.length > 1);
 const clean = (s: string) => s.replace(/[^\p{L}\p{N}\s,.'-]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
 
@@ -198,17 +200,27 @@ export async function geocode(input: string, { deep = false }: { deep?: boolean 
     const rest = words(parts.slice(n).join(' ')).filter((w) => !/^(jammu|kashmir|and|j&k|jk|india|district|tehsil)$/.test(w));
     if (!rest.length) continue;
     found = merge(await Promise.all([openMeteo(head), photon(head)]));
+    // "Chitragam Kalan" with no district: places called exactly "Chitragam", each with its district to check.
+    if (rest.every((w) => QUALIFIER.test(w))) {
+      const first = words(head)[0];
+      const same = found.filter((p) => words(p.name)[0] === first);
+      if (same.length) return rank(same, typed).map((p) => ({ ...p, note: p.note ?? `Showing ${p.name}${p.admin ? ` (${p.admin})` : ''} — check it is your village. For your exact spot, press “Use my location”.` })).slice(0, 8);
+      continue;
+    }
     const inDistrict = found.filter((p) => rest.some((w) => p.admin.toLowerCase().includes(w)));
     if (inDistrict.length) return rank(inDistrict, typed).slice(0, 8);
   }
 
   // 3. The village is not on any public map: use the district or town that was typed, and say so.
+  //    "Kalan" in "Chitragam Kalan" is part of the village's name, never a place to fall back to.
   for (let n = 1; n < parts.length; n++) {
-    const tail = parts.slice(n).join(' ');
+    const tailWords = parts.slice(n).filter((w) => !QUALIFIER.test(w.toLowerCase()));
+    if (!tailWords.length) continue;
+    const tail = tailWords.join(' ');
     const k = KNOWN[tail.toLowerCase()];
     found = k ? [k] : merge(await Promise.all([openMeteo(tail), photon(tail)]));
     if (found.length) {
-      const missing = parts.slice(0, n).join(' ');
+      const missing = parts.filter((w) => !tailWords.includes(w)).join(' ');
       const best = KNOWN[tail.toLowerCase()] ?? rank(found, words(tail))[0];
       return [{ ...best, note: `“${missing}” is not on the public map yet — showing ${best.name}. For your exact spot, press “Use my location”.` }];
     }

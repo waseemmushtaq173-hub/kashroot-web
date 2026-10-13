@@ -1,29 +1,42 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { SiteHeader, SiteFooter } from "@/components/layout/SiteHeader";
 import { Activity, CheckCircle, AlertTriangle, XCircle, RefreshCw } from "lucide-react";
 
+interface Health {
+  status?: string;
+  timestamp?: string;
+  services?: Record<string, string>;
+}
+
 export default function StatusPage() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<Health | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchStatus = async () => {
+  const fetchStatus = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/health");
       const json = await res.json();
       setData(json);
-    } catch (e) {
+    } catch {
       setData({ status: "down", services: { web: "down", db: "down" } });
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchStatus();
-  }, []);
+    let live = true;
+    const run = async () => {
+      if (live) await fetchStatus();
+    };
+    void run();
+    return () => {
+      live = false;
+    };
+  }, [fetchStatus]);
 
   const getIcon = (status: string) => {
     if (status === "ok" || status === "configured") return <CheckCircle className="w-6 h-6 text-green-500" />;
@@ -37,10 +50,11 @@ export default function StatusPage() {
       <main className="container mx-auto px-4 py-20 flex-1 max-w-3xl">
         <div className="flex items-center justify-between mb-8 border-b border-white/10 pb-6">
           <h1 className="text-3xl font-bold flex items-center gap-3">
-            <Activity className="w-8 h-8 text-[#D4AF37]" /> Kashroot System Status
+            <Activity className="w-8 h-8 text-[#D4AF37]" /> KashRoot System Status
           </h1>
           <button 
             onClick={fetchStatus} 
+            aria-label="Check again"
             className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors"
             disabled={loading}
           >
@@ -61,7 +75,7 @@ export default function StatusPage() {
                 <p className="text-sm text-white/50">{data?.timestamp ? new Date(data.timestamp).toLocaleString() : "Unknown"}</p>
               </div>
               <div className="flex items-center gap-2 font-bold uppercase tracking-wider">
-                {getIcon(data?.status)} {data?.status}
+                {getIcon(data?.status ?? "")} {data?.status}
               </div>
             </div>
 
@@ -69,15 +83,11 @@ export default function StatusPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-5 bg-black/40 border border-white/5 rounded-xl flex items-center justify-between">
                 <span className="font-medium">Web Frontend</span>
-                {getIcon(data?.services?.web)}
+                {getIcon(data?.services?.web ?? "")}
               </div>
               <div className="p-5 bg-black/40 border border-white/5 rounded-xl flex items-center justify-between">
-                <span className="font-medium">Database (Prisma)</span>
-                {getIcon(data?.services?.db)}
-              </div>
-              <div className="p-5 bg-black/40 border border-white/5 rounded-xl flex items-center justify-between">
-                <span className="font-medium">API Host Config</span>
-                {getIcon(data?.services?.api_host)}
+                <span className="font-medium">Sign-in &amp; database (Supabase)</span>
+                {getIcon(data?.services?.db ?? "")}
               </div>
             </div>
           </div>

@@ -420,7 +420,7 @@ function BlockModal({ value: v, onChange, onClose, onSave, onDelete }: { value: 
       const data = await res.json();
       if (!res.ok) throw new Error('down');
       setPlaces(data.places ?? []);
-      if (!data.places?.length) toast.error('No place found with that name. Check the spelling, try the nearest town, or press “Use my location” while standing in the orchard.');
+      if (!data.places?.length) toast.error('No place found with that name. Add your district after the village (for example “Chitragam Shopian”), try the nearest town, or press “Use my location” while standing in the orchard.');
     } catch {
       toast.error('The map search did not answer — check your internet, or press “Use my location”.');
     } finally {
