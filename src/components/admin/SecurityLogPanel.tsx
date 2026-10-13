@@ -7,9 +7,10 @@
  * payments). Read-only; nobody can edit or delete entries from the website.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { History, RefreshCw } from 'lucide-react';
+import { History } from 'lucide-react';
 
-import { Btn, PORTAL_THEMES, Panel } from '@/components/portal/kit';
+import { RefreshBtn } from '@/components/admin/RefreshBtn';
+import { PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { supabase } from '@/lib/db/client';
 
 const theme = PORTAL_THEMES.admin ?? PORTAL_THEMES.expert;
@@ -43,7 +44,7 @@ export function SecurityLogPanel() {
   }, [load]);
 
   return (
-    <Panel theme={theme} title="Security log" icon={History} className="lg:col-span-2" action={<Btn theme={theme} size="sm" variant="soft" icon={RefreshCw} onClick={() => void load()}>Refresh</Btn>}>
+    <Panel theme={theme} title="Security log" icon={History} className="lg:col-span-2" action={<RefreshBtn onRefresh={load} />}>
       {rows === undefined ? (
         <p className="text-sm text-slate-600">Loading…</p>
       ) : rows === null ? (

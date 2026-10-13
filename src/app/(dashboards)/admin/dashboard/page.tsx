@@ -36,7 +36,7 @@ interface Counts {
   problems: number;
   accounts: number;
   accounts7d: number;
-  /** Accounts that signed in during the last 7 days (null if unknown). */
+  /** Accounts used during the last 7 days (null if unknown). */
   active7d: number | null;
 }
 
@@ -63,7 +63,10 @@ function AdminConsole() {
       supabase.rpc('kr_admin_accounts'),
     ]);
     const now = Date.now();
-    const signedIn = accounts.error ? null : ((accounts.data ?? []) as { last_sign_in_at: string | null }[]).filter((a) => a.last_sign_in_at && now - Date.parse(a.last_sign_in_at) < 7 * 86_400_000).length;
+    const signedIn = accounts.error ? null : ((accounts.data ?? []) as { last_sign_in_at: string | null; last_active_at?: string | null }[]).filter((a) => {
+      const t = a.last_active_at ?? a.last_sign_in_at;
+      return t && now - Date.parse(t) < 7 * 86_400_000;
+    }).length;
     setCounts({ waiting: requests.data?.length ?? 0, problems: problems.length, accounts: stats?.accounts ?? 0, accounts7d: stats?.accounts_7d ?? 0, active7d: signedIn });
     // Nothing waiting for approval: open on the list of accounts.
     if (!requests.data?.length) setTab((t) => (t === 'approvals' && !opened.current ? 'accounts' : t));
@@ -101,7 +104,7 @@ function AdminConsole() {
         {
           label: 'Accounts',
           value: n(counts?.accounts),
-          trend: counts ? `${counts.accounts7d} new this week${counts.active7d !== null ? ` · ${counts.active7d} signed in this week` : ''} — tap to see who` : 'Loading',
+          trend: counts ? `${counts.accounts7d} new this week${counts.active7d !== null ? ` · ${counts.active7d} active this week` : ''} — tap to see who` : 'Loading',
           onClick: () => show('accounts'),
         },
       ]}
@@ -117,10 +120,10 @@ function AdminConsole() {
       onTabChange={(id) => show(id as Tab)}
     >
       {tab === 'approvals' && <ApprovalsPanel />}
-      {tab === 'accounts' && <AccountsPanel />}
+      {tab === 'accounts' && <AccountsPanel onRefreshed={load} />}
       {tab === 'problems' && <ReportedOrders />}
       {tab === 'contributors' && <ContributorsPanel />}
-      {tab === 'numbers' && <PlatformNumbers />}
+      {tab === 'numbers' && <PlatformNumbers onRefreshed={load} />}
       {tab === 'security' && <SecurityPanel />}
     </PortalShell>
   );

@@ -7,9 +7,10 @@
  * testing with farmers to see what they actually used.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { BarChart3, Loader2, RefreshCw } from 'lucide-react';
+import { BarChart3, Loader2 } from 'lucide-react';
 
-import { Btn, Panel, PORTAL_THEMES } from '@/components/portal/kit';
+import { RefreshBtn } from '@/components/admin/RefreshBtn';
+import { Panel, PORTAL_THEMES } from '@/components/portal/kit';
 import { PORTALS } from '@/lib/auth/roles';
 import { dbMessage, inr, supabase } from '@/lib/db/client';
 
@@ -48,7 +49,8 @@ function portalName(role: string): string {
   return Object.values(PORTALS).find((p) => p.requiredRole === role)?.label ?? role.charAt(0) + role.slice(1).toLowerCase();
 }
 
-export function PlatformNumbers() {
+/** onRefreshed: also update the console's counts when Refresh is pressed. */
+export function PlatformNumbers({ onRefreshed }: { onRefreshed?: () => Promise<unknown> } = {}) {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -91,7 +93,7 @@ export function PlatformNumbers() {
 
   return (
     <div className="space-y-6">
-      <Panel theme={theme} title="Platform numbers" icon={BarChart3} action={<Btn theme={theme} size="sm" variant="soft" icon={RefreshCw} onClick={() => void load()}>Refresh</Btn>}>
+      <Panel theme={theme} title="Platform numbers" icon={BarChart3} action={<RefreshBtn onRefresh={() => Promise.all([load(), onRefreshed?.()])} />}>
         <ul className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
           {tiles.map(([label, value, hint]) => (
             <li key={label} className="rounded-2xl bg-white/85 p-4 ring-1 ring-slate-900/5">

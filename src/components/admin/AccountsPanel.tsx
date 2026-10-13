@@ -8,8 +8,9 @@
  * and download as a spreadsheet (CSV). Passwords are never read.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Download, Loader2, Phone, RefreshCw, Search, Users } from 'lucide-react';
+import { CheckCircle2, Download, Loader2, Phone, Search, Users } from 'lucide-react';
 
+import { RefreshBtn } from '@/components/admin/RefreshBtn';
 import { Badge, Btn, EmptyState, INPUT, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { ago, dbMessage, supabase } from '@/lib/db/client';
 
@@ -29,22 +30,27 @@ interface AccountRow {
   email_confirmed: boolean;
   aadhaar_verified: boolean;
   pan_verified: boolean;
+  /** Newest of last sign-in and the app renewing its sign-in while used (null before the 20261018 SQL). */
+  last_active_at?: string | null;
 }
 
 const KIND: Record<string, string> = { FARMER: 'Farmer', BUYER: 'Buyer', SELLER: 'Seller', PROVIDER: 'Rental / logistics', ADMIN: 'Admin', EXPERT: 'Agronomist', DEALER: 'Agro-dealer', REPORTER: 'Mandi Helper' };
 const label = (r: string) => KIND[r] ?? r.charAt(0).toUpperCase() + r.slice(1).toLowerCase();
+/** When they last used KashRoot: staying signed in renews the session, not the sign-in. */
+const lastSeen = (r: AccountRow) => r.last_active_at ?? r.last_sign_in_at;
 const date = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
 function toCsv(rows: AccountRow[]) {
   const cell = (v: string) => `"${v.replace(/"/g, '""')}"`;
-  const head = ['Name', 'Email', 'Mobile', 'Account', 'Portals', 'Staff', 'District', 'Joined', 'Last sign-in', 'Email confirmed', 'Aadhaar verified', 'PAN verified'];
+  const head = ['Name', 'Email', 'Mobile', 'Account', 'Portals', 'Staff', 'District', 'Joined', 'Last active', 'Last sign-in', 'Email confirmed', 'Aadhaar verified', 'PAN verified'];
   const body = rows.map((r) =>
-    [r.full_name, r.email, r.phone, r.roles.map(label).join(' / '), r.portals.join(' / '), r.staff.map(label).join(' / '), r.district, r.joined_at.slice(0, 10), r.last_sign_in_at?.slice(0, 16).replace('T', ' ') ?? 'never', r.email_confirmed ? 'yes' : 'no', r.aadhaar_verified ? 'yes' : 'no', r.pan_verified ? 'yes' : 'no'].map(cell).join(','),
+    [r.full_name, r.email, r.phone, r.roles.map(label).join(' / '), r.portals.join(' / '), r.staff.map(label).join(' / '), r.district, r.joined_at.slice(0, 10), lastSeen(r)?.slice(0, 16).replace('T', ' ') ?? 'never', r.last_sign_in_at?.slice(0, 16).replace('T', ' ') ?? 'never', r.email_confirmed ? 'yes' : 'no', r.aadhaar_verified ? 'yes' : 'no', r.pan_verified ? 'yes' : 'no'].map(cell).join(','),
   );
   return [head.map(cell).join(','), ...body].join('\r\n');
 }
 
-export function AccountsPanel() {
+/** onRefreshed: also update the console's counts when Refresh is pressed. */
+export function AccountsPanel({ onRefreshed }: { onRefreshed?: () => Promise<unknown> } = {}) {
   const [rows, setRows] = useState<AccountRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState('');
@@ -57,11 +63,12 @@ export function AccountsPanel() {
     if (e) {
       setError(/kr_admin_accounts|schema cache|does not exist/i.test(e.message ?? '') ? 'Run the accounts SQL file (20261016000000_admin_accounts.sql) in Supabase first.' : dbMessage(e, 'Could not load the accounts.'));
       setRows([]);
-      return;
+      return false;
     }
     setError(null);
     setLoadedAt(Date.now());
     setRows((data ?? []) as AccountRow[]);
+    return true;
   }, []);
   useEffect(() => {
     let live = true;
@@ -74,17 +81,18 @@ export function AccountsPanel() {
     };
   }, [load]);
 
+  const active = useCallback((r: AccountRow) => { const t = lastSeen(r); return Boolean(t && loadedAt - Date.parse(t) < 7 * 86_400_000); }, [loadedAt]);
   const kinds = useMemo(() => [...new Set((rows ?? []).flatMap((r) => [...r.roles, ...r.staff]))].sort(), [rows]);
   const shown = useMemo(() => {
     const t = q.trim().toLowerCase();
     return (rows ?? []).filter(
       (r) =>
         (kind === 'all' || r.roles.includes(kind) || r.staff.includes(kind)) &&
-        (when === 'any' || (when === 'never' ? !r.last_sign_in_at : Boolean(r.last_sign_in_at && loadedAt - Date.parse(r.last_sign_in_at) < 7 * 86_400_000))) &&
+        (when === 'any' || (when === 'never' ? !lastSeen(r) : active(r))) &&
         (!t || `${r.full_name} ${r.email} ${r.phone} ${r.district}`.toLowerCase().includes(t)),
     );
-  }, [rows, q, kind, when, loadedAt]);
-  const active7d = (rows ?? []).filter((r) => r.last_sign_in_at && loadedAt - Date.parse(r.last_sign_in_at) < 7 * 86_400_000).length;
+  }, [rows, q, kind, when, active]);
+  const active7d = (rows ?? []).filter(active).length;
 
   const download = () => {
     const url = URL.createObjectURL(new Blob(['﻿' + toCsv(shown)], { type: 'text/csv;charset=utf-8' }));
@@ -102,7 +110,12 @@ export function AccountsPanel() {
       icon={Users}
       action={
         <div className="flex flex-wrap gap-2">
-          <Btn theme={theme} size="sm" variant="soft" icon={RefreshCw} onClick={() => void load()}>Refresh</Btn>
+          <RefreshBtn
+            onRefresh={async () => {
+              const [loaded] = await Promise.all([load(), onRefreshed?.()]);
+              if (!loaded) throw new Error('not loaded');
+            }}
+          />
           <Btn theme={theme} size="sm" variant="soft" icon={Download} disabled={!shown.length} onClick={download}>Download (CSV)</Btn>
         </div>
       }
@@ -113,7 +126,7 @@ export function AccountsPanel() {
         <p role="alert" className="text-sm text-amber-900">{error}</p>
       ) : (
         <div className="space-y-4">
-          <p className="text-sm text-slate-600">{active7d} signed in during the last 7 days. Newest activity first.</p>
+          <p className="text-sm text-slate-600">{active7d} used KashRoot in the last 7 days. Newest activity first.</p>
           <div className="flex flex-wrap gap-2">
             <label className="relative min-w-[14rem] flex-1">
               <span className="sr-only">Search accounts</span>
@@ -128,11 +141,11 @@ export function AccountsPanel() {
               </select>
             </label>
             <label>
-              <span className="sr-only">Signed in</span>
+              <span className="sr-only">Last active</span>
               <select className={INPUT} value={when} onChange={(e) => setWhen(e.target.value as 'any' | 'week' | 'never')}>
                 <option value="any">Any time</option>
-                <option value="week">Signed in this week</option>
-                <option value="never">Never signed in</option>
+                <option value="week">Active this week</option>
+                <option value="never">Never used</option>
               </select>
             </label>
           </div>
@@ -161,7 +174,7 @@ export function AccountsPanel() {
                     </div>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600 sm:justify-end sm:text-right">
                       <span>Joined {date(r.joined_at)}</span>
-                      <span className={r.last_sign_in_at ? 'font-semibold text-slate-800' : ''}>{r.last_sign_in_at ? `Signed in ${ago(r.last_sign_in_at)}` : 'Not signed in yet'}</span>
+                      <span className={lastSeen(r) ? 'font-semibold text-slate-800' : ''}>{lastSeen(r) ? `Active ${ago(lastSeen(r)!)}` : 'Not signed in yet'}</span>
                       {/^[6-9]\d{9}$/.test(tel) && (
                         <a href={`tel:+91${tel}`} className="inline-flex items-center gap-1 font-semibold text-indigo-700 no-underline hover:underline">
                           <Phone className="h-3.5 w-3.5" aria-hidden /> {tel}

@@ -11,9 +11,10 @@
  *     and "Mark paid" after paying them by UPI or bank.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Check, ExternalLink, GraduationCap, IndianRupee, Loader2, Megaphone, Phone, RefreshCw, Users, X } from 'lucide-react';
+import { Check, ExternalLink, GraduationCap, IndianRupee, Loader2, Megaphone, Phone, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { RefreshBtn } from '@/components/admin/RefreshBtn';
 import { UpiQr } from '@/components/payments/UpiQr';
 import { Badge, Btn, EmptyState, Field, INPUT, Modal, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { ago } from '@/lib/db/client';
@@ -93,7 +94,7 @@ export function ContributorsPanel() {
     <div className="grid gap-6">
       {error && <p role="alert" className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">{error}</p>}
 
-      <Panel theme={theme} title="Rates to check" icon={Megaphone} action={<Btn theme={theme} size="sm" variant="ghost" icon={RefreshCw} onClick={() => void load()}>Refresh</Btn>}>
+      <Panel theme={theme} title="Rates to check" icon={Megaphone} action={<RefreshBtn onRefresh={load} variant="ghost" />}>
         <p className="mb-4 text-sm text-slate-600">Rates someone reported wrong come first. Phone the mandi or another trader, then decide. Your decision is final: wrong rates are hidden from farmers and are not paid.</p>
         {rates.rates.length === 0 ? (
           <EmptyState theme={theme} icon={Megaphone} title="Nothing to check" text="Rates from the last few days that are not yet confirmed appear here." />

@@ -4,7 +4,9 @@
 -- (signed in, with the admin code entered). Passwords are never read.
 -- Run after 20261015000000_admin_team.sql. Safe to run again.
 
-create or replace function public.kr_admin_accounts()
+-- Dropped first: a later file adds a column, and Postgres cannot change it in place.
+drop function if exists public.kr_admin_accounts();
+create function public.kr_admin_accounts()
 returns table (
   user_id uuid, email text, full_name text, phone text, roles text[], portals text[], staff text[],
   district text, joined_at timestamptz, last_sign_in_at timestamptz, email_confirmed boolean,
