@@ -1,6 +1,5 @@
-# One-off check of the live site (removed again after reading the result):
-# every page and portal opens, styles load, the live-data services answer,
-# the sign-in service is reachable and the security headers are sent.
+# One-off check (removed again after reading the result): the new village
+# search against the real map services, and the live mandi answers in short.
 name: site-check
 on:
   push:
@@ -11,47 +10,37 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Pages and portals
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Village search (this branch's code, real map services)
+        run: |
+          sed "/^import 'server-only';/d" src/lib/server/places.ts > /tmp/places.ts
+          cat > /tmp/t.mts <<'EOF'
+          const { geocode } = await import('/tmp/places.ts');
+          for (const q of ['Chitragam Kalan', 'Chitragam Kalan Shopian', 'Chitragam, Shopian', 'Chitragam', 'Pinjoora Shopian', 'Zainapora', 'Hirpora Shopian', 'Keller Shopian', 'Sopore', 'Kangra', 'Nashik', 'Wachi']) {
+            for (const deep of [false, true]) {
+              const t = Date.now();
+              try {
+                const r = await geocode(q, { deep });
+                console.log(`${q} [deep=${deep}] ${Date.now() - t}ms →`, r.slice(0, 3).map((p) => `${p.name} | ${p.admin}${p.note ? ' | NOTE: ' + p.note : ''}`).join('  ||  ') || '(nothing)');
+              } catch (e) { console.log(`${q} [deep=${deep}] ERROR ${e.message}`); }
+              await new Promise((r) => setTimeout(r, 1200));
+            }
+          }
+          EOF
+          node --experimental-strip-types --no-warnings /tmp/t.mts
+      - name: Live mandi answers in short
         run: |
           B=https://kashroot-web.vercel.app
-          for P in / /login /register /compare-prices "/compare-prices?category=supplies" /mandi-weather /orchard-health /season-planner /supplies/tester /supplies/hardware/calculator /track /tracking /logistics /escrow /contributions /support /status /privacy /terms /forgot-password /reset-password \
-                   /login/farmer /login/buyer /login/seller /login/kissan /login/rental /login/logistics /login/tracking /login/dealer /login/expert /login/trader /login/admin \
-                   /register/farmer /register/buyer /register/seller /register/agronomist \
-                   /farmer/dashboard /buyer/dashboard /seller/dashboard /kissan-tools/dashboard /rental/dashboard /provider/dashboard /tracking/dashboard /dealer/dashboard /expert /trader/dashboard /admin/dashboard \
-                   /cold-store /schemes /traceability /supplies /services /sitemap.xml /robots.txt /manifest.webmanifest; do
-            R=$(curl -sS -L -m 30 -o /tmp/p.html -w "%{http_code} %{url_effective} %{time_total}s" "$B$P" || echo "ERR")
-            STY=$(grep -c "<style" /tmp/p.html 2>/dev/null || true)
-            ERR=$(grep -o "Application error\|This page could not be found\|Internal Server Error" /tmp/p.html | head -1)
-            echo "$P -> $R styles=$STY ${ERR:+PROBLEM:$ERR}"
+          for Q in "state=Jammu%20and%20Kashmir&commodity=Apple" "state=Jammu%20and%20Kashmir&district=Shopian&commodity=Apple" "state=Jammu%20and%20Kashmir&district=Baramulla&commodity=Apple" "state=Jammu%20and%20Kashmir&market=Sopore&commodity=Apple" "state=Himachal%20Pradesh&district=Shimla&commodity=Apple" "state=Punjab&commodity=Wheat" "state=Punjab&commodity=Paddy(Dhan)(Common)" "commodity=Apple"; do
+            echo "=== $Q"
+            curl -sS -m 60 "$B/api/mandi?$Q&limit=2000" | python3 -c '
+          import json,sys,collections
+          d=json.load(sys.stdin); r=d.get("records",[])
+          print("rows",len(r),"| widened:",d.get("widened"),"| source:",d.get("source"),"| error:",d.get("error"))
+          print("dates",sorted(collections.Counter(x["arrivalDate"] for x in r).items())[-3:])
+          print("districts",collections.Counter(x["district"] for x in r).most_common(8))
+          print("first",[(x["market"],x["variety"],x["modalPrice"]) for x in r[:3]])'
           done
-      - name: Live data services
-        run: |
-          B=https://kashroot-web.vercel.app
-          show() { echo "=== $1"; curl -sS -m 60 -w "\n[HTTP %{http_code} in %{time_total}s]\n" "$B$1" | head -c 700; echo; }
-          show "/api/health"
-          show "/api/mandi?state=Jammu%20and%20Kashmir&commodity=Apple&limit=50"
-          show "/api/mandi?state=Jammu%20and%20Kashmir&district=Shopian&commodity=Apple&limit=50"
-          show "/api/mandi?state=Himachal%20Pradesh&commodity=Apple&limit=20"
-          show "/api/mandi?state=Punjab&commodity=Wheat&limit=20"
-          show "/api/mandi?state=Maharashtra&commodity=Onion&limit=20"
-          show "/api/weather?search=Chitragam%20Kalan"
-          show "/api/weather?search=Shopian"
-          show "/api/weather?search=Pune"
-          show "/api/weather?search=192303"
-          show "/api/weather?lat=33.72&lng=74.83"
-          show "/api/place?lat=33.72&lng=74.83"
-          show "/api/orchard/scab?lat=33.72&lng=74.83"
-          show "/api/ifsc?code=SBIN0000001"
-          show "/api/vehicle?number=JK01AB1234"
-          show "/api/kyc/config"
-          show "/api/otp/status"
-          show "/api/ai/check"
-      - name: Sign-in service and security headers
-        run: |
-          B=https://kashroot-web.vercel.app
-          echo "=== Supabase through the site (401 'No API key' = reachable)"
-          curl -sS -m 30 -w "\n[HTTP %{http_code}]\n" "$B/api/supabase/auth/v1/settings" | head -c 300; echo
-          echo "=== Headers on /"
-          curl -sS -m 30 -D - -o /dev/null "$B/" | grep -iE "^(content-security-policy|strict-transport|x-frame|x-content-type|referrer-policy|permissions-policy|cross-origin|x-permitted)" | cut -c1-160
-          echo "=== Old demo pages redirect"
-          for P in /buyer-desk /saathi /learn /admin/analytics /traceability; do curl -sS -m 20 -o /dev/null -w "$P -> %{http_code} %{redirect_url}\n" "$B$P"; done
