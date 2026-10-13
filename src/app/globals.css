@@ -14,6 +14,12 @@
   --kr-walnut-brown: #6B4423;
 }
 
+/* Safety net: nothing may make a page wider than the phone (a phone then zooms the whole page out). */
+html,
+body {
+  overflow-x: clip;
+}
+
 body {
   background-color: #07120D; /* Deep Royal Forest Green */
   color: #F5F2EB;

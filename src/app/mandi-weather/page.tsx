@@ -10,7 +10,7 @@
  *
  * Nothing is invented: empty feeds and service errors are shown as such.
  */
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowDownWideNarrow,
@@ -158,18 +158,26 @@ export default function MandiWeatherPage() {
     staleTime: 5 * 60_000,
   });
 
+  // The name just picked from the list: don't look it up again (the list would pop back open
+  // over "Use my location").
+  const picked = useRef('');
   useEffect(() => {
     const text = placeQuery.trim();
-    if (text.length < 3) return;
+    if (text.length < 3 || text === picked.current) return;
+    let live = true;
     const t = setTimeout(() => {
       getJson<{ places: Place[] }>(`/api/weather?search=${encodeURIComponent(text)}`)
-        .then((r) => setSuggestions(r.places))
-        .catch(() => setSuggestions([]));
+        .then((r) => live && setSuggestions(r.places))
+        .catch(() => live && setSuggestions([]));
     }, 350);
-    return () => clearTimeout(t);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
   }, [placeQuery]);
 
   const useMyLocation = () => {
+    setSuggestions([]);
     if (!navigator.geolocation) return;
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
@@ -292,7 +300,7 @@ export default function MandiWeatherPage() {
           >
             <label htmlFor="place" className="sr-only">Town, district or village</label>
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
-            <input id="place" className={`${INPUT} pl-9`} value={placeQuery} onChange={(e) => setPlaceQuery(e.target.value)} placeholder="Search a town, district or village" autoComplete="off" />
+            <input id="place" className={`${INPUT} pl-9`} value={placeQuery} onChange={(e) => setPlaceQuery(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && setSuggestions([])} placeholder="Search a town, district or village" autoComplete="off" />
             {suggestions.length > 0 && placeQuery.trim().length >= 3 && (
               <ul role="listbox" className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-slate-900/10">
                 {suggestions.map((p) => (
@@ -302,6 +310,7 @@ export default function MandiWeatherPage() {
                       className="flex w-full cursor-pointer items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-sky-50"
                       onClick={() => {
                         setWhere({ lat: p.lat, lng: p.lng, name: p.name });
+                        picked.current = p.name;
                         setPlaceQuery(p.name);
                         setSuggestions([]);
                       }}
@@ -330,8 +339,9 @@ export default function MandiWeatherPage() {
         )}
         {f && (
           <div className="mt-6 space-y-5">
-            <div className="grid gap-4 lg:grid-cols-[1.1fr_2fr]">
-              <Tilt3D className="rounded-3xl" max={6}>
+            {/* minmax(0, …) and min-w-0: the 24-hour strip scrolls inside its box instead of widening the page on phones. */}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,2fr)]">
+              <Tilt3D className="min-w-0 rounded-3xl" max={6}>
                 <div className="relative h-full overflow-hidden rounded-3xl bg-gradient-to-br from-sky-500 to-indigo-600 p-6 text-white shadow-lg [transform-style:preserve-3d]">
                   <p className="flex items-center gap-1.5 text-sm text-sky-100"><MapPin className="h-4 w-4" aria-hidden /> {f.place.name}{f.place.admin ? `, ${f.place.admin}` : ''}</p>
                   <div data-depth className="mt-3 flex items-center gap-4">
@@ -348,17 +358,17 @@ export default function MandiWeatherPage() {
                   </dl>
                 </div>
               </Tilt3D>
-              <div className="space-y-3">
+              <div className="min-w-0 space-y-3">
                 {advice(f).map((a) => (
                   <p key={a.text} className="flex items-start gap-2 rounded-2xl bg-white/70 p-3 text-sm text-slate-800 ring-1 ring-slate-900/5">
                     <Badge tone={a.tone}>Farm tip</Badge> {a.text}
                   </p>
                 ))}
-                <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Next 24 hours">
+                <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-1" aria-label="Next 24 hours">
                   {f.hourly.filter((_, i) => i % 2 === 0).map((h) => {
                     const [, , Icon] = wmo(h.code);
                     return (
-                      <div key={h.time} className="min-w-[4.5rem] rounded-2xl bg-white/80 p-2.5 text-center ring-1 ring-slate-900/5">
+                      <div key={h.time} className="min-w-[4.5rem] shrink-0 rounded-2xl bg-white/80 p-2.5 text-center ring-1 ring-slate-900/5">
                         <p className="text-xs text-slate-500">{h.time.slice(11, 16)}</p>
                         <Icon className="mx-auto my-1 h-5 w-5 text-sky-600" aria-hidden />
                         <p className="text-sm font-semibold tabular-nums text-slate-900">{Math.round(h.temperature)}°</p>
