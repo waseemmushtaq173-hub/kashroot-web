@@ -23,7 +23,7 @@
  */
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useId, useState, type FormEvent } from 'react';
+import { useEffect, useId, useState, type FormEvent } from 'react';
 import { ArrowRight, CircleAlert, Eye, EyeOff, Loader2, PlusCircle } from 'lucide-react';
 
 import { ContactOtp, type PhoneRoute } from '@/components/auth/ContactOtp';
@@ -31,6 +31,7 @@ import { PortalAuthFrame } from '@/components/auth/PortalAuthFrame';
 import { PORTAL_LOGIN } from '@/components/auth/portalLoginConfig';
 import { authApi, SELF_JOIN_ROLES, tokenStore } from '@/lib/api/auth';
 import { AUTH_ROUTES, loginHref, PORTALS, portalForRole, safeNextPath, type PortalId } from '@/lib/auth/roles';
+import { forgetPerson, rememberedPerson, rememberSignedIn, restoreSession, type RememberedPerson } from '@/lib/auth/session';
 import { getKycConfig } from '@/lib/kyc/kyc-service';
 
 const LEGACY_OK: PortalId[] = ['farmer', 'buyer', 'seller'];
@@ -83,6 +84,34 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   const [joining, setJoining] = useState(false);
 
   const destination = safeNextPath(next, info.home);
+
+  // Already signed in on this device (came back after closing the app): go
+  // straight to the portal. Signed out after a long time away: greet them by
+  // name with their email filled in, so only the password is needed.
+  const [checking, setChecking] = useState(true);
+  const [remembered, setRemembered] = useState<RememberedPerson | null>(null);
+  useEffect(() => {
+    let live = true;
+    const run = async () => {
+      const active = await restoreSession().catch(() => null);
+      if (!live) return;
+      if (active && (!info.requiredRole || active.roles.includes(info.requiredRole))) {
+        localStorage.setItem('auth_portal', portal);
+        router.replace(destination);
+        return;
+      }
+      const person = rememberedPerson();
+      if (person) {
+        setRemembered(person);
+        setEmail((e) => e || person.email);
+      }
+      setChecking(false);
+    };
+    void run();
+    return () => {
+      live = false;
+    };
+  }, [destination, info.requiredRole, portal, router]);
   const focusRing = `focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${theme.outline}`;
   const inputClass = `block w-full rounded-xl border-0 bg-white/90 px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 shadow-sm ring-1 ring-inset ring-slate-200 transition focus:outline-none focus:ring-2 ${theme.inputFocus}`;
   const canSubmit = email.trim() !== '' && password !== '' && !pending;
@@ -91,6 +120,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
     tokenStore.setToken(session.accessToken, session.role, session.roles);
     localStorage.setItem('auth_email', email.trim());
     localStorage.setItem('auth_portal', portal);
+    void rememberSignedIn(portal, email.trim());
     // KYC done on any device: never ask again. Otherwise the dashboard opens
     // the KYC panel once, the first time on this browser.
     if (session.kycSubmitted) localStorage.setItem('kyc_status', 'submitted');
@@ -275,7 +305,29 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
         </p>
       )}
 
-      <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-5">
+      {checking && (
+        <p role="status" className="mt-6 flex items-center gap-2 text-sm text-slate-600">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Checking if you are already signed in…
+        </p>
+      )}
+      {!checking && remembered && (
+        <p className="mt-6 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900 ring-1 ring-emerald-200">
+          Welcome back, <strong>{remembered.name}</strong>. Your details are saved — just enter your password.{' '}
+          <button
+            type="button"
+            className="cursor-pointer font-semibold underline"
+            onClick={() => {
+              forgetPerson();
+              setRemembered(null);
+              setEmail('');
+            }}
+          >
+            Not you?
+          </button>
+        </p>
+      )}
+
+      <form onSubmit={handleSubmit} noValidate className={`mt-6 space-y-5 ${checking ? 'hidden' : ''}`}>
         <div>
           <label htmlFor={ids.email} className="block text-sm font-medium text-slate-800">
             Email address

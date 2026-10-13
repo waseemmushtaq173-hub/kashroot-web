@@ -12,6 +12,7 @@ import { PortalGuide } from '@/components/voice/PortalGuide';
 import { supabase } from '@/lib/supabase';
 import { authApi, SELF_JOIN_ROLES, storedRoles, tokenStore } from '@/lib/api/auth';
 import { loginHref, PORTALS, portalForSegment } from '@/lib/auth/roles';
+import { restoreSession } from '@/lib/auth/session';
 import { kycMissing, kycRules, myKyc, type KycRules, type KycStatus } from '@/lib/db/security';
 
 /** Portals where money changes hands: identity checks (KYC) apply here. */
@@ -50,9 +51,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
+    if (typeof window === 'undefined') return;
+    let live = true;
+    // The real Supabase session decides (refreshed if its token expired), so
+    // someone who closed the app and came back is let straight in.
+    void restoreSession().then((active) => {
+      if (!live) return;
+      if (!active) {
         // Replace, not push: the portal page must not stay in history, or
         // Back would land on it and bounce straight back to sign-in.
         const portal = portalForSegment(segment);
@@ -74,7 +79,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         setIsAuthenticated(true);
       }
       setIsMounted(true);
-    }
+    });
+    return () => {
+      live = false;
+    };
   }, [router, segment]);
 
   useEffect(() => {

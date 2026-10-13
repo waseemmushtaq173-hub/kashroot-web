@@ -10,6 +10,7 @@ import { MY_DETAILS } from '@/components/portal/myDetailsConfig';
 import { authApi } from '@/lib/api/auth';
 import { loginHref, PORTALS, PUBLIC_PORTAL_IDS, type PortalId } from '@/lib/auth/roles';
 import { useSecretAdminTap, useShowAdmin } from '@/lib/client/adminDevice';
+import { useMyPortal } from '@/lib/auth/session';
 
 /**
  * `dark` (default) is the original look for the dark dashboards. `light` is for
@@ -53,6 +54,7 @@ const EXPLORE_ITEMS = [
  */
 function MobileMenu({ showAuth }: { showAuth: boolean }) {
   const menuItems = useMenuItems();
+  const myPortal = useMyPortal();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -92,7 +94,14 @@ function MobileMenu({ showAuth }: { showAuth: boolean }) {
           id="mobile-menu"
           className="absolute inset-x-0 top-full z-50 max-h-[calc(100svh-4.5rem)] overflow-y-auto border-b border-slate-900/10 bg-white px-3 pb-4 pt-2 shadow-[0_24px_60px_-20px_rgba(15,23,42,0.35)]"
         >
-          {showAuth && (
+          {showAuth && myPortal && (
+            <div className="p-1">
+              <Link href={PORTALS[myPortal].home} onClick={close} className="flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-3 py-3 text-sm font-semibold text-white no-underline shadow-sm hover:bg-emerald-800 hover:no-underline">
+                <UserRound className="h-4 w-4" aria-hidden /> Open my {PORTALS[myPortal].label} portal
+              </Link>
+            </div>
+          )}
+          {showAuth && !myPortal && (
             <div className="grid grid-cols-2 gap-2 p-1">
               <Link href="/login" onClick={close} className="flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-3 py-3 text-sm font-semibold text-white no-underline shadow-sm hover:bg-emerald-800 hover:no-underline">
                 <LogIn className="h-4 w-4" aria-hidden /> Sign in
@@ -200,6 +209,7 @@ export function SiteHeader({
 }) {
   const light = tone === 'light';
   const secretTap = useSecretAdminTap();
+  const myPortal = useMyPortal();
 
   if (portal) {
     return <PortalHeader portal={portal} />;
@@ -243,8 +253,8 @@ export function SiteHeader({
 
         <div className="flex items-center gap-2">
           {light && showRoleSignIn && !hideSignIn && (
-            <Link href="/login" className={`${navLink} hidden md:inline-flex`}>
-              Sign in
+            <Link href={myPortal ? PORTALS[myPortal].home : '/login'} className={`${navLink} hidden md:inline-flex`}>
+              {myPortal ? `My ${PORTALS[myPortal].label} portal` : 'Sign in'}
             </Link>
           )}
           <div className="hidden md:block">

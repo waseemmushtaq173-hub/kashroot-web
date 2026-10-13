@@ -14,6 +14,7 @@ import { Emblem, Wordmark } from '@/components/brand/Emblem';
 import { ValleyScene } from '@/components/three/ValleyScene';
 import type { PortalId } from '@/lib/auth/roles';
 import { brandSerif } from '@/lib/fonts';
+import { InAppBrowserNotice } from '@/components/auth/InAppBrowserNotice';
 
 export function PortalAuthFrame({ portal, labelledBy, children }: { portal: PortalId; labelledBy: string; children: ReactNode }) {
   const copy = PORTAL_LOGIN[portal];
@@ -61,6 +62,7 @@ export function PortalAuthFrame({ portal, labelledBy, children }: { portal: Port
         </section>
 
         <section aria-labelledby={labelledBy} className="bg-white/80 p-6 text-slate-900 sm:p-10">
+          <InAppBrowserNotice />
           {children}
         </section>
       </div>
