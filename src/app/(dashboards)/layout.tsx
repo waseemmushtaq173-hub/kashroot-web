@@ -10,9 +10,9 @@ import { ShieldCheck } from 'lucide-react';
 import { KYCPanel, type KycRole } from '@/components/auth/KYCPanel';
 import { PortalGuide } from '@/components/voice/PortalGuide';
 import { supabase } from '@/lib/supabase';
-import { authApi, SELF_JOIN_ROLES, storedRoles, tokenStore } from '@/lib/api/auth';
+import { authApi, SELF_JOIN_ROLES, storedRoles } from '@/lib/api/auth';
 import { loginHref, PORTALS, portalForSegment } from '@/lib/auth/roles';
-import { restoreSession } from '@/lib/auth/session';
+import { restoreSession, signOutCompletely } from '@/lib/auth/session';
 import { kycMissing, kycRules, myKyc, type KycRules, type KycStatus } from '@/lib/db/security';
 
 /** Portals where money changes hands: identity checks (KYC) apply here. */
@@ -161,9 +161,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               <button
                 type="button"
                 onClick={() => {
-                  tokenStore.removeToken();
-                  const portal = portalForSegment(segment);
-                  router.replace(portal ? loginHref(portal, window.location.pathname) : '/login');
+                  // Sign out fully, or the sign-in page would open this account again.
+                  void signOutCompletely().then(() => {
+                    const portal = portalForSegment(segment);
+                    router.replace(portal ? loginHref(portal, window.location.pathname) : '/login');
+                  });
                 }}
                 className={canJoin ? 'cursor-pointer rounded-xl bg-white px-6 py-3 font-semibold text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-50' : 'cursor-pointer rounded-xl bg-emerald-700 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-emerald-800'}
               >

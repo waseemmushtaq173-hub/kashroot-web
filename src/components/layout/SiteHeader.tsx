@@ -7,10 +7,9 @@ import { LayoutGrid, ChevronDown, Home, LogIn, LogOut, Menu, UserPlus, UserRound
 import { BrandMark } from '@/components/brand/Shikara';
 import { MyDetailsPanel } from '@/components/portal/MyDetailsPanel';
 import { MY_DETAILS } from '@/components/portal/myDetailsConfig';
-import { authApi } from '@/lib/api/auth';
 import { loginHref, PORTALS, PUBLIC_PORTAL_IDS, type PortalId } from '@/lib/auth/roles';
 import { useSecretAdminTap, useShowAdmin } from '@/lib/client/adminDevice';
-import { useMyPortal } from '@/lib/auth/session';
+import { signOutCompletely, useMyPortal } from '@/lib/auth/session';
 
 /**
  * `dark` (default) is the original look for the dark dashboards. `light` is for
@@ -318,7 +317,7 @@ function PortalHeader({ portal }: { portal: PortalId }) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const hasDetailsForm = Boolean(MY_DETAILS[portal]);
   const signOut = async () => {
-    await authApi.logout();
+    await signOutCompletely();
     router.replace(loginHref(portal));
   };
   return (

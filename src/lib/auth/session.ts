@@ -8,22 +8,20 @@
  *     short-lived token has expired — instead of a copied token, so the site
  *     never looks signed in while the data refuses to load, or sends someone
  *     to sign-in while their session is still good.
- *   - Coming back soon (closed the app, came back later): straight in.
- *   - Not opened for KEEP_DAYS: signed out on this device for safety, but the
- *     person is remembered (name, email, portal) so signing in again is one
- *     password away, and everything they saved stays in their account.
- *   - Signing out keeps the "remembered" name/email unless they choose
- *     "Not you?" on the sign-in page.
+ *   - Closed the app and came back — after minutes or months: straight in.
+ *     There is no time limit: people stay signed in on their phone until
+ *     they press Sign out themselves.
+ *   - After Sign out, the next sign-in needs their email and password again
+ *     (signOutCompletely forgets them on this device). Everything they saved
+ *     stays in their account.
  */
 import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 
-import { rolesOf, tokenStore } from '@/lib/api/auth';
+import { authApi, rolesOf, tokenStore } from '@/lib/api/auth';
 import { isPortalId, portalForRole, type PortalId } from '@/lib/auth/roles';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 
-/** Days without opening KashRoot after which this device asks for the password again. */
-export const KEEP_DAYS = 30;
 const ACTIVE_KEY = 'kr_last_active';
 const REMEMBER_KEY = 'kr_remember';
 
@@ -97,22 +95,15 @@ function listen() {
 }
 
 /**
- * The signed-in person on this device, or null. Refreshes an expired token,
- * signs out after KEEP_DAYS without use, and keeps the stored roles in step.
+ * The signed-in person on this device, or null. Refreshes an expired token
+ * and keeps the stored roles in step.
  */
 export async function restoreSession(): Promise<ActiveSession | null> {
   if (!supabaseConfigured || typeof window === 'undefined') return null;
   listen();
-  const last = Number(read(ACTIVE_KEY) ?? 0);
   const { data } = await supabase.auth.getSession();
   let session = data.session;
   if (!session) {
-    tokenStore.removeToken();
-    return null;
-  }
-  if (last && Date.now() - last > KEEP_DAYS * 86_400_000) {
-    // Long away: sign out on this device only; the account and details stay.
-    await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
     tokenStore.removeToken();
     return null;
   }
@@ -162,4 +153,10 @@ export function useMyPortal(): PortalId | null {
     };
   }, []);
   return portal;
+}
+
+/** The person pressed Sign out: end the session and forget them on this device. */
+export async function signOutCompletely() {
+  forgetPerson();
+  await authApi.logout();
 }
