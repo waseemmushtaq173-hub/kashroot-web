@@ -9,7 +9,7 @@ import { SITE_URL } from "@/lib/site";
 const inter = Inter({ subsets: ["latin"] });
 
 const DESCRIPTION =
-  "Live mandi rates, weather, orchard health and pay-after-delivery trade for apple, walnut, saffron and vegetable growers, buyers, sellers and transporters.";
+  "KashRoot: live mandi rates, weather, orchard health and pay-after-delivery trade for apple, walnut, saffron and vegetable growers, buyers, sellers and transporters.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

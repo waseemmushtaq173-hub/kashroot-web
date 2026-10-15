@@ -37,8 +37,8 @@ export const metadata: Metadata = { alternates: { canonical: '/' } };
 
 /** Tells search engines the site's name and logo, so a search for "KashRoot" shows it by name. */
 const BRAND_JSON_LD = JSON.stringify([
-  { '@context': 'https://schema.org', '@type': 'WebSite', name: 'KashRoot', alternateName: ['Kash Root', 'kashroot'], url: `${SITE_URL}/` },
-  { '@context': 'https://schema.org', '@type': 'Organization', name: 'KashRoot', url: `${SITE_URL}/`, logo: `${SITE_URL}/icons/icon-512.png` },
+  { '@context': 'https://schema.org', '@type': 'WebSite', name: 'KashRoot', alternateName: ['Kash Root', 'Kashroot', 'kashroot', 'KashRoot India'], url: `${SITE_URL}/` },
+  { '@context': 'https://schema.org', '@type': 'Organization', name: 'KashRoot', alternateName: 'Kashroot', url: `${SITE_URL}/`, logo: `${SITE_URL}/icons/icon-512.png`, description: 'KashRoot: pay-after-delivery trade, live mandi rates and price comparison for growers, traders and buyers.' },
 ]);
 
 // Re-render hourly so the hero opens on the current season, not the build's.
@@ -81,7 +81,7 @@ export default function HomePage() {
         <main id="main-content" className="mx-auto max-w-7xl px-4 pb-24 pt-8 sm:px-6 sm:pt-12 lg:px-8">
           <section className={`max-w-2xl rounded-[2rem] p-6 sm:p-9 ${GLASS.panel}`}>
             <p className="inline-flex rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-800 ring-1 ring-emerald-200">
-              The agri-business ecosystem
+              KashRoot · The agri-business ecosystem
             </p>
             <h1 className="mt-5 text-4xl font-semibold tracking-tight text-slate-900 [text-wrap:balance] sm:text-5xl lg:text-6xl">
               Every harvest,{' '}
@@ -90,12 +90,12 @@ export default function HomePage() {
               </span>
             </h1>
             <p className="mt-4 max-w-xl text-base leading-relaxed text-slate-700 sm:text-lg">
-              Pay-after-delivery trade, live mandi rates and transparent price comparison for growers, traders
-              and buyers.
+              <strong className="font-semibold text-slate-900">KashRoot</strong> brings pay-after-delivery trade, live mandi rates and
+              transparent price comparison to growers, traders and buyers.
             </p>
           </section>
 
-          <section aria-label="Kashroot tools" className="mt-6 grid gap-5 sm:mt-8 md:grid-cols-3">
+          <section aria-label="KashRoot tools" className="mt-6 grid gap-5 sm:mt-8 md:grid-cols-3">
             {TOOL_ORDER.map((id) => (
               <Tilt3D key={id} className="rounded-3xl" max={6}>
                 <ToolCard id={id} />
