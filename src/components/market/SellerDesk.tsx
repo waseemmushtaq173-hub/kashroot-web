@@ -3,7 +3,7 @@
 /**
  * A seller's or dealer's side of the marketplace: their products (stock,
  * price, hide / remove), orders received with the next step, and where
- * buyers pay them. Used by the Seller portal and Price Comparison.
+ * buyers pay them. Used by the Farmer portal (What I sell) and Price Comparison.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Boxes, CheckCircle2, Loader2, Minus, Package, Pencil, Plus, PlusCircle, Trash2 } from 'lucide-react';
@@ -22,7 +22,7 @@ export function blankProduct(account: Account, category: MarketCategory = 'suppl
   return { seller_name: account.business || account.name, phone: account.phone, district: account.district, category, subcategory: produce ? 'Apple' : 'Packaging', product: '', variety: '', grade: '', unit: produce ? 'box' : 'piece', price: 0, quantity: 0, details: '', photo: null };
 }
 
-export function SellerDesk({ account, theme, show = 'all', category = 'supplies', addRequest = 0, onLoaded }: { account: Account; theme: PortalTheme; show?: 'all' | 'products' | 'orders' | 'payouts'; category?: MarketCategory; addRequest?: number; onLoaded?: (products: MarketListing[], orders: MarketOrder[]) => void }) {
+export function SellerDesk({ account, theme, show = 'all', category = 'supplies', mixed = false, addRequest = 0, onLoaded }: { account: Account; theme: PortalTheme; show?: 'all' | 'products' | 'orders' | 'payouts'; category?: MarketCategory; /** Farmer portal: produce and farm inputs side by side. */ mixed?: boolean; addRequest?: number; onLoaded?: (products: MarketListing[], orders: MarketOrder[]) => void }) {
   const [products, setProducts] = useState<MarketListing[] | null>(null);
   const [orders, setOrders] = useState<MarketOrder[]>([]);
   const [payout, setPayout] = useState<PayoutAccount | null | undefined>(undefined);
@@ -107,9 +107,24 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
       )}
 
       {(show === 'all' || show === 'products') && (
-        <Panel theme={theme} title={category === 'produce' ? 'My produce on sale' : 'My products'} icon={Boxes} className={show === 'products' ? 'lg:col-span-2' : ''} action={<Btn theme={theme} size="sm" icon={PlusCircle} onClick={() => setEditing({ data: blankProduct(account, category) })}>{category === 'produce' ? 'List produce' : 'Add product'}</Btn>}>
+        <Panel
+          theme={theme}
+          title={mixed ? 'What I sell' : category === 'produce' ? 'My produce on sale' : 'My products'}
+          icon={Boxes}
+          className={show === 'products' ? 'lg:col-span-2' : ''}
+          action={
+            mixed ? (
+              <div className="flex flex-wrap gap-2">
+                <Btn theme={theme} size="sm" icon={PlusCircle} onClick={() => setEditing({ data: blankProduct(account, 'produce') })}>List produce</Btn>
+                <Btn theme={theme} size="sm" variant="soft" icon={PlusCircle} onClick={() => setEditing({ data: blankProduct(account, 'supplies') })}>Add farm input</Btn>
+              </div>
+            ) : (
+              <Btn theme={theme} size="sm" icon={PlusCircle} onClick={() => setEditing({ data: blankProduct(account, category) })}>{category === 'produce' ? 'List produce' : 'Add product'}</Btn>
+            )
+          }
+        >
           {products.length === 0 ? (
-            <EmptyState theme={theme} icon={Boxes} title="Nothing listed yet" text={category === 'produce' ? 'List your apples, walnuts or saffron with price and quantity. Buyers see them on Price Comparison right away and can order.' : 'Add your products with price and stock. They appear on Price Comparison for buyers and farmers right away.'} />
+            <EmptyState theme={theme} icon={Boxes} title="Nothing listed yet" text={mixed ? 'List your apples, walnuts or saffron — or farm inputs you sell (fertiliser, sprays, packaging, tools) — with price and quantity. Buyers see them on Price Comparison right away and can order.' : category === 'produce' ? 'List your apples, walnuts or saffron with price and quantity. Buyers see them on Price Comparison right away and can order.' : 'Add your products with price and stock. They appear on Price Comparison for buyers and farmers right away.'} />
           ) : (
             <ul className="space-y-3">
               {products.map((p) => {
@@ -153,7 +168,7 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
           open
           wide
           onClose={() => setEditing(null)}
-          title={editing.id ? 'Edit' : category === 'produce' ? 'List your produce' : 'Add a product'}
+          title={editing.id ? 'Edit' : editing.data.category === 'produce' ? 'List your produce' : mixed ? 'Add a farm input' : 'Add a product'}
           footer={
             <>
               <Btn theme={theme} variant="ghost" onClick={() => setEditing(null)}>Cancel</Btn>

@@ -82,7 +82,7 @@ export function PlatformNumbers({ onRefreshed }: { onRefreshed?: () => Promise<u
     ['Products on sale', String(stats.products_on_sale), 'On Price Comparison'],
     ['Orders', String(sum(stats.orders)), `${sum(stats.orders, ['placed', 'accepted', 'shipped', 'delivered', 'paid'])} open · ${stats.orders.completed ?? 0} completed`],
     ['Paid to sellers', inr(stats.orders_paid_value), 'Completed orders'],
-    ['Cold stores listed', String(stats.cold_stores), `${stats.machinery} machinery`],
+    ['Cold stores listed', String(stats.cold_stores), 'In Cold Storage Booking'],
     ['Cold-store bookings', String(sum(stats.bookings)), `${stats.bookings.confirmed ?? 0} confirmed · ${stats.bookings.requested ?? 0} waiting`],
     ['Expert requests', String(stats.advisory_total), `${stats.advisory_waiting} waiting for an answer`],
     ['Tracked loads', String(stats.consignments), `${stats.consignments_live} on the road now`],

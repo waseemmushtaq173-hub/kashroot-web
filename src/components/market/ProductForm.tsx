@@ -1,6 +1,6 @@
 'use client';
 
-/** The fields of a marketplace product (seller portal and Price Comparison). */
+/** The fields of a marketplace product (Farmer portal and Price Comparison). */
 import { Camera, X } from 'lucide-react';
 import { toast } from 'sonner';
 

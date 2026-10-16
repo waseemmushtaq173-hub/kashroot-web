@@ -6,10 +6,13 @@
  * dashboards layout can all build links from it.
  *
  * Two kinds of portal:
- *   - Role portals (farmer, buyer, seller, logistics, admin) belong to one
- *     account type. Signing in through them checks the account's role.
- *   - Shared portals (kissan tools, rental, tracking, dealer, expert, trader) are
- *     open to any signed-in account; each still has its own sign-in page.
+ *   - Role portals (farmer, buyer, admin) belong to one account type. Signing
+ *     in through them checks the account's role. Selling (produce and farm
+ *     inputs) is part of the Farmer portal; there is no separate Seller or
+ *     Logistics portal any more (old links redirect, see next.config.ts).
+ *   - Shared portals (kissan tools, cold storage, tracking, dealer, expert,
+ *     trader) are open to any signed-in account; each has its own sign-in
+ *     page. Tracking also works without signing in, to follow a load by its code.
  *
  * SECURITY: the role checks here are UX. The account role comes from Supabase
  * (app_metadata first, then user_metadata, which users can edit themselves), so
@@ -22,10 +25,8 @@ export type AccountRole = 'FARMER' | 'BUYER' | 'SELLER' | 'PROVIDER' | 'ADMIN' |
 export type PortalId =
   | 'farmer'
   | 'buyer'
-  | 'seller'
   | 'kissan'
   | 'rental'
-  | 'logistics'
   | 'tracking'
   | 'dealer'
   | 'expert'
@@ -45,13 +46,11 @@ export interface PortalInfo {
 }
 
 export const PORTALS: Record<PortalId, PortalInfo> = {
-  farmer: { label: 'Farmer', requiredRole: 'FARMER', home: '/farmer/dashboard', segment: 'farmer', tagline: 'Orchards, listings & advisory' },
-  buyer: { label: 'Buyer', requiredRole: 'BUYER', home: '/buyer/dashboard', segment: 'buyer', tagline: 'Source verified produce' },
-  seller: { label: 'Seller', requiredRole: 'SELLER', home: '/seller/dashboard', segment: 'seller', tagline: 'Catalogue, orders & payouts' },
+  farmer: { label: 'Farmer', requiredRole: 'FARMER', home: '/farmer/dashboard', segment: 'farmer', tagline: 'Sell produce & inputs, safe payment' },
+  buyer: { label: 'Buyer', requiredRole: 'BUYER', home: '/buyer/dashboard', segment: 'buyer', tagline: 'Your orders & safe payment' },
   kissan: { label: 'Kissan Tools', requiredRole: null, home: '/kissan-tools/dashboard', segment: 'kissan-tools', tagline: 'Equipment & horti supplies' },
-  rental: { label: 'Rental', requiredRole: null, home: '/rental/dashboard', segment: 'rental', tagline: 'Cold storage & machinery' },
-  logistics: { label: 'Logistics', requiredRole: 'PROVIDER', home: '/provider/dashboard', segment: 'provider', tagline: 'Transport jobs & cold chain' },
-  tracking: { label: 'Tracking', requiredRole: null, home: '/tracking/dashboard', segment: 'tracking', tagline: 'Find any consignment' },
+  rental: { label: 'Cold Storage Booking', requiredRole: null, home: '/rental/dashboard', segment: 'rental', tagline: 'See the store in 3D, choose your place' },
+  tracking: { label: 'Tracking', requiredRole: null, home: '/tracking/dashboard', segment: 'tracking', tagline: 'Track any load by its code' },
   dealer: { label: 'Agro-dealer', requiredRole: null, home: '/dealer/dashboard', segment: 'dealer', tagline: 'Batch-coded inputs & compliance' },
   expert: { label: 'Advisory', requiredRole: null, home: '/expert', segment: 'expert', tagline: 'Ask agronomists, soil tests' },
   trader: { label: 'Mandi Helpers', requiredRole: null, home: '/trader/dashboard', segment: 'trader', tagline: 'Post daily mandi rates for farmers' },
@@ -71,13 +70,19 @@ export function isPortalId(value: string): value is PortalId {
   return value in PORTALS;
 }
 
-/** The portal that owns a (dashboards) route segment, e.g. 'provider' → 'logistics'. */
+/** The portal that owns a (dashboards) route segment, e.g. 'kissan-tools' → 'kissan'. */
 export function portalForSegment(segment: string | null | undefined): PortalId | null {
   return PORTAL_IDS.find((id) => PORTALS[id].segment === segment) ?? null;
 }
 
-/** The portal whose role an account has, e.g. 'PROVIDER' → 'logistics'. */
+/**
+ * The portal whose role an account has, e.g. 'BUYER' → 'buyer'. Accounts made
+ * for the old Seller and Logistics portals go to Farmer (selling) and
+ * Tracking (transport).
+ */
 export function portalForRole(role: string | null | undefined): PortalId | null {
+  if (role === 'SELLER') return 'farmer';
+  if (role === 'PROVIDER') return 'tracking';
   return PORTAL_IDS.find((id) => PORTALS[id].requiredRole === role) ?? null;
 }
 
@@ -90,8 +95,6 @@ export function loginHref(portal: PortalId, next?: string): string {
 export const REGISTER_ROLES: { role: AccountRole; portal: PortalId; label: string }[] = [
   { role: 'FARMER', portal: 'farmer', label: 'Farmer' },
   { role: 'BUYER', portal: 'buyer', label: 'Buyer' },
-  { role: 'SELLER', portal: 'seller', label: 'Seller' },
-  { role: 'PROVIDER', portal: 'logistics', label: 'Logistics' },
 ];
 
 /** Account types a person can create themselves. */
@@ -108,8 +111,6 @@ export type SignUpRole = 'FARMER' | 'BUYER' | 'SELLER' | 'PROVIDER';
 export const SIGNUP_ROLE: Partial<Record<PortalId, SignUpRole>> = {
   farmer: 'FARMER',
   buyer: 'BUYER',
-  seller: 'SELLER',
-  logistics: 'PROVIDER',
   kissan: 'FARMER',
   rental: 'FARMER',
   tracking: 'FARMER',

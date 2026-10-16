@@ -144,14 +144,9 @@ export default function KissanToolsDashboardPage() {
       activeTab={tab}
       onTabChange={setTab}
       actions={
-        <>
-          <Btn theme={theme} variant="white" icon={ShoppingCart} onClick={() => setTab('cart')}>
-            Cart ({cartCount})
-          </Btn>
-          <Btn theme={theme} variant="white" icon={Tractor} href="/rental/dashboard">
-            Rent machinery
-          </Btn>
-        </>
+        <Btn theme={theme} variant="white" icon={ShoppingCart} onClick={() => setTab('cart')}>
+          Cart ({cartCount})
+        </Btn>
       }
     >
       {tab === 'shop' && (

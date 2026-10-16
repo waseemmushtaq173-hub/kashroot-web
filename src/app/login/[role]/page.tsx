@@ -1,7 +1,8 @@
 /**
- * /login/<portal> — one dedicated sign-in per portal (farmer, buyer, seller,
- * kissan, rental, logistics, tracking, dealer, expert, admin). Unknown
- * portals 404.
+ * /login/<portal> — one dedicated sign-in per portal (farmer, buyer, kissan,
+ * rental = cold storage booking, tracking, dealer, expert, trader, admin).
+ * Unknown portals 404; the old seller and logistics sign-ins redirect
+ * (next.config.ts).
  *
  * `params` and `searchParams` are Promises in this Next version. `returnTo` is
  * accepted as an alias of `next` for older links.

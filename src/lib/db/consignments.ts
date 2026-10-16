@@ -82,5 +82,5 @@ export async function driverDelivered(token: string): Promise<void> {
   if (error) fail(error, 'Could not mark delivered.');
 }
 
-export const trackUrl = (code: string) => `${publicOrigin()}/track/${code}`;
+export const trackUrl = (code: string) => `${publicOrigin()}/tracking/dashboard?code=${encodeURIComponent(code)}`;
 export const driverUrl = (token: string) => `${publicOrigin()}/drive/${token}`;

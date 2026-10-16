@@ -26,10 +26,10 @@ const { theme } = TOOLS.priceComparison;
 
 export const PRICE_COMPARISON_BUTTON = `inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold no-underline shadow-md shadow-sky-700/20 transition hover:no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${theme.primaryButton}`;
 
-/** "List your products" → seller sign-in, returning to this page afterwards. */
+/** "List your products" → sign-in (selling is part of the Farmer portal), returning to this page afterwards. */
 export function ListProductsLink() {
   return (
-    <Link href={loginHref('seller', TOOLS.priceComparison.href)} className={PRICE_COMPARISON_BUTTON}>
+    <Link href={loginHref('farmer', `${TOOLS.priceComparison.href}?tab=sell`)} className={PRICE_COMPARISON_BUTTON}>
       List your products
       <ArrowRight className="h-4 w-4" aria-hidden />
     </Link>

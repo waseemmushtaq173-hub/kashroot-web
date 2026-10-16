@@ -2,8 +2,8 @@
 
 /**
  * Portal kit — the shared, bright building blocks for every role portal
- * (farmer, buyer, seller, kissan tools, rentals, logistics, dealer, admin,
- * tracking, expert) and the orchard tools.
+ * (farmer, buyer, kissan tools, cold storage booking, tracking, dealer,
+ * expert, mandi helpers, admin) and the orchard tools.
  *
  * The look carries the valley without naming it: season photographs in each
  * hero, a khatamband (carved-ceiling) lattice woven faintly into the canvas, a

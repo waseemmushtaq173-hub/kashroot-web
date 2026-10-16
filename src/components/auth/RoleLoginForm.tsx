@@ -8,7 +8,7 @@
  * Sign-in: Supabase email + password (authApi.login), then the account's roles
  * are checked against the portal. One email is one KashRoot account that can
  * hold several portals:
- *   - farmer, buyer, seller and logistics: an account without that portal is
+ *   - farmer and buyer: an account without that portal is
  *     offered to add it (its details for each portal stay separate);
  *   - admin: only accounts an admin has granted the role;
  *   - shared portals accept any account.
@@ -16,8 +16,8 @@
  * WhatsApp together (email when there is no mobile or phone codes fail on the
  * site's side). The dashboards open only once it is verified.
  * Accounts created before roles were saved have no role: they may use the
- * farmer, buyer and seller portals (bound to that portal, as before), but not
- * the logistics or admin portals.
+ * farmer and buyer portals (bound to that portal, as before), but not the
+ * admin portal.
  *
  * SECURITY: UX only — the backend must authorise every request itself.
  */
@@ -34,7 +34,7 @@ import { AUTH_ROUTES, loginHref, PORTALS, portalForRole, safeNextPath, type Port
 import { forgetPerson, rememberedPerson, rememberSignedIn, restoreSession, type RememberedPerson } from '@/lib/auth/session';
 import { getKycConfig } from '@/lib/kyc/kyc-service';
 
-const LEGACY_OK: PortalId[] = ['farmer', 'buyer', 'seller'];
+const LEGACY_OK: PortalId[] = ['farmer', 'buyer'];
 
 type JoinRole = (typeof SELF_JOIN_ROLES)[number];
 const isJoinRole = (role: string | null): role is JoinRole => (SELF_JOIN_ROLES as readonly string[]).includes(role ?? '');

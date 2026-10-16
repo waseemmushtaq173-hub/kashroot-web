@@ -1,13 +1,14 @@
 'use client';
 
 /**
- * Farmer portal — overview, produce on sale, orders and payment details.
+ * Farmer portal — overview, everything the farmer sells, orders and safe payment.
  *
- * Produce is listed on the shared marketplace (market_listings, category
- * "produce"), so buyers see it on Price Comparison on any phone and can
- * order. Orders are pay-after-delivery: the buyer pays the farmer directly by
- * UPI / bank once the goods arrive. Today's weather comes from Open-Meteo for
- * the farmer's district (My details).
+ * Produce and farm inputs (what the old Seller portal did) are listed on the
+ * shared marketplace (market_listings), so buyers see them on Price
+ * Comparison and can order. Orders are pay-after-delivery: the buyer pays the
+ * farmer directly by UPI / bank once the goods arrive. Safe payment holds the
+ * identity check (KYC) and where buyers pay. Today's weather comes from
+ * Open-Meteo for the farmer's district (My details).
  */
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -24,7 +25,7 @@ import {
   MessageCircleQuestion,
   Package,
   PlusCircle,
-  ShoppingCart,
+  ShieldCheck,
   Sprout,
   Store,
   Thermometer,
@@ -34,10 +35,11 @@ import {
 
 import { PortalShell } from '@/components/layout/PortalShell';
 import { SellerDesk } from '@/components/market/SellerDesk';
+import { SafePayment } from '@/components/payments/SafePayment';
 import { Btn, PORTAL_THEMES, Panel, Tile } from '@/components/portal/kit';
 import { inr, loadAccount, type Account } from '@/lib/db/client';
 import { dryHours } from '@/lib/sprayWindow';
-import type { MarketListing, MarketOrder } from '@/lib/db/market';
+import type { MarketCategory, MarketListing, MarketOrder } from '@/lib/db/market';
 
 const theme = PORTAL_THEMES.farmer;
 type Tab = 'overview' | 'lots' | 'orders' | 'payouts';
@@ -56,6 +58,8 @@ function FarmerDashboard() {
   const initial = params.get('tab') as Tab | null;
   const [tab, setTab] = useState<Tab>(initial && TABS.includes(initial) ? initial : 'overview');
   const [addRequest, setAddRequest] = useState(params.get('add') === '1' ? 1 : 0);
+  // What "add" opens: produce from the orchard, or farm inputs for sale.
+  const [addCategory, setAddCategory] = useState<MarketCategory>(params.get('sell') === 'supplies' ? 'supplies' : 'produce');
   const [account, setAccount] = useState<Account | null | undefined>(undefined);
   const [stats, setStats] = useState<{ products: MarketListing[]; orders: MarketOrder[] } | null>(null);
 
@@ -64,10 +68,12 @@ function FarmerDashboard() {
   }, []);
 
   const onLoaded = useCallback((products: MarketListing[], orders: MarketOrder[]) => setStats({ products, orders }), []);
-  const listProduce = () => {
+  const listProduct = (category: MarketCategory) => {
+    setAddCategory(category);
     setTab('lots');
     setAddRequest((n) => n + 1);
   };
+  const listProduce = () => listProduct('produce');
 
   const products = stats?.products ?? [];
   const orders = stats?.orders ?? [];
@@ -78,19 +84,19 @@ function FarmerDashboard() {
   return (
     <PortalShell
       title={account?.name ? `Welcome, ${account.name.split(' ')[0]}` : 'Welcome back'}
-      description="Sell your harvest, follow your orders, and check today’s weather before you spray."
+      description="Sell your harvest and farm inputs, get paid safely after delivery, and check today’s weather before you spray."
       eyebrow="Farmer portal"
       theme="farmer"
       kpis={[
         { label: 'Money received', value: inr(received), trend: 'Paid to you directly' },
         { label: 'Orders to act on', value: String(toAct), trend: 'Accept, ship, confirm payment' },
-        { label: 'Produce on sale', value: String(onSale), trend: 'On Price Comparison' },
+        { label: 'On sale', value: String(onSale), trend: 'Produce and farm inputs' },
       ]}
       tabs={[
         { id: 'overview', label: 'Overview', icon: Sprout },
-        { id: 'lots', label: 'My produce', icon: Store, count: products.length || undefined },
+        { id: 'lots', label: 'What I sell', icon: Store, count: products.length || undefined },
         { id: 'orders', label: 'Orders', icon: Package, count: toAct || undefined },
-        { id: 'payouts', label: 'Payouts', icon: Banknote },
+        { id: 'payouts', label: 'Safe payment', icon: ShieldCheck },
       ]}
       activeTab={tab}
       onTabChange={(id) => setTab(id as Tab)}
@@ -105,8 +111,9 @@ function FarmerDashboard() {
           <div className="space-y-6 lg:col-span-2">
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <Tile theme={theme} icon={PlusCircle} label="Sell produce" hint="List apples, walnuts…" onClick={listProduce} />
-              <Tile theme={theme} icon={Warehouse} label="Cold storage" hint="Book CA space & machinery" href="/rental/dashboard" />
-              <Tile theme={theme} icon={ShoppingCart} label="Buy inputs" hint="Compare dealer prices" href="/compare-prices" />
+              <Tile theme={theme} icon={Store} label="Sell farm inputs" hint="Fertiliser, sprays, tools…" onClick={() => listProduct('supplies')} />
+              <Tile theme={theme} icon={ShieldCheck} label="Safe payment" hint="Verify & get paid" onClick={() => setTab('payouts')} />
+              <Tile theme={theme} icon={Warehouse} label="Cold storage" hint="Choose your place" href="/rental/dashboard" />
               <Tile theme={theme} icon={MessageCircleQuestion} label="Ask an expert" hint="Agronomist answers" href="/expert" />
               <Tile theme={theme} icon={Activity} label="Orchard health" hint="Scab map, photo check" href="/orchard-health" />
               <Tile theme={theme} icon={CalendarDays} label="Season planner" hint="Tasks & costs" href="/season-planner" />
@@ -149,15 +156,15 @@ function FarmerDashboard() {
 
           <div className="space-y-6">
             <TodayWeather district={account?.district} />
-            <Panel theme={theme} title="How you get paid" icon={Banknote}>
+            <Panel theme={theme} title="Safe payment" icon={Banknote}>
               <ol className="list-decimal space-y-1 pl-5 text-sm text-slate-700">
-                <li>A buyer orders your produce.</li>
+                <li>A buyer orders. Nothing is paid up front.</li>
                 <li>You accept and send it.</li>
                 <li>The buyer checks it and pays you directly by UPI / bank.</li>
                 <li>You press “Money received”.</li>
               </ol>
               <Btn theme={theme} variant="soft" className="mt-4 w-full" onClick={() => setTab('payouts')}>
-                Add your UPI / bank details
+                Verify yourself & add UPI / bank
               </Btn>
             </Panel>
           </div>
@@ -170,11 +177,13 @@ function FarmerDashboard() {
       ) : account === null ? (
         tab !== 'overview' && <p role="alert" className="rounded-2xl bg-amber-50 p-4 text-amber-900 ring-1 ring-amber-200">Sign in again to manage your produce.</p>
       ) : (
-        <div className={tab === 'overview' ? 'hidden' : ''}>
+        <div className={tab === 'overview' ? 'hidden' : 'space-y-6'}>
+          {tab === 'payouts' && <SafePayment as="farmer" account={account} theme={theme} />}
           <SellerDesk
             account={account}
             theme={theme}
-            category="produce"
+            category={addCategory}
+            mixed
             show={tab === 'lots' ? 'products' : tab === 'payouts' ? 'payouts' : 'orders'}
             addRequest={addRequest}
             onLoaded={onLoaded}

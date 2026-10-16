@@ -63,7 +63,8 @@ const TOOL_ACTIONS: Record<ToolId, { primary: ToolAction; secondary: ToolAction 
   },
   priceComparison: {
     primary: { label: 'Compare prices', href: TOOLS.priceComparison.href },
-    secondary: { label: 'List your products', href: loginHref('seller', TOOLS.priceComparison.href) },
+    // Selling (produce and farm inputs) is part of the Farmer portal.
+    secondary: { label: 'List your products', href: loginHref('farmer', `${TOOLS.priceComparison.href}?tab=sell`) },
   },
 };
 

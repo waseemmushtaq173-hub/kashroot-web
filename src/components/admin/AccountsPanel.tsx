@@ -34,7 +34,7 @@ interface AccountRow {
   last_active_at?: string | null;
 }
 
-const KIND: Record<string, string> = { FARMER: 'Farmer', BUYER: 'Buyer', SELLER: 'Seller', PROVIDER: 'Rental / logistics', ADMIN: 'Admin', EXPERT: 'Agronomist', DEALER: 'Agro-dealer', REPORTER: 'Mandi Helper' };
+const KIND: Record<string, string> = { FARMER: 'Farmer', BUYER: 'Buyer', SELLER: 'Seller', PROVIDER: 'Cold store / transport', ADMIN: 'Admin', EXPERT: 'Agronomist', DEALER: 'Agro-dealer', REPORTER: 'Mandi Helper' };
 const label = (r: string) => KIND[r] ?? r.charAt(0).toUpperCase() + r.slice(1).toLowerCase();
 /** When they last used KashRoot: staying signed in renews the session, not the sign-in. */
 const lastSeen = (r: AccountRow) => r.last_active_at ?? r.last_sign_in_at;

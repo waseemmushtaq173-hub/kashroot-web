@@ -159,6 +159,24 @@ export function useMyPortal(): PortalId | null {
   return portal;
 }
 
+/** Whether someone is signed in on this device (null while checking). */
+export function useSignedIn(): boolean | null {
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  useEffect(() => {
+    let live = true;
+    const run = async () => {
+      if (!supabaseConfigured) return live && setSignedIn(false);
+      const { data } = await supabase.auth.getSession();
+      if (live) setSignedIn(Boolean(data.session));
+    };
+    void run();
+    return () => {
+      live = false;
+    };
+  }, []);
+  return signedIn;
+}
+
 /** The person pressed Sign out: end the session and forget them on this device. */
 export async function signOutCompletely() {
   forgetPerson();

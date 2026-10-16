@@ -34,6 +34,10 @@ export const MY_DETAILS: Partial<Record<PortalId, DetailsForm>> = {
       { key: 'crops', label: 'What do you grow?', type: 'multi', options: ['Apple', 'Walnut', 'Almond', 'Cherry', 'Pear', 'Saffron', 'Rice', 'Vegetables'], required: true },
       { key: 'irrigation', label: 'Water for the orchard', type: 'choice', options: ['Canal', 'Tube well', 'Rain only', 'Sprinkler / drip'] },
       { key: 'language', label: 'Language you prefer', type: 'choice', options: ['Kashmiri', 'Urdu', 'Hindi', 'English'] },
+      // For farmers who also sell farm inputs (the old Seller portal).
+      { key: 'shop', label: 'Shop / brand name (if you sell farm inputs)', type: 'text' },
+      { key: 'licence', label: 'Fertiliser / pesticide licence no. (if you sell them)', type: 'text' },
+      { key: 'gstin', label: 'GSTIN (optional)', type: 'text', placeholder: '15 characters' },
     ],
   },
   buyer: {
@@ -48,39 +52,17 @@ export const MY_DETAILS: Partial<Record<PortalId, DetailsForm>> = {
       { key: 'volume', label: 'Usual monthly volume (tonnes)', type: 'number', placeholder: 'e.g. 20' },
     ],
   },
-  seller: {
-    title: 'My shop',
-    intro: 'Your shop details appear on your catalogue and price comparison listings.',
-    fields: [
-      { key: 'shop', label: 'Shop / brand name', type: 'text', required: true },
-      { key: 'gstin', label: 'GSTIN', type: 'text', placeholder: '15 characters' },
-      { key: 'licence', label: 'Fertiliser / pesticide licence no. (if you sell them)', type: 'text' },
-      ...PLACE,
-      { key: 'categories', label: 'What do you sell?', type: 'multi', options: ['Fertilisers', 'Pesticides', 'Seeds & saplings', 'Packaging', 'Tools', 'Irrigation'], required: true },
-    ],
-  },
-  logistics: {
-    title: 'My vehicles',
-    intro: 'Add your vehicles so growers and buyers can book you, and tracking knows your trucks.',
-    fields: [
-      { key: 'company', label: 'Company / owner name', type: 'text', required: true },
-      { key: 'vehicles', label: 'Vehicle numbers', type: 'textarea', placeholder: 'One per line, e.g. JK03A1234', required: true },
-      { key: 'types', label: 'Vehicle types', type: 'multi', options: ['Truck', 'Reefer (cold)', 'Pickup', 'Tempo'] },
-      { key: 'capacity', label: 'Largest load (tonnes)', type: 'number' },
-      { key: 'routes', label: 'Routes you run', type: 'text', placeholder: 'e.g. Shopian – Delhi, Sopore – Mumbai' },
-    ],
-  },
   kissan: {
     title: 'My needs',
     intro: 'Tell us what equipment and supplies you are looking for.',
     fields: [...PLACE, { key: 'needs', label: 'Looking for', type: 'multi', options: ['Sprayers', 'Pruning tools', 'Hail nets', 'Crates', 'Tractor parts', 'Saplings'] }],
   },
   rental: {
-    title: 'My rental details',
-    intro: 'Whether you offer storage or machines, or need them — and where.',
+    title: 'My cold storage details',
+    intro: 'Whether you own a cold store or need space in one — and where.',
     fields: [
-      { key: 'role', label: 'I want to', type: 'choice', options: ['Rent out', 'Hire'], required: true },
-      { key: 'what', label: 'What', type: 'multi', options: ['Cold storage', 'CA store', 'Tractor', 'Sprayer', 'Grading machine', 'Truck'], required: true },
+      { key: 'role', label: 'I', type: 'choice', options: ['Own a cold store', 'Need space'], required: true },
+      { key: 'what', label: 'What', type: 'multi', options: ['Cold storage', 'CA store', 'Pre-cooling', 'Grading line'], required: true },
       ...PLACE,
       { key: 'capacity', label: 'Capacity (tonnes, for storage)', type: 'number' },
     ],

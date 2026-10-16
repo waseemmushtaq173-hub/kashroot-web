@@ -33,7 +33,7 @@ const SPECIFIC = [
 const PLACES: { href: string; label: Text; keys: string[] }[] = [
   { href: '/compare-prices?tab=orders', label: { en: 'your orders', hi: 'आपके ऑर्डर', ur: 'آپ کے آرڈر' }, keys: ['my orders', 'my order', 'mere order', 'मेरे ऑर्डर', 'میرے آرڈر'] },
   { href: '/farmer/dashboard?tab=lots&add=1', label: { en: 'List produce', hi: 'फ़सल बेचना', ur: 'فصل بیچنا' }, keys: ['sell', 'list produce', 'bech', 'बेच', 'بیچ', 'فروخت'] },
-  { href: '/rental/dashboard', label: { en: 'cold storage', hi: 'कोल्ड स्टोरेज', ur: 'کولڈ اسٹوریج' }, keys: ['cold', 'storage', 'machinery', 'tractor', 'कोल्ड', 'स्टोर', 'मशीन', 'ट्रैक्टर', 'کولڈ', 'اسٹور', 'سٹور', 'مشین', 'ٹریکٹر'] },
+  { href: '/rental/dashboard', label: { en: 'cold storage booking', hi: 'कोल्ड स्टोरेज बुकिंग', ur: 'کولڈ اسٹوریج بکنگ' }, keys: ['cold', 'storage', 'chamber', 'कोल्ड', 'स्टोर', 'چیمبر', 'کولڈ', 'اسٹور', 'سٹور'] },
   { href: '/tracking/dashboard', label: { en: 'tracking', hi: 'ट्रैकिंग', ur: 'ٹریکنگ' }, keys: ['track', 'truck', 'consignment', 'ट्रक', 'ट्रैक', 'ٹرک', 'ٹریک'] },
   { href: '/supplies/tester', label: { en: 'the fertiliser check', hi: 'खाद जाँच', ur: 'کھاد کی جانچ' }, keys: ['fertiliser', 'fertilizer', 'pesticide', 'khad', 'खाद', 'दवा', 'کھاد', 'دوائی'] },
   { href: '/orchard-health', label: { en: 'Orchard Health', hi: 'बाग़ की सेहत', ur: 'باغ کی صحت' }, keys: ['orchard', 'scab', 'spray log', 'photo diagnosis', 'बाग', 'स्कैब', 'باغ', 'اسکیب'] },

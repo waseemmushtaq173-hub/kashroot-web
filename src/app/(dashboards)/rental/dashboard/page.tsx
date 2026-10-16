@@ -1,20 +1,19 @@
 'use client';
 
 /**
- * Rental portal — cold-store space and machinery.
- *   Farmers: find a cold store with free space (live vacancy), request boxes
- *   for some months, pay the owner directly by UPI / bank, and the owner
- *   confirms. Same for machinery by the day.
+ * Cold Storage Booking portal (/rental — the old name stays in the address).
+ *   Farmers: find a cold store with free space (live vacancy), see the whole
+ *   store — every chamber on a floor plan and in 3D — choose their own
+ *   places for some months, pay the owner directly by UPI / bank, and the
+ *   owner confirms. Later they see exactly where their boxes are.
  *   Owners: list their cold store (capacity in boxes, vacancy, rate, UPI /
- *   bank details), keep the vacancy current, and confirm bookings.
- *   Cold store map: an owner draws the chambers as rows × columns of places;
- *   farmers then choose their own places, like seats on a plane, and see
- *   where their boxes are (components/rental).
+ *   bank details), draw its chambers as rows of stacks, and confirm bookings.
+ *   (components/rental)
  * Payments go straight to the owner — KashRoot does not hold them.
  * Data: rental_listings, rental_bookings, payout_accounts (shared database).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Boxes, CalendarDays, CheckCircle2, Loader2, Map as MapIcon, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, Search, Snowflake, Store, Tractor, Trash2, Warehouse, XCircle } from 'lucide-react';
+import { Boxes, CalendarDays, CheckCircle2, Loader2, Map as MapIcon, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, Search, Snowflake, Store, Trash2, Warehouse, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { PortalShell } from '@/components/layout/PortalShell';
@@ -41,28 +40,30 @@ import {
   type ListingInput,
   type PayoutAccount,
   type RentalBooking,
-  type RentalKind,
   type RentalListing,
 } from '@/lib/db/rentals';
 
 const theme = PORTAL_THEMES.rental;
 const today = () => new Date().toISOString().slice(0, 10);
 
-const blankListing = (kind: RentalKind, account: Account | null): ListingInput => ({
-  kind,
+const blankListing = (account: Account | null): ListingInput => ({
+  kind: 'cold_store',
   title: '',
   owner_name: account?.name ?? '',
   phone: account?.phone ?? '',
   district: account?.district ?? '',
   address: '',
-  unit: kind === 'cold_store' ? 'box_month' : 'day',
-  capacity: kind === 'cold_store' ? 1000 : 1,
-  available: kind === 'cold_store' ? 1000 : 1,
-  rate: kind === 'cold_store' ? 15 : 800,
-  min_units: kind === 'cold_store' ? 10 : 1,
-  temperature: kind === 'cold_store' ? '0–2 °C, CA' : '',
+  unit: 'box_month',
+  capacity: 1000,
+  available: 1000,
+  rate: 15,
+  min_units: 10,
+  temperature: '0–2 °C, CA',
   details: '',
 });
+
+/** Only cold stores are booked here (older machinery listings are not shown). */
+const isCold = (l: { kind: string }) => l.kind === 'cold_store';
 
 export default function RentalPage() {
   const [account, setAccount] = useState<Account | null | undefined>(undefined);
@@ -87,13 +88,15 @@ export default function RentalPage() {
     if (!account) return;
     setLoading(true);
     try {
-      const shown = tab === 'cold' || tab === 'machinery' ? await listListings(tab === 'cold' ? 'cold_store' : 'machinery') : null;
+      const shown = tab === 'cold' ? await listListings('cold_store') : null;
       if (shown) setListings(shown);
-      const [b, i, o] = await Promise.all([myBookings(account.id), incomingBookings(account.id), myListings(account.id)]);
+      const [b0, i0, o0] = await Promise.all([myBookings(account.id), incomingBookings(account.id), myListings(account.id)]);
+      const coldOnly = (x: RentalBooking) => !x.rental_listings?.kind || x.rental_listings.kind === 'cold_store';
+      const [b, i, o] = [b0.filter(coldOnly), i0.filter(coldOnly), o0.filter(isCold)];
       setMine(b);
       setIncoming(i);
       setOwned(o);
-      const storeIds = [...new Set([...(shown ?? []), ...o].filter((l) => l.kind === 'cold_store').map((l) => l.id).concat([...b, ...i].map((x) => x.listing_id)))];
+      const storeIds = [...new Set([...(shown ?? []), ...o].map((l) => l.id).concat([...b, ...i].map((x) => x.listing_id)))];
       const [c, p] = await Promise.all([chambersOf(storeIds), placesOfBookings([...b, ...i].map((x) => x.id))]);
       setChambers(c);
       setPlaces(p);
@@ -129,9 +132,9 @@ export default function RentalPage() {
 
   return (
     <PortalShell
-      title="Cold storage & machinery"
-      description="Find free cold-store space and machines near you, book them and pay the owner directly — or list your own cold store."
-      eyebrow="Rental"
+      title="Cold storage booking"
+      description="See the whole cold store — every chamber, on a plan and in 3D — choose your own place for your boxes and pay the owner directly. Or list your own cold store."
+      eyebrow="Cold storage"
       theme="rental"
       kpis={[
         { label: 'Free cold-store space', value: tab === 'cold' ? `${listings.reduce((s, l) => s + l.available, 0).toLocaleString('en-IN')} boxes` : '—', trend: `${tab === 'cold' ? listings.length : 0} cold stores` },
@@ -139,8 +142,7 @@ export default function RentalPage() {
         { label: 'Waiting for you', value: String(waiting), trend: owned.length ? 'Bookings to confirm' : 'List your cold store' },
       ]}
       tabs={[
-        { id: 'cold', label: 'Cold storage', icon: Snowflake },
-        { id: 'machinery', label: 'Machinery', icon: Tractor },
+        { id: 'cold', label: 'Find a cold store', icon: Snowflake },
         { id: 'bookings', label: 'My bookings', icon: CalendarDays, count: mine.filter((b) => b.status === 'requested').length || undefined },
         { id: 'owner', label: 'My cold store', icon: Warehouse, count: waiting || undefined },
       ]}
@@ -153,17 +155,17 @@ export default function RentalPage() {
         </Panel>
       ) : listError ? (
         <p role="alert" className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">{listError}</p>
-      ) : tab === 'cold' || tab === 'machinery' ? (
+      ) : tab === 'cold' ? (
         <div className="space-y-5">
           <label className="relative block">
             <span className="sr-only">Search</span>
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
-            <input className={`${INPUT} pl-9`} value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tab === 'cold' ? 'Search by district, village or cold store' : 'Search tractors, sprayers, district…'} />
+            <input className={`${INPUT} pl-9`} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by district, village or cold store" />
           </label>
           {loading && listings.length === 0 ? (
             <p className="flex items-center gap-2 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>
           ) : visible.length === 0 ? (
-            <EmptyState theme={theme} icon={tab === 'cold' ? Snowflake : Tractor} title={tab === 'cold' ? 'No cold stores listed yet' : 'No machines listed yet'} text={tab === 'cold' ? 'Cold-store owners can list their space under “My cold store”.' : 'Owners can list machines under “My cold store”.'} action={<Btn theme={theme} variant="soft" onClick={() => setTab('owner')}>List yours</Btn>} />
+            <EmptyState theme={theme} icon={Snowflake} title="No cold stores listed yet" text="Cold-store owners can list their space under “My cold store”." action={<Btn theme={theme} variant="soft" onClick={() => setTab('owner')}>List yours</Btn>} />
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {visible.map((l) => (
@@ -175,7 +177,7 @@ export default function RentalPage() {
       ) : tab === 'bookings' ? (
         <Panel theme={theme} title="My bookings" icon={CalendarDays}>
           {mine.length === 0 ? (
-            <EmptyState theme={theme} icon={CalendarDays} title="No bookings yet" text="Book cold-store space or a machine and it appears here, with how to pay the owner." action={<Btn theme={theme} onClick={() => setTab('cold')}>Find cold storage</Btn>} />
+            <EmptyState theme={theme} icon={CalendarDays} title="No bookings yet" text="Book your place in a cold store and it appears here, with how to pay the owner and where your boxes are." action={<Btn theme={theme} onClick={() => setTab('cold')}>Find cold storage</Btn>} />
           ) : (
             <ul className="space-y-4">
               {mine.map((b) => (
@@ -229,16 +231,13 @@ function ListingCard({ listing: l, chambers, own, onBook }: { listing: RentalLis
       </div>
       <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-600"><MapPin className="h-4 w-4" aria-hidden /> {l.district}{l.address ? ` · ${l.address}` : ''}</p>
       {l.temperature && <p className="flex items-center gap-1.5 text-sm text-slate-600"><Snowflake className="h-4 w-4" aria-hidden /> {l.temperature}</p>}
-      {l.kind === 'cold_store' && (
-        <div className="mt-3">
-          <p className="flex justify-between text-sm"><span className="font-semibold text-slate-900">{l.available.toLocaleString('en-IN')} boxes free</span><span className="text-slate-500">of {l.capacity.toLocaleString('en-IN')}</span></p>
-          <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100" role="meter" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Free space">
-            <div className="h-full rounded-full bg-violet-600" style={{ width: `${pct}%` }} />
-          </div>
+      <div className="mt-3">
+        <p className="flex justify-between text-sm"><span className="font-semibold text-slate-900">{l.available.toLocaleString('en-IN')} boxes free</span><span className="text-slate-500">of {l.capacity.toLocaleString('en-IN')}</span></p>
+        <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100" role="meter" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Free space">
+          <div className="h-full rounded-full bg-violet-600" style={{ width: `${pct}%` }} />
         </div>
-      )}
-      {l.kind === 'machinery' && <p className="mt-2 text-sm text-slate-700">{l.available} of {l.capacity} available</p>}
-      {map && <p className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-sky-800"><MapIcon className="h-4 w-4" aria-hidden /> Choose your own place · {chambers.length} chamber{chambers.length === 1 ? '' : 's'}, {chambers.reduce((s, c) => s + usablePlaces(c), 0)} places</p>}
+      </div>
+      {map && <p className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-sky-800"><MapIcon className="h-4 w-4" aria-hidden /> See it in 3D, choose your place · {chambers.length} chamber{chambers.length === 1 ? '' : 's'}, {chambers.reduce((s, c) => s + usablePlaces(c), 0)} places</p>}
       {l.details && <p className="mt-2 line-clamp-2 text-sm text-slate-600">{l.details}</p>}
       <div className="mt-auto flex items-end justify-between gap-2 border-t border-slate-900/5 pt-4">
         <div>
@@ -337,7 +336,7 @@ function RenterBooking({ booking: b, places, chambers, onChange }: { booking: Re
         </div>
         <Badge tone={s.tone}>{s.label}</Badge>
       </div>
-      <MyPlaces places={places} chambers={chambers} />
+      <MyPlaces places={places} chambers={chambers} listingId={b.listing_id} start={b.start_date} months={b.duration} />
       {places.length > 0 && b.status === 'requested' && (
         <p className="mt-2 text-sm text-amber-800">
           {Date.parse(b.created_at) + 86_400_000 > now
@@ -426,14 +425,14 @@ function OwnerPanel({ account, owned, incoming, chambers, places, onChange }: { 
         )}
       </Panel>
 
-      <Panel theme={theme} title="My cold stores & machines" icon={Warehouse} action={<div className="flex gap-2"><Btn theme={theme} size="sm" icon={PlusCircle} onClick={() => setEditing({ data: blankListing('cold_store', account) })}>Add cold store</Btn><Btn theme={theme} size="sm" variant="soft" icon={Tractor} onClick={() => setEditing({ data: blankListing('machinery', account) })}>Add machine</Btn></div>}>
+      <Panel theme={theme} title="My cold stores" icon={Warehouse} action={<Btn theme={theme} size="sm" icon={PlusCircle} onClick={() => setEditing({ data: blankListing(account) })}>Add cold store</Btn>}>
         {owned.length === 0 ? (
           <EmptyState theme={theme} icon={Warehouse} title="Nothing listed" text="Add your cold store with how many boxes it holds and how many are free. Farmers see it straight away." />
         ) : (
           <ul className="space-y-3">
             {owned.map((l) => {
               const unit = UNIT_LABEL[l.unit];
-              const step = l.kind === 'cold_store' ? 100 : 1;
+              const step = 100;
               const mapped = chambers.some((c) => c.listing_id === l.id);
               return (
                 <li key={l.id} className="rounded-2xl bg-white/85 p-4 ring-1 ring-slate-900/5">
@@ -455,7 +454,7 @@ function OwnerPanel({ account, owned, incoming, chambers, places, onChange }: { 
                   </div>
                   )}
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {l.kind === 'cold_store' && <Btn theme={theme} size="sm" icon={MapIcon} onClick={() => setMapOf(l)}>{mapped ? 'Cold store map' : 'Draw your cold store map'}</Btn>}
+                    <Btn theme={theme} size="sm" icon={MapIcon} onClick={() => setMapOf(l)}>{mapped ? 'Cold store map & 3D' : 'Draw your cold store map'}</Btn>
                     <Btn theme={theme} size="sm" variant="soft" icon={Pencil} onClick={() => setEditing({ id: l.id, data: { kind: l.kind, title: l.title, owner_name: l.owner_name, phone: l.phone, district: l.district, address: l.address ?? '', unit: l.unit, capacity: l.capacity, available: l.available, rate: Number(l.rate), min_units: l.min_units, temperature: l.temperature ?? '', details: l.details ?? '' } })}>Edit</Btn>
                     <Btn theme={theme} size="sm" variant="ghost" disabled={busy} onClick={() => void run(() => setAvailability(l.id, l.available, !l.active), l.active ? 'Hidden from farmers' : 'Visible to farmers again')}>{l.active ? 'Hide' : 'Show again'}</Btn>
                     <Btn theme={theme} size="sm" variant="danger" icon={Trash2} disabled={busy} onClick={() => { if (window.confirm(`Remove ${l.title}? Its bookings are removed too.`)) void run(() => deleteListing(l.id), 'Listing removed'); }}>Remove</Btn>
@@ -501,7 +500,7 @@ function OwnerPanel({ account, owned, incoming, chambers, places, onChange }: { 
           open
           wide
           onClose={() => setEditing(null)}
-          title={editing.id ? 'Edit listing' : editing.data.kind === 'cold_store' ? 'Add your cold store' : 'Add a machine'}
+          title={editing.id ? 'Edit your cold store' : 'Add your cold store'}
           footer={
             <>
               <Btn theme={theme} variant="ghost" onClick={() => setEditing(null)}>Cancel</Btn>
@@ -517,13 +516,12 @@ function OwnerPanel({ account, owned, incoming, chambers, places, onChange }: { 
 }
 
 function ListingForm({ value: v, mapped = false, onChange }: { value: ListingInput; mapped?: boolean; onChange: (v: ListingInput) => void }) {
-  const cold = v.kind === 'cold_store';
   const set = <K extends keyof ListingInput>(k: K, val: ListingInput[K]) => onChange({ ...v, [k]: val });
   const num = (s: string) => (s === '' ? 0 : Number(s));
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      <Field label={cold ? 'Cold store name' : 'Machine'}>
-        <input className={INPUT} value={v.title} onChange={(e) => set('title', e.target.value)} placeholder={cold ? 'e.g. Valley Fresh CA Store' : 'e.g. 45 HP tractor with trolley'} />
+      <Field label="Cold store name">
+        <input className={INPUT} value={v.title} onChange={(e) => set('title', e.target.value)} placeholder="e.g. Valley Fresh CA Store" />
       </Field>
       <Field label="Your name">
         <input className={INPUT} value={v.owner_name} onChange={(e) => set('owner_name', e.target.value)} />
@@ -537,26 +535,24 @@ function ListingForm({ value: v, mapped = false, onChange }: { value: ListingInp
       <Field label="Village / address">
         <input className={INPUT} value={v.address ?? ''} onChange={(e) => set('address', e.target.value)} placeholder="e.g. Industrial Estate, Lassipora" />
       </Field>
-      {cold && (
-        <Field label="Temperature / type">
-          <input className={INPUT} value={v.temperature ?? ''} onChange={(e) => set('temperature', e.target.value)} placeholder="e.g. 0–2 °C, controlled atmosphere" />
-        </Field>
-      )}
-      <Field label={cold ? 'Total capacity (boxes)' : 'How many machines'} hint={mapped ? 'Counted from your cold store map' : undefined}>
+      <Field label="Temperature / type">
+        <input className={INPUT} value={v.temperature ?? ''} onChange={(e) => set('temperature', e.target.value)} placeholder="e.g. 0–2 °C, controlled atmosphere" />
+      </Field>
+      <Field label="Total capacity (boxes)" hint={mapped ? 'Counted from your cold store map' : undefined}>
         <input type="number" min={1} disabled={mapped} className={INPUT} value={v.capacity || ''} onChange={(e) => set('capacity', num(e.target.value))} />
       </Field>
-      <Field label={cold ? 'Free right now (boxes)' : 'Available now'} hint={mapped ? 'Counted from your cold store map' : undefined}>
+      <Field label="Free right now (boxes)" hint={mapped ? 'Counted from your cold store map' : undefined}>
         <input type="number" min={0} disabled={mapped} className={INPUT} value={v.available} onChange={(e) => set('available', num(e.target.value))} />
       </Field>
-      <Field label={cold ? 'Rate (₹ per box per month)' : 'Rate (₹ per day)'}>
+      <Field label="Rate (₹ per box per month)">
         <input type="number" min={0} step="0.5" className={INPUT} value={v.rate} onChange={(e) => set('rate', num(e.target.value))} />
       </Field>
-      <Field label={cold ? 'Minimum boxes per booking' : 'Minimum per booking'}>
+      <Field label="Minimum boxes per booking">
         <input type="number" min={1} className={INPUT} value={v.min_units} onChange={(e) => set('min_units', Math.max(1, num(e.target.value)))} />
       </Field>
       <div className="sm:col-span-2">
         <Field label="More details (optional)">
-          <textarea rows={2} className={INPUT} value={v.details ?? ''} onChange={(e) => set('details', e.target.value)} placeholder={cold ? 'e.g. Grading line, loading bay, 24-hour power backup' : 'e.g. Operator included, diesel extra'} />
+          <textarea rows={2} className={INPUT} value={v.details ?? ''} onChange={(e) => set('details', e.target.value)} placeholder="e.g. Grading line, loading bay, 24-hour power backup" />
         </Field>
       </div>
     </div>

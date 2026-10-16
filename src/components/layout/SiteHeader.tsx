@@ -9,7 +9,7 @@ import { MyDetailsPanel } from '@/components/portal/MyDetailsPanel';
 import { MY_DETAILS } from '@/components/portal/myDetailsConfig';
 import { loginHref, PORTALS, PUBLIC_PORTAL_IDS, type PortalId } from '@/lib/auth/roles';
 import { useSecretAdminTap, useShowAdmin } from '@/lib/client/adminDevice';
-import { signOutCompletely, useMyPortal } from '@/lib/auth/session';
+import { signOutCompletely, useMyPortal, useSignedIn } from '@/lib/auth/session';
 import { SOCIAL_LINKS } from '@/lib/site';
 
 /**
@@ -21,31 +21,33 @@ import { SOCIAL_LINKS } from '@/lib/site';
 export type SiteTone = 'dark' | 'light';
 
 /**
- * Portal menu — every portal on the site is reachable from the top nav.
- * Rendered as a glassmorphic dropdown so the homepage hero never has to
- * carry portal cards.
+ * The menu, in two groups: the portals (each with its own sign-in) and the
+ * tools anyone can use without signing in. Every page of the site is
+ * reachable from here, once.
  */
-const MENU_ITEMS = [
-  ...PUBLIC_PORTAL_IDS.map((id) => ({ title: `${PORTALS[id].label} portal`, href: PORTALS[id].home, desc: PORTALS[id].tagline })),
-  { title: 'Orchard Health', href: '/orchard-health', desc: 'Risk map, diagnosis & spray logs' },
-  { title: 'Season Planner', href: '/season-planner', desc: 'Calendar & ROI calculator' },
-  { title: 'Track a load', href: '/track', desc: 'Live position from the driver’s phone' },
-];
-
-/** The menu, with the Admin portal added only on an admin's own device. */
-function useMenuItems() {
-  const showAdmin = useShowAdmin();
-  return showAdmin ? [{ title: 'Admin portal', href: PORTALS.admin.home, desc: PORTALS.admin.tagline }, ...MENU_ITEMS] : MENU_ITEMS;
+interface MenuItem {
+  title: string;
+  href: string;
+  desc: string;
 }
-
-/** Public pages and tools, for the phone menu (the bar has no room for them). */
-const EXPLORE_ITEMS = [
-  { title: 'Produce marketplace', href: '/buyer/discover' },
-  { title: 'Supplies', href: '/compare-prices?category=supplies' },
-  { title: 'Compare prices', href: '/compare-prices' },
-  { title: 'Mandi rates & weather', href: '/mandi-weather' },
-  { title: 'Pay after delivery', href: '/escrow' },
+export const TOOL_ITEMS: MenuItem[] = [
+  { title: 'Price Comparison', href: '/compare-prices', desc: 'Compare offers and order, or list what you sell' },
+  { title: 'Live mandi rates & weather', href: '/mandi-weather', desc: 'Today’s prices and the forecast' },
+  { title: 'Orchard Health', href: '/orchard-health', desc: 'Scab risk map, photo diagnosis, spray log' },
+  { title: 'Season Planner', href: '/season-planner', desc: 'Orchard calendar & cost calculator' },
+  { title: 'Fertiliser check', href: '/supplies/tester', desc: 'Is your fertiliser or spray genuine?' },
 ];
+const PORTAL_ITEMS: MenuItem[] = PUBLIC_PORTAL_IDS.map((id) => ({ title: PORTALS[id].label, href: PORTALS[id].home, desc: PORTALS[id].tagline }));
+
+/** The menu groups, with Admin (last) only on an admin's own device. */
+function useMenuSections(): { heading: string; items: MenuItem[] }[] {
+  const showAdmin = useShowAdmin();
+  return [
+    { heading: 'Portals', items: PORTAL_ITEMS },
+    { heading: 'Tools — no sign-in needed', items: TOOL_ITEMS },
+    ...(showAdmin ? [{ heading: 'Staff', items: [{ title: 'Admin', href: PORTALS.admin.home, desc: PORTALS.admin.tagline }] }] : []),
+  ];
+}
 
 /**
  * Phone menu: one button opens everything the desktop bar shows — sign in,
@@ -53,7 +55,7 @@ const EXPLORE_ITEMS = [
  * needs "Desktop site" to be reached.
  */
 function MobileMenu({ showAuth }: { showAuth: boolean }) {
-  const menuItems = useMenuItems();
+  const sections = useMenuSections();
   const myPortal = useMyPortal();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -111,16 +113,16 @@ function MobileMenu({ showAuth }: { showAuth: boolean }) {
               </Link>
             </div>
           )}
-          <p className={heading}>Explore</p>
-          {EXPLORE_ITEMS.map((p) => (
-            <Link key={p.href} href={p.href} onClick={close} className={item}>{p.title}</Link>
-          ))}
-          <p className={heading}>Portals & tools</p>
-          {menuItems.map((p) => (
-            <Link key={p.href} href={p.href} onClick={close} className={item}>
-              {p.title}
-              <span className="block text-xs font-normal text-slate-500">{p.desc}</span>
-            </Link>
+          {sections.map((sec) => (
+            <div key={sec.heading}>
+              <p className={heading}>{sec.heading}</p>
+              {sec.items.map((p) => (
+                <Link key={p.href} href={p.href} onClick={close} className={item}>
+                  {p.title}
+                  <span className="block text-xs font-normal text-slate-500">{p.desc}</span>
+                </Link>
+              ))}
+            </div>
           ))}
         </div>
       )}
@@ -130,7 +132,7 @@ function MobileMenu({ showAuth }: { showAuth: boolean }) {
 
 function PortalMenu({ onOpenPortals, tone }: { onOpenPortals?: () => void; tone: SiteTone }) {
   const light = tone === 'light';
-  const menuItems = useMenuItems();
+  const sections = useMenuSections();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -168,23 +170,28 @@ function PortalMenu({ onOpenPortals, tone }: { onOpenPortals?: () => void; tone:
       {open && (
         <div
           role="menu"
-          className={`absolute right-0 top-full mt-2 w-[22rem] max-w-[calc(100vw-2rem)] max-h-[70vh] overflow-y-auto rounded-2xl border p-2 backdrop-blur-xl ${
+          className={`absolute right-0 top-full mt-2 grid w-[22rem] max-w-[calc(100vw-2rem)] max-h-[80vh] overflow-y-auto rounded-2xl border p-2 backdrop-blur-xl lg:w-[42rem] lg:grid-cols-2 lg:gap-x-2 ${
             light
               ? 'border-slate-900/10 bg-white/90 shadow-[0_24px_60px_-20px_rgba(15,23,42,0.35)]'
               : 'border-white/25 bg-white/15 shadow-[0_24px_60px_-20px_rgba(7,11,26,0.6)]'
           }`}
         >
-          {menuItems.map((p) => (
-            <Link
-              key={p.href}
-              href={p.href}
-              role="menuitem"
-              onClick={() => setOpen(false)}
-              className={`block rounded-xl px-3 py-2.5 no-underline transition-colors hover:no-underline ${light ? 'hover:bg-slate-900/5' : 'hover:bg-white/30'}`}
-            >
-              <span className={`block text-sm font-semibold ${light ? 'text-slate-900' : 'text-kr-text-primary'}`}>{p.title}</span>
-              <span className={`block text-xs ${light ? 'text-slate-600' : 'text-kr-text-secondary'}`}>{p.desc}</span>
-            </Link>
+          {sections.map((sec, i) => (
+            <div key={sec.heading} role="group" aria-label={sec.heading} className={`${i === 0 ? 'lg:row-span-2' : i === 1 ? 'mt-1 border-t pt-1 lg:mt-0 lg:border-l lg:border-t-0 lg:pl-2 lg:pt-0' : 'mt-1 border-t pt-1 lg:col-start-2 lg:border-l lg:pl-2'} ${light ? 'border-slate-900/10' : 'border-white/20'}`}>
+              <p className={`px-3 pb-1 pt-2 text-[11px] font-bold uppercase tracking-[0.14em] ${light ? 'text-slate-500' : 'text-kr-text-secondary'}`}>{sec.heading}</p>
+              {sec.items.map((p) => (
+                <Link
+                  key={p.href}
+                  href={p.href}
+                  role="menuitem"
+                  onClick={() => setOpen(false)}
+                  className={`block rounded-xl px-3 py-2.5 no-underline transition-colors hover:no-underline ${light ? 'hover:bg-slate-900/5' : 'hover:bg-white/30'}`}
+                >
+                  <span className={`block text-sm font-semibold ${light ? 'text-slate-900' : 'text-kr-text-primary'}`}>{p.title}</span>
+                  <span className={`block text-xs ${light ? 'text-slate-600' : 'text-kr-text-secondary'}`}>{p.desc}</span>
+                </Link>
+              ))}
+            </div>
           ))}
         </div>
       )}
@@ -317,11 +324,15 @@ export function SiteFooter({ tone = 'dark' }: { tone?: SiteTone }) {
   );
 }
 
-/** Inside a portal: brand, the portal's name, My details, Home and Sign out — no portal picker. */
+/**
+ * Inside a portal: brand, the portal's name, My details, Home and Sign out —
+ * no portal picker. A portal open to guests (Tracking) offers Sign in instead.
+ */
 function PortalHeader({ portal }: { portal: PortalId }) {
   const router = useRouter();
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const hasDetailsForm = Boolean(MY_DETAILS[portal]);
+  const signedIn = useSignedIn();
+  const hasDetailsForm = Boolean(MY_DETAILS[portal]) && signedIn !== false;
   const signOut = async () => {
     await signOutCompletely();
     router.replace(loginHref(portal));
@@ -346,9 +357,15 @@ function PortalHeader({ portal }: { portal: PortalId }) {
           <Link href="/" className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 no-underline transition hover:bg-white hover:text-slate-900 hover:no-underline">
             <Home className="h-4 w-4" aria-hidden /> Home
           </Link>
-          <button type="button" onClick={signOut} className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-900/10 bg-white/80 px-3 py-2 text-sm font-semibold text-slate-800 transition hover:bg-white">
-            <LogOut className="h-4 w-4" aria-hidden /> Sign out
-          </button>
+          {signedIn === false ? (
+            <Link href={loginHref(portal, PORTALS[portal].home)} className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-900/10 bg-white/80 px-3 py-2 text-sm font-semibold text-slate-800 no-underline transition hover:bg-white hover:no-underline">
+              <LogIn className="h-4 w-4" aria-hidden /> Sign in
+            </Link>
+          ) : (
+            <button type="button" onClick={signOut} className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-900/10 bg-white/80 px-3 py-2 text-sm font-semibold text-slate-800 transition hover:bg-white">
+              <LogOut className="h-4 w-4" aria-hidden /> Sign out
+            </button>
+          )}
         </div>
       </nav>
       {detailsOpen && <MyDetailsPanel portal={portal} open onClose={() => setDetailsOpen(false)} />}

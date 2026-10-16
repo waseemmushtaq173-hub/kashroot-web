@@ -100,9 +100,9 @@ const HELP: { keys: string[]; text: Text }[] = [
   {
     keys: ['cold storage', 'cold store', 'storage', 'godown', 'ca store', 'कोल्ड', 'स्टोर', 'भंडार', 'گودام', 'کولڈ', 'سٹور', 'اسٹور', 'اسٹوریج'],
     text: {
-      en: 'Open Cold storage and machinery. In the Cold storage tab, find a store with free boxes and press Book. Choose how many boxes and for how many months, pay the owner from your UPI app, and type the payment number. The owner then confirms your space.',
-      hi: 'Cold storage and machinery खोलें। Cold storage टैब में ख़ाली जगह वाला स्टोर ढूँढें और Book दबाएँ। कितनी पेटियाँ और कितने महीने चुनें, अपने UPI ऐप से मालिक को भुगतान करें और भुगतान नंबर लिखें। फिर मालिक आपकी जगह पक्की करेगा।',
-      ur: 'Cold storage and machinery کھولیں۔ Cold storage ٹیب میں خالی جگہ والا اسٹور ڈھونڈیں اور Book دبائیں۔ کتنی پیٹیاں اور کتنے مہینے چنیں، اپنے UPI ایپ سے مالک کو ادائیگی کریں اور ادائیگی نمبر لکھیں۔ پھر مالک آپ کی جگہ پکی کرے گا۔',
+      en: 'Open Cold Storage Booking. Find a store with free space and press Choose your place: you see the whole store, every chamber, on a floor plan or in 3D. Tap the free places you want, or type how many boxes you have and press Choose places for me. Pay the owner from your UPI app within 24 hours and type the payment number. The owner then confirms your space.',
+      hi: 'Cold Storage Booking खोलें। ख़ाली जगह वाला स्टोर ढूँढें और Choose your place दबाएँ: पूरा स्टोर, हर चैंबर, नक़्शे पर या 3D में दिखेगा। अपनी पसंद की ख़ाली जगहें छुएँ, या अपनी पेटियों की गिनती लिखकर Choose places for me दबाएँ। 24 घंटे के अंदर अपने UPI ऐप से मालिक को भुगतान करें और भुगतान नंबर लिखें। फिर मालिक आपकी जगह पक्की करेगा।',
+      ur: 'Cold Storage Booking کھولیں۔ خالی جگہ والا اسٹور ڈھونڈیں اور Choose your place دبائیں: پورا اسٹور، ہر چیمبر، نقشے پر یا 3D میں دکھے گا۔ اپنی پسند کی خالی جگہیں چھوئیں، یا اپنی پیٹیوں کی گنتی لکھ کر Choose places for me دبائیں۔ 24 گھنٹے کے اندر اپنے UPI ایپ سے مالک کو ادائیگی کریں اور ادائیگی نمبر لکھیں۔ پھر مالک آپ کی جگہ پکی کرے گا۔',
     },
   },
   {

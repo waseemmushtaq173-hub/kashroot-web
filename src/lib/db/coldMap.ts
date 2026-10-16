@@ -2,11 +2,13 @@
 
 /**
  * The cold store map (supabase/migrations/20261020000000_cold_store_map.sql):
- * chambers as rows × columns of places, like the seats of a plane. A place
- * is named row + column letter ("3B"). Farmers choose free places for the
- * months they need; the database refuses a place someone else holds.
+ * each chamber is rows of stacks — row 1 nearest the door, stacks counted
+ * from the left. People read a place as "Row 3, stack 2"; the database keeps
+ * it as the short code "3B" (row number + stack letter). Farmers choose free
+ * places for the months they need; the database refuses a place someone else
+ * holds.
  */
-import { dbMessage, supabase } from '@/lib/db/client';
+import { dbMessage, supabase, VERIFY_FIRST } from '@/lib/db/client';
 
 export interface ColdChamber {
   id: string;
@@ -31,14 +33,23 @@ export interface BookedPlace {
 
 const fail = (error: { message?: string; code?: string } | null, fallback: string): never => {
   const m = error?.message ?? '';
+  if (/Verify your Aadhaar/i.test(m)) throw new Error(VERIFY_FIRST);
   // The database's own sentences are written for farmers: show them as they are.
   if (/taken|cannot be booked|hold ended|booked by a farmer|already booked|Choose|Verify your Aadhaar|own cold store|not taking bookings|at least one place|at most/i.test(m)) throw new Error(m);
   throw new Error(dbMessage(error, fallback));
 };
 
 export const COLUMN = (i: number) => String.fromCharCode(65 + i); // 0 → A
+/** The stored code of a place: row 3, stack index 1 → "3B". */
 export const placeName = (row: number, col: number) => `${row}${COLUMN(col)}`;
 export const placeKey = (chamberId: string, slot: string) => `${chamberId}:${slot}`;
+/** "3B" → row 3, stack 2 (stacks are counted from 1 for people). */
+export const parsePlace = (slot: string) => ({ row: parseInt(slot, 10) || 0, stack: slot.charCodeAt(slot.length - 1) - 64 });
+/** "3B" → "Row 3, stack 2". */
+export function placeLabel(slot: string): string {
+  const { row, stack } = parsePlace(slot);
+  return `Row ${row}, stack ${stack}`;
+}
 
 /** Places a chamber offers (rows × columns minus the blocked ones). */
 export const usablePlaces = (c: Pick<ColdChamber, 'rows' | 'cols' | 'blocked'>) => c.rows * c.cols - c.blocked.length;

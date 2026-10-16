@@ -8,21 +8,24 @@ import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 
 import { KYCPanel, type KycRole } from '@/components/auth/KYCPanel';
-import { PortalGuide } from '@/components/voice/PortalGuide';
 import { supabase } from '@/lib/supabase';
 import { authApi, SELF_JOIN_ROLES, storedRoles } from '@/lib/api/auth';
 import { loginHref, PORTALS, portalForSegment } from '@/lib/auth/roles';
 import { restoreSession, signOutCompletely } from '@/lib/auth/session';
 import { kycMissing, kycRules, myKyc, type KycRules, type KycStatus } from '@/lib/db/security';
 
-/** Portals where money changes hands: identity checks (KYC) apply here. */
-const MONEY_PORTALS = ['farmer', 'buyer', 'seller', 'logistics', 'rental', 'trader'];
+/** Safe payment (pay after delivery) with identity checks (KYC) lives in these two portals only. */
+const MONEY_PORTALS = ['farmer', 'buyer'];
+/** Portals a signed-out visitor may open: Tracking, to follow a load by its code. */
+const GUEST_PORTALS = ['tracking'];
 
 /**
  * Each dashboard segment belongs to one portal (see lib/auth/roles). Signed-out
- * visitors go to that portal's own sign-in; role portals (farmer, buyer,
- * seller, logistics, admin) need an account of that role, shared portals
- * (kissan tools, rental, tracking, dealer, expert) accept any account.
+ * visitors go to that portal's own sign-in (Tracking also opens without an
+ * account, to follow a load by its code); role portals (farmer, buyer,
+ * admin) need an account of that role, shared portals (kissan tools, cold
+ * storage booking, tracking, dealer, expert, mandi helpers) accept any
+ * account.
  */
 /**
  * Role-Adaptive Dashboard Layout
@@ -57,11 +60,16 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     // someone who closed the app and came back is let straight in.
     void restoreSession().then((active) => {
       if (!live) return;
-      if (!active) {
+      if (!active && GUEST_PORTALS.includes(portalForSegment(segment) ?? '')) {
+        // Following a load needs no account; the page asks to sign in only
+        // for creating consignments.
+        setUserRole(null);
+        setIsAuthenticated(true);
+      } else if (!active) {
         // Replace, not push: the portal page must not stay in history, or
         // Back would land on it and bounce straight back to sign-in.
         const portal = portalForSegment(segment);
-        router.replace(portal ? loginHref(portal, window.location.pathname) : '/login');
+        router.replace(portal ? loginHref(portal, window.location.pathname + window.location.search) : '/login');
       } else {
         setUserRole(localStorage.getItem('user_role'));
         setUserRoles(storedRoles());
@@ -70,7 +78,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         setKycDone(kyc === 'submitted');
         // Open the KYC panel by itself only the first time after signing up,
         // and only in portals where money changes hands.
-        const moneyPortal = ['farmer', 'buyer', 'seller', 'logistics'].includes(portalForSegment(segment) ?? '');
+        const moneyPortal = MONEY_PORTALS.includes(portalForSegment(segment) ?? '');
         if (kyc === 'pending' && moneyPortal) {
           setShowKyc(true);
           localStorage.setItem('kyc_status', 'later');
@@ -212,7 +220,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         {children}
       </div>
       <SiteFooter tone="light" />
-      {portal && <PortalGuide portal={portal} />}
       <KYCPanel
         open={showKyc}
         onClose={() => setShowKyc(false)}
@@ -231,7 +238,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   );
 }
 
-/** The KYC role for a portal or account role; logistics providers receive payouts like sellers. */
+/** The KYC role for a portal or account role; old Seller / Logistics accounts receive payouts like sellers. */
 function kycRoleFor(role: string | null | undefined): KycRole | undefined {
   if (role === 'FARMER' || role === 'BUYER' || role === 'SELLER') return role;
   if (role === 'PROVIDER') return 'SELLER';

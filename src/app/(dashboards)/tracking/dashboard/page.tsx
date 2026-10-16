@@ -1,25 +1,30 @@
 'use client';
 
 /**
- * Tracking portal.
- *   Track a load: enter the KashRoot consignment code → live position from
- *     the driver's phone (no government access needed).
- *   My consignments: transporters create a consignment and send the driver
- *     link (driver's phone shares GPS) and the tracking link (buyer / farmer).
- *   Vehicle number: official details from VAHAN and FASTag toll crossings
- *     through ULIP (Govt. of India) via /api/vehicle — needs ULIP access;
- *     FASTag is not live GPS, so the "last seen" point is the latest toll plaza.
+ * Tracking portal — the one place to follow a load. Open to everyone:
+ *   Track by code: the KashRoot consignment code (or the tracking link the
+ *     transporter shares, /tracking/dashboard?code=KR-…) → live position from
+ *     the driver's phone, and the driver's number. No account needed.
+ *   My consignments (signed in): transporters create a consignment and send
+ *     the driver link (driver's phone shares GPS) and the tracking link.
+ *   Vehicle number (signed in): official details from VAHAN and FASTag toll
+ *     crossings through ULIP (Govt. of India) via /api/vehicle — needs ULIP
+ *     access; FASTag is not live GPS, so "last seen" is the latest toll plaza.
+ * The old /track pages send people here (next.config.ts).
  */
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { Suspense, useCallback, useEffect, useState, type FormEvent } from 'react';
 import dynamic from 'next/dynamic';
-import { CheckCircle2, Clock, Copy, FileText, Loader2, MapPinned, MessageCircle, PlusCircle, Search, Share2, TriangleAlert, Truck } from 'lucide-react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { CheckCircle2, Clock, Copy, FileText, Loader2, LogIn, MapPinned, MessageCircle, PlusCircle, Search, Share2, TriangleAlert, Truck } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { PortalShell } from '@/components/layout/PortalShell';
 import { Badge, Btn, EmptyState, Field, INPUT, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { LiveTrack } from '@/components/tracking/LiveTrack';
 import { authFetch } from '@/lib/auth-fetch';
-import { ago as agoIso } from '@/lib/db/client';
+import { loginHref } from '@/lib/auth/roles';
+import { ago as agoIso, loadAccount, type Account } from '@/lib/db/client';
 import { createConsignment, driverUrl, myConsignments, setConsignmentStatus, STATUS_LABEL, trackUrl, type Consignment } from '@/lib/db/consignments';
 
 const RouteMap = dynamic(() => import('@/components/tracking/RouteMap'), {
@@ -190,19 +195,59 @@ function VehicleLookup({ onUseCode }: { onUseCode: () => void }) {
   );
 }
 
+/** A code as typed or as it arrives in a link: "kr-3f9a 1c7b" → "KR-3F9A1C7B". */
+const cleanCode = (raw: string | null | undefined) => (raw ?? '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 20);
+const TABS = ['track', 'mine', 'vehicle'];
+
 export default function TrackingPage() {
-  const [tab, setTab] = useState('track');
-  const [code, setCode] = useState('');
-  const [active, setActive] = useState<string | null>(null);
+  return (
+    <Suspense>
+      <Tracking />
+    </Suspense>
+  );
+}
+
+function SignInFirst({ what, tab }: { what: string; tab: string }) {
+  return (
+    <Panel theme={theme}>
+      <EmptyState
+        theme={theme}
+        icon={LogIn}
+        title="Sign in for this"
+        text={`${what} Following a load with its code needs no account.`}
+        action={
+          <Link href={loginHref('tracking', `/tracking/dashboard?tab=${tab}`)} className="inline-flex items-center gap-2 rounded-xl bg-cyan-700 px-4 py-2.5 text-sm font-semibold text-white no-underline hover:bg-cyan-800 hover:no-underline">
+            <LogIn className="h-4 w-4" aria-hidden /> Sign in to Tracking
+          </Link>
+        }
+      />
+    </Panel>
+  );
+}
+
+function Tracking() {
+  const params = useSearchParams();
+  const linked = cleanCode(params.get('code'));
+  const wanted = params.get('tab') ?? '';
+  const [tab, setTab] = useState(TABS.includes(wanted) ? wanted : 'track');
+  const [code, setCode] = useState(linked);
+  const [active, setActive] = useState<string | null>(linked.length >= 4 ? linked : null);
   const [mine, setMine] = useState<Consignment[]>([]);
+  // undefined while checking; null when following a load without an account.
+  const [account, setAccount] = useState<Account | null | undefined>(undefined);
+
+  useEffect(() => {
+    void loadAccount().then(setAccount, () => setAccount(null));
+  }, []);
 
   const reload = useCallback(async () => {
+    if (!account) return;
     try {
       setMine(await myConsignments());
     } catch {
       setMine([]);
     }
-  }, []);
+  }, [account]);
 
   useEffect(() => {
     let live = true;
@@ -224,12 +269,12 @@ export default function TrackingPage() {
       title="Where is my load?"
       description="Live position from the driver’s phone with a KashRoot consignment code — or official vehicle details by registration number."
       kpis={[
-        { label: 'Your consignments', value: String(mine.length), trend: `${moving} on the way` },
-        { label: 'Delivered', value: String(mine.filter((c) => c.status === 'delivered').length), trend: 'Marked by the driver' },
         { label: 'Tracking', value: active ?? '—', trend: active ? 'Updates every 30 s' : 'Enter a code' },
+        { label: 'Your consignments', value: account ? String(mine.length) : '—', trend: account ? `${moving} on the way` : 'Sign in to send loads' },
+        { label: 'Delivered', value: account ? String(mine.filter((c) => c.status === 'delivered').length) : '—', trend: 'Marked by the driver' },
       ]}
       tabs={[
-        { id: 'track', label: 'Track a load', icon: MapPinned },
+        { id: 'track', label: 'Track by code', icon: MapPinned },
         { id: 'mine', label: 'My consignments', icon: Truck, count: moving || undefined },
         { id: 'vehicle', label: 'Vehicle number', icon: FileText },
       ]}
@@ -239,7 +284,8 @@ export default function TrackingPage() {
       {tab === 'track' && (
         <div className="space-y-6">
           <Panel theme={theme} title="Track with a consignment code" icon={Search}>
-            <form className="flex flex-col gap-3 sm:flex-row" onSubmit={(e) => { e.preventDefault(); if (code.trim().length >= 4) setActive(code.trim().toUpperCase()); }}>
+            <p className="mb-4 text-sm text-slate-600">Type the code your transporter sent you (it looks like KR-3F9A1C7B), or open the tracking link they shared. You see where the truck is from the driver’s phone, and can call the driver. No account needed.</p>
+            <form className="flex flex-col gap-3 sm:flex-row" onSubmit={(e) => { e.preventDefault(); const c = cleanCode(code); if (c.length >= 4) { setActive(c); window.history.replaceState(null, '', `?code=${encodeURIComponent(c)}`); } }}>
               <label htmlFor="track-code" className="sr-only">Consignment code</label>
               <input id="track-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Code from your transporter, e.g. KR-7F3K9Q2A" autoCapitalize="characters" className={`${INPUT} flex-1 font-mono text-base uppercase tracking-wider placeholder:font-sans placeholder:normal-case placeholder:tracking-normal`} />
               <Btn theme={theme} type="submit" icon={MapPinned}>Track</Btn>
@@ -248,8 +294,14 @@ export default function TrackingPage() {
           {active ? <LiveTrack key={active} code={active} /> : <EmptyState theme={theme} icon={MapPinned} title="Live position from the driver’s phone" text="Your transporter gives you a KashRoot code. The driver’s phone shares the truck’s position while it drives — no app needed." />}
         </div>
       )}
-      {tab === 'mine' && <MyConsignments list={mine} onChange={() => void reload()} onTrack={(c) => { setActive(c); setCode(c); setTab('track'); }} />}
-      {tab === 'vehicle' && <VehicleLookup onUseCode={() => setTab('track')} />}
+      {tab === 'mine' && (account === undefined ? (
+        <p className="flex items-center gap-2 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>
+      ) : account ? (
+        <MyConsignments list={mine} onChange={() => void reload()} onTrack={(c) => { setActive(c); setCode(c); setTab('track'); }} />
+      ) : (
+        <SignInFirst tab="mine" what="Transporters sign in to create consignments, send the driver link and share tracking." />
+      ))}
+      {tab === 'vehicle' && (account === null ? <SignInFirst tab="vehicle" what="Looking up a vehicle number uses Government records, so it needs an account." /> : <VehicleLookup onUseCode={() => setTab('track')} />)}
     </PortalShell>
   );
 }

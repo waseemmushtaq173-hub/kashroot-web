@@ -29,7 +29,7 @@ function filled(field: DetailField, v: Value | undefined) {
 
 export function MyDetailsPanel({ portal, open, onClose, onSaved }: { portal: PortalId; open: boolean; onClose: () => void; onSaved?: () => void }) {
   const form = MY_DETAILS[portal];
-  const theme = PORTAL_THEMES[portal === 'logistics' ? 'provider' : (portal as keyof typeof PORTAL_THEMES)] ?? PORTAL_THEMES.farmer;
+  const theme = PORTAL_THEMES[portal as keyof typeof PORTAL_THEMES] ?? PORTAL_THEMES.farmer;
   const ids = useId();
   // Mounted when opened: start from this browser's copy, then the account's.
   const [values, setValues] = useState<Values>(() => {

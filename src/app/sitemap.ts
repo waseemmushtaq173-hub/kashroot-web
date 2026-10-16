@@ -13,7 +13,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     page('/compare-prices', 0.8, 'daily'),
     page('/orchard-health', 0.8),
     page('/escrow', 0.7),
-    page('/track', 0.6),
     page('/season-planner', 0.6),
     page('/supplies/tester', 0.6),
     page('/support', 0.4, 'monthly'),

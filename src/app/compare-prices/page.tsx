@@ -243,7 +243,7 @@ function ComparePrices() {
         )
       )}
 
-      {tab === 'sell' && (account ? <SellerDesk account={account} theme={theme} /> : <SignInPrompt next="/compare-prices" seller />)}
+      {tab === 'sell' && (account ? <SellerDesk account={account} theme={theme} mixed /> : <SignInPrompt next="/compare-prices" seller />)}
 
       {ordering && (
         account ? (
@@ -264,7 +264,8 @@ function SignInPrompt({ next, seller = false }: { next: string; seller?: boolean
       <p className="text-slate-700">{seller ? 'Sign in to list your products and receive orders.' : 'Sign in to order and follow your orders.'}</p>
       <div className="mt-4 flex flex-wrap justify-center gap-2">
         {seller ? (
-          <Link href={loginHref('seller', next)} className={PRICE_COMPARISON_BUTTON}>Seller sign-in</Link>
+          // Selling is part of the Farmer portal (growers and input sellers alike).
+          <Link href={loginHref('farmer', `${next}${next.includes('?') ? '&' : '?'}tab=sell`)} className={PRICE_COMPARISON_BUTTON}>Sign in to sell</Link>
         ) : (
           <>
             <Link href={loginHref('farmer', next)} className={PRICE_COMPARISON_BUTTON}>Farmer sign-in</Link>

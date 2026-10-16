@@ -15,7 +15,7 @@ export default function TermsPage() {
         <h2>2. Orders and payment</h2>
         <ul>
           <li>Orders are pay-after-delivery: the buyer pays the seller directly (UPI or bank transfer) after receiving and checking the goods. KashRoot does not hold, receive or release payments.</li>
-          <li>Cold-store and machinery bookings are paid directly to the owner, who confirms the booking.</li>
+          <li>Cold-store bookings are paid directly to the owner, who confirms the booking.</li>
           <li>Sellers must describe grade, quantity and packing honestly; a buyer can report a mismatch on the order before paying.</li>
           <li>KashRoot administrators can see reported orders and contact both sides, but the payment itself is between buyer and seller.</li>
         </ul>

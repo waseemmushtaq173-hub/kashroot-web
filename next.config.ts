@@ -49,8 +49,6 @@ const nextConfig: NextConfig = {
   experimental: {
     inlineCss: true,
   },
-  // Old pages that called a separate backend (never deployed) now point at
-  // the shared marketplace that works.
   // Security headers on every response (see CSP above).
   async headers() {
     return [
@@ -74,6 +72,19 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      // Portals folded into others keep their old links working: selling is
+      // part of the Farmer portal; transport and "Track a load" are part of
+      // Tracking (which also opens without signing in).
+      { source: '/seller/:path*', destination: '/farmer/dashboard?tab=lots', permanent: false },
+      { source: '/seller-studio', destination: '/farmer/dashboard?tab=lots', permanent: false },
+      { source: '/provider/:path*', destination: '/tracking/dashboard', permanent: false },
+      { source: '/logistics', destination: '/tracking/dashboard', permanent: false },
+      { source: '/login/seller', destination: '/login/farmer', permanent: false },
+      { source: '/login/logistics', destination: '/login/tracking', permanent: false },
+      { source: '/register/seller', destination: '/register/farmer', permanent: false },
+      { source: '/register/logistics', destination: '/register/tracking', permanent: false },
+      { source: '/track', destination: '/tracking/dashboard', permanent: false },
+      { source: '/track/:code', destination: '/tracking/dashboard?code=:code', permanent: false },
       { source: '/farmer/listings/new', destination: '/farmer/dashboard?tab=lots&add=1', permanent: false },
       { source: '/farmer/listings/:id/edit', destination: '/farmer/dashboard?tab=lots', permanent: false },
       { source: '/buyer/discover', destination: '/compare-prices?category=produce', permanent: false },
@@ -106,7 +117,7 @@ const nextConfig: NextConfig = {
         ['/waste-market', '/compare-prices?category=produce'],
         ['/services', '/rental/dashboard'],
         ['/services/:id', '/rental/dashboard'],
-        ['/traceability', '/track'],
+        ['/traceability', '/tracking/dashboard'],
       ].map(([source, destination]) => ({ source, destination, permanent: false })),
     ];
   },

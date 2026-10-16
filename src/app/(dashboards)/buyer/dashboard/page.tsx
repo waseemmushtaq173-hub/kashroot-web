@@ -1,25 +1,39 @@
 'use client';
 
 /**
- * Buyer portal — orders placed on Price Comparison (market_orders) and the
- * way into produce and farm inputs. Orders are pay-after-delivery: nothing
- * is paid up front; once the goods arrive and are checked, the buyer pays
- * the seller directly by UPI / bank. KashRoot never holds the money.
+ * Buyer portal — the buyer's orders (placed on Price Comparison, which is its
+ * own portal) and Safe payment: identity check (KYC) and pay-after-delivery.
+ * Nothing is paid up front; once the goods arrive and are checked, the buyer
+ * pays the farmer directly by UPI / bank. KashRoot never holds the money.
+ * Following a truck is in the Tracking portal.
  */
-import { useCallback, useEffect, useState } from 'react';
-import { Apple, Loader2, PackageCheck, Scale, ShieldCheck, ShoppingBag, ShoppingCart, Truck, TrendingUp, Warehouse } from 'lucide-react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Loader2, PackageCheck, ShieldCheck, ShoppingBag, ShoppingCart, TrendingUp, Warehouse } from 'lucide-react';
 
 import { PortalShell } from '@/components/layout/PortalShell';
 import { OrderCard } from '@/components/market/OrderCard';
-import { Btn, EmptyState, PORTAL_THEMES, Panel, Tile } from '@/components/portal/kit';
+import { SafePayment } from '@/components/payments/SafePayment';
+import { EmptyState, PORTAL_THEMES, Panel, Tile } from '@/components/portal/kit';
 import { loadAccount, type Account } from '@/lib/db/client';
 import { buyerOrders, type MarketOrder } from '@/lib/db/market';
 
 const theme = PORTAL_THEMES.buyer;
-type Tab = 'overview' | 'orders';
+type Tab = 'overview' | 'orders' | 'payment';
+
+const TABS: Tab[] = ['overview', 'orders', 'payment'];
 
 export default function BuyerDashboardPage() {
-  const [tab, setTab] = useState<Tab>('overview');
+  return (
+    <Suspense>
+      <BuyerDashboard />
+    </Suspense>
+  );
+}
+
+function BuyerDashboard() {
+  const initial = useSearchParams().get('tab') as Tab | null;
+  const [tab, setTab] = useState<Tab>(initial && TABS.includes(initial) ? initial : 'overview');
   const [account, setAccount] = useState<Account | null | undefined>(undefined);
   const [orders, setOrders] = useState<MarketOrder[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +85,7 @@ export default function BuyerDashboardPage() {
   return (
     <PortalShell
       title="Source with confidence"
-      description="Order fruit, produce and farm inputs — and pay the seller only after the goods reach you."
+      description="Your orders, and safe payment: verify once, and pay the farmer only after the goods reach you."
       eyebrow="Buyer portal"
       theme="buyer"
       kpis={[
@@ -82,23 +96,17 @@ export default function BuyerDashboardPage() {
       tabs={[
         { id: 'overview', label: 'Overview', icon: ShoppingBag },
         { id: 'orders', label: 'My orders', icon: ShoppingCart, count: all.length || undefined },
+        { id: 'payment', label: 'Safe payment', icon: ShieldCheck, count: toPay.length || undefined },
       ]}
       activeTab={tab}
       onTabChange={(id) => setTab(id as Tab)}
-      actions={
-        <Btn theme={theme} variant="white" icon={Apple} href="/compare-prices?category=produce">
-          Buy produce
-        </Btn>
-      }
     >
       {tab === 'overview' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-            <Tile theme={theme} icon={Apple} label="Fruit & produce" hint="From growers" href="/compare-prices?category=produce" />
-            <Tile theme={theme} icon={Scale} label="Farm inputs" hint="Dealers side by side" href="/compare-prices" />
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <Tile theme={theme} icon={ShoppingCart} label="My orders" hint="Receive & pay" onClick={() => setTab('orders')} />
-            <Tile theme={theme} icon={Truck} label="Track consignment" hint="Live truck location" href="/tracking/dashboard" />
-            <Tile theme={theme} icon={Warehouse} label="Cold storage" hint="Book space" href="/rental/dashboard" />
+            <Tile theme={theme} icon={ShieldCheck} label="Safe payment" hint="Verify & pay after delivery" onClick={() => setTab('payment')} />
+            <Tile theme={theme} icon={Warehouse} label="Cold storage" hint="Choose your place" href="/rental/dashboard" />
             <Tile theme={theme} icon={TrendingUp} label="Mandi rates" hint="Today’s prices" href="/mandi-weather" />
           </div>
 
@@ -113,8 +121,7 @@ export default function BuyerDashboardPage() {
                   theme={theme}
                   icon={ShoppingBag}
                   title="No open orders"
-                  text="Compare prices and order — you pay only after the goods reach you."
-                  action={<Btn theme={theme} href="/compare-prices?category=produce">Browse produce</Btn>}
+                  text="Orders you place on Price Comparison (on the home page) appear here — you pay only after the goods reach you."
                 />
               ) : (
                 list(active)
@@ -134,6 +141,18 @@ export default function BuyerDashboardPage() {
         </div>
       )}
 
+      {tab === 'payment' && account && (
+        <SafePayment as="buyer" account={account} theme={theme}>
+          <Panel theme={theme} title="Waiting for your payment" icon={ShieldCheck}>
+            {toPay.length === 0 ? (
+              <p className="text-sm text-slate-600">Nothing to pay right now. When goods reach you and you press “I received the goods”, the order appears here with the farmer’s UPI / bank details.</p>
+            ) : (
+              list(toPay)
+            )}
+          </Panel>
+        </SafePayment>
+      )}
+
       {tab === 'orders' && (
         <Panel theme={theme} title="My orders" icon={ShoppingCart}>
           {orders === null ? (
@@ -141,7 +160,7 @@ export default function BuyerDashboardPage() {
           ) : error ? (
             <p role="alert" className="text-rose-800">{error}</p>
           ) : all.length === 0 ? (
-            <EmptyState theme={theme} icon={ShoppingCart} title="No orders yet" text="Order from Price Comparison. You pay the seller only after the goods reach you." action={<Btn theme={theme} href="/compare-prices?category=produce">Browse produce</Btn>} />
+            <EmptyState theme={theme} icon={ShoppingCart} title="No orders yet" text="Orders you place on Price Comparison (on the home page) appear here. You pay the farmer only after the goods reach you." />
           ) : (
             list(all)
           )}

@@ -1,186 +1,62 @@
 'use client';
 
 /**
- * Safe payments (/escrow) — how paying works on KashRoot, your
- * verification status, and your open orders.
+ * Safe payment (/escrow) — how paying works on KashRoot. The verification
+ * (KYC) and the orders to pay live in the two portals where money changes
+ * hands: Farmer → Safe payment and Buyer → Safe payment.
  *
- * KashRoot does not hold money. Marketplace orders are pay-after-delivery:
- * the buyer pays the seller directly by UPI / bank once the goods arrive and
- * are checked. Cold-store bookings are paid straight to the owner.
- *
- * KYC (Aadhaar OTP / DigiLocker, PAN, SMS + email) runs through KYCPanel and
- * needs a signed-in account; signed-out visitors are sent to sign in first.
+ * KashRoot does not hold money. Orders are pay-after-delivery: the buyer pays
+ * the farmer directly by UPI / bank once the goods arrive and are checked.
  */
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
-import { BadgeIndianRupee, CheckCircle2, IdCard, LogIn, PackageCheck, ShieldCheck, ShoppingCart, Truck, type LucideIcon } from 'lucide-react';
-import { toast } from 'sonner';
+import Link from 'next/link';
+import { BadgeIndianRupee, CheckCircle2, IdCard, PackageCheck, ShieldCheck, ShoppingCart, Truck, type LucideIcon } from 'lucide-react';
 
-import { KYCPanel, type KycSubmission } from '@/components/auth/KYCPanel';
 import { PortalShell } from '@/components/layout/PortalShell';
-import { OrderCard } from '@/components/market/OrderCard';
-import { Btn, EmptyState, PORTAL_THEMES, Panel } from '@/components/portal/kit';
+import { PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { Tilt3D } from '@/components/three/Tilt3D';
-import { loadAccount } from '@/lib/db/client';
-import { buyerOrders, type MarketOrder } from '@/lib/db/market';
-import { usePersistentState } from '@/lib/portal-store';
 
 const theme = PORTAL_THEMES.provider;
 
 const STEPS: { label: string; text: string; icon: LucideIcon }[] = [
-  { label: 'Order', text: 'Order on Price Comparison at the seller’s listed price. You pay nothing now.', icon: ShoppingCart },
-  { label: 'Dispatch', text: 'The seller accepts and sends it; a truck can be followed on Tracking with its KashRoot code.', icon: Truck },
-  { label: 'Check', text: 'When it arrives, check grade and weight. Something wrong? Report a problem before paying.', icon: PackageCheck },
-  { label: 'Pay', text: 'Pay the seller directly from your UPI app and type the payment number.', icon: BadgeIndianRupee },
-  { label: 'Confirm', text: 'The seller confirms the money reached them and the order is complete.', icon: CheckCircle2 },
+  { label: 'Verify', text: 'Farmer and buyer each verify their identity once (Aadhaar; PAN when required) in their portal’s Safe payment tab.', icon: IdCard },
+  { label: 'Order', text: 'The buyer orders on Price Comparison at the farmer’s listed price. Nothing is paid now.', icon: ShoppingCart },
+  { label: 'Dispatch', text: 'The farmer accepts and sends it; a truck can be followed on Tracking with its KashRoot code.', icon: Truck },
+  { label: 'Check', text: 'When it arrives the buyer checks grade and weight. Something wrong? Report a problem before paying.', icon: PackageCheck },
+  { label: 'Pay', text: 'The buyer pays the farmer directly from a UPI app and types the payment number.', icon: BadgeIndianRupee },
+  { label: 'Confirm', text: 'The farmer confirms the money arrived and the order is complete.', icon: CheckCircle2 },
 ];
 
-interface KycRecord {
-  submittedAt: string;
-  role: string;
-  method: string;
-  aadhaarLast4: string;
-  panVerifiedBy: string;
-  bank: string;
-}
+const OPEN = 'inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold no-underline shadow-sm transition hover:no-underline';
 
-const NO_KYC: KycRecord | null = null;
-
-const subscribe = (cb: () => void) => {
-  window.addEventListener('storage', cb);
-  return () => window.removeEventListener('storage', cb);
-};
-
-export default function EscrowPage() {
-  const signedIn = useSyncExternalStore(subscribe, () => Boolean(localStorage.getItem('auth_token')), () => false);
-  // The signed-in account's role, so KYC doesn't ask for it again.
-  const accountRole = useSyncExternalStore(subscribe, () => localStorage.getItem('user_role'), () => null);
-  const kycRole = accountRole === 'FARMER' || accountRole === 'BUYER' || accountRole === 'SELLER' ? accountRole : accountRole === 'PROVIDER' ? 'SELLER' : undefined;
-  const [kycOpen, setKycOpen] = useState(false);
-  const [kyc, setKyc] = usePersistentState<KycRecord | null>('kr_kyc_record', NO_KYC);
-  const [orders, setOrders] = useState<MarketOrder[] | null>(null);
-  const loadOrders = useCallback(async () => {
-    const a = await loadAccount().catch(() => null);
-    setOrders(a ? await buyerOrders(a.id).catch(() => []) : []);
-  }, []);
-  useEffect(() => {
-    let live = true;
-    const run = async () => {
-      if (live) await loadOrders();
-    };
-    void run();
-    return () => {
-      live = false;
-    };
-  }, [loadOrders]);
-  const open = (orders ?? []).filter((o) => !['completed', 'cancelled', 'rejected'].includes(o.status));
-
-  const onComplete = (s: KycSubmission) => {
-    setKyc({
-      submittedAt: new Date().toISOString(),
-      role: s.role,
-      method: { DIGILOCKER: 'DigiLocker', AADHAAR_OTP: 'Aadhaar OTP', AADHAAR_OFFLINE_XML: 'UIDAI offline e-KYC', AADHAAR_SECURE_QR: 'UIDAI secure QR' }[s.identity.method],
-      aadhaarLast4: s.identity.aadhaarLast4,
-      panVerifiedBy: { DIGILOCKER: 'DigiLocker', PAN_API: 'Income Tax database', FORMAT_ONLY: 'format check (online check pending)' }[s.identity.panVerifiedBy],
-      bank: `${s.bank.bankName} ••••${s.bank.accountNumber.slice(-4)}`,
-    });
-    localStorage.setItem('kyc_status', 'submitted');
-    toast.success('Verification complete');
-  };
-
-  const kycButton = signedIn ? (
-    <Btn theme={theme} variant="white" icon={IdCard} onClick={() => setKycOpen(true)}>{kyc ? 'Update KYC' : 'Complete KYC'}</Btn>
-  ) : (
-    <Btn theme={theme} variant="white" icon={LogIn} href="/login?next=/escrow">Sign in to verify</Btn>
-  );
-
+export default function SafePaymentPage() {
   return (
     <PortalShell
       standalone
+      title="Pay after delivery"
+      description="Nobody pays for goods they have not received, and nobody sends goods to someone unverified. KashRoot never holds your money."
+      eyebrow="Safe payment"
       theme="provider"
-      eyebrow="Safe payments"
-      title="Pay only after the goods reach you"
-      description="KashRoot does not hold your money. You pay the seller directly by UPI once you have received and checked the goods."
-      actions={kycButton}
-      kpis={[
-        { label: 'Your verification', value: kyc ? 'Verified' : 'Not yet', trend: kyc ? `${kyc.method} · PAN: ${kyc.panVerifiedBy}` : 'Free with UIDAI’s offline e-KYC or Aadhaar QR' },
-        { label: 'Open orders', value: String(open.length), trend: 'Ordered, on the way or to pay' },
-        { label: 'To pay now', value: String(open.filter((o) => o.status === 'delivered').length), trend: 'Received — pay the seller' },
-      ]}
     >
-      <KYCPanel open={kycOpen} onClose={() => setKycOpen(false)} onComplete={onComplete} defaultRole={kycRole} />
-
-      <Panel theme={theme} title="How paying works" icon={ShieldCheck}>
-        <ol className="grid gap-4 md:grid-cols-5">
-          {STEPS.map(({ label, text, icon: Icon }, i) => (
-            <li key={label}>
-              <Tilt3D className="rounded-2xl" max={8}>
-                <div className="h-full rounded-2xl bg-white/85 p-4 shadow-sm ring-1 ring-slate-900/5 [transform-style:preserve-3d]">
-                  <span data-depth className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-teal-400 to-cyan-700 text-white shadow-lg shadow-cyan-700/25">
-                    <Icon className="h-5 w-5" aria-hidden />
-                  </span>
-                  <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-teal-700">Step {i + 1}</p>
-                  <p className="font-semibold text-slate-900">{label}</p>
-                  <p className="mt-1 text-sm text-slate-600">{text}</p>
+      <div className="space-y-6">
+        <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {STEPS.map((s, i) => (
+            <li key={s.label}>
+              <Tilt3D className="h-full rounded-3xl" max={5}>
+                <div className="h-full rounded-3xl bg-white/85 p-5 shadow-sm ring-1 ring-slate-900/5">
+                  <span className={`grid h-11 w-11 place-items-center rounded-2xl ${theme.tile}`}><s.icon className="h-5 w-5" aria-hidden /></span>
+                  <p className="mt-3 font-semibold text-slate-900">{i + 1}. {s.label}</p>
+                  <p className="mt-1 text-sm text-slate-600">{s.text}</p>
                 </div>
               </Tilt3D>
             </li>
           ))}
         </ol>
-        <p className="mt-4 text-sm text-slate-600">Cold-store bookings are paid straight to the cold-store owner’s UPI, and the owner confirms your space.</p>
-      </Panel>
-
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <Panel theme={theme} title="Why pay after delivery?" icon={ShieldCheck}>
-          <p className="text-sm text-slate-700">
-            Holding other people’s money in the middle needs a licence from the Reserve Bank of India. Until KashRoot has one, the safest way is: <strong>you never pay before you have the goods</strong>, and money goes straight from your UPI app to the seller — never through KashRoot.
-          </p>
-        </Panel>
-        <Panel theme={theme} title="Pay and receive by UPI" icon={BadgeIndianRupee}>
-          <p className="text-sm text-slate-700">
-            To pay, press <strong>Pay with UPI app</strong> on your order or booking — PhonePe, Google Pay, Paytm or BHIM opens with the amount filled in — or scan the QR shown there. To receive, add your UPI ID in your portal’s <strong>Payouts</strong>; your own QR appears there to show to the person paying you.
-          </p>
-        </Panel>
-        <Panel theme={theme} title="Everyone is verified" icon={IdCard}>
-          <p className="text-sm text-slate-700">
-            Before anyone can sell, order, book or receive money, they verify their identity with <strong>Aadhaar</strong> (checked against UIDAI’s digital signature) and, where required, <strong>PAN</strong>. Only the last 4 digits are kept — never the full number.
-          </p>
-        </Panel>
-      </div>
-
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_1.4fr]">
-        <Panel theme={theme} title="Your verification" icon={IdCard}>
-          {kyc ? (
-            <dl className="grid gap-2.5 text-sm">
-              {[
-                ['Identity', `${kyc.method}${kyc.aadhaarLast4 ? ` · Aadhaar ••••${kyc.aadhaarLast4}` : ''}`],
-                ['PAN', kyc.panVerifiedBy],
-                ['Payout account', kyc.bank],
-                ['Verified on', new Date(kyc.submittedAt).toLocaleDateString('en-IN')],
-              ].map(([k, v]) => (
-                <div key={k} className="flex justify-between gap-3 border-b border-slate-900/5 pb-2">
-                  <dt className="text-slate-500">{k}</dt>
-                  <dd className="text-right font-medium text-slate-900">{v}</dd>
-                </div>
-              ))}
-            </dl>
-          ) : (
-            <EmptyState
-              theme={theme}
-              icon={IdCard}
-              title="Verify once, trade safely"
-              text="Aadhaar checked against UIDAI’s digital signature (free with the offline e-KYC file or Aadhaar QR), your PAN, and your contact details."
-              action={kycButton}
-            />
-          )}
-        </Panel>
-        <Panel theme={theme} title="Your open orders" icon={ShoppingCart}>
-          {orders === null ? (
-            <p className="text-sm text-slate-600">Loading…</p>
-          ) : open.length === 0 ? (
-            <EmptyState theme={theme} icon={ShoppingCart} title="No open orders" text="Order on Price Comparison — you pay the seller only after the goods reach you." action={<Btn theme={theme} variant="soft" href="/compare-prices">Open Price Comparison</Btn>} />
-          ) : (
-            <ul className="space-y-3">{open.map((o) => <OrderCard key={o.id} order={o} as="buyer" theme={theme} onChange={() => void loadOrders()} />)}</ul>
-          )}
+        <Panel theme={theme} title="Verify and pay in your portal" icon={ShieldCheck}>
+          <p className="text-sm text-slate-700">The identity check and your payments are in the Safe payment tab of your portal.</p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link href="/farmer/dashboard?tab=payouts" className={`${OPEN} bg-emerald-700 text-white hover:bg-emerald-800`}>Farmer: Safe payment</Link>
+            <Link href="/buyer/dashboard?tab=payment" className={`${OPEN} bg-sky-700 text-white hover:bg-sky-800`}>Buyer: Safe payment</Link>
+          </div>
         </Panel>
       </div>
     </PortalShell>
