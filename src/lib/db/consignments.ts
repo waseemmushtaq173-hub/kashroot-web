@@ -7,6 +7,7 @@
  * the position; anyone with the code sees it (kr_track).
  */
 import { dbMessage, supabase } from '@/lib/db/client';
+import { publicOrigin } from '@/lib/site';
 
 export type ConsignmentStatus = 'booked' | 'in_transit' | 'delivered' | 'cancelled';
 
@@ -81,5 +82,5 @@ export async function driverDelivered(token: string): Promise<void> {
   if (error) fail(error, 'Could not mark delivered.');
 }
 
-export const trackUrl = (code: string) => `${typeof window !== 'undefined' ? window.location.origin : ''}/track/${code}`;
-export const driverUrl = (token: string) => `${typeof window !== 'undefined' ? window.location.origin : ''}/drive/${token}`;
+export const trackUrl = (code: string) => `${publicOrigin()}/track/${code}`;
+export const driverUrl = (token: string) => `${publicOrigin()}/drive/${token}`;

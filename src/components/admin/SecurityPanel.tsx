@@ -20,13 +20,19 @@ const theme = PORTAL_THEMES.admin ?? PORTAL_THEMES.expert;
 export function SecurityPanel() {
   const [rules, setRules] = useState<KycRules | null | undefined>(undefined);
   const [panOnline, setPanOnline] = useState<boolean | null>(null);
+  // Whether this server has KYC_DB_SECRET (the database half is rules.recording).
+  const [serverSecret, setServerSecret] = useState<boolean | null>(null);
   const [form, setForm] = useState({ old: '', next: '', again: '' });
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    setRules(await kycRules());
-    const cfg = (await fetch('/api/kyc/config').then((r) => r.json()).catch(() => null)) as { online?: boolean } | null;
+    const [r, cfg] = await Promise.all([
+      kycRules(),
+      fetch('/api/kyc/config', { cache: 'no-store' }).then((res) => res.json() as Promise<{ online?: boolean; recording?: boolean }>).catch(() => null),
+    ]);
+    setRules(r);
     setPanOnline(cfg?.online ?? false);
+    setServerSecret(cfg ? Boolean(cfg.recording) : null);
   }, []);
   useEffect(() => {
     let live = true;
@@ -78,22 +84,16 @@ export function SecurityPanel() {
         ) : (
           <div className="space-y-4 text-sm text-slate-700">
             <p>When this is on, people must verify their <strong>Aadhaar</strong> (free, with UIDAI’s signed QR / offline file) before they sell, order, book cold storage, list a store or add UPI / bank details. The database itself refuses those actions otherwise.</p>
-            <p className={`flex items-start gap-2 rounded-xl p-3 ring-1 ${rules.recording ? 'bg-emerald-50 text-emerald-900 ring-emerald-200' : 'bg-amber-50 text-amber-900 ring-amber-200'}`}>
-              {rules.recording ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> : <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />}
-              {rules.recording ? (
-                <span>KashRoot can record verified checks. (Also make sure <code>KYC_DB_SECRET</code> is set in Vercel — if it is missing, checks succeed but are not saved.)</span>
-              ) : (
-                <span>Not set up yet. In Supabase → SQL Editor run <code>select public.kr_kyc_secret();</code>, copy the long text it shows, add it in Vercel → Settings → Environment Variables as <code>KYC_DB_SECRET</code>, and redeploy. Then switch this on.</span>
-              )}
-            </p>
+            <KycSetup database={rules.recording} server={serverSecret} />
             <div className="flex flex-wrap gap-2">
-              <Btn theme={theme} variant={rules.kyc_required ? 'solid' : 'soft'} icon={ShieldCheck} disabled={busy} aria-pressed={rules.kyc_required} onClick={() => void saveRules(!rules.kyc_required, rules.pan_required && !rules.kyc_required)}>
+              <Btn theme={theme} variant={rules.kyc_required ? 'solid' : 'soft'} icon={ShieldCheck} disabled={busy || (!rules.kyc_required && !(rules.recording && serverSecret))} aria-pressed={rules.kyc_required} onClick={() => void saveRules(!rules.kyc_required, rules.pan_required && !rules.kyc_required)}>
                 {rules.kyc_required ? 'Aadhaar required — on' : 'Require Aadhaar'}
               </Btn>
               <Btn theme={theme} variant={rules.pan_required ? 'solid' : 'soft'} icon={IdCard} disabled={busy || !rules.kyc_required || panOnline === false} aria-pressed={rules.pan_required} onClick={() => void saveRules(rules.kyc_required, !rules.pan_required)}>
                 {rules.pan_required ? 'PAN required too — on' : 'Also require PAN'}
               </Btn>
             </div>
+            {!rules.kyc_required && rules.recording && serverSecret && <p className="text-xs text-slate-500">Before you switch it on: people who have not verified their Aadhaar will be stopped from selling, ordering, booking cold storage, listing a store and adding UPI / bank details until they do. Tell your users first.</p>}
             {panOnline === false && <p className="text-xs text-slate-500">PAN can be checked only with the Income Tax database through a KYC provider (Sandbox: SANDBOX_API_KEY and SANDBOX_API_SECRET in Vercel, paid per check). Until then PAN cannot be required — nobody could pass.</p>}
           </div>
         )}
@@ -128,6 +128,34 @@ export function SecurityPanel() {
       </Panel>
 
       <SecurityLogPanel />
+    </div>
+  );
+}
+
+/** The two halves of KYC recording: the secret in the database and the same secret in Vercel. */
+function KycSetup({ database, server }: { database: boolean; server: boolean | null }) {
+  const ready = database && server === true;
+  const steps = [
+    { done: database, text: <>Supabase → SQL Editor → run <code>select public.kr_kyc_secret();</code> and copy the long text it shows.</> },
+    { done: server === true, text: <>Vercel → your project → Settings → Environment Variables → add <code>KYC_DB_SECRET</code> with that text (all environments), then Deployments → Redeploy.</> },
+  ];
+  return (
+    <div className={`rounded-xl p-3 ring-1 ${ready ? 'bg-emerald-50 text-emerald-900 ring-emerald-200' : 'bg-amber-50 text-amber-900 ring-amber-200'}`}>
+      <p className="flex items-start gap-2 font-semibold">
+        {ready ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> : <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />}
+        {ready ? 'Set up: verified Aadhaar checks are saved.' : 'Not set up yet — two steps, then you can switch this on.'}
+      </p>
+      {!ready && (
+        <ol className="mt-2 space-y-1.5">
+          {steps.map((s, i) => (
+            <li key={i} className="flex items-start gap-2">
+              {s.done ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-label="Done" /> : <span className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full bg-amber-200 text-[10px] font-bold">{i + 1}</span>}
+              <span className={s.done ? 'text-slate-500 line-through decoration-slate-300' : ''}>{s.text}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      {!ready && server === null && <p className="mt-2 text-xs">Could not ask the server whether step 2 is done. Reload this page.</p>}
     </div>
   );
 }

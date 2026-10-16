@@ -18,11 +18,12 @@
 import { api } from './client';
 import { loginHref, portalForRole, type PortalId } from '@/lib/auth/roles';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
+import { publicOrigin } from '@/lib/site';
 
 function confirmRedirect(role: RegisterDto['role'], from?: PortalId): string | undefined {
   if (typeof window === 'undefined') return undefined;
   const portal = from ?? portalForRole(role) ?? 'farmer';
-  return `${window.location.origin}${loginHref(portal)}?verified=1`;
+  return `${publicOrigin()}${loginHref(portal)}?verified=1`;
 }
 
 const NOT_SET_UP = 'Sign-in is not set up on this site yet: the owner must add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel and redeploy.';

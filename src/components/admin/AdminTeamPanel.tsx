@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 
 import { Badge, Btn, Field, INPUT, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { addAdmin, adminTeam, removeAdmin, type AdminMember } from '@/lib/db/security';
+import { publicOrigin } from '@/lib/site';
 
 const theme = PORTAL_THEMES.admin ?? PORTAL_THEMES.expert;
 
@@ -21,7 +22,7 @@ function StaffQr() {
   const [url, setUrl] = useState('');
   useEffect(() => {
     let live = true;
-    const link = `${window.location.origin}/login/admin`;
+    const link = `${publicOrigin()}/login/admin`;
     QRCode.toDataURL(link, { errorCorrectionLevel: 'M', margin: 1, width: 320, color: { dark: '#0f172a', light: '#ffffff' } })
       .then((data) => {
         if (!live) return;

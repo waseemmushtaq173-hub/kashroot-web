@@ -5,6 +5,7 @@ import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, KeyRound, Loader2, Mail, MailCheck } from 'lucide-react';
 
+import { publicOrigin } from '@/lib/site';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 
 export default function ForgotPasswordPage() {
@@ -19,7 +20,7 @@ export default function ForgotPasswordPage() {
     if (!supabaseConfigured) return setError('Password reset is not set up on this site yet.');
     setBusy(true);
     setError(null);
-    const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/reset-password` });
+    const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${publicOrigin()}/reset-password` });
     setBusy(false);
     if (err && !/rate limit/i.test(err.message)) return setError(err.message);
     if (err) return setError('Too many requests. Please wait a few minutes and try again.');
