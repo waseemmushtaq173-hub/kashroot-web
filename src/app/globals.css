@@ -221,3 +221,10 @@ body {
 }
 @keyframes kr-truck-pulse { from { transform: scale(0.6); opacity: 1; } to { transform: scale(1.6); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .kr-truck-marker__pulse { animation: none; } }
+
+/* Kashmiri and Urdu (Nastaliq): tall letters and vowel marks need taller lines. */
+[dir='rtl'],
+:lang(ks),
+:lang(ur) {
+  line-height: 2.1;
+}

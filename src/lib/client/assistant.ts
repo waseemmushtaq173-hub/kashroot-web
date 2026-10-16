@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { needsDevanagari, NO_VOICE_HELP, speak, stopSpeaking, type SpeechLang } from '@/lib/client/speech';
+import { ksText } from '@/lib/kashmiri/phrases';
 import { detectReplyLang, rememberLang } from '@/lib/langDetect';
 import { navigationFor } from '@/lib/navIntent';
 
@@ -21,13 +22,16 @@ export interface Turn {
   error?: boolean;
 }
 
-/** Spoken when the assistant can't answer (Urdu also serves Kashmiri). */
-const SORRY: Record<SpeechLang, { text: string; speech?: string }> = {
-  en: { text: 'Sorry, I cannot answer right now. Please try again in a little while.' },
-  hi: { text: 'माफ़ कीजिए, मैं अभी जवाब नहीं दे पा रहा हूँ। थोड़ी देर बाद फिर कोशिश करें।' },
-  ur: { text: 'معاف کیجیے، میں ابھی جواب نہیں دے پا رہا۔ تھوڑی دیر بعد دوبارہ کوشش کریں۔', speech: 'माफ़ कीजिए, मैं अभी जवाब नहीं दे पा रहा। थोड़ी देर बाद दोबारा कोशिश करें।' },
-  ks: { text: 'معاف کیجیے، میں ابھی جواب نہیں دے پا رہا۔ تھوڑی دیر بعد دوبارہ کوشش کریں۔', speech: 'माफ़ कीजिए, मैं अभी जवाब नहीं दे पा रहा। थोड़ी देर बाद दोबारा कोशिश करें।' },
-};
+/** Spoken when the assistant can't answer — Kashmiri as the editors wrote it. */
+const sorryFor = (lang: SpeechLang): { text: string; speech?: string } =>
+  ({
+    en: { text: 'Sorry, I cannot answer right now. Please try again in a little while.' },
+    hi: { text: 'माफ़ कीजिए, मैं अभी जवाब नहीं दे पा रहा हूँ। थोड़ी देर बाद फिर कोशिश करें।' },
+    ur: { text: 'معاف کیجیے، میں ابھی جواب نہیں دے پا رہا۔ تھوڑی دیر بعد دوبارہ کوشش کریں۔', speech: 'माफ़ कीजिए, मैं अभी जवाब नहीं दे पा रहा। थोड़ी देर बाद दोबारा कोशिश करें।' },
+    ks: { text: ksText('assistant.sorry') },
+  })[lang];
+
+const offlineFor = (lang: SpeechLang) => (lang === 'ks' ? ksText('assistant.offline') : 'No internet connection. Please check your mobile data and try again.');
 
 export function useAssistant(opts: { page?: string } = {}) {
   const router = useRouter();
@@ -99,16 +103,16 @@ export function useAssistant(opts: { page?: string } = {}) {
         if (data.reply) turn = { role: 'assistant', text: data.reply, lang, speech: data.speech };
         else {
           if (res.status === 503) setConfigured(false);
-          turn = { role: 'assistant', text: data.error ?? SORRY[lang].text, lang, error: true };
+          turn = { role: 'assistant', text: lang === 'ks' ? sorryFor('ks').text : (data.error ?? sorryFor(lang).text), lang, error: true };
         }
       } catch {
-        turn = { role: 'assistant', text: 'No internet connection. Please check your mobile data and try again.', lang, error: true };
+        turn = { role: 'assistant', text: offlineFor(lang), lang, error: true };
       } finally {
         setThinking(false);
       }
       setTurns((all) => [...all, turn]);
       // Errors are spoken too, in the person's language.
-      void say(turn.error ? { ...SORRY[lang], lang } : turn);
+      void say(turn.error ? { ...sorryFor(lang), lang } : turn);
     },
     [opts.page, router, say, thinking, turns],
   );

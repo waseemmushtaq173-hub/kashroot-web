@@ -9,10 +9,10 @@
 import { dbMessage, supabase } from '@/lib/db/client';
 import type { MandiRate } from '@/lib/db/mandiRates';
 
-export type WorkKind = 'mandi_rate' | 'answer' | 'soil_test' | 'video_call';
+export type WorkKind = 'mandi_rate' | 'answer' | 'soil_test' | 'video_call' | 'kashmiri';
 export type WorkStatus = 'pending' | 'accepted' | 'rejected';
 
-export const WORK_LABEL: Record<WorkKind, string> = { mandi_rate: 'Mandi rate', answer: 'Answer to a farmer', soil_test: 'Soil test', video_call: 'Video call' };
+export const WORK_LABEL: Record<WorkKind, string> = { mandi_rate: 'Mandi rate', answer: 'Answer to a farmer', soil_test: 'Soil test', video_call: 'Video call', kashmiri: 'Kashmiri word or answer' };
 export const STATUS_WORDS: Record<WorkStatus, string> = { pending: 'Waiting for a check', accepted: 'Accepted', rejected: 'Not accepted' };
 
 export interface Contribution {
@@ -118,7 +118,9 @@ export async function answersToCheck(): Promise<AnswerToCheck[]> {
   if (error) fail(error, 'Could not load the answers.');
   const list = (data ?? []) as Contribution[];
   if (!list.length) return [];
-  const r = await supabase.from('advisory_requests').select('id, kind, crop, message, farmer_name, district, farmer_rating, expert_name').in('id', [...new Set(list.map((c) => c.ref_id))]);
+  // Only experts' work points at a farmer's request (Kashmiri editors' work does not).
+  const ids = [...new Set(list.filter((c) => c.kind === 'answer' || c.kind === 'soil_test' || c.kind === 'video_call').map((c) => c.ref_id))];
+  const r = ids.length ? await supabase.from('advisory_requests').select('id, kind, crop, message, farmer_name, district, farmer_rating, expert_name').in('id', ids) : { data: [], error: null };
   if (r.error) fail(r.error, 'Could not load the requests.');
   const byId = new Map(((r.data ?? []) as NonNullable<AnswerToCheck['request']>[]).map((q) => [q.id, q]));
   return list

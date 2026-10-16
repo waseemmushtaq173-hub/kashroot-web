@@ -23,9 +23,12 @@ const ASKED: [ReplyLang, RegExp][] = [
 
 export function detectReplyLang(text: string, picked: ReplyLang): ReplyLang {
   for (const [lang, re] of ASKED) if (re.test(text)) return lang;
+  // Someone who chose Kashmiri is answered in Kashmiri, whatever they typed or
+  // said (speech comes through Urdu, and many type in English or Hindi).
+  if (picked === 'ks') return 'ks';
   // Letters only Kashmiri uses (ٲ ٕ ۄ ؠ ۆ ٚ): Kashmiri, whatever was picked.
   if (/[ٲٕۄؠۆٚ]/.test(text)) return 'ks';
-  if (/[؀-ۿ]/.test(text)) return picked === 'ks' ? 'ks' : 'ur'; // Urdu / Kashmiri script
+  if (/[؀-ۿ]/.test(text)) return 'ur'; // Urdu script
   if (/[ऀ-ॿ]/.test(text)) return 'hi'; // Devanagari
   const words = text.toLowerCase().match(/[a-z]+/g) ?? [];
   const hindustani = words.filter((w) => ROMAN_HINDUSTANI.has(w)).length;

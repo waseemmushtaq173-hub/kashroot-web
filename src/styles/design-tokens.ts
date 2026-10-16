@@ -238,7 +238,8 @@ export const typography = {
   fontFamily: {
     display: ['var(--font-fraunces, Georgia)', 'Georgia', 'serif'],
     heading: ['var(--font-fraunces, Georgia)', 'Georgia', 'serif'],
-    body:    ['var(--font-inter, system-ui)', 'system-ui', 'sans-serif'],
+    // Nastaliq (set in the root layout) covers only Kashmiri/Urdu letters; Latin falls through to the next font.
+    body:    ['var(--font-nastaliq, system-ui)', 'var(--font-inter, system-ui)', 'system-ui', 'sans-serif'],
     mono:    ['var(--font-jetbrains-mono, Menlo)', 'Menlo', 'monospace'],
   },
   fontSize: {

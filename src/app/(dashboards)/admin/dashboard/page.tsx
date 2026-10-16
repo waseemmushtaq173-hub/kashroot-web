@@ -17,7 +17,7 @@
  * and every query above is limited to admins in the database itself.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BarChart3, GraduationCap, LockKeyhole, PackageX, Users, Wallet } from 'lucide-react';
+import { BarChart3, GraduationCap, Languages, LockKeyhole, PackageX, Users, Wallet } from 'lucide-react';
 
 import { AccountsPanel } from '@/components/admin/AccountsPanel';
 import { AdminLock } from '@/components/admin/AdminLock';
@@ -26,10 +26,11 @@ import { ContributorsPanel } from '@/components/admin/ContributorsPanel';
 import { PlatformNumbers, loadAdminStats } from '@/components/admin/PlatformNumbers';
 import { ReportedOrders, loadReportedOrders } from '@/components/admin/ReportedOrders';
 import { SecurityPanel } from '@/components/admin/SecurityPanel';
+import { KoshurLab } from '@/components/kashmiri/KoshurLab';
 import { PortalShell } from '@/components/layout/PortalShell';
 import { supabase } from '@/lib/db/client';
 
-type Tab = 'approvals' | 'accounts' | 'problems' | 'contributors' | 'numbers' | 'security';
+type Tab = 'approvals' | 'accounts' | 'problems' | 'contributors' | 'kashmiri' | 'numbers' | 'security';
 
 interface Counts {
   waiting: number;
@@ -113,6 +114,7 @@ function AdminConsole() {
         { id: 'accounts', label: 'Accounts', icon: Users, count: counts?.accounts || undefined },
         { id: 'problems', label: 'Problems', icon: PackageX, count: counts?.problems || undefined },
         { id: 'contributors', label: 'Contributors', icon: Wallet },
+        { id: 'kashmiri', label: 'Kashmiri', icon: Languages },
         { id: 'numbers', label: 'Platform numbers', icon: BarChart3 },
         { id: 'security', label: 'Security', icon: LockKeyhole },
       ]}
@@ -123,6 +125,7 @@ function AdminConsole() {
       {tab === 'accounts' && <AccountsPanel onRefreshed={load} />}
       {tab === 'problems' && <ReportedOrders />}
       {tab === 'contributors' && <ContributorsPanel />}
+      {tab === 'kashmiri' && <KoshurLab admin />}
       {tab === 'numbers' && <PlatformNumbers onRefreshed={load} />}
       {tab === 'security' && <SecurityPanel />}
     </PortalShell>

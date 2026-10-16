@@ -57,7 +57,7 @@ export default function ContributionsPage() {
   const paid = list.reduce((s, c) => s + Number(c.paid_amount ?? 0), 0);
   const waiting = list.filter((c) => c.status === 'pending').length;
   const payDecided = pay.some((p) => p.amount > 0);
-  const isStaff = Boolean(account?.staff.some((r) => r === 'REPORTER' || r === 'EXPERT' || r === 'ADMIN'));
+  const isStaff = Boolean(account?.staff.some((r) => r === 'REPORTER' || r === 'EXPERT' || r === 'ADMIN' || r === 'KASHMIRI'));
 
   return (
     <PortalShell

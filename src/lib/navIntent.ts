@@ -5,6 +5,7 @@
  * A question ("how do I book cold storage?") is not a command: it is answered.
  */
 import { has, norm } from '@/lib/textMatch';
+import { ksText } from '@/lib/kashmiri/phrases';
 
 type Lang = 'en' | 'hi' | 'ur' | 'ks';
 type Text = { en: string; hi: string; ur: string };
@@ -60,7 +61,8 @@ export function navigationFor(text: string, lang: Lang): NavCommand | null {
   const words = text.trim().split(/\s+/).length;
   // "open cold storage" / "mandi dikhao" — or just the place's name, said on its own.
   if (!has(q, VERBS) && words > 2) return null;
-  const l = lang === 'ks' ? 'ur' : lang;
+  if (lang === 'ks') return { href: place.href, say: ksText('nav.opening', { place: place.label.ur }) };
+  const l = lang;
   const say = { en: `Opening ${place.label.en}.`, hi: `${place.label.hi} खोल रहे हैं।`, ur: `${place.label.ur} کھول رہے ہیں۔` }[l];
   const hi = `${place.label.hi} खोल रहे हैं।`;
   return { href: place.href, say, ...(l === 'ur' ? { speech: hi } : {}) };

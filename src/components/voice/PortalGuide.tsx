@@ -11,9 +11,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { HelpCircle, Loader2, Mic, Square, Volume2, X } from 'lucide-react';
 
+import { KashmiriFix } from '@/components/kashmiri/KashmiriFix';
 import { PORTAL_GUIDES } from '@/components/voice/portalGuides';
 import { LangPicker } from '@/components/voice/VoiceButtons';
 import { useAssistant } from '@/lib/client/assistant';
+import { useKsText } from '@/lib/client/kashmiri';
 import { isRtl, listen, NO_VOICE_HELP, noListenHelp, speak, stopSpeaking, type SpeechLang } from '@/lib/client/speech';
 import { PORTALS, type PortalId } from '@/lib/auth/roles';
 import { loadAccount } from '@/lib/db/client';
@@ -23,6 +25,7 @@ export function PortalGuide({ portal }: { portal: PortalId }) {
   const guide = PORTAL_GUIDES[portal];
   const [open, setOpen] = useState(false);
   const [lang, setLang] = useState<SpeechLang>('en');
+  const t = useKsText();
   const [reading, setReading] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [listening, setListening] = useState(false);
@@ -195,12 +198,13 @@ export function PortalGuide({ portal }: { portal: PortalId }) {
             >
               <Mic className="h-5 w-5" aria-hidden /> {listening ? 'Listening… tap to stop' : 'Tap and speak your question'}
             </button>
-            {lang === 'ks' && <p className="mt-1 text-xs text-slate-500">Speak in Kashmiri or Urdu.</p>}
+            {lang === 'ks' && <p lang="ks" dir="rtl" className="mt-1 text-xs text-slate-500">{t('assistant.speak_hint')}</p>}
             {heard && <p dir={isRtl(lang) ? 'rtl' : undefined} className="mt-2 text-sm italic text-slate-600">{heard}</p>}
             {thinking && <p className="mt-2 flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Thinking…</p>}
             {last && (
               <div className={`mt-3 rounded-2xl p-3 text-sm ${last.error ? 'bg-rose-50 text-rose-900' : 'bg-slate-50 text-slate-800'}`}>
-                <p dir={isRtl(last.lang) && !last.error ? 'rtl' : undefined}>{last.text}</p>
+                <p dir={isRtl(last.lang) && (!last.error || last.lang === 'ks') ? 'rtl' : undefined} lang={last.lang === 'en' ? undefined : last.lang}>{last.text}</p>
+                {!last.error && last.lang === 'ks' && <KashmiriFix question={[...turns].reverse().find((x) => x.role === 'user')?.text ?? ''} reply={last.text} />}
                 {!last.error && (
                   <button type="button" onClick={() => void say(last)} className="mt-2 inline-flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-orange-700">
                     <Volume2 className="h-4 w-4" aria-hidden /> Listen again

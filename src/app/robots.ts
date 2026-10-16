@@ -8,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: ['/', '/buyer/discover'],
-      disallow: ['/login/admin', '/api/', '/farmer/', '/buyer/', '/seller/', '/provider/', '/admin/', '/kissan-tools/', '/rental/', '/dealer/', '/expert$', '/expert/', '/kyc/', '/track/', '/drive/', '/tracking/', '/trader/', '/contributions'],
+      disallow: ['/login/admin', '/api/', '/farmer/', '/buyer/', '/seller/', '/provider/', '/admin/', '/kissan-tools/', '/rental/', '/dealer/', '/expert$', '/expert/', '/kyc/', '/track/', '/drive/', '/tracking/', '/trader/', '/contributions', '/koshur'],
     },
     sitemap: `${SITE_URL}/sitemap.xml`,
     host: SITE_URL,

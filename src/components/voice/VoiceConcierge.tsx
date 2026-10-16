@@ -10,22 +10,28 @@
  * browser recognises Kashmiri speech yet, so in Kashmiri it listens in Urdu.
  */
 import { useEffect, useRef, useState } from 'react';
-import { CircleAlert, Loader2, Mic, MicOff, Send, Sparkles, Square, Volume2 } from 'lucide-react';
+import { CircleAlert, Keyboard, Loader2, Mic, MicOff, Send, Sparkles, Square, Volume2 } from 'lucide-react';
 
+import { KashmiriFix } from '@/components/kashmiri/KashmiriFix';
+import { KashmiriKeys } from '@/components/kashmiri/KashmiriKeys';
 import { LangPicker } from '@/components/voice/VoiceButtons';
 import { useAssistant } from '@/lib/client/assistant';
+import { useKsText } from '@/lib/client/kashmiri';
 import { isRtl, listen, noListenHelp, recognitionAvailable, type SpeechLang } from '@/lib/client/speech';
 import { loadAccount } from '@/lib/db/client';
 import { detectReplyLang, rememberedLang, rememberLang } from '@/lib/langDetect';
 
-const SUGGESTIONS: Record<SpeechLang, string[]> = {
+// Kashmiri lines come from the Kashmiri Lab (corrected by native speakers).
+const SUGGESTIONS: Record<Exclude<SpeechLang, 'ks'>, string[]> = {
   en: ['Today’s apple prices', 'Rain forecast for my district this week', 'How do I control apple scab?', 'How do I book cold storage?'],
   hi: ['आज सेब का भाव क्या है?', 'इस हफ़्ते बारिश का अनुमान', 'सेब में स्कैब कैसे रोकें?', 'कोल्ड स्टोरेज कैसे बुक करें?'],
   ur: ['آج سیب کی قیمت کیا ہے؟', 'اس ہفتے بارش کی پیشگوئی', 'سیب میں اسکیب کیسے روکیں؟', 'کولڈ اسٹوریج کیسے بک کریں؟'],
-  ks: ['اَز چھُ سیبُک ریٹ کیا؟', 'یَتھ ہفتس منٛز روٗد آسہِ؟', 'سیبس اسکیب کِتھ کٔنۍ رُکاو؟', 'کولڈ سٹور کِتھ کٔنۍ بُک کرو؟'],
 };
 
-const PLACEHOLDER: Record<SpeechLang, string> = { en: 'Or type your question…', hi: 'अपना सवाल लिखें…', ur: 'اپنا سوال لکھیں…', ks: 'پنُن سوال لیٚکھِو…' };
+const PLACEHOLDER: Record<Exclude<SpeechLang, 'ks'>, string> = { en: 'Or type your question…', hi: 'अपना सवाल लिखें…', ur: 'اپنا سوال لکھیں…' };
+
+/** The lang attribute for text in this language (fonts, screen readers). */
+const langAttr = (l: SpeechLang) => (l === 'en' ? undefined : l);
 
 export function VoiceConcierge() {
   const [lang, setLang] = useState<SpeechLang>('en');
@@ -37,6 +43,11 @@ export function VoiceConcierge() {
   const { turns, ask, thinking, speaking, say, stop, notice, setNotice, configured } = useAssistant();
   const stopListening = useRef<(() => void) | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [keys, setKeys] = useState(false);
+  const t = useKsText();
+  const ks = lang === 'ks';
+  const suggestions = ks ? ([1, 2, 3, 4] as const).map((i) => t(`assistant.suggest.${i}`)) : SUGGESTIONS[lang];
 
   useEffect(() => {
     const id = requestAnimationFrame(() => {
@@ -126,9 +137,11 @@ export function VoiceConcierge() {
             {listening ? <MicOff className="relative h-10 w-10" aria-hidden /> : <Mic className="relative h-10 w-10" aria-hidden />}
           </button>
           <p className="text-sm font-medium text-slate-600" aria-live="polite">
-            {listening ? 'Listening…' : thinking ? 'Thinking…' : speaking ? 'Speaking…' : canListen ? 'Tap and speak' : 'Type below'}
+            {ks ? (
+              <span lang="ks">{listening ? t('assistant.listening') : thinking ? t('assistant.thinking') : speaking ? t('assistant.speaking') : canListen ? t('assistant.tap') : t('assistant.placeholder')}</span>
+            ) : listening ? 'Listening…' : thinking ? 'Thinking…' : speaking ? 'Speaking…' : canListen ? 'Tap and speak' : 'Type below'}
           </p>
-          {lang === 'ks' && canListen && <p className="max-w-[10rem] text-center text-xs text-slate-500">Speak in Kashmiri or Urdu</p>}
+          {ks && canListen && <p lang="ks" dir="rtl" className="max-w-[10rem] text-center text-xs text-slate-500">{t('assistant.speak_hint')}</p>}
           {listenHelp && <p className="max-w-[12rem] text-center text-xs text-amber-800">{listenHelp}</p>}
           {speaking && (
             <button type="button" onClick={stop} className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-slate-900/5 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-900/10">
@@ -141,26 +154,29 @@ export function VoiceConcierge() {
           <div ref={listRef} className="max-h-72 min-h-[9rem] space-y-3 overflow-y-auto rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-900/5" aria-live="polite">
             {turns.length === 0 && !interim && (
               <div className="flex flex-wrap gap-2">
-                {SUGGESTIONS[lang].map((s) => (
-                  <button key={s} type="button" dir={rtl} onClick={() => send(s)} className="cursor-pointer rounded-full bg-white px-3 py-1.5 text-sm text-slate-700 ring-1 ring-slate-900/10 transition hover:bg-amber-50 hover:ring-amber-300">
+                {suggestions.map((s) => (
+                  <button key={s} type="button" dir={rtl} lang={langAttr(lang)} onClick={() => send(s)} className="cursor-pointer rounded-full bg-white px-3 py-1.5 text-sm text-slate-700 ring-1 ring-slate-900/10 transition hover:bg-amber-50 hover:ring-amber-300">
                     {s}
                   </button>
                 ))}
               </div>
             )}
-            {turns.map((t, i) => (
-              <div key={i} className={`flex ${t.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            {turns.map((turn, i) => (
+              <div key={i} className={`flex flex-col ${turn.role === 'user' ? 'items-end' : 'items-start'}`}>
                 <p
-                  dir={isRtl(t.lang) && !t.error ? 'rtl' : undefined}
-                  className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${t.role === 'user' ? 'bg-gradient-to-br from-orange-500 to-rose-600 text-white' : t.error ? 'bg-rose-50 text-rose-900 ring-1 ring-rose-200' : 'bg-white text-slate-800 ring-1 ring-slate-900/5'}`}
+                  dir={isRtl(turn.lang) && (!turn.error || turn.lang === 'ks') ? 'rtl' : undefined}
+                  lang={langAttr(turn.lang)}
+                  className={`max-w-[85%] rounded-2xl px-4 py-2.5 leading-relaxed ${isRtl(turn.lang) ? 'text-[15px]' : 'text-sm'} ${turn.role === 'user' ? 'bg-gradient-to-br from-orange-500 to-rose-600 text-white' : turn.error ? 'bg-rose-50 text-rose-900 ring-1 ring-rose-200' : 'bg-white text-slate-800 ring-1 ring-slate-900/5'}`}
                 >
-                  {t.text}
-                  {t.role === 'assistant' && !t.error && (
-                    <button type="button" aria-label="Play this answer" onClick={() => void say(t)} className="ms-2 inline-flex cursor-pointer align-middle text-slate-400 hover:text-orange-600">
+                  {turn.text}
+                  {turn.role === 'assistant' && !turn.error && (
+                    <button type="button" aria-label="Play this answer" onClick={() => void say(turn)} className="ms-2 inline-flex cursor-pointer align-middle text-slate-400 hover:text-orange-600">
                       <Volume2 className="h-4 w-4" />
                     </button>
                   )}
                 </p>
+                {/* Native speakers correct Kashmiri answers; the assistant learns from them. */}
+                {turn.role === 'assistant' && !turn.error && turn.lang === 'ks' && <KashmiriFix question={turns[i - 1]?.role === 'user' ? turns[i - 1].text : ''} reply={turn.text} />}
               </div>
             ))}
             {interim && (
@@ -170,7 +186,7 @@ export function VoiceConcierge() {
             )}
             {thinking && (
               <p className="inline-flex items-center gap-2 text-sm text-slate-500">
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Checking live data…
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> {ks ? <span lang="ks">{t('assistant.checking')}</span> : 'Checking live data…'}
               </p>
             )}
           </div>
@@ -185,16 +201,24 @@ export function VoiceConcierge() {
             <label className="sr-only" htmlFor="voice-question">Your question</label>
             <input
               id="voice-question"
+              ref={inputRef}
               dir={rtl}
+              lang={langAttr(lang)}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder={PLACEHOLDER[lang]}
+              placeholder={ks ? t('assistant.placeholder') : PLACEHOLDER[lang]}
               className="min-w-0 flex-1 rounded-xl border-0 bg-white px-4 py-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-orange-500"
             />
+            {ks && (
+              <button type="button" onClick={() => setKeys((v) => !v)} aria-pressed={keys} aria-label="Kashmiri letters" title="Kashmiri letters (ٲ ۄ ؠ …)" className="inline-flex cursor-pointer items-center rounded-xl bg-white px-3 text-slate-700 shadow-sm ring-1 ring-inset ring-slate-200 hover:bg-amber-50">
+                <Keyboard className="h-5 w-5" aria-hidden />
+              </button>
+            )}
             <button type="submit" disabled={!draft.trim() || thinking} className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-orange-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50">
-              <Send className="h-4 w-4" aria-hidden /> Ask
+              <Send className="h-4 w-4" aria-hidden /> {ks ? <span lang="ks">{t('assistant.ask')}</span> : 'Ask'}
             </button>
           </form>
+          {ks && keys && <KashmiriKeys className="mt-2" target={inputRef} value={draft} onChange={setDraft} />}
           {notice && <p role="status" className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-amber-200">{notice}</p>}
           <p className="mt-2 text-xs text-slate-500">Prices: Agmarknet (Govt. of India). Weather: Open-Meteo. Crop advice is general — check doses with an agronomist.</p>
         </div>

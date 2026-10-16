@@ -39,7 +39,7 @@ import { upiLink } from '@/lib/db/rentals';
 
 const theme = PORTAL_THEMES.admin ?? PORTAL_THEMES.expert;
 const rupees = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
-const KINDS: WorkKind[] = ['mandi_rate', 'answer', 'soil_test', 'video_call'];
+const KINDS: WorkKind[] = ['mandi_rate', 'answer', 'soil_test', 'video_call', 'kashmiri'];
 const message = (err: unknown) => (err instanceof Error ? err.message : 'Something went wrong.');
 
 export function ContributorsPanel() {
@@ -133,7 +133,7 @@ export function ContributorsPanel() {
       </Panel>
 
       <Panel theme={theme} title="Answers to check" icon={GraduationCap}>
-        <p className="mb-4 text-sm text-slate-600">When a farmer presses “Yes, it helped”, the expert’s answer is accepted by itself. Answers the farmer said did not help come first; open them, read the answer, then decide.</p>
+        <p className="mb-4 text-sm text-slate-600">When a farmer presses “Yes, it helped”, the expert’s answer is accepted by itself. Answers the farmer said did not help come first; open them, read the answer, then decide. Words and answers from Kashmiri editors are here too (see them in the Kashmiri tab).</p>
         {answers.length === 0 ? (
           <EmptyState theme={theme} icon={GraduationCap} title="Nothing to check" text="Experts’ answers that farmers have not confirmed appear here." />
         ) : (
@@ -143,15 +143,15 @@ export function ContributorsPanel() {
                 <div className="min-w-0">
                   <p className="flex flex-wrap items-center gap-2 font-semibold text-slate-900">
                     {c.title ?? WORK_LABEL[c.kind]}
-                    {q?.farmer_rating === 'not_helpful' ? <Badge tone="red">Farmer: did not help</Badge> : <Badge tone="slate">Farmer has not said</Badge>}
+                    {c.kind === 'kashmiri' ? <Badge tone="amber">Kashmiri editor</Badge> : q?.farmer_rating === 'not_helpful' ? <Badge tone="red">Farmer: did not help</Badge> : <Badge tone="slate">Farmer has not said</Badge>}
                   </p>
                   {q && <p className="mt-1 line-clamp-2 text-sm text-slate-700">{q.message}</p>}
                   <p className="mt-1 text-xs text-slate-500">{q?.expert_name ? `Expert: ${q.expert_name} · ` : ''}{ago(c.created_at)}</p>
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-2">
                   {q && <Btn theme={theme} size="sm" variant="ghost" icon={ExternalLink} href={`/expert?request=${q.id}`}>Open</Btn>}
-                  <Btn theme={theme} size="sm" icon={Check} disabled={busy !== null} onClick={() => void act(`a${c.id}`, () => decideWork(c.id, true), 'Answer accepted')}>Accept</Btn>
-                  <Btn theme={theme} size="sm" variant="danger" icon={X} disabled={busy !== null} onClick={() => void act(`a${c.id}`, () => decideWork(c.id, false), 'Answer not accepted')}>Reject</Btn>
+                  <Btn theme={theme} size="sm" icon={Check} disabled={busy !== null} onClick={() => void act(`a${c.id}`, () => decideWork(c.id, true), c.kind === 'kashmiri' ? 'Accepted' : 'Answer accepted')}>Accept</Btn>
+                  <Btn theme={theme} size="sm" variant="danger" icon={X} disabled={busy !== null} onClick={() => void act(`a${c.id}`, () => decideWork(c.id, false), c.kind === 'kashmiri' ? 'Not accepted' : 'Answer not accepted')}>Reject</Btn>
                 </div>
               </li>
             ))}
@@ -183,7 +183,7 @@ export function ContributorsPanel() {
                 {people.map((p) => (
                   <tr key={p.user_id} className="bg-white/70">
                     <td className="px-3 py-2">
-                      <span className="font-semibold text-slate-900">{p.name}</span> {(p.roles ?? []).map((r) => <Badge key={r} tone={r === 'REPORTER' ? 'green' : r === 'EXPERT' ? 'violet' : 'blue'}>{r === 'REPORTER' ? 'Mandi Helper' : r === 'EXPERT' ? 'Agronomist' : r}</Badge>)}
+                      <span className="font-semibold text-slate-900">{p.name}</span> {(p.roles ?? []).map((r) => <Badge key={r} tone={r === 'REPORTER' ? 'green' : r === 'EXPERT' ? 'violet' : r === 'KASHMIRI' ? 'amber' : 'blue'}>{r === 'REPORTER' ? 'Mandi Helper' : r === 'EXPERT' ? 'Agronomist' : r === 'KASHMIRI' ? 'Kashmiri editor' : r}</Badge>)}
                       <span className="block text-xs text-slate-500">{p.phone ? <a href={`tel:+91${p.phone.replace(/\D/g, '').slice(-10)}`} className="text-sky-800">{p.phone}</a> : p.email} · active {ago(p.last_at)}</span>
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">{p.accepted}</td>
