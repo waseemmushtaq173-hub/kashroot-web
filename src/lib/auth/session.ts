@@ -16,7 +16,7 @@
  *     stays in their account.
  */
 import { useEffect, useState } from 'react';
-import type { Session } from '@supabase/supabase-js';
+import { isAuthRetryableFetchError, type Session } from '@supabase/supabase-js';
 
 import { authApi, rolesOf, tokenStore } from '@/lib/api/auth';
 import { isPortalId, portalForRole, type PortalId } from '@/lib/auth/roles';
@@ -109,12 +109,16 @@ export async function restoreSession(): Promise<ActiveSession | null> {
   }
   // getSession() returns what is stored; make sure the token is still accepted.
   if (session.expires_at && session.expires_at * 1000 < Date.now() + 30_000) {
-    const refreshed = await supabase.auth.refreshSession().catch(() => null);
-    session = refreshed?.data.session ?? null;
-    if (!session) {
+    const refreshed = await supabase.auth.refreshSession().catch((error: unknown) => ({ data: { session: null }, error }));
+    if (refreshed.data.session) session = refreshed.data.session;
+    else if (!isAuthRetryableFetchError(refreshed.error)) {
+      // The sign-in service said no: the session really has ended.
       tokenStore.removeToken();
       return null;
     }
+    // Otherwise no signal or the sign-in service is busy: they are still
+    // signed in. Keep them on the page; supabase-js renews the token by
+    // itself as soon as it can.
   }
   const user = session.user;
   const staff = await supabase.from('staff_roles').select('role').eq('user_id', user.id);

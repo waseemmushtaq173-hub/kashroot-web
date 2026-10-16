@@ -7,18 +7,24 @@
  *   confirms. Same for machinery by the day.
  *   Owners: list their cold store (capacity in boxes, vacancy, rate, UPI /
  *   bank details), keep the vacancy current, and confirm bookings.
+ *   Cold store map: an owner draws the chambers as rows × columns of places;
+ *   farmers then choose their own places, like seats on a plane, and see
+ *   where their boxes are (components/rental).
  * Payments go straight to the owner — KashRoot does not hold them.
  * Data: rental_listings, rental_bookings, payout_accounts (shared database).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Boxes, CalendarDays, CheckCircle2, Loader2, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, Search, Snowflake, Store, Tractor, Trash2, Warehouse, XCircle } from 'lucide-react';
+import { Boxes, CalendarDays, CheckCircle2, Loader2, Map as MapIcon, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, Search, Snowflake, Store, Tractor, Trash2, Warehouse, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { PortalShell } from '@/components/layout/PortalShell';
 import { PayDirect } from '@/components/payments/PayDirect';
 import { PayoutForm } from '@/components/payments/PayoutForm';
+import { ColdBooking, MyPlaces, placesText } from '@/components/rental/ColdBooking';
+import { ColdMapEditor } from '@/components/rental/ColdMapEditor';
 import { Badge, Btn, EmptyState, Field, INPUT, Modal, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { inr, loadAccount, type Account } from '@/lib/db/client';
+import { chambersOf, placesOfBookings, usablePlaces, type BookedPlace, type ColdChamber } from '@/lib/db/coldMap';
 import {
   bookingAction,
   BOOKING_STATUS,
@@ -69,6 +75,9 @@ export default function RentalPage() {
   const [owned, setOwned] = useState<RentalListing[]>([]);
   const [booking, setBooking] = useState<RentalListing | null>(null);
   const [loading, setLoading] = useState(false);
+  // The cold store map: chambers of the stores on screen, and the places bookings hold.
+  const [chambers, setChambers] = useState<ColdChamber[]>([]);
+  const [places, setPlaces] = useState<BookedPlace[]>([]);
 
   useEffect(() => {
     void loadAccount().then(setAccount);
@@ -78,11 +87,16 @@ export default function RentalPage() {
     if (!account) return;
     setLoading(true);
     try {
-      if (tab === 'cold' || tab === 'machinery') setListings(await listListings(tab === 'cold' ? 'cold_store' : 'machinery'));
+      const shown = tab === 'cold' || tab === 'machinery' ? await listListings(tab === 'cold' ? 'cold_store' : 'machinery') : null;
+      if (shown) setListings(shown);
       const [b, i, o] = await Promise.all([myBookings(account.id), incomingBookings(account.id), myListings(account.id)]);
       setMine(b);
       setIncoming(i);
       setOwned(o);
+      const storeIds = [...new Set([...(shown ?? []), ...o].filter((l) => l.kind === 'cold_store').map((l) => l.id).concat([...b, ...i].map((x) => x.listing_id)))];
+      const [c, p] = await Promise.all([chambersOf(storeIds), placesOfBookings([...b, ...i].map((x) => x.id))]);
+      setChambers(c);
+      setPlaces(p);
       setListError(null);
     } catch (err) {
       setListError(err instanceof Error ? err.message : 'Could not load.');
@@ -153,7 +167,7 @@ export default function RentalPage() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {visible.map((l) => (
-                <ListingCard key={l.id} listing={l} own={l.owner_id === account.id} onBook={() => setBooking(l)} />
+                <ListingCard key={l.id} listing={l} chambers={chambers.filter((c) => c.listing_id === l.id)} own={l.owner_id === account.id} onBook={() => setBooking(l)} />
               ))}
             </div>
           )}
@@ -165,16 +179,29 @@ export default function RentalPage() {
           ) : (
             <ul className="space-y-4">
               {mine.map((b) => (
-                <RenterBooking key={b.id} booking={b} onChange={() => void refresh()} />
+                <RenterBooking key={b.id} booking={b} places={places.filter((p) => p.booking_id === b.id)} chambers={chambers.filter((c) => c.listing_id === b.listing_id)} onChange={() => void refresh()} />
               ))}
             </ul>
           )}
         </Panel>
       ) : (
-        <OwnerPanel account={account} owned={owned} incoming={incoming} onChange={() => void refresh()} />
+        <OwnerPanel account={account} owned={owned} incoming={incoming} chambers={chambers} places={places} onChange={() => refresh()} />
       )}
 
-      {booking && account && (
+      {booking && account && chambers.some((c) => c.listing_id === booking.id) && (
+        <ColdBooking
+          listing={booking}
+          chambers={chambers.filter((c) => c.listing_id === booking.id)}
+          account={account}
+          onClose={() => setBooking(null)}
+          onBooked={() => {
+            setBooking(null);
+            setTab('bookings');
+            void refresh();
+          }}
+        />
+      )}
+      {booking && account && !chambers.some((c) => c.listing_id === booking.id) && (
         <BookingModal
           listing={booking}
           account={account}
@@ -190,8 +217,9 @@ export default function RentalPage() {
   );
 }
 
-function ListingCard({ listing: l, own, onBook }: { listing: RentalListing; own: boolean; onBook: () => void }) {
+function ListingCard({ listing: l, chambers, own, onBook }: { listing: RentalListing; chambers: ColdChamber[]; own: boolean; onBook: () => void }) {
   const unit = UNIT_LABEL[l.unit];
+  const map = chambers.length > 0;
   const pct = l.capacity ? Math.round((l.available / l.capacity) * 100) : 0;
   return (
     <div className="flex flex-col rounded-2xl bg-white/85 p-5 shadow-sm ring-1 ring-slate-900/5">
@@ -210,13 +238,14 @@ function ListingCard({ listing: l, own, onBook }: { listing: RentalListing; own:
         </div>
       )}
       {l.kind === 'machinery' && <p className="mt-2 text-sm text-slate-700">{l.available} of {l.capacity} available</p>}
+      {map && <p className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-sky-800"><MapIcon className="h-4 w-4" aria-hidden /> Choose your own place · {chambers.length} chamber{chambers.length === 1 ? '' : 's'}, {chambers.reduce((s, c) => s + usablePlaces(c), 0)} places</p>}
       {l.details && <p className="mt-2 line-clamp-2 text-sm text-slate-600">{l.details}</p>}
       <div className="mt-auto flex items-end justify-between gap-2 border-t border-slate-900/5 pt-4">
         <div>
           <p className="text-lg font-bold text-slate-900">{inr(l.rate)} <span className="text-xs font-normal text-slate-500">{unit.per}</span></p>
           <a href={`tel:${l.phone}`} className="inline-flex items-center gap-1 text-xs font-semibold text-violet-700"><Phone className="h-3.5 w-3.5" aria-hidden /> {l.owner_name}</a>
         </div>
-        {own ? <Badge tone="violet">Your listing</Badge> : <Btn theme={theme} size="sm" icon={CalendarDays} disabled={l.available < l.min_units} onClick={onBook}>Book</Btn>}
+        {own ? <Badge tone="violet">Your listing</Badge> : map ? <Btn theme={theme} size="sm" icon={MapIcon} onClick={onBook}>Choose your place</Btn> : <Btn theme={theme} size="sm" icon={CalendarDays} disabled={l.available < l.min_units} onClick={onBook}>Book</Btn>}
       </div>
     </div>
   );
@@ -283,7 +312,9 @@ function BookingModal({ listing: l, account, onClose, onBooked }: { listing: Ren
   );
 }
 
-function RenterBooking({ booking: b, onChange }: { booking: RentalBooking; onChange: () => void }) {
+function RenterBooking({ booking: b, places, chambers, onChange }: { booking: RentalBooking; places: BookedPlace[]; chambers: ColdChamber[]; onChange: () => void }) {
+  // When this card was shown (the list refreshes every 30 seconds).
+  const [now] = useState(() => Date.now());
   const s = BOOKING_STATUS[b.status];
   const l = b.rental_listings;
   const unit = UNIT_LABEL[(l?.unit ?? 'box_month') as keyof typeof UNIT_LABEL];
@@ -306,6 +337,14 @@ function RenterBooking({ booking: b, onChange }: { booking: RentalBooking; onCha
         </div>
         <Badge tone={s.tone}>{s.label}</Badge>
       </div>
+      <MyPlaces places={places} chambers={chambers} />
+      {places.length > 0 && b.status === 'requested' && (
+        <p className="mt-2 text-sm text-amber-800">
+          {Date.parse(b.created_at) + 86_400_000 > now
+            ? `Your places are held until ${new Date(Date.parse(b.created_at) + 86_400_000).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}. Pay the owner before then.`
+            : 'The 24-hour hold has ended: pay now and enter the payment number — if someone else has taken a place meanwhile, you will be told to choose again.'}
+        </p>
+      )}
       {b.owner_note && <p className="mt-2 text-sm text-slate-700">Owner: {b.owner_note}</p>}
       {b.payment_ref && <p className="mt-2 text-xs text-slate-500">Your payment reference: <span className="font-mono">{b.payment_ref}</span></p>}
       {b.status === 'requested' && (
@@ -320,8 +359,9 @@ function RenterBooking({ booking: b, onChange }: { booking: RentalBooking; onCha
   );
 }
 
-function OwnerPanel({ account, owned, incoming, onChange }: { account: Account; owned: RentalListing[]; incoming: RentalBooking[]; onChange: () => void }) {
+function OwnerPanel({ account, owned, incoming, chambers, places, onChange }: { account: Account; owned: RentalListing[]; incoming: RentalBooking[]; chambers: ColdChamber[]; places: BookedPlace[]; onChange: () => Promise<void> | void }) {
   const [editing, setEditing] = useState<{ id?: string; data: ListingInput } | null>(null);
+  const [mapOf, setMapOf] = useState<RentalListing | null>(null);
   const [payout, setPayout] = useState<PayoutAccount | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
 
@@ -369,6 +409,7 @@ function OwnerPanel({ account, owned, incoming, onChange }: { account: Account; 
                 <div>
                   <p className="font-semibold text-slate-900">{b.renter_name} · {b.units} {UNIT_LABEL[(b.rental_listings?.unit ?? 'box_month') as keyof typeof UNIT_LABEL].unit} · {b.duration} {UNIT_LABEL[(b.rental_listings?.unit ?? 'box_month') as keyof typeof UNIT_LABEL].duration}</p>
                   <p className="text-sm text-slate-600">{b.rental_listings?.title} · from {b.start_date} · <strong>{inr(b.amount)}</strong> · <a href={`tel:${b.renter_phone}`} className="font-semibold text-violet-700">{b.renter_phone}</a></p>
+                  {places.some((p) => p.booking_id === b.id) && <p className="text-sm text-slate-700">Places: <strong>{placesText(places.filter((p) => p.booking_id === b.id), chambers)}</strong></p>}
                   {b.payment_ref ? (
                     <p className="mt-1 text-sm text-emerald-800">Farmer says paid · reference <span className="font-mono font-semibold">{b.payment_ref}</span> — check it in your bank app before confirming.</p>
                   ) : (
@@ -393,12 +434,18 @@ function OwnerPanel({ account, owned, incoming, onChange }: { account: Account; 
             {owned.map((l) => {
               const unit = UNIT_LABEL[l.unit];
               const step = l.kind === 'cold_store' ? 100 : 1;
+              const mapped = chambers.some((c) => c.listing_id === l.id);
               return (
                 <li key={l.id} className="rounded-2xl bg-white/85 p-4 ring-1 ring-slate-900/5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="font-semibold text-slate-900">{l.title} {!l.active && <Badge tone="slate">Hidden</Badge>}</p>
                     <span className="text-sm text-slate-600">{inr(l.rate)} {unit.per}</span>
                   </div>
+                  {mapped ? (
+                    <p className="mt-3 text-sm text-slate-700">
+                      Free now: <strong className="text-lg tabular-nums text-slate-900"><Boxes className="mr-1 inline h-4 w-4 text-violet-600" aria-hidden />{l.available.toLocaleString('en-IN')}</strong> of {l.capacity.toLocaleString('en-IN')} boxes — counted from your map
+                    </p>
+                  ) : (
                   <div className="mt-3 flex flex-wrap items-center gap-3">
                     <span className="text-sm text-slate-700">Free now:</span>
                     <button type="button" aria-label={`${step} fewer free`} disabled={busy} onClick={() => void run(() => setAvailability(l.id, Math.max(0, l.available - step)), 'Vacancy updated')} className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg bg-slate-100 hover:bg-slate-200"><Minus className="h-4 w-4" aria-hidden /></button>
@@ -406,7 +453,9 @@ function OwnerPanel({ account, owned, incoming, onChange }: { account: Account; 
                     <button type="button" aria-label={`${step} more free`} disabled={busy} onClick={() => void run(() => setAvailability(l.id, Math.min(l.capacity, l.available + step)), 'Vacancy updated')} className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg bg-slate-100 hover:bg-slate-200"><Plus className="h-4 w-4" aria-hidden /></button>
                     <span className="text-sm text-slate-500">of {l.capacity.toLocaleString('en-IN')} {unit.unit}</span>
                   </div>
+                  )}
                   <div className="mt-3 flex flex-wrap gap-2">
+                    {l.kind === 'cold_store' && <Btn theme={theme} size="sm" icon={MapIcon} onClick={() => setMapOf(l)}>{mapped ? 'Cold store map' : 'Draw your cold store map'}</Btn>}
                     <Btn theme={theme} size="sm" variant="soft" icon={Pencil} onClick={() => setEditing({ id: l.id, data: { kind: l.kind, title: l.title, owner_name: l.owner_name, phone: l.phone, district: l.district, address: l.address ?? '', unit: l.unit, capacity: l.capacity, available: l.available, rate: Number(l.rate), min_units: l.min_units, temperature: l.temperature ?? '', details: l.details ?? '' } })}>Edit</Btn>
                     <Btn theme={theme} size="sm" variant="ghost" disabled={busy} onClick={() => void run(() => setAvailability(l.id, l.available, !l.active), l.active ? 'Hidden from farmers' : 'Visible to farmers again')}>{l.active ? 'Hide' : 'Show again'}</Btn>
                     <Btn theme={theme} size="sm" variant="danger" icon={Trash2} disabled={busy} onClick={() => { if (window.confirm(`Remove ${l.title}? Its bookings are removed too.`)) void run(() => deleteListing(l.id), 'Listing removed'); }}>Remove</Btn>
@@ -436,6 +485,17 @@ function OwnerPanel({ account, owned, incoming, onChange }: { account: Account; 
         </Panel>
       )}
 
+      {mapOf && (
+        <ColdMapEditor
+          listing={owned.find((l) => l.id === mapOf.id) ?? mapOf}
+          chambers={chambers.filter((c) => c.listing_id === mapOf.id)}
+          bookings={incoming.filter((b) => b.listing_id === mapOf.id)}
+          places={places}
+          onClose={() => setMapOf(null)}
+          onChanged={onChange}
+        />
+      )}
+
       {editing && (
         <Modal
           open
@@ -449,14 +509,14 @@ function OwnerPanel({ account, owned, incoming, onChange }: { account: Account; 
             </>
           }
         >
-          <ListingForm value={editing.data} onChange={(data) => setEditing({ ...editing, data })} />
+          <ListingForm value={editing.data} mapped={Boolean(editing.id && chambers.some((c) => c.listing_id === editing.id))} onChange={(data) => setEditing({ ...editing, data })} />
         </Modal>
       )}
     </div>
   );
 }
 
-function ListingForm({ value: v, onChange }: { value: ListingInput; onChange: (v: ListingInput) => void }) {
+function ListingForm({ value: v, mapped = false, onChange }: { value: ListingInput; mapped?: boolean; onChange: (v: ListingInput) => void }) {
   const cold = v.kind === 'cold_store';
   const set = <K extends keyof ListingInput>(k: K, val: ListingInput[K]) => onChange({ ...v, [k]: val });
   const num = (s: string) => (s === '' ? 0 : Number(s));
@@ -482,11 +542,11 @@ function ListingForm({ value: v, onChange }: { value: ListingInput; onChange: (v
           <input className={INPUT} value={v.temperature ?? ''} onChange={(e) => set('temperature', e.target.value)} placeholder="e.g. 0–2 °C, controlled atmosphere" />
         </Field>
       )}
-      <Field label={cold ? 'Total capacity (boxes)' : 'How many machines'}>
-        <input type="number" min={1} className={INPUT} value={v.capacity || ''} onChange={(e) => set('capacity', num(e.target.value))} />
+      <Field label={cold ? 'Total capacity (boxes)' : 'How many machines'} hint={mapped ? 'Counted from your cold store map' : undefined}>
+        <input type="number" min={1} disabled={mapped} className={INPUT} value={v.capacity || ''} onChange={(e) => set('capacity', num(e.target.value))} />
       </Field>
-      <Field label={cold ? 'Free right now (boxes)' : 'Available now'}>
-        <input type="number" min={0} className={INPUT} value={v.available} onChange={(e) => set('available', num(e.target.value))} />
+      <Field label={cold ? 'Free right now (boxes)' : 'Available now'} hint={mapped ? 'Counted from your cold store map' : undefined}>
+        <input type="number" min={0} disabled={mapped} className={INPUT} value={v.available} onChange={(e) => set('available', num(e.target.value))} />
       </Field>
       <Field label={cold ? 'Rate (₹ per box per month)' : 'Rate (₹ per day)'}>
         <input type="number" min={0} step="0.5" className={INPUT} value={v.rate} onChange={(e) => set('rate', num(e.target.value))} />

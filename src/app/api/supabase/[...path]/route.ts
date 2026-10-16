@@ -91,6 +91,15 @@ async function proxy(request: Request, { params }: { params: Promise<{ path: str
     return problem(503, 'The sign-in service is paused or not responding. Open the Supabase dashboard; if the project shows “Paused”, press Restore, then try again.');
   }
 
+  // Everyone's sign-in traffic reaches Supabase from this server's few
+  // addresses, so its per-address limit can answer "too many" to a session
+  // refresh. As a 429 that makes the browser delete the session (signed out);
+  // as a 503 it keeps the session and simply tries again a little later.
+  const keepsSession = (path === 'auth/v1/token' && query.get('grant_type') === 'refresh_token') || path === 'auth/v1/user';
+  if (upstream.status === 429 && keepsSession) {
+    return Response.json({ msg: 'The sign-in service is busy. Trying again shortly.', message: 'The sign-in service is busy.' }, { status: 503, headers: { 'retry-after': '30', 'cache-control': 'no-store' } });
+  }
+
   if (passwordSignIn) {
     if (upstream.status === 400 || upstream.status === 401) {
       if (who) countHit(`pw-fail:${who}`);

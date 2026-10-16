@@ -203,7 +203,8 @@ export const authApi = {
           ...(meta.phone || !dto.phone ? {} : { phone: dto.phone }),
         });
       } finally {
-        await supabase.auth.signOut().catch(() => undefined);
+        // This browser only: never end their sessions on other phones.
+        await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
       }
       return { userId: joined.data.user.id, needsEmailConfirmation: false, joinedExisting: true };
     }
@@ -269,7 +270,9 @@ export const authApi = {
   mfaSetup:      async ()                    => ({ qrCodeDataUrl: '', secret: '' } as MfaSetupResponse),
   mfaVerify:     async (dto: MfaVerifyDto)   => ({ message: 'MFA verified' } as MfaVerifyResponse),
   refresh:       async ()                    => ({ accessToken: 'mock_jwt_token' }),
-  logout:        async ()                    => { tokenStore.removeToken(); await supabase.auth.signOut().catch(() => undefined); },
+  // Sign out on this device only. (The default, 'global', ended the person's
+  // sessions on every phone and computer — they were "logged out" at random.)
+  logout:        async ()                    => { tokenStore.removeToken(); await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined); },
 };
 /** Roles saved at sign-in on this browser (see tokenStore.setToken). */
 export function storedRoles(): string[] {

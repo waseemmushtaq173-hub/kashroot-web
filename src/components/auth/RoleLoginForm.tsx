@@ -157,7 +157,8 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
           setJoin({ session, has: roles });
           return;
         }
-        await authApi.logout();
+        // Stay signed in: it is their own account, only not for this portal.
+        // (Signing out here also ended their session in the other portal.)
         const home = portalForRole(accountRole ?? roles[0]);
         setError({
           text: required === 'ADMIN' ? 'This account is not a KashRoot admin.' : `This account cannot open the ${info.label} portal.`,
@@ -166,7 +167,6 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
         return;
       }
       if (required && roles.length === 0 && !LEGACY_OK.includes(portal)) {
-        await authApi.logout();
         setError({ text: `This account is not set up for the ${info.label} portal. Ask an administrator to enable it.` });
         return;
       }
