@@ -10,6 +10,7 @@ import { MY_DETAILS } from '@/components/portal/myDetailsConfig';
 import { loginHref, PORTALS, PUBLIC_PORTAL_IDS, type PortalId } from '@/lib/auth/roles';
 import { useSecretAdminTap, useShowAdmin } from '@/lib/client/adminDevice';
 import { signOutCompletely, useMyPortal } from '@/lib/auth/session';
+import { SOCIAL_LINKS } from '@/lib/site';
 
 /**
  * `dark` (default) is the original look for the dark dashboards. `light` is for
@@ -292,11 +293,11 @@ export function SiteFooter({ tone = 'dark' }: { tone?: SiteTone }) {
         <div className={light ? 'text-slate-900' : ''}>
           <BrandMark size="sm" />
           <p className={`mt-2 text-caption ${light ? 'text-slate-600' : 'text-kr-text-secondary'}`}>
-            &copy; {new Date().getFullYear()} KashRoot Technologies Pvt. Ltd.
+            &copy; {new Date().getFullYear()} KashRoot
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-caption">
-          <Link href="/buyer/discover" className={footLink}>
+          <Link href="/compare-prices?category=produce" className={footLink}>
             Produce marketplace
           </Link>
           <Link href="/compare-prices?category=supplies" className={footLink}>
@@ -305,6 +306,11 @@ export function SiteFooter({ tone = 'dark' }: { tone?: SiteTone }) {
           <Link href="/farmer/dashboard" className={footLink}>
             For farmers
           </Link>
+          {SOCIAL_LINKS.map((s) => (
+            <a key={s.href} href={s.href} target="_blank" rel="noopener noreferrer me" className={footLink}>
+              {s.label}
+            </a>
+          ))}
         </div>
       </div>
     </footer>
