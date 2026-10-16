@@ -26,7 +26,8 @@ export const LANGUAGE: Record<Lang, string> = {
   en: 'simple English',
   hi: 'simple Hindi, written in Devanagari script',
   ur: 'simple Urdu, written in Urdu (Nastaliq) script',
-  ks: 'Kashmiri (Koshur), written in the Perso-Arabic script used for Kashmiri, with everyday village words',
+  ks:
+    'Kashmiri (Koshur) as people speak it in the Kashmir valley — real Kashmiri sentences, not Urdu. Write in the standard Kashmiri Perso-Arabic script with the Kashmiri vowel letters and marks (such as ٲ ٳ ۆ ۄ ێ ؠ ٕ ُ ِ). Use Kashmiri grammar and everyday words: the helping verb چھُ / چھِ / چھےٚ, never Urdu ہے / ہیں / ہوں; Kashmiri question words such as کیاہ; Kashmiri postpositions such as منٛز. Use an English or Urdu word only where Kashmiri speakers commonly do (UPI, mobile, mandi)',
 };
 
 /** Marks where the Devanagari copy of an answer starts (for a Hindi voice). */

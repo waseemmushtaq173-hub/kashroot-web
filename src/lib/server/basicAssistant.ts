@@ -17,7 +17,7 @@ import { fetchMandiPrices, type MandiQuery, type MandiRecord } from '@/lib/serve
 import { istDate, perKilo, postedRates, type PostedRate } from '@/lib/server/postedRates';
 import { forecast, geocode, type Forecast } from '@/lib/server/weather';
 import { dryHours } from '@/lib/sprayWindow';
-import { has, norm } from '@/lib/textMatch';
+import { hasWord as has, norm } from '@/lib/textMatch';
 
 type Text = { en: string; hi: string; ur: string };
 export interface BasicAnswer {
@@ -98,7 +98,7 @@ const HELP: { keys: string[]; text: Text }[] = [
     },
   },
   {
-    keys: ['cold', 'storage', 'store', 'godown', 'ca store', 'कोल्ड', 'स्टोर', 'भंडार', 'گودام', 'کولڈ', 'سٹور', 'اسٹور', 'اسٹوریج'],
+    keys: ['cold storage', 'cold store', 'storage', 'godown', 'ca store', 'कोल्ड', 'स्टोर', 'भंडार', 'گودام', 'کولڈ', 'سٹور', 'اسٹور', 'اسٹوریج'],
     text: {
       en: 'Open Cold storage and machinery. In the Cold storage tab, find a store with free boxes and press Book. Choose how many boxes and for how many months, pay the owner from your UPI app, and type the payment number. The owner then confirms your space.',
       hi: 'Cold storage and machinery खोलें। Cold storage टैब में ख़ाली जगह वाला स्टोर ढूँढें और Book दबाएँ। कितनी पेटियाँ और कितने महीने चुनें, अपने UPI ऐप से मालिक को भुगतान करें और भुगतान नंबर लिखें। फिर मालिक आपकी जगह पक्की करेगा।',
@@ -330,12 +330,24 @@ async function weatherAnswer(lang: Lang, place: (typeof PLACES)[number] | undefi
  * use the site) — worth answering without the AI even when it is connected.
  * Crop problems and anything unrecognised go to the AI.
  */
+// "How do I …" / "where is …" — a question about using KashRoot, not about the world.
+const HOW = ['how', 'where', 'kaise', 'kese', 'kahan', 'kaha', 'book', 'use', 'kya karun', 'कैसे', 'कहाँ', 'कहां', 'किस तरह', 'کیسے', 'کہاں', 'کس طرح', 'کیتھ پاٹھ', 'کتھ'];
+
+/**
+ * Should the instant, data-only answer be used instead of the AI? Only for
+ * short questions that are clearly and only about a mandi price, the weather,
+ * or how to use a KashRoot feature. Everything else — other topics, mixed or
+ * long questions — goes to the AI so the reply matches what was asked.
+ */
 export function quickIntent(query: string): boolean {
   const q = ` ${norm(query)} `;
+  const words = query.trim().split(/\s+/).length;
+  if (words > 14) return false;
   const weatherAsked = has(q, SPRAY) || has(q, WEATHER);
   const priceAsked = has(q, PRICE);
-  if (weatherAsked && !priceAsked) return true;
+  if (weatherAsked && !priceAsked) return words <= 10;
   if (priceAsked && COMMODITIES.some((c) => has(q, c.keys))) return true;
+  if (!has(q, HOW)) return false;
   const help = HELP.find((h) => has(q, h.keys));
   if (!help || help === HELP[0]) return false; // crop care, disease, pests: the AI answers
   // "Which fertiliser for walnut?" is crop care; "is this batch fake?" is the check.

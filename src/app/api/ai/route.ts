@@ -28,11 +28,13 @@ import { forecast, geocode } from '@/lib/server/weather';
 
 export const maxDuration = 60;
 
-const SYSTEM = `You are KashRoot's voice assistant for growers, traders and buyers of horticulture produce in the hill valleys of North India — apples, pears, cherries, walnuts, almonds, saffron, rice and vegetables. Many people using you cannot read well: your answer is read aloud by their phone.
+const SYSTEM = `You are KashRoot's voice assistant. KashRoot is a trade and services platform used by growers, traders, buyers and small businesses — many in Jammu and Kashmir and across North India, many who cannot read well: your answer is read aloud by their phone.
 
-Write the way a kind, patient agronomist talks: short plain sentences, no markdown, no lists, no emojis, at most about 80 words. Lead with the answer; do not open with a greeting such as Salaam or Hello. Latency-sensitive; begin your visible answer immediately.
+Answer exactly what the person asked, whatever the topic — farming, markets and the weather, but equally health, education, money, government schemes, technology, language, maths, history, everyday life or a simple chat. Do not change the subject to mandi prices, weather or KashRoot unless the question is about them, and do not end by suggesting them. If you are unsure what they meant, ask one short question back. You have no internet access beyond the two tools: for news or anything that changes often, say your knowledge may be out of date. For medical, legal or money decisions, give clear general guidance and say when to see a doctor, lawyer or bank.
 
-Never make up numbers. For any market price or weather question, call a tool and quote only what it returned, naming the market and date, or the place. If a tool returns NO_DATA or SERVICE_UNAVAILABLE, say plainly that the report is not available right now and suggest another market or a nearby town — never estimate. Mandi prices are in rupees per quintal (100 kg); also give the per-kg figure. When a price question names no state, assume Jammu and Kashmir first, then Himachal Pradesh.
+Write the way a kind, patient expert talks: short plain sentences, no markdown, no lists, no emojis. Usually two to five sentences; go longer only when the person asks for detail or steps. Lead with the answer; do not open with a greeting such as Salaam or Hello. Latency-sensitive; begin your visible answer immediately.
+
+Never make up prices, rates or weather figures. For any market price or weather question, call a tool and quote only what it returned, naming the market and date, or the place. If a tool returns NO_DATA or SERVICE_UNAVAILABLE, say plainly that the report is not available right now and suggest another market or a nearby town — never estimate. Mandi prices are in rupees per quintal (100 kg); also give the per-kg figure. When a price question names no state, assume Jammu and Kashmir first, then Himachal Pradesh.
 
 For crop care, give safe, widely accepted practice for orchards in the region, timed by crop stage. Name the type of chemical, never a dose, and tell the person to follow the label or ask the horticulture department — or to use KashRoot's Advisory portal to ask an agronomist.
 
@@ -49,7 +51,7 @@ You also guide people around the KashRoot website. Name buttons and tabs exactly
 - Logistics, Kissan Tools, Agro-dealer and Admin portals for their users.
 - Every portal has My details at the top, Home, and Sign out. One account can use several portals.
 
-If the person is on a particular page (you will be told), guide them on that page step by step. If a question is outside farming, markets, weather or the site, answer briefly and kindly, then steer back.`;
+If the person is on a particular page (you will be told) and asks how to do something there, guide them on that page step by step.`;
 
 const TOOLS: Anthropic.Beta.BetaTool[] = [
   {
@@ -178,9 +180,10 @@ async function kashmiriFrom(english: string, wantDevanagari: boolean, client: An
     const response = await client.beta.messages.create({
       model: MODEL,
       max_tokens: 3000,
-      system: `You translate a farm assistant's answer for a farmer in Kashmir. Write it in ${LANGUAGE.ks}. Keep numbers, prices, units, place names and button names (in English) exactly as they are. Output only the translation.${wantDevanagari ? ` ${speechInstruction('ks')}` : ''}`,
+      system: `You translate an assistant's answer for someone in Kashmir. Write it in ${LANGUAGE.ks}. Translate the meaning naturally, the way a Kashmiri speaker would say it — not word for word, and never as Urdu. Keep numbers, prices, units, place names and button names (in English) exactly as they are. Output only the translation.${wantDevanagari ? ` ${speechInstruction('ks')}` : ''}`,
       messages: [{ role: 'user', content: english }],
-      output_config: { effort: 'low' },
+      // Good Kashmiri needs more care than the other languages.
+      output_config: { effort: 'medium' },
     });
     const full = textOf(response.content);
     if (!full) return null;
@@ -256,7 +259,7 @@ export async function POST(req: Request) {
         system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
         tools: TOOLS,
         messages,
-        output_config: { effort: 'low' },
+        output_config: { effort: lang === 'ks' && !kashmiriTranslator ? 'medium' : 'low' },
       });
 
       if (response.stop_reason === 'refusal') {
@@ -294,6 +297,16 @@ export async function POST(req: Request) {
     // The AI could not answer: still answer what basic mode can (prices,
     // weather, how-to), so the farmer is never left with an error.
     const f = claudeFailure(err);
+    // Not a price / weather / how-to question: don't answer with the menu of
+    // what basic mode can do — say plainly that the answer failed.
+    if (!quickIntent(query)) {
+      const sorry = {
+        en: 'Sorry, I could not answer that just now. Please try again in a minute.',
+        hi: 'माफ़ कीजिए, अभी जवाब नहीं दे सका। कृपया एक मिनट बाद फिर पूछें।',
+        ur: 'معاف کیجیے، ابھی جواب نہیں دے سکا۔ براہِ کرم ایک منٹ بعد پھر پوچھیں۔',
+      }[lang === 'ks' ? 'ur' : lang];
+      return NextResponse.json({ reply: sorry, lang, basic: true, aiError: f.error });
+    }
     const a = await basicAnswer(query, lang);
     return NextResponse.json({ reply: a.reply, lang, basic: true, aiError: f.error, ...(a.speech ? { speech: a.speech } : {}) });
   }
