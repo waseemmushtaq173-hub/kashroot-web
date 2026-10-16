@@ -138,6 +138,15 @@ export interface LabelReading {
   mfg_date: string;
   expiry_date: string;
   mrp: string;
+  /** Net weight or volume as printed, e.g. "45 kg", "250 ml". */
+  net_quantity: string;
+  /** Dates as YYYY-MM-DD (day 01 when only month and year are printed); empty if not visible. */
+  mfg_date_iso: string;
+  expiry_date_iso: string;
+  /** Pesticides: colour of the warning triangle/diamond (red, yellow, blue, green), "none" or "unreadable". */
+  toxicity_mark: 'red' | 'yellow' | 'blue' | 'green' | 'none' | 'unreadable';
+  /** Pesticides: is an antidote / first-aid statement printed? */
+  antidote_printed: boolean;
   missing_details: string[];
   warning_signs: string[];
   summary_spoken: string;
@@ -156,11 +165,16 @@ const LABEL_SCHEMA = {
     mfg_date: { type: 'string', description: 'As printed, empty if not visible' },
     expiry_date: { type: 'string', description: 'As printed, empty if not visible' },
     mrp: { type: 'string' },
+    net_quantity: { type: 'string', description: 'Net weight or volume as printed, e.g. "45 kg", "250 ml"; empty if not visible' },
+    mfg_date_iso: { type: 'string', description: 'Manufacturing date as YYYY-MM-DD (use day 01 when only month and year are printed); empty if not visible' },
+    expiry_date_iso: { type: 'string', description: 'Expiry date as YYYY-MM-DD (use the last day of the month when only month and year are printed); empty if not visible' },
+    toxicity_mark: { type: 'string', enum: ['red', 'yellow', 'blue', 'green', 'none', 'unreadable'], description: 'Pesticides only: colour of the warning triangle/diamond; "none" for fertilisers or when no mark is printed' },
+    antidote_printed: { type: 'boolean', description: 'Pesticides: true if an antidote or first-aid statement is printed' },
     missing_details: { type: 'array', items: { type: 'string' }, description: 'Details a genuine Indian label must show that are missing or unreadable' },
     warning_signs: { type: 'array', items: { type: 'string' }, description: 'Signs of a fake or unsafe product: misspellings, no registration number, expired, odd packaging; empty if none' },
     summary_spoken: { type: 'string', description: 'Three plain sentences to read aloud' },
   },
-  required: ['readable', 'product_type', 'product_name', 'manufacturer', 'batch_code', 'registration_no', 'grade_or_composition', 'mfg_date', 'expiry_date', 'mrp', 'missing_details', 'warning_signs', 'summary_spoken'],
+  required: ['readable', 'product_type', 'product_name', 'manufacturer', 'batch_code', 'registration_no', 'grade_or_composition', 'mfg_date', 'expiry_date', 'mrp', 'net_quantity', 'mfg_date_iso', 'expiry_date_iso', 'toxicity_mark', 'antidote_printed', 'missing_details', 'warning_signs', 'summary_spoken'],
   additionalProperties: false,
 };
 

@@ -18,6 +18,7 @@ import { Camera, CheckCircle2, CircleAlert, Flag, FlaskConical, Loader2, ScanLin
 
 import { LangPicker, SpeakButton } from '@/components/voice/VoiceButtons';
 import { checkAgainstFco, FCO_PRODUCTS } from '@/lib/fertilizer/fco';
+import { checkLabel, type LabelFacts, type RuleReport } from '@/lib/fertilizer/labelRules';
 import { compressImage } from '@/lib/client/image';
 import { isRtl, type SpeechLang } from '@/lib/client/speech';
 import { dbMessage, loadAccount, supabase, supabaseConfigured, type Account } from '@/lib/db/client';
@@ -39,17 +40,7 @@ interface BatchRow {
   registered_at: string;
 }
 
-interface LabelReading {
-  readable: boolean;
-  product_type: string;
-  product_name: string;
-  manufacturer: string;
-  batch_code: string;
-  registration_no: string;
-  grade_or_composition: string;
-  mfg_date: string;
-  expiry_date: string;
-  mrp: string;
+interface LabelReading extends LabelFacts {
   missing_details: string[];
   warning_signs: string[];
   summary_spoken: string;
@@ -196,12 +187,12 @@ function BatchResult({ lookup, account, onPhoto }: { lookup: Lookup; account: Ac
   if (lookup.state === 'error') return <p className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">{lookup.message}</p>;
   if (lookup.state === 'missing') {
     return (
-      <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900 ring-1 ring-amber-200">
-        <p className="flex items-center gap-2 font-semibold"><CircleAlert className="h-5 w-5" aria-hidden /> {lookup.code} is not in the KashRoot registry</p>
-        <p className="mt-1">That does not prove it is fake. India has no public government list of batch numbers, so this check only knows batches that dealers have registered in KashRoot’s Agro-dealer portal — ask your dealer to register theirs.</p>
+      <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-800 ring-1 ring-slate-200">
+        <p className="font-semibold text-slate-900">No dealer record for {lookup.code} on KashRoot — this is normal</p>
+        <p className="mt-1">The Government of India publishes no list of batch numbers, so no website can confirm a batch number on its own. Most genuine products are not in KashRoot’s dealer list.</p>
         {onPhoto && (
           <>
-            <p className="mt-2">Meanwhile, photograph the label: KashRoot reads it and checks that the details the law requires — registration number, batch, dates, manufacturer and grade — are there and look right.</p>
+            <p className="mt-2">For a real check, photograph the label: KashRoot reads it and checks it against the Government’s labelling rules and official fertiliser standards.</p>
             <button type="button" onClick={onPhoto} className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 font-semibold text-white hover:bg-emerald-800">
               <Camera className="h-4 w-4" aria-hidden /> Check the label photo
             </button>
@@ -345,15 +336,19 @@ function LabelPhoto({ account }: { account: Account | null }) {
             <p className="text-sm text-amber-900">The label was not clear enough. Take the photo closer, in daylight, without glare.</p>
           ) : (
             <dl className="grid gap-2 text-sm sm:grid-cols-2">
-              {[
+              {([
                 ['Product', `${reading.product_name}${reading.grade_or_composition ? ` (${reading.grade_or_composition})` : ''}`],
                 ['Manufacturer', reading.manufacturer],
                 ['Batch no.', reading.batch_code],
                 ['Registration no.', reading.registration_no],
                 ['Manufactured', reading.mfg_date],
                 ['Expiry', reading.expiry_date],
+                ['Net quantity', reading.net_quantity ?? ''],
                 ['MRP', reading.mrp],
-              ].map(([k, v]) => (
+              ] as [string, string][])
+                // A fertiliser bag need not print a registration number or expiry date (FCO 1985).
+                .filter(([k, v]) => v || reading.product_type !== 'fertilizer' || (k !== 'Registration no.' && k !== 'Expiry'))
+                .map(([k, v]) => (
                 <div key={k}><dt className="text-xs uppercase tracking-wider text-slate-500">{k}</dt><dd className={`font-medium ${v ? 'text-slate-900' : 'text-rose-700'}`}>{v || 'Not visible'}</dd></div>
               ))}
             </dl>
@@ -372,15 +367,67 @@ function LabelPhoto({ account }: { account: Account | null }) {
           )}
           <p dir={rtl} className="text-sm text-slate-800">{reading.summary_spoken}</p>
           <SpeakButton text={reading.summary_spoken} lang={lang} label="Listen" />
-          {reading.batch_code && (
+          {reading.readable && <RuleChecks report={checkLabel(reading)} />}
+          {reading.batch_code && lookup.state === 'found' && (
             <div>
-              <p className="mb-2 text-sm font-semibold text-slate-800">KashRoot registry check for batch {reading.batch_code}</p>
+              <p className="mb-2 text-sm font-semibold text-slate-800">Also on KashRoot: batch {reading.batch_code}</p>
               <BatchResult lookup={lookup} account={account} />
             </div>
           )}
+          {reading.batch_code && lookup.state === 'missing' && (
+            <p className="text-xs text-slate-500">Batch {reading.batch_code} is not in KashRoot’s own dealer list. That is normal — most genuine products are not listed there, and it does not affect the checks above.</p>
+          )}
+          {reading.batch_code && lookup.state !== 'found' && <ReportBatch code={reading.batch_code} account={account} />}
           <p className="text-xs text-slate-500">AI reading of a photo. A state quality-control lab test is the legal proof.</p>
         </div>
       )}
     </div>
+  );
+}
+
+const RULE_ICON = { ok: CheckCircle2, missing: XCircle, problem: XCircle, caution: CircleAlert } as const;
+const RULE_COLOUR = { ok: 'text-emerald-600', missing: 'text-amber-600', problem: 'text-rose-600', caution: 'text-amber-600' } as const;
+const VERDICT = {
+  good: { text: 'The label has everything the law requires', box: 'bg-emerald-50 ring-emerald-200 text-emerald-950' },
+  incomplete: { text: 'Some details the law requires are missing or unclear', box: 'bg-amber-50 ring-amber-200 text-amber-950' },
+  warning: { text: 'Warning: this label breaks the Government rules', box: 'bg-rose-50 ring-rose-200 text-rose-950' },
+  unknown: { text: 'The label could not be checked', box: 'bg-slate-50 ring-slate-200 text-slate-900' },
+} as const;
+
+/** The label checked against the law and the official FCO standard — no KashRoot listing needed. */
+function RuleChecks({ report }: { report: RuleReport }) {
+  const v = VERDICT[report.verdict];
+  return (
+    <section aria-label="Checked against Government rules" className={`rounded-xl p-3 text-sm ring-1 ${v.box}`}>
+      <p className="flex items-center gap-2 font-semibold"><ShieldCheck className="h-5 w-5" aria-hidden /> {v.text}</p>
+      <p className="mt-0.5 text-xs opacity-80">Checked against the {report.law}</p>
+      <ul className="mt-2 space-y-1">
+        {report.checks.map((c) => {
+          const Icon = RULE_ICON[c.status];
+          return (
+            <li key={c.label} className="flex items-start gap-2">
+              <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${RULE_COLOUR[c.status]}`} aria-hidden />
+              <span>
+                <span className="font-medium">{c.label}</span>
+                <span className="sr-only"> — {c.status === 'ok' ? 'present' : c.status}</span>
+                {c.detail && <span className="text-slate-700">: {c.detail}</span>}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      {report.fco && (
+        <div className="mt-3 rounded-lg bg-white/80 p-2.5 text-slate-800 ring-1 ring-slate-200">
+          <p className="font-semibold">Government standard for {report.fco.name} ({report.fco.grade})</p>
+          <ul className="mt-1 list-disc ps-5">
+            {report.fco.parameters.map((p) => (
+              <li key={p.key}>{p.label}: {p.min !== undefined ? `at least ${p.min}%` : `at most ${p.max}%`}</li>
+            ))}
+          </ul>
+          <p className="mt-1 text-xs text-slate-500">Fertiliser (Control) Order, 1985, Schedule I. A State fertiliser quality-control lab tests the bag against these figures.</p>
+        </div>
+      )}
+      <p className="mt-2 text-xs opacity-80">A label can be copied — only a Government lab test proves what is inside. If something is wrong, keep the bag and bill and tell your district agriculture officer.</p>
+    </section>
   );
 }

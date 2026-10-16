@@ -118,8 +118,8 @@ export default function HomePage() {
               <p className="inline-flex rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-800 ring-1 ring-rose-200">Fertiliser testing</p>
               <h2 id="fertilizer-heading" className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">Know your fertiliser is genuine</h2>
               <p className="mt-3 leading-relaxed text-slate-600">
-                Check the batch number on the bag against the registry kept by approved dealers and manufacturers, or compare a lab report with the
-                Fertiliser (Control) Order standards.
+                Photograph the label: it is checked against the Government’s labelling rules and the official Fertiliser (Control) Order
+                standards. Or compare a lab report with those standards.
               </p>
               <Link href="/supplies/tester" className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-rose-800 no-underline shadow-sm ring-1 ring-rose-200 transition hover:bg-rose-50 hover:no-underline">
                 Open full tester <ArrowRight className="h-4 w-4" aria-hidden />

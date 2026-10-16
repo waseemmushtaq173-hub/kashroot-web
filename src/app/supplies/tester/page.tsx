@@ -13,10 +13,10 @@ export default function FertilizerTesterPage() {
       theme="dealer"
       eyebrow="Fertiliser testing"
       title="Is this fertiliser genuine?"
-      description="Check a bag's batch number against the dealer registry, or compare a lab report with the Fertiliser (Control) Order."
+      description="Photograph the label: it is checked against the Government's labelling rules and official fertiliser standards. Or compare a lab report with the Fertiliser (Control) Order."
       kpis={[
         { label: 'Products with FCO specs', value: '12', trend: 'Urea, DAP, MOP, SSP, NPKs, micronutrients' },
-        { label: 'Registry', value: 'Live', trend: 'Filled by approved dealers' },
+        { label: 'Checked against', value: 'Indian law', trend: 'Fertiliser (Control) Order 1985 · Insecticides Act 1968' },
       ]}
       actions={<span className="inline-flex items-center gap-2 rounded-xl bg-white/20 px-3 py-2 text-sm font-semibold text-white ring-1 ring-white/40 backdrop-blur"><FlaskConical className="h-4 w-4" aria-hidden /> Free for every grower</span>}
     >
