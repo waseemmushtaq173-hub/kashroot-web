@@ -16,4 +16,5 @@ export const SITE_URL = (
 export const SOCIAL_LINKS: { label: string; href: string }[] = [
   { label: 'Instagram', href: 'https://www.instagram.com/kash_root/' },
   { label: 'Facebook', href: 'https://www.facebook.com/share/1Eqiz9C8wy/' },
+  { label: 'LinkedIn', href: 'https://www.linkedin.com/in/kashroot-3103a3444/' },
 ];
