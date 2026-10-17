@@ -62,6 +62,8 @@ export interface PortalShellProps {
   onTabChange?: (id: string) => void;
   /** Buttons on the hero. */
   actions?: ReactNode;
+  /** A choice above the tabs (e.g. Cold Storage: farmer or owner). */
+  switcher?: ReactNode;
   /** Render the site header/footer (pages outside the dashboards layout). */
   standalone?: boolean;
   /** Legacy prop — ignored; heroes use the local season photographs. */
@@ -80,6 +82,7 @@ export function PortalShell({
   activeTab,
   onTabChange,
   actions,
+  switcher,
   standalone = false,
   children,
 }: PortalShellProps) {
@@ -148,6 +151,8 @@ export function PortalShell({
             ))}
           </div>
         )}
+
+        {switcher && <div className="mt-6">{switcher}</div>}
 
         {/* Navigation: page links + in-page tabs */}
         {(navItems.length > 0 || tabs.length > 0) && (

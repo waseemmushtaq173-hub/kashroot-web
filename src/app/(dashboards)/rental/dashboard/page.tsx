@@ -16,7 +16,7 @@
  * Data: rental_listings, rental_bookings, payout_accounts (shared database).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Boxes, CalendarDays, CheckCircle2, Loader2, Map as MapIcon, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, Search, Snowflake, Store, Trash2, Warehouse, XCircle } from 'lucide-react';
+import { Apple, Boxes, CalendarDays, CheckCircle2, ClipboardCheck, Landmark, Loader2, Map as MapIcon, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, Search, Snowflake, Store, Trash2, Warehouse, XCircle } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { IdentityStatus } from '@/components/auth/IdentityStatus';
@@ -68,12 +68,26 @@ const blankListing = (account: Account | null): ListingInput => ({
   details: '',
 });
 
+type Side = 'farmer' | 'owner';
+/** The side last chosen on this device. */
+const SIDE_KEY = 'kr_cold_side';
+
 /** Only cold stores are booked here (older machinery listings are not shown). */
 const isCold = (l: { kind: string }) => l.kind === 'cold_store';
 
 export default function RentalPage() {
   const [account, setAccount] = useState<Account | null | undefined>(undefined);
-  const [tab, setTab] = useState('cold');
+  // Two sides of the portal: farmers who store apples, and owners who run a cold store.
+  const [side, setSideState] = useState<Side>(() => {
+    try {
+      const asked = new URLSearchParams(window.location.search).get('as');
+      if (asked === 'owner' || asked === 'farmer') return asked;
+      return localStorage.getItem(SIDE_KEY) === 'owner' ? 'owner' : 'farmer';
+    } catch {
+      return 'farmer';
+    }
+  });
+  const [tab, setTab] = useState(() => (side === 'owner' ? 'stores' : 'cold'));
   const [listings, setListings] = useState<RentalListing[]>([]);
   const [listError, setListError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -137,6 +151,17 @@ export default function RentalPage() {
   }, [listings, search]);
 
   const waiting = incoming.filter((b) => b.status === 'requested' || b.status === 'paid').length;
+  const setSide = (next: Side, to?: string) => {
+    setSideState(next);
+    setTab(to ?? (next === 'owner' ? (waiting ? 'requests' : 'stores') : 'cold'));
+    setClaim(null);
+    try {
+      localStorage.setItem(SIDE_KEY, next);
+    } catch {
+      /* private mode */
+    }
+  };
+  const activeBookings = mine.filter((b) => b.status === 'requested' || b.status === 'paid' || b.status === 'confirmed');
   const directory = useColdDirectory(listings);
 
   if (account === undefined) return <p className="flex items-center gap-2 p-10 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>;
@@ -144,19 +169,39 @@ export default function RentalPage() {
   return (
     <PortalShell
       title="Cold storage booking"
-      description="See the whole cold store — every chamber, on a plan and in 3D — choose your own place for your boxes and pay the owner directly. Or list your own cold store."
+      description={
+        side === 'farmer'
+          ? 'Find a cold store, see every chamber on a plan and in 3D, choose your own place for any number of boxes, and pay the owner directly.'
+          : 'List your cold store and enter each chamber’s size — farmers see it on a plan and in 3D — then confirm bookings and get paid directly.'
+      }
       eyebrow="Cold storage"
       theme="rental"
-      kpis={[
-        { label: 'Cold stores in J&K', value: directory.entries.length.toLocaleString('en-IN') + (directory.reading ? '…' : ''), trend: `${listings.length} on KashRoot · ${listings.reduce((s, l) => s + l.available, 0).toLocaleString('en-IN')} boxes free` },
-        { label: 'Your bookings', value: String(mine.length), trend: `${mine.filter((b) => b.status === 'confirmed').length} confirmed` },
-        { label: 'Waiting for you', value: String(waiting), trend: owned.length ? 'Bookings to confirm' : 'List your cold store' },
-      ]}
-      tabs={[
-        { id: 'cold', label: 'Find a cold store', icon: Snowflake },
-        { id: 'bookings', label: 'My bookings', icon: CalendarDays, count: mine.filter((b) => b.status === 'requested').length || undefined },
-        { id: 'owner', label: 'My cold store', icon: Warehouse, count: waiting || undefined },
-      ]}
+      switcher={<SideSwitch side={side} waiting={waiting} onChange={(s) => setSide(s)} />}
+      kpis={
+        side === 'farmer'
+          ? [
+              { label: 'Cold stores in J&K', value: directory.entries.length.toLocaleString('en-IN') + (directory.reading ? '…' : ''), trend: `${listings.length} on KashRoot · ${listings.reduce((s, l) => s + l.available, 0).toLocaleString('en-IN')} boxes free` },
+              { label: 'Your bookings', value: String(mine.length), trend: `${mine.filter((b) => b.status === 'confirmed').length} confirmed`, onClick: () => setTab('bookings') },
+              { label: 'Your boxes booked', value: activeBookings.reduce((s, b) => s + b.units, 0).toLocaleString('en-IN'), trend: activeBookings.length ? `in ${activeBookings.length} booking${activeBookings.length === 1 ? '' : 's'}` : 'Book any number of boxes' },
+            ]
+          : [
+              { label: 'My cold stores', value: String(owned.length), trend: owned.length ? `${owned.reduce((s, l) => s + l.capacity, 0).toLocaleString('en-IN')} boxes in all` : 'List your cold store', onClick: () => setTab('stores') },
+              { label: 'Waiting for you', value: String(waiting), trend: 'Bookings to confirm', onClick: () => setTab('requests') },
+              { label: 'Boxes free in my stores', value: owned.reduce((s, l) => s + l.available, 0).toLocaleString('en-IN'), trend: `of ${owned.reduce((s, l) => s + l.capacity, 0).toLocaleString('en-IN')}` },
+            ]
+      }
+      tabs={
+        side === 'farmer'
+          ? [
+              { id: 'cold', label: 'Find a cold store', icon: Snowflake },
+              { id: 'bookings', label: 'My bookings', icon: CalendarDays, count: mine.filter((b) => b.status === 'requested').length || undefined },
+            ]
+          : [
+              { id: 'stores', label: 'My cold stores', icon: Warehouse },
+              { id: 'requests', label: 'Bookings to confirm', icon: ClipboardCheck, count: waiting || undefined },
+              { id: 'payments', label: 'Payment details', icon: Landmark },
+            ]
+      }
       activeTab={tab}
       onTabChange={(id) => {
         setTab(id);
@@ -193,8 +238,8 @@ export default function RentalPage() {
               listings={listings}
               onBook={setBooking}
               onClaim={(e) => {
+                setSide('owner', 'stores');
                 setClaim({ title: e.name, district: e.district ?? '', address: e.place ?? '' });
-                setTab('owner');
               }}
             />
           ) : (
@@ -213,7 +258,7 @@ export default function RentalPage() {
               icon={Snowflake}
               title={listings.length ? `No cold store on KashRoot matches “${search.trim()}”` : 'No cold store on KashRoot yet'}
               text={listings.length ? 'Try another name or district — or look in All cold stores.' : 'When an owner lists their cold store (My cold store) and enters each chamber’s length, breadth and height, it appears here: every chamber on a floor plan and in 3D, and farmers choose their own place. Meanwhile, All cold stores shows every cold store in Jammu & Kashmir.'}
-              action={<Btn theme={theme} variant="soft" onClick={() => (listings.length ? setFindView('all') : setTab('owner'))}>{listings.length ? 'All cold stores' : 'List your cold store'}</Btn>}
+              action={<Btn theme={theme} variant="soft" onClick={() => (listings.length ? setFindView('all') : setSide('owner', 'stores'))}>{listings.length ? 'All cold stores' : 'List your cold store'}</Btn>}
             />
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -237,9 +282,18 @@ export default function RentalPage() {
             </ul>
           )}
         </Panel>
-      ) : (
-        <OwnerPanel account={account} owned={owned} incoming={incoming} chambers={chambers} places={places} prefill={claim} onChange={() => refresh()} />
-      )}
+      ) : side === 'owner' ? (
+        <OwnerPanel
+          section={tab === 'requests' || tab === 'payments' ? tab : 'stores'}
+          account={account}
+          owned={owned}
+          incoming={incoming}
+          chambers={chambers}
+          places={places}
+          prefill={claim}
+          onChange={() => refresh()}
+        />
+      ) : null}
 
       {booking && account && chambers.some((c) => c.listing_id === booking.id) && (
         <ColdBooking
@@ -426,6 +480,7 @@ function RenterBooking({ booking: b, places, chambers, onChange }: { booking: Re
 }
 
 function OwnerPanel({
+  section,
   account,
   owned,
   incoming,
@@ -434,6 +489,8 @@ function OwnerPanel({
   prefill,
   onChange,
 }: {
+  /** The owner's tab: their stores (plan & 3D), bookings to confirm, or where farmers pay them. */
+  section: 'stores' | 'requests' | 'payments';
   account: Account;
   owned: RentalListing[];
   incoming: RentalBooking[];
@@ -487,6 +544,7 @@ function OwnerPanel({
       <div className="lg:col-span-2">
         <IdentityStatus account={account} theme={theme} purpose="list your cold store and take bookings" />
       </div>
+      {section === 'requests' && (
       <Panel theme={theme} title="Bookings to confirm" icon={CheckCircle2} className="lg:col-span-2">
         {pending.length === 0 ? (
           <p className="text-sm text-slate-600">No bookings waiting. When a farmer books and pays, confirm it here after checking the money arrived in your bank or UPI app.</p>
@@ -513,10 +571,25 @@ function OwnerPanel({
           </ul>
         )}
       </Panel>
+      )}
 
-      <Panel theme={theme} title="My cold stores" icon={Warehouse} action={<Btn theme={theme} size="sm" icon={PlusCircle} onClick={() => setEditing({ data: blankListing(account) })}>Add cold store</Btn>}>
+      {section === 'stores' && (
+      <Panel
+        theme={theme}
+        title="My cold stores"
+        icon={Warehouse}
+        className="lg:col-span-2"
+        // With no store yet, the button is in the message below instead.
+        action={owned.length ? <Btn theme={theme} size="sm" icon={PlusCircle} onClick={() => setEditing({ data: blankListing(account) })}>Add cold store</Btn> : undefined}
+      >
         {owned.length === 0 ? (
-          <EmptyState theme={theme} icon={Warehouse} title="Nothing listed" text="Add your cold store with how many boxes it holds and how many are free. Farmers see it straight away." />
+          <EmptyState
+            theme={theme}
+            icon={Warehouse}
+            title="List your cold store"
+            text="Add your cold store, then open “Draw your cold store map” and enter each chamber’s length, breadth and height: farmers see every chamber on a floor plan and in 3D, and book their own places."
+            action={<Btn theme={theme} icon={PlusCircle} onClick={() => setEditing({ data: blankListing(account) })}>Add cold store</Btn>}
+          />
         ) : (
           <ul className="space-y-3">
             {owned.map((l) => {
@@ -554,10 +627,23 @@ function OwnerPanel({
           </ul>
         )}
       </Panel>
+      )}
 
-      <PayoutForm theme={theme} payout={payout} onSaved={setPayout} />
+      {section === 'payments' && (
+        <>
+          <PayoutForm theme={theme} payout={payout} onSaved={setPayout} />
+          <Panel theme={theme} title="How farmers pay you" icon={Landmark}>
+            <ol className="list-decimal space-y-2 pl-5 text-sm text-slate-700">
+              <li>A farmer books places in your store; they are held for 24 hours.</li>
+              <li>The farmer pays you directly by UPI or bank transfer, to the details on the left, and enters the payment number.</li>
+              <li>Check the money in your bank or UPI app, then confirm the booking in “Bookings to confirm”.</li>
+            </ol>
+            <p className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-600 ring-1 ring-slate-900/5">KashRoot never holds the money: it goes straight from the farmer to you.</p>
+          </Panel>
+        </>
+      )}
 
-      {others.length > 0 && (
+      {section === 'requests' && others.length > 0 && (
         <Panel theme={theme} title="Booking history" icon={CalendarDays} className="lg:col-span-2">
           <ul className="divide-y divide-slate-900/5">
             {others.map((b) => (
@@ -644,6 +730,39 @@ function ListingForm({ value: v, mapped = false, onChange }: { value: ListingInp
           <textarea rows={2} className={INPUT} value={v.details ?? ''} onChange={(e) => set('details', e.target.value)} placeholder="e.g. Grading line, loading bay, 24-hour power backup" />
         </Field>
       </div>
+    </div>
+  );
+}
+
+/** The two sides of the Cold Storage portal: farmers who store apples, owners who run a cold store. */
+function SideSwitch({ side, waiting, onChange }: { side: Side; waiting: number; onChange: (s: Side) => void }) {
+  const option = (id: Side, title: string, text: string, Icon: typeof Apple, badge?: number) => {
+    const on = side === id;
+    return (
+      <button
+        type="button"
+        role="radio"
+        aria-checked={on}
+        onClick={() => !on && onChange(id)}
+        className={`flex flex-1 cursor-pointer items-start gap-3 rounded-2xl p-4 text-left ring-2 transition ${on ? 'bg-violet-700 text-white shadow-lg ring-violet-700' : 'bg-white/80 text-slate-800 ring-slate-900/10 hover:ring-violet-300'}`}
+      >
+        <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${on ? 'bg-white/15' : 'bg-violet-50 text-violet-700'}`}>
+          <Icon className="h-5 w-5" aria-hidden />
+        </span>
+        <span className="min-w-0">
+          <span className="flex items-center gap-2 text-base font-semibold">
+            {title}
+            {badge ? <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${on ? 'bg-white text-violet-800' : 'bg-amber-400 text-amber-950'}`}>{badge} waiting</span> : null}
+          </span>
+          <span className={`mt-0.5 block text-sm ${on ? 'text-violet-100' : 'text-slate-600'}`}>{text}</span>
+        </span>
+      </button>
+    );
+  };
+  return (
+    <div role="radiogroup" aria-label="I am" className="flex flex-col gap-3 sm:flex-row">
+      {option('farmer', 'I store my apples', 'Farmers: find a cold store, choose your place on the plan or in 3D, see your bookings.', Apple)}
+      {option('owner', 'I run a cold store', 'Owners: list your store, enter its chambers (plan & 3D), confirm bookings, get paid.', Warehouse, waiting)}
     </div>
   );
 }
