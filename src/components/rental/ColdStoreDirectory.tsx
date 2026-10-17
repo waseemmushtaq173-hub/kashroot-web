@@ -155,11 +155,11 @@ export function ColdStoreDirectory({
         <>
           {!loading && <p className="text-xs text-slate-500">Showing {Math.min(shown, found.length).toLocaleString('en-IN')} of {found.length.toLocaleString('en-IN')}</p>}
           <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {found.slice(0, shown).map((e) => {
+            {found.slice(0, shown).map((e, i) => {
               const listing = e.listingId ? byId.get(e.listingId) : undefined;
               const where = [e.place, e.district].filter(Boolean).join(' · ');
               return (
-                <li key={`${e.source}:${e.name}:${e.district ?? ''}`} className={`flex flex-col rounded-2xl bg-white/85 p-4 shadow-sm ring-1 ${listing ? 'ring-violet-300' : 'ring-slate-900/5'}`}>
+                <li key={`${e.listingId ?? e.source}:${e.name}:${e.district ?? ''}:${i}`} className={`flex flex-col rounded-2xl bg-white/85 p-4 shadow-sm ring-1 ${listing ? 'ring-violet-300' : 'ring-slate-900/5'}`}>
                   <div className="flex items-start justify-between gap-2">
                     <p className="flex items-start gap-1.5 font-semibold text-slate-900">
                       {listing ? <Snowflake className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" aria-hidden /> : <Warehouse className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" aria-hidden />}
