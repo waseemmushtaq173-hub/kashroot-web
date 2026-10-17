@@ -4,9 +4,11 @@
  * KYCPanel — the three-step verification modal: role → identity → bank.
  *
  *   1. Role      Farmer, Buyer or Seller. Drives the copy of later steps.
- *   2. Identity  "Verify instantly with DigiLocker", or Aadhaar + OTP: the OTP
- *                field appears once UIDAI has (in simulation) sent the code. PAN
- *                is masked as typed and checked for its holder-type letter.
+ *   2. Identity  Aadhaar number + OTP (UIDAI texts it to the mobile linked
+ *                with the Aadhaar), then "Sync with DigiLocker" to fetch the
+ *                details and PAN. Without the KYC provider keys: one "Scan
+ *                Aadhaar QR" (UIDAI's signed QR, checked offline). PAN is
+ *                masked as typed and checked for its holder-type letter.
  *   3. Bank      IFSC is masked as typed and, the moment it is complete, looked
  *                up so Bank Name and Branch appear under it before submission.
  *
@@ -19,8 +21,8 @@
  * carries the verifier's reference and the last four digits only — UIDAI rules
  * forbid storing Aadhaar numbers outside a licensed vault.
  *
- * Verification calls go through lib/kyc/kyc-service.ts; Aadhaar OTP and
- * DigiLocker are simulated there until the API has endpoints for them.
+ * Verification calls go through lib/kyc/kyc-service.ts: Aadhaar OTP, DigiLocker
+ * and PAN are live once the KYC provider keys are set (api/kyc/config).
  */
 import {
   useEffect,
@@ -462,6 +464,8 @@ function useIdentityVerification(simple = false) {
   const [config, setConfig] = useState<KycConfig | null>(null);
   const [preferOffline, setPreferOffline] = useState(false);
   const [aadhaarMobile, setAadhaarMobile] = useState<{ number: string; matches: boolean | null } | null>(null);
+  // After the Aadhaar OTP: details fetched from DigiLocker (or DigiLocker could not be reached and the person went on without it).
+  const [synced, setSynced] = useState<'no' | 'yes' | 'skipped'>('no');
   // Bumped on every reset, so a response for an abandoned attempt is ignored.
   const attempt = useRef(0);
 
@@ -548,8 +552,13 @@ function useIdentityVerification(simple = false) {
     try {
       const { panShared: shared, ...result } = await verifyWithDigiLocker(popup);
       if (current !== attempt.current) return;
-      setVerified({ ...result, method: 'DIGILOCKER' });
+      if (verified && result.aadhaarLast4 && result.aadhaarLast4 !== verified.aadhaarLast4) {
+        throw new Error(`This DigiLocker account is for another Aadhaar (${maskAadhaar(result.aadhaarLast4)}). Sign in to DigiLocker with the Aadhaar you verified above.`);
+      }
+      // Aadhaar already verified by OTP stays as it is; DigiLocker adds the details (PAN and documents).
+      setVerified((v) => v ?? { ...result, method: 'DIGILOCKER' });
       setPanShared(shared);
+      setSynced('yes');
       setDigiLocker('idle');
     } catch (err) {
       popup?.close();
@@ -599,6 +608,7 @@ function useIdentityVerification(simple = false) {
     setDigiLockerError(null);
     setPanShared(false);
     setAadhaarMobile(null);
+    setSynced('no');
   };
 
   const online = config?.online === true;
@@ -612,8 +622,10 @@ function useIdentityVerification(simple = false) {
   // Farmers confirmed their mobile and email when signing up; don't ask again.
   const mobileDone = simple || !config?.sms ? true : mobileOk || mobileFromAadhaar;
   const emailDone = simple || !config?.email ? true : emailOk;
+  // Online: Aadhaar OTP, then DigiLocker (unless DigiLocker could not be reached).
+  const syncDone = !online || synced !== 'no';
   const result: KycSubmission['identity'] | null =
-    verified && panConfirmed && mobileDone && emailDone
+    verified && syncDone && panConfirmed && mobileDone && emailDone
       ? {
           method: verified.method,
           referenceId: verified.referenceId,
@@ -643,6 +655,8 @@ function useIdentityVerification(simple = false) {
     resendIn,
     digiLocker,
     startDigiLocker,
+    synced,
+    skipSync: () => setSynced('skipped'),
     verified,
     resetAadhaar,
     pan,
@@ -737,53 +751,16 @@ function IdentityStep({
             <OfflineAadhaarVerify onVerified={model.acceptOffline} />
             {model.online && (
               <button type="button" onClick={() => model.setPreferOffline(false)} className={`text-sm ${BTN_LINK}`}>
-                Use online verification (Aadhaar OTP or DigiLocker) instead
+                Back to Aadhaar number and OTP
               </button>
             )}
           </>
         ) : (
           <>
-            <button type="button" onClick={() => model.setPreferOffline(true)} className={`text-sm ${BTN_LINK}`}>
-              Prefer the free offline check? Upload UIDAI’s e-KYC file or scan your Aadhaar QR
-            </button>
-            <button
-              type="button"
-              onClick={model.startDigiLocker}
-              disabled={busy}
-              className={`flex w-full cursor-pointer items-center gap-4 rounded-2xl bg-gradient-to-r from-indigo-700 via-blue-700 to-sky-700 p-4 text-left text-white shadow-lg shadow-blue-700/25 transition hover:shadow-xl hover:shadow-blue-700/30 disabled:cursor-not-allowed disabled:opacity-80 ${FOCUS}`}
-            >
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/15 ring-1 ring-white/30">
-                <FileCheckIcon className="h-6 w-6" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block font-semibold">
-                  {model.digiLocker === 'connecting' ? 'Connecting to DigiLocker…' : 'Verify instantly with DigiLocker'}
-                </span>
-                <span className="mt-0.5 block text-sm text-blue-50">
-                  Share your Aadhaar-verified identity with consent — no OTP needed.
-                </span>
-              </span>
-              {model.digiLocker === 'connecting' ? (
-                <SpinnerIcon className="h-5 w-5 shrink-0 animate-spin" />
-              ) : (
-                <ArrowRightIcon className="h-5 w-5 shrink-0" />
-              )}
-            </button>
-
-            {model.digiLocker === 'failed' && (
-              <InlineAlert announce>{model.digiLockerError ?? 'DigiLocker didn’t respond.'} You can also verify with Aadhaar OTP below.</InlineAlert>
-            )}
-
-            <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-              <span className="h-px flex-1 bg-slate-200" />
-              or verify with Aadhaar OTP
-              <span className="h-px flex-1 bg-slate-200" />
-            </div>
-
             <Field
               id={aadhaarId}
               label="Aadhaar number"
-              hint="12 digits. Only the last 4 are kept after verification."
+              hint="12 digits. UIDAI sends an OTP to the mobile number linked with your Aadhaar. Only the last 4 digits are kept."
               error={model.aadhaarError ?? model.sendError}
             >
               <div className="flex gap-2">
@@ -811,11 +788,18 @@ function IdentityStep({
                     className={`${BTN_PRIMARY} shrink-0`}
                   >
                     {model.otpPhase === 'sending' && <SpinnerIcon className="h-4 w-4 animate-spin" />}
-                    Get OTP
+                    Send OTP
                   </button>
                 )}
               </div>
             </Field>
+
+            {model.sendError && (
+              // UIDAI can only send the OTP when a mobile number is linked with the Aadhaar.
+              <button type="button" onClick={() => model.setPreferOffline(true)} className={`text-sm ${BTN_LINK}`}>
+                No OTP? Scan the QR on your Aadhaar instead
+              </button>
+            )}
 
             {model.otpRequested && (
               <div className="rounded-2xl bg-emerald-50/70 p-4 ring-1 ring-emerald-200/80 sm:p-5">
@@ -872,6 +856,48 @@ function IdentityStep({
               </div>
             )}
           </>
+        )}
+
+        {model.online && model.verified && (
+          model.synced === 'yes' ? (
+            <div role="status" className="flex items-center gap-4 rounded-2xl bg-gradient-to-r from-sky-50 to-indigo-50 p-4 ring-1 ring-sky-200">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-sky-600 text-white shadow-md shadow-sky-600/30">
+                <CheckIcon className="h-5 w-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-slate-900">Synced with DigiLocker</p>
+                <p className="text-sm text-slate-600">{model.panShared ? 'Your Aadhaar details and PAN were shared from DigiLocker.' : 'Your Aadhaar details were shared from DigiLocker.'}</p>
+              </div>
+            </div>
+          ) : model.synced === 'no' ? (
+            <div className="space-y-3 rounded-2xl bg-white/80 p-4 ring-1 ring-sky-200 sm:p-5">
+              <p className="text-sm font-semibold text-slate-900">Next: sync with DigiLocker</p>
+              <p className="text-sm text-slate-600">Sign in to DigiLocker and allow KashRoot to fetch your Aadhaar details and PAN — no papers to upload.</p>
+              <button
+                type="button"
+                onClick={model.startDigiLocker}
+                disabled={busy}
+                className={`flex w-full cursor-pointer items-center gap-4 rounded-2xl bg-gradient-to-r from-indigo-700 via-blue-700 to-sky-700 p-4 text-left text-white shadow-lg shadow-blue-700/25 transition hover:shadow-xl hover:shadow-blue-700/30 disabled:cursor-not-allowed disabled:opacity-80 ${FOCUS}`}
+              >
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/15 ring-1 ring-white/30">
+                  <FileCheckIcon className="h-6 w-6" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold">{model.digiLocker === 'connecting' ? 'Waiting for DigiLocker…' : 'Sync with DigiLocker'}</span>
+                  <span className="mt-0.5 block text-sm text-blue-50">Opens DigiLocker in a new window; come back here when you have allowed it.</span>
+                </span>
+                {model.digiLocker === 'connecting' ? <SpinnerIcon className="h-5 w-5 shrink-0 animate-spin" /> : <ArrowRightIcon className="h-5 w-5 shrink-0" />}
+              </button>
+              {model.digiLocker === 'failed' && (
+                <>
+                  <InlineAlert announce>{model.digiLockerError ?? 'DigiLocker didn’t respond.'}</InlineAlert>
+                  <button type="button" onClick={model.skipSync} className={`text-sm ${BTN_LINK}`}>
+                    DigiLocker not working? Continue without it
+                  </button>
+                </>
+              )}
+            </div>
+          ) : null
         )}
 
         {extras ? (

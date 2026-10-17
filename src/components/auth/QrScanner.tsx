@@ -1,14 +1,15 @@
 'use client';
 
 /**
- * Reads a QR code from the camera or from a photo. Aadhaar Secure QRs are
+ * Reads a QR code: one "Scan Aadhaar QR" button opens the camera; a photo of
+ * the QR is the fallback (no camera, or access refused). Aadhaar Secure QRs are
  * very dense, so three readers are tried in turn: the browser's
  * BarcodeDetector (Android Chrome, macOS), ZXing compiled to WebAssembly
  * (strong on dense codes, works everywhere — its .wasm is served from this
  * site), then jsQR.
  */
 import { useEffect, useRef, useState } from 'react';
-import { Camera, ImageUp, Loader2, X } from 'lucide-react';
+import { ImageUp, Loader2, QrCode, X } from 'lucide-react';
 
 type Detector = { detect: (src: CanvasImageSource) => Promise<{ rawValue: string }[]> };
 
@@ -55,6 +56,8 @@ export function QrScanner({ onResult, disabled }: { onResult: (text: string) => 
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The camera could not be opened: a photo is the way now.
+  const [noCamera, setNoCamera] = useState(false);
 
   const stop = () => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -95,6 +98,7 @@ export function QrScanner({ onResult, disabled }: { onResult: (text: string) => 
   const startCamera = async () => {
     setError(null);
     try {
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error('no camera');
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } });
       streamRef.current = stream;
       setScanning(true);
@@ -105,12 +109,14 @@ export function QrScanner({ onResult, disabled }: { onResult: (text: string) => 
         }
       });
     } catch {
-      setError('Camera not available. Allow camera access, or upload a clear photo of the QR instead.');
+      setNoCamera(true);
+      setError('The camera could not be opened. Allow camera access and try again, or choose a clear photo of the QR.');
     }
   };
 
   const fromPhoto = async (file?: File) => {
     if (!file) return;
+    stop();
     setBusy(true);
     setError(null);
     try {
@@ -135,27 +141,42 @@ export function QrScanner({ onResult, disabled }: { onResult: (text: string) => 
     }
   };
 
+  const photoInput = (label: string) => (
+    <label className={`inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 ${disabled || busy ? 'pointer-events-none opacity-50' : ''}`}>
+      {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <ImageUp className="h-4 w-4" aria-hidden />} {label}
+      <input
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        onChange={(e) => {
+          void fromPhoto(e.target.files?.[0]);
+          e.target.value = '';
+        }}
+      />
+    </label>
+  );
+
   return (
     <div>
       <canvas ref={canvasRef} className="hidden" />
       {scanning ? (
-        <div className="relative overflow-hidden rounded-2xl bg-black">
-          <video ref={videoRef} playsInline muted className="aspect-video w-full object-cover" />
-          <span aria-hidden className="pointer-events-none absolute inset-[15%] rounded-2xl border-4 border-white/80" />
-          <button type="button" onClick={stop} className="absolute right-2 top-2 inline-flex cursor-pointer items-center gap-1 rounded-lg bg-white/90 px-2 py-1 text-xs font-semibold text-slate-800">
-            <X className="h-3.5 w-3.5" aria-hidden /> Stop
-          </button>
-          <p className="absolute inset-x-0 bottom-2 text-center text-xs font-medium text-white">Hold the Aadhaar QR inside the frame</p>
+        <div className="space-y-2">
+          <div className="relative overflow-hidden rounded-2xl bg-black">
+            <video ref={videoRef} playsInline muted className="aspect-video w-full object-cover" />
+            <span aria-hidden className="pointer-events-none absolute inset-[15%] rounded-2xl border-4 border-white/80" />
+            <button type="button" onClick={stop} className="absolute right-2 top-2 inline-flex cursor-pointer items-center gap-1 rounded-lg bg-white/90 px-2 py-1 text-xs font-semibold text-slate-800">
+              <X className="h-3.5 w-3.5" aria-hidden /> Stop
+            </button>
+            <p className="absolute inset-x-0 bottom-2 text-center text-xs font-medium text-white">Hold the Aadhaar QR inside the frame</p>
+          </div>
+          {photoInput('Use a photo instead')}
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
-          <button type="button" disabled={disabled} onClick={startCamera} className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-800 disabled:opacity-50">
-            <Camera className="h-4 w-4" aria-hidden /> Scan with camera
+          <button type="button" disabled={disabled || busy} onClick={startCamera} className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-800 disabled:opacity-50">
+            <QrCode className="h-4 w-4" aria-hidden /> Scan Aadhaar QR
           </button>
-          <label className={`inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 ${disabled ? 'pointer-events-none opacity-50' : ''}`}>
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <ImageUp className="h-4 w-4" aria-hidden />} Upload QR photo
-            <input type="file" accept="image/*" className="sr-only" onChange={(e) => void fromPhoto(e.target.files?.[0])} />
-          </label>
+          {(noCamera || busy) && photoInput('Choose a photo of the QR')}
         </div>
       )}
       {error && <p role="alert" className="mt-2 text-sm text-rose-700">{error}</p>}
