@@ -9,7 +9,7 @@
 
 -- ── the REPORTER role ──
 alter table public.staff_roles drop constraint if exists staff_roles_role_check;
--- KASHMIRI (Kashmiri editors) is added by 20261019000000_kashmiri_lab.sql; listed here so running this again keeps them.
+-- KASHMIRI: editors of the old Kashmiri Lab (since removed); still allowed so databases that set it up can run this again.
 alter table public.staff_roles add constraint staff_roles_role_check check (role in ('ADMIN', 'EXPERT', 'DEALER', 'REPORTER', 'KASHMIRI'));
 alter table public.role_requests drop constraint if exists role_requests_role_check;
 alter table public.role_requests add constraint role_requests_role_check check (role in ('EXPERT', 'DEALER', 'REPORTER'));

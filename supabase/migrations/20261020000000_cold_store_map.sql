@@ -13,7 +13,7 @@
 -- months: booking and confirming check it inside one locked transaction.
 -- Stores with a map count their free boxes from it (capacity and vacancy are
 -- kept up to date automatically).
--- Run after 20261019000000_kashmiri_lab.sql. Safe to run again.
+-- Run after 20261018000000_accounts_last_active.sql. Safe to run again.
 
 -- ───────────────────────── chambers ─────────────────────────
 create table if not exists public.cold_chambers (

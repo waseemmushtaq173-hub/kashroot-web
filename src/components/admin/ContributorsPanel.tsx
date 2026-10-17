@@ -39,7 +39,7 @@ import { upiLink } from '@/lib/db/rentals';
 
 const theme = PORTAL_THEMES.admin ?? PORTAL_THEMES.expert;
 const rupees = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
-const KINDS: WorkKind[] = ['mandi_rate', 'answer', 'soil_test', 'video_call', 'kashmiri'];
+const KINDS: WorkKind[] = ['mandi_rate', 'answer', 'soil_test', 'video_call'];
 const message = (err: unknown) => (err instanceof Error ? err.message : 'Something went wrong.');
 
 export function ContributorsPanel() {

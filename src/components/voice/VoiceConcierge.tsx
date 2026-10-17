@@ -12,16 +12,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { CircleAlert, Keyboard, Loader2, Mic, MicOff, Send, Sparkles, Square, Volume2 } from 'lucide-react';
 
-import { KashmiriFix } from '@/components/kashmiri/KashmiriFix';
 import { KashmiriKeys } from '@/components/kashmiri/KashmiriKeys';
 import { LangPicker } from '@/components/voice/VoiceButtons';
 import { useAssistant } from '@/lib/client/assistant';
-import { useKsText } from '@/lib/client/kashmiri';
+import { ksText } from '@/lib/kashmiri/phrases';
 import { isRtl, listen, noListenHelp, recognitionAvailable, type SpeechLang } from '@/lib/client/speech';
 import { loadAccount } from '@/lib/db/client';
 import { detectReplyLang, rememberedLang, rememberLang } from '@/lib/langDetect';
 
-// Kashmiri lines come from the Kashmiri Lab (corrected by native speakers).
+// Kashmiri lines are the built-in sentences in lib/kashmiri/phrases.ts.
 const SUGGESTIONS: Record<Exclude<SpeechLang, 'ks'>, string[]> = {
   en: ['Today’s apple prices', 'Rain forecast for my district this week', 'How do I control apple scab?', 'How do I book cold storage?'],
   hi: ['आज सेब का भाव क्या है?', 'इस हफ़्ते बारिश का अनुमान', 'सेब में स्कैब कैसे रोकें?', 'कोल्ड स्टोरेज कैसे बुक करें?'],
@@ -45,7 +44,7 @@ export function VoiceConcierge() {
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [keys, setKeys] = useState(false);
-  const t = useKsText();
+  const t = ksText;
   const ks = lang === 'ks';
   const suggestions = ks ? ([1, 2, 3, 4] as const).map((i) => t(`assistant.suggest.${i}`)) : SUGGESTIONS[lang];
 
@@ -176,7 +175,6 @@ export function VoiceConcierge() {
                   )}
                 </p>
                 {/* Native speakers correct Kashmiri answers; the assistant learns from them. */}
-                {turn.role === 'assistant' && !turn.error && turn.lang === 'ks' && <KashmiriFix question={turns[i - 1]?.role === 'user' ? turns[i - 1].text : ''} reply={turn.text} />}
               </div>
             ))}
             {interim && (

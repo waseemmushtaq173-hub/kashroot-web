@@ -23,7 +23,8 @@ import { detectReplyLang } from '@/lib/langDetect';
 import { basicAnswer, quickIntent } from '@/lib/server/basicAssistant';
 import { fetchMandiPrices } from '@/lib/server/mandi';
 import { bhashiniConfigured, toKashmiri } from '@/lib/server/bhashini';
-import { finishKashmiri, kashmiriExamples, kashmiriLexicon, kashmiriSystem, KS_MODEL, ksPhrase, type KsLexicon } from '@/lib/server/kashmiri';
+import { ksText } from '@/lib/kashmiri/phrases';
+import { finishKashmiri, kashmiriSystem, KS_MODEL } from '@/lib/server/kashmiri';
 import { postedRates } from '@/lib/server/postedRates';
 import { forecast, geocode } from '@/lib/server/weather';
 
@@ -167,13 +168,12 @@ export function GET() {
 
 /**
  * Kashmiri from English: Bhashini (the government's translator) when it is
- * set up, else the AI itself — with the words and answers native speakers
- * taught in the Kashmiri Lab, then checked for Urdu and given back its vowel
- * marks (finishKashmiri). Returns null when neither can do it.
+ * set up, else the AI itself following the Kashmiri rules, then checked for
+ * Urdu (finishKashmiri). Returns null when neither can do it.
  */
-async function kashmiriFrom(english: string, wantDevanagari: boolean, client: Anthropic | null, lex: KsLexicon, query: string): Promise<{ reply: string; speech?: string } | null> {
+async function kashmiriFrom(english: string, wantDevanagari: boolean, client: Anthropic | null): Promise<{ reply: string; speech?: string } | null> {
   const finish = async (text: string, speech?: string) => {
-    const done = await finishKashmiri(text, { client, lex, query, wantDevanagari, speech });
+    const done = await finishKashmiri(text, { client, wantDevanagari, speech });
     return { reply: done.reply, ...(done.speech ? { speech: done.speech } : {}) };
   };
   if (bhashiniConfigured()) {
@@ -191,9 +191,8 @@ async function kashmiriFrom(english: string, wantDevanagari: boolean, client: An
       max_tokens: 3000,
       system: [
         `You translate an assistant's answer for someone in Kashmir. Write it in ${LANGUAGE.ks}. Translate the meaning naturally, the way a Kashmiri speaker would say it — not word for word, and never as Urdu. Keep numbers, prices, units, place names and button names (in English) exactly as they are. Output only the translation.${wantDevanagari ? ` ${speechInstruction('ks')}` : ''}`,
-        kashmiriSystem(lex, query),
-        kashmiriExamples(lex, query),
-      ].filter(Boolean).join('\n\n'),
+        kashmiriSystem(),
+      ].join('\n\n'),
       messages: [{ role: 'user', content: english }],
       // Good Kashmiri needs more care than the other languages.
       output_config: { effort: 'medium' },
@@ -222,12 +221,11 @@ export async function POST(req: Request) {
 
   const client = claudeClient();
   const kashmiriTranslator = lang === 'ks' && bhashiniConfigured();
-  // Kashmiri: what native speakers taught in the Kashmiri Lab (cached).
-  const lex = lang === 'ks' ? await kashmiriLexicon() : null;
+  const ks = lang === 'ks';
   /** "Sorry, try again" in the person's language — never Urdu for a Kashmiri speaker. */
   const sorry = () =>
-    lex
-      ? ksPhrase(lex, 'assistant.sorry')
+    ks
+      ? ksText('assistant.sorry')
       : {
           en: 'Sorry, I could not answer that just now. Please try again in a minute.',
           hi: 'माफ़ कीजिए, अभी जवाब नहीं दे सका। कृपया एक मिनट बाद फिर पूछें।',
@@ -239,10 +237,10 @@ export async function POST(req: Request) {
   // Built-in answers exist in English, Hindi and Urdu only — for Kashmiri they
   // are translated (Bhashini), or the AI answers in Kashmiri itself.
   if ((client && quickIntent(query)) || !client) {
-    if (lang === 'ks' && lex && (kashmiriTranslator || client)) {
+    if (ks && (kashmiriTranslator || client)) {
       const en = await basicAnswer(query, 'en');
-      const ks = await kashmiriFrom(en.reply, wantDevanagari, client, lex, query);
-      if (ks) return NextResponse.json({ ...ks, lang, quick: true });
+      const answer = await kashmiriFrom(en.reply, wantDevanagari, client);
+      if (answer) return NextResponse.json({ ...answer, lang, quick: true });
     } else {
       const a = await basicAnswer(query, lang);
       return NextResponse.json({ reply: a.reply, lang, ...(client ? { quick: true } : { basic: true }), ...(a.speech ? { speech: a.speech } : {}) });
@@ -259,8 +257,7 @@ export async function POST(req: Request) {
   let instruction = kashmiriTranslator ? 'Reply in simple English; it will be translated into Kashmiri.' : `Reply in ${LANGUAGE[lang]}.`;
   if (lang === 'ks') instruction += ' The question may have come through Urdu speech recognition; understand it as Kashmiri or Urdu.';
   if (lang === 'ks' && !kashmiriTranslator) instruction += ' Reply only in Kashmiri, even if the question is in English, Hindi or Urdu.';
-  const kashmiriAi = lang === 'ks' && !kashmiriTranslator && lex;
-  const nativeExamples = kashmiriAi ? kashmiriExamples(lex, query) : '';
+  const kashmiriAi = ks && !kashmiriTranslator;
   if (wantDevanagari && !kashmiriTranslator) instruction += ` ${speechInstruction(lang)}`;
   const page = body.page?.trim().slice(0, 1200);
   if (page) instruction += ` The person is on this KashRoot page right now: ${page}`;
@@ -277,10 +274,10 @@ export async function POST(req: Request) {
   }
   if (history.at(-1)?.role === 'user') history.pop();
 
-  const messages: Anthropic.Beta.BetaMessageParam[] = [...history, { role: 'user', content: `${query}\n\n(${instruction})${nativeExamples ? `\n\n${nativeExamples}` : ''}` }];
-  // Kashmiri: standing rules and the editors' words, after the main prompt (both cacheable).
+  const messages: Anthropic.Beta.BetaMessageParam[] = [...history, { role: 'user', content: `${query}\n\n(${instruction})` }];
+  // Kashmiri: the standing Kashmiri rules, after the main prompt (both cacheable).
   const system: Anthropic.Beta.BetaTextBlockParam[] = [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }];
-  if (kashmiriAi) system.push({ type: 'text', text: kashmiriSystem(lex, query), cache_control: { type: 'ephemeral' } });
+  if (kashmiriAi) system.push({ type: 'text', text: kashmiriSystem(), cache_control: { type: 'ephemeral' } });
 
   try {
     for (let round = 0; round < 4; round++) {
@@ -316,14 +313,14 @@ export async function POST(req: Request) {
 
       const full = textOf(response.content);
       if (!full) return NextResponse.json({ reply: sorry(), lang });
-      if (kashmiriTranslator && lex) {
+      if (kashmiriTranslator) {
         // The answer was written in English for the translator: never show it untranslated.
-        const ks = await kashmiriFrom(full, wantDevanagari, client, lex, query);
-        return NextResponse.json(ks ? { ...ks, lang } : { reply: sorry(), lang });
+        const answer = await kashmiriFrom(full, wantDevanagari, client);
+        return NextResponse.json(answer ? { ...answer, lang } : { reply: sorry(), lang });
       }
       const { text, speech } = splitSpeech(full);
-      if (lex) {
-        const done = await finishKashmiri(text, { client, lex, query, wantDevanagari, speech: wantDevanagari ? speech : undefined });
+      if (ks) {
+        const done = await finishKashmiri(text, { client, wantDevanagari, speech: wantDevanagari ? speech : undefined });
         return NextResponse.json({ reply: done.reply, lang, ...(done.speech ? { speech: done.speech } : {}) });
       }
       return NextResponse.json({ reply: text, lang, ...(wantDevanagari && speech ? { speech } : {}) });
@@ -336,7 +333,7 @@ export async function POST(req: Request) {
     // Not a price / weather / how-to question: don't answer with the menu of
     // what basic mode can do — say plainly that the answer failed.
     // Kashmiri: basic answers exist only in Urdu, so say sorry in Kashmiri instead.
-    if (!quickIntent(query) || lex) return NextResponse.json({ reply: sorry(), lang, basic: true, aiError: f.error });
+    if (!quickIntent(query) || ks) return NextResponse.json({ reply: sorry(), lang, basic: true, aiError: f.error });
     const a = await basicAnswer(query, lang);
     return NextResponse.json({ reply: a.reply, lang, basic: true, aiError: f.error, ...(a.speech ? { speech: a.speech } : {}) });
   }

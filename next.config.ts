@@ -119,6 +119,8 @@ const nextConfig: NextConfig = {
         ['/services', '/rental/dashboard'],
         ['/services/:id', '/rental/dashboard'],
         ['/traceability', '/tracking/dashboard'],
+        // The Kashmiri Lab (word list for the assistant) was removed.
+        ['/koshur', '/'],
       ].map(([source, destination]) => ({ source, destination, permanent: false })),
     ];
   },
