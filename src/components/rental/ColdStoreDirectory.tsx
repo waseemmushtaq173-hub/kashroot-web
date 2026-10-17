@@ -6,18 +6,22 @@
  * KashRoot server), the KashRoot directory (imported or added by the admin)
  * and the stores listed here by their owners (lib/coldDirectory). It has its
  * own search and district filter; a store on KashRoot can be booked from it.
- * Every entry says where it comes from.
+ * Every entry says where it comes from. A cold store that is missing can be
+ * suggested (the admin checks it first), and an owner can list their store
+ * on KashRoot straight from its entry.
  */
-import { useEffect, useMemo, useState } from 'react';
-import { CircleAlert, ExternalLink, Loader2, MapPin, Phone, Search, Snowflake, Warehouse } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { CircleAlert, ExternalLink, Loader2, MapPin, MessageSquarePlus, Phone, Search, Send, Snowflake, Store, Warehouse } from 'lucide-react';
 
-import { Badge, Btn, INPUT, PORTAL_THEMES } from '@/components/portal/kit';
+import { Badge, Btn, Field, INPUT, PORTAL_THEMES } from '@/components/portal/kit';
+import { toast } from '@/lib/client/toast';
 import { mergeDirectory, SOURCE_LABEL, type DirEntry, type DirSource, type SourceState } from '@/lib/coldDirectory';
-import { asEntry, directoryRows, type DirectoryRow } from '@/lib/db/coldDirectory';
+import { asEntry, directoryRows, suggestColdStore, type DirectoryRow } from '@/lib/db/coldDirectory';
 import type { RentalListing } from '@/lib/db/rentals';
 
 const theme = PORTAL_THEMES.rental;
 const PAGE = 60;
+const DISTRICTS = ['Anantnag', 'Bandipora', 'Baramulla', 'Budgam', 'Doda', 'Ganderbal', 'Jammu', 'Kathua', 'Kishtwar', 'Kulgam', 'Kupwara', 'Poonch', 'Pulwama', 'Rajouri', 'Ramban', 'Reasi', 'Samba', 'Shopian', 'Srinagar', 'Udhampur'];
 
 export type DirectoryItem = DirEntry & { also: DirSource[] };
 
@@ -41,6 +45,10 @@ export function useColdDirectory(listings: RentalListing[]) {
       on = false;
     };
   }, []);
+  const reload = useCallback(async () => setRows(await directoryRows().catch(() => [])), []);
+  // Only checked entries are listed; the viewer's own suggestions wait for the admin.
+  const checked = useMemo(() => (rows ?? []).filter((r) => r.status === 'approved'), [rows]);
+  const waiting = useMemo(() => (rows ?? []).filter((r) => r.status === 'pending'), [rows]);
 
   const entries = useMemo<DirectoryItem[]>(() => {
     const own: DirEntry[] = listings.map((l) => ({
@@ -57,10 +65,10 @@ export function useColdDirectory(listings: RentalListing[]) {
       sourceUrl: null,
       listingId: l.id,
     }));
-    return mergeDirectory([own, (rows ?? []).map(asEntry), live?.entries ?? []]);
-  }, [listings, rows, live]);
+    return mergeDirectory([own, checked.map(asEntry), live?.entries ?? []]);
+  }, [listings, checked, live]);
 
-  return { entries, sources: live?.sources ?? [], loading: rows === null, reading: live === null, adminCount: rows?.length ?? 0 };
+  return { entries, sources: live?.sources ?? [], loading: rows === null, reading: live === null, adminCount: checked.length, waiting, reload };
 }
 
 /** Where an entry comes from, each source once ("National Horticulture Board" inside a longer name counts as said). */
@@ -77,8 +85,11 @@ export function ColdStoreDirectory({
   loading,
   reading,
   adminCount,
+  waiting,
+  reload,
   listings,
   onBook,
+  onClaim,
 }: {
   entries: DirectoryItem[];
   sources: SourceState[];
@@ -87,8 +98,13 @@ export function ColdStoreDirectory({
   /** The official list and OpenStreetMap are still being read. */
   reading: boolean;
   adminCount: number;
+  /** The viewer's suggestions that wait for the admin's check. */
+  waiting: DirectoryRow[];
+  reload: () => Promise<void>;
   listings: RentalListing[];
   onBook: (l: RentalListing) => void;
+  /** "Your cold store? List it on KashRoot" — opens My cold store with its details. */
+  onClaim: (e: DirectoryItem) => void;
 }) {
   const [q, setQ] = useState('');
   const [district, setDistrict] = useState('');
@@ -187,6 +203,11 @@ export function ColdStoreDirectory({
                   <p className="mt-2 text-xs text-slate-500">Source: {sourcesOf(e).join(' · ')}</p>
                   <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 pt-3 text-sm">
                     {listing && <Btn theme={theme} size="sm" onClick={() => onBook(listing)}>Choose your place</Btn>}
+                    {!listing && (
+                      <button type="button" onClick={() => onClaim(e)} className="inline-flex cursor-pointer items-center gap-1 font-semibold text-violet-700 hover:underline">
+                        <Store className="h-3.5 w-3.5" aria-hidden /> Your store? List it
+                      </button>
+                    )}
                     {e.phone && <a href={`tel:${e.phone}`} className="inline-flex items-center gap-1 font-semibold text-violet-700"><Phone className="h-3.5 w-3.5" aria-hidden /> Call</a>}
                     {e.lat !== null && e.lon !== null && (
                       <a href={`https://www.google.com/maps/search/?api=1&query=${e.lat},${e.lon}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-semibold text-sky-800">
@@ -211,6 +232,8 @@ export function ColdStoreDirectory({
         </>
       )}
 
+      <SuggestStore waiting={waiting} reload={reload} />
+
       {!loading && !reading && (
         <div className="rounded-2xl bg-slate-50 p-3 text-xs text-slate-600 ring-1 ring-slate-900/5">
           <p className="font-semibold text-slate-700">Where this list comes from</p>
@@ -227,6 +250,68 @@ export function ColdStoreDirectory({
           </ul>
           <p className="mt-1">Names are shown as each source publishes them. A store that appears in several lists is shown once.</p>
         </div>
+      )}
+    </section>
+  );
+}
+
+/** "Missing a cold store? Tell us" — it waits for the KashRoot team's check, then everyone sees it. */
+function SuggestStore({ waiting, reload }: { waiting: DirectoryRow[]; reload: () => Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({ name: '', district: '', place: '', phone: '' });
+  const send = async () => {
+    if (form.name.trim().length < 2) return toast.error('Write the cold store’s name.');
+    if (!form.district) return toast.error('Choose the district.');
+    setBusy(true);
+    try {
+      await suggestColdStore({ name: form.name.trim(), district: form.district, place: form.place.trim() || null, phone: form.phone.replace(/\s/g, '') || null });
+      toast.success('Thank you — the KashRoot team checks it, then everyone sees it.');
+      setForm({ name: '', district: '', place: '', phone: '' });
+      setOpen(false);
+      await reload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not send it.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section aria-label="Suggest a cold store" className="rounded-2xl bg-violet-50/70 p-4 text-sm ring-1 ring-violet-200">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="flex items-start gap-2 text-violet-950">
+          <MessageSquarePlus className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          <span><strong>Missing a cold store?</strong> Tell us its name and place — the KashRoot team checks it, then every farmer sees it.</span>
+        </p>
+        {!open && <Btn theme={theme} size="sm" variant="soft" onClick={() => setOpen(true)}>Suggest a cold store</Btn>}
+      </div>
+      {open && (
+        <form
+          className="mt-3 grid gap-3 sm:grid-cols-2"
+          onSubmit={(ev) => {
+            ev.preventDefault();
+            void send();
+          }}
+        >
+          <Field label="Cold store name"><input className={INPUT} value={form.name} onChange={(ev) => setForm({ ...form, name: ev.target.value })} placeholder="e.g. … CA Store" /></Field>
+          <Field label="District">
+            <select className={INPUT} value={form.district} onChange={(ev) => setForm({ ...form, district: ev.target.value })}>
+              <option value="">Choose…</option>
+              {DISTRICTS.map((d) => <option key={d}>{d}</option>)}
+            </select>
+          </Field>
+          <Field label="Village / industrial area"><input className={INPUT} value={form.place} onChange={(ev) => setForm({ ...form, place: ev.target.value })} placeholder="e.g. IGC Lassipora" /></Field>
+          <Field label="Phone (if you know it)"><input type="tel" className={INPUT} value={form.phone} onChange={(ev) => setForm({ ...form, phone: ev.target.value })} /></Field>
+          <div className="flex gap-2 sm:col-span-2">
+            <Btn theme={theme} type="submit" icon={Send} disabled={busy}>{busy ? 'Sending…' : 'Send'}</Btn>
+            <Btn theme={theme} variant="ghost" onClick={() => setOpen(false)}>Cancel</Btn>
+          </div>
+        </form>
+      )}
+      {waiting.length > 0 && (
+        <p className="mt-2 text-xs text-violet-900">
+          Waiting for the KashRoot team’s check: {waiting.map((w) => `${w.name}${w.district ? ` (${w.district})` : ''}`).join(' · ')}
+        </p>
       )}
     </section>
   );

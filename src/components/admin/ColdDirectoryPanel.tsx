@@ -8,16 +8,18 @@
  *   • Import a list — a CSV / JSON file (e.g. the NHB file saved from its
  *     website, or a MoFPI / DMI list), always with where it comes from.
  *   • Add one — a cold store checked by the KashRoot team.
+ *   • Suggestions — cold stores farmers and owners say are missing: check
+ *     each one (call, visit), then Approve or Remove.
  *   • The directory — search, and remove an entry.
  * Nothing is added without a source.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Database, FileUp, Loader2, Plus, RefreshCw, Search, Trash2, Warehouse } from 'lucide-react';
+import { Check, Database, FileUp, Loader2, MessageSquarePlus, Plus, RefreshCw, Search, Trash2, Warehouse } from 'lucide-react';
 
 import { Btn, EmptyState, Field, INPUT, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { toast } from '@/lib/client/toast';
 import { NHB_DATABASE_URL, parseColdStoreList, type DirEntry, type ParsedList, type SourceState } from '@/lib/coldDirectory';
-import { addDirectoryEntry, directoryRows, importDirectory, removeDirectoryEntry, type DirectoryRow } from '@/lib/db/coldDirectory';
+import { addDirectoryEntry, approveSuggestion, directoryRows, importDirectory, removeDirectoryEntry, type DirectoryRow } from '@/lib/db/coldDirectory';
 
 const theme = PORTAL_THEMES.admin ?? PORTAL_THEMES.expert;
 const DISTRICTS = ['Anantnag', 'Bandipora', 'Baramulla', 'Budgam', 'Doda', 'Ganderbal', 'Jammu', 'Kathua', 'Kishtwar', 'Kulgam', 'Kupwara', 'Poonch', 'Pulwama', 'Rajouri', 'Ramban', 'Reasi', 'Samba', 'Shopian', 'Srinagar', 'Udhampur'];
@@ -84,13 +86,37 @@ export function ColdDirectoryPanel() {
 
   const parse = (body: string, name: string) => setFile({ name, parsed: parseColdStoreList(body, onlyJK) });
 
+  const checked = useMemo(() => (rows ?? []).filter((r) => r.status === 'approved'), [rows]);
+  const suggestions = useMemo(() => (rows ?? []).filter((r) => r.status === 'pending'), [rows]);
   const shown = useMemo(() => {
     const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    return (rows ?? []).filter((r) => words.every((w) => `${r.name} ${r.district ?? ''} ${r.place ?? ''} ${r.source}`.toLowerCase().includes(w)));
-  }, [rows, q]);
+    return checked.filter((r) => words.every((w) => `${r.name} ${r.district ?? ''} ${r.place ?? ''} ${r.source}`.toLowerCase().includes(w)));
+  }, [checked, q]);
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
+      {suggestions.length > 0 && (
+        <Panel theme={theme} title={`Suggestions to check (${suggestions.length})`} icon={MessageSquarePlus} className="lg:col-span-2">
+          <p className="mb-3 text-sm text-slate-700">Cold stores farmers and owners say are missing. Check each one (call or visit) — only then Approve, and every farmer sees it.</p>
+          <ul className="divide-y divide-slate-100 text-sm">
+            {suggestions.map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 py-2">
+                <div className="min-w-0">
+                  <p className="font-medium text-slate-900">{r.name}</p>
+                  <p className="text-xs text-slate-500">
+                    {[r.place, r.district].filter(Boolean).join(' · ')}
+                    {r.phone ? <> · <a href={`tel:${r.phone}`} className="font-semibold text-violet-700">{r.phone}</a></> : null} · sent {new Date(r.created_at).toLocaleDateString('en-IN')}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Btn theme={theme} size="sm" icon={Check} disabled={busy} onClick={() => void run(async () => { await approveSuggestion(r.id); toast.success(`${r.name} approved — farmers see it now`); await load(); })}>Approve</Btn>
+                  <Btn theme={theme} size="sm" variant="ghost" icon={Trash2} disabled={busy} onClick={() => window.confirm(`Remove the suggestion “${r.name}”?`) && void run(async () => { await removeDirectoryEntry(r.id); await load(); })}>Remove</Btn>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
       <Panel theme={theme} title="Official list (National Horticulture Board)" icon={Database}>
         <div className="space-y-3 text-sm text-slate-700">
           <p>
@@ -207,7 +233,7 @@ export function ColdDirectoryPanel() {
         </form>
       </Panel>
 
-      <Panel theme={theme} title={`KashRoot directory${rows ? ` (${rows.length.toLocaleString('en-IN')})` : ''}`} icon={Warehouse}>
+      <Panel theme={theme} title={`KashRoot directory${rows ? ` (${checked.length.toLocaleString('en-IN')})` : ''}`} icon={Warehouse}>
         <label className="relative mb-3 block">
           <span className="sr-only">Search the directory</span>
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
@@ -215,7 +241,7 @@ export function ColdDirectoryPanel() {
         </label>
         {rows === null ? (
           <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>
-        ) : rows.length === 0 ? (
+        ) : checked.length === 0 ? (
           <EmptyState theme={theme} icon={Warehouse} title="Nothing in the directory yet" text="Read the official list, import a list or add a cold store. Farmers still see the official list live while it can be reached." />
         ) : (
           <ul className="max-h-[28rem] divide-y divide-slate-100 overflow-y-auto text-sm">

@@ -79,6 +79,8 @@ export default function RentalPage() {
   const [search, setSearch] = useState('');
   // Find a cold store: every cold store in J&K, or only those on KashRoot (bookable).
   const [findView, setFindView] = useState<'all' | 'kashroot'>('all');
+  // "Your store? List it": a directory entry opened in My cold store, ready to list.
+  const [claim, setClaim] = useState<{ title: string; district: string; address: string } | null>(null);
   const [mine, setMine] = useState<RentalBooking[]>([]);
   const [incoming, setIncoming] = useState<RentalBooking[]>([]);
   const [owned, setOwned] = useState<RentalListing[]>([]);
@@ -156,7 +158,10 @@ export default function RentalPage() {
         { id: 'owner', label: 'My cold store', icon: Warehouse, count: waiting || undefined },
       ]}
       activeTab={tab}
-      onTabChange={setTab}
+      onTabChange={(id) => {
+        setTab(id);
+        setClaim(null);
+      }}
     >
       {account === null ? (
         <Panel theme={theme}>
@@ -177,7 +182,21 @@ export default function RentalPage() {
             ))}
           </div>
           {findView === 'all' ? (
-            <ColdStoreDirectory entries={directory.entries} sources={directory.sources} loading={directory.loading} reading={directory.reading} adminCount={directory.adminCount} listings={listings} onBook={setBooking} />
+            <ColdStoreDirectory
+              entries={directory.entries}
+              sources={directory.sources}
+              loading={directory.loading}
+              reading={directory.reading}
+              adminCount={directory.adminCount}
+              waiting={directory.waiting}
+              reload={directory.reload}
+              listings={listings}
+              onBook={setBooking}
+              onClaim={(e) => {
+                setClaim({ title: e.name, district: e.district ?? '', address: e.place ?? '' });
+                setTab('owner');
+              }}
+            />
           ) : (
           <>
           <p className="text-sm text-slate-700">Cold stores whose owners listed them on KashRoot: see every chamber on a plan and in 3D, choose your own place and pay the owner directly.</p>
@@ -219,7 +238,7 @@ export default function RentalPage() {
           )}
         </Panel>
       ) : (
-        <OwnerPanel account={account} owned={owned} incoming={incoming} chambers={chambers} places={places} onChange={() => refresh()} />
+        <OwnerPanel account={account} owned={owned} incoming={incoming} chambers={chambers} places={places} prefill={claim} onChange={() => refresh()} />
       )}
 
       {booking && account && chambers.some((c) => c.listing_id === booking.id) && (
@@ -406,8 +425,27 @@ function RenterBooking({ booking: b, places, chambers, onChange }: { booking: Re
   );
 }
 
-function OwnerPanel({ account, owned, incoming, chambers, places, onChange }: { account: Account; owned: RentalListing[]; incoming: RentalBooking[]; chambers: ColdChamber[]; places: BookedPlace[]; onChange: () => Promise<void> | void }) {
-  const [editing, setEditing] = useState<{ id?: string; data: ListingInput } | null>(null);
+function OwnerPanel({
+  account,
+  owned,
+  incoming,
+  chambers,
+  places,
+  prefill,
+  onChange,
+}: {
+  account: Account;
+  owned: RentalListing[];
+  incoming: RentalBooking[];
+  chambers: ColdChamber[];
+  places: BookedPlace[];
+  /** A store from the directory its owner is listing ("Your store? List it"). */
+  prefill: { title: string; district: string; address: string } | null;
+  onChange: () => Promise<void> | void;
+}) {
+  const [editing, setEditing] = useState<{ id?: string; data: ListingInput } | null>(() =>
+    prefill ? { data: { ...blankListing(account), title: prefill.title, district: prefill.district || account.district || '', address: prefill.address } } : null,
+  );
   const [mapOf, setMapOf] = useState<RentalListing | null>(null);
   const [payout, setPayout] = useState<PayoutAccount | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);

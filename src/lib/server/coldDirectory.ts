@@ -16,13 +16,13 @@ import { govFetch } from '@/lib/server/govFetch';
 
 const KEEP_MS = 12 * 60 * 60 * 1000;
 /** The most a source may take, and how long one that failed is left alone. */
-const BUDGET_MS = { nhb: 15_000, osm: 18_000 };
+const BUDGET_MS = { nhb: 15_000, osm: 25_000 };
 const RETRY_MS = 15 * 60 * 1000;
 /** NHB_COLD_STORAGE_URL (optional): another address for the same NHB file, e.g. a mirror. */
 const nhbUrl = () => process.env.NHB_COLD_STORAGE_URL?.trim() || NHB_GIS_URL;
-const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter', 'https://overpass.private.coffee/api/interpreter'];
 // Jammu & Kashmir (ISO 3166-2 IN-JK): places tagged as cold storage, or named as one.
-const OSM_QUERY = `[out:json][timeout:15];
+const OSM_QUERY = `[out:json][timeout:22];
 area["ISO3166-2"="IN-JK"]->.jk;
 (
   nwr["industrial"="cold_storage"](area.jk);
@@ -59,44 +59,52 @@ async function readNhb(fresh: boolean): Promise<DirEntry[]> {
   return parsed.entries.map((e) => ({ ...e, source: 'nhb', sourceLabel: SOURCE_LABEL.nhb, sourceUrl: NHB_GIS_URL }));
 }
 
+type OsmElement = { type: string; id: number; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> };
+
+/** One OpenStreetMap server's answer. */
+async function askOverpass(url: string, signal: AbortSignal): Promise<OsmElement[]> {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'KashRoot cold store directory' },
+    body: `data=${encodeURIComponent(OSM_QUERY)}`,
+    signal,
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error(`OpenStreetMap answered ${res.status}`);
+  return ((await res.json()) as { elements?: OsmElement[] }).elements ?? [];
+}
+
 async function readOsm(): Promise<DirEntry[]> {
-  let last: unknown;
-  for (const url of OVERPASS) {
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'KashRoot cold store directory' },
-        body: `data=${encodeURIComponent(OSM_QUERY)}`,
-        signal: AbortSignal.timeout(BUDGET_MS.osm - 2_000),
-        cache: 'no-store',
-      });
-      if (!res.ok) throw new Error(`OpenStreetMap answered ${res.status}`);
-      const data = (await res.json()) as { elements?: { type: string; id: number; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> }[] };
-      return (data.elements ?? [])
-        .filter((e) => e.tags?.name)
-        .map((e) => {
-          const t = e.tags ?? {};
-          const lat = e.lat ?? e.center?.lat ?? null;
-          const lon = e.lon ?? e.center?.lon ?? null;
-          return {
-            name: niceName(t.name).slice(0, 120),
-            district: t['addr:district'] ? niceName(t['addr:district']) : null,
-            place: [t['addr:street'], t['addr:village'] ?? t['addr:place'] ?? t['addr:city'] ?? t['addr:suburb']].filter(Boolean).join(', ') || null,
-            state: 'Jammu & Kashmir',
-            capacity_mt: null,
-            phone: (t.phone ?? t['contact:phone'] ?? '').replace(/\s/g, '').slice(0, 20) || null,
-            lat,
-            lon,
-            source: 'osm' as const,
-            sourceLabel: SOURCE_LABEL.osm,
-            sourceUrl: `https://www.openstreetmap.org/${e.type}/${e.id}`,
-          };
-        });
-    } catch (err) {
-      last = err;
-    }
+  // Several OpenStreetMap servers at once: the first answer counts, the others are stopped.
+  const stop = new AbortController();
+  const signal = AbortSignal.any([stop.signal, AbortSignal.timeout(BUDGET_MS.osm - 1_000)]);
+  let elements: OsmElement[];
+  try {
+    elements = await Promise.any(OVERPASS.map((url) => askOverpass(url, signal)));
+  } catch (err) {
+    const first = err instanceof AggregateError ? err.errors[0] : err;
+    throw first instanceof Error ? first : new Error('OpenStreetMap could not be reached');
+  } finally {
+    stop.abort();
   }
-  throw last instanceof Error ? last : new Error('OpenStreetMap could not be reached');
+  return elements
+    .filter((e) => e.tags?.name)
+    .map((e) => {
+      const t = e.tags ?? {};
+      return {
+        name: niceName(t.name).slice(0, 120),
+        district: t['addr:district'] ? niceName(t['addr:district']) : null,
+        place: [t['addr:street'], t['addr:village'] ?? t['addr:place'] ?? t['addr:city'] ?? t['addr:suburb']].filter(Boolean).join(', ') || null,
+        state: 'Jammu & Kashmir',
+        capacity_mt: null,
+        phone: (t.phone ?? t['contact:phone'] ?? '').replace(/\s/g, '').slice(0, 20) || null,
+        lat: e.lat ?? e.center?.lat ?? null,
+        lon: e.lon ?? e.center?.lon ?? null,
+        source: 'osm' as const,
+        sourceLabel: SOURCE_LABEL.osm,
+        sourceUrl: `https://www.openstreetmap.org/${e.type}/${e.id}`,
+      };
+    });
 }
 
 async function source(id: 'nhb' | 'osm', read: (fresh: boolean) => Promise<DirEntry[]>, fresh: boolean): Promise<{ entries: DirEntry[]; state: SourceState }> {
