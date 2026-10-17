@@ -2,8 +2,9 @@
 
 /**
  * One chamber drawn to scale from its measured size (lib/coldLayout): the
- * walls with the door, the walkway, and every stack where it really stands,
- * with the measurements written on the drawing. Row 1 is by the door (at the
+ * walls with the door and windows where the owner measured them, the
+ * walkway, and every stack where it really stands, with the measurements
+ * written on the drawing. Row 1 is by the door (at the
  * bottom), stacks are counted from the left wall. A shared place shows how
  * full it is and the boxes that still fit. Tap a place to choose it
  * (booking), to see whose it is or mark a pillar (owner).
@@ -11,11 +12,19 @@
 import { useId } from 'react';
 
 import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
-import { layersText, planOf, showLength, type ChamberPlan, type ChamberSize } from '@/lib/coldLayout';
+import { layersText, planOf, showLength, type ChamberPlan, type ChamberSize, type WindowSize } from '@/lib/coldLayout';
 import { placeKey, placeLabel, placeName, type ColdChamber } from '@/lib/db/coldMap';
 
 /** Drawing margins (px) for row labels, stack numbers, measurements and the door. */
-const M = { l: 64, r: 74, t: 64, b: 54 };
+const M = { l: 64, r: 74, t: 64, b: 76 };
+
+const WALL_NAME = { front: 'door wall', back: 'back wall', left: 'left wall', right: 'right wall' } as const;
+
+/** "Window 1: left wall, 10 ft from the door wall, 3 ft × 2 ft, 12 ft above the floor". */
+export function windowText(win: WindowSize, i: number, unit: ChamberSize['unit']): string {
+  const from = win.wall === 'front' || win.wall === 'back' ? 'from the left wall' : 'from the door wall';
+  return `Window ${i + 1}: ${WALL_NAME[win.wall]}, ${showLength(win.at, unit)} ${from}, ${showLength(win.width, unit)} wide × ${showLength(win.height, unit)} high, ${showLength(win.sill, unit)} above the floor`;
+}
 /** A place is never drawn smaller than this (px), so it stays easy to tap. */
 const MIN_PLACE = 30;
 /** The room is drawn about this wide (px) when places allow. */
@@ -116,6 +125,27 @@ export function ChamberDiagram({
   const doorL = X(plan.doorX[0]);
   const doorR = X(plan.doorX[1]);
   const wall = '#475569';
+  // A window: an opening in its wall, drawn as glass across the wall line.
+  const windowMark = (win: WindowSize, i: number) => {
+    const T = 10;
+    const along = win.wall === 'front' || win.wall === 'back';
+    const x = along ? X(win.at) : win.wall === 'left' ? M.l - T / 2 : M.l + w - T / 2;
+    const y = along ? (win.wall === 'back' ? M.t - T / 2 : M.t + h - T / 2) : Y(win.at + win.width);
+    const ww = along ? win.width * k : T;
+    const hh = along ? T : win.width * k;
+    const tx = along ? x + ww / 2 : win.wall === 'left' ? M.l + 12 : M.l + w - 12;
+    const ty = along ? (win.wall === 'back' ? M.t + 16 : M.t + h - 12) : y + hh / 2;
+    return (
+      <g key={i}>
+        <title>{windowText(win, i, u)}</title>
+        <rect x={x} y={y} width={ww} height={hh} fill="#e0f2fe" stroke="#0284c7" strokeWidth={1.5} />
+        {along ? <line x1={x} y1={y + T / 2} x2={x + ww} y2={y + T / 2} stroke="#0284c7" strokeWidth={1} /> : <line x1={x + T / 2} y1={y} x2={x + T / 2} y2={y + hh} stroke="#0284c7" strokeWidth={1} />}
+        <text x={tx} y={ty} textAnchor={along ? 'middle' : win.wall === 'left' ? 'start' : 'end'} dominantBaseline="central" fontSize={11} fontWeight={700} fill="#0369a1" paintOrder="stroke" stroke="#f8fafc" strokeWidth={3}>
+          {`W${i + 1}`}
+        </text>
+      </g>
+    );
+  };
 
   return (
     <div className="overflow-x-auto overscroll-x-contain pb-2">
@@ -171,9 +201,18 @@ export function ChamberDiagram({
         </g>
         <g aria-hidden>
           <path d={`M${doorL},${M.t + h} A${doorR - doorL},${doorR - doorL} 0 0 0 ${doorR},${M.t + h - (doorR - doorL)}`} fill="none" stroke="#d97706" strokeDasharray="3 3" strokeWidth={1.2} opacity={0.6} />
-          <text x={(doorL + doorR) / 2} y={M.t + h + 20} textAnchor="middle" fontSize={12} fontWeight={700} letterSpacing="0.16em" fill="#b45309">DOOR</text>
+          <text x={(doorL + doorR) / 2} y={M.t + h + 20} textAnchor="middle" fontSize={12} fontWeight={700} letterSpacing="0.16em" fill="#b45309">{`DOOR · ${showLength(plan.doorX[1] - plan.doorX[0], u)} × ${showLength(plan.doorH, u)}`}</text>
           <text x={(doorL + doorR) / 2} y={M.t + h + 36} textAnchor="middle" fontSize={11} fill="#64748b">you enter here · Row 1 is nearest</text>
+          {plan.doorSet && plan.doorX[0] > 0.05 && (
+            <g stroke="#b45309" strokeWidth={1} fill="#b45309" fontSize={11} fontWeight={600}>
+              <line x1={M.l} y1={M.t + h + 54} x2={doorL} y2={M.t + h + 54} markerStart={`url(#arr-${uid})`} markerEnd={`url(#arr-${uid})`} />
+              <text x={(M.l + doorL) / 2} y={M.t + h + 68} textAnchor="middle" stroke="none">{`${showLength(plan.doorX[0], u)} from the left wall`}</text>
+            </g>
+          )}
         </g>
+
+        {/* Windows and vents, where the owner measured them */}
+        {plan.windows.length > 0 && <g aria-hidden>{plan.windows.map(windowMark)}</g>}
 
         {/* Row and stack numbers */}
         <g aria-hidden fontSize={11} fill="#334155" fontWeight={600}>
@@ -206,6 +245,11 @@ export function ChamberDiagram({
       <p className="mt-1 text-center text-xs text-slate-600">
         Height {showLength(size.height, u)} · each place {showLength(plan.placeW, u)} × {showLength(plan.placeD, u)}: {layersText(plan)} = <strong>{c.boxes_per_slot.toLocaleString('en-IN')} boxes</strong>, stacked {showLength(plan.stackHeight, u)} high
       </p>
+      {plan.windows.length > 0 && (
+        <ul aria-label={`${c.name}: windows`} className="mt-1 space-y-0.5 text-center text-xs text-sky-900">
+          {plan.windows.map((win, i) => <li key={i}>{windowText(win, i, u)}</li>)}
+        </ul>
+      )}
     </div>
   );
 }

@@ -186,6 +186,16 @@ function MiniToScale({ chamber: c, k, stateOf }: { chamber: ColdChamber; k: numb
     <svg aria-hidden width={w + 2} height={h + 2} className="mt-2" role="presentation">
       <rect x={1} y={1} width={w} height={h} fill="#f8fafc" stroke="#94a3b8" />
       {plan.aisleX && <rect x={1 + plan.aisleX[0] * k} y={1} width={(plan.aisleX[1] - plan.aisleX[0]) * k} height={h} fill="#fef3c7" />}
+      <line x1={1 + plan.doorX[0] * k} y1={h + 1} x2={1 + plan.doorX[1] * k} y2={h + 1} stroke="#d97706" strokeWidth={3} />
+      {plan.windows.map((win, i) => {
+        const along = win.wall === 'front' || win.wall === 'back';
+        const y = win.wall === 'back' ? 1 : h + 1;
+        return along ? (
+          <line key={i} x1={1 + win.at * k} y1={y} x2={1 + (win.at + win.width) * k} y2={y} stroke="#0284c7" strokeWidth={3} />
+        ) : (
+          <line key={i} x1={win.wall === 'left' ? 1 : w + 1} y1={Y(win.at)} x2={win.wall === 'left' ? 1 : w + 1} y2={Y(win.at + win.width)} stroke="#0284c7" strokeWidth={3} />
+        );
+      })}
       {placesOf(c)
         .filter(([r, i]) => r <= plan.rows && i < plan.cols)
         .map(([r, i, slot]) => (

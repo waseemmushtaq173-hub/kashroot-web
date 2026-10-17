@@ -10,6 +10,11 @@
  * one place (boxes per layer × layers) and where each place is, in metres —
  * for the to-scale diagram, the 3D view and directions for farmers.
  *
+ * The door is where the owner measured it in the front wall (else in the
+ * middle), and the walkway runs straight in from it. Windows and vents are
+ * placed on whichever wall the owner says, at the distance, size and height
+ * above the floor they measured.
+ *
  * The store's standards (box size, base, walkway, gaps) start from common
  * values and the owner can change every one of them — and the owner can give
  * their own count of boxes on each place, which then counts instead of the
@@ -19,6 +24,31 @@
  */
 
 export type SizeUnit = 'ft' | 'm';
+
+/** The four walls. Front is the door wall; left and right as you stand in the door facing in. */
+export type Wall = 'front' | 'back' | 'left' | 'right';
+export const WALLS: Wall[] = ['front', 'back', 'left', 'right'];
+
+/** A door in the front wall: `at` from the left wall to its left edge. */
+export interface DoorSize {
+  at: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * A window or vent. `at` is measured along its wall: on the front and back
+ * walls from the left wall, on the left and right walls from the door wall,
+ * to its nearest edge. `sill` is its height above the floor.
+ */
+export interface WindowSize {
+  wall: Wall;
+  at: number;
+  width: number;
+  height: number;
+  sill: number;
+}
+export const MAX_WINDOWS = 12;
 
 export interface ChamberSize {
   /** How the owner typed the sizes (stored values are always metres). */
@@ -47,7 +77,14 @@ export interface ChamberSize {
   doorGap: number;
   /** The owner's own count of boxes on each place; unset = as many as fit. */
   boxes?: number;
+  /** Where the door is in the front wall; unset = in the middle. */
+  door?: DoorSize;
+  /** Windows and vents. */
+  windows?: WindowSize[];
 }
+
+/** How long a wall is: front and back walls are the breadth, left and right the length. */
+export const wallLength = (s: Pick<ChamberSize, 'length' | 'width'>, wall: Wall) => (wall === 'front' || wall === 'back' ? s.width : s.length);
 
 /** Common values; the owner changes them to match their store. */
 export const STANDARDS: Omit<ChamberSize, 'unit' | 'length' | 'width' | 'height'> = {
@@ -77,6 +114,12 @@ export interface ChamberPlan {
   aisleX: [number, number] | null;
   /** Where the door is in the front wall: from x0 to x1. */
   doorX: [number, number];
+  /** How high the door is. */
+  doorH: number;
+  /** The door is where the owner measured it (not just in the middle). */
+  doorSet: boolean;
+  /** Windows and vents that fit on their walls. */
+  windows: WindowSize[];
   /** One place as laid in the room: across the breadth (w) and along the length (d). */
   placeW: number;
   placeD: number;
@@ -116,10 +159,27 @@ function boxesPerLayer(place: { l: number; w: number }, box: { l: number; w: num
   return Math.max(a, b);
 }
 
-/** Stacks across the breadth, with the walkway in the middle when there is room for stacks on both sides. */
-function across(width: number, pw: number, s: ChamberSize) {
+/**
+ * Stacks across the breadth. The walkway runs in from the door: in the middle
+ * when there is room for stacks on both sides, or (`door` given) straight in
+ * from where the door is, with stacks packed against it on either side.
+ */
+function across(width: number, pw: number, s: ChamberSize, door: number | null) {
   const g = s.stackGap;
   const usable = width - 2 * s.wallGap;
+  if (s.aisle > 0 && door !== null && usable >= s.aisle) {
+    const a0 = Math.min(Math.max(door - s.aisle / 2, s.wallGap), width - s.wallGap - s.aisle);
+    const a1 = a0 + s.aisle;
+    const left = fit(a0 - s.wallGap, pw, g);
+    const right = fit(width - s.wallGap - a1, pw, g);
+    if (left + right >= 1) {
+      const colX = [
+        ...Array.from({ length: left }, (_, i) => a0 - (left - i) * (pw + g) + g),
+        ...Array.from({ length: right }, (_, i) => a1 + i * (pw + g)),
+      ];
+      return { colX, aisleAfter: left, aisleX: [a0, a1] as [number, number] };
+    }
+  }
   const centre = (n: number, from: number, room: number) => {
     const block = n * (pw + g) - g;
     const x0 = from + (room - block) / 2;
@@ -147,8 +207,8 @@ function across(width: number, pw: number, s: ChamberSize) {
   return { colX: centre(n, s.wallGap, usable), aisleAfter: null, aisleX: null };
 }
 
-function layout(s: ChamberSize, pw: number, pd: number) {
-  const a = across(s.width, pw, s);
+function layout(s: ChamberSize, pw: number, pd: number, door: number | null) {
+  const a = across(s.width, pw, s, door);
   const rows = fit(s.length - s.doorGap - s.wallGap, pd, s.stackGap);
   return { ...a, rows, cols: a.colX.length, pw, pd };
 }
@@ -165,6 +225,23 @@ export function planChamber(s: ChamberSize): ChamberPlan {
   if (!ok(s.box.l, 0.1, 2) || !ok(s.box.w, 0.1, 2) || !ok(s.box.h, 0.05, 2)) problems.push('Check the box size.');
   if (!ok(s.place.l, 0.2, 5) || !ok(s.place.w, 0.2, 5)) problems.push('Check the size of a stack base (pallet).');
   if (![s.base, s.aisle, s.wallGap, s.stackGap, s.topGap, s.doorGap].every((n) => ok(n, 0, 10))) problems.push('Check the walkway and gap sizes.');
+  const door = s.door;
+  if (door && !problems.length) {
+    if (![door.at, door.width, door.height].every(Number.isFinite)) problems.push('Enter the door: how far it is from the left wall, its width and its height (or leave all three empty for a door in the middle).');
+    else if (!ok(door.width, 0.5, s.width) || !ok(door.at, 0, s.width) || door.at + door.width > s.width * (1 + ROOM_SLACK)) problems.push('The door does not fit in the front wall — check how far it is from the left wall and how wide it is.');
+    else if (!ok(door.height, 1, s.height * (1 + ROOM_SLACK))) problems.push('The door must be at least 1 m (3.3 ft) high and no higher than the ceiling.');
+  }
+  const windows: WindowSize[] = [];
+  (s.windows ?? []).slice(0, MAX_WINDOWS).forEach((win, i) => {
+    if (problems.length) return;
+    const along = wallLength(s, win.wall);
+    const name = `Window ${i + 1}`;
+    if (!WALLS.includes(win.wall) || !ok(win.width, 0.05, along) || !ok(win.height, 0.05, s.height) || !ok(win.at, 0, along) || !ok(win.sill, 0, s.height)) problems.push(`${name}: enter how far along the wall it is, its width and height, and how high it is from the floor.`);
+    else if (win.at + win.width > along * (1 + ROOM_SLACK)) problems.push(`${name} goes past the end of the ${win.wall} wall — check how far along it is and its width.`);
+    else if (win.sill + win.height > s.height * (1 + ROOM_SLACK)) problems.push(`${name} goes above the ceiling — check its height and how high it is from the floor.`);
+    else if (win.wall === 'front' && door && win.at < door.at + door.width && door.at < win.at + win.width && win.sill < door.height) problems.push(`${name} overlaps the door.`);
+    else windows.push(win);
+  });
 
   const perLayer = problems.length ? 0 : boxesPerLayer(s.place, s.box);
   const layers = problems.length ? 0 : Math.max(0, Math.floor((s.height - s.topGap - s.base) / s.box.h + BOX_SLACK));
@@ -174,8 +251,9 @@ export function planChamber(s: ChamberSize): ChamberPlan {
   // Turn the bases whichever way fits more places.
   let best = { colX: [] as number[], aisleAfter: null as number | null, aisleX: null as [number, number] | null, rows: 0, cols: 0, pw: s.place.w, pd: s.place.l };
   if (!problems.length) {
-    const a = layout(s, s.place.w, s.place.l);
-    const b = layout(s, s.place.l, s.place.w);
+    const centre = door ? door.at + door.width / 2 : null;
+    const a = layout(s, s.place.w, s.place.l, centre);
+    const b = layout(s, s.place.l, s.place.w, centre);
     best = b.rows * b.cols > a.rows * a.cols ? b : a;
     if (best.rows < 1 || best.cols < 1) problems.push('The chamber is too small for one stack with these gaps and walkway.');
   }
@@ -208,10 +286,16 @@ export function planChamber(s: ChamberSize): ChamberPlan {
   const used = perLayer ? Math.ceil(boxesPerPlace / perLayer) : 0;
   if (boxesPerPlace > 5000) problems.push('More than 5,000 boxes on one place — check the sizes.');
 
-  // The door: in front of the walkway, or in the middle.
-  const doorW = Math.min(s.width * 0.4, Math.max(1.2, aisleX ? aisleX[1] - aisleX[0] : 1.8));
-  const doorMid = aisleX ? (aisleX[0] + aisleX[1]) / 2 : s.width / 2;
-  const doorX: [number, number] = [Math.max(0, doorMid - doorW / 2), Math.min(s.width, doorMid + doorW / 2)];
+  // The door: where the owner measured it, else in front of the walkway (or in the middle).
+  let doorX: [number, number];
+  if (door && !problems.length) doorX = [door.at, Math.min(s.width, door.at + door.width)];
+  else {
+    const doorW = Math.min(s.width * 0.4, Math.max(1.2, aisleX ? aisleX[1] - aisleX[0] : 1.8));
+    const doorMid = aisleX ? (aisleX[0] + aisleX[1]) / 2 : s.width / 2;
+    doorX = [Math.max(0, doorMid - doorW / 2), Math.min(s.width, doorMid + doorW / 2)];
+  }
+  const doorH = door && !problems.length ? Math.min(door.height, s.height) : Math.min(3, Math.max(0, s.height) * 0.7);
+  if (!problems.length && door && aisleX && (aisleX[1] < doorX[0] || aisleX[0] > doorX[1])) notes.push('The walkway cannot start right at the door (it is too close to a wall), so it runs as near to it as fits.');
 
   if (!problems.length) {
     const backSpare = s.length - s.wallGap - (rowZ.at(-1) ?? 0) - best.pd;
@@ -223,7 +307,10 @@ export function planChamber(s: ChamberSize): ChamberPlan {
     cols: problems.length ? 0 : cols,
     aisleAfter: problems.length ? null : aisleAfter,
     aisleX: problems.length ? null : aisleX,
-    doorX,
+    doorX: [round(doorX[0]), round(doorX[1])],
+    doorH: round(doorH),
+    doorSet: Boolean(door) && !problems.length,
+    windows: problems.length ? [] : windows,
     placeW: best.pw,
     placeD: best.pd,
     colX: problems.length ? [] : colX.map(round),
@@ -274,8 +361,21 @@ export function asChamberSize(v: unknown): ChamberSize | null {
   const num = (n: unknown) => typeof n === 'number' && Number.isFinite(n);
   if (![s.length, s.width, s.height, s.base, s.aisle, s.wallGap, s.stackGap, s.topGap, s.doorGap].every(num)) return null;
   if (!s.box || !s.place || ![s.box.l, s.box.w, s.box.h, s.place.l, s.place.w].every(num)) return null;
-  const { boxes, ...rest } = s as ChamberSize;
-  return { ...rest, unit: s.unit === 'ft' ? 'ft' : 'm', ...(num(boxes) && boxes! >= 1 ? { boxes: Math.floor(boxes!) } : {}) };
+  const { boxes, door, windows, ...rest } = s as ChamberSize;
+  const d = door && typeof door === 'object' && [door.at, door.width, door.height].every(num) ? { at: door.at, width: door.width, height: door.height } : null;
+  const ws = Array.isArray(windows)
+    ? windows
+        .filter((w) => w && typeof w === 'object' && WALLS.includes(w.wall) && [w.at, w.width, w.height, w.sill].every(num))
+        .slice(0, MAX_WINDOWS)
+        .map((w) => ({ wall: w.wall, at: w.at, width: w.width, height: w.height, sill: w.sill }))
+    : [];
+  return {
+    ...rest,
+    unit: s.unit === 'ft' ? 'ft' : 'm',
+    ...(num(boxes) && boxes! >= 1 ? { boxes: Math.floor(boxes!) } : {}),
+    ...(d ? { door: d } : {}),
+    ...(ws.length ? { windows: ws } : {}),
+  };
 }
 
 /**

@@ -7,7 +7,7 @@
  * violet, your choice is green. Drag to turn, pinch / scroll to zoom, tap a
  * place to choose it (when booking) or to see whose it is (owner).
  * A chamber with a measured size is built to scale in metres: its walls,
- * height, door and walkway, and every stack where it stands, as many boxes
+ * height, the door and windows where the owner measured them, the walkway, and every stack where it stands, as many boxes
  * high as the store stacks them (lib/coldLayout).
  *
  * three.js is imported inside the effect (only when this view opens), the
@@ -223,6 +223,7 @@ export function ColdStore3D({
       const floorMat = new THREE.MeshStandardMaterial({ color: '#f8fafc', roughness: 1 });
       const corridorMat = new THREE.MeshStandardMaterial({ color: '#fde9b0', roughness: 1 });
       const doorMat = new THREE.MeshStandardMaterial({ color: '#f59e0b', roughness: 0.8 });
+      const glassMat = new THREE.MeshStandardMaterial({ color: '#38bdf8', emissive: '#0ea5e9', emissiveIntensity: 0.25, transparent: true, opacity: 0.75, roughness: 0.2 });
       const wallMat = new THREE.MeshStandardMaterial({ color: '#64748b', transparent: true, opacity: 0.32, depthWrite: false });
       const hover = new THREE.LineSegments(new THREE.EdgesGeometry(unitBox), new THREE.LineBasicMaterial({ color: '#0f172a' }));
       hover.visible = false;
@@ -300,7 +301,7 @@ export function ColdStore3D({
           // Sprites share one geometry inside three.js; instanced meshes free their own buffers.
           if (o instanceof THREE.InstancedMesh) o.dispose();
           else if (m.geometry && m.geometry !== unitBox && !(o instanceof THREE.Sprite)) m.geometry.dispose();
-          if (m.material && ![stackMat, tileMat, floorMat, corridorMat, doorMat, wallMat, aisleMat, edgeMat, tallWallMat, ghostMat].includes(m.material as never)) {
+          if (m.material && ![stackMat, tileMat, floorMat, corridorMat, doorMat, glassMat, wallMat, aisleMat, edgeMat, tallWallMat, ghostMat].includes(m.material as never)) {
             m.material.map?.dispose();
             m.material.dispose();
           }
@@ -337,8 +338,8 @@ export function ColdStore3D({
           const [d0, d1] = r.sized ? r.sized.plan.doorX : [(r.w - Math.min(1.6, r.w * 0.4)) / 2, (r.w + Math.min(1.6, r.w * 0.4)) / 2];
           const doorW = d1 - d0;
           if (r.sized) {
-            // Cut away: no front wall, so the inside is in plain view — just the door frame.
-            const doorH = Math.min(3, H * 0.7);
+            // Cut away: no front wall, so the inside is in plain view — just the door frame, as high as measured.
+            const doorH = r.sized.plan.doorH;
             box(0.14, doorH, 0.14, r.x0 + d0, doorH / 2, 0, doorMat);
             box(0.14, doorH, 0.14, r.x0 + d1, doorH / 2, 0, doorMat);
             box(doorW + 0.14, 0.14, 0.14, r.x0 + (d0 + d1) / 2, doorH, 0, doorMat);
@@ -352,6 +353,19 @@ export function ColdStore3D({
             const outline = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(r.w, H, r.d)), edgeMat);
             outline.position.set(cx, H / 2, -r.d / 2);
             group.add(outline);
+            // Windows and vents: glass in their walls (the front ones stand in the cut-away front wall).
+            r.sized.plan.windows.forEach((win, i) => {
+              const y = win.sill + win.height / 2;
+              const along = win.wall === 'front' || win.wall === 'back';
+              const z = win.wall === 'back' ? -r.d : 0;
+              const m = along
+                ? box(win.width, win.height, 0.18, r.x0 + win.at + win.width / 2, y, z, glassMat)
+                : box(0.18, win.height, win.width, win.wall === 'left' ? r.x0 : r.x0 + r.w, y, -(win.at + win.width / 2), glassMat);
+              m.renderOrder = 2;
+              const t = rowTag(`W${i + 1}`);
+              t.position.set(m.position.x + (win.wall === 'left' ? 0.5 : win.wall === 'right' ? -0.5 : 0), win.sill + win.height + 0.35, m.position.z + (win.wall === 'back' ? 0.4 : win.wall === 'front' ? -0.4 : 0));
+              group.add(t);
+            });
             const a = r.sized.plan.aisleX;
             if (a) {
               box(a[1] - a[0], 0.02, r.d - 0.1, r.x0 + (a[0] + a[1]) / 2, 0.012, -r.d / 2, aisleMat);
@@ -591,7 +605,7 @@ export function ColdStore3D({
         ro.disconnect();
         controls.dispose();
         disposeGroup(group);
-        for (const x of [unitBox, hover.geometry, stackMat, tileMat, floorMat, corridorMat, doorMat, wallMat, aisleMat, edgeMat, tallWallMat, ghostMat, crateTex, faceTex, hover.material as { dispose: () => void }]) x.dispose();
+        for (const x of [unitBox, hover.geometry, stackMat, tileMat, floorMat, corridorMat, doorMat, glassMat, wallMat, aisleMat, edgeMat, tallWallMat, ghostMat, crateTex, faceTex, hover.material as { dispose: () => void }]) x.dispose();
         renderer.dispose();
         renderer.forceContextLoss();
         renderer.domElement.remove();

@@ -13,18 +13,20 @@
  *                     in 3D. The store's standards (box size, stack base,
  *                     walkway, air gaps) start from common values and can be
  *                     changed, and the owner can write their own count of
- *                     boxes on each place. Tap a place to mark a pillar
+ *                     boxes on each place. The door and windows go where
+ *                     the owner measured them; the drawing and 3D view
+ *                     redraw as they type. Tap a place to mark a pillar
  *                     "no place here".
  * Capacity and vacancy of the store are counted from the map.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Boxes, Layers, Phone, Plus, Ruler, Save, Trash2, TriangleAlert } from 'lucide-react';
+import { AppWindow, Boxes, DoorOpen, Layers, Phone, Plus, Ruler, Save, Trash2, TriangleAlert, X } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { ChamberGrid, ColdStoreExplorer, PlaceLegend, type Look } from '@/components/rental/ColdStoreMap';
 import { niceDate, placesText } from '@/components/rental/ColdBooking';
 import { Badge, Btn, Field, INPUT, Modal, PORTAL_THEMES } from '@/components/portal/kit';
-import { FOOT, INCH, layersText, planOf, showLength, STANDARDS, type ChamberSize, type SizeUnit } from '@/lib/coldLayout';
+import { FOOT, INCH, layersText, MAX_WINDOWS, planOf, showLength, STANDARDS, type ChamberSize, type SizeUnit, type Wall } from '@/lib/coldLayout';
 import { inr } from '@/lib/db/client';
 import { deleteChamber, parsePlace, periodEnd, placeKey, roomOn, saveChamber, takenPlaces, type BookedPlace, type ColdChamber, type PlaceInfo } from '@/lib/db/coldMap';
 import { BOOKING_STATUS, type RentalBooking, type RentalListing } from '@/lib/db/rentals';
@@ -52,17 +54,44 @@ interface Draft {
   doorGap: string;
   /** The owner's own count of boxes on each place; empty = as many as fit. */
   boxes: string;
+  /** The door in the front wall: from the left wall, width, height (all empty = in the middle). */
+  doorAt: string;
+  doorW: string;
+  doorH: string;
+  windows: WindowDraft[];
   blocked: Set<string>;
 }
-type SizeField = Exclude<keyof Draft, 'name' | 'unit' | 'blocked' | 'boxes'>;
+/** A window as typed, in the room's unit. */
+interface WindowDraft {
+  wall: Wall;
+  at: string;
+  width: string;
+  height: string;
+  sill: string;
+}
+const WINDOW_FIELDS = ['at', 'width', 'height', 'sill'] as const;
+const WALL_OPTIONS: [Wall, string][] = [
+  ['left', 'Left wall'],
+  ['right', 'Right wall'],
+  ['back', 'Back wall'],
+  ['front', 'Door wall (front)'],
+];
+type SizeField = Exclude<keyof Draft, 'name' | 'unit' | 'blocked' | 'boxes' | 'windows'>;
 const BOX_FIELDS: SizeField[] = ['boxL', 'boxW', 'boxH'];
 
 /** Metres per unit typed: the room in feet / metres, the box in inches / cm. */
 const per = (unit: SizeUnit, field: SizeField) => (BOX_FIELDS.includes(field) ? (unit === 'ft' ? INCH : 0.01) : unit === 'ft' ? FOOT : 1);
-/** Box sizes to a tenth of an inch / cm, everything else to a hundredth of a foot / metre. */
+/**
+ * Box sizes to a tenth of an inch / cm, everything else to a hundredth of a
+ * foot / metre — one more digit when needed so that switching feet ⇄ metres
+ * and back never changes a measurement (5 ft = 1.524 m, not 1.52 m).
+ */
 const show = (m: number, unit: SizeUnit, field: SizeField) => {
   const r = BOX_FIELDS.includes(field) ? 10 : 100;
-  return String(Math.round((m / per(unit, field)) * r) / r);
+  const other: SizeUnit = unit === 'ft' ? 'm' : 'ft';
+  const inOther = (metres: number) => Math.round((metres / per(other, field)) * r);
+  const short = Math.round((m / per(unit, field)) * r) / r;
+  return String(inOther(short * per(unit, field)) === inOther(m) ? short : Math.round((m / per(unit, field)) * r * 10) / (r * 10));
 };
 const num = (s: string) => (s.trim() === '' ? NaN : Number(s));
 
@@ -88,6 +117,10 @@ function draftFrom(size: ChamberSize | null, name: string, blocked: string[], un
     topGap: v(st.topGap, 'topGap'),
     doorGap: v(st.doorGap, 'doorGap'),
     boxes: size?.boxes ? String(size.boxes) : '',
+    doorAt: size?.door ? show(size.door.at, u, 'doorAt') : '',
+    doorW: size?.door ? show(size.door.width, u, 'doorW') : '',
+    doorH: size?.door ? show(size.door.height, u, 'doorH') : '',
+    windows: (size?.windows ?? []).map((w) => ({ wall: w.wall, at: show(w.at, u, 'length'), width: show(w.width, u, 'length'), height: show(w.height, u, 'length'), sill: show(w.sill, u, 'length') })),
     blocked: new Set(blocked),
   };
 }
@@ -110,6 +143,10 @@ function sizeOf(d: Draft): ChamberSize | null {
     topGap: m('topGap'),
     doorGap: m('doorGap'),
     ...(d.boxes.trim() ? { boxes: num(d.boxes) } : {}),
+    ...([d.doorAt, d.doorW, d.doorH].some((v) => v.trim()) ? { door: { at: m('doorAt'), width: m('doorW'), height: m('doorH') } } : {}),
+    ...(d.windows.length
+      ? { windows: d.windows.map((w) => ({ wall: w.wall, at: num(w.at) * per(d.unit, 'length'), width: num(w.width) * per(d.unit, 'length'), height: num(w.height) * per(d.unit, 'length'), sill: num(w.sill) * per(d.unit, 'length') })) }
+      : {}),
   };
 }
 
@@ -290,18 +327,34 @@ export function ColdMapEditor({
       if (d.unit === unit) return d;
       const next = { ...d, unit };
       for (const f of Object.keys(d) as (keyof Draft)[]) {
-        if (f === 'name' || f === 'unit' || f === 'blocked' || f === 'boxes') continue;
+        if (f === 'name' || f === 'unit' || f === 'blocked' || f === 'boxes' || f === 'windows') continue;
         const v = num(d[f]);
         next[f] = Number.isFinite(v) ? show(v * per(d.unit, f), unit, f) : d[f];
       }
+      next.windows = d.windows.map((w) => {
+        const out = { ...w };
+        for (const f of WINDOW_FIELDS) {
+          const v = num(w[f]);
+          if (Number.isFinite(v)) out[f] = show(v * per(d.unit, 'length'), unit, 'length');
+        }
+        return out;
+      });
       return next;
     });
-  const set = (k: Exclude<keyof Draft, 'unit' | 'blocked'>, v: string) => setDraft((d) => ({ ...d, [k]: v }));
+  const set = (k: Exclude<keyof Draft, 'unit' | 'blocked' | 'windows'>, v: string) => setDraft((d) => ({ ...d, [k]: v }));
+  const setWindow = (i: number, patch: Partial<WindowDraft>) => setDraft((d) => ({ ...d, windows: d.windows.map((w, j) => (j === i ? { ...w, ...patch } : w)) }));
+  const addWindow = () => setDraft((d) => (d.windows.length >= MAX_WINDOWS ? d : { ...d, windows: [...d.windows, { wall: 'left', at: '', width: '', height: '', sill: '' }] }));
+  const removeWindow = (i: number) => setDraft((d) => ({ ...d, windows: d.windows.filter((_, j) => j !== i) }));
   const big = draft.unit === 'ft' ? 'ft' : 'm';
   const small = draft.unit === 'ft' ? 'in' : 'cm';
-  const sizeInput = (k: SizeField, label: string, hint?: string) => (
+  const sizeInput = (k: SizeField, label: string, hint?: string, placeholder?: string) => (
     <Field label={`${label} (${BOX_FIELDS.includes(k) ? small : big})`} hint={hint}>
-      <input type="number" inputMode="decimal" min={0} step="any" className={INPUT} value={draft[k]} onChange={(e) => set(k, e.target.value)} />
+      <input type="number" inputMode="decimal" min={0} step="any" className={INPUT} value={draft[k]} placeholder={placeholder} onChange={(e) => set(k, e.target.value)} />
+    </Field>
+  );
+  const windowInput = (i: number, f: (typeof WINDOW_FIELDS)[number], label: string) => (
+    <Field label={`${label} (${big})`}>
+      <input type="number" inputMode="decimal" min={0} step="any" className={INPUT} value={draft.windows[i][f]} onChange={(e) => setWindow(i, { [f]: e.target.value })} />
     </Field>
   );
 
@@ -415,6 +468,43 @@ export function ColdMapEditor({
               {sizeInput('width', 'Breadth, wall to wall')}
               {sizeInput('height', 'Height, floor to ceiling')}
             </div>
+
+            <fieldset className="space-y-3 rounded-2xl bg-amber-50/70 p-3 ring-1 ring-amber-200">
+              <legend className="sr-only">Door and windows</legend>
+              <p className="flex items-center gap-2 text-sm font-semibold text-amber-950"><DoorOpen className="h-4 w-4" aria-hidden /> Door and windows — placed exactly where you measure them</p>
+              <p className="text-xs text-amber-900">Stand in the doorway facing in: the left wall is on your left. Leave the door empty to put it in the middle. The walkway runs straight in from the door.</p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {sizeInput('doorAt', 'Door: from the left wall', 'Left wall to the edge of the door', 'middle')}
+                {sizeInput('doorW', 'Door width', undefined, draft.unit === 'ft' ? 'e.g. 6' : 'e.g. 1.8')}
+                {sizeInput('doorH', 'Door height', undefined, draft.unit === 'ft' ? 'e.g. 9' : 'e.g. 2.7')}
+              </div>
+              {draft.windows.map((w, i) => (
+                <div key={i} role="group" aria-label={`Window ${i + 1}`} className="space-y-2 rounded-xl bg-white p-3 ring-1 ring-sky-200">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="flex items-center gap-2 text-sm font-semibold text-sky-900"><AppWindow className="h-4 w-4" aria-hidden /> Window {i + 1}</p>
+                    <button type="button" onClick={() => removeWindow(i)} className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50">
+                      <X className="h-3.5 w-3.5" aria-hidden /> Remove window {i + 1}
+                    </button>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-5">
+                    <Field label="On which wall">
+                      <select className={INPUT} value={w.wall} onChange={(e) => setWindow(i, { wall: e.target.value as Wall })}>
+                        {WALL_OPTIONS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+                      </select>
+                    </Field>
+                    {windowInput(i, 'at', w.wall === 'left' || w.wall === 'right' ? 'From the door wall' : 'From the left wall')}
+                    {windowInput(i, 'width', 'Width')}
+                    {windowInput(i, 'height', 'Height')}
+                    {windowInput(i, 'sill', 'Above the floor')}
+                  </div>
+                </div>
+              ))}
+              {draft.windows.length < MAX_WINDOWS && (
+                <button type="button" onClick={addWindow} className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-sm font-semibold text-sky-800 ring-1 ring-sky-200 hover:bg-sky-50">
+                  <Plus className="h-4 w-4" aria-hidden /> Add a window or vent
+                </button>
+              )}
+            </fieldset>
             <Field
               label="Boxes on each place (your count)"
               hint={plan && plan.fits > 0 ? `By your sizes up to ${plan.fits.toLocaleString('en-IN')} fit (${plan.perLayer} a layer × ${Math.round(plan.fits / plan.perLayer)} layers). Leave empty to use that, or write how many you really put on one place.` : 'Leave empty: KashRoot works it out from the sizes. Or write how many boxes you put on one place.'}
@@ -460,38 +550,44 @@ export function ColdMapEditor({
               </section>
             )}
 
+            <section aria-label="Live drawing" className="space-y-2">
+              <p className="text-sm font-semibold text-slate-800">Live drawing <span className="font-normal text-slate-600">— redrawn as you type, on the floor plan and in 3D</span></p>
+              {preview ? (
+                <>
+                  <p className="text-xs text-slate-600">Tap a place to mark a pillar or anything else as “no place here” (tap again to undo); tap a booked place to see whose it is.</p>
+                  {preview.size ? (
+                    <ColdStoreExplorer
+                      chambers={[preview]}
+                      single
+                      stateOf={drawState}
+                      roomOf={drawRoom}
+                      mode="owner"
+                      onPlace={onDraw}
+                      labelOf={initialsOf}
+                      active={preview.id}
+                      onActive={() => undefined}
+                      legend={['free', 'part', 'held', 'booked', 'blocked']}
+                    />
+                  ) : (
+                    <>
+                      <ChamberGrid chamber={preview} mode="owner" stateOf={drawState} roomOf={drawRoom} labelOf={initialsOf} onPlace={onDraw} />
+                      <PlaceLegend show={['free', 'part', 'held', 'booked', 'blocked']} />
+                    </>
+                  )}
+                  {whoPanel}
+                  {months_}
+                  <p className="text-xs text-slate-500">Places marked “no place here” are saved when you press Save chamber. A booked place cannot be removed or marked until that booking is finished.</p>
+                </>
+              ) : (
+                <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600 ring-1 ring-slate-900/5">{size ? 'Fix the sizes above and the chamber is drawn here.' : 'Enter the length, breadth and height — the chamber is drawn here at once, to scale and in 3D.'}</p>
+              )}
+            </section>
+
             <div className="flex flex-wrap gap-2">
               <Btn theme={theme} icon={Save} disabled={busy || !laidOut} onClick={() => void save()}>{current ? 'Save chamber' : 'Add this chamber'}</Btn>
               {current && <Btn theme={theme} variant="danger" icon={Trash2} disabled={busy} onClick={() => void remove()}>Remove chamber</Btn>}
             </div>
 
-            {preview && (
-              <>
-                {months_}
-                <p className="text-xs text-slate-600">Preview — tap a place to mark a pillar or anything else as “no place here” (tap again to undo); tap a booked place to see whose it is.</p>
-                {preview.size ? (
-                  <ColdStoreExplorer
-                    chambers={[preview]}
-                    single
-                    stateOf={drawState}
-                    roomOf={drawRoom}
-                    mode="owner"
-                    onPlace={onDraw}
-                    labelOf={initialsOf}
-                    active={preview.id}
-                    onActive={() => undefined}
-                    legend={['free', 'part', 'held', 'booked', 'blocked']}
-                  />
-                ) : (
-                  <>
-                    <ChamberGrid chamber={preview} mode="owner" stateOf={drawState} roomOf={drawRoom} labelOf={initialsOf} onPlace={onDraw} />
-                    <PlaceLegend show={['free', 'part', 'held', 'booked', 'blocked']} />
-                  </>
-                )}
-                {whoPanel}
-                <p className="text-xs text-slate-500">Places marked “no place here” are saved when you press Save chamber. A booked place cannot be removed or marked until that booking is finished.</p>
-              </>
-            )}
           </>
         )}
       </div>
