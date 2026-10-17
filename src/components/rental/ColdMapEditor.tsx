@@ -61,7 +61,10 @@ export function ColdMapEditor({
   onChanged: () => Promise<void> | void;
 }) {
   const [part, setPart] = useState<'store' | 'draw'>(chambers.length ? 'store' : 'draw');
+  // The chamber being drawn, and (separately) the one open in Whole store, so
+  // looking around the store never touches an unsaved drawing.
   const [active, setActive] = useState<string>(chambers[0]?.id ?? 'new');
+  const [viewing, setViewing] = useState<string | null>(chambers[0]?.id ?? null);
   const current = chambers.find((c) => c.id === active);
   const [draft, setDraft] = useState<Draft>(() => draftOf(current, chambers.length + 1));
   const [start, setStart] = useState(today());
@@ -77,7 +80,6 @@ export function ColdMapEditor({
   if (shownSig !== savedSig) {
     setShownSig(savedSig);
     setDraft(draftOf(current, chambers.length + 1));
-    setPicked(null);
   }
 
   const load = useCallback(async () => {
@@ -240,8 +242,8 @@ export function ColdMapEditor({
                 mode="owner"
                 onPlace={onStore}
                 labelOf={initialsOf}
-                active={active === 'new' ? chambers[0]?.id ?? null : active}
-                onActive={setActive}
+                active={viewing}
+                onActive={setViewing}
                 legend={['free', 'held', 'booked', 'blocked']}
               />
               {whoPanel}

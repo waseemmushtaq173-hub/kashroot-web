@@ -59,7 +59,22 @@ export function AccountsPanel({ onRefreshed }: { onRefreshed?: () => Promise<unk
   const [loadedAt, setLoadedAt] = useState(0);
 
   const load = useCallback(async () => {
-    const { data, error: e } = await supabase.rpc('kr_admin_accounts');
+    // Supabase sends at most 1,000 rows per request: read every page, so the
+    // list and its count stay right past 1,000 accounts.
+    const PAGE = 1000;
+    const all: AccountRow[] = [];
+    let e: { message?: string; code?: string } | null = null;
+    for (let from = 0; from < 100_000; from += PAGE) {
+      const res = await supabase.rpc('kr_admin_accounts').range(from, from + PAGE - 1);
+      if (res.error) {
+        e = res.error;
+        break;
+      }
+      const page = (res.data ?? []) as AccountRow[];
+      all.push(...page);
+      if (page.length < PAGE) break;
+    }
+    const data = [...new Map(all.map((r) => [r.user_id, r])).values()];
     if (e) {
       setError(/kr_admin_accounts|schema cache|does not exist/i.test(e.message ?? '') ? 'Run the accounts SQL file (20261016000000_admin_accounts.sql) in Supabase first.' : dbMessage(e, 'Could not load the accounts.'));
       setRows([]);

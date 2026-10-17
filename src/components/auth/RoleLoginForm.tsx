@@ -214,7 +214,8 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   };
 
   if (join) {
-    const has = join.has.map((r) => portalForRole(r)).filter((p): p is PortalId => Boolean(p)).map((p) => PORTALS[p].label);
+    // Old Seller / Logistics accounts map to Farmer / Tracking: never list the portal being added.
+    const has = [...new Set(join.has.map((r) => portalForRole(r)).filter((p): p is PortalId => Boolean(p) && p !== portal).map((p) => PORTALS[p].label))];
     return (
       <PortalAuthFrame portal={portal} labelledBy={ids.heading}>
         <h2 id={ids.heading} className="text-2xl font-semibold tracking-tight text-slate-900">

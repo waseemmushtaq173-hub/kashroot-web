@@ -34,6 +34,11 @@ export default function BuyerDashboardPage() {
 function BuyerDashboard() {
   const initial = useSearchParams().get('tab') as Tab | null;
   const [tab, setTab] = useState<Tab>(initial && TABS.includes(initial) ? initial : 'overview');
+  // The open tab lives in the address too: a refresh stays on it, and the
+  // portal frame hides its identity-check banner on the Safe payment tab.
+  useEffect(() => {
+    window.history.replaceState(null, '', tab === 'overview' ? window.location.pathname : `${window.location.pathname}?tab=${tab}`);
+  }, [tab]);
   const [account, setAccount] = useState<Account | null | undefined>(undefined);
   const [orders, setOrders] = useState<MarketOrder[] | null>(null);
   const [error, setError] = useState<string | null>(null);

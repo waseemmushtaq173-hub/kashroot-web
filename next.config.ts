@@ -75,6 +75,7 @@ const nextConfig: NextConfig = {
       // Portals folded into others keep their old links working: selling is
       // part of the Farmer portal; transport and "Track a load" are part of
       // Tracking (which also opens without signing in).
+      { source: '/seller/:path*', has: [{ type: 'query', key: 'tab', value: '(?<tab>orders|payouts)' }], destination: '/farmer/dashboard?tab=:tab', permanent: false },
       { source: '/seller/:path*', destination: '/farmer/dashboard?tab=lots', permanent: false },
       { source: '/seller-studio', destination: '/farmer/dashboard?tab=lots', permanent: false },
       { source: '/provider/:path*', destination: '/tracking/dashboard', permanent: false },

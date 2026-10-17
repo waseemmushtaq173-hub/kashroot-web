@@ -24,7 +24,8 @@ import { Badge, Btn, EmptyState, Field, INPUT, PORTAL_THEMES, Panel } from '@/co
 import { LiveTrack } from '@/components/tracking/LiveTrack';
 import { authFetch } from '@/lib/auth-fetch';
 import { loginHref } from '@/lib/auth/roles';
-import { ago as agoIso, loadAccount, type Account } from '@/lib/db/client';
+import { useSignedIn } from '@/lib/auth/session';
+import { ago as agoIso } from '@/lib/db/client';
 import { createConsignment, driverUrl, myConsignments, setConsignmentStatus, STATUS_LABEL, trackUrl, type Consignment } from '@/lib/db/consignments';
 
 const RouteMap = dynamic(() => import('@/components/tracking/RouteMap'), {
@@ -233,21 +234,17 @@ function Tracking() {
   const [code, setCode] = useState(linked);
   const [active, setActive] = useState<string | null>(linked.length >= 4 ? linked : null);
   const [mine, setMine] = useState<Consignment[]>([]);
-  // undefined while checking; null when following a load without an account.
-  const [account, setAccount] = useState<Account | null | undefined>(undefined);
-
-  useEffect(() => {
-    void loadAccount().then(setAccount, () => setAccount(null));
-  }, []);
+  // null while checking; false when following a load without an account.
+  const signedIn = useSignedIn();
 
   const reload = useCallback(async () => {
-    if (!account) return;
+    if (!signedIn) return;
     try {
       setMine(await myConsignments());
     } catch {
       setMine([]);
     }
-  }, [account]);
+  }, [signedIn]);
 
   useEffect(() => {
     let live = true;
@@ -270,8 +267,8 @@ function Tracking() {
       description="Live position from the driver’s phone with a KashRoot consignment code — or official vehicle details by registration number."
       kpis={[
         { label: 'Tracking', value: active ?? '—', trend: active ? 'Updates every 30 s' : 'Enter a code' },
-        { label: 'Your consignments', value: account ? String(mine.length) : '—', trend: account ? `${moving} on the way` : 'Sign in to send loads' },
-        { label: 'Delivered', value: account ? String(mine.filter((c) => c.status === 'delivered').length) : '—', trend: 'Marked by the driver' },
+        { label: 'Your consignments', value: signedIn ? String(mine.length) : '—', trend: signedIn ? `${moving} on the way` : 'Sign in to send loads' },
+        { label: 'Delivered', value: signedIn ? String(mine.filter((c) => c.status === 'delivered').length) : '—', trend: 'Marked by the driver' },
       ]}
       tabs={[
         { id: 'track', label: 'Track by code', icon: MapPinned },
@@ -294,14 +291,14 @@ function Tracking() {
           {active ? <LiveTrack key={active} code={active} /> : <EmptyState theme={theme} icon={MapPinned} title="Live position from the driver’s phone" text="Your transporter gives you a KashRoot code. The driver’s phone shares the truck’s position while it drives — no app needed." />}
         </div>
       )}
-      {tab === 'mine' && (account === undefined ? (
+      {tab === 'mine' && (signedIn === null ? (
         <p className="flex items-center gap-2 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>
-      ) : account ? (
+      ) : signedIn ? (
         <MyConsignments list={mine} onChange={() => void reload()} onTrack={(c) => { setActive(c); setCode(c); setTab('track'); }} />
       ) : (
         <SignInFirst tab="mine" what="Transporters sign in to create consignments, send the driver link and share tracking." />
       ))}
-      {tab === 'vehicle' && (account === null ? <SignInFirst tab="vehicle" what="Looking up a vehicle number uses Government records, so it needs an account." /> : <VehicleLookup onUseCode={() => setTab('track')} />)}
+      {tab === 'vehicle' && (signedIn === false ? <SignInFirst tab="vehicle" what="Looking up a vehicle number uses Government records, so it needs an account." /> : <VehicleLookup onUseCode={() => setTab('track')} />)}
     </PortalShell>
   );
 }

@@ -160,7 +160,7 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
       )}
 
       {(show === 'all' || show === 'payouts') && (
-        <PayoutForm theme={theme} payout={payout} onSaved={setPayout} intro="Buyers pay you here after they receive the goods. Only a buyer with a live order sees these details." />
+        <PayoutForm theme={theme} payout={payout} onSaved={setPayout} title="Where buyers pay you" intro="Buyers pay you here after they receive the goods. Only a buyer with a live order sees these details." />
       )}
 
       {editing && (

@@ -1,9 +1,9 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import { useSelectedLayoutSegment, useRouter } from 'next/navigation';
+import { useSearchParams, useSelectedLayoutSegment, useRouter } from 'next/navigation';
 import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
-import { ReactNode, useCallback, useEffect, useState } from 'react';
+import { ReactNode, Suspense, useCallback, useEffect, useState } from 'react';
 
 import { ShieldCheck } from 'lucide-react';
 
@@ -12,7 +12,7 @@ import { supabase } from '@/lib/supabase';
 import { authApi, SELF_JOIN_ROLES, storedRoles } from '@/lib/api/auth';
 import { loginHref, PORTALS, portalForSegment } from '@/lib/auth/roles';
 import { restoreSession, signOutCompletely } from '@/lib/auth/session';
-import { kycMissing, kycRules, myKyc, type KycRules, type KycStatus } from '@/lib/db/security';
+import { KYC_CHANGED, kycMissing, kycRules, myKyc, type KycRules, type KycStatus } from '@/lib/db/security';
 
 /** Safe payment (pay after delivery) with identity checks (KYC) lives in these two portals only. */
 const MONEY_PORTALS = ['farmer', 'buyer'];
@@ -41,6 +41,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userRoles, setUserRoles] = useState<string[]>([]);
   const [joining, setJoining] = useState(false);
+  // Following a load on Tracking without an account.
+  const [guest, setGuest] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [showKyc, setShowKyc] = useState(false);
   // KYC is one check per person: asked once, then a reminder banner until done.
@@ -64,6 +66,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         // Following a load needs no account; the page asks to sign in only
         // for creating consignments.
         setUserRole(null);
+        setGuest(true);
         setIsAuthenticated(true);
       } else if (!active) {
         // Replace, not push: the portal page must not stay in history, or
@@ -71,6 +74,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         const portal = portalForSegment(segment);
         router.replace(portal ? loginHref(portal, window.location.pathname + window.location.search) : '/login');
       } else {
+        setGuest(false);
         setUserRole(localStorage.getItem('user_role'));
         setUserRoles(storedRoles());
 
@@ -100,12 +104,20 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       if (live) await refreshKyc();
     };
     void run();
+    // Verified from a Safe payment tab: the reminder banner goes away too.
+    const changed = () => {
+      setKycDone(true);
+      void run();
+    };
+    window.addEventListener(KYC_CHANGED, changed);
     return () => {
       live = false;
+      window.removeEventListener(KYC_CHANGED, changed);
     };
   }, [isAuthenticated, refreshKyc]);
 
-  if (!isMounted || !isAuthenticated) {
+  // A guest who leaves Tracking for another portal waits here for its sign-in.
+  if (!isMounted || !isAuthenticated || (guest && !GUEST_PORTALS.includes(portalForSegment(segment) ?? ''))) {
     // Prevent flicker and layout shift while checking credentials
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-amber-50">
@@ -200,21 +212,25 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     <div className="kr-light flex min-h-screen flex-col bg-gradient-to-br from-emerald-50 via-white to-amber-50 text-slate-900">
       <SiteHeader tone="light" portal={portal} />
       {portal && MONEY_PORTALS.includes(portal) && (kyc?.rules?.kyc_required ? kycMissing(kyc.rules, kyc.status) : !kycDone && !kyc?.status?.aadhaar_verified_at) && (
-        <div className={`border-b ${kyc?.rules?.kyc_required ? 'border-amber-900/10 bg-amber-50' : 'border-emerald-900/10 bg-emerald-50/90'}`}>
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2.5 text-sm sm:px-6 lg:px-8">
-            <p className={`flex items-center gap-2 ${kyc?.rules?.kyc_required ? 'text-amber-950' : 'text-emerald-950'}`}>
-              <ShieldCheck className={`h-4 w-4 shrink-0 ${kyc?.rules?.kyc_required ? 'text-amber-700' : 'text-emerald-700'}`} aria-hidden />
-              {kyc?.rules?.kyc_required
-                ? kycMissing(kyc.rules, kyc.status) === 'pan'
-                  ? 'Your Aadhaar is verified. Verify your PAN too before you sell, buy, book or receive money on KashRoot.'
-                  : `Verify your Aadhaar${kyc.rules.pan_required ? ' and PAN' : ''} before you sell, buy, book or receive money on KashRoot. It protects you and the people you trade with.`
-                : 'Verify your identity once so buyers and sellers can trust you — it covers every KashRoot portal.'}
-            </p>
-            <button type="button" onClick={() => setShowKyc(true)} className="cursor-pointer rounded-lg bg-emerald-700 px-3 py-1.5 font-semibold text-white hover:bg-emerald-800">
-              Verify now
-            </button>
-          </div>
-        </div>
+        <Suspense fallback={null}>
+          <NotOnSafePayment>
+            <div className={`border-b ${kyc?.rules?.kyc_required ? 'border-amber-900/10 bg-amber-50' : 'border-emerald-900/10 bg-emerald-50/90'}`}>
+              <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2.5 text-sm sm:px-6 lg:px-8">
+                <p className={`flex items-center gap-2 ${kyc?.rules?.kyc_required ? 'text-amber-950' : 'text-emerald-950'}`}>
+                  <ShieldCheck className={`h-4 w-4 shrink-0 ${kyc?.rules?.kyc_required ? 'text-amber-700' : 'text-emerald-700'}`} aria-hidden />
+                  {kyc?.rules?.kyc_required
+                    ? kycMissing(kyc.rules, kyc.status) === 'pan'
+                      ? 'Your Aadhaar is verified. Verify your PAN too before you sell, buy, book or receive money on KashRoot.'
+                      : `Verify your Aadhaar${kyc.rules.pan_required ? ' and PAN' : ''} before you sell, buy, book or receive money on KashRoot. It protects you and the people you trade with.`
+                    : 'Verify your identity once so buyers and sellers can trust you — it covers every KashRoot portal.'}
+                </p>
+                <button type="button" onClick={() => setShowKyc(true)} className="cursor-pointer rounded-lg bg-emerald-700 px-3 py-1.5 font-semibold text-white hover:bg-emerald-800">
+                  Verify now
+                </button>
+              </div>
+            </div>
+          </NotOnSafePayment>
+        </Suspense>
       )}
       <div className="flex flex-1 flex-col">
         {children}
@@ -236,6 +252,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       />
     </div>
   );
+}
+
+/** The identity-check reminder, except on the Safe payment tab, which has its own. */
+function NotOnSafePayment({ children }: { children: ReactNode }) {
+  const tab = useSearchParams().get('tab');
+  return tab === 'payouts' || tab === 'payment' ? null : children;
 }
 
 /** The KYC role for a portal or account role; old Seller / Logistics accounts receive payouts like sellers. */

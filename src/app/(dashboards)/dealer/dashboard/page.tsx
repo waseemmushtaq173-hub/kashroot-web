@@ -336,7 +336,7 @@ export default function DealerDashboardPage() {
         </Panel>
       )}
 
-      {tab === 'payouts' && <div className="max-w-xl"><PayoutForm theme={theme} payout={payout} onSaved={setPayout} intro="Buyers who order from you in Price Comparison pay here after delivery. Only someone with a live order sees these." /></div>}
+      {tab === 'payouts' && <div className="max-w-xl"><PayoutForm theme={theme} payout={payout} onSaved={setPayout} title="Where buyers pay you" intro="Buyers who order from you in Price Comparison pay here after delivery. Only someone with a live order sees these." /></div>}
 
       <Modal
         open={addOpen}

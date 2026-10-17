@@ -20,7 +20,7 @@ import { BadgeCheck, CircleAlert, IdCard, ShieldCheck } from 'lucide-react';
 import { KYCPanel } from '@/components/auth/KYCPanel';
 import { Badge, Btn, Panel, type PortalTheme } from '@/components/portal/kit';
 import type { Account } from '@/lib/db/client';
-import { kycMissing, kycRules, myKyc, type KycRules, type KycStatus } from '@/lib/db/security';
+import { KYC_CHANGED, kycMissing, kycRules, myKyc, type KycRules, type KycStatus } from '@/lib/db/security';
 
 const STEPS = {
   buyer: [
@@ -115,6 +115,8 @@ export function SafePayment({ as, account, theme, children }: { as: 'buyer' | 'f
             /* private mode */
           }
           await load();
+          // The portal frame's reminder banner refreshes too.
+          window.dispatchEvent(new Event(KYC_CHANGED));
         }}
       />
     </div>

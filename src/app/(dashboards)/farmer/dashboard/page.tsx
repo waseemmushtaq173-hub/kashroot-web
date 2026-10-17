@@ -57,6 +57,11 @@ function FarmerDashboard() {
   const params = useSearchParams();
   const initial = params.get('tab') as Tab | null;
   const [tab, setTab] = useState<Tab>(initial && TABS.includes(initial) ? initial : 'overview');
+  // The open tab lives in the address too: a refresh stays on it, and the
+  // portal frame hides its identity-check banner on the Safe payment tab.
+  useEffect(() => {
+    window.history.replaceState(null, '', tab === 'overview' ? window.location.pathname : `${window.location.pathname}?tab=${tab}`);
+  }, [tab]);
   const [addRequest, setAddRequest] = useState(params.get('add') === '1' ? 1 : 0);
   // What "add" opens: produce from the orchard, or farm inputs for sale.
   const [addCategory, setAddCategory] = useState<MarketCategory>(params.get('sell') === 'supplies' ? 'supplies' : 'produce');

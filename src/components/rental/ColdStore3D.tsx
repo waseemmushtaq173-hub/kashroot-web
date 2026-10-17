@@ -19,7 +19,7 @@ import { placeLabel, type ColdChamber } from '@/lib/db/coldMap';
 
 const PITCH = 1.2; // between the centres of two places
 const PAD = 0.7; // wall to the first stack
-const GAP = 1.4; // between two chambers
+const GAP = 2; // between two chambers (room for the next room's row numbers)
 const WALL_H = 1.1;
 const STACK_H = 1.4;
 const CORRIDOR = 3;
@@ -288,7 +288,8 @@ export function ColdStore3D({
             if (row !== 1 && row !== r.c.rows && row % 5) continue;
             const t = rowTag(`Row ${row}`);
             const p = spot(r, row, 0);
-            t.position.set(r.x0 - 0.7, 0.35, p.z);
+            // Just outside its own left wall, so it reads as this chamber's row.
+            t.position.set(r.x0 - 0.62, 0.35, p.z);
             group.add(t);
           }
         }

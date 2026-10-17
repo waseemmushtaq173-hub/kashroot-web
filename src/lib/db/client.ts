@@ -30,6 +30,8 @@ export interface Account {
 /** Turns a Supabase/PostgREST error into words a farmer or owner can act on. */
 /** Where identity checks (KYC) are done: the Safe payment tab of the Farmer and Buyer portals. */
 export const VERIFY_FIRST = 'Verify your identity first: open the Farmer or Buyer portal → Safe payment → Verify now. Then try again.';
+/** A new row refused by the database: a missing identity check, or a session that has ended. */
+const REFUSED = 'KashRoot could not save this. If you have not verified your identity yet, open the Farmer or Buyer portal → Safe payment → Verify now. Otherwise, sign in again and try once more.';
 
 export function dbMessage(error: { message?: string; code?: string } | null | undefined, fallback = 'Something went wrong. Please try again.'): string {
   if (!error) return fallback;
@@ -37,8 +39,8 @@ export function dbMessage(error: { message?: string; code?: string } | null | un
   if (error.code === 'PGRST205' || error.code === '42P01' || error.code === 'PGRST202' || /schema cache|does not exist/i.test(m)) {
     return 'The KashRoot database is not set up yet. The site owner needs to run the KashRoot SQL file in Supabase (SQL Editor).';
   }
-  // A new row refused by the "KYC before …" rules: the person has not verified yet.
-  if (/new row violates row-level security/i.test(m)) return VERIFY_FIRST;
+  // A new row refused by the "KYC before …" rules — or by an ended session.
+  if (/new row violates row-level security/i.test(m)) return REFUSED;
   if (/JWT|not authenticated|permission denied|row-level security/i.test(m)) return 'Please sign in again to do this.';
   if (/Failed to fetch|NetworkError|network/i.test(m)) return 'No internet connection. Please try again.';
   if (/violates check constraint/i.test(m)) return 'Some details are not in the right format. Please check and try again.';
