@@ -164,8 +164,9 @@ export async function verifyWithDigiLocker(popup: Window | null): Promise<Identi
     popup?.close();
     throw err;
   }
-  if (popup && !popup.closed) popup.location.href = start.authorizationUrl;
-  else window.location.assign(start.authorizationUrl);
+  // Leaving this page would lose the panel; if the window was blocked, say how to allow it.
+  if (!popup || popup.closed) throw new Error('Your browser blocked the DigiLocker window. Allow pop-ups for this site (address bar → site settings), then tap again.');
+  popup.location.href = start.authorizationUrl;
 
   const deadline = Date.now() + 10 * 60_000;
   while (Date.now() < deadline) {

@@ -446,6 +446,8 @@ function useIdentityVerification(simple = false) {
   const [otpError, setOtpError] = useState<string | null>(null);
   // UIDAI's OTP service is down or too slow: offer DigiLocker (it asks for the Aadhaar and an OTP too) or the QR.
   const [uidaiDown, setUidaiDown] = useState(false);
+  // Online, DigiLocker comes first (Aadhaar number + OTP inside DigiLocker); the direct UIDAI OTP is the other way.
+  const [otpMode, setOtpMode] = useState(false);
   const [resendIn, setResendIn] = useState(0);
   const [digiLocker, setDigiLocker] = useState<'idle' | 'connecting' | 'failed'>('idle');
   const [verified, setVerified] = useState<
@@ -666,6 +668,8 @@ function useIdentityVerification(simple = false) {
     synced,
     skipSync: () => setSynced('skipped'),
     uidaiDown,
+    otpMode,
+    setOtpMode,
     verified,
     resetAadhaar,
     pan,
@@ -759,13 +763,40 @@ function IdentityStep({
           <>
             <OfflineAadhaarVerify onVerified={model.acceptOffline} />
             {model.online && (
-              <button type="button" onClick={() => model.setPreferOffline(false)} className={`text-sm ${BTN_LINK}`}>
-                Back to Aadhaar number and OTP
+              <button type="button" onClick={() => { model.setPreferOffline(false); model.setOtpMode(false); }} className={`text-sm ${BTN_LINK}`}>
+                Back to DigiLocker
               </button>
             )}
           </>
+        ) : !model.otpMode ? (
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={model.startDigiLocker}
+              disabled={model.digiLocker === 'connecting'}
+              className={`flex w-full cursor-pointer items-center gap-4 rounded-2xl bg-gradient-to-r from-indigo-700 via-blue-700 to-sky-700 p-5 text-left text-white shadow-lg shadow-blue-700/25 transition hover:shadow-xl hover:shadow-blue-700/30 disabled:cursor-not-allowed disabled:opacity-80 ${FOCUS}`}
+            >
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/15 ring-1 ring-white/30">
+                <FileCheckIcon className="h-6 w-6" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-lg font-semibold">{model.digiLocker === 'connecting' ? 'Waiting for DigiLocker…' : 'Verify Aadhaar with DigiLocker'}</span>
+                <span className="mt-0.5 block text-sm text-blue-50">Enter your Aadhaar number there and the OTP sent to your registered mobile. DigiLocker then shares your details with KashRoot.</span>
+              </span>
+              {model.digiLocker === 'connecting' ? <SpinnerIcon className="h-5 w-5 shrink-0 animate-spin" /> : <ArrowRightIcon className="h-5 w-5 shrink-0" />}
+            </button>
+            {model.digiLocker === 'connecting' && <p role="status" className="text-sm text-slate-600">DigiLocker opened in a new window. Finish there (Aadhaar number → OTP → Allow), then come back here — this updates by itself.</p>}
+            {model.digiLocker === 'failed' && <InlineAlert announce>{model.digiLockerError ?? 'DigiLocker didn’t respond.'}</InlineAlert>}
+            <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+              <button type="button" onClick={() => model.setOtpMode(true)} className={BTN_LINK}>Verify with Aadhaar OTP here instead</button>
+              <button type="button" onClick={() => model.setPreferOffline(true)} className={BTN_LINK}>Scan the QR on your Aadhaar</button>
+            </div>
+          </div>
         ) : (
           <>
+            <button type="button" onClick={() => model.setOtpMode(false)} className={`text-sm ${BTN_LINK}`}>
+              ← Back to DigiLocker (recommended)
+            </button>
             <Field
               id={aadhaarId}
               label="Aadhaar number"
