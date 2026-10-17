@@ -19,7 +19,6 @@ import { ArrowRight } from 'lucide-react';
 
 import { FertilizerChecker } from '@/components/fertilizer/FertilizerChecker';
 import { HeroShowcase } from '@/components/layout/HeroShowcase';
-import { OrchardHealthCard } from '@/components/landing/OrchardHealthCard';
 import { PortalGrid } from '@/components/landing/PortalGrid';
 import { LATTICE_BG } from '@/components/portal/lattice';
 import { Tilt3D } from '@/components/three/Tilt3D';
@@ -53,7 +52,7 @@ interface ToolAction {
 const TOOL_ACTIONS: Record<ToolId, { primary: ToolAction; secondary: ToolAction }> = {
   escrow: {
     // Public: how paying works (UPI after delivery, identity checks) — no sign-in.
-    primary: { label: 'How safe payment works', href: TOOLS.escrow.href },
+    primary: { label: 'How escrow payment works', href: TOOLS.escrow.href },
     secondary: { label: 'Buy produce', href: '/compare-prices?category=produce' },
   },
   mandi: {
@@ -78,8 +77,8 @@ export default function HomePage() {
       <HeroShowcase initialSeason={seasonForDate(new Date())}>
         <SiteHeader tone="light" showRoleSignIn />
 
-        {/* Bottom padding leaves room for the season badge. */}
-        <main id="main-content" className="mx-auto max-w-7xl px-4 pb-24 pt-8 sm:px-6 sm:pt-12 lg:px-8">
+        {/* Bottom padding leaves room for the season badge (no more). */}
+        <main id="main-content" className="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-6 sm:pt-12 lg:px-8">
           <section className={`max-w-2xl rounded-[2rem] p-6 sm:p-9 ${GLASS.panel}`}>
             <p className="inline-flex rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-800 ring-1 ring-emerald-200">
               KashRoot · The agri-business ecosystem
@@ -108,10 +107,9 @@ export default function HomePage() {
 
       <div className="relative isolate overflow-hidden bg-gradient-to-b from-amber-50 via-white to-emerald-50">
         <div aria-hidden className="pointer-events-none absolute inset-0 -z-10" style={LATTICE_BG} />
-        <div className="mx-auto max-w-7xl space-y-10 px-4 py-14 sm:px-6 lg:px-8">
-          <section aria-label="Voice assistant and orchard health" className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
+        <div className="mx-auto max-w-7xl space-y-10 px-4 pb-14 pt-8 sm:px-6 lg:px-8">
+          <section aria-label="Voice assistant">
             <VoiceConcierge />
-            <OrchardHealthCard />
           </section>
 
           <section aria-labelledby="fertilizer-heading" className="grid gap-6 lg:grid-cols-[1fr_1.6fr] lg:items-start">

@@ -36,11 +36,11 @@ const PLACES: { href: string; label: Text; keys: string[] }[] = [
   { href: '/rental/dashboard', label: { en: 'cold storage booking', hi: 'कोल्ड स्टोरेज बुकिंग', ur: 'کولڈ اسٹوریج بکنگ' }, keys: ['cold', 'storage', 'chamber', 'कोल्ड', 'स्टोर', 'چیمبر', 'کولڈ', 'اسٹور', 'سٹور'] },
   { href: '/tracking/dashboard', label: { en: 'tracking', hi: 'ट्रैकिंग', ur: 'ٹریکنگ' }, keys: ['track', 'truck', 'consignment', 'ट्रक', 'ट्रैक', 'ٹرک', 'ٹریک'] },
   { href: '/supplies/tester', label: { en: 'the fertiliser check', hi: 'खाद जाँच', ur: 'کھاد کی جانچ' }, keys: ['fertiliser', 'fertilizer', 'pesticide', 'khad', 'खाद', 'दवा', 'کھاد', 'دوائی'] },
-  { href: '/orchard-health', label: { en: 'Orchard Health', hi: 'बाग़ की सेहत', ur: 'باغ کی صحت' }, keys: ['orchard', 'scab', 'spray log', 'photo diagnosis', 'बाग', 'स्कैब', 'باغ', 'اسکیب'] },
+  { href: '/farmer/orchard-health', label: { en: 'Orchard Health', hi: 'बाग़ की सेहत', ur: 'باغ کی صحت' }, keys: ['orchard', 'scab', 'spray log', 'photo diagnosis', 'बाग', 'स्कैब', 'باغ', 'اسکیب'] },
   { href: '/expert', label: { en: 'Ask an expert', hi: 'विशेषज्ञ से पूछें', ur: 'ماہر سے پوچھیں' }, keys: ['expert', 'agronomist', 'advisory', 'doctor', 'video call', 'soil test', 'विशेषज्ञ', 'सलाह', 'ماہر', 'مشورہ'] },
   { href: '/mandi-weather', label: { en: 'mandi rates and weather', hi: 'मंडी भाव और मौसम', ur: 'منڈی بھاؤ اور موسم' }, keys: ['mandi', 'rates', 'prices', 'bhav', 'weather', 'mausam', 'मंडी', 'भाव', 'मौसम', 'منڈی', 'بھاؤ', 'موسم'] },
   { href: '/compare-prices', label: { en: 'Price Comparison', hi: 'भाव तुलना', ur: 'قیمتوں کا موازنہ' }, keys: ['compare', 'price comparison', 'buy', 'shop', 'kharid', 'खरीद', 'ख़रीद', 'خرید'] },
-  { href: '/season-planner', label: { en: 'the season planner', hi: 'सीज़न प्लानर', ur: 'سیزن پلانر' }, keys: ['planner', 'season', 'प्लानर', 'پلانر'] },
+  { href: '/farmer/season-planner', label: { en: 'the season planner', hi: 'सीज़न प्लानर', ur: 'سیزن پلانر' }, keys: ['planner', 'season', 'प्लानर', 'پلانر'] },
   { href: '/', label: { en: 'the home page', hi: 'होम पेज', ur: 'ہوم پیج' }, keys: ['home', 'होम', 'ہوم'] },
 ];
 

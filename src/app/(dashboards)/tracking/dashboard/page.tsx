@@ -235,7 +235,7 @@ function Tracking() {
   const [active, setActive] = useState<string | null>(linked.length >= 4 ? linked : null);
   const [mine, setMine] = useState<Consignment[]>([]);
   // null while checking; false when following a load without an account.
-  const signedIn = useSignedIn();
+  const signedIn = useSignedIn('tracking');
 
   const reload = useCallback(async () => {
     if (!signedIn) return;

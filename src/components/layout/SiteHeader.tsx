@@ -9,7 +9,7 @@ import { MyDetailsPanel } from '@/components/portal/MyDetailsPanel';
 import { MY_DETAILS } from '@/components/portal/myDetailsConfig';
 import { loginHref, PORTALS, PUBLIC_PORTAL_IDS, type PortalId } from '@/lib/auth/roles';
 import { useSecretAdminTap, useShowAdmin } from '@/lib/client/adminDevice';
-import { signOutCompletely, useMyPortal, useSignedIn } from '@/lib/auth/session';
+import { signOutOfPortal, useMyPortal, useSignedIn } from '@/lib/auth/session';
 import { SOCIAL_LINKS } from '@/lib/site';
 
 /**
@@ -33,8 +33,6 @@ interface MenuItem {
 export const TOOL_ITEMS: MenuItem[] = [
   { title: 'Price Comparison', href: '/compare-prices', desc: 'Compare offers and order, or list what you sell' },
   { title: 'Live mandi rates & weather', href: '/mandi-weather', desc: 'Today’s prices and the forecast' },
-  { title: 'Orchard Health', href: '/orchard-health', desc: 'Scab risk map, photo diagnosis, spray log' },
-  { title: 'Season Planner', href: '/season-planner', desc: 'Orchard calendar & cost calculator' },
   { title: 'Fertiliser check', href: '/supplies/tester', desc: 'Is your fertiliser or spray genuine?' },
 ];
 const PORTAL_ITEMS: MenuItem[] = PUBLIC_PORTAL_IDS.map((id) => ({ title: PORTALS[id].label, href: PORTALS[id].home, desc: PORTALS[id].tagline }));
@@ -327,14 +325,15 @@ export function SiteFooter({ tone = 'dark' }: { tone?: SiteTone }) {
 /**
  * Inside a portal: brand, the portal's name, My details, Home and Sign out —
  * no portal picker. A portal open to guests (Tracking) offers Sign in instead.
+ * Sign out leaves this portal only; other portals signed in here stay so.
  */
 function PortalHeader({ portal }: { portal: PortalId }) {
   const router = useRouter();
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const signedIn = useSignedIn();
+  const signedIn = useSignedIn(portal);
   const hasDetailsForm = Boolean(MY_DETAILS[portal]) && signedIn !== false;
   const signOut = async () => {
-    await signOutCompletely();
+    await signOutOfPortal(portal);
     router.replace(loginHref(portal));
   };
   return (

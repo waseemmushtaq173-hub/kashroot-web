@@ -6,8 +6,11 @@
  * Produce and farm inputs (what the old Seller portal did) are listed on the
  * shared marketplace (market_listings), so buyers see them on Price
  * Comparison and can order. Orders are pay-after-delivery: the buyer pays the
- * farmer directly by UPI / bank once the goods arrive. Safe payment holds the
- * identity check (KYC) and where buyers pay. Today's weather comes from
+ * farmer directly by UPI / bank once the goods arrive. Escrow payment holds
+ * the identity check (KYC) and where buyers pay. Orchard Health and the
+ * Season Planner are part of this portal (/farmer/orchard-health,
+ * /farmer/season-planner); Cold Storage, mandi rates and Price Comparison
+ * have their own places on the home page. Today's weather comes from
  * Open-Meteo for the farmer's district (My details).
  */
 import { Suspense, useCallback, useEffect, useState } from 'react';
@@ -29,8 +32,6 @@ import {
   Sprout,
   Store,
   Thermometer,
-  TrendingUp,
-  Warehouse,
 } from 'lucide-react';
 
 import { PortalShell } from '@/components/layout/PortalShell';
@@ -101,7 +102,7 @@ function FarmerDashboard() {
         { id: 'overview', label: 'Overview', icon: Sprout },
         { id: 'lots', label: 'What I sell', icon: Store, count: products.length || undefined },
         { id: 'orders', label: 'Orders', icon: Package, count: toAct || undefined },
-        { id: 'payouts', label: 'Safe payment', icon: ShieldCheck },
+        { id: 'payouts', label: 'Escrow payment', icon: ShieldCheck },
       ]}
       activeTab={tab}
       onTabChange={(id) => setTab(id as Tab)}
@@ -117,12 +118,10 @@ function FarmerDashboard() {
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <Tile theme={theme} icon={PlusCircle} label="Sell produce" hint="List apples, walnuts…" onClick={listProduce} />
               <Tile theme={theme} icon={Store} label="Sell farm inputs" hint="Fertiliser, sprays, tools…" onClick={() => listProduct('supplies')} />
-              <Tile theme={theme} icon={ShieldCheck} label="Safe payment" hint="Verify & get paid" onClick={() => setTab('payouts')} />
-              <Tile theme={theme} icon={Warehouse} label="Cold storage" hint="Choose your place" href="/rental/dashboard" />
+              <Tile theme={theme} icon={ShieldCheck} label="Escrow payment" hint="Paid after delivery" onClick={() => setTab('payouts')} />
+              <Tile theme={theme} icon={Activity} label="Orchard health" hint="Scab map, photo check" href="/farmer/orchard-health" />
+              <Tile theme={theme} icon={CalendarDays} label="Season planner" hint="Tasks & costs" href="/farmer/season-planner" />
               <Tile theme={theme} icon={MessageCircleQuestion} label="Ask an expert" hint="Agronomist answers" href="/expert" />
-              <Tile theme={theme} icon={Activity} label="Orchard health" hint="Scab map, photo check" href="/orchard-health" />
-              <Tile theme={theme} icon={CalendarDays} label="Season planner" hint="Tasks & costs" href="/season-planner" />
-              <Tile theme={theme} icon={TrendingUp} label="Mandi rates" hint="Today’s prices" href="/mandi-weather" />
               <Tile theme={theme} icon={FlaskConical} label="Test inputs" hint="Spot fake batches" href="/supplies/tester" />
             </div>
 
@@ -161,7 +160,7 @@ function FarmerDashboard() {
 
           <div className="space-y-6">
             <TodayWeather district={account?.district} />
-            <Panel theme={theme} title="Safe payment" icon={Banknote}>
+            <Panel theme={theme} title="Escrow payment" icon={Banknote}>
               <ol className="list-decimal space-y-1 pl-5 text-sm text-slate-700">
                 <li>A buyer orders. Nothing is paid up front.</li>
                 <li>You accept and send it.</li>
@@ -255,8 +254,8 @@ function TodayWeather({ district }: { district?: string }) {
         </>
       )}
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <Btn theme={theme} variant="soft" size="sm" href="/orchard-health">Scab risk map</Btn>
-        <Btn theme={theme} variant="soft" size="sm" href="/orchard-health">Log a spray</Btn>
+        <Btn theme={theme} variant="soft" size="sm" href="/farmer/orchard-health?tab=risk">Scab risk map</Btn>
+        <Btn theme={theme} variant="soft" size="sm" href="/farmer/orchard-health?tab=sprays">Log a spray</Btn>
       </div>
     </Panel>
   );

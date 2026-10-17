@@ -79,7 +79,7 @@ export function HeroShowcase({
   const current = slides[active];
 
   return (
-    <div className="relative isolate min-h-[100svh]">
+    <div className="relative isolate">
       <div aria-hidden className="fixed inset-0 -z-10 overflow-hidden bg-sky-100">
         {slides.map((slide, i) => (
           <div

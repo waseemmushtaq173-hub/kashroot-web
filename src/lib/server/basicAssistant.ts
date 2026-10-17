@@ -92,9 +92,9 @@ const HELP: { keys: string[]; text: Text }[] = [
   {
     keys: ['scab', 'disease', 'sick', 'pest', 'insect', 'fungus', 'doctor', 'expert', 'agronomist', 'leaf', 'keeda', 'bimari', 'स्कैब', 'बीमारी', 'रोग', 'कीड़ा', 'कीड़े', 'पत्ते', 'विशेषज्ञ', 'اسکیب', 'سکیب', 'بیماری', 'روگ', 'کیڑا', 'کیڑے', 'پتے', 'ماہر', 'داغ'],
     text: {
-      en: 'For a sick tree, pest or scab, open Advisory and press Ask an expert. Speak or type the problem and add a photo; an agronomist answers in My requests. Orchard Health also has a scab risk map for your orchard and a spray log.',
-      hi: 'बीमार पेड़, कीड़े या स्कैब के लिए Advisory खोलें और "Ask an expert" दबाएँ। अपनी समस्या बोलें या लिखें और फ़ोटो लगाएँ; विशेषज्ञ का जवाब "My requests" में आएगा। Orchard Health में आपके बाग़ के लिए स्कैब का ख़तरा और स्प्रे का रिकॉर्ड भी है।',
-      ur: 'بیمار درخت، کیڑے یا اسکیب کے لیے Advisory کھولیں اور "Ask an expert" دبائیں۔ اپنا مسئلہ بولیں یا لکھیں اور تصویر لگائیں؛ ماہر کا جواب "My requests" میں آئے گا۔ Orchard Health میں آپ کے باغ کے لیے اسکیب کا خطرہ اور اسپرے کا ریکارڈ بھی ہے۔',
+      en: 'For a sick tree, pest or scab, open Advisory and press Ask an expert. Speak or type the problem and add a photo; an agronomist answers in My requests. Orchard Health in the Farmer portal also has a scab risk map for your orchard and a spray log.',
+      hi: 'बीमार पेड़, कीड़े या स्कैब के लिए Advisory खोलें और "Ask an expert" दबाएँ। अपनी समस्या बोलें या लिखें और फ़ोटो लगाएँ; विशेषज्ञ का जवाब "My requests" में आएगा। Farmer portal के Orchard Health में आपके बाग़ के लिए स्कैब का ख़तरा और स्प्रे का रिकॉर्ड भी है।',
+      ur: 'بیمار درخت، کیڑے یا اسکیب کے لیے Advisory کھولیں اور "Ask an expert" دبائیں۔ اپنا مسئلہ بولیں یا لکھیں اور تصویر لگائیں؛ ماہر کا جواب "My requests" میں آئے گا۔ Farmer portal کے Orchard Health میں آپ کے باغ کے لیے اسکیب کا خطرہ اور اسپرے کا ریکارڈ بھی ہے۔',
     },
   },
   {

@@ -19,7 +19,8 @@ import { useEffect, useState } from 'react';
 import { isAuthRetryableFetchError, type Session } from '@supabase/supabase-js';
 
 import { authApi, rolesOf, tokenStore } from '@/lib/api/auth';
-import { isPortalId, portalForRole, type PortalId } from '@/lib/auth/roles';
+import { forgetPortalSignIns, markPortalSignedOut, portalAccess, signedInPortals } from '@/lib/auth/portalAccess';
+import { isPortalId, type PortalId } from '@/lib/auth/roles';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 
 const ACTIVE_KEY = 'kr_last_active';
@@ -148,8 +149,10 @@ export function useMyPortal(): PortalId | null {
       if (!supabaseConfigured) return;
       const { data } = await supabase.auth.getSession();
       if (!live || !data.session) return;
+      // A portal they are signed in to here: the last one used, else any.
+      const here = signedInPortals(data.session.user.id);
       const last = read('auth_portal');
-      setPortal(last && isPortalId(last) ? last : portalForRole(read('user_role') ?? 'FARMER'));
+      setPortal(last && isPortalId(last) && here.includes(last) ? last : here[0] ?? null);
     };
     void run();
     return () => {
@@ -159,26 +162,45 @@ export function useMyPortal(): PortalId | null {
   return portal;
 }
 
-/** Whether someone is signed in on this device (null while checking). */
-export function useSignedIn(): boolean | null {
+/**
+ * Whether someone is signed in on this device (null while checking) — with a
+ * portal: signed in to that portal (each portal has its own sign-in).
+ */
+export function useSignedIn(portal?: PortalId): boolean | null {
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   useEffect(() => {
     let live = true;
     const run = async () => {
       if (!supabaseConfigured) return live && setSignedIn(false);
       const { data } = await supabase.auth.getSession();
-      if (live) setSignedIn(Boolean(data.session));
+      const user = data.session?.user;
+      if (!user || !portal) return live && setSignedIn(Boolean(user));
+      // The portal layout already checked the account; here: signed in to this portal on this device.
+      const access = await portalAccess(user, rolesOf(user), portal);
+      if (live) setSignedIn(access.signedIn);
     };
     void run();
     return () => {
       live = false;
     };
-  }, []);
+  }, [portal]);
   return signedIn;
 }
 
 /** The person pressed Sign out: end the session and forget them on this device. */
 export async function signOutCompletely() {
   forgetPerson();
+  forgetPortalSignIns();
   await authApi.logout();
+}
+
+/**
+ * Sign out of one portal. The other portals they are signed in to on this
+ * device stay signed in; signing out of the last one ends the session.
+ */
+export async function signOutOfPortal(portal: PortalId) {
+  const { data } = await supabase.auth.getSession();
+  const user = data.session?.user;
+  if (!user) return;
+  if (markPortalSignedOut(user.id, portal).length === 0) await signOutCompletely();
 }

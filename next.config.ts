@@ -119,6 +119,9 @@ const nextConfig: NextConfig = {
         ['/services', '/rental/dashboard'],
         ['/services/:id', '/rental/dashboard'],
         ['/traceability', '/tracking/dashboard'],
+        // Orchard Health and the Season Planner are part of the Farmer portal.
+        ['/orchard-health', '/farmer/orchard-health'],
+        ['/season-planner', '/farmer/season-planner'],
         // The Kashmiri Lab (word list for the assistant) was removed.
         ['/koshur', '/'],
       ].map(([source, destination]) => ({ source, destination, permanent: false })),

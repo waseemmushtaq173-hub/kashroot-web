@@ -3,7 +3,9 @@
 /**
  * A seller's or dealer's side of the marketplace: their products (stock,
  * price, hide / remove), orders received with the next step, and where
- * buyers pay them. Used by the Farmer portal (What I sell) and Price Comparison.
+ * buyers pay them. Used by the Farmer portal (What I sell), the Agro-dealer
+ * portal (Price Comparison tab) and Price Comparison itself — everything
+ * listed here is on the one shared Price Comparison.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Boxes, CheckCircle2, Loader2, Minus, Package, Pencil, Plus, PlusCircle, Trash2 } from 'lucide-react';
@@ -22,7 +24,7 @@ export function blankProduct(account: Account, category: MarketCategory = 'suppl
   return { seller_name: account.business || account.name, phone: account.phone, district: account.district, category, subcategory: produce ? 'Apple' : 'Packaging', product: '', variety: '', grade: '', unit: produce ? 'box' : 'piece', price: 0, quantity: 0, details: '', photo: null };
 }
 
-export function SellerDesk({ account, theme, show = 'all', category = 'supplies', mixed = false, addRequest = 0, onLoaded }: { account: Account; theme: PortalTheme; show?: 'all' | 'products' | 'orders' | 'payouts'; category?: MarketCategory; /** Farmer portal: produce and farm inputs side by side. */ mixed?: boolean; addRequest?: number; onLoaded?: (products: MarketListing[], orders: MarketOrder[]) => void }) {
+export function SellerDesk({ account, theme, show = 'all', category = 'supplies', mixed = false, addRequest = 0, addDraft, onLoaded }: { account: Account; theme: PortalTheme; /** 'sell': orders and products (payout details shown elsewhere). */ show?: 'all' | 'sell' | 'products' | 'orders' | 'payouts'; category?: MarketCategory; /** Farmer portal: produce and farm inputs side by side. */ mixed?: boolean; addRequest?: number; /** Filled into the form that addRequest opens (e.g. a dealer's batch). */ addDraft?: Partial<ListingInput>; onLoaded?: (products: MarketListing[], orders: MarketOrder[]) => void }) {
   const [products, setProducts] = useState<MarketListing[] | null>(null);
   const [orders, setOrders] = useState<MarketOrder[]>([]);
   const [payout, setPayout] = useState<PayoutAccount | null | undefined>(undefined);
@@ -33,7 +35,7 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
   const [seenAdd, setSeenAdd] = useState(0);
   if (addRequest !== seenAdd) {
     setSeenAdd(addRequest);
-    if (addRequest > 0) setEditing({ data: blankProduct(account, category) });
+    if (addRequest > 0) setEditing({ data: { ...blankProduct(account, category), ...addDraft } });
   }
 
   const reload = useCallback(async () => {
@@ -94,7 +96,7 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      {(show === 'all' || show === 'orders') && (
+      {(show === 'all' || show === 'sell' || show === 'orders') && (
         <Panel theme={theme} title="Orders to act on" icon={CheckCircle2} className="lg:col-span-2">
           {waiting.length === 0 && others.length === 0 ? (
             <EmptyState theme={theme} icon={Package} title="No orders yet" text="When a buyer orders one of your products, it appears here. Accept it, ship it, and confirm when the money reaches you." />
@@ -106,12 +108,12 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
         </Panel>
       )}
 
-      {(show === 'all' || show === 'products') && (
+      {(show === 'all' || show === 'sell' || show === 'products') && (
         <Panel
           theme={theme}
           title={mixed ? 'What I sell' : category === 'produce' ? 'My produce on sale' : 'My products'}
           icon={Boxes}
-          className={show === 'products' ? 'lg:col-span-2' : ''}
+          className={show === 'products' || show === 'sell' ? 'lg:col-span-2' : ''}
           action={
             mixed ? (
               <div className="flex flex-wrap gap-2">

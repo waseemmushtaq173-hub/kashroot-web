@@ -11,7 +11,7 @@ export default function SupportPage() {
       <section>
         <h2>How do I pay?</h2>
         <p>
-          Buyers pay the seller directly by UPI after the goods arrive; KashRoot does not hold money. See how on the <Link className="font-semibold text-emerald-800 underline" href="/escrow">Safe payments</Link> page.
+          Buyers pay the seller directly by UPI after the goods arrive; KashRoot does not hold money. See how on the <Link className="font-semibold text-emerald-800 underline" href="/escrow">Escrow payment</Link> page.
         </p>
       </section>
       <section>
@@ -22,7 +22,7 @@ export default function SupportPage() {
         <h2>Crop or pest question?</h2>
         <p>
           Ask a verified agronomist from the <Link className="font-semibold text-emerald-800 underline" href="/expert">Advisory hub</Link>, or check symptoms in{' '}
-          <Link className="font-semibold text-emerald-800 underline" href="/orchard-health">Orchard Health</Link>.
+          <Link className="font-semibold text-emerald-800 underline" href="/farmer/orchard-health">Orchard Health</Link> (in the Farmer portal).
         </p>
       </section>
       <section>

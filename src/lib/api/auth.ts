@@ -17,6 +17,7 @@
 
 import { api } from './client';
 import { loginHref, portalForRole, type PortalId } from '@/lib/auth/roles';
+import { markPortalSignedIn, portalsOf } from '@/lib/auth/portalAccess';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 import { publicOrigin } from '@/lib/site';
 
@@ -130,6 +131,10 @@ async function addRoleToSession(role: string, extra: Record<string, unknown> = {
 
 export interface LoginResponse {
   accessToken:   string;
+  /** Supabase user id (portal sign-ins on this device are kept per person). */
+  userId:        string;
+  /** Portals this account has an account in; null for accounts made before that was recorded. */
+  portals:       PortalId[] | null;
   /** Role recorded on the account (Supabase metadata); null if none was saved. */
   accountRole:   UserRole | null;
   /** Every portal role on the account, plus staff roles (ADMIN, EXPERT, DEALER). */
@@ -180,6 +185,8 @@ export const authApi = {
           full_name: dto.fullName,
           role: dto.role,
           roles: [dto.role],
+          // The portal this account was created in: it opens that portal only.
+          portals: [dto.portal ?? portalForRole(dto.role) ?? 'farmer'],
           ...(dto.phone ? { phone: dto.phone } : {}),
         },
       },
@@ -201,6 +208,8 @@ export const authApi = {
         await addRoleToSession(dto.role, {
           ...(meta.full_name ? {} : { full_name: dto.fullName }),
           ...(meta.phone || !dto.phone ? {} : { phone: dto.phone }),
+          // This portal now has its account too.
+          portals: [...new Set([...(portalsOf(joined.data.user) ?? []), dto.portal ?? portalForRole(dto.role) ?? 'farmer'])],
         });
       } finally {
         // This browser only: never end their sessions on other phones.
@@ -213,7 +222,8 @@ export const authApi = {
     // With "Confirm email" switched on for the Supabase project, signUp
     // returns a user but no session: the link has to be clicked before
     // signInWithPassword will work. Switched off, the session arrives here and
-    // they can sign in straight away.
+    // they are signed in — to the portal they created the account in.
+    if (data.session && data.user) markPortalSignedIn(data.user.id, dto.portal ?? portalForRole(dto.role) ?? 'farmer');
     return {
       userId: data.user?.id ?? null,
       needsEmailConfirmation: !data.session,
@@ -241,6 +251,8 @@ export const authApi = {
     const staffRoles = staff.error ? [] : (staff.data ?? []).map((r) => String(r.role));
     return {
       accessToken: data.session.access_token,
+      userId: data.user.id,
+      portals: portalsOf(data.user),
       accountRole: metadataRole ?? null,
       accountRoles: [...new Set([...rolesOf(data.user), ...staffRoles])],
       phone: (data.user.user_metadata?.phone as string | undefined) || data.user.phone || null,

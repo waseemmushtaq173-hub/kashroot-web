@@ -13,7 +13,7 @@ import { PortalShell } from '@/components/layout/PortalShell';
 import { Badge, Btn, Field, INPUT, PORTAL_THEMES, Panel, inr } from '@/components/portal/kit';
 import { usePersistentState } from '@/lib/portal-store';
 
-const theme = PORTAL_THEMES.kissan;
+const theme = PORTAL_THEMES.farmer;
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -102,11 +102,10 @@ export default function SeasonPlannerPage() {
 
   return (
     <PortalShell
-      standalone
       title="Season planner"
       description="Know what each block needs this month, and whether the season will pay before you spend."
-      eyebrow="Orchard tools"
-      theme="kissan"
+      eyebrow="Farmer portal"
+      theme="farmer"
       kpis={[
         { label: 'This month', value: `${MONTHS[new Date().getMonth()]}`, trend: `${(CALENDAR[crop][new Date().getMonth()] ?? []).length} ${crop.toLowerCase()} tasks` },
         { label: 'Year progress', value: `${doneThisYear}/${yearTasks.length}`, trend: `${crop} tasks ticked` },

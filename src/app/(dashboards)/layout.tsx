@@ -10,6 +10,7 @@ import { ShieldCheck } from 'lucide-react';
 import { KYCPanel, type KycRole } from '@/components/auth/KYCPanel';
 import { supabase } from '@/lib/supabase';
 import { authApi, SELF_JOIN_ROLES, storedRoles } from '@/lib/api/auth';
+import { portalAccess } from '@/lib/auth/portalAccess';
 import { loginHref, PORTALS, portalForSegment } from '@/lib/auth/roles';
 import { restoreSession, signOutCompletely } from '@/lib/auth/session';
 import { OPEN_KYC } from '@/lib/client/identityCheck';
@@ -68,9 +69,18 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     if (typeof window === 'undefined') return;
     let live = true;
     // The real Supabase session decides (refreshed if its token expired), so
-    // someone who closed the app and came back is let straight in.
-    void restoreSession().then((active) => {
+    // someone who closed the app and came back is let straight in — to the
+    // portals they signed in to here. Each portal has its own sign-in: a
+    // session from another portal does not open this one.
+    void restoreSession().then(async (found) => {
       if (!live) return;
+      const here = portalForSegment(segment);
+      let active = found;
+      if (found && here) {
+        const access = await portalAccess(found.session.user, found.roles, here);
+        if (!live) return;
+        if (!access.member || !access.signedIn) active = null;
+      }
       if (!active && GUEST_PORTALS.includes(portalForSegment(segment) ?? '')) {
         // Following a load needs no account; the page asks to sign in only
         // for creating consignments.

@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Safe payment (escrow-style, pay after delivery) for the Farmer and Buyer
+ * Escrow payment (pay after delivery) for the Farmer and Buyer
  * portals — the only two portals where money changes hands between people.
  *
  *   1. Identity check: Aadhaar (and PAN when Admin requires it), recorded by
@@ -95,11 +95,11 @@ export function SafePayment({ as, account, theme, children }: { as: 'buyer' | 'f
         )}
       </Panel>
 
-      <Panel theme={theme} title="How safe payment works" icon={ShieldCheck}>
+      <Panel theme={theme} title="How escrow payment works" icon={ShieldCheck}>
         <ol className="list-decimal space-y-2 pl-5 text-sm text-slate-700">
           {STEPS[as].map((s) => <li key={s}>{s}</li>)}
         </ol>
-        <p className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-600 ring-1 ring-slate-900/5">KashRoot never holds your money: it goes straight from the buyer’s UPI / bank to the farmer’s. Every payment number is recorded on the order, so either side can prove what was paid.</p>
+        <p className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-600 ring-1 ring-slate-900/5">The money is released only after delivery: it stays with the buyer until the goods arrive and are checked, then goes straight from the buyer’s UPI / bank to the farmer’s. KashRoot never holds it. Every payment number is recorded on the order, so either side can prove what was paid.</p>
       </Panel>
 
       {children && <div className="lg:col-span-2">{children}</div>}

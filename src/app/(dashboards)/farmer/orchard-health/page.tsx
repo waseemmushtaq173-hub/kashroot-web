@@ -262,7 +262,6 @@ function OrchardHealth() {
 
   return (
     <PortalShell
-      standalone
       title="Orchard health"
       description="Scab risk for your own blocks from live weather, photo diagnosis, and a spray log that tells you when it’s safe to harvest."
       eyebrow="Orchard tools"

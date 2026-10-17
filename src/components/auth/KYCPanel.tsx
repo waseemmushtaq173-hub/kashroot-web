@@ -624,9 +624,10 @@ function useIdentityVerification(simple = false) {
   const online = config?.online === true;
   const offlineMode = !online || preferOffline;
   const panApiOk = panCheck?.valid === true && panCheck.nameMatch && panCheck.dobMatch;
-  // Online: PAN must be confirmed by the Income Tax check or DigiLocker. Offline
-  // (free): the format is checked now and the PAN is re-checked once online.
-  const panConfirmed = (simple && pan.trim() === '') || (isValidPan(pan) && (panApiOk || panShared || !online));
+  // PAN is optional for everyone (Aadhaar through DigiLocker is enough). Given:
+  // online it must be confirmed (Income Tax check or DigiLocker); offline the
+  // format is checked now and the PAN is re-checked once online.
+  const panConfirmed = pan.trim() === '' || (isValidPan(pan) && (panApiOk || panShared || !online));
   const mobileFromAadhaar = aadhaarMobile?.matches === true;
   // Codes are required only for channels the site has a provider for.
   // Farmers confirmed their mobile and email when signing up; don't ask again.
@@ -726,8 +727,9 @@ function IdentityStep({
   const busy = model.otpPhase !== 'idle' || model.digiLocker === 'connecting';
   const panProblem = panError(model.pan);
   const panOk = isValidPan(model.pan);
-  const [showExtras, setShowExtras] = useState(false);
-  const extras = !model.simple || showExtras;
+  // PAN is optional for everyone (Aadhaar through DigiLocker is enough); shown when they choose to add it.
+  const [showPan, setShowPan] = useState(false);
+  const panShown = showPan || model.pan.trim() !== '';
 
   return (
     <>
@@ -735,7 +737,7 @@ function IdentityStep({
         headingRef={headingRef}
         Icon={IdCardIcon}
         title={model.simple ? 'Verify your Aadhaar' : 'Verify your identity'}
-        description={model.simple ? 'That’s all a farmer needs — your mobile and email were already confirmed when you signed up.' : 'Aadhaar (checked against UIDAI), then PAN and your contact details.'}
+        description={model.simple ? 'That’s all a farmer needs — your mobile and email were already confirmed when you signed up.' : 'Aadhaar through DigiLocker, then your mobile and email. PAN is optional.'}
       />
 
       <div className="space-y-6">
@@ -972,11 +974,11 @@ function IdentityStep({
           ) : null
         )}
 
-        {extras ? (
+        {panShown ? (
           <>
             <Field
               id={panId}
-              label="PAN"
+              label="PAN (optional)"
               hint={
                 panOk ? (
                   <span className="inline-flex items-center gap-1 font-medium text-emerald-700">
@@ -1039,7 +1041,19 @@ function IdentityStep({
                 {model.panCheckError && <p role="alert" className="text-sm text-rose-700 sm:col-span-3">{model.panCheckError}</p>}
               </div>
             )}
+            {model.pan.trim() === '' && (
+              <button type="button" onClick={() => setShowPan(false)} className={`text-sm ${BTN_LINK}`}>
+                Skip PAN
+              </button>
+            )}
+          </>
+        ) : (
+          <button type="button" onClick={() => setShowPan(true)} className={`text-sm ${BTN_LINK}`}>
+            Have a PAN card? Add it (optional)
+          </button>
+        )}
 
+        {!model.simple && (
             <div className="space-y-4 rounded-2xl bg-white/70 p-4 ring-1 ring-slate-200">
               <p className="text-sm font-semibold text-slate-900">Contact for order alerts</p>
               {model.mobileFromAadhaar ? (
@@ -1057,11 +1071,6 @@ function IdentityStep({
                 <p className="text-sm text-slate-600">Email confirmation switches on when the site’s email service is connected.</p>
               )}
             </div>
-          </>
-        ) : (
-          <button type="button" onClick={() => setShowExtras(true)} className={`text-sm ${BTN_LINK}`}>
-            Have a PAN card? Add it (optional)
-          </button>
         )}
       </div>
     </>

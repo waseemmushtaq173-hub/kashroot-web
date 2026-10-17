@@ -2,7 +2,10 @@
 
 /**
  * Agro-dealer portal — batch-coded inventory, licence compliance, batch
- * manifest upload to the authenticity registry, and payouts.
+ * manifest upload to the authenticity registry, payouts, and selling on the
+ * shared Price Comparison: what a dealer lists in the Price Comparison tab
+ * (or from a batch with "Sell on Price Comparison") goes to market_listings,
+ * the same list farmers and buyers compare and order from.
  *
  * Stock and licence files are kept on this device (kr_dealer_*); registering
  * a batch writes it to the shared registry farmers check (fertilizer_batches),
@@ -23,14 +26,17 @@ import {
   Plus,
   PlusCircle,
   ShieldCheck,
+  Store,
   Trash2,
 } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { PortalShell } from '@/components/layout/PortalShell';
+import { SellerDesk } from '@/components/market/SellerDesk';
 import { PayoutForm } from '@/components/payments/PayoutForm';
 import { Badge, Btn, EmptyState, Field, INPUT, Modal, PORTAL_THEMES, Panel, Tile } from '@/components/portal/kit';
 import { myRoleRequest, requestStaffRole } from '@/lib/db/advisory';
+import type { ListingInput } from '@/lib/db/market';
 import { dbMessage, loadAccount, type Account } from '@/lib/db/client';
 import { myPayout, type PayoutAccount } from '@/lib/db/rentals';
 import { localId, usePersistentState } from '@/lib/portal-store';
@@ -78,6 +84,18 @@ const LICENCES: Licence[] = [
 
 const daysUntil = (date: string) => Math.ceil((Date.parse(date) - Date.now()) / 86_400_000);
 
+/** A batch as a Price Comparison product: the dealer adds the price. */
+const SUBCATEGORY: Record<ProductType, string> = { fertilizer: 'Fertiliser', pesticide: 'Pesticide / fungicide', seed: 'Seeds & saplings', other: 'Other' };
+const listingFrom = (b: Batch): Partial<ListingInput> => ({
+  category: 'supplies',
+  subcategory: SUBCATEGORY[b.type ?? 'other'],
+  product: b.name.slice(0, 80),
+  variety: (b.manufacturer ?? '').slice(0, 60),
+  unit: b.type === 'fertilizer' ? 'bag' : 'piece',
+  quantity: b.stock,
+  details: `Batch ${b.batch} · expires ${b.expiry}${b.registration ? ` · registration ${b.registration}` : ''}${b.registered ? ' · in the KashRoot batch registry' : ''}`,
+});
+
 const EMPTY_BATCH = { name: '', batch: '', expiry: '', stock: '', manufacturer: '', type: 'fertilizer' as ProductType, registration: '' };
 
 export default function DealerDashboardPage() {
@@ -93,6 +111,12 @@ export default function DealerDashboardPage() {
     });
   }, []);
   const [addOpen, setAddOpen] = useState(false);
+  // "Sell on Price Comparison" from a batch: opens the product form in the Price Comparison tab, filled in.
+  const [sell, setSell] = useState<{ n: number; draft?: Partial<ListingInput> }>({ n: 0 });
+  const sellOnPriceComparison = (draft?: Partial<ListingInput>) => {
+    setSell((s) => ({ n: s.n + 1, draft }));
+    setTab('market');
+  };
   const [draft, setDraft] = useState(EMPTY_BATCH);
   const manifestInput = useRef<HTMLInputElement>(null);
   const licenceInput = useRef<HTMLInputElement>(null);
@@ -195,6 +219,7 @@ export default function DealerDashboardPage() {
       ]}
       tabs={[
         { id: 'inventory', label: 'Inventory', icon: FlaskConical, count: batches.length },
+        { id: 'market', label: 'Price Comparison', icon: Store },
         { id: 'compliance', label: 'Compliance', icon: ClipboardCheck },
         { id: 'payouts', label: 'Payouts', icon: Banknote },
       ]}
@@ -234,7 +259,7 @@ export default function DealerDashboardPage() {
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
         <Tile theme={theme} icon={PackageSearch} label="Batch tester" hint="Check any code the way farmers do" href="/supplies/tester" />
-        <Tile theme={theme} icon={ShieldCheck} label="Price Comparison" hint="List inputs where buyers compare" href="/compare-prices" />
+        <Tile theme={theme} icon={Store} label="Price Comparison" hint="Sell to farmers on Price Comparison" onClick={() => setTab('market')} />
         <Tile theme={theme} icon={ClipboardCheck} label="Compliance checklist" hint={`${compliant} of ${licences.length} done`} onClick={() => setTab('compliance')} />
       </div>
 
@@ -289,7 +314,10 @@ export default function DealerDashboardPage() {
                               </Btn>
                             )}
                           </td>
-                          <td className="text-right">
+                          <td className="space-x-2 whitespace-nowrap text-right">
+                            <Btn theme={theme} size="sm" variant="soft" icon={Store} aria-label={`Sell ${b.name} on Price Comparison`} onClick={() => sellOnPriceComparison(listingFrom(b))}>
+                              Sell
+                            </Btn>
                             <Btn theme={theme} size="sm" variant="danger" icon={Trash2} aria-label={`Remove ${b.name}`} onClick={() => { setBatches((all) => all.filter((x) => x.id !== b.id)); toast.success('Batch removed'); }}>
                               Remove
                             </Btn>
@@ -303,6 +331,19 @@ export default function DealerDashboardPage() {
             )}
             <p className="mt-4 text-xs text-slate-500">Manifest format: CSV with columns <code>name,batch,expiry,stock,manufacturer,type,registration</code> (expiry as YYYY-MM-DD; type is fertilizer, pesticide, seed or other).</p>
           </Panel>
+        </div>
+      )}
+
+      {tab === 'market' && (
+        <div className="space-y-4">
+          <p className="rounded-2xl bg-white/80 p-4 text-sm text-slate-700 ring-1 ring-slate-900/5">
+            What you list here is on the main <strong>Price Comparison</strong> — the same list every farmer and buyer sees on KashRoot, next to other sellers’ prices. Farmers order from it; their orders come here to accept and ship, and they pay you after delivery.
+          </p>
+          {account ? (
+            <SellerDesk account={account} theme={theme} show="sell" category="supplies" addRequest={sell.n} addDraft={sell.draft} />
+          ) : (
+            <p className="text-sm text-slate-600">Loading your account…</p>
+          )}
         </div>
       )}
 

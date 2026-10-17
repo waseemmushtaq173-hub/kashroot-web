@@ -180,7 +180,7 @@ export function PhotoDiagnosis({ account }: { account: Account | null }) {
               ) : account ? (
                 <Btn theme={theme} icon={Send} variant={result.see_expert ? 'solid' : 'soft'} disabled={busy} onClick={() => void sendToExpert()}>Send to an agronomist</Btn>
               ) : (
-                <p className="text-sm text-slate-600"><Link href="/login/farmer?next=/orchard-health?tab=diagnose" className="font-semibold text-emerald-800 underline">Sign in</Link> to send this photo to an agronomist.</p>
+                <p className="text-sm text-slate-600"><Link href="/login/farmer?next=/farmer/orchard-health?tab=diagnose" className="font-semibold text-emerald-800 underline">Sign in</Link> to send this photo to an agronomist.</p>
               )}
             </div>
           </div>

@@ -5,13 +5,13 @@
  * portal supplies its story, colours and 3D scene mood (portalLoginConfig);
  * this component owns the layout, the credential form and what happens after.
  *
- * Sign-in: Supabase email + password (authApi.login), then the account's roles
- * are checked against the portal. One email is one KashRoot account that can
- * hold several portals:
- *   - farmer and buyer: an account without that portal is
- *     offered to add it (its details for each portal stay separate);
- *   - admin: only accounts an admin has granted the role;
- *   - shared portals accept any account.
+ * Sign-in: Supabase email + password (authApi.login). Every portal is its
+ * own sign-in (lib/auth/portalAccess): being signed in to another portal on
+ * this device does not open this one. One email is one KashRoot account that
+ * can hold an account in several portals:
+ *   - an account without one in this portal is offered "Create your
+ *     <portal> account" (its details for each portal stay separate);
+ *   - admin: only accounts an admin has granted the role.
  * Then a one-time code: to the mobile number on the account by SMS and
  * WhatsApp together (email when there is no mobile or phone codes fail on the
  * site's side). The dashboards open only once it is verified.
@@ -30,6 +30,7 @@ import { ContactOtp, type PhoneRoute } from '@/components/auth/ContactOtp';
 import { PortalAuthFrame } from '@/components/auth/PortalAuthFrame';
 import { PORTAL_LOGIN } from '@/components/auth/portalLoginConfig';
 import { authApi, SELF_JOIN_ROLES, tokenStore } from '@/lib/api/auth';
+import { isMember, joinPortal, markPortalSignedIn, portalAccess, signedInPortals } from '@/lib/auth/portalAccess';
 import { AUTH_ROUTES, loginHref, PORTALS, portalForRole, safeNextPath, type PortalId } from '@/lib/auth/roles';
 import { forgetPerson, rememberedPerson, rememberSignedIn, restoreSession, type RememberedPerson } from '@/lib/auth/session';
 import { getKycConfig } from '@/lib/kyc/kyc-service';
@@ -40,6 +41,7 @@ type JoinRole = (typeof SELF_JOIN_ROLES)[number];
 const isJoinRole = (role: string | null): role is JoinRole => (SELF_JOIN_ROLES as readonly string[]).includes(role ?? '');
 
 interface Session {
+  userId: string;
   accessToken: string;
   role: string;
   roles: string[];
@@ -79,8 +81,10 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   // Second step: a one-time code to the account's mobile (SMS + WhatsApp) or email.
   const [step, setStep] = useState<OtpStep | null>(null);
   const [codesDown, setCodesDown] = useState(false);
-  // Signed in with an account that doesn't have this portal yet: offer to add it.
-  const [join, setJoin] = useState<{ session: Session; has: string[] } | null>(null);
+  // Signed in with an account that has no account in this portal yet: offer to create it.
+  const [join, setJoin] = useState<{ session: Session; has: PortalId[] } | null>(null);
+  // Signed in to other portals on this device (this portal has its own sign-in).
+  const [elsewhere, setElsewhere] = useState<PortalId[]>([]);
   const [joining, setJoining] = useState(false);
 
   const destination = safeNextPath(next, info.home);
@@ -95,10 +99,17 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
     const run = async () => {
       const active = await restoreSession().catch(() => null);
       if (!live) return;
-      if (active && (!info.requiredRole || active.roles.includes(info.requiredRole))) {
-        localStorage.setItem('auth_portal', portal);
-        router.replace(destination);
-        return;
+      if (active) {
+        const access = await portalAccess(active.session.user, active.roles, portal);
+        if (!live) return;
+        if (access.member && access.signedIn && (!info.requiredRole || active.roles.includes(info.requiredRole))) {
+          localStorage.setItem('auth_portal', portal);
+          router.replace(destination);
+          return;
+        }
+        // Signed in to another portal: same person, but this portal asks for its own sign-in.
+        setElsewhere(access.others);
+        setEmail((e) => e || access.email);
       }
       const person = rememberedPerson();
       if (person) {
@@ -117,6 +128,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   const canSubmit = email.trim() !== '' && password !== '' && !pending;
 
   const finish = (session: Session) => {
+    markPortalSignedIn(session.userId, portal);
     tokenStore.setToken(session.accessToken, session.role, session.roles);
     localStorage.setItem('auth_email', email.trim());
     localStorage.setItem('auth_portal', portal);
@@ -128,8 +140,10 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
     router.replace(destination);
   };
 
-  const cancelStep = async () => {
-    await authApi.logout();
+  /** Back out of this portal's sign-in; other portals signed in on this device stay signed in. */
+  const cancelStep = async (anotherAccount = false) => {
+    const userId = step?.session.userId ?? join?.session.userId;
+    if (anotherAccount || !userId || signedInPortals(userId).length === 0) await authApi.logout();
     setStep(null);
     setJoin(null);
     setCodesDown(false);
@@ -149,12 +163,17 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
       const accountRole = data.accountRole;
       const roles = data.accountRoles;
       const required = info.requiredRole;
-      const session: Session = { accessToken: data.accessToken, role: required ?? accountRole ?? 'FARMER', roles, kycSubmitted: data.kycSubmitted, phone: data.phone };
+      const session: Session = { userId: data.userId, accessToken: data.accessToken, role: required ?? accountRole ?? 'FARMER', roles, kycSubmitted: data.kycSubmitted, phone: data.phone };
 
+      // Each portal has its own account: none here yet → create it (same email and password).
+      if (portal !== 'admin' && !isMember(data.portals, roles, portal)) {
+        setJoin({ session, has: (data.portals ?? []).filter((p) => p !== portal) });
+        return;
+      }
       if (required && roles.length > 0 && !roles.includes(required)) {
         // Same person, another portal: offer to add it to this account.
         if (isJoinRole(required)) {
-          setJoin({ session, has: roles });
+          setJoin({ session, has: data.portals ?? [] });
           return;
         }
         // Stay signed in: it is their own account, only not for this portal.
@@ -198,12 +217,13 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   };
 
   const addThisPortal = async () => {
-    if (!join || !isJoinRole(info.requiredRole)) return;
+    if (!join) return;
     setJoining(true);
     setError(null);
     try {
-      const roles = await authApi.addPortalRole(info.requiredRole);
-      const session = { ...join.session, roles: [...new Set([...join.session.roles, ...roles])] };
+      const role = isJoinRole(info.requiredRole) ? info.requiredRole : undefined;
+      await joinPortal(portal, role);
+      const session = { ...join.session, roles: [...new Set([...join.session.roles, ...(role ? [role] : [])])] };
       setJoin(null);
       await startCodeStep(session);
     } catch (err) {
@@ -214,16 +234,15 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   };
 
   if (join) {
-    // Old Seller / Logistics accounts map to Farmer / Tracking: never list the portal being added.
-    const has = [...new Set(join.has.map((r) => portalForRole(r)).filter((p): p is PortalId => Boolean(p) && p !== portal).map((p) => PORTALS[p].label))];
+    const has = [...new Set(join.has.filter((p) => p !== portal).map((p) => PORTALS[p].label))];
     return (
       <PortalAuthFrame portal={portal} labelledBy={ids.heading}>
         <h2 id={ids.heading} className="text-2xl font-semibold tracking-tight text-slate-900">
-          Add the {info.label} portal to your account?
+          Create your {info.label} account
         </h2>
         <p className="mt-2 text-sm text-slate-600">
-          {has.length ? <>This account is already set up for <strong className="text-slate-900">{has.join(', ')}</strong>. </> : null}
-          You can use the same email and password for the {info.label} portal too. Your {info.label} details are kept separately from your other portals.
+          {has.length ? <>You have a KashRoot account for <strong className="text-slate-900">{has.join(', ')}</strong>, but not for the {info.label} portal yet. </> : <>You don’t have a {info.label} account yet. </>}
+          Create it with the same email and password — your {info.label} details are kept separately from your other portals.
         </p>
         {error && (
           <p role="alert" className="mt-4 flex items-start gap-2 rounded-xl bg-rose-50 p-3 text-sm text-rose-800 ring-1 ring-rose-200">
@@ -237,10 +256,10 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
           className={`mt-6 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-sm font-semibold shadow-lg transition disabled:cursor-not-allowed disabled:opacity-60 ${theme.button} ${focusRing}`}
         >
           {joining ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <PlusCircle className="h-4 w-4" aria-hidden />}
-          Yes, add the {info.label} portal
+          Create my {info.label} account
         </button>
         <button type="button" onClick={() => void cancelStep()} className={`mt-3 w-full cursor-pointer rounded-xl px-5 py-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 ${focusRing}`}>
-          No, sign out
+          Not now
         </button>
       </PortalAuthFrame>
     );
@@ -283,7 +302,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
         )}
         <p className="mt-6 border-t border-slate-900/5 pt-3 text-sm text-slate-600">
           Not you?{' '}
-          <button type="button" onClick={() => void cancelStep()} className={`cursor-pointer rounded font-semibold text-slate-800 underline-offset-4 hover:underline ${focusRing}`}>
+          <button type="button" onClick={() => void cancelStep(true)} className={`cursor-pointer rounded font-semibold text-slate-800 underline-offset-4 hover:underline ${focusRing}`}>
             Sign out and use another account
           </button>
         </p>
@@ -297,8 +316,13 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
         Sign in to the {info.label} portal
       </h2>
       <p className="mt-1 text-sm text-slate-600">
-        {info.requiredRole ? `For ${info.label.toLowerCase()} accounts.` : 'Any KashRoot account works here.'}
+        Every KashRoot portal has its own sign-in. No {info.label} account yet? Sign in with your KashRoot email and password and create it, or use Create an account below.
       </p>
+      {elsewhere.length > 0 && (
+        <p role="status" className="mt-4 rounded-xl bg-sky-50 p-3 text-sm text-sky-950 ring-1 ring-sky-200">
+          You are signed in to <strong>{elsewhere.map((p) => PORTALS[p].label).join(', ')}</strong> on this device. The {info.label} portal has its own sign-in — enter your password to open it.
+        </p>
+      )}
 
       {verified && (
         <p role="status" className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800 ring-1 ring-emerald-200">

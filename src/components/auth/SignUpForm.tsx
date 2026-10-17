@@ -202,10 +202,10 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
         <span className={`mx-auto grid h-16 w-16 place-items-center rounded-2xl ${look.tile}`}>
           <CheckCircle2 className="h-8 w-8" aria-hidden />
         </span>
-        <h2 className="mt-5 text-2xl font-semibold tracking-tight text-slate-900">{joinedExisting ? `${PORTALS[homePortal].label} portal added!` : 'Account created!'}</h2>
+        <h2 className="mt-5 text-2xl font-semibold tracking-tight text-slate-900">{joinedExisting ? `${PORTALS[homePortal].label} account created!` : 'Account created!'}</h2>
         {joinedExisting && (
           <p className="mt-2 text-slate-600">
-            You already had a KashRoot account with <strong className="text-slate-900">{emailValue}</strong>. The {PORTALS[homePortal].label} portal is now part of it — sign in with the same email and password. Your {PORTALS[homePortal].label} details are kept separately.
+            You already had a KashRoot account with <strong className="text-slate-900">{emailValue}</strong>. Your {PORTALS[homePortal].label} account is now made with it — sign in to the {PORTALS[homePortal].label} portal with the same email and password. Your {PORTALS[homePortal].label} details are kept separately.
           </p>
         )}
         {needsEmailConfirmation ? (
@@ -262,7 +262,7 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
             <span className={`grid h-6 w-6 place-items-center rounded-full ${look.tile}`}>
               <RoleIcon className="h-3.5 w-3.5" aria-hidden />
             </span>
-            {PORTALS[portal].requiredRole ? `${style.label} account` : `${style.label} account · also opens the ${style.label} portal`}
+            {PORTALS[portal].label} account · opens the {PORTALS[portal].label} portal only
           </p>
         </>
       ) : (

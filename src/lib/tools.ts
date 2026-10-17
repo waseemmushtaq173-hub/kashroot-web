@@ -62,7 +62,7 @@ export const TOOLS: Record<ToolId, Tool> = {
   escrow: {
     id: 'escrow',
     title: 'Pay After Delivery',
-    eyebrow: 'Safe payments',
+    eyebrow: 'Escrow payment',
     description:
       'Order now and pay the seller directly by UPI only after the goods reach you and you have checked them — no advance-payment risk.',
     href: '/escrow',

@@ -2,14 +2,15 @@
 
 /**
  * Buyer portal — the buyer's orders (placed on Price Comparison, which is its
- * own portal) and Safe payment: identity check (KYC) and pay-after-delivery.
+ * own portal) and Escrow payment: identity check (KYC) and pay-after-delivery.
+ * Cold Storage and mandi rates have their own places on the home page.
  * Nothing is paid up front; once the goods arrive and are checked, the buyer
  * pays the farmer directly by UPI / bank. KashRoot never holds the money.
  * Following a truck is in the Tracking portal.
  */
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Loader2, PackageCheck, ShieldCheck, ShoppingBag, ShoppingCart, TrendingUp, Warehouse } from 'lucide-react';
+import { Loader2, PackageCheck, ShieldCheck, ShoppingBag, ShoppingCart } from 'lucide-react';
 
 import { PortalShell } from '@/components/layout/PortalShell';
 import { OrderCard } from '@/components/market/OrderCard';
@@ -90,7 +91,7 @@ function BuyerDashboard() {
   return (
     <PortalShell
       title="Source with confidence"
-      description="Your orders, and safe payment: verify once, and pay the farmer only after the goods reach you."
+      description="Your orders, and escrow payment: verify once, and pay the farmer only after the goods reach you."
       eyebrow="Buyer portal"
       theme="buyer"
       kpis={[
@@ -101,18 +102,16 @@ function BuyerDashboard() {
       tabs={[
         { id: 'overview', label: 'Overview', icon: ShoppingBag },
         { id: 'orders', label: 'My orders', icon: ShoppingCart, count: all.length || undefined },
-        { id: 'payment', label: 'Safe payment', icon: ShieldCheck, count: toPay.length || undefined },
+        { id: 'payment', label: 'Escrow payment', icon: ShieldCheck, count: toPay.length || undefined },
       ]}
       activeTab={tab}
       onTabChange={(id) => setTab(id as Tab)}
     >
       {tab === 'overview' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3">
             <Tile theme={theme} icon={ShoppingCart} label="My orders" hint="Receive & pay" onClick={() => setTab('orders')} />
-            <Tile theme={theme} icon={ShieldCheck} label="Safe payment" hint="Verify & pay after delivery" onClick={() => setTab('payment')} />
-            <Tile theme={theme} icon={Warehouse} label="Cold storage" hint="Choose your place" href="/rental/dashboard" />
-            <Tile theme={theme} icon={TrendingUp} label="Mandi rates" hint="Today’s prices" href="/mandi-weather" />
+            <Tile theme={theme} icon={ShieldCheck} label="Escrow payment" hint="Pay after delivery" onClick={() => setTab('payment')} />
           </div>
 
           <div className="grid gap-6 lg:grid-cols-3">
