@@ -100,6 +100,7 @@ async function post<T>(url: string, body: unknown): Promise<T> {
   const res = await authFetch(url, { method: 'POST', body: JSON.stringify(body) });
   const data = await res.json().catch(() => ({}));
   if (res.status === 503 || res.status === 401) throw new KycUnavailableError(data.error ?? 'Verification is unavailable.');
+  if (res.status === 504 && !data.error) throw new Error('The check took too long — UIDAI is slow right now. Please try again in a minute.');
   if (!res.ok) throw new Error(data.error ?? 'Verification failed. Please try again.');
   return data as T;
 }
@@ -121,7 +122,8 @@ export async function verifyAadhaarOtp(txnId: string, otp: string, last4: string
     const r = await post<{ referenceId: string; aadhaarLast4: string; name: string; dateOfBirth: string }>('/api/kyc/aadhaar/verify', { referenceId: txnId, otp, last4 });
     return { referenceId: r.referenceId, aadhaarLast4: r.aadhaarLast4 || last4, person: { name: r.name, dateOfBirth: r.dateOfBirth } };
   } catch (err) {
-    if (err instanceof KycUnavailableError) throw err;
+    // Say what really went wrong (expired, no credit, UIDAI slow…), not always "wrong OTP".
+    if (err instanceof Error && err.message) throw err;
     throw new OtpRejectedError();
   }
 }

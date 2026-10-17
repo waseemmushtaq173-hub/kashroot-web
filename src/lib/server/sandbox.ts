@@ -32,10 +32,11 @@ async function accessToken(): Promise<string> {
     },
     signal: AbortSignal.timeout(15_000),
     cache: 'no-store',
-  });
+  }).catch(() => null);
+  if (!res) throw new ProviderError('Could not reach the identity-check service. Please try again.', 504);
   const json = await res.json().catch(() => ({}));
   const token = json?.data?.access_token ?? json?.access_token;
-  if (!res.ok || !token) throw new Error(`KYC provider authentication failed (${res.status})`);
+  if (!res.ok || !token) throw providerProblem('/authenticate', res.ok ? 502 : res.status, String(json?.message ?? ''));
   cached = { token, at: Date.now() };
   return token;
 }
@@ -46,23 +47,47 @@ export class ProviderError extends Error {
   }
 }
 
+/**
+ * The provider's answer as a plain reason for the person (never "wrong OTP"
+ * when the real problem is the account, the keys or a slow UIDAI). Logged for
+ * the site owner (Vercel → Logs) without any Aadhaar number.
+ */
+function providerProblem(path: string, status: number, message: string): ProviderError {
+  console.error(`[kyc] ${path} → ${status}: ${message}`);
+  if (/credit|balance|quota|insufficient|billing|subscription|plan|wallet|recharge/i.test(message) || status === 402)
+    return new ProviderError('The KashRoot identity-check account has run out of credit. The site owner must add billing in the Sandbox console — please try again later.', 503);
+  if (status === 401 || status === 403) return new ProviderError('The identity-check service did not accept KashRoot’s keys. The site owner must check SANDBOX_API_KEY and SANDBOX_API_SECRET in Vercel.', 503);
+  if (status === 429) return new ProviderError('Too many checks right now — please wait a minute and try again.', 429);
+  if (status >= 500) return new ProviderError(`UIDAI / the identity-check service is not answering properly right now (${message || status}). Please try again in a few minutes.`, 502);
+  return new ProviderError(message || `The identity-check service answered ${status}.`, 400);
+}
+
 async function call<T = Record<string, unknown>>(path: string, init: { method?: 'GET' | 'POST'; body?: unknown } = {}): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    method: init.method ?? 'POST',
-    headers: {
-      Authorization: await accessToken(),
-      'x-api-key': process.env.SANDBOX_API_KEY!,
-      'x-api-version': VERSION,
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: init.body ? JSON.stringify(init.body) : undefined,
-    signal: AbortSignal.timeout(25_000),
-    cache: 'no-store',
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      method: init.method ?? 'POST',
+      headers: {
+        Authorization: await accessToken(),
+        'x-api-key': process.env.SANDBOX_API_KEY!,
+        'x-api-version': VERSION,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: init.body ? JSON.stringify(init.body) : undefined,
+      // UIDAI can take a long while; the route allows 60 s in all.
+      signal: AbortSignal.timeout(45_000),
+      cache: 'no-store',
+    });
+  } catch (err) {
+    if (err instanceof ProviderError) throw err;
+    const slow = err instanceof Error && /timeout|abort/i.test(`${err.name} ${err.message}`);
+    console.error(`[kyc] ${path} → ${slow ? 'timed out' : 'network error'}`);
+    throw new ProviderError(slow ? 'UIDAI took too long to answer. Please wait a minute and try again (if the OTP does not work again, tap Resend OTP).' : 'Could not reach the identity-check service. Please try again.', 504);
+  }
   const json = await res.json().catch(() => ({}));
   if (res.status === 401 || res.status === 403) cached = null;
-  if (!res.ok) throw new ProviderError(json?.message || json?.data?.message || `KYC provider answered ${res.status}`, res.status >= 500 ? 502 : 400);
+  if (!res.ok) throw providerProblem(path, res.status, String(json?.message || json?.data?.message || json?.error || ''));
   return json as T;
 }
 
@@ -89,7 +114,13 @@ export async function aadhaarVerifyOtp(referenceId: string, otp: string) {
     body: { '@entity': 'in.co.sandbox.kyc.aadhaar.okyc.request', reference_id: referenceId, otp },
   });
   const d = json.data ?? {};
-  if (String(d.status).toUpperCase() !== 'VALID') throw new ProviderError(d.message || 'That OTP is incorrect or has expired.', 400);
+  if (String(d.status).toUpperCase() !== 'VALID') {
+    const why = String(d.message ?? json.message ?? '');
+    console.error(`[kyc] okyc verify → status ${d.status}: ${why}`);
+    if (/expire/i.test(why)) throw new ProviderError('This OTP has expired (UIDAI keeps it for about 10 minutes). Tap Resend OTP and enter the new one.', 400);
+    if (/invalid|incorrect|wrong|mismatch/i.test(why)) throw new ProviderError('UIDAI says this OTP does not match. Use the latest SMS — each Resend OTP replaces the old code.', 400);
+    throw new ProviderError(why ? `UIDAI could not confirm the OTP: ${why}` : 'UIDAI could not confirm the OTP. Tap Resend OTP and try again.', 400);
+  }
   return {
     name: d.name ?? '',
     gender: d.gender ?? '',

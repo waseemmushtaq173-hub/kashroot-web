@@ -8,6 +8,9 @@ import { panVerify, sandboxConfigured } from '@/lib/server/sandbox';
 import { rateLimited } from '@/lib/server/sign';
 import { KYC_NOT_CONFIGURED, providerFailure, SIGN_IN_FIRST } from '../notConfigured';
 
+
+// UIDAI can be slow to answer: give the check up to a minute.
+export const maxDuration = 60;
 export async function POST(request: Request) {
   const user = await requireUser(request);
   if (!user) return SIGN_IN_FIRST();

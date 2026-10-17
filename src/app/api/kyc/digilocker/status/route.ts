@@ -8,6 +8,9 @@ import { verifySignature } from '@/lib/server/sign';
 import { KYC_NOT_CONFIGURED, providerFailure, SIGN_IN_FIRST } from '../../notConfigured';
 import { ipLimited, tooMany } from '@/lib/server/sign';
 
+
+// UIDAI can be slow to answer: give the check up to a minute.
+export const maxDuration = 60;
 export async function GET(request: Request) {
   if (ipLimited(request, 'kyc-digilocker-status', 30)) return tooMany();
   const user = await requireUser(request);

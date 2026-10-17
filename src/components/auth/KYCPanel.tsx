@@ -827,6 +827,12 @@ function IdentityStep({
                   describedBy={model.otpError ? `${otpId}-error` : undefined}
                 />
 
+                {model.otpPhase === 'verifying' && (
+                  <p role="status" className="mt-2 flex items-center gap-2 text-sm text-emerald-900">
+                    <SpinnerIcon className="h-4 w-4 animate-spin" /> Checking with UIDAI — this can take up to a minute. Please keep this window open.
+                  </p>
+                )}
+
                 {model.otpError && (
                   <p id={`${otpId}-error`} role="alert" className="mt-2 flex items-center gap-1.5 text-sm text-rose-700">
                     <AlertIcon className="h-4 w-4 shrink-0" />
