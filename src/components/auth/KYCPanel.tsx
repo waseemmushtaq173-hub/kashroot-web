@@ -59,6 +59,7 @@ import {
   lookupIfsc,
   OtpRejectedError,
   requestAadhaarOtp,
+  serviceDown,
   verifyAadhaarOtp,
   verifyPan,
   verifyWithDigiLocker,
@@ -443,6 +444,8 @@ function useIdentityVerification(simple = false) {
   const [otp, setOtp] = useState('');
   const [sendError, setSendError] = useState<string | null>(null);
   const [otpError, setOtpError] = useState<string | null>(null);
+  // UIDAI's OTP service is down or too slow: offer DigiLocker (it asks for the Aadhaar and an OTP too) or the QR.
+  const [uidaiDown, setUidaiDown] = useState(false);
   const [resendIn, setResendIn] = useState(0);
   const [digiLocker, setDigiLocker] = useState<'idle' | 'connecting' | 'failed'>('idle');
   const [verified, setVerified] = useState<
@@ -506,6 +509,7 @@ function useIdentityVerification(simple = false) {
     } catch (err) {
       if (current !== attempt.current) return;
       setSendError(err instanceof Error && err.message ? err.message : 'We couldn’t send the OTP. Please try again.');
+      if (serviceDown(err)) setUidaiDown(true);
     } finally {
       if (current === attempt.current) setOtpPhase('idle');
     }
@@ -529,6 +533,7 @@ function useIdentityVerification(simple = false) {
     } catch (err) {
       if (current !== attempt.current) return;
       setOtpError(err instanceof OtpRejectedError || (err instanceof Error && err.message) ? (err as Error).message : 'Verification failed. Please try again.');
+      if (serviceDown(err)) setUidaiDown(true);
       setOtp('');
     } finally {
       if (current === attempt.current) setOtpPhase('idle');
@@ -552,7 +557,9 @@ function useIdentityVerification(simple = false) {
     try {
       const { panShared: shared, ...result } = await verifyWithDigiLocker(popup);
       if (current !== attempt.current) return;
-      if (verified && result.aadhaarLast4 && result.aadhaarLast4 !== verified.aadhaarLast4) {
+      // DigiLocker must be the same Aadhaar as the one verified (or typed) here.
+      const want = verified?.aadhaarLast4 ?? (aadhaarValid ? aadhaarDigits.slice(-4) : '');
+      if (want && result.aadhaarLast4 && result.aadhaarLast4 !== want) {
         throw new Error(`This DigiLocker account is for another Aadhaar (${maskAadhaar(result.aadhaarLast4)}). Sign in to DigiLocker with the Aadhaar you verified above.`);
       }
       // Aadhaar already verified by OTP stays as it is; DigiLocker adds the details (PAN and documents).
@@ -609,6 +616,7 @@ function useIdentityVerification(simple = false) {
     setPanShared(false);
     setAadhaarMobile(null);
     setSynced('no');
+    setUidaiDown(false);
   };
 
   const online = config?.online === true;
@@ -657,6 +665,7 @@ function useIdentityVerification(simple = false) {
     startDigiLocker,
     synced,
     skipSync: () => setSynced('skipped'),
+    uidaiDown,
     verified,
     resetAadhaar,
     pan,
@@ -794,11 +803,37 @@ function IdentityStep({
               </div>
             </Field>
 
-            {model.sendError && (
+            {model.sendError && !model.uidaiDown && (
               // UIDAI can only send the OTP when a mobile number is linked with the Aadhaar.
               <button type="button" onClick={() => model.setPreferOffline(true)} className={`text-sm ${BTN_LINK}`}>
                 No OTP? Scan the QR on your Aadhaar instead
               </button>
+            )}
+
+            {model.uidaiDown && (
+              <div role="region" aria-label="UIDAI OTP not working" className="space-y-3 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200 sm:p-5">
+                <p className="text-sm font-semibold text-amber-950">UIDAI’s OTP check is not working right now — your OTP was not the problem.</p>
+                <p className="text-sm text-amber-900">Verify through DigiLocker instead: it asks for your Aadhaar number and sends an OTP to your registered mobile too, then shares your details with KashRoot.</p>
+                <button
+                  type="button"
+                  onClick={model.startDigiLocker}
+                  disabled={model.digiLocker === 'connecting'}
+                  className={`flex w-full cursor-pointer items-center gap-4 rounded-2xl bg-gradient-to-r from-indigo-700 via-blue-700 to-sky-700 p-4 text-left text-white shadow-lg shadow-blue-700/25 transition hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-80 ${FOCUS}`}
+                >
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/15 ring-1 ring-white/30">
+                    <FileCheckIcon className="h-6 w-6" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-semibold">{model.digiLocker === 'connecting' ? 'Waiting for DigiLocker…' : 'Verify with DigiLocker instead'}</span>
+                    <span className="mt-0.5 block text-sm text-blue-50">Opens DigiLocker in a new window; come back here when you have allowed it.</span>
+                  </span>
+                  {model.digiLocker === 'connecting' ? <SpinnerIcon className="h-5 w-5 shrink-0 animate-spin" /> : <ArrowRightIcon className="h-5 w-5 shrink-0" />}
+                </button>
+                {model.digiLocker === 'failed' && <InlineAlert announce>{model.digiLockerError ?? 'DigiLocker didn’t respond.'}</InlineAlert>}
+                <button type="button" onClick={() => model.setPreferOffline(true)} className={`text-sm ${BTN_LINK}`}>
+                  Or scan the QR on your Aadhaar card
+                </button>
+              </div>
             )}
 
             {model.otpRequested && (

@@ -96,12 +96,22 @@ export class KycUnavailableError extends Error {
   }
 }
 
+/** A failed check, with the server's status: 502 / 504 mean UIDAI or the provider is down or too slow. */
+export class KycServiceError extends Error {
+  constructor(message: string, public status: number) {
+    super(message);
+    this.name = 'KycServiceError';
+  }
+}
+/** UIDAI (through the provider) is down or too slow — another way is needed, not another try of the same OTP. */
+export const serviceDown = (err: unknown) => err instanceof KycServiceError && (err.status === 502 || err.status === 504);
+
 async function post<T>(url: string, body: unknown): Promise<T> {
   const res = await authFetch(url, { method: 'POST', body: JSON.stringify(body) });
   const data = await res.json().catch(() => ({}));
   if (res.status === 503 || res.status === 401) throw new KycUnavailableError(data.error ?? 'Verification is unavailable.');
-  if (res.status === 504 && !data.error) throw new Error('The check took too long — UIDAI is slow right now. Please try again in a minute.');
-  if (!res.ok) throw new Error(data.error ?? 'Verification failed. Please try again.');
+  if (res.status === 504 && !data.error) throw new KycServiceError('The check took too long — UIDAI is slow right now.', 504);
+  if (!res.ok) throw new KycServiceError(data.error ?? 'Verification failed. Please try again.', res.status);
   return data as T;
 }
 
