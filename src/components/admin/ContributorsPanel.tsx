@@ -12,7 +12,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Check, ExternalLink, GraduationCap, IndianRupee, Loader2, Megaphone, Phone, Users, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { RefreshBtn } from '@/components/admin/RefreshBtn';
 import { UpiQr } from '@/components/payments/UpiQr';

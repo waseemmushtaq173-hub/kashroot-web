@@ -6,7 +6,7 @@
  */
 import { useState } from 'react';
 import { Banknote, ShieldCheck } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { Btn, EmptyState, Field, INPUT, Panel, type PortalTheme } from '@/components/portal/kit';
 import { formatAccountNumber, formatIfsc, isValidAccountNumber, isValidIfsc } from '@/lib/kyc/validators';

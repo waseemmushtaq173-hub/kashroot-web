@@ -31,7 +31,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 import {
   ArrowLeft,
   ArrowRight,

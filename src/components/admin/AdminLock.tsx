@@ -10,7 +10,7 @@
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { KeyRound, Loader2, LockKeyhole, RefreshCw, ShieldAlert } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { PortalShell } from '@/components/layout/PortalShell';
 import { Btn, Field, INPUT, PORTAL_THEMES, Panel } from '@/components/portal/kit';

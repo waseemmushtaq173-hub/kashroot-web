@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { Crown, QrCode, Trash2, UserPlus, Users } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { Badge, Btn, Field, INPUT, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { addAdmin, adminTeam, removeAdmin, type AdminMember } from '@/lib/db/security';

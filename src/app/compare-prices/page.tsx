@@ -13,7 +13,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { BadgeCheck, Loader2, MapPin, Package, Phone, Search, ShieldCheck, ShoppingCart, Store } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { ToolShell } from '@/components/layout/ToolShell';
 import { OrderCard } from '@/components/market/OrderCard';

@@ -17,13 +17,15 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Boxes, CalendarDays, CheckCircle2, Loader2, Map as MapIcon, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, Search, Snowflake, Store, Trash2, Warehouse, XCircle } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
+import { IdentityStatus } from '@/components/auth/IdentityStatus';
 import { PortalShell } from '@/components/layout/PortalShell';
 import { PayDirect } from '@/components/payments/PayDirect';
 import { PayoutForm } from '@/components/payments/PayoutForm';
 import { ColdBooking, MyPlaces, placesText } from '@/components/rental/ColdBooking';
 import { ColdMapEditor } from '@/components/rental/ColdMapEditor';
+import { ColdStoreDirectory, useColdDirectory } from '@/components/rental/ColdStoreDirectory';
 import { Badge, Btn, EmptyState, Field, INPUT, Modal, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { inr, loadAccount, type Account } from '@/lib/db/client';
 import { showLength } from '@/lib/coldLayout';
@@ -75,6 +77,8 @@ export default function RentalPage() {
   const [listings, setListings] = useState<RentalListing[]>([]);
   const [listError, setListError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  // Find a cold store: every cold store in J&K, or only those on KashRoot (bookable).
+  const [findView, setFindView] = useState<'all' | 'kashroot'>('all');
   const [mine, setMine] = useState<RentalBooking[]>([]);
   const [incoming, setIncoming] = useState<RentalBooking[]>([]);
   const [owned, setOwned] = useState<RentalListing[]>([]);
@@ -131,6 +135,7 @@ export default function RentalPage() {
   }, [listings, search]);
 
   const waiting = incoming.filter((b) => b.status === 'requested' || b.status === 'paid').length;
+  const directory = useColdDirectory(listings);
 
   if (account === undefined) return <p className="flex items-center gap-2 p-10 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>;
 
@@ -141,7 +146,7 @@ export default function RentalPage() {
       eyebrow="Cold storage"
       theme="rental"
       kpis={[
-        { label: 'Free cold-store space', value: tab === 'cold' ? `${listings.reduce((s, l) => s + l.available, 0).toLocaleString('en-IN')} boxes` : '—', trend: `${tab === 'cold' ? listings.length : 0} cold stores` },
+        { label: 'Cold stores in J&K', value: directory.loading ? '…' : directory.entries.length.toLocaleString('en-IN'), trend: `${listings.length} on KashRoot · ${listings.reduce((s, l) => s + l.available, 0).toLocaleString('en-IN')} boxes free` },
         { label: 'Your bookings', value: String(mine.length), trend: `${mine.filter((b) => b.status === 'confirmed').length} confirmed` },
         { label: 'Waiting for you', value: String(waiting), trend: owned.length ? 'Bookings to confirm' : 'List your cold store' },
       ]}
@@ -161,21 +166,44 @@ export default function RentalPage() {
         <p role="alert" className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">{listError}</p>
       ) : tab === 'cold' ? (
         <div className="space-y-5">
+          <div role="tablist" aria-label="Which cold stores" className="flex w-full gap-1 rounded-2xl bg-violet-50 p-1 ring-1 ring-violet-200 sm:w-auto sm:max-w-xl">
+            {([
+              ['all', `All cold stores${directory.loading ? '' : ` (${directory.entries.length.toLocaleString('en-IN')})`}`],
+              ['kashroot', `Book on KashRoot (${listings.length})`],
+            ] as const).map(([id, label]) => (
+              <button key={id} type="button" role="tab" aria-selected={findView === id} onClick={() => setFindView(id)} className={`flex-1 cursor-pointer rounded-xl px-4 py-2.5 text-sm font-semibold transition ${findView === id ? 'bg-violet-700 text-white shadow' : 'text-violet-900 hover:bg-violet-100'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {findView === 'all' ? (
+            <ColdStoreDirectory entries={directory.entries} sources={directory.sources} loading={directory.loading} adminCount={directory.adminCount} listings={listings} onBook={setBooking} />
+          ) : (
+          <>
+          <p className="text-sm text-slate-700">Cold stores whose owners listed them on KashRoot: see every chamber on a plan and in 3D, choose your own place and pay the owner directly.</p>
           <label className="relative block">
-            <span className="sr-only">Search</span>
+            <span className="sr-only">Search cold stores on KashRoot</span>
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
-            <input className={`${INPUT} pl-9`} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by district, village or cold store" />
+            <input className={`${INPUT} pl-9`} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search cold stores on KashRoot: name, village or district" />
           </label>
           {loading && listings.length === 0 ? (
             <p className="flex items-center gap-2 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>
           ) : visible.length === 0 ? (
-            <EmptyState theme={theme} icon={Snowflake} title="No cold stores listed yet" text="Cold-store owners can list their space under “My cold store”." action={<Btn theme={theme} variant="soft" onClick={() => setTab('owner')}>List yours</Btn>} />
+            <EmptyState
+              theme={theme}
+              icon={Snowflake}
+              title={listings.length ? `No cold store on KashRoot matches “${search.trim()}”` : 'No cold store on KashRoot yet'}
+              text={listings.length ? 'Try another name or district — or look in All cold stores.' : 'Owners list their cold store under “My cold store”. Meanwhile, All cold stores shows every cold store in Jammu & Kashmir.'}
+              action={<Btn theme={theme} variant="soft" onClick={() => (listings.length ? setFindView('all') : setTab('owner'))}>{listings.length ? 'All cold stores' : 'List your cold store'}</Btn>}
+            />
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {visible.map((l) => (
                 <ListingCard key={l.id} listing={l} chambers={chambers.filter((c) => c.listing_id === l.id)} own={l.owner_id === account.id} onBook={() => setBooking(l)} />
               ))}
             </div>
+          )}
+          </>
           )}
         </div>
       ) : tab === 'bookings' ? (
@@ -418,6 +446,9 @@ function OwnerPanel({ account, owned, incoming, chambers, places, onChange }: { 
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
+      <div className="lg:col-span-2">
+        <IdentityStatus account={account} theme={theme} purpose="list your cold store and take bookings" />
+      </div>
       <Panel theme={theme} title="Bookings to confirm" icon={CheckCircle2} className="lg:col-span-2">
         {pending.length === 0 ? (
           <p className="text-sm text-slate-600">No bookings waiting. When a farmer books and pays, confirm it here after checking the money arrived in your bank or UPI app.</p>

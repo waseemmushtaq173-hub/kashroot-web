@@ -2,7 +2,7 @@
 
 /** The fields of a marketplace product (Farmer portal and Price Comparison). */
 import { Camera, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { Field, INPUT } from '@/components/portal/kit';
 import { compressImage } from '@/lib/client/image';

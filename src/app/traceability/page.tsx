@@ -9,7 +9,7 @@
  */
 import { useMemo, useState } from 'react';
 import { Award, CheckCircle2, MapPin, Printer, QrCode, Search, Thermometer, TriangleAlert } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { PortalShell } from '@/components/layout/PortalShell';
 import { Badge, Btn, EmptyState, INPUT, PORTAL_THEMES, Panel } from '@/components/portal/kit';

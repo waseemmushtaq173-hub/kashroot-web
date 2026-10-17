@@ -57,7 +57,7 @@ export interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
   auth?: boolean;
 }
 
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 /** Perform a request against the API and parse the JSON response as `T`. */
 export async function apiFetch<T>(

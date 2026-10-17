@@ -8,7 +8,7 @@
  */
 import { useState } from 'react';
 import { CheckCircle2, Flag, PackageCheck, Phone, Truck, XCircle } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { PayDirect } from '@/components/payments/PayDirect';
 import { Badge, Btn, type PortalTheme } from '@/components/portal/kit';

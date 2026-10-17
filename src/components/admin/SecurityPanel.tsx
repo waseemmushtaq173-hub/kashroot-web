@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, CircleAlert, IdCard, KeyRound, LockKeyhole, ShieldCheck } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { AdminTeamPanel } from '@/components/admin/AdminTeamPanel';
 import { SecurityLogPanel } from '@/components/admin/SecurityLogPanel';

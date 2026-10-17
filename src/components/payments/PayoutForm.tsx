@@ -7,7 +7,7 @@
  */
 import { useState } from 'react';
 import { Banknote, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { UpiQr } from '@/components/payments/UpiQr';
 import { Btn, Field, INPUT, Panel, type PortalTheme } from '@/components/portal/kit';

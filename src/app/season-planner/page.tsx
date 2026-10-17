@@ -7,7 +7,7 @@
  */
 import { useState } from 'react';
 import { Calculator, CalendarDays, CheckCircle2, RotateCcw, Scissors, Sprout } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { PortalShell } from '@/components/layout/PortalShell';
 import { Badge, Btn, Field, INPUT, PORTAL_THEMES, Panel, inr } from '@/components/portal/kit';

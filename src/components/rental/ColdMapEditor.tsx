@@ -19,7 +19,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Boxes, Layers, Phone, Plus, Ruler, Save, Trash2, TriangleAlert } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { ChamberGrid, ColdStoreExplorer, PlaceLegend, type Look } from '@/components/rental/ColdStoreMap';
 import { niceDate, placesText } from '@/components/rental/ColdBooking';

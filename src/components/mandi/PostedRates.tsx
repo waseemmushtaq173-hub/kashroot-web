@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { BadgeCheck, Loader2, Megaphone, PlusCircle, ThumbsDown, ThumbsUp, Trash2, UserPlus, Wallet } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { Badge, Btn, EmptyState, Field, INPUT, Modal, Panel, type PortalTheme } from '@/components/portal/kit';
 import { RoleApplicationForm } from '@/components/staff/RoleApplicationForm';

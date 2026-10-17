@@ -6,7 +6,7 @@
  */
 import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { Btn, PORTAL_THEMES, type PortalTheme } from '@/components/portal/kit';
 

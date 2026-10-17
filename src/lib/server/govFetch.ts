@@ -109,13 +109,14 @@ function getWith(url: string, headers: Record<string, string>, ca: string[], tim
   });
 }
 
-export async function govFetch(url: string, headers: Record<string, string>, timeout = 12_000): Promise<GovResponse> {
+/** `revalidate`: seconds Next.js may keep the answer (0: always ask the site again). */
+export async function govFetch(url: string, headers: Record<string, string>, timeout = 12_000, revalidate = 900): Promise<GovResponse> {
   const { hostname, port } = new URL(url);
   const host = `${hostname}:${port || 443}`;
   const known = intermediates.get(host);
   if (known?.length) return getWith(url, headers, [...roots(), ...known], timeout);
   try {
-    const res = await fetch(url, { headers, signal: AbortSignal.timeout(timeout), next: { revalidate: 900 } });
+    const res = await fetch(url, { headers, signal: AbortSignal.timeout(timeout), ...(revalidate > 0 ? { next: { revalidate } } : { cache: 'no-store' as const }) });
     return { ok: res.ok, status: res.status, json: () => res.json(), text: () => res.text() };
   } catch (err) {
     if (!CHAIN_ERRORS.has(causeCode(err) ?? '')) throw err;

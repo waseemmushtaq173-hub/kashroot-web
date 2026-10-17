@@ -22,7 +22,7 @@ import {
   Trash2,
   Truck,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { PortalShell } from '@/components/layout/PortalShell';
 import { Badge, Btn, EmptyState, PORTAL_THEMES, Panel, inr } from '@/components/portal/kit';

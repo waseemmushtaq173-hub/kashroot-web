@@ -28,10 +28,10 @@ export interface Account {
 }
 
 /** Turns a Supabase/PostgREST error into words a farmer or owner can act on. */
-/** Where identity checks (KYC) are done: the Safe payment tab of the Farmer and Buyer portals. */
-export const VERIFY_FIRST = 'Verify your identity first: open the Farmer or Buyer portal → Safe payment → Verify now. Then try again.';
+/** The identity check (KYC) opens in every portal: "Verify now" on the error, or at the top of the page. */
+export const VERIFY_FIRST = 'Verify your identity first (Aadhaar, about a minute): tap “Verify now”, then try again.';
 /** A new row refused by the database: a missing identity check, or a session that has ended. */
-const REFUSED = 'KashRoot could not save this. If you have not verified your identity yet, open the Farmer or Buyer portal → Safe payment → Verify now. Otherwise, sign in again and try once more.';
+const REFUSED = 'Verify your identity first (Aadhaar, about a minute): tap “Verify now”, then try again. Already verified? Sign in again and try once more.';
 
 export function dbMessage(error: { message?: string; code?: string } | null | undefined, fallback = 'Something went wrong. Please try again.'): string {
   if (!error) return fallback;

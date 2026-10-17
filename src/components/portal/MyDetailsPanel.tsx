@@ -9,7 +9,7 @@
  */
 import { useEffect, useId, useState } from 'react';
 import { Check, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { detailsKey, MY_DETAILS, type DetailField } from '@/components/portal/myDetailsConfig';
 import { Btn, INPUT, Modal, PORTAL_THEMES } from '@/components/portal/kit';

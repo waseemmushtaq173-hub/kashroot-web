@@ -7,7 +7,7 @@
  */
 import { useState } from 'react';
 import { Camera, FlaskConical, Loader2, MessageCircle, Send, Video, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { Btn, Field, INPUT, PORTAL_THEMES } from '@/components/portal/kit';
 import { LangPicker, MicButton } from '@/components/voice/VoiceButtons';

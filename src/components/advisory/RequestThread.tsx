@@ -9,7 +9,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, CheckCircle2, Loader2, Phone, Send, Sparkles, ThumbsDown, ThumbsUp, UserRound, Video } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { VideoCall } from '@/components/advisory/VideoCall';
 import { Badge, Btn, INPUT, PORTAL_THEMES } from '@/components/portal/kit';

@@ -9,7 +9,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, Camera, CheckCircle2, Loader2, Send, Stethoscope, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { Badge, Btn, INPUT, PORTAL_THEMES } from '@/components/portal/kit';
 import { LangPicker, SpeakButton } from '@/components/voice/VoiceButtons';

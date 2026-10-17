@@ -14,7 +14,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CalendarDays, CheckCircle2, Map as MapIcon, Navigation, RefreshCw, Snowflake, Sparkles, Trash2, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { ColdStoreExplorer, type Look } from '@/components/rental/ColdStoreMap';
 import { placesOf } from '@/components/rental/placeLook';

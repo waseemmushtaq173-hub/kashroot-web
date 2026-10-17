@@ -14,7 +14,7 @@
  */
 import { useState } from 'react';
 import { Copy, ExternalLink, MessageCircle, Video } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { Btn, EmptyState, Field, INPUT, Panel, PORTAL_THEMES } from '@/components/portal/kit';
 import { usePersistentState } from '@/lib/portal-store';

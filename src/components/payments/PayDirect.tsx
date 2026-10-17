@@ -7,7 +7,7 @@
  */
 import { useEffect, useState } from 'react';
 import { Copy, Loader2, Smartphone } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { UpiQr } from '@/components/payments/UpiQr';
 import { Btn, INPUT, type PortalTheme } from '@/components/portal/kit';

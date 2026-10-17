@@ -13,7 +13,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { CalendarCheck, Camera, CloudRain, Droplets, LocateFixed, Map as MapIcon, MapPin, PlusCircle, RefreshCw, Search, ShieldCheck, Trash2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { PortalShell } from '@/components/layout/PortalShell';
 import { PhotoDiagnosis } from '@/components/orchard/PhotoDiagnosis';

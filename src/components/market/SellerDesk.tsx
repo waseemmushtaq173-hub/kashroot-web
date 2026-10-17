@@ -7,7 +7,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Boxes, CheckCircle2, Loader2, Minus, Package, Pencil, Plus, PlusCircle, Trash2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { OrderCard } from '@/components/market/OrderCard';
 import { ProductForm, productProblem } from '@/components/market/ProductForm';

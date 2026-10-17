@@ -25,7 +25,7 @@ import {
   ShieldCheck,
   Trash2,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { PortalShell } from '@/components/layout/PortalShell';
 import { PayoutForm } from '@/components/payments/PayoutForm';

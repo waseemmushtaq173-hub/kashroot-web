@@ -12,10 +12,19 @@ import { supabase } from '@/lib/supabase';
 import { authApi, SELF_JOIN_ROLES, storedRoles } from '@/lib/api/auth';
 import { loginHref, PORTALS, portalForSegment } from '@/lib/auth/roles';
 import { restoreSession, signOutCompletely } from '@/lib/auth/session';
+import { OPEN_KYC } from '@/lib/client/identityCheck';
 import { KYC_CHANGED, kycMissing, kycRules, myKyc, type KycRules, type KycStatus } from '@/lib/db/security';
 
-/** Safe payment (pay after delivery) with identity checks (KYC) lives in these two portals only. */
+/** Safe payment (pay after delivery) lives in these two portals only; the identity check opens there by itself once. */
 const MONEY_PORTALS = ['farmer', 'buyer'];
+/** Portals where people book, list or get paid: they show the identity-check reminder when Admin requires it. */
+const KYC_PORTALS = [...MONEY_PORTALS, 'rental', 'dealer'];
+/** What the identity check is needed for, portal by portal. */
+const KYC_FOR: Record<string, string> = {
+  rental: 'book cold storage or list your cold store',
+  dealer: 'sell or receive payments',
+  default: 'sell, buy, book or receive money',
+};
 /** Portals a signed-out visitor may open: Tracking, to follow a load by its code. */
 const GUEST_PORTALS = ['tracking'];
 
@@ -109,10 +118,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       setKycDone(true);
       void run();
     };
+    // "Verify now" anywhere in any portal (an error's button, a panel) opens the check here.
+    const open = () => setShowKyc(true);
     window.addEventListener(KYC_CHANGED, changed);
+    window.addEventListener(OPEN_KYC, open);
     return () => {
       live = false;
       window.removeEventListener(KYC_CHANGED, changed);
+      window.removeEventListener(OPEN_KYC, open);
     };
   }, [isAuthenticated, refreshKyc]);
 
@@ -211,7 +224,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <div className="kr-light flex min-h-screen flex-col bg-gradient-to-br from-emerald-50 via-white to-amber-50 text-slate-900">
       <SiteHeader tone="light" portal={portal} />
-      {portal && MONEY_PORTALS.includes(portal) && (kyc?.rules?.kyc_required ? kycMissing(kyc.rules, kyc.status) : !kycDone && !kyc?.status?.aadhaar_verified_at) && (
+      {portal && KYC_PORTALS.includes(portal) && (kyc?.rules?.kyc_required ? kycMissing(kyc.rules, kyc.status) : MONEY_PORTALS.includes(portal) && !kycDone && !kyc?.status?.aadhaar_verified_at) && (
         <Suspense fallback={null}>
           <NotOnSafePayment>
             <div className={`border-b ${kyc?.rules?.kyc_required ? 'border-amber-900/10 bg-amber-50' : 'border-emerald-900/10 bg-emerald-50/90'}`}>
@@ -220,8 +233,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                   <ShieldCheck className={`h-4 w-4 shrink-0 ${kyc?.rules?.kyc_required ? 'text-amber-700' : 'text-emerald-700'}`} aria-hidden />
                   {kyc?.rules?.kyc_required
                     ? kycMissing(kyc.rules, kyc.status) === 'pan'
-                      ? 'Your Aadhaar is verified. Verify your PAN too before you sell, buy, book or receive money on KashRoot.'
-                      : `Verify your Aadhaar${kyc.rules.pan_required ? ' and PAN' : ''} before you sell, buy, book or receive money on KashRoot. It protects you and the people you trade with.`
+                      ? `Your Aadhaar is verified. Verify your PAN too before you ${KYC_FOR[portal] ?? KYC_FOR.default} on KashRoot.`
+                      : `Verify your Aadhaar${kyc.rules.pan_required ? ' and PAN' : ''} here before you ${KYC_FOR[portal] ?? KYC_FOR.default} — about a minute, once for every portal. It protects you and the people you deal with.`
                     : 'Verify your identity once so buyers and sellers can trust you — it covers every KashRoot portal.'}
                 </p>
                 <button type="button" onClick={() => setShowKyc(true)} className="cursor-pointer rounded-lg bg-emerald-700 px-3 py-1.5 font-semibold text-white hover:bg-emerald-800">
@@ -246,6 +259,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           localStorage.setItem('kyc_status', 'submitted');
           setKycDone(true);
           await refreshKyc();
+          // Panels showing the identity check in the portal refresh too.
+          window.dispatchEvent(new Event(KYC_CHANGED));
           // Remember it on the account, so other devices don't ask again.
           void supabase.auth.updateUser({ data: { kyc_status: 'submitted' } }).catch(() => undefined);
         }}

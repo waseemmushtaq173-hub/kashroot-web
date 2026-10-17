@@ -9,7 +9,7 @@
  */
 import { useState } from 'react';
 import { Camera, Loader2, Send } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { Btn, Field, INPUT, type PortalTheme } from '@/components/portal/kit';
 import { compressImage } from '@/lib/client/image';

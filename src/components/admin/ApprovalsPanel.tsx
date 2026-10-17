@@ -10,7 +10,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Check, Flag, GraduationCap, Loader2, Megaphone, Phone, ShieldCheck, Store, UserX, X, type LucideIcon } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/client/toast';
 
 import { Badge, Btn, EmptyState, Modal, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { ago, dbMessage, supabase } from '@/lib/db/client';
