@@ -135,6 +135,7 @@ export function ColdStoreDirectory({
           <p className="text-sm text-slate-600">
             <strong className="text-slate-900">{entries.length.toLocaleString('en-IN')}</strong> cold store{entries.length === 1 ? '' : 's'} found · <strong className="text-violet-800">{onKashRoot}</strong> on KashRoot, ready to book
           </p>
+          <p className="mt-1 text-xs text-slate-500">Stores on KashRoot show every chamber on a floor plan and in 3D, and you choose your own place. The others are listed so you know they exist — their owner can join with “Your store? List it”.</p>
           {reading && (
             <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Reading the official list (National Horticulture Board) and OpenStreetMap — more stores appear here when they arrive.

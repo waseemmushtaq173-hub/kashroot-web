@@ -212,7 +212,7 @@ export default function RentalPage() {
               theme={theme}
               icon={Snowflake}
               title={listings.length ? `No cold store on KashRoot matches “${search.trim()}”` : 'No cold store on KashRoot yet'}
-              text={listings.length ? 'Try another name or district — or look in All cold stores.' : 'Owners list their cold store under “My cold store”. Meanwhile, All cold stores shows every cold store in Jammu & Kashmir.'}
+              text={listings.length ? 'Try another name or district — or look in All cold stores.' : 'When an owner lists their cold store (My cold store) and enters each chamber’s length, breadth and height, it appears here: every chamber on a floor plan and in 3D, and farmers choose their own place. Meanwhile, All cold stores shows every cold store in Jammu & Kashmir.'}
               action={<Btn theme={theme} variant="soft" onClick={() => (listings.length ? setFindView('all') : setTab('owner'))}>{listings.length ? 'All cold stores' : 'List your cold store'}</Btn>}
             />
           ) : (
