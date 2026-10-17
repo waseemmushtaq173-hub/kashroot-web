@@ -12,13 +12,14 @@
  * Also MyPlaces: where a farmer's boxes are, in the whole store.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CalendarDays, CheckCircle2, Map as MapIcon, RefreshCw, Snowflake, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, CalendarDays, CheckCircle2, Map as MapIcon, Navigation, RefreshCw, Snowflake, Sparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { ColdStoreExplorer, type Look } from '@/components/rental/ColdStoreMap';
 import { placesOf } from '@/components/rental/placeLook';
 import { Btn, Field, INPUT, Modal, PORTAL_THEMES } from '@/components/portal/kit';
 import { inr, type Account } from '@/lib/db/client';
+import { placeDirections, planOf, showLength } from '@/lib/coldLayout';
 import { bookPlaces, parsePlace, periodEnd, placeKey, placeLabel, takenPlaces, type BookedPlace, type ColdChamber, type PlaceState } from '@/lib/db/coldMap';
 import type { RentalListing } from '@/lib/db/rentals';
 
@@ -45,6 +46,40 @@ export function placesText(places: { chamber_id: string; slot: string }[], chamb
       return `${c.name} — ${parts.join('; ')}`;
     })
     .join(' · ');
+}
+
+/**
+ * Walking directions to each place in a measured chamber: how far in from
+ * the door, which side of the walkway, which stack — and how high to stack.
+ */
+export function PlaceDirections({ places, chambers }: { places: { chamber_id: string; slot: string }[]; chambers: ColdChamber[] }) {
+  const items = chambers
+    .filter((c) => c.size && places.some((p) => p.chamber_id === c.id))
+    .flatMap((c) => {
+      const size = c.size!;
+      const plan = planOf(size);
+      return places
+        .filter((p) => p.chamber_id === c.id)
+        .map((p) => ({ c, p, size, plan, ...parsePlace(p.slot) }))
+        .sort((a, b) => a.row - b.row || a.stack - b.stack);
+    });
+  if (!items.length) return null;
+  const first = items[0];
+  return (
+    <div className="mt-2 rounded-xl bg-violet-50 p-3 text-sm text-violet-950 ring-1 ring-violet-200">
+      <p className="flex items-center gap-1.5 font-semibold"><Navigation className="h-4 w-4" aria-hidden /> Where to put your boxes</p>
+      <ul className="mt-1 space-y-0.5">
+        {items.map(({ c, p, size, plan, row, stack }) => (
+          <li key={`${c.id}:${p.slot}`}>
+            <strong>{c.name} · {placeLabel(p.slot)}</strong> — {placeDirections(size, plan, row, stack)}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-1 text-xs text-violet-900/80">
+        Each place takes {first.plan.boxesPerPlace} boxes: {first.plan.perLayer} on a layer, up to {first.plan.layers} layers ({showLength(first.plan.stackHeight, first.size.unit)} high).
+      </p>
+    </div>
+  );
 }
 
 export function ColdBooking({ listing: l, chambers, account, onClose, onBooked }: { listing: RentalListing; chambers: ColdChamber[]; account: Account; onClose: () => void; onBooked: () => void }) {
@@ -237,6 +272,7 @@ export function ColdBooking({ listing: l, chambers, account, onClose, onBooked }
             <p className="mt-1">{boxes.toLocaleString('en-IN')} boxes · {niceDate(start)} to {niceDate(periodEnd(start, months))} ({months} month{months === 1 ? '' : 's'})</p>
             <p className="mt-2 text-lg font-bold">{inr(total)}</p>
           </div>
+          <PlaceDirections places={[...picked.values()].map((p) => ({ chamber_id: p.chamber.id, slot: p.slot }))} chambers={chambers} />
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Your name">
               <input className={INPUT} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -288,6 +324,7 @@ export function MyPlaces({ places, chambers, listingId, start, months }: { place
   return (
     <div className="mt-2">
       <p className="text-sm text-slate-800">Your places: <strong>{placesText(places, chambers) || places.map((p) => placeLabel(p.slot)).join(' · ')}</strong></p>
+      <PlaceDirections places={places} chambers={chambers} />
       {chambers.length > 0 && (
         <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="mt-1 inline-flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-violet-700 hover:underline">
           <MapIcon className="h-4 w-4" aria-hidden /> {open ? 'Hide the cold store' : 'See where your boxes are (plan & 3D)'}

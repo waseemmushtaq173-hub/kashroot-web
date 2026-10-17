@@ -8,6 +8,7 @@
  * places for the months they need; the database refuses a place someone else
  * holds.
  */
+import { asChamberSize, type ChamberSize } from '@/lib/coldLayout';
 import { dbMessage, supabase, VERIFY_FIRST } from '@/lib/db/client';
 
 export interface ColdChamber {
@@ -20,6 +21,8 @@ export interface ColdChamber {
   boxes_per_slot: number;
   blocked: string[];
   note: string | null;
+  /** The chamber's measured size and the store's standards (lib/coldLayout); null for a chamber drawn by rows × stacks. */
+  size: ChamberSize | null;
 }
 
 /** What a place is for the months being looked at. */
@@ -61,17 +64,23 @@ export function periodEnd(start: string, months: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-const COLUMNS = 'id, listing_id, name, position, rows, cols, boxes_per_slot, blocked, note';
+const BASE_COLUMNS = 'id, listing_id, name, position, rows, cols, boxes_per_slot, blocked, note';
+const COLUMNS = `${BASE_COLUMNS}, size`;
+/** Before the chamber-size SQL (20261021000000) is run the size column is missing. */
+const noSizeColumn = (m?: string) => /size/i.test(m ?? '') && /column|schema cache|does not exist/i.test(m ?? '');
+const withSize = (rows: unknown[]): ColdChamber[] => (rows as (ColdChamber & { size?: unknown })[]).map((c) => ({ ...c, size: asChamberSize(c.size) }));
 
 export async function chambersOf(listingIds: string[]): Promise<ColdChamber[]> {
   if (!listingIds.length) return [];
-  const { data, error } = await supabase.from('cold_chambers').select(COLUMNS).in('listing_id', listingIds).order('position').order('name');
+  const read = (cols: string) => supabase.from('cold_chambers').select(cols).in('listing_id', listingIds).order('position').order('name');
+  let { data, error } = await read(COLUMNS);
+  if (error && noSizeColumn(error.message)) ({ data, error } = await read(BASE_COLUMNS));
   if (error) {
     // Before the map SQL is run there are no chambers: stores work by box count.
     if (/cold_chambers|schema cache|does not exist/i.test(error.message ?? '')) return [];
     fail(error, 'Could not load the cold store map.');
   }
-  return (data ?? []) as ColdChamber[];
+  return withSize(data ?? []);
 }
 
 /** Taken places of a store for these months: key "chamber:3B" → held / booked / mine. */
@@ -105,13 +114,14 @@ export async function placesOfBookings(bookingIds: string[]): Promise<BookedPlac
   return (data ?? []) as BookedPlace[];
 }
 
-export type ChamberInput = Pick<ColdChamber, 'listing_id' | 'name' | 'position' | 'rows' | 'cols' | 'boxes_per_slot' | 'blocked'>;
+export type ChamberInput = Pick<ColdChamber, 'listing_id' | 'name' | 'position' | 'rows' | 'cols' | 'boxes_per_slot' | 'blocked' | 'size'>;
 
 export async function saveChamber(input: ChamberInput, id?: string): Promise<ColdChamber> {
   const q = id ? supabase.from('cold_chambers').update(input).eq('id', id) : supabase.from('cold_chambers').insert(input);
   const { data, error } = await q.select(COLUMNS).single();
+  if (error && noSizeColumn(error.message)) throw new Error('Run the new cold store SQL (20261021000000_cold_chamber_size.sql, also in RUN_THIS_ONCE.sql) in Supabase, then save again.');
   if (error) fail(error, 'Could not save the chamber.');
-  return data as ColdChamber;
+  return withSize([data])[0];
 }
 
 export async function deleteChamber(id: string): Promise<void> {

@@ -6,6 +6,9 @@
  * stand full height, free places are blue floor spaces, your boxes are
  * violet, your choice is green. Drag to turn, pinch / scroll to zoom, tap a
  * place to choose it (when booking) or to see whose it is (owner).
+ * A chamber with a measured size is built to scale in metres: its walls,
+ * height, door and walkway, and every stack where it stands, as many boxes
+ * high as the store stacks them (lib/coldLayout).
  *
  * three.js is imported inside the effect (only when this view opens), the
  * scene renders only when something moves or changes, and the WebGL context
@@ -15,7 +18,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Maximize2 } from 'lucide-react';
 
 import { PLACE_LOOK, placesOf, type Look } from '@/components/rental/placeLook';
-import { placeLabel, type ColdChamber } from '@/lib/db/coldMap';
+import { parsePlace, placeLabel, type ColdChamber } from '@/lib/db/coldMap';
+import { placeDirections, planOf, showLength, type ChamberPlan, type ChamberSize } from '@/lib/coldLayout';
 
 const PITCH = 1.2; // between the centres of two places
 const PAD = 0.7; // wall to the first stack
@@ -37,15 +41,20 @@ interface Room {
   x0: number;
   w: number;
   d: number;
+  /** Wall height. */
+  h: number;
+  /** A measured chamber, built to scale. */
+  sized: { size: ChamberSize; plan: ChamberPlan } | null;
 }
 
 function layout(chambers: ColdChamber[]): { rooms: Room[]; width: number; depth: number } {
   const rooms: Room[] = [];
   let x = 0;
   for (const c of chambers) {
-    const w = c.cols * PITCH + 2 * PAD;
-    const d = c.rows * PITCH + 2 * PAD;
-    rooms.push({ c, x0: x, w, d });
+    const sized = c.size ? { size: c.size, plan: planOf(c.size) } : null;
+    const w = sized ? sized.size.width : c.cols * PITCH + 2 * PAD;
+    const d = sized ? sized.size.length : c.rows * PITCH + 2 * PAD;
+    rooms.push({ c, x0: x, w, d, h: sized ? sized.size.height : WALL_H, sized });
     x += w + GAP;
   }
   const width = Math.max(0, x - GAP);
@@ -53,8 +62,21 @@ function layout(chambers: ColdChamber[]): { rooms: Room[]; width: number; depth:
   return { rooms, width, depth: Math.max(1, ...rooms.map((r) => r.d)) };
 }
 
-/** Where a place stands: row 1 by the front wall (z = 0), rooms go back (−z). */
-const spot = (room: Room, row: number, col: number) => ({ x: room.x0 + PAD + (col + 0.5) * PITCH, z: -(PAD + (row - 0.5) * PITCH) });
+/** Where a place stands (its centre): row 1 by the front wall (z = 0), rooms go back (−z). */
+function spot(room: Room, row: number, col: number) {
+  const s = room.sized;
+  if (s && s.plan.colX[col] !== undefined && s.plan.rowZ[row - 1] !== undefined) {
+    return { x: room.x0 + s.plan.colX[col] + s.plan.placeW / 2, z: -(s.plan.rowZ[row - 1] + s.plan.placeD / 2) };
+  }
+  return { x: room.x0 + PAD + (col + 0.5) * PITCH, z: -(PAD + (row - 0.5) * PITCH) };
+}
+/** A place's footprint on the floor. */
+const footprint = (room: Room) => (room.sized ? { w: room.sized.plan.placeW * 0.98, d: room.sized.plan.placeD * 0.98 } : { w: PITCH * 0.82, d: PITCH * 0.82 });
+/** How tall a stack of boxes stands at this place. */
+function stackHeight(room: Room, look: Look) {
+  const full = room.sized ? room.sized.plan.stackHeight : STACK_H;
+  return look === 'held' ? full * 0.75 : full;
+}
 
 interface Api {
   setData: (chambers: ColdChamber[], cells: Cell[]) => void;
@@ -159,6 +181,27 @@ export function ColdStore3D({
       }
       const crateTex = new THREE.CanvasTexture(crate);
       crateTex.colorSpace = THREE.SRGBColorSpace;
+      // One box face, repeated box by box and layer by layer on a measured stack.
+      const face = document.createElement('canvas');
+      face.width = face.height = 64;
+      const fg = face.getContext('2d');
+      if (fg) {
+        fg.fillStyle = '#ffffff';
+        fg.fillRect(0, 0, 64, 64);
+        fg.strokeStyle = '#7b8794';
+        fg.lineWidth = 5;
+        fg.strokeRect(2.5, 2.5, 59, 59);
+        fg.fillStyle = '#9aa5b1';
+        fg.fillRect(22, 12, 20, 7); // hand hole
+      }
+      const faceTex = new THREE.CanvasTexture(face);
+      faceTex.colorSpace = THREE.SRGBColorSpace;
+      faceTex.wrapS = faceTex.wrapT = THREE.RepeatWrapping;
+      const aisleMat = new THREE.MeshStandardMaterial({ color: '#fde68a', roughness: 1 });
+      // Measured chambers: lighter walls, and a faint full-height outline on each free place.
+      const tallWallMat = new THREE.MeshStandardMaterial({ color: '#64748b', transparent: true, opacity: 0.14, depthWrite: false });
+      const ghostMat = new THREE.MeshStandardMaterial({ color: '#7dd3fc', transparent: true, opacity: 0.13, depthWrite: false });
+      const edgeMat = new THREE.LineBasicMaterial({ color: '#475569', transparent: true, opacity: 0.5 });
 
       const unitBox = new THREE.BoxGeometry(1, 1, 1);
       unitBox.translate(0, 0.5, 0);
@@ -200,7 +243,9 @@ export function ColdStore3D({
           while (c.measureText(title).width > 470 && (px -= 4) > 24);
           c.fillText(title, 256, 78);
           c.fillStyle = '#0369a1';
-          c.font = '600 44px system-ui, sans-serif';
+          let sp = 44;
+          do c.font = `600 ${sp}px system-ui, sans-serif`;
+          while (c.measureText(sub).width > 480 && (sp -= 2) > 18);
           c.fillText(sub, 256, 138);
         }
         const tex = new THREE.CanvasTexture(canvas);
@@ -242,7 +287,7 @@ export function ColdStore3D({
           // Sprites share one geometry inside three.js; instanced meshes free their own buffers.
           if (o instanceof THREE.InstancedMesh) o.dispose();
           else if (m.geometry && m.geometry !== unitBox && !(o instanceof THREE.Sprite)) m.geometry.dispose();
-          if (m.material && ![stackMat, tileMat, floorMat, corridorMat, doorMat, wallMat].includes(m.material as never)) {
+          if (m.material && ![stackMat, tileMat, floorMat, corridorMat, doorMat, wallMat, aisleMat, edgeMat, tallWallMat, ghostMat].includes(m.material as never)) {
             m.material.map?.dispose();
             m.material.dispose();
           }
@@ -269,19 +314,44 @@ export function ColdStore3D({
         box(L.width + 2, 0.04, CORRIDOR, 0, -0.02, CORRIDOR / 2, corridorMat);
         for (const r of rooms) {
           const cx = r.x0 + r.w / 2;
+          const H = r.h;
+          const wm = r.sized ? tallWallMat : wallMat;
           box(r.w, 0.04, r.d, cx, -0.02, -r.d / 2, floorMat);
-          box(r.w, WALL_H, 0.12, cx, WALL_H / 2, -r.d, wallMat);
-          box(0.12, WALL_H, r.d, r.x0, WALL_H / 2, -r.d / 2, wallMat);
-          box(0.12, WALL_H, r.d, r.x0 + r.w, WALL_H / 2, -r.d / 2, wallMat);
-          const door = Math.min(1.6, r.w * 0.4);
-          const side = (r.w - door) / 2;
-          box(side, WALL_H, 0.12, r.x0 + side / 2, WALL_H / 2, 0, wallMat);
-          box(side, WALL_H, 0.12, r.x0 + r.w - side / 2, WALL_H / 2, 0, wallMat);
-          box(door, 0.06, 0.7, cx, 0.01, 0.4, doorMat);
+          box(r.w, H, 0.12, cx, H / 2, -r.d, wm);
+          box(0.12, H, r.d, r.x0, H / 2, -r.d / 2, wm);
+          box(0.12, H, r.d, r.x0 + r.w, H / 2, -r.d / 2, wm);
+          // The door — in front of the walkway for a measured chamber.
+          const [d0, d1] = r.sized ? r.sized.plan.doorX : [(r.w - Math.min(1.6, r.w * 0.4)) / 2, (r.w + Math.min(1.6, r.w * 0.4)) / 2];
+          const doorW = d1 - d0;
+          if (r.sized) {
+            // Cut away: no front wall, so the inside is in plain view — just the door frame.
+            const doorH = Math.min(3, H * 0.7);
+            box(0.14, doorH, 0.14, r.x0 + d0, doorH / 2, 0, doorMat);
+            box(0.14, doorH, 0.14, r.x0 + d1, doorH / 2, 0, doorMat);
+            box(doorW + 0.14, 0.14, 0.14, r.x0 + (d0 + d1) / 2, doorH, 0, doorMat);
+          } else {
+            if (d0 > 0.01) box(d0, H, 0.12, r.x0 + d0 / 2, H / 2, 0, wallMat);
+            if (r.w - d1 > 0.01) box(r.w - d1, H, 0.12, r.x0 + (d1 + r.w) / 2, H / 2, 0, wallMat);
+          }
+          box(doorW, 0.06, 0.7, r.x0 + (d0 + d1) / 2, 0.01, 0.4, doorMat);
+          if (r.sized) {
+            // The room's full size as an outline, and the walkway on the floor.
+            const outline = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(r.w, H, r.d)), edgeMat);
+            outline.position.set(cx, H / 2, -r.d / 2);
+            group.add(outline);
+            const a = r.sized.plan.aisleX;
+            if (a) {
+              box(a[1] - a[0], 0.02, r.d - 0.1, r.x0 + (a[0] + a[1]) / 2, 0.012, -r.d / 2, aisleMat);
+              const walk = rowTag('Walkway');
+              walk.position.set(r.x0 + (a[0] + a[1]) / 2, 0.45, -Math.min(r.d * 0.5, 4));
+              group.add(walk);
+            }
+          }
           const free = cs.filter((x) => x.room === rooms.indexOf(r) && x.look === 'free').length;
           const mine = cs.filter((x) => x.room === rooms.indexOf(r) && x.look === 'mine').length;
-          const tag = label(r.c.name, mine ? `${mine} yours · ${free} free` : `${free} places free`, Math.min(Math.max(r.w * 0.8, 2.6), 5));
-          tag.position.set(cx, WALL_H + 1.1, -r.d - 0.2);
+          const dims = r.sized ? `${showLength(r.sized.size.length, r.sized.size.unit)} × ${showLength(r.sized.size.width, r.sized.size.unit)} × ${showLength(H, r.sized.size.unit)} · ` : '';
+          const tag = label(r.c.name, `${dims}${mine ? `${mine} yours · ${free} free` : `${free} places free`}`, Math.min(Math.max(r.w * 0.8, 2.8), r.sized ? 7 : 5));
+          tag.position.set(cx, H + 1.1, -r.d - 0.2);
           group.add(tag);
           // Row numbers along the left wall: Row 1 by the door, then every fifth, and the last.
           for (let row = 1; row <= r.c.rows; row++) {
@@ -307,8 +377,10 @@ export function ColdStore3D({
           if (!list.length) return;
           const mesh = new THREE.InstancedMesh(unitBox, mat, list.length);
           list.forEach((cell, i) => {
-            const p = spot(rooms[cell.room], cell.row, cell.col);
-            m4.makeScale(PITCH * 0.82, height(cell), PITCH * 0.82).setPosition(p.x, 0, p.z);
+            const room = rooms[cell.room];
+            const p = spot(room, cell.row, cell.col);
+            const f = footprint(room);
+            m4.makeScale(f.w, height(cell), f.d).setPosition(p.x, 0, p.z);
             mesh.setMatrixAt(i, m4);
             mesh.setColorAt(i, colour.set(PLACE_LOOK[cell.look].hex));
           });
@@ -317,10 +389,33 @@ export function ColdStore3D({
           group.add(mesh);
           picks.push({ mesh, cells: list });
         };
-        add(stacks, stackMat, (c) => (c.look === 'held' ? STACK_H * 0.75 : STACK_H));
+        // Measured chambers: their own box texture, one box per tile, one layer per row of tiles.
+        rooms.forEach((room, ri) => {
+          const list = stacks.filter((c) => c.room === ri);
+          if (!room.sized) return add(list, stackMat, (c) => stackHeight(room, c.look));
+          const { size: sz, plan } = room.sized;
+          const tex = faceTex.clone();
+          tex.needsUpdate = true;
+          tex.repeat.set(Math.max(1, Math.round(plan.placeW / Math.max(sz.box.l, sz.box.w))), Math.max(1, plan.layers));
+          add(list, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 }), (c) => stackHeight(room, c.look));
+        });
         add(tiles, tileMat, (c) => (c.look === 'free' ? 0.1 : 0.03));
+        // How high boxes will stand on each free place of a measured chamber (not tappable).
+        const ghosts = tiles.filter((c) => c.look === 'free' && rooms[c.room]?.sized);
+        if (ghosts.length) {
+          const g = new THREE.InstancedMesh(unitBox, ghostMat, ghosts.length);
+          ghosts.forEach((cell, i) => {
+            const room = rooms[cell.room];
+            const p = spot(room, cell.row, cell.col);
+            const f = footprint(room);
+            g.setMatrixAt(i, m4.makeScale(f.w, stackHeight(room, 'free'), f.d).setPosition(p.x, 0, p.z));
+          });
+          g.instanceMatrix.needsUpdate = true;
+          g.raycast = () => undefined;
+          group.add(g);
+        }
 
-        const sig = rooms.map((r) => `${r.c.id}:${r.c.rows}x${r.c.cols}`).join('|');
+        const sig = rooms.map((r) => `${r.c.id}:${r.c.rows}x${r.c.cols}:${r.w}x${r.d}`).join('|');
         if (sig !== fitted) {
           fitted = sig;
           frame(null, true);
@@ -336,12 +431,15 @@ export function ColdStore3D({
         const d = (r ? r.d : size.depth) + CORRIDOR;
         const cx = r ? r.x0 + r.w / 2 : 0;
         const cz = r ? -r.d / 2 + 0.8 : -size.depth / 2 + CORRIDOR / 2;
+        // Tall measured chambers: keep the full height and the name above it in view.
+        const tall = r ? r.h : Math.max(WALL_H, ...rooms.map((x) => x.h));
+        const cy = Math.min(tall, 8) * 0.45;
         const v = THREE.MathUtils.degToRad(camera.fov / 2);
         const h = Math.atan(Math.tan(v) * camera.aspect);
-        const dist = Math.max((w + 1.5) / 2 / Math.tan(h), (d * 0.8) / 2 / Math.tan(v)) + 1;
+        const dist = Math.max((w + 1.5) / 2 / Math.tan(h), (d * 0.8) / 2 / Math.tan(v), (tall + 3) / Math.tan(v)) + 1;
         const dir = new THREE.Vector3(0.28, 0.66, 0.86).normalize().multiplyScalar(dist);
         controls.maxDistance = Math.max(30, dist * 3);
-        const to: [number, number, number, number, number, number] = [cx + dir.x, dir.y, cz + dir.z, cx, 0, cz];
+        const to: [number, number, number, number, number, number] = [cx + dir.x, cy + dir.y, cz + dir.z, cx, cy, cz];
         const from: [number, number, number, number, number, number] = [camera.position.x, camera.position.y, camera.position.z, controls.target.x, controls.target.y, controls.target.z];
         if (instant || reduceMotion) {
           camera.position.set(to[0], to[1], to[2]);
@@ -366,7 +464,9 @@ export function ColdStore3D({
         const c = latest.current.chambers[cell.room];
         if (!c) return '';
         const look = PLACE_LOOK[cell.look].label;
-        return `${c.name} · ${placeLabel(cell.slot)} · ${look}${cell.look === 'free' || cell.look === 'selected' ? ` · ${c.boxes_per_slot} boxes` : ''}`;
+        const room = rooms[cell.room];
+        const where = room?.sized ? placeDirections(room.sized.size, room.sized.plan, parsePlace(cell.slot).row, parsePlace(cell.slot).stack) : '';
+        return `${c.name} · ${placeLabel(cell.slot)} · ${look}${cell.look === 'free' || cell.look === 'selected' ? ` · ${c.boxes_per_slot} boxes` : ''}${where ? ` · ${where}` : ''}`;
       };
       const showTip = (cell: Cell | null, x: number, y: number) => {
         const t = tip.current;
@@ -382,9 +482,11 @@ export function ColdStore3D({
         t.style.opacity = '1';
         t.style.left = `${Math.min(Math.max(8, x - rect.left + 12), rect.width - 220)}px`;
         t.style.top = `${Math.max(8, y - rect.top - 44)}px`;
-        const p = spot(rooms[cell.room], cell.row, cell.col);
-        const tall = cell.look === 'free' || cell.look === 'blocked' ? 0.12 : STACK_H;
-        hover.scale.set(PITCH * 0.86, tall + 0.02, PITCH * 0.86);
+        const room = rooms[cell.room];
+        const p = spot(room, cell.row, cell.col);
+        const f = footprint(room);
+        const tall = cell.look === 'free' || cell.look === 'blocked' ? 0.12 : stackHeight(room, cell.look);
+        hover.scale.set(f.w * 1.04, tall + 0.02, f.d * 1.04);
         hover.position.set(p.x, 0, p.z);
         hover.visible = true;
         dirty = true;
@@ -474,7 +576,7 @@ export function ColdStore3D({
         ro.disconnect();
         controls.dispose();
         disposeGroup(group);
-        for (const x of [unitBox, hover.geometry, stackMat, tileMat, floorMat, corridorMat, doorMat, wallMat, crateTex, hover.material as { dispose: () => void }]) x.dispose();
+        for (const x of [unitBox, hover.geometry, stackMat, tileMat, floorMat, corridorMat, doorMat, wallMat, aisleMat, edgeMat, tallWallMat, ghostMat, crateTex, faceTex, hover.material as { dispose: () => void }]) x.dispose();
         renderer.dispose();
         renderer.forceContextLoss();
         renderer.domElement.remove();

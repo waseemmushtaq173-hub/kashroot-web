@@ -6,9 +6,12 @@
  *   StorePlan     the whole store from above — every chamber as a room along
  *                 the corridor, with how many places are free in each. Tap a
  *                 room to open it.
- *   ChamberGrid   one chamber up close: the door at the bottom, rows counted
- *                 from the door ("Row 1" is nearest), stacks counted from the
- *                 left. Every place shows what it is in words and colour.
+ *   ChamberDiagram  one chamber up close, drawn to scale from its measured
+ *                 size: walls, door, walkway, every stack where it stands,
+ *                 with the measurements (components/rental/ChamberDiagram).
+ *   ChamberGrid   the same for a chamber drawn only as rows × stacks: the door
+ *                 at the bottom, rows counted from the door ("Row 1" is
+ *                 nearest), stacks counted from the left.
  *   ColdStore3D   the same store in 3D (components/rental/ColdStore3D).
  *   ColdStoreExplorer  plan ⇄ 3D switch around all of the above.
  *
@@ -21,7 +24,9 @@ import dynamic from 'next/dynamic';
 import { useMemo, useState } from 'react';
 import { Box, Check, Clock, DoorOpen, Layers, Map as MapIcon } from 'lucide-react';
 
+import { ChamberDiagram } from '@/components/rental/ChamberDiagram';
 import { countLooks, PLACE_LOOK, placesOf, type Look } from '@/components/rental/placeLook';
+import { planOf, showLength } from '@/lib/coldLayout';
 import { placeKey, placeLabel, placeName, usablePlaces, type ColdChamber } from '@/lib/db/coldMap';
 
 export { PLACE_LOOK, type Look };
@@ -50,6 +55,9 @@ export function PlaceLegend({ show }: { show: Look[] }) {
  * corridor, each with a small picture of its places and what is free.
  */
 export function StorePlan({ chambers, stateOf, active, onPick, mode }: { chambers: ColdChamber[]; stateOf: (c: ColdChamber, slot: string) => Look; active: string | null; onPick: (id: string) => void; mode: 'book' | 'owner' | 'view' }) {
+  // Measured chambers share one scale, so a bigger chamber looks bigger.
+  const sized = chambers.filter((c) => c.size);
+  const scale = sized.length ? Math.min(160 / Math.max(...sized.map((c) => c.size!.length)), 190 / Math.max(...sized.map((c) => c.size!.width))) : 0;
   return (
     <div className="rounded-3xl bg-gradient-to-b from-slate-100 to-slate-50 p-3 ring-1 ring-slate-900/10 sm:p-4">
       <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">The whole store · tap a chamber to open it</p>
@@ -76,12 +84,17 @@ export function StorePlan({ chambers, stateOf, active, onPick, mode }: { chamber
                   {mode === 'book' && n.selected > 0 && <> · <strong className="text-emerald-700">{n.selected} chosen</strong></>}
                   {n.mine > 0 && <> · <strong className="text-violet-700">{n.mine} yours</strong></>}
                 </span>
-                <svg aria-hidden width={c.cols * cell + 2} height={c.rows * cell + 2} className="mt-2" role="presentation">
-                  {placesOf(c).map(([r, i, slot]) => (
-                    // Row 1 (nearest the door) at the bottom, as you walk in.
-                    <rect key={slot} x={1 + i * cell} y={1 + (c.rows - r) * cell} width={cell - 1} height={cell - 1} rx={cell > 6 ? 1.5 : 0.5} fill={PLACE_LOOK[stateOf(c, slot)].mini} />
-                  ))}
-                </svg>
+                {c.size ? (
+                  <MiniToScale chamber={c} k={scale} stateOf={stateOf} />
+                ) : (
+                  <svg aria-hidden width={c.cols * cell + 2} height={c.rows * cell + 2} className="mt-2" role="presentation">
+                    {placesOf(c).map(([r, i, slot]) => (
+                      // Row 1 (nearest the door) at the bottom, as you walk in.
+                      <rect key={slot} x={1 + i * cell} y={1 + (c.rows - r) * cell} width={cell - 1} height={cell - 1} rx={cell > 6 ? 1.5 : 0.5} fill={PLACE_LOOK[stateOf(c, slot)].mini} />
+                    ))}
+                  </svg>
+                )}
+                {c.size && <span className="mt-1 block text-[10px] font-medium text-slate-500">{showLength(c.size.length, c.size.unit)} × {showLength(c.size.width, c.size.unit)} × {showLength(c.size.height, c.size.unit)}</span>}
                 <span className="mt-1 flex h-4 w-12 items-end justify-center rounded-t-md bg-amber-100 text-[9px] font-bold uppercase leading-none text-amber-900">door</span>
               </button>
             </li>
@@ -92,6 +105,26 @@ export function StorePlan({ chambers, stateOf, active, onPick, mode }: { chamber
         <DoorOpen className="h-4 w-4" aria-hidden /> Corridor · loading bay
       </p>
     </div>
+  );
+}
+
+/** A measured chamber in the whole-store plan, to scale: walkway and stacks where they stand. */
+function MiniToScale({ chamber: c, k, stateOf }: { chamber: ColdChamber; k: number; stateOf: (c: ColdChamber, slot: string) => Look }) {
+  const size = c.size!;
+  const plan = planOf(size);
+  const w = size.width * k;
+  const h = size.length * k;
+  const Y = (z: number) => 1 + (size.length - z) * k;
+  return (
+    <svg aria-hidden width={w + 2} height={h + 2} className="mt-2" role="presentation">
+      <rect x={1} y={1} width={w} height={h} fill="#f8fafc" stroke="#94a3b8" />
+      {plan.aisleX && <rect x={1 + plan.aisleX[0] * k} y={1} width={(plan.aisleX[1] - plan.aisleX[0]) * k} height={h} fill="#fef3c7" />}
+      {placesOf(c)
+        .filter(([r, i]) => r <= plan.rows && i < plan.cols)
+        .map(([r, i, slot]) => (
+          <rect key={slot} x={1 + plan.colX[i] * k} y={Y(plan.rowZ[r - 1] + plan.placeD)} width={Math.max(1, plan.placeW * k)} height={Math.max(1, plan.placeD * k)} rx={0.8} fill={PLACE_LOOK[stateOf(c, slot)].mini} />
+        ))}
+    </svg>
   );
 }
 
@@ -199,6 +232,7 @@ export function ColdStoreExplorer({
   legend,
   active,
   onActive,
+  single = false,
 }: {
   chambers: ColdChamber[];
   stateOf: (c: ColdChamber, slot: string) => Look;
@@ -208,6 +242,8 @@ export function ColdStoreExplorer({
   legend: Look[];
   active: string | null;
   onActive: (id: string) => void;
+  /** One chamber on its own (the owner's preview): no whole-store overview. */
+  single?: boolean;
 }) {
   const [view, setView] = useState<'plan' | '3d'>('plan');
   const chamber = chambers.find((c) => c.id === active) ?? chambers[0];
@@ -243,11 +279,15 @@ export function ColdStoreExplorer({
         <ColdStore3D chambers={chambers} stateOf={stateOf} mode={mode} onPlace={onPlace} active={chamber?.id ?? null} onActive={onActive} />
       ) : (
         <>
-          <StorePlan chambers={chambers} stateOf={stateOf} active={chamber?.id ?? null} onPick={onActive} mode={mode} />
+          {!single && <StorePlan chambers={chambers} stateOf={stateOf} active={chamber?.id ?? null} onPick={onActive} mode={mode} />}
           {chamber && (
             <section aria-label={chamber.name} className="space-y-2">
-              <h3 className="text-base font-semibold text-slate-900">{chamber.name} <span className="font-normal text-slate-500">· up close</span></h3>
-              <ChamberGrid chamber={chamber} stateOf={stateOf} onPlace={onPlace} mode={mode} labelOf={labelOf} />
+              <h3 className="text-base font-semibold text-slate-900">{chamber.name} <span className="font-normal text-slate-500">· {chamber.size ? 'drawn to scale' : 'up close'}</span></h3>
+              {chamber.size ? (
+                <ChamberDiagram chamber={chamber} size={chamber.size} stateOf={stateOf} onPlace={onPlace} mode={mode} labelOf={labelOf} />
+              ) : (
+                <ChamberGrid chamber={chamber} stateOf={stateOf} onPlace={onPlace} mode={mode} labelOf={labelOf} />
+              )}
             </section>
           )}
         </>
