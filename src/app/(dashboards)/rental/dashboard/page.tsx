@@ -146,7 +146,7 @@ export default function RentalPage() {
       eyebrow="Cold storage"
       theme="rental"
       kpis={[
-        { label: 'Cold stores in J&K', value: directory.loading ? '…' : directory.entries.length.toLocaleString('en-IN'), trend: `${listings.length} on KashRoot · ${listings.reduce((s, l) => s + l.available, 0).toLocaleString('en-IN')} boxes free` },
+        { label: 'Cold stores in J&K', value: directory.entries.length.toLocaleString('en-IN') + (directory.reading ? '…' : ''), trend: `${listings.length} on KashRoot · ${listings.reduce((s, l) => s + l.available, 0).toLocaleString('en-IN')} boxes free` },
         { label: 'Your bookings', value: String(mine.length), trend: `${mine.filter((b) => b.status === 'confirmed').length} confirmed` },
         { label: 'Waiting for you', value: String(waiting), trend: owned.length ? 'Bookings to confirm' : 'List your cold store' },
       ]}
@@ -168,7 +168,7 @@ export default function RentalPage() {
         <div className="space-y-5">
           <div role="tablist" aria-label="Which cold stores" className="flex w-full gap-1 rounded-2xl bg-violet-50 p-1 ring-1 ring-violet-200 sm:w-auto sm:max-w-xl">
             {([
-              ['all', `All cold stores${directory.loading ? '' : ` (${directory.entries.length.toLocaleString('en-IN')})`}`],
+              ['all', `All cold stores (${directory.entries.length.toLocaleString('en-IN')}${directory.reading ? '…' : ''})`],
               ['kashroot', `Book on KashRoot (${listings.length})`],
             ] as const).map(([id, label]) => (
               <button key={id} type="button" role="tab" aria-selected={findView === id} onClick={() => setFindView(id)} className={`flex-1 cursor-pointer rounded-xl px-4 py-2.5 text-sm font-semibold transition ${findView === id ? 'bg-violet-700 text-white shadow' : 'text-violet-900 hover:bg-violet-100'}`}>
@@ -177,7 +177,7 @@ export default function RentalPage() {
             ))}
           </div>
           {findView === 'all' ? (
-            <ColdStoreDirectory entries={directory.entries} sources={directory.sources} loading={directory.loading} adminCount={directory.adminCount} listings={listings} onBook={setBooking} />
+            <ColdStoreDirectory entries={directory.entries} sources={directory.sources} loading={directory.loading} reading={directory.reading} adminCount={directory.adminCount} listings={listings} onBook={setBooking} />
           ) : (
           <>
           <p className="text-sm text-slate-700">Cold stores whose owners listed them on KashRoot: see every chamber on a plan and in 3D, choose your own place and pay the owner directly.</p>

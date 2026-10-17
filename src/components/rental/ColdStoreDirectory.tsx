@@ -9,7 +9,7 @@
  * Every entry says where it comes from.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { CircleAlert, ExternalLink, MapPin, Phone, Search, Snowflake, Warehouse } from 'lucide-react';
+import { CircleAlert, ExternalLink, Loader2, MapPin, Phone, Search, Snowflake, Warehouse } from 'lucide-react';
 
 import { Badge, Btn, INPUT, PORTAL_THEMES } from '@/components/portal/kit';
 import { mergeDirectory, SOURCE_LABEL, type DirEntry, type DirSource, type SourceState } from '@/lib/coldDirectory';
@@ -28,7 +28,9 @@ export function useColdDirectory(listings: RentalListing[]) {
 
   useEffect(() => {
     let on = true;
-    fetch('/api/cold-stores')
+    // The live lists can be slow (government websites): the page shows the
+    // rest straight away and adds them when they come.
+    fetch('/api/cold-stores', { signal: AbortSignal.timeout(35_000) })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((d: { entries: DirEntry[]; sources: SourceState[] }) => on && setLive(d))
       .catch(() => on && setLive({ entries: [], sources: [] }));
@@ -58,7 +60,7 @@ export function useColdDirectory(listings: RentalListing[]) {
     return mergeDirectory([own, (rows ?? []).map(asEntry), live?.entries ?? []]);
   }, [listings, rows, live]);
 
-  return { entries, sources: live?.sources ?? [], loading: live === null || rows === null, adminCount: rows?.length ?? 0 };
+  return { entries, sources: live?.sources ?? [], loading: rows === null, reading: live === null, adminCount: rows?.length ?? 0 };
 }
 
 /** Where an entry comes from, each source once ("National Horticulture Board" inside a longer name counts as said). */
@@ -73,13 +75,17 @@ export function ColdStoreDirectory({
   entries,
   sources,
   loading,
+  reading,
   adminCount,
   listings,
   onBook,
 }: {
   entries: DirectoryItem[];
   sources: SourceState[];
+  /** The KashRoot directory is still loading. */
   loading: boolean;
+  /** The official list and OpenStreetMap are still being read. */
+  reading: boolean;
   adminCount: number;
   listings: RentalListing[];
   onBook: (l: RentalListing) => void;
@@ -111,8 +117,13 @@ export function ColdStoreDirectory({
         <div>
           <h2 className="font-sans text-xl font-semibold text-slate-900">All cold stores in Jammu &amp; Kashmir</h2>
           <p className="text-sm text-slate-600">
-            {loading ? 'Loading the lists…' : <><strong className="text-slate-900">{entries.length.toLocaleString('en-IN')}</strong> cold store{entries.length === 1 ? '' : 's'} found · <strong className="text-violet-800">{onKashRoot}</strong> on KashRoot, ready to book</>}
+            <strong className="text-slate-900">{entries.length.toLocaleString('en-IN')}</strong> cold store{entries.length === 1 ? '' : 's'} found · <strong className="text-violet-800">{onKashRoot}</strong> on KashRoot, ready to book
           </p>
+          {reading && (
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Reading the official list (National Horticulture Board) and OpenStreetMap — more stores appear here when they arrive.
+            </p>
+          )}
         </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
@@ -145,11 +156,11 @@ export function ColdStoreDirectory({
         </label>
       </div>
 
-      {!loading && entries.length === 0 ? (
+      {!loading && !reading && entries.length === 0 ? (
         <p className="flex items-start gap-2 rounded-2xl bg-amber-50 p-4 text-sm text-amber-950 ring-1 ring-amber-200">
           <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> The cold store lists could not be loaded just now. KashRoot tries the official list again automatically — please look again in a while.
         </p>
-      ) : !loading && found.length === 0 ? (
+      ) : !loading && entries.length > 0 && found.length === 0 ? (
         <p className="rounded-2xl bg-white/80 p-4 text-sm text-slate-700 ring-1 ring-slate-900/5">No cold store matches “{q.trim() || district}”. Try another spelling, or All districts.</p>
       ) : (
         <>
@@ -200,7 +211,7 @@ export function ColdStoreDirectory({
         </>
       )}
 
-      {!loading && (
+      {!loading && !reading && (
         <div className="rounded-2xl bg-slate-50 p-3 text-xs text-slate-600 ring-1 ring-slate-900/5">
           <p className="font-semibold text-slate-700">Where this list comes from</p>
           <ul className="mt-1 space-y-0.5">

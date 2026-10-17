@@ -7,6 +7,9 @@ import { NextResponse } from 'next/server';
 
 import { liveDirectory } from '@/lib/server/coldDirectory';
 
+/** Each source has its own few-second limit; this is the outer bound. */
+export const maxDuration = 30;
+
 export async function GET(request: Request) {
   const fresh = new URL(request.url).searchParams.get('fresh') === '1';
   const data = await liveDirectory(fresh);
