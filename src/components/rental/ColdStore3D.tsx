@@ -18,7 +18,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Maximize2 } from 'lucide-react';
 
 import { PLACE_LOOK, placesOf, type Look } from '@/components/rental/placeLook';
-import { parsePlace, placeLabel, type ColdChamber } from '@/lib/db/coldMap';
+import { parsePlace, placeLabel, usablePlaces, type ColdChamber } from '@/lib/db/coldMap';
 import { placeDirections, planOf, showLength, type ChamberPlan, type ChamberSize } from '@/lib/coldLayout';
 
 const PITCH = 1.2; // between the centres of two places
@@ -34,6 +34,10 @@ interface Cell {
   col: number;
   slot: string;
   look: Look;
+  /** Boxes that still fit on the place. */
+  free: number;
+  /** How full the place is (0–1), for a place shared with other farmers. */
+  full: number;
 }
 
 interface Room {
@@ -72,10 +76,10 @@ function spot(room: Room, row: number, col: number) {
 }
 /** A place's footprint on the floor. */
 const footprint = (room: Room) => (room.sized ? { w: room.sized.plan.placeW * 0.98, d: room.sized.plan.placeD * 0.98 } : { w: PITCH * 0.82, d: PITCH * 0.82 });
-/** How tall a stack of boxes stands at this place. */
-function stackHeight(room: Room, look: Look) {
+/** How tall a stack of boxes stands at this place (a shared place: as full as it is). */
+function stackHeight(room: Room, look: Look, part = 1) {
   const full = room.sized ? room.sized.plan.stackHeight : STACK_H;
-  return look === 'held' ? full * 0.75 : full;
+  return look === 'held' ? full * 0.75 : look === 'part' ? full * Math.min(1, Math.max(0.12, part)) : full;
 }
 
 interface Api {
@@ -86,6 +90,7 @@ interface Api {
 export function ColdStore3D({
   chambers,
   stateOf,
+  roomOf,
   mode,
   onPlace,
   active,
@@ -93,6 +98,8 @@ export function ColdStore3D({
 }: {
   chambers: ColdChamber[];
   stateOf: (c: ColdChamber, slot: string) => Look;
+  /** Boxes that still fit on a place (stable, like stateOf). */
+  roomOf: (c: ColdChamber, slot: string) => number;
   mode: 'book' | 'owner' | 'view';
   onPlace?: (c: ColdChamber, slot: string, look: Look) => void;
   active: string | null;
@@ -105,8 +112,14 @@ export function ColdStore3D({
   const [focus, setFocus] = useState<string | 'all'>('all');
 
   const cells = useMemo<Cell[]>(
-    () => chambers.flatMap((c, room) => placesOf(c).map(([row, col, slot]) => ({ room, row, col, slot, look: stateOf(c, slot) }))),
-    [chambers, stateOf],
+    () =>
+      chambers.flatMap((c, room) =>
+        placesOf(c).map(([row, col, slot]) => {
+          const free = roomOf(c, slot);
+          return { room, row, col, slot, look: stateOf(c, slot), free, full: 1 - free / Math.max(1, c.boxes_per_slot) };
+        }),
+      ),
+    [chambers, stateOf, roomOf],
   );
 
   // The latest data and callbacks, for the scene (which is built once).
@@ -347,10 +360,11 @@ export function ColdStore3D({
               group.add(walk);
             }
           }
-          const free = cs.filter((x) => x.room === rooms.indexOf(r) && x.look === 'free').length;
+          const free = cs.filter((x) => x.room === rooms.indexOf(r)).reduce((n, x) => n + x.free, 0);
           const mine = cs.filter((x) => x.room === rooms.indexOf(r) && x.look === 'mine').length;
           const dims = r.sized ? `${showLength(r.sized.size.length, r.sized.size.unit)} × ${showLength(r.sized.size.width, r.sized.size.unit)} × ${showLength(H, r.sized.size.unit)} · ` : '';
-          const tag = label(r.c.name, `${dims}${mine ? `${mine} yours · ${free} free` : `${free} places free`}`, Math.min(Math.max(r.w * 0.8, 2.8), r.sized ? 7 : 5));
+          const holds = `holds ${(usablePlaces(r.c) * r.c.boxes_per_slot).toLocaleString('en-IN')} boxes`;
+          const tag = label(r.c.name, `${dims}${holds} · ${mine ? `${mine} place${mine === 1 ? '' : 's'} yours · ` : ''}${free.toLocaleString('en-IN')} free`, Math.min(Math.max(r.w * 0.8, 2.8), r.sized ? 7 : 5));
           tag.position.set(cx, H + 1.1, -r.d - 0.2);
           group.add(tag);
           // Row numbers along the left wall: Row 1 by the door, then every fifth, and the last.
@@ -367,7 +381,7 @@ export function ColdStore3D({
         hall.position.set(0, 0.45, CORRIDOR - 0.2);
         group.add(hall);
 
-        // Stacks (booked, held, yours, your choice) and floor spaces (free, none).
+        // Stacks (booked, held, shared, yours, your choice) and floor spaces (free, none).
         const stacks = cs.filter((x) => x.look !== 'free' && x.look !== 'blocked');
         const tiles = cs.filter((x) => x.look === 'free' || x.look === 'blocked');
         const m4 = new THREE.Matrix4();
@@ -392,16 +406,16 @@ export function ColdStore3D({
         // Measured chambers: their own box texture, one box per tile, one layer per row of tiles.
         rooms.forEach((room, ri) => {
           const list = stacks.filter((c) => c.room === ri);
-          if (!room.sized) return add(list, stackMat, (c) => stackHeight(room, c.look));
+          if (!room.sized) return add(list, stackMat, (c) => stackHeight(room, c.look, c.full));
           const { size: sz, plan } = room.sized;
           const tex = faceTex.clone();
           tex.needsUpdate = true;
           tex.repeat.set(Math.max(1, Math.round(plan.placeW / Math.max(sz.box.l, sz.box.w))), Math.max(1, plan.layers));
-          add(list, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 }), (c) => stackHeight(room, c.look));
+          add(list, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 }), (c) => stackHeight(room, c.look, c.full));
         });
         add(tiles, tileMat, (c) => (c.look === 'free' ? 0.1 : 0.03));
-        // How high boxes will stand on each free place of a measured chamber (not tappable).
-        const ghosts = tiles.filter((c) => c.look === 'free' && rooms[c.room]?.sized);
+        // How high boxes will stand on each free or shared place of a measured chamber (not tappable).
+        const ghosts = cs.filter((c) => (c.look === 'free' || c.look === 'part') && rooms[c.room]?.sized);
         if (ghosts.length) {
           const g = new THREE.InstancedMesh(unitBox, ghostMat, ghosts.length);
           ghosts.forEach((cell, i) => {
@@ -466,7 +480,8 @@ export function ColdStore3D({
         const look = PLACE_LOOK[cell.look].label;
         const room = rooms[cell.room];
         const where = room?.sized ? placeDirections(room.sized.size, room.sized.plan, parsePlace(cell.slot).row, parsePlace(cell.slot).stack) : '';
-        return `${c.name} · ${placeLabel(cell.slot)} · ${look}${cell.look === 'free' || cell.look === 'selected' ? ` · ${c.boxes_per_slot} boxes` : ''}${where ? ` · ${where}` : ''}`;
+        const boxes = cell.look === 'free' ? ` · ${c.boxes_per_slot} boxes` : cell.look === 'part' ? ` · room for ${cell.free} of ${c.boxes_per_slot} boxes` : '';
+        return `${c.name} · ${placeLabel(cell.slot)} · ${look}${boxes}${where ? ` · ${where}` : ''}`;
       };
       const showTip = (cell: Cell | null, x: number, y: number) => {
         const t = tip.current;
@@ -485,7 +500,7 @@ export function ColdStore3D({
         const room = rooms[cell.room];
         const p = spot(room, cell.row, cell.col);
         const f = footprint(room);
-        const tall = cell.look === 'free' || cell.look === 'blocked' ? 0.12 : stackHeight(room, cell.look);
+        const tall = cell.look === 'free' || cell.look === 'blocked' ? 0.12 : stackHeight(room, cell.look, cell.full);
         hover.scale.set(f.w * 1.04, tall + 0.02, f.d * 1.04);
         hover.position.set(p.x, 0, p.z);
         hover.visible = true;
@@ -509,7 +524,7 @@ export function ColdStore3D({
         const c = chs[cell.room];
         if (!c) return;
         act(c.id);
-        if (md === 'book' && (cell.look === 'free' || cell.look === 'selected')) pick?.(c, cell.slot, cell.look);
+        if (md === 'book' && (cell.look === 'free' || cell.look === 'part' || cell.look === 'selected')) pick?.(c, cell.slot, cell.look);
         else if (md === 'owner') pick?.(c, cell.slot, cell.look);
       };
       let moveQueued = false;
@@ -521,7 +536,7 @@ export function ColdStore3D({
           const cell = hit(e.clientX, e.clientY);
           showTip(cell, e.clientX, e.clientY);
           const { mode: md } = latest.current;
-          renderer.domElement.style.cursor = cell && (md === 'owner' || (md === 'book' && (cell.look === 'free' || cell.look === 'selected'))) ? 'pointer' : 'grab';
+          renderer.domElement.style.cursor = cell && (md === 'owner' || (md === 'book' && (cell.look === 'free' || cell.look === 'part' || cell.look === 'selected'))) ? 'pointer' : 'grab';
         });
       };
       const onLeave = () => showTip(null, 0, 0);

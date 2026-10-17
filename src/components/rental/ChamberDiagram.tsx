@@ -4,13 +4,14 @@
  * One chamber drawn to scale from its measured size (lib/coldLayout): the
  * walls with the door, the walkway, and every stack where it really stands,
  * with the measurements written on the drawing. Row 1 is by the door (at the
- * bottom), stacks are counted from the left wall. Tap a place to choose it
+ * bottom), stacks are counted from the left wall. A shared place shows how
+ * full it is and the boxes that still fit. Tap a place to choose it
  * (booking), to see whose it is or mark a pillar (owner).
  */
 import { useId } from 'react';
 
 import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
-import { planOf, showLength, type ChamberPlan, type ChamberSize } from '@/lib/coldLayout';
+import { layersText, planOf, showLength, type ChamberPlan, type ChamberSize } from '@/lib/coldLayout';
 import { placeKey, placeLabel, placeName, type ColdChamber } from '@/lib/db/coldMap';
 
 /** Drawing margins (px) for row labels, stack numbers, measurements and the door. */
@@ -22,6 +23,7 @@ const ROOM_W = 560;
 
 const FILL: Record<Look, { fill: string; stroke: string; text: string }> = {
   free: { fill: '#e0f2fe', stroke: '#38bdf8', text: '#0369a1' },
+  part: { fill: '#e0f2fe', stroke: '#0ea5e9', text: '#0c4a6e' },
   selected: { fill: '#10b981', stroke: '#047857', text: '#ffffff' },
   held: { fill: '#fcd34d', stroke: '#d97706', text: '#78350f' },
   booked: { fill: '#94a3b8', stroke: '#64748b', text: '#ffffff' },
@@ -33,6 +35,7 @@ export function ChamberDiagram({
   chamber: c,
   size,
   stateOf,
+  roomOf,
   onPlace,
   mode,
   labelOf,
@@ -40,6 +43,8 @@ export function ChamberDiagram({
   chamber: ColdChamber;
   size: ChamberSize;
   stateOf: (c: ColdChamber, slot: string) => Look;
+  /** Boxes that still fit on a place. */
+  roomOf: (c: ColdChamber, slot: string) => number;
   onPlace?: (c: ColdChamber, slot: string, look: Look) => void;
   mode: 'book' | 'owner' | 'view';
   labelOf?: (key: string) => string | undefined;
@@ -69,11 +74,14 @@ export function ChamberDiagram({
     const look = stateOf(c, slot);
     const quiet = mode === 'view' && look === 'free';
     const f = quiet ? { fill: '#ffffff', stroke: '#e2e8f0', text: '#cbd5e1' } : FILL[look];
-    const clickable = mode === 'book' ? look === 'free' || look === 'selected' : mode === 'owner';
+    const clickable = mode === 'book' ? look === 'free' || look === 'part' || look === 'selected' : mode === 'owner';
     const label = labelOf?.(key);
     const x = X(plan.colX[i]);
     const y = Y(plan.rowZ[r - 1] + plan.placeD);
-    const mark = look === 'selected' ? '✓' : label && (look === 'booked' || look === 'held') ? label : look === 'mine' ? (label ?? 'You') : look === 'free' && mode === 'book' ? '+' : '';
+    const room = look === 'part' ? roomOf(c, slot) : 0;
+    // How much of a shared place is taken, drawn from the bottom of the place.
+    const taken = look === 'part' ? Math.min(1, Math.max(0, 1 - room / c.boxes_per_slot)) : 0;
+    const mark = look === 'selected' ? '✓' : label && (look === 'booked' || look === 'held' || look === 'part') ? label : look === 'mine' ? (label ?? 'You') : look === 'part' ? String(room) : look === 'free' && mode === 'book' ? '+' : '';
     const name = placeLabel(slot);
     const act = () => clickable && onPlace?.(c, slot, look);
     return (
@@ -83,7 +91,7 @@ export function ChamberDiagram({
         tabIndex={clickable ? 0 : -1}
         aria-disabled={!clickable}
         aria-pressed={mode === 'book' ? look === 'selected' : undefined}
-        aria-label={`${c.name}, ${name}: ${PLACE_LOOK[look].label}${look === 'free' || look === 'selected' ? `, ${c.boxes_per_slot} boxes` : ''}${label ? `, ${label}` : ''}`}
+        aria-label={`${c.name}, ${name}: ${PLACE_LOOK[look].label}${look === 'free' ? `, ${c.boxes_per_slot} boxes` : look === 'part' ? `, room for ${room} of ${c.boxes_per_slot} boxes` : ''}${label ? `, ${label}` : ''}`}
         onClick={act}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -93,8 +101,9 @@ export function ChamberDiagram({
         }}
         className={clickable ? 'cursor-pointer outline-none [&:focus-visible>rect]:stroke-sky-900 [&:focus-visible>rect]:[stroke-width:3]' : 'cursor-default'}
       >
-        <title>{`${name} · ${PLACE_LOOK[look].label}${label ? ` · ${label}` : ''}`}</title>
+        <title>{`${name} · ${PLACE_LOOK[look].label}${look === 'part' ? ` · room for ${room} boxes` : ''}${label ? ` · ${label}` : ''}`}</title>
         <rect x={x} y={y} width={pw} height={pd} rx={Math.min(6, pw / 6)} fill={look === 'blocked' && !quiet ? `url(#${hatch})` : f.fill} stroke={f.stroke} strokeWidth={1.5} />
+        {taken > 0 && <rect x={x + 1} y={y + pd * (1 - taken)} width={pw - 2} height={pd * taken - 1} rx={Math.min(5, pw / 7)} fill="#cbd5e1" pointerEvents="none" />}
         {mark && pw >= 18 && pd >= 14 && (
           <text x={x + pw / 2} y={y + pd / 2} dominantBaseline="central" textAnchor="middle" fontSize={Math.min(14, pd * 0.5, pw * 0.4)} fontWeight={700} fill={f.text}>
             {mark}
@@ -195,7 +204,7 @@ export function ChamberDiagram({
         </g>
       </svg>
       <p className="mt-1 text-center text-xs text-slate-600">
-        Height {showLength(size.height, u)} · each place {showLength(plan.placeW, u)} × {showLength(plan.placeD, u)}: {plan.perLayer} boxes a layer × {plan.layers} layers = <strong>{plan.boxesPerPlace} boxes</strong>, stacked {showLength(plan.stackHeight, u)} high
+        Height {showLength(size.height, u)} · each place {showLength(plan.placeW, u)} × {showLength(plan.placeD, u)}: {layersText(plan)} = <strong>{c.boxes_per_slot.toLocaleString('en-IN')} boxes</strong>, stacked {showLength(plan.stackHeight, u)} high
       </p>
     </div>
   );

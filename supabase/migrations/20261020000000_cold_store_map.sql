@@ -176,6 +176,9 @@ create policy cold_slot_bookings_read on public.cold_slot_bookings for select to
 -- ───────────────────────── the map ─────────────────────────
 -- Taken places of a store for the months asked: 'mine', 'booked' or 'held'
 -- (requested or paid, waiting). Never says who.
+-- (20261022000000_cold_shared_places.sql changes what it returns, so it is
+-- dropped first when this file is run again.)
+drop function if exists public.kr_cold_map(uuid, date, integer);
 create or replace function public.kr_cold_map(p_listing uuid, p_start date, p_months integer)
 returns table (chamber_id uuid, slot text, state text)
 language sql stable security definer set search_path = public as $$

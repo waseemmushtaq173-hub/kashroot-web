@@ -28,6 +28,7 @@ import {
 import { X, type LucideIcon } from 'lucide-react';
 
 import { ChinarLeaf } from '@/components/brand/ChinarLeaf';
+import { liftToasts } from '@/lib/client/toastLayer';
 
 // ── Themes ──────────────────────────────────────────────────────────────────
 
@@ -431,8 +432,10 @@ export function Modal({
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    else if (!open && dialog.open) dialog.close();
+    if (open && !dialog.open) {
+      dialog.showModal();
+      liftToasts();
+    } else if (!open && dialog.open) dialog.close();
   }, [open]);
 
   return (

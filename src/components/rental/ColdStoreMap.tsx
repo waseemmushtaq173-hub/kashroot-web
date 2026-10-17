@@ -4,8 +4,10 @@
  * The cold store, drawn so anyone can find their way around it:
  *
  *   StorePlan     the whole store from above — every chamber as a room along
- *                 the corridor, with how many places are free in each. Tap a
- *                 room to open it.
+ *                 the corridor, with how many boxes it holds and how many
+ *                 are free. Tap a room to open it.
+ *   ChamberFacts  what one chamber holds, as the owner set it up: size,
+ *                 places, boxes on each place, boxes in all, boxes free.
  *   ChamberDiagram  one chamber up close, drawn to scale from its measured
  *                 size: walls, door, walkway, every stack where it stands,
  *                 with the measurements (components/rental/ChamberDiagram).
@@ -15,18 +17,22 @@
  *   ColdStore3D   the same store in 3D (components/rental/ColdStore3D).
  *   ColdStoreExplorer  plan ⇄ 3D switch around all of the above.
  *
+ * A place can be shared: farmers book just the boxes they have, and a place
+ * with some boxes on it ("part") still takes more until it is full.
+ * `roomOf` says how many boxes still fit on each place.
+ *
  * Modes:
- *   book   farmers tap free places to choose them
+ *   book   farmers tap free or shared places to choose them
  *   owner  the owner taps a booked place to see who has it
  *   view   a farmer's own boxes, highlighted
  */
 import dynamic from 'next/dynamic';
-import { useMemo, useState } from 'react';
-import { Box, Check, Clock, DoorOpen, Layers, Map as MapIcon } from 'lucide-react';
+import { useMemo, useState, type CSSProperties } from 'react';
+import { Box, Check, Clock, DoorOpen, Hand, Layers, Map as MapIcon } from 'lucide-react';
 
 import { ChamberDiagram } from '@/components/rental/ChamberDiagram';
 import { countLooks, PLACE_LOOK, placesOf, type Look } from '@/components/rental/placeLook';
-import { planOf, showLength } from '@/lib/coldLayout';
+import { layersText, planOf, showLength } from '@/lib/coldLayout';
 import { placeKey, placeLabel, placeName, usablePlaces, type ColdChamber } from '@/lib/db/coldMap';
 
 export { PLACE_LOOK, type Look };
@@ -36,6 +42,63 @@ const ColdStore3D = dynamic(() => import('@/components/rental/ColdStore3D').then
   ssr: false,
   loading: () => <div className="grid h-[420px] place-items-center rounded-3xl bg-slate-100 text-sm text-slate-500">Opening the 3D view…</div>,
 });
+
+/** "4,480" — boxes, Indian grouping. */
+const boxes = (n: number) => n.toLocaleString('en-IN');
+
+export type RoomOf = (c: ColdChamber, slot: string) => number;
+/** Room on a place from its look alone: a free place takes a full stack, anything else none. */
+export const roomByLook = (stateOf: (c: ColdChamber, slot: string) => Look): RoomOf => (c, slot) => (stateOf(c, slot) === 'free' ? c.boxes_per_slot : 0);
+
+/** Boxes a chamber holds, the boxes still free on it, and how many places have room. */
+export function chamberBoxes(c: ColdChamber, roomOf: RoomOf) {
+  let free = 0;
+  let open = 0;
+  for (const [, , slot] of placesOf(c)) {
+    if (c.blocked.includes(slot)) continue;
+    const r = roomOf(c, slot);
+    free += r;
+    if (r > 0) open++;
+  }
+  return { holds: usablePlaces(c) * c.boxes_per_slot, free, open, places: usablePlaces(c) };
+}
+
+/**
+ * What one chamber holds, as its owner set it up: its size, the places in
+ * it, the boxes on each place and in all, and how many are free.
+ */
+export function ChamberFacts({ chamber: c, roomOf, mode }: { chamber: ColdChamber; roomOf: RoomOf; mode: 'book' | 'owner' | 'view' }) {
+  const b = chamberBoxes(c, roomOf);
+  const size = c.size;
+  const plan = size ? planOf(size) : null;
+  const fact = (label: string, value: string, sub?: string, strong = false) => (
+    <div className={`rounded-2xl p-3 ring-1 ${strong ? 'bg-sky-700 text-white ring-sky-800' : 'bg-white ring-slate-900/5'}`}>
+      <dt className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${strong ? 'text-sky-100' : 'text-slate-500'}`}>{label}</dt>
+      <dd className={`mt-0.5 text-lg font-bold tabular-nums ${strong ? 'text-white' : 'text-slate-900'}`}>{value}</dd>
+      {sub && <dd className={`text-xs ${strong ? 'text-sky-100' : 'text-slate-600'}`}>{sub}</dd>}
+    </div>
+  );
+  return (
+    <div className="space-y-2">
+      <dl aria-label={`${c.name}: what it holds`} className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        {size && plan
+          ? fact('Size', `${showLength(size.length, size.unit)} × ${showLength(size.width, size.unit)}`, `length × breadth · ${showLength(size.height, size.unit)} high`)
+          : fact('Places', String(b.places), `${c.rows} rows × ${c.cols} stacks`)}
+        {size && plan ? fact('Places', String(b.places), `${c.rows} rows × ${c.cols} stacks${plan.aisleAfter !== null ? ' + walkway' : ''}`) : null}
+        {fact('Each place holds', `${boxes(c.boxes_per_slot)} boxes`, plan ? `${layersText(plan)} · ${showLength(plan.stackHeight, size!.unit)} high` : undefined)}
+        {fact('Chamber holds', `${boxes(b.holds)} boxes`, mode === 'view' ? undefined : `${boxes(b.free)} free · room on ${b.open} of ${b.places} places`, true)}
+      </dl>
+      {mode === 'book' && (
+        <p className="flex items-start gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-950 ring-1 ring-emerald-200">
+          <Hand className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          <span>
+            You choose: tap any place with room where you want your boxes — any number, small or big. A place in {c.name} takes up to {boxes(c.boxes_per_slot)} boxes; a part-filled place takes the rest, and you pay only for your own boxes.
+          </span>
+        </p>
+      )}
+    </div>
+  );
+}
 
 export function PlaceLegend({ show }: { show: Look[] }) {
   return (
@@ -54,7 +117,7 @@ export function PlaceLegend({ show }: { show: Look[] }) {
  * The whole store from above: one room per chamber, side by side along the
  * corridor, each with a small picture of its places and what is free.
  */
-export function StorePlan({ chambers, stateOf, active, onPick, mode }: { chambers: ColdChamber[]; stateOf: (c: ColdChamber, slot: string) => Look; active: string | null; onPick: (id: string) => void; mode: 'book' | 'owner' | 'view' }) {
+export function StorePlan({ chambers, stateOf, roomOf, active, onPick, mode }: { chambers: ColdChamber[]; stateOf: (c: ColdChamber, slot: string) => Look; roomOf: RoomOf; active: string | null; onPick: (id: string) => void; mode: 'book' | 'owner' | 'view' }) {
   // Measured chambers share one scale, so a bigger chamber looks bigger.
   const sized = chambers.filter((c) => c.size);
   const scale = sized.length ? Math.min(160 / Math.max(...sized.map((c) => c.size!.length)), 190 / Math.max(...sized.map((c) => c.size!.width))) : 0;
@@ -64,6 +127,7 @@ export function StorePlan({ chambers, stateOf, active, onPick, mode }: { chamber
       <ul className="flex flex-wrap items-end gap-3">
         {chambers.map((c) => {
           const n = countLooks(c, stateOf);
+          const b = chamberBoxes(c, roomOf);
           const cell = Math.max(4, Math.min(10, Math.floor(150 / Math.max(c.cols, c.rows))));
           const on = active === c.id;
           return (
@@ -72,15 +136,18 @@ export function StorePlan({ chambers, stateOf, active, onPick, mode }: { chamber
                 type="button"
                 onClick={() => onPick(c.id)}
                 aria-pressed={on}
-                aria-label={`${c.name}: ${n.free} free places${n.mine ? `, ${n.mine} yours` : ''}${n.selected ? `, ${n.selected} chosen` : ''}. Open this chamber.`}
+                aria-label={`${c.name}: holds ${boxes(b.holds)} boxes, ${boxes(b.free)} free (${b.open} places with room)${n.mine ? `, ${n.mine} yours` : ''}${n.selected ? `, ${n.selected} chosen` : ''}. Open this chamber.`}
                 className={`group flex cursor-pointer flex-col items-center rounded-2xl border-[3px] bg-white p-2.5 pb-0 text-left transition ${on ? 'border-sky-700 shadow-lg' : 'border-slate-400 hover:border-sky-500 hover:shadow-md'}`}
               >
                 <span className="flex w-full items-center justify-between gap-3 text-sm font-semibold text-slate-900">
                   {c.name}
                   {on && <span className="rounded-full bg-sky-700 px-2 py-0.5 text-[10px] font-bold uppercase text-white">Open</span>}
                 </span>
-                <span className="mt-0.5 block w-full text-xs text-slate-600">
-                  <strong className="text-sky-800">{n.free}</strong> free of {usablePlaces(c)}
+                <span className="mt-0.5 block w-full text-xs text-slate-700">
+                  Holds <strong className="text-slate-900">{boxes(b.holds)}</strong> boxes
+                </span>
+                <span className="block w-full text-xs text-slate-600">
+                  <strong className="text-sky-800">{boxes(b.free)}</strong> free · room on {b.open}/{b.places}
                   {mode === 'book' && n.selected > 0 && <> · <strong className="text-emerald-700">{n.selected} chosen</strong></>}
                   {n.mine > 0 && <> · <strong className="text-violet-700">{n.mine} yours</strong></>}
                 </span>
@@ -135,12 +202,14 @@ function MiniToScale({ chamber: c, k, stateOf }: { chamber: ColdChamber; k: numb
 export function ChamberGrid({
   chamber: c,
   stateOf,
+  roomOf = roomByLook(stateOf),
   onPlace,
   mode,
   labelOf,
 }: {
   chamber: ColdChamber;
   stateOf: (c: ColdChamber, slot: string) => Look;
+  roomOf?: RoomOf;
   onPlace?: (c: ColdChamber, slot: string, look: Look) => void;
   mode: 'book' | 'owner' | 'view';
   /** Owner: a short label on booked places (the farmer's initials). */
@@ -170,18 +239,20 @@ export function ChamberGrid({
                 const key = placeKey(c.id, slot);
                 const look = stateOf(c, slot);
                 const style = mode === 'view' && look === 'free' ? 'bg-white text-slate-300 ring-1 ring-slate-200' : PLACE_LOOK[look].cell;
-                const clickable = mode === 'book' ? look === 'free' || look === 'selected' : mode === 'owner';
+                const clickable = mode === 'book' ? look === 'free' || look === 'part' || look === 'selected' : mode === 'owner';
                 const label = labelOf?.(key);
                 const name = `${placeLabel(slot)}`;
+                const room = look === 'part' ? roomOf(c, slot) : 0;
                 return (
                   <button
                     key={i}
                     type="button"
                     disabled={!clickable}
                     aria-pressed={mode === 'book' ? look === 'selected' : undefined}
-                    aria-label={`${c.name}, ${name}: ${PLACE_LOOK[look].label}${look === 'free' || look === 'selected' ? `, ${c.boxes_per_slot} boxes` : ''}${label ? `, ${label}` : ''}`}
-                    title={`${name} · ${PLACE_LOOK[look].label}${label ? ` · ${label}` : ''}`}
+                    aria-label={`${c.name}, ${name}: ${PLACE_LOOK[look].label}${look === 'free' ? `, ${c.boxes_per_slot} boxes` : look === 'part' ? `, room for ${room} of ${c.boxes_per_slot} boxes` : ''}${label ? `, ${label}` : ''}`}
+                    title={`${name} · ${PLACE_LOOK[look].label}${look === 'part' ? ` · room for ${room} boxes` : ''}${label ? ` · ${label}` : ''}`}
                     onClick={() => onPlace?.(c, slot, look)}
+                    style={look === 'part' ? ({ '--full': `${Math.round((1 - room / c.boxes_per_slot) * 100)}%` } as CSSProperties) : undefined}
                     className={`${cell} grid place-items-center rounded-lg text-[11px] font-bold transition ${style} ${clickable ? 'cursor-pointer' : 'cursor-default'} disabled:opacity-100`}
                   >
                     {look === 'selected' ? (
@@ -196,6 +267,8 @@ export function ChamberGrid({
                       label ?? 'You'
                     ) : look === 'free' && mode === 'book' ? (
                       <span aria-hidden className="text-lg font-normal leading-none">+</span>
+                    ) : look === 'part' ? (
+                      label ?? <span aria-hidden className="rounded bg-white/80 px-1 leading-tight">{room}</span>
                     ) : (
                       label ?? ''
                     )}
@@ -213,7 +286,7 @@ export function ChamberGrid({
           </span>
           <span className="h-1.5 flex-1 rounded-br-md bg-slate-500" />
         </div>
-        <p className="mt-6 text-center text-xs text-slate-500">{c.boxes_per_slot} boxes fit in each place · Row 1 is nearest the door</p>
+        <p className="mt-6 text-center text-xs text-slate-500">Up to {c.boxes_per_slot} boxes on each place · Row 1 is nearest the door</p>
       </div>
     </div>
   );
@@ -226,6 +299,7 @@ export function ChamberGrid({
 export function ColdStoreExplorer({
   chambers,
   stateOf,
+  roomOf: roomOfProp,
   mode,
   onPlace,
   labelOf,
@@ -236,6 +310,8 @@ export function ColdStoreExplorer({
 }: {
   chambers: ColdChamber[];
   stateOf: (c: ColdChamber, slot: string) => Look;
+  /** Boxes that still fit on each place (stable, like stateOf); by default a free place takes a full stack. */
+  roomOf?: RoomOf;
   mode: 'book' | 'owner' | 'view';
   onPlace?: (c: ColdChamber, slot: string, look: Look) => void;
   labelOf?: (key: string) => string | undefined;
@@ -247,10 +323,12 @@ export function ColdStoreExplorer({
 }) {
   const [view, setView] = useState<'plan' | '3d'>('plan');
   const chamber = chambers.find((c) => c.id === active) ?? chambers[0];
+  const byLook = useMemo(() => roomByLook(stateOf), [stateOf]);
+  const roomOf = roomOfProp ?? byLook;
   const totals = useMemo(() => chambers.reduce((s, c) => {
-    const n = countLooks(c, stateOf);
-    return { free: s.free + n.free, all: s.all + usablePlaces(c) };
-  }, { free: 0, all: 0 }), [chambers, stateOf]);
+    const b = chamberBoxes(c, roomOf);
+    return { free: s.free + b.free, holds: s.holds + b.holds };
+  }, { free: 0, holds: 0 }), [chambers, roomOf]);
   const tab = (id: 'plan' | '3d', label: string, Icon: typeof MapIcon) => (
     <button
       type="button"
@@ -271,22 +349,31 @@ export function ColdStoreExplorer({
           {tab('3d', '3D view', Layers)}
         </div>
         <p className="text-sm text-slate-700">
-          {chambers.length} chamber{chambers.length === 1 ? '' : 's'} · <strong className="text-sky-800">{totals.free}</strong> of {totals.all} places free
+          {chambers.length} chamber{chambers.length === 1 ? '' : 's'} · holds <strong className="text-slate-900">{boxes(totals.holds)}</strong> boxes · <strong className="text-sky-800">{boxes(totals.free)}</strong> free
         </p>
       </div>
 
       {view === '3d' ? (
-        <ColdStore3D chambers={chambers} stateOf={stateOf} mode={mode} onPlace={onPlace} active={chamber?.id ?? null} onActive={onActive} />
+        <>
+          <ColdStore3D chambers={chambers} stateOf={stateOf} roomOf={roomOf} mode={mode} onPlace={onPlace} active={chamber?.id ?? null} onActive={onActive} />
+          {chamber && (
+            <section aria-label={`${chamber.name} in numbers`} className="space-y-2">
+              <h3 className="text-base font-semibold text-slate-900">{chamber.name}</h3>
+              <ChamberFacts chamber={chamber} roomOf={roomOf} mode={mode} />
+            </section>
+          )}
+        </>
       ) : (
         <>
-          {!single && <StorePlan chambers={chambers} stateOf={stateOf} active={chamber?.id ?? null} onPick={onActive} mode={mode} />}
+          {!single && <StorePlan chambers={chambers} stateOf={stateOf} roomOf={roomOf} active={chamber?.id ?? null} onPick={onActive} mode={mode} />}
           {chamber && (
             <section aria-label={chamber.name} className="space-y-2">
               <h3 className="text-base font-semibold text-slate-900">{chamber.name} <span className="font-normal text-slate-500">· {chamber.size ? 'drawn to scale' : 'up close'}</span></h3>
+              <ChamberFacts chamber={chamber} roomOf={roomOf} mode={mode} />
               {chamber.size ? (
-                <ChamberDiagram chamber={chamber} size={chamber.size} stateOf={stateOf} onPlace={onPlace} mode={mode} labelOf={labelOf} />
+                <ChamberDiagram chamber={chamber} size={chamber.size} stateOf={stateOf} roomOf={roomOf} onPlace={onPlace} mode={mode} labelOf={labelOf} />
               ) : (
-                <ChamberGrid chamber={chamber} stateOf={stateOf} onPlace={onPlace} mode={mode} labelOf={labelOf} />
+                <ChamberGrid chamber={chamber} stateOf={stateOf} roomOf={roomOf} onPlace={onPlace} mode={mode} labelOf={labelOf} />
               )}
             </section>
           )}

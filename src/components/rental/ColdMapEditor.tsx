@@ -4,14 +4,17 @@
  * The owner's cold store map, in two parts:
  *   Whole store       every chamber on the floor plan or in 3D, with who has
  *                     booked which place for any months — tap a booked stack
- *                     for the farmer's name, phone and boxes.
+ *                     for the farmers on it (a place can be shared), their
+ *                     phones and boxes.
  *   Chamber sizes     the owner measures each chamber — length (door to back
  *                     wall), breadth and height, in feet or metres — and
  *                     KashRoot lays it out (lib/coldLayout): rows, stacks,
  *                     walkway, boxes per layer and layers, drawn to scale and
  *                     in 3D. The store's standards (box size, stack base,
  *                     walkway, air gaps) start from common values and can be
- *                     changed. Tap a place to mark a pillar "no place here".
+ *                     changed, and the owner can write their own count of
+ *                     boxes on each place. Tap a place to mark a pillar
+ *                     "no place here".
  * Capacity and vacancy of the store are counted from the map.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -21,9 +24,9 @@ import { toast } from 'sonner';
 import { ChamberGrid, ColdStoreExplorer, PlaceLegend, type Look } from '@/components/rental/ColdStoreMap';
 import { niceDate, placesText } from '@/components/rental/ColdBooking';
 import { Badge, Btn, Field, INPUT, Modal, PORTAL_THEMES } from '@/components/portal/kit';
-import { FOOT, INCH, planOf, showLength, STANDARDS, type ChamberSize, type SizeUnit } from '@/lib/coldLayout';
+import { FOOT, INCH, layersText, planOf, showLength, STANDARDS, type ChamberSize, type SizeUnit } from '@/lib/coldLayout';
 import { inr } from '@/lib/db/client';
-import { deleteChamber, parsePlace, periodEnd, placeKey, saveChamber, takenPlaces, type BookedPlace, type ColdChamber, type PlaceState } from '@/lib/db/coldMap';
+import { deleteChamber, parsePlace, periodEnd, placeKey, roomOn, saveChamber, takenPlaces, type BookedPlace, type ColdChamber, type PlaceInfo } from '@/lib/db/coldMap';
 import { BOOKING_STATUS, type RentalBooking, type RentalListing } from '@/lib/db/rentals';
 
 const theme = PORTAL_THEMES.rental;
@@ -47,9 +50,11 @@ interface Draft {
   stackGap: string;
   topGap: string;
   doorGap: string;
+  /** The owner's own count of boxes on each place; empty = as many as fit. */
+  boxes: string;
   blocked: Set<string>;
 }
-type SizeField = Exclude<keyof Draft, 'name' | 'unit' | 'blocked'>;
+type SizeField = Exclude<keyof Draft, 'name' | 'unit' | 'blocked' | 'boxes'>;
 const BOX_FIELDS: SizeField[] = ['boxL', 'boxW', 'boxH'];
 
 /** Metres per unit typed: the room in feet / metres, the box in inches / cm. */
@@ -82,6 +87,7 @@ function draftFrom(size: ChamberSize | null, name: string, blocked: string[], un
     stackGap: v(st.stackGap, 'stackGap'),
     topGap: v(st.topGap, 'topGap'),
     doorGap: v(st.doorGap, 'doorGap'),
+    boxes: size?.boxes ? String(size.boxes) : '',
     blocked: new Set(blocked),
   };
 }
@@ -103,6 +109,7 @@ function sizeOf(d: Draft): ChamberSize | null {
     stackGap: m('stackGap'),
     topGap: m('topGap'),
     doorGap: m('doorGap'),
+    ...(d.boxes.trim() ? { boxes: num(d.boxes) } : {}),
   };
 }
 
@@ -141,7 +148,7 @@ export function ColdMapEditor({
   const [draft, setDraft] = useState<Draft>(() => draftFrom(current?.size ?? null, current?.name ?? `Chamber ${chambers.length + 1}`, current?.blocked ?? [], lastUnit));
   const [start, setStart] = useState(today());
   const [months, setMonths] = useState(1);
-  const [taken, setTaken] = useState<Map<string, PlaceState>>(new Map());
+  const [taken, setTaken] = useState<Map<string, PlaceInfo>>(new Map());
   const [picked, setPicked] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -171,17 +178,21 @@ export function ColdMapEditor({
     };
   }, [load]);
 
-  // Place → the booking holding it (only bookings live for the months shown).
+  // Place → the bookings on it, with their boxes there (only bookings live for the months shown).
   const holder = useMemo(() => {
     const byId = new Map(bookings.map((b) => [b.id, b]));
-    const m = new Map<string, RentalBooking>();
+    const live = new Set(['requested', 'paid', 'confirmed']);
+    const m = new Map<string, { booking: RentalBooking; boxes: number | null }[]>();
     for (const p of places) {
       const key = placeKey(p.chamber_id, p.slot);
       const b = byId.get(p.booking_id);
-      if (b && taken.has(key)) m.set(key, b);
+      if (!b || !taken.has(key) || !live.has(b.status)) continue;
+      const end = periodEnd(b.start_date, b.duration);
+      if (end <= start || b.start_date >= periodEnd(start, months)) continue;
+      m.set(key, [...(m.get(key) ?? []), { booking: b, boxes: p.boxes }]);
     }
     return m;
-  }, [bookings, places, taken]);
+  }, [bookings, places, taken, start, months]);
 
   const size = sizeOf(draft);
   const plan = size ? planOf(size) : null;
@@ -198,7 +209,7 @@ export function ColdMapEditor({
 
   // Drawing: tap a free place to mark "no place here" (or back); a booked one shows who.
   const onDraw = useCallback((c: ColdChamber, slot: string, look: Look) => {
-    if (look === 'held' || look === 'booked' || look === 'mine') return setPicked(placeKey(c.id, slot));
+    if (look === 'held' || look === 'booked' || look === 'mine' || look === 'part') return setPicked(placeKey(c.id, slot));
     setPicked(null);
     setDraft((d) => {
       const blocked = new Set(d.blocked);
@@ -209,26 +220,30 @@ export function ColdMapEditor({
   }, []);
   const drawState = useCallback(
     (c: ColdChamber, slot: string): Look => {
-      const t = taken.get(placeKey(c.id, slot));
+      const t = taken.get(placeKey(c.id, slot))?.state;
       return draft.blocked.has(slot) ? 'blocked' : t === 'mine' ? 'booked' : t ?? 'free';
     },
     [taken, draft.blocked],
   );
+  const drawRoom = useCallback((c: ColdChamber, slot: string) => (draft.blocked.has(slot) ? 0 : roomOn(c, taken.get(placeKey(c.id, slot)))), [taken, draft.blocked]);
 
   // The whole store as saved.
   const storeState = useCallback(
     (c: ColdChamber, slot: string): Look => {
-      const t = taken.get(placeKey(c.id, slot));
+      const t = taken.get(placeKey(c.id, slot))?.state;
       return c.blocked.includes(slot) ? 'blocked' : t === 'mine' ? 'booked' : t ?? 'free';
     },
     [taken],
   );
+  const storeRoom = useCallback((c: ColdChamber, slot: string) => (c.blocked.includes(slot) ? 0 : roomOn(c, taken.get(placeKey(c.id, slot)))), [taken]);
   const onStore = useCallback((c: ColdChamber, slot: string, look: Look) => {
-    setPicked(look === 'held' || look === 'booked' || look === 'mine' ? placeKey(c.id, slot) : null);
+    setPicked(look === 'held' || look === 'booked' || look === 'mine' || look === 'part' ? placeKey(c.id, slot) : null);
   }, []);
+  // A stack's label: the farmer's initials, "+1" for each farmer sharing it.
   const initialsOf = (key: string) => {
-    const b = holder.get(key);
-    return b ? initials(b.renter_name) : undefined;
+    const on = holder.get(key);
+    if (!on?.length) return undefined;
+    return `${initials(on[0].booking.renter_name)}${on.length > 1 ? `+${on.length - 1}` : ''}`;
   };
 
   const save = async () => {
@@ -275,7 +290,7 @@ export function ColdMapEditor({
       if (d.unit === unit) return d;
       const next = { ...d, unit };
       for (const f of Object.keys(d) as (keyof Draft)[]) {
-        if (f === 'name' || f === 'unit' || f === 'blocked') continue;
+        if (f === 'name' || f === 'unit' || f === 'blocked' || f === 'boxes') continue;
         const v = num(d[f]);
         next[f] = Number.isFinite(v) ? show(v * per(d.unit, f), unit, f) : d[f];
       }
@@ -290,7 +305,7 @@ export function ColdMapEditor({
     </Field>
   );
 
-  const who = picked ? holder.get(picked) : undefined;
+  const who = picked ? holder.get(picked) ?? [] : [];
   const pill = (on: boolean) => `cursor-pointer rounded-xl px-4 py-2 text-sm font-semibold transition ${on ? 'bg-sky-700 text-white shadow-md' : 'bg-sky-100 text-sky-900 hover:bg-sky-200'}`;
   const months_ = (
     <div className="grid grid-cols-2 gap-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-900/5">
@@ -304,18 +319,24 @@ export function ColdMapEditor({
       </Field>
     </div>
   );
-  const whoPanel = who && (
-    <div className="rounded-2xl bg-white p-4 text-sm ring-1 ring-slate-900/10">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-semibold text-slate-900">{who.renter_name}</p>
-        <Badge tone={BOOKING_STATUS[who.status].tone}>{BOOKING_STATUS[who.status].label}</Badge>
-      </div>
-      <p className="mt-1 text-slate-700">
-        {who.units.toLocaleString('en-IN')} boxes · {niceDate(who.start_date)} to {niceDate(periodEnd(who.start_date, who.duration))} · {inr(Number(who.amount))}
-      </p>
-      <p className="mt-1 text-slate-700">Places: {placesText(places.filter((p) => p.booking_id === who.id), chambers)}</p>
-      <a href={`tel:${who.renter_phone}`} className="mt-2 inline-flex items-center gap-1 font-semibold text-violet-700"><Phone className="h-4 w-4" aria-hidden /> {who.renter_phone}</a>
-    </div>
+  const whoPanel = who.length > 0 && (
+    <section aria-label="Who is on this place" className="space-y-2">
+      {who.length > 1 && <p className="text-sm font-semibold text-slate-800">{who.length} farmers share this place</p>}
+      {who.map(({ booking: b, boxes }) => (
+        <div key={b.id} className="rounded-2xl bg-white p-4 text-sm ring-1 ring-slate-900/10">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-semibold text-slate-900">{b.renter_name}</p>
+            <Badge tone={BOOKING_STATUS[b.status].tone}>{BOOKING_STATUS[b.status].label}</Badge>
+          </div>
+          <p className="mt-1 text-slate-700">
+            {boxes ? <><strong>{boxes.toLocaleString('en-IN')} boxes on this place</strong> · </> : null}
+            {b.units.toLocaleString('en-IN')} boxes in all · {niceDate(b.start_date)} to {niceDate(periodEnd(b.start_date, b.duration))} · {inr(Number(b.amount))}
+          </p>
+          <p className="mt-1 text-slate-700">Places: {placesText(places.filter((p) => p.booking_id === b.id), chambers)}</p>
+          <a href={`tel:${b.renter_phone}`} className="mt-2 inline-flex items-center gap-1 font-semibold text-violet-700"><Phone className="h-4 w-4" aria-hidden /> {b.renter_phone}</a>
+        </div>
+      ))}
+    </section>
   );
   const stat = (label: string, value: string, sub?: string) => (
     <div className="rounded-2xl bg-white p-3 ring-1 ring-slate-900/5">
@@ -346,12 +367,13 @@ export function ColdMapEditor({
               <ColdStoreExplorer
                 chambers={chambers}
                 stateOf={storeState}
+                roomOf={storeRoom}
                 mode="owner"
                 onPlace={onStore}
                 labelOf={initialsOf}
                 active={viewing}
                 onActive={setViewing}
-                legend={['free', 'held', 'booked', 'blocked']}
+                legend={['free', 'part', 'held', 'booked', 'blocked']}
               />
               {whoPanel}
             </>
@@ -393,6 +415,12 @@ export function ColdMapEditor({
               {sizeInput('width', 'Breadth, wall to wall')}
               {sizeInput('height', 'Height, floor to ceiling')}
             </div>
+            <Field
+              label="Boxes on each place (your count)"
+              hint={plan && plan.fits > 0 ? `By your sizes up to ${plan.fits.toLocaleString('en-IN')} fit (${plan.perLayer} a layer × ${Math.round(plan.fits / plan.perLayer)} layers). Leave empty to use that, or write how many you really put on one place.` : 'Leave empty: KashRoot works it out from the sizes. Or write how many boxes you put on one place.'}
+            >
+              <input type="number" inputMode="numeric" min={1} step={1} className={`${INPUT} sm:max-w-xs`} placeholder={plan && plan.fits > 0 ? String(plan.fits) : 'e.g. 120'} value={draft.boxes} onChange={(e) => set('boxes', e.target.value)} />
+            </Field>
 
             <details className="group rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-900/5">
               <summary className="cursor-pointer list-none text-sm font-semibold text-slate-800">
@@ -424,7 +452,7 @@ export function ColdMapEditor({
               <section aria-label="What fits in this chamber" className="space-y-2">
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {stat('Places', String(places_), `${plan.rows} rows × ${plan.cols} stacks${plan.aisleAfter !== null ? ' + walkway' : ''}`)}
-                  {stat('Boxes per place', String(plan.boxesPerPlace), `${plan.perLayer} a layer × ${plan.layers} layers`)}
+                  {stat('Boxes per place', String(plan.boxesPerPlace), `${layersText(plan)}${size.boxes ? ' · your count' : ''}`)}
                   {stat('Stack height', showLength(plan.stackHeight, size.unit), `ceiling ${showLength(size.height, size.unit)}`)}
                   {stat('Chamber holds', `${(places_ * plan.boxesPerPlace).toLocaleString('en-IN')} boxes`, `${inr(Number(l.rate) * plan.boxesPerPlace)} per place a month`)}
                 </div>
@@ -446,17 +474,18 @@ export function ColdMapEditor({
                     chambers={[preview]}
                     single
                     stateOf={drawState}
+                    roomOf={drawRoom}
                     mode="owner"
                     onPlace={onDraw}
                     labelOf={initialsOf}
                     active={preview.id}
                     onActive={() => undefined}
-                    legend={['free', 'held', 'booked', 'blocked']}
+                    legend={['free', 'part', 'held', 'booked', 'blocked']}
                   />
                 ) : (
                   <>
-                    <ChamberGrid chamber={preview} mode="owner" stateOf={drawState} labelOf={initialsOf} onPlace={onDraw} />
-                    <PlaceLegend show={['free', 'held', 'booked', 'blocked']} />
+                    <ChamberGrid chamber={preview} mode="owner" stateOf={drawState} roomOf={drawRoom} labelOf={initialsOf} onPlace={onDraw} />
+                    <PlaceLegend show={['free', 'part', 'held', 'booked', 'blocked']} />
                   </>
                 )}
                 {whoPanel}

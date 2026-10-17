@@ -3,11 +3,14 @@
 /**
  * Cold Storage Booking portal (/rental — the old name stays in the address).
  *   Farmers: find a cold store with free space (live vacancy), see the whole
- *   store — every chamber on a floor plan and in 3D — choose their own
- *   places for some months, pay the owner directly by UPI / bank, and the
- *   owner confirms. Later they see exactly where their boxes are.
+ *   store — every chamber on a floor plan and in 3D, with what each holds —
+ *   choose their own places for any number of boxes (a small lot shares a
+ *   place) for some months, pay the owner directly by UPI / bank for their
+ *   own boxes, and the owner confirms. Later they see exactly where their
+ *   boxes are.
  *   Owners: list their cold store (capacity in boxes, vacancy, rate, UPI /
- *   bank details), draw its chambers as rows of stacks, and confirm bookings.
+ *   bank details), measure its chambers (or draw them as rows of stacks),
+ *   and confirm bookings.
  *   (components/rental)
  * Payments go straight to the owner — KashRoot does not hold them.
  * Data: rental_listings, rental_bookings, payout_accounts (shared database).
@@ -23,6 +26,7 @@ import { ColdBooking, MyPlaces, placesText } from '@/components/rental/ColdBooki
 import { ColdMapEditor } from '@/components/rental/ColdMapEditor';
 import { Badge, Btn, EmptyState, Field, INPUT, Modal, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { inr, loadAccount, type Account } from '@/lib/db/client';
+import { showLength } from '@/lib/coldLayout';
 import { chambersOf, placesOfBookings, usablePlaces, type BookedPlace, type ColdChamber } from '@/lib/db/coldMap';
 import {
   bookingAction,
@@ -237,7 +241,23 @@ function ListingCard({ listing: l, chambers, own, onBook }: { listing: RentalLis
           <div className="h-full rounded-full bg-violet-600" style={{ width: `${pct}%` }} />
         </div>
       </div>
-      {map && <p className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-sky-800"><MapIcon className="h-4 w-4" aria-hidden /> See it in 3D, choose your place · {chambers.length} chamber{chambers.length === 1 ? '' : 's'}, {chambers.reduce((s, c) => s + usablePlaces(c), 0)} places</p>}
+      {map && (
+        <div className="mt-3 rounded-xl bg-sky-50 p-3 ring-1 ring-sky-200">
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-sky-900"><MapIcon className="h-4 w-4" aria-hidden /> {chambers.length} chamber{chambers.length === 1 ? '' : 's'} · see them in 3D, choose your own place</p>
+          <ul aria-label="What each chamber holds" className="mt-1.5 space-y-0.5 text-xs text-slate-700">
+            {chambers.slice(0, 4).map((c) => (
+              <li key={c.id} className="flex justify-between gap-2">
+                <span className="truncate">{c.name}{c.size ? ` · ${showLength(c.size.length, c.size.unit)} × ${showLength(c.size.width, c.size.unit)} × ${showLength(c.size.height, c.size.unit)}` : ''}</span>
+                <span className="shrink-0">holds <strong className="text-slate-900">{(usablePlaces(c) * c.boxes_per_slot).toLocaleString('en-IN')}</strong> boxes</span>
+              </li>
+            ))}
+            {chambers.length > 4 && <li className="text-slate-500">and {chambers.length - 4} more</li>}
+          </ul>
+          <p className="mt-1.5 text-xs font-medium text-emerald-800">
+            Any number of boxes{l.min_units > 1 ? ` from ${l.min_units.toLocaleString('en-IN')}` : ''}: share a place, pay only for your own boxes
+          </p>
+        </div>
+      )}
       {l.details && <p className="mt-2 line-clamp-2 text-sm text-slate-600">{l.details}</p>}
       <div className="mt-auto flex items-end justify-between gap-2 border-t border-slate-900/5 pt-4">
         <div>

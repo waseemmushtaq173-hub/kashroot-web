@@ -50,6 +50,7 @@ import {
   X as XIcon,
 } from 'lucide-react';
 import { ContactOtp } from '@/components/auth/ContactOtp';
+import { liftToasts } from '@/lib/client/toastLayer';
 import { OfflineAadhaarVerify } from '@/components/auth/OfflineAadhaarVerify';
 import {
   IfscNotFoundError,
@@ -171,6 +172,7 @@ export function KYCPanel({ open, onClose, onComplete, defaultRole }: KYCPanelPro
     if (!dialog) return;
     if (open && !dialog.open) {
       dialog.showModal();
+      liftToasts();
       stepHeadingRef.current?.focus();
     } else if (!open && dialog.open) {
       dialog.close();

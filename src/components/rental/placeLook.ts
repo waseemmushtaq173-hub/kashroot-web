@@ -8,6 +8,13 @@ export type Look = PlaceState | 'selected';
 
 export const PLACE_LOOK: Record<Look, { label: string; cell: string; swatch: string; mini: string; hex: string }> = {
   free: { label: 'Free', cell: 'bg-sky-100 text-sky-800 ring-1 ring-sky-300 hover:bg-sky-200', swatch: 'bg-sky-100 ring-1 ring-sky-300', mini: '#bae6fd', hex: '#38bdf8' },
+  part: {
+    label: 'Shared — room for more boxes',
+    cell: 'bg-[linear-gradient(to_top,#cbd5e1_0_var(--full,50%),#e0f2fe_var(--full,50%))] text-sky-900 ring-1 ring-sky-400 hover:ring-2',
+    swatch: 'bg-[linear-gradient(to_top,#cbd5e1_0_50%,#e0f2fe_50%)] ring-1 ring-sky-400',
+    mini: '#7dd3fc',
+    hex: '#67e8f9',
+  },
   selected: { label: 'Your choice', cell: 'bg-emerald-500 text-white ring-2 ring-emerald-700 shadow-md', swatch: 'bg-emerald-500', mini: '#10b981', hex: '#10b981' },
   held: { label: 'Waiting for payment', cell: 'bg-amber-300 text-amber-950', swatch: 'bg-amber-300', mini: '#fcd34d', hex: '#fbbf24' },
   booked: { label: 'Booked', cell: 'bg-slate-400 text-white', swatch: 'bg-slate-400', mini: '#94a3b8', hex: '#94a3b8' },
@@ -30,7 +37,7 @@ export function placesOf(c: Pick<ColdChamber, 'rows' | 'cols'>): [number, number
 
 /** How many places of each kind a chamber has. */
 export function countLooks(c: ColdChamber, stateOf: (c: ColdChamber, slot: string) => Look): Record<Look, number> {
-  const n: Record<Look, number> = { free: 0, selected: 0, held: 0, booked: 0, mine: 0, blocked: 0 };
+  const n: Record<Look, number> = { free: 0, part: 0, selected: 0, held: 0, booked: 0, mine: 0, blocked: 0 };
   for (const [, , slot] of placesOf(c)) n[stateOf(c, slot)]++;
   return n;
 }

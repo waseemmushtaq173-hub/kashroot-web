@@ -11,7 +11,9 @@
  * for the to-scale diagram, the 3D view and directions for farmers.
  *
  * The store's standards (box size, base, walkway, gaps) start from common
- * values and the owner can change every one of them. Everything is in metres;
+ * values and the owner can change every one of them — and the owner can give
+ * their own count of boxes on each place, which then counts instead of the
+ * worked-out one (never more than fit). Everything is in metres;
  * `unit` only remembers how the owner likes to see it. Shared by browser and
  * server, no side effects.
  */
@@ -43,6 +45,8 @@ export interface ChamberSize {
   topGap: number;
   /** Clear floor just inside the door. */
   doorGap: number;
+  /** The owner's own count of boxes on each place; unset = as many as fit. */
+  boxes?: number;
 }
 
 /** Common values; the owner changes them to match their store. */
@@ -81,8 +85,11 @@ export interface ChamberPlan {
   /** Near edge of each row, metres in from the door wall (index 0 = row 1). */
   rowZ: number[];
   perLayer: number;
+  /** Layers on a place (the top one may be part-full when the owner gives a smaller count). */
   layers: number;
   boxesPerPlace: number;
+  /** The most boxes that fit on one place by the sizes. */
+  fits: number;
   /** Height of a full stack, base included. */
   stackHeight: number;
   /** Why it cannot be laid out (empty when it can). */
@@ -192,7 +199,13 @@ export function planChamber(s: ChamberSize): ChamberPlan {
   }
   const cols = colX.length;
   const rowZ = Array.from({ length: rows }, (_, i) => s.doorGap + i * (best.pd + s.stackGap));
-  const boxesPerPlace = perLayer * layers;
+  const fits = perLayer * layers;
+  // The owner's own count, when given, as long as it fits.
+  const own = s.boxes !== undefined && !problems.length ? s.boxes : null;
+  if (own !== null && !(Number.isInteger(own) && own >= 1)) problems.push('Boxes on each place must be a whole number, at least 1.');
+  else if (own !== null && own > fits) problems.push(`Only ${fits.toLocaleString('en-IN')} boxes fit on one place by these sizes (${perLayer} a layer × ${layers} layers). Write a smaller number, or check the box size and the ceiling height.`);
+  const boxesPerPlace = own !== null && own >= 1 && own <= fits ? own : fits;
+  const used = perLayer ? Math.ceil(boxesPerPlace / perLayer) : 0;
   if (boxesPerPlace > 5000) problems.push('More than 5,000 boxes on one place — check the sizes.');
 
   // The door: in front of the walkway, or in the middle.
@@ -216,9 +229,10 @@ export function planChamber(s: ChamberSize): ChamberPlan {
     colX: problems.length ? [] : colX.map(round),
     rowZ: problems.length ? [] : rowZ.map(round),
     perLayer,
-    layers,
+    layers: used,
     boxesPerPlace: problems.length ? 0 : boxesPerPlace,
-    stackHeight: round(s.base + Math.max(layers, 0) * s.box.h),
+    fits,
+    stackHeight: round(s.base + Math.max(used, 0) * s.box.h),
     problems,
     notes,
   };
@@ -237,6 +251,13 @@ export function planOf(s: ChamberSize): ChamberPlan {
   return p;
 }
 
+/** How a place is stacked: "8 a layer × 16 layers", or "8 a layer, 13 layers (4 on top)". */
+export function layersText(plan: Pick<ChamberPlan, 'perLayer' | 'layers' | 'boxesPerPlace'>): string {
+  const top = plan.boxesPerPlace - (plan.layers - 1) * plan.perLayer;
+  const many = `${plan.layers} layer${plan.layers === 1 ? '' : 's'}`;
+  return top === plan.perLayer ? `${plan.perLayer} a layer × ${many}` : `${plan.perLayer} a layer, ${many} (${top} on top)`;
+}
+
 /** A length in the owner's unit: "12.2 m" or "40 ft". */
 export function showLength(m: number, unit: SizeUnit): string {
   if (unit === 'ft') {
@@ -253,7 +274,8 @@ export function asChamberSize(v: unknown): ChamberSize | null {
   const num = (n: unknown) => typeof n === 'number' && Number.isFinite(n);
   if (![s.length, s.width, s.height, s.base, s.aisle, s.wallGap, s.stackGap, s.topGap, s.doorGap].every(num)) return null;
   if (!s.box || !s.place || ![s.box.l, s.box.w, s.box.h, s.place.l, s.place.w].every(num)) return null;
-  return { ...(s as ChamberSize), unit: s.unit === 'ft' ? 'ft' : 'm' };
+  const { boxes, ...rest } = s as ChamberSize;
+  return { ...rest, unit: s.unit === 'ft' ? 'ft' : 'm', ...(num(boxes) && boxes! >= 1 ? { boxes: Math.floor(boxes!) } : {}) };
 }
 
 /**

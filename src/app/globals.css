@@ -228,3 +228,22 @@ body {
 :lang(ur) {
   line-height: 2.1;
 }
+
+/* Toasts lifted above an open pop-up window (lib/client/toastLayer): the toast
+   area covers the screen but is see-through, and only the toasts take taps. */
+section[data-react-aria-top-layer][popover] {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+  pointer-events: none;
+}
+section[data-react-aria-top-layer][popover] [data-sonner-toast] {
+  pointer-events: auto;
+}
