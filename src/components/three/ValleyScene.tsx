@@ -5,8 +5,12 @@
  * water, a shikara, chinar trees, drifting clouds and falling chinar leaves
  * (petals in spring, snow in winter). The mood recolours the whole scene.
  *
- * - three.js is imported inside the effect, so it never lands in the initial
- *   bundle and never runs on the server.
+ * - three.js is imported inside the effect, once the page has finished loading
+ *   and the browser is idle, so it never delays the page or lands in the
+ *   initial bundle, and never runs on the server.
+ * - Phones on data saver, a slow connection or with little memory skip it
+ *   (the colour or photo underneath stays); other phones draw it at lower
+ *   resolution, with fewer leaves, at half the frame rate.
  * - Renders only while on screen and the tab is visible; prefers-reduced-motion
  *   gets one still frame.
  * - If WebGL is unavailable nothing is drawn and whatever sits underneath (the
@@ -119,20 +123,32 @@ export function ValleyScene({ mood = 'autumn', className = '', particleCount = 7
     let cleanup: (() => void) | undefined;
 
     (async () => {
+      const nav = navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string }; deviceMemory?: number };
+      if (nav.connection?.saveData || /(^|-)(2g|3g)$/.test(nav.connection?.effectiveType ?? '') || (nav.deviceMemory ?? 8) <= 2) return;
+      // After the page has loaded, when the browser has nothing else to do.
+      await new Promise<void>((resolve) => {
+        const ric = (window as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+        const idle = () => (ric ? ric(() => resolve(), { timeout: 2500 }) : setTimeout(resolve, 800));
+        if (document.readyState === 'complete') idle();
+        else window.addEventListener('load', idle, { once: true });
+      });
+      if (disposed) return;
       const THREE = await import('three');
       if (disposed) return;
 
+      const phone = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 768;
+      const leaves = phone ? Math.max(12, Math.round(particleCount * 0.4)) : particleCount;
       const pal = PALETTES[mood];
       const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       const rnd = mulberry32(mood.length * 977 + 13);
 
       let renderer: InstanceType<typeof THREE.WebGLRenderer>;
       try {
-        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'low-power' });
+        renderer = new THREE.WebGLRenderer({ antialias: !phone, alpha: false, powerPreference: 'low-power' });
       } catch {
         return; // No WebGL: leave the fallback underneath visible.
       }
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, phone ? 1 : 1.75));
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       renderer.domElement.style.width = '100%';
       renderer.domElement.style.height = '100%';
@@ -297,7 +313,7 @@ export function ValleyScene({ mood = 'autumn', className = '', particleCount = 7
         sy: (rnd() - 0.5) * 2.4,
         phase: rnd() * Math.PI * 2,
       });
-      for (let i = 0; i < particleCount; i++) drifts.push(spawn(true));
+      for (let i = 0; i < leaves; i++) drifts.push(spawn(true));
 
       let particleGeo: InstanceType<typeof THREE.ShapeGeometry> | InstanceType<typeof THREE.IcosahedronGeometry>;
       if (pal.particle === 'leaf') {
@@ -320,9 +336,9 @@ export function ValleyScene({ mood = 'autumn', className = '', particleCount = 7
         // Unlit, so leaves keep their colour whichever side faces the camera.
         new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, transparent: true, opacity: 0.95 }),
       );
-      const particles = new THREE.InstancedMesh(particleGeo, particleMat, particleCount);
+      const particles = new THREE.InstancedMesh(particleGeo, particleMat, leaves);
       const tint = new THREE.Color();
-      for (let i = 0; i < particleCount; i++) particles.setColorAt(i, tint.set(pal.particles[i % pal.particles.length]));
+      for (let i = 0; i < leaves; i++) particles.setColorAt(i, tint.set(pal.particles[i % pal.particles.length]));
       scene.add(particles);
       track(particles);
       const dummy = new THREE.Object3D();
@@ -359,22 +375,28 @@ export function ValleyScene({ mood = 'autumn', className = '', particleCount = 7
 
       const clock = new THREE.Clock();
       let frame = 0;
+      let count = 0;
+      // Phones: every other frame (about 30 a second) is plenty for drifting leaves.
+      const every = phone ? 2 : 1;
       const tick = () => {
         frame = requestAnimationFrame(tick);
-        if (!onScreen || document.hidden) {
-          clock.getDelta();
+        if (!onScreen || document.hidden || ++count % every) {
+          if (!onScreen || document.hidden) clock.getDelta();
           return;
         }
-        const dt = Math.min(clock.getDelta(), 0.05);
+        const dt = Math.min(clock.getDelta(), 0.1);
         const t = clock.elapsedTime;
 
-        for (let i = 0; i < lakePos.count; i++) {
-          const x = lakeBase[i * 2];
-          const z = lakeBase[i * 2 + 1];
-          lakePos.setY(i, Math.sin(x * 0.35 + t * 0.9) * 0.05 + Math.cos(z * 0.5 + t * 0.7) * 0.04);
+        // The water: its shading is the costly part, so it moves every few frames.
+        if (count % (3 * every) === 0) {
+          for (let i = 0; i < lakePos.count; i++) {
+            const x = lakeBase[i * 2];
+            const z = lakeBase[i * 2 + 1];
+            lakePos.setY(i, Math.sin(x * 0.35 + t * 0.9) * 0.05 + Math.cos(z * 0.5 + t * 0.7) * 0.04);
+          }
+          lakePos.needsUpdate = true;
+          lakeGeo.computeVertexNormals();
         }
-        lakePos.needsUpdate = true;
-        lakeGeo.computeVertexNormals();
 
         shikara.position.y = 0.12 + Math.sin(t * 1.3) * 0.05;
         shikara.rotation.z = Math.sin(t * 1.1) * 0.03;

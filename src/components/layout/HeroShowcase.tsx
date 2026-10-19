@@ -80,8 +80,9 @@ export function HeroShowcase({
 
   return (
     <div className="relative isolate">
+      {/* Only the photo shown, the one fading out and the next one are loaded — not every season at once. */}
       <div aria-hidden className="fixed inset-0 -z-10 overflow-hidden bg-sky-100">
-        {slides.map((slide, i) => (
+        {slides.map((slide, i) => (i !== active && i !== previous && i !== (active + 1) % slides.length ? null : (
           <div
             key={slide.key}
             className={`absolute inset-0 transition-opacity duration-[1600ms] ease-in-out motion-reduce:transition-none ${
@@ -100,7 +101,7 @@ export function HeroShowcase({
               }`}
             />
           </div>
-        ))}
+        )))}
         {/* Light scrim: brighter at the top (nav) and bottom (cards + badge). */}
         <div className="absolute inset-0 z-20 bg-gradient-to-b from-white/40 via-white/5 to-white/50" />
         <div className="absolute inset-0 z-20 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.6),transparent_55%)]" />

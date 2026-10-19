@@ -233,8 +233,9 @@ export function ColdBooking({ listing: l, chambers, account, onClose, onBooked }
       toast.error(message);
       if (/taken/i.test(message)) {
         setStep('choose');
-        setError(message);
+        // Refresh the map first: a successful refresh clears the message.
         await load();
+        setError(message);
       }
     } finally {
       setBusy(false);

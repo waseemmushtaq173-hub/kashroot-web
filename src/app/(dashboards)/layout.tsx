@@ -60,8 +60,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   // The verified record in the database (written only by the KashRoot server).
   const [kyc, setKyc] = useState<{ rules: KycRules | null; status: KycStatus | null } | null>(null);
   const refreshKyc = useCallback(async () => {
-    const [rules, { data }] = await Promise.all([kycRules(), supabase.auth.getUser()]);
-    const status = data.user ? await myKyc(data.user.id) : null;
+    // The person from the session on this device: no extra round trip before the KYC check.
+    const { data } = await supabase.auth.getSession();
+    const userId = data.session?.user.id;
+    const [rules, status] = await Promise.all([kycRules(), userId ? myKyc(userId) : Promise.resolve(null)]);
     setKyc({ rules, status });
   }, []);
 

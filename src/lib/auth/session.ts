@@ -20,6 +20,7 @@ import { isAuthRetryableFetchError, type Session } from '@supabase/supabase-js';
 
 import { authApi, rolesOf, tokenStore } from '@/lib/api/auth';
 import { forgetPortalSignIns, markPortalSignedOut, portalAccess, signedInPortals } from '@/lib/auth/portalAccess';
+import { forgetStaffRoles, staffRolesOf } from '@/lib/auth/staffRoles';
 import { isPortalId, type PortalId } from '@/lib/auth/roles';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 
@@ -122,8 +123,7 @@ export async function restoreSession(): Promise<ActiveSession | null> {
     // itself as soon as it can.
   }
   const user = session.user;
-  const staff = await supabase.from('staff_roles').select('role').eq('user_id', user.id);
-  const roles = [...new Set([...rolesOf(user), ...(staff.error ? [] : (staff.data ?? []).map((r) => String(r.role)))])];
+  const roles = [...new Set([...rolesOf(user), ...(await staffRolesOf(user.id))])];
   const stored = read('user_role');
   tokenStore.setToken(session.access_token, stored && roles.includes(stored) ? stored : roles[0], roles);
   touchActivity();
@@ -191,6 +191,7 @@ export function useSignedIn(portal?: PortalId): boolean | null {
 export async function signOutCompletely() {
   forgetPerson();
   forgetPortalSignIns();
+  forgetStaffRoles();
   await authApi.logout();
 }
 

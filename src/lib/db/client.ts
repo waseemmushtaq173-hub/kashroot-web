@@ -7,6 +7,7 @@
  * what the signed-in person is allowed to.
  */
 import { supabase, supabaseConfigured } from '@/lib/supabase';
+import { staffRolesOf } from '@/lib/auth/staffRoles';
 import { langFromPreference, type SpeechLang } from '@/lib/client/speech';
 
 export { supabase, supabaseConfigured };
@@ -49,18 +50,38 @@ export function dbMessage(error: { message?: string; code?: string } | null | un
   return m || fallback;
 }
 
-/** The signed-in account with its saved details (any portal's My details). */
+let accountMemo: { key: string; at: number; promise: Promise<Account | null> } | null = null;
+
+/**
+ * The signed-in account with its saved details (any portal's My details).
+ * Read from the session kept on this device (no round trip to the sign-in
+ * service — the database checks every request itself), and shared for a
+ * minute by everything on the page that asks, so a portal opens without
+ * waiting for the same answer several times. Saving My details changes
+ * the session, which starts a fresh read.
+ */
 export async function loadAccount(): Promise<Account | null> {
   if (!supabaseConfigured) return null;
-  const { data } = await supabase.auth.getUser();
-  const user = data.user;
+  const { data } = await supabase.auth.getSession();
+  const user = data.session?.user;
   if (!user) return null;
+  const key = `${user.id}|${user.updated_at ?? ''}|${JSON.stringify(user.user_metadata ?? {})}`;
+  if (accountMemo && accountMemo.key === key && Date.now() - accountMemo.at < 60_000) return accountMemo.promise;
+  const promise = accountOf(user);
+  accountMemo = { key, at: Date.now(), promise };
+  promise.catch(() => {
+    if (accountMemo?.promise === promise) accountMemo = null;
+  });
+  return promise;
+}
+
+async function accountOf(user: { id: string; email?: string; user_metadata?: Record<string, unknown> }): Promise<Account> {
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
   const profiles = Object.entries(meta)
     .filter(([k, v]) => k.startsWith('profile_') && v && typeof v === 'object')
     .map(([, v]) => v as Record<string, unknown>);
   const pick = (key: string) => String(profiles.map((p) => p[key]).find((v) => typeof v === 'string' && v.trim()) ?? '');
-  const staff = await supabase.from('staff_roles').select('role').eq('user_id', user.id);
+  const staff = await staffRolesOf(user.id);
   return {
     id: user.id,
     email: user.email ?? '',
@@ -71,7 +92,7 @@ export async function loadAccount(): Promise<Account | null> {
     lang: langFromPreference(pick('language')),
     business: pick('shop') || pick('business'),
     licence: pick('licence'),
-    staff: staff.error ? [] : (staff.data ?? []).map((r) => String(r.role)),
+    staff,
   };
 }
 

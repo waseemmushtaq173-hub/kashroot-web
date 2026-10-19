@@ -18,6 +18,7 @@
 import { api } from './client';
 import { loginHref, portalForRole, type PortalId } from '@/lib/auth/roles';
 import { markPortalSignedIn, portalsOf } from '@/lib/auth/portalAccess';
+import { staffRolesOf } from '@/lib/auth/staffRoles';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 import { publicOrigin } from '@/lib/site';
 
@@ -247,8 +248,8 @@ export const authApi = {
     const metadataRole = (data.user.app_metadata?.role ?? data.user.user_metadata?.role) as UserRole | undefined;
     const mockRole = (typeof window !== 'undefined' && localStorage.getItem('kr_mock_role')) as UserRole || 'FARMER';
     // Staff roles (admin, expert, dealer) are granted by an admin in the database.
-    const staff = await supabase.from('staff_roles').select('role').eq('user_id', data.user.id);
-    const staffRoles = staff.error ? [] : (staff.data ?? []).map((r) => String(r.role));
+    // Asked afresh at every sign-in (a role granted since shows now), then kept for the portals.
+    const staffRoles = await staffRolesOf(data.user.id, true);
     return {
       accessToken: data.session.access_token,
       userId: data.user.id,
