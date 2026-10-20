@@ -9,8 +9,13 @@
  * a small farmer can share a place with others
  * (supabase/migrations/20261022000000_cold_shared_places.sql); the database
  * refuses more boxes than a place holds.
+ * Stores set up with the owner wizard (lib/coldStore,
+ * supabase/migrations/20261025000000_cold_store_details.sql) keep each floor
+ * of a chamber as its own row ("Chamber 1 · Floor 2") holding bins or
+ * crates, saved all together by kr_save_cold_chambers.
  */
 import { asChamberSize, type ChamberSize } from '@/lib/coldLayout';
+import type { ChamberRow, Storage } from '@/lib/coldStore';
 import { dbMessage, supabase, VERIFY_FIRST } from '@/lib/db/client';
 
 export interface ColdChamber {
@@ -25,6 +30,15 @@ export interface ColdChamber {
   note: string | null;
   /** The chamber's measured size and the store's standards (lib/coldLayout); null for a chamber drawn by rows × stacks. */
   size: ChamberSize | null;
+  /** Owner wizard: the chamber's number (null for chambers set up before it) and which floor this row is (1 = lowest). */
+  chamber_no: number | null;
+  floor: number;
+  /** What a place holds: bins or crates (owner wizard), boxes (before it). One place = one stack; boxes_per_slot = bins / crates in it. */
+  storage: Storage;
+  /** Kg in one bin / crate, the capacity the owner gave in metric tonnes (the whole chamber), and rupees per bin / crate per month (null = the store's rate). */
+  unit_kg: number | null;
+  capacity_mt: number | null;
+  rate: number | null;
 }
 
 /** What a place is for the months being looked at ("part": some boxes booked, room left). */
@@ -88,15 +102,31 @@ export function periodEnd(start: string, months: number): string {
 }
 
 const BASE_COLUMNS = 'id, listing_id, name, position, rows, cols, boxes_per_slot, blocked, note';
-const COLUMNS = `${BASE_COLUMNS}, size`;
+const SIZE_COLUMNS = `${BASE_COLUMNS}, size`;
+const COLUMNS = `${SIZE_COLUMNS}, chamber_no, floor, storage, unit_kg, capacity_mt, rate`;
 /** Before the chamber-size SQL (20261021000000) is run the size column is missing. */
 const noSizeColumn = (m?: string) => /size/i.test(m ?? '') && /column|schema cache|does not exist/i.test(m ?? '');
-const withSize = (rows: unknown[]): ColdChamber[] => (rows as (ColdChamber & { size?: unknown })[]).map((c) => ({ ...c, size: asChamberSize(c.size) }));
+/** Before the cold store details SQL (20261025000000) is run the wizard's columns are missing. */
+const noWizardColumns = (m?: string) => /chamber_no|floor|storage|unit_kg|capacity_mt|rate/i.test(m ?? '') && /column|schema cache|does not exist/i.test(m ?? '');
+const STORAGES: Storage[] = ['bins', 'crates', 'boxes'];
+const asNumber = (v: unknown) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
+const withSize = (rows: unknown[]): ColdChamber[] =>
+  (rows as (ColdChamber & { size?: unknown })[]).map((c) => ({
+    ...c,
+    size: asChamberSize(c.size),
+    chamber_no: asNumber(c.chamber_no),
+    floor: asNumber(c.floor) ?? 1,
+    storage: STORAGES.includes(c.storage) ? c.storage : 'boxes',
+    unit_kg: asNumber(c.unit_kg),
+    capacity_mt: asNumber(c.capacity_mt),
+    rate: asNumber(c.rate),
+  }));
 
 export async function chambersOf(listingIds: string[]): Promise<ColdChamber[]> {
   if (!listingIds.length) return [];
   const read = (cols: string) => supabase.from('cold_chambers').select(cols).in('listing_id', listingIds).order('position').order('name');
   let { data, error } = await read(COLUMNS);
+  if (error && noWizardColumns(error.message)) ({ data, error } = await read(SIZE_COLUMNS));
   if (error && noSizeColumn(error.message)) ({ data, error } = await read(BASE_COLUMNS));
   if (error) {
     // Before the map SQL is run there are no chambers: stores work by box count.
@@ -149,10 +179,29 @@ export type ChamberInput = Pick<ColdChamber, 'listing_id' | 'name' | 'position' 
 
 export async function saveChamber(input: ChamberInput, id?: string): Promise<ColdChamber> {
   const q = id ? supabase.from('cold_chambers').update(input).eq('id', id) : supabase.from('cold_chambers').insert(input);
-  const { data, error } = await q.select(COLUMNS).single();
+  const { data, error } = await q.select(SIZE_COLUMNS).single();
   if (error && noSizeColumn(error.message)) throw new Error('Run the new cold store SQL (20261021000000_cold_chamber_size.sql, also in RUN_THIS_ONCE.sql) in Supabase, then save again.');
   if (error) fail(error, 'Could not save the chamber.');
   return withSize([data])[0];
+}
+
+/**
+ * Save every chamber of a store set up with the owner wizard, in one go
+ * (kr_save_cold_chambers): floors that are new are added, changed ones are
+ * changed in place, and the wizard's floors no longer there are removed —
+ * all or nothing. A place a farmer has booked cannot be removed or made
+ * smaller: then nothing is saved and the database says which place it is.
+ * Chambers set up before the wizard are left as they are. Returns how many
+ * floor rows the store now has from the wizard.
+ */
+export async function saveColdStore(listingId: string, rows: ChamberRow[]): Promise<number> {
+  const { data, error } = await supabase.rpc('kr_save_cold_chambers', { p_listing: listingId, p_rows: rows });
+  if (error && (error.code === 'PGRST202' || /Could not find the function/i.test(error.message ?? ''))) {
+    throw new Error('Run the new cold store SQL (20261025000000_cold_store_details.sql, also in RUN_THIS_ONCE.sql) in Supabase, then save again.');
+  }
+  if (error && /not your cold store|same number|at most 100|Each chamber needs/i.test(error.message ?? '')) throw new Error(error.message);
+  if (error) fail(error, 'Could not save the chambers.');
+  return Number(data) || 0;
 }
 
 export async function deleteChamber(id: string): Promise<void> {

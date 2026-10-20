@@ -15,6 +15,12 @@
  * Then a one-time code: to the mobile number on the account by SMS and
  * WhatsApp together (email when there is no mobile or phone codes fail on the
  * site's side). The dashboards open only once it is verified.
+ * Coming back (lib/auth/session):
+ *   - the portal was locked after 12 hours unused, but the account is still
+ *     signed in on this device: one big "Continue as <name>" opens it again;
+ *   - the device signed out after 7 days unused: "Welcome back, <name>" with
+ *     the email filled in and the password box ready (the browser's saved
+ *     password makes it one tap). "Forget me on this device" removes that.
  * Accounts created before roles were saved have no role: they may use the
  * farmer and buyer portals (bound to that portal, as before), but not the
  * admin portal.
@@ -23,14 +29,14 @@
  */
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useId, useState, type FormEvent } from 'react';
-import { ArrowRight, CircleAlert, Eye, EyeOff, Loader2, PlusCircle } from 'lucide-react';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { ArrowRight, CircleAlert, Eye, EyeOff, Loader2, PlusCircle, UserRound } from 'lucide-react';
 
 import { ContactOtp, type PhoneRoute } from '@/components/auth/ContactOtp';
 import { PortalAuthFrame } from '@/components/auth/PortalAuthFrame';
 import { PORTAL_LOGIN } from '@/components/auth/portalLoginConfig';
 import { authApi, SELF_JOIN_ROLES, tokenStore } from '@/lib/api/auth';
-import { isMember, joinPortal, markPortalSignedIn, portalAccess, signedInPortals } from '@/lib/auth/portalAccess';
+import { isMember, joinPortal, markPortalSignedIn, portalAccess, PORTAL_SIGNIN_LIMIT_MS, signedInPortals } from '@/lib/auth/portalAccess';
 import { AUTH_ROUTES, loginHref, PORTALS, portalForRole, safeNextPath, type PortalId } from '@/lib/auth/roles';
 import { forgetPerson, rememberedPerson, rememberSignedIn, restoreSession, type RememberedPerson } from '@/lib/auth/session';
 import { getKycConfig } from '@/lib/kyc/kyc-service';
@@ -86,12 +92,17 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   // Signed in to other portals on this device (this portal has its own sign-in).
   const [elsewhere, setElsewhere] = useState<PortalId[]>([]);
   const [joining, setJoining] = useState(false);
+  // This portal was locked after hours unused, the account still signed in here: one tap opens it.
+  const [resume, setResume] = useState<{ userId: string; name: string; email: string } | null>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   const destination = safeNextPath(next, info.home);
 
   // Already signed in on this device (came back after closing the app): go
-  // straight to the portal. Signed out after a long time away: greet them by
-  // name with their email filled in, so only the password is needed.
+  // straight to the portal. Locked after hours unused: "Continue as …".
+  // Signed out after days away: greet them by name with their email filled
+  // in, so only the password is needed.
   const [checking, setChecking] = useState(true);
   const [remembered, setRemembered] = useState<RememberedPerson | null>(null);
   useEffect(() => {
@@ -102,9 +113,15 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
       if (active) {
         const access = await portalAccess(active.session.user, active.roles, portal);
         if (!live) return;
-        if (access.member && access.signedIn && (!info.requiredRole || active.roles.includes(info.requiredRole))) {
+        const allowed = access.member && (!info.requiredRole || active.roles.includes(info.requiredRole));
+        if (allowed && access.signedIn) {
           localStorage.setItem('auth_portal', portal);
           router.replace(destination);
+          return;
+        }
+        if (allowed && access.locked) {
+          setResume({ userId: active.session.user.id, name: active.name, email: access.email });
+          setChecking(false);
           return;
         }
         // Signed in to another portal: same person, but this portal asks for its own sign-in.
@@ -123,6 +140,11 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
       live = false;
     };
   }, [destination, info.requiredRole, portal, router]);
+  // Welcome back: the email is filled in, so the password box is ready (the browser's saved password fills it).
+  useEffect(() => {
+    if (!checking && !resume && remembered) passwordRef.current?.focus();
+  }, [checking, resume, remembered]);
+
   const focusRing = `focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${theme.outline}`;
   const inputClass = `block w-full rounded-xl border-0 bg-white/90 px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 shadow-sm ring-1 ring-inset ring-slate-200 transition focus:outline-none focus:ring-2 ${theme.inputFocus}`;
   const canSubmit = email.trim() !== '' && password !== '' && !pending;
@@ -137,6 +159,26 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
     // the KYC panel once, the first time on this browser.
     if (session.kycSubmitted) localStorage.setItem('kyc_status', 'submitted');
     else if (!localStorage.getItem('kyc_status')) localStorage.setItem('kyc_status', 'pending');
+    router.replace(destination);
+  };
+
+  /** "Continue as …": the account is still signed in on this device, so the portal opens again with one tap. */
+  const continueHere = async () => {
+    if (!resume) return;
+    setPending(true);
+    setError(null);
+    const active = await restoreSession().catch(() => null);
+    if (!active || active.session.user.id !== resume.userId) {
+      // The sign-in ended meanwhile (signed out in another tab, or days away): the password is needed.
+      setResume(null);
+      setEmail(resume.email);
+      setPending(false);
+      setError({ text: 'Your sign-in on this device has ended. Enter your password to sign in again.' });
+      return;
+    }
+    markPortalSignedIn(resume.userId, portal);
+    localStorage.setItem('auth_portal', portal);
+    void rememberSignedIn(portal, resume.email);
     router.replace(destination);
   };
 
@@ -232,6 +274,49 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
       setJoining(false);
     }
   };
+
+  if (resume) {
+    const hours = Math.round(PORTAL_SIGNIN_LIMIT_MS / 3_600_000);
+    return (
+      <PortalAuthFrame portal={portal} labelledBy={ids.heading}>
+        <h2 id={ids.heading} className="text-2xl font-semibold tracking-tight text-slate-900">
+          Welcome back
+        </h2>
+        <p className="mt-1 text-sm text-slate-600">
+          The {info.label} portal was closed because it was not used for {hours} hours. You are still signed in on this device. Tap below to open it.
+        </p>
+        <button
+          type="button"
+          onClick={() => void continueHere()}
+          disabled={pending}
+          aria-label={`Continue as ${resume.name} (${resume.email})`}
+          className={`mt-6 flex min-h-16 w-full cursor-pointer items-center gap-3 rounded-2xl px-5 py-4 text-left shadow-lg transition disabled:cursor-wait disabled:opacity-70 ${theme.button} ${focusRing}`}
+        >
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/20" aria-hidden>
+            {pending ? <Loader2 className="h-5 w-5 animate-spin" /> : <UserRound className="h-5 w-5" />}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-base font-semibold">Continue as {resume.name}</span>
+            <span className="block break-all text-sm opacity-90">({resume.email})</span>
+          </span>
+          <ArrowRight className="h-5 w-5 shrink-0" aria-hidden />
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setResume(null);
+            setRemembered(null);
+            setEmail('');
+            setPassword('');
+            window.setTimeout(() => emailRef.current?.focus(), 0);
+          }}
+          className={`mt-3 min-h-12 w-full cursor-pointer rounded-xl px-5 py-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 ${focusRing}`}
+        >
+          Use another account
+        </button>
+      </PortalAuthFrame>
+    );
+  }
 
   if (join) {
     const has = [...new Set(join.has.filter((p) => p !== portal).map((p) => PORTALS[p].label))];
@@ -337,17 +422,18 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
       )}
       {!checking && remembered && (
         <p className="mt-6 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900 ring-1 ring-emerald-200">
-          Welcome back, <strong>{remembered.name}</strong>. Your details are saved — just enter your password.{' '}
+          Welcome back, <strong>{remembered.name}</strong>. Your email is filled in — just enter your password.
           <button
             type="button"
-            className="cursor-pointer font-semibold underline"
+            className="mt-1 flex min-h-11 cursor-pointer items-center font-semibold underline underline-offset-2"
             onClick={() => {
               forgetPerson();
               setRemembered(null);
               setEmail('');
+              window.setTimeout(() => emailRef.current?.focus(), 0);
             }}
           >
-            Not you?
+            Forget me on this device
           </button>
         </p>
       )}
@@ -358,6 +444,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
             Email address
           </label>
           <input
+            ref={emailRef}
             id={ids.email}
             type="email"
             value={email}
@@ -381,6 +468,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
           </div>
           <div className="relative mt-1.5">
             <input
+              ref={passwordRef}
               id={ids.password}
               type={showPassword ? 'text' : 'password'}
               value={password}

@@ -275,8 +275,11 @@ export function SiteHeader({
 /**
  * Public site footer. Mirrors the header's information architecture so the two
  * verticals are reachable from the bottom of every public page as well.
+ * Inside a portal (`portal` set) it keeps only the brand and social links: the
+ * common tools (Price Comparison and the rest) live on the home page and the
+ * main site header, not inside portals.
  */
-export function SiteFooter({ tone = 'dark' }: { tone?: SiteTone }) {
+export function SiteFooter({ tone = 'dark', portal }: { tone?: SiteTone; portal?: PortalId | null }) {
   const light = tone === 'light';
   const footLink = light
     ? 'text-slate-600 no-underline transition-colors hover:text-slate-900 hover:no-underline'
@@ -302,15 +305,19 @@ export function SiteFooter({ tone = 'dark' }: { tone?: SiteTone }) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-caption">
-          <Link href="/compare-prices?category=produce" className={footLink}>
-            Produce marketplace
-          </Link>
-          <Link href="/compare-prices?category=supplies" className={footLink}>
-            Horticulture supplies
-          </Link>
-          <Link href="/farmer/dashboard" className={footLink}>
-            For farmers
-          </Link>
+          {!portal && (
+            <>
+              <Link href="/compare-prices?category=produce" className={footLink}>
+                Produce marketplace
+              </Link>
+              <Link href="/compare-prices?category=supplies" className={footLink}>
+                Horticulture supplies
+              </Link>
+              <Link href="/farmer/dashboard" className={footLink}>
+                For farmers
+              </Link>
+            </>
+          )}
           {SOCIAL_LINKS.map((s) => (
             <a key={s.href} href={s.href} target="_blank" rel="noopener noreferrer me" className={footLink}>
               {s.label}
@@ -324,8 +331,10 @@ export function SiteFooter({ tone = 'dark' }: { tone?: SiteTone }) {
 
 /**
  * Inside a portal: brand, the portal's name, My details, Home and Sign out —
- * no portal picker. A portal open to guests (Tracking) offers Sign in instead.
- * Sign out leaves this portal only; other portals signed in here stay so.
+ * no portal picker and no common tools (mandi rates, Price Comparison,
+ * fertiliser check: those are on the home page). A portal open to guests
+ * (Tracking) offers Sign in instead. Sign out leaves this portal only; other
+ * portals signed in here stay so.
  */
 function PortalHeader({ portal }: { portal: PortalId }) {
   const router = useRouter();

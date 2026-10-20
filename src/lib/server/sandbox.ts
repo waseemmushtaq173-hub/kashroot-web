@@ -3,7 +3,9 @@
  *   - Aadhaar Offline e-KYC by OTP: UIDAI texts the OTP to the mobile number
  *     linked with the Aadhaar.
  *   - PAN verification against the Income Tax database.
- *   - DigiLocker: the user consents in DigiLocker and shares Aadhaar / PAN.
+ *   - DigiLocker: the user consents in DigiLocker and shares Aadhaar / PAN;
+ *     KashRoot then fetches the documents themselves (consenting to share a
+ *     PAN is not having one).
  *
  * Env: SANDBOX_API_KEY, SANDBOX_API_SECRET (live or test pair),
  *      optional SANDBOX_BASE_URL (default https://api.sandbox.co.in) and
@@ -163,6 +165,55 @@ export async function digilockerStart(redirectUrl: string) {
   return { sessionId: json.data.session_id, authorizationUrl: json.data.authorization_url };
 }
 
+/** PAN numbers look like ABCDE1234F: five letters, four digits, one letter. */
+const PAN = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+
+const xmlText = (s: string) =>
+  s.replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+
+/**
+ * The PAN card's number and name from DigiLocker's PAN record (the XML the
+ * Income Tax Department issues: <Certificate … number="ABCDE1234F"> with
+ * <Person name="…">). Only the last four characters of the number are kept.
+ * Null when the document has no PAN number in it.
+ */
+export function panFromXml(xml: string): { last4: string; name: string } | null {
+  const attr = /\bnumber\s*=\s*"([A-Za-z0-9]{10})"/.exec(xml)?.[1]?.toUpperCase();
+  let pan = attr && PAN.test(attr) ? attr : '';
+  if (!pan) {
+    // Another layout: the one PAN-shaped value in the document (never a guess
+    // between two), leaving out the digital signature's random letters.
+    const body = xml.replace(/<(\w+:)?Signature\b[\s\S]*?<\/(\w+:)?Signature>/gi, '');
+    const found = [...new Set(body.match(/\b[A-Z]{5}[0-9]{4}[A-Z]\b/g) ?? [])];
+    if (found.length === 1) pan = found[0];
+  }
+  if (!pan) return null;
+  const name = /<Person\b[^>]*\bname\s*=\s*"([^"]*)"/i.exec(xml)?.[1] ?? '';
+  return { last4: pan.slice(-4), name: xmlText(name).slice(0, 120) };
+}
+
+/**
+ * The files of a document shared from DigiLocker (aadhaar or pan) as text —
+ * the issuer's XML, skipping PDFs and pictures; [] when DigiLocker has none.
+ */
+async function digilockerFiles(sessionId: string, doc: 'aadhaar' | 'pan'): Promise<string[]> {
+  const json = await call<Data<{ files?: { url?: string }[] }>>(`/kyc/digilocker/sessions/${encodeURIComponent(sessionId)}/documents/${doc}`, { method: 'GET' });
+  const texts: string[] = [];
+  let failure: unknown = null;
+  for (const file of (json.data?.files ?? []).slice(0, 4)) {
+    if (!file.url) continue;
+    try {
+      const res = await fetch(file.url, { signal: AbortSignal.timeout(15_000), cache: 'no-store' });
+      if (!res.ok || /pdf|image\//i.test(res.headers.get('content-type') ?? '')) continue;
+      texts.push(await res.text());
+    } catch (err) {
+      failure ??= err;
+    }
+  }
+  if (!texts.length && failure) throw failure;
+  return texts;
+}
+
 export async function digilockerStatus(sessionId: string) {
   const json = await call<Data<{ status?: string; documents_consented?: string[] }>>(`/kyc/digilocker/sessions/${encodeURIComponent(sessionId)}/status`, { method: 'GET' });
   const status = (json.data?.status ?? 'created').toLowerCase();
@@ -171,15 +222,28 @@ export async function digilockerStatus(sessionId: string) {
   if (status === 'succeeded' && docs.includes('aadhaar')) {
     // The DigiLocker Aadhaar is UIDAI's XML with a masked uid (xxxxxxxx1234).
     try {
-      const doc = await call<Data<{ files?: { url?: string }[] }>>(`/kyc/digilocker/sessions/${encodeURIComponent(sessionId)}/documents/aadhaar`, { method: 'GET' });
-      const url = doc.data?.files?.[0]?.url;
-      if (url) {
-        const xml = await (await fetch(url, { signal: AbortSignal.timeout(15_000), cache: 'no-store' })).text();
+      for (const xml of await digilockerFiles(sessionId, 'aadhaar')) {
         aadhaarLast4 = /uid="[xX*]*(\d{4})"/.exec(xml)?.[1] ?? '';
+        if (aadhaarLast4) break;
       }
     } catch {
       /* last four digits are a nicety, not a requirement */
     }
   }
-  return { status, aadhaar: docs.includes('aadhaar'), pan: docs.includes('pan'), aadhaarLast4 };
+  // Allowing PAN on the consent screen is not having a PAN card: it counts
+  // only when DigiLocker really sends the PAN record and its number is read.
+  let pan: { last4: string; name: string } | null = null;
+  let panNote = '';
+  if (status === 'succeeded' && docs.some((d) => d === 'pan' || d === 'pancr')) {
+    try {
+      pan = (await digilockerFiles(sessionId, 'pan')).map(panFromXml).find((p) => p !== null) ?? null;
+      if (!pan) panNote = 'DigiLocker did not send a PAN card for this account, so PAN is not verified. Add your PAN with the Income Tax check instead.';
+    } catch (err) {
+      panNote =
+        err instanceof ProviderError && err.status === 400
+          ? 'DigiLocker has no PAN card for this account, so PAN is not verified. Add your PAN with the Income Tax check instead.'
+          : 'Your PAN card could not be read from DigiLocker just now, so PAN is not verified. Try DigiLocker again later, or use the Income Tax check.';
+    }
+  }
+  return { status, aadhaar: docs.includes('aadhaar'), aadhaarLast4, pan: Boolean(pan), panLast4: pan?.last4 ?? '', panName: pan?.name ?? '', panNote };
 }

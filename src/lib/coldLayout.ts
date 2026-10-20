@@ -21,6 +21,13 @@
  * worked-out one (never more than fit). Everything is in metres;
  * `unit` only remembers how the owner likes to see it. Shared by browser and
  * server, no side effects.
+ *
+ * Stores set up with the owner wizard (lib/coldStore) work the other way
+ * round: the owner says how many bins or crates a chamber holds, and each
+ * floor of it is one size with `places` (stacks) and `boxes` (bins or crates
+ * in one stack). Then exactly that many places are laid out, standing against
+ * the back wall with a walkway in from the door, and the grid cells left over
+ * are `unused` — so the places always add up to the owner's count.
  */
 
 export type SizeUnit = 'ft' | 'm';
@@ -81,6 +88,25 @@ export interface ChamberSize {
   door?: DoorSize;
   /** Windows and vents. */
   windows?: WindowSize[];
+  /**
+   * Owner wizard (lib/coldStore): which wall of the chamber the door is in,
+   * with the building seen from its front ('front' when unset). `length`,
+   * `width` and `door` are always measured from the door: length from the
+   * door wall to the wall opposite, width along the door wall, `door.at`
+   * from the left corner as you stand outside facing the door.
+   */
+  doorWall?: Wall;
+  /** Owner wizard: the chamber has `floors` floors and this is floor `floor` (1 = lowest); `height` is the whole chamber's. */
+  floors?: number;
+  floor?: number;
+  /** Owner wizard: exactly this many places (stacks) on this floor, each `boxes` bins or crates high. */
+  places?: number;
+  /** What one stack is made of, for words like "5 bins high". */
+  stackOf?: 'bin' | 'crate';
+  /** Owner wizard: how high the owner said they stack, when they said. */
+  stackHigh?: number;
+  /** Owner wizard: where the chamber stands, when the owner said — metres from the building's left wall and front wall to its front-left corner. */
+  spot?: { x: number; y: number };
 }
 
 /** How long a wall is: front and back walls are the breadth, left and right the length. */
@@ -104,6 +130,8 @@ export const INCH = 0.0254;
 /** The grid the booking map uses: at most 60 rows and 26 stacks across. */
 export const MAX_ROWS = 60;
 export const MAX_COLS = 26;
+/** Rows a floor with an exact count may use (cold_chambers.rows allows 99 since 20261025000000). */
+export const GRID_ROWS = 99;
 
 export interface ChamberPlan {
   rows: number;
@@ -139,6 +167,15 @@ export interface ChamberPlan {
   problems: string[];
   /** Things the owner should know (e.g. space left over). */
   notes: string[];
+  /** Exact-count floors: grid cells left empty so the places add up exactly (saved as blocked). */
+  unused?: string[];
+  /** Exact-count floors: the places do not all fit at their real size, so they are drawn closer together than they stand. */
+  crowded?: boolean;
+  /** Exact-count floors: the height of one floor, and how high this floor's base is above the ground. */
+  floorH?: number;
+  floorZ?: number;
+  /** What one stack is made of ('bin' | 'crate'). */
+  stackOf?: 'bin' | 'crate';
 }
 
 /**
@@ -218,6 +255,7 @@ const ok = (n: number, lo: number, hi: number) => Number.isFinite(n) && n >= lo 
 
 /** The whole layout of a chamber from its size and the store's standards. */
 export function planChamber(s: ChamberSize): ChamberPlan {
+  if (s.places !== undefined) return planCounted(s);
   const problems: string[] = [];
   const notes: string[] = [];
   if (!ok(s.length, 2, 200) || !ok(s.width, 2, 200)) problems.push('Enter the length and breadth of the chamber (at least 2 m / 7 ft each).');
@@ -325,6 +363,170 @@ export function planChamber(s: ChamberSize): ChamberPlan {
   };
 }
 
+const slotName = (row: number, col: number) => `${row}${String.fromCharCode(65 + col)}`;
+/** Room taken by n things in a line, with gaps between them. */
+const span = (n: number, size: number, gap: number) => (n > 0 ? n * size + (n - 1) * gap : 0);
+
+/** One way to stand the places: turned (pw across, pd deep), with or without the walkway. */
+interface Way {
+  pw: number;
+  pd: number;
+  walk: [number, number] | null;
+  /** The most stacks left and right of the walkway (all in `maxL` without one), and rows. */
+  maxL: number;
+  maxR: number;
+  maxRows: number;
+}
+
+/**
+ * A floor with an exact number of places (owner wizard): `places` stacks of
+ * `boxes` bins or crates. The rows × stacks are chosen to fit the floor and
+ * follow its shape, the stacks stand against the back wall with a walkway
+ * straight in from the door, and the few grid cells left over (fewer than
+ * one row, in the row by the door, next to the walkway) are `unused`. When
+ * the places cannot all stand on the floor at their real size they are drawn
+ * closer together and the plan says `crowded`.
+ */
+function planCounted(s: ChamberSize): ChamberPlan {
+  const problems: string[] = [];
+  const notes: string[] = [];
+  const floors = s.floors ?? 1;
+  const floor = s.floor ?? 1;
+  const p = s.places ?? 0;
+  const k = s.boxes ?? 1;
+  const { width: W, length: L } = s;
+  if (!ok(L, 1, 300) || !ok(W, 1, 300)) problems.push('Enter the length and width of the chamber.');
+  if (!ok(s.height, 0.5, 60)) problems.push('Enter the height of the chamber, floor to ceiling.');
+  if (!Number.isInteger(floors) || floors < 1 || floors > 10 || !Number.isInteger(floor) || floor < 1 || floor > floors) problems.push('A chamber has 1 to 10 floors.');
+  if (!Number.isInteger(p) || p < 1 || p > GRID_ROWS * MAX_COLS) problems.push(`A floor has 1 to ${(GRID_ROWS * MAX_COLS).toLocaleString('en-IN')} places.`);
+  if (!Number.isInteger(k) || k < 1 || k > 5000) problems.push('A stack has 1 to 5,000 bins or crates.');
+  if (!ok(s.place.l, 0.05, 5) || !ok(s.place.w, 0.05, 5) || !ok(s.box.h, 0.05, 5)) problems.push('Check the size of one bin or crate.');
+  if (![s.aisle, s.wallGap, s.stackGap, s.doorGap].every((n) => ok(n, 0, 10))) problems.push('Check the walkway and gap sizes.');
+  const door = s.door;
+  if (door && !problems.length) {
+    if (![door.at, door.width, door.height].every(Number.isFinite)) problems.push('Enter the door: how far it is from the left corner, its width and its height.');
+    else if (!ok(door.width, 0.3, W * (1 + ROOM_SLACK)) || !ok(door.at, 0, W) || door.at + door.width > W * (1 + ROOM_SLACK)) problems.push('The door does not fit in its wall — check how far it is from the left corner and how wide it is.');
+    else if (!ok(door.height, 0.5, s.height * (1 + ROOM_SLACK))) problems.push('The door must be lower than the chamber.');
+  }
+  const floorH = s.height / floors;
+  const empty: ChamberPlan = {
+    rows: 0, cols: 0, aisleAfter: null, aisleX: null, doorX: [0, 0], doorH: 0, doorSet: false, windows: [], placeW: s.place.w, placeD: s.place.l,
+    colX: [], rowZ: [], perLayer: 1, layers: 0, boxesPerPlace: 0, fits: 0, stackHeight: 0, problems, notes, unused: [], crowded: false, floorH: 0, floorZ: 0, stackOf: s.stackOf,
+  };
+  if (problems.length) return empty;
+
+  const g = s.stackGap;
+  const wg = s.wallGap;
+  const doorMid = door ? door.at + door.width / 2 : W / 2;
+  const turns: [number, number][] = s.place.l === s.place.w ? [[s.place.w, s.place.l]] : [[s.place.w, s.place.l], [s.place.l, s.place.w]];
+  const ways: Way[] = [];
+  for (const [pw, pd] of turns) {
+    const maxRows = Math.min(GRID_ROWS, fit(L - s.doorGap - wg, pd, g));
+    if (s.aisle > 0 && W - 2 * wg >= s.aisle) {
+      const a0 = Math.min(Math.max(doorMid - s.aisle / 2, wg), W - wg - s.aisle);
+      const a1 = a0 + s.aisle;
+      const maxL = fit(a0 - wg, pw, g);
+      const maxR = fit(W - wg - a1, pw, g);
+      if (maxL + maxR >= 1) ways.push({ pw, pd, walk: [a0, a1], maxL, maxR, maxRows });
+    }
+    ways.push({ pw, pd, walk: null, maxL: fit(W - 2 * wg, pw, g), maxR: 0, maxRows });
+  }
+
+  // Rows × stacks for the places: the shape of the floor, few cells left over.
+  type Grid = { way: Way; rows: number; cols: number; score: number };
+  const grid = (way: Way, maxRows: number, maxCols: number): Grid | null => {
+    const availW = Math.max(0.01, W - 2 * wg - (way.walk ? way.walk[1] - way.walk[0] : 0));
+    const availD = Math.max(0.01, L - s.doorGap - wg);
+    let out: Grid | null = null;
+    for (let c = 1; c <= Math.min(maxCols, MAX_COLS); c++) {
+      const r = Math.ceil(p / c);
+      if (r > maxRows) continue;
+      const score = Math.abs(Math.log(span(r, way.pd, g) / availD / (span(c, way.pw, g) / availW))) + (2 * (r * c - p)) / p;
+      if (!out || score < out.score - 1e-9) out = { way, rows: r, cols: c, score };
+    }
+    return out;
+  };
+  const bestOf = (list: (Grid | null)[]) => list.reduce<Grid | null>((a, b) => (b && (!a || b.score < a.score - 1e-9) ? b : a), null);
+  let chosen = bestOf(ways.filter((w) => w.walk).map((w) => grid(w, w.maxRows, w.maxL + w.maxR))) ?? bestOf(ways.filter((w) => !w.walk).map((w) => grid(w, w.maxRows, w.maxL)));
+  const crowded = !chosen;
+  // Too many to stand on the floor: lay them out anyway, drawn closer together.
+  if (!chosen) chosen = bestOf(ways.filter((w) => !w.walk).map((w) => grid(w, GRID_ROWS, MAX_COLS)));
+  if (!chosen) {
+    problems.push('These places do not fit on the booking map.');
+    return empty;
+  }
+  const { way, rows, cols } = chosen;
+  let { pw, pd } = way;
+  let gx = g;
+  let gz = g;
+  if (crowded) {
+    const fx = Math.min(1, Math.max(0.01, W - 2 * wg) / span(cols, pw, g));
+    const fz = Math.min(1, Math.max(0.01, L - 2 * wg) / span(rows, pd, g));
+    pw *= fx;
+    gx *= fx;
+    pd *= fz;
+    gz *= fz;
+    notes.push(`${p.toLocaleString('en-IN')} places do not fit on this floor at their real size, so they are drawn closer together.`);
+  }
+
+  // Stacks left and right of the walkway, packed against it; else in the middle.
+  let left = 0;
+  let colX: number[];
+  if (way.walk && !crowded) {
+    left = Math.min(way.maxL, Math.round((cols * way.maxL) / (way.maxL + way.maxR)));
+    if (cols - left > way.maxR) left = cols - way.maxR;
+    const [a0, a1] = way.walk;
+    colX = [...Array.from({ length: left }, (_, i) => a0 - (left - i) * (pw + gx) + gx), ...Array.from({ length: cols - left }, (_, i) => a1 + i * (pw + gx))];
+  } else {
+    const x0 = wg + (W - 2 * wg - span(cols, pw, gx)) / 2;
+    colX = Array.from({ length: cols }, (_, i) => x0 + i * (pw + gx));
+  }
+  // Rows stand against the back wall; row 1 is the one nearest the door.
+  const rowZ = Array.from({ length: rows }, (_, j) => L - wg - pd - (rows - 1 - j) * (pd + gz));
+
+  // The cells left over: in row 1, next to the walkway first (room to turn by the door).
+  const walk = way.walk && !crowded ? way.walk : null;
+  const order: number[] = [];
+  if (walk && left > 0 && left < cols) {
+    for (let d = 0; order.length < cols; d++) {
+      if (left - 1 - d >= 0) order.push(left - 1 - d);
+      if (left + d < cols) order.push(left + d);
+    }
+  } else if (walk && left === 0) for (let i = 0; i < cols; i++) order.push(i);
+  else for (let i = cols - 1; i >= 0; i--) order.push(i);
+  const unused = order.slice(0, rows * cols - p).sort((a, b) => a - b).map((i) => slotName(1, i));
+
+  const doorX: [number, number] = door ? [door.at, Math.min(W, door.at + door.width)] : [Math.max(0, W / 2 - Math.min(W * 0.4, 1.8) / 2), Math.min(W, W / 2 + Math.min(W * 0.4, 1.8) / 2)];
+  const fits = Math.max(0, Math.floor(floorH / s.box.h + BOX_SLACK));
+  if (k > fits) notes.push(`Stacks of ${k} are higher than one floor.`);
+  return {
+    rows,
+    cols,
+    aisleAfter: walk ? left : null,
+    aisleX: walk ? [round(walk[0]), round(walk[1])] : null,
+    doorX: [round(doorX[0]), round(doorX[1])],
+    doorH: round(door ? Math.min(door.height, s.height) : Math.min(3, s.height * 0.7)),
+    doorSet: Boolean(door),
+    windows: [],
+    placeW: round(pw),
+    placeD: round(pd),
+    colX: colX.map(round),
+    rowZ: rowZ.map(round),
+    perLayer: 1,
+    layers: k,
+    boxesPerPlace: k,
+    fits,
+    stackHeight: round(k * s.box.h),
+    problems,
+    notes,
+    unused,
+    crowded,
+    floorH: round(floorH),
+    floorZ: round((floor - 1) * floorH),
+    stackOf: s.stackOf,
+  };
+}
+
 /** Plans are pure: remember the last few, so views redrawing often do not recompute. */
 const memo = new Map<string, ChamberPlan>();
 export function planOf(s: ChamberSize): ChamberPlan {
@@ -338,8 +540,9 @@ export function planOf(s: ChamberSize): ChamberPlan {
   return p;
 }
 
-/** How a place is stacked: "8 a layer × 16 layers", or "8 a layer, 13 layers (4 on top)". */
-export function layersText(plan: Pick<ChamberPlan, 'perLayer' | 'layers' | 'boxesPerPlace'>): string {
+/** How a place is stacked: "8 a layer × 16 layers", or "8 a layer, 13 layers (4 on top)" — or "5 bins high". */
+export function layersText(plan: Pick<ChamberPlan, 'perLayer' | 'layers' | 'boxesPerPlace' | 'stackOf'>): string {
+  if (plan.stackOf && plan.perLayer === 1) return `${plan.layers} ${plan.stackOf}${plan.layers === 1 ? '' : 's'} high`;
   const top = plan.boxesPerPlace - (plan.layers - 1) * plan.perLayer;
   const many = `${plan.layers} layer${plan.layers === 1 ? '' : 's'}`;
   return top === plan.perLayer ? `${plan.perLayer} a layer × ${many}` : `${plan.perLayer} a layer, ${many} (${top} on top)`;
@@ -361,7 +564,8 @@ export function asChamberSize(v: unknown): ChamberSize | null {
   const num = (n: unknown) => typeof n === 'number' && Number.isFinite(n);
   if (![s.length, s.width, s.height, s.base, s.aisle, s.wallGap, s.stackGap, s.topGap, s.doorGap].every(num)) return null;
   if (!s.box || !s.place || ![s.box.l, s.box.w, s.box.h, s.place.l, s.place.w].every(num)) return null;
-  const { boxes, door, windows, ...rest } = s as ChamberSize;
+  const { boxes, door, windows, doorWall, floors, floor, places, stackOf, stackHigh, spot, ...rest } = s as ChamberSize;
+  const int = (n: unknown, lo: number, hi: number): n is number => typeof n === 'number' && Number.isInteger(n) && n >= lo && n <= hi;
   const d = door && typeof door === 'object' && [door.at, door.width, door.height].every(num) ? { at: door.at, width: door.width, height: door.height } : null;
   const ws = Array.isArray(windows)
     ? windows
@@ -375,6 +579,12 @@ export function asChamberSize(v: unknown): ChamberSize | null {
     ...(num(boxes) && boxes! >= 1 ? { boxes: Math.floor(boxes!) } : {}),
     ...(d ? { door: d } : {}),
     ...(ws.length ? { windows: ws } : {}),
+    ...(doorWall && WALLS.includes(doorWall) ? { doorWall } : {}),
+    ...(int(floors, 1, 10) && int(floor, 1, floors) ? { floors, floor } : {}),
+    ...(int(places, 1, GRID_ROWS * MAX_COLS) ? { places } : {}),
+    ...(stackOf === 'bin' || stackOf === 'crate' ? { stackOf } : {}),
+    ...(int(stackHigh, 1, 5000) ? { stackHigh } : {}),
+    ...(spot && typeof spot === 'object' && num(spot.x) && num(spot.y) ? { spot: { x: spot.x, y: spot.y } } : {}),
   };
 }
 

@@ -10,9 +10,9 @@ import { ShieldCheck } from 'lucide-react';
 import { KYCPanel, type KycRole } from '@/components/auth/KYCPanel';
 import { supabase } from '@/lib/supabase';
 import { authApi, SELF_JOIN_ROLES, storedRoles } from '@/lib/api/auth';
-import { portalAccess } from '@/lib/auth/portalAccess';
+import { portalAccess, touchPortal } from '@/lib/auth/portalAccess';
 import { loginHref, PORTALS, portalForSegment } from '@/lib/auth/roles';
-import { restoreSession, signOutCompletely } from '@/lib/auth/session';
+import { restoreSession, signOutCompletely, watchPortalUse } from '@/lib/auth/session';
 import { OPEN_KYC } from '@/lib/client/identityCheck';
 import { KYC_CHANGED, kycMissing, kycRules, myKyc, type KycRules, type KycStatus } from '@/lib/db/security';
 
@@ -35,7 +35,9 @@ const GUEST_PORTALS = ['tracking'];
  * account, to follow a load by its code); role portals (farmer, buyer,
  * admin) need an account of that role, shared portals (kissan tools, cold
  * storage booking, tracking, dealer, expert, mandi helpers) accept any
- * account.
+ * account. A portal sign-in unused for 12 hours is locked (checked before
+ * anything of the portal shows, and again while it is open): its sign-in
+ * page then offers "Continue as …" (lib/auth/portalAccess).
  */
 /**
  * Role-Adaptive Dashboard Layout
@@ -47,6 +49,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   const [isMounted, setIsMounted] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // Who is signed in to this portal (to keep its sign-in going while used), and whether it just locked.
+  const [userId, setUserId] = useState<string | null>(null);
+  const [locked, setLocked] = useState(false);
+  // The portal (layout segment) the sign-in was checked for: moving to another portal shows nothing of it until checked.
+  const [checkedFor, setCheckedFor] = useState<string | null | undefined>(undefined);
 
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userRoles, setUserRoles] = useState<string[]>([]);
@@ -72,8 +79,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     let live = true;
     // The real Supabase session decides (refreshed if its token expired), so
     // someone who closed the app and came back is let straight in — to the
-    // portals they signed in to here. Each portal has its own sign-in: a
-    // session from another portal does not open this one.
+    // portals they signed in to here and used in the last 12 hours. Each
+    // portal has its own sign-in: a session from another portal does not
+    // open this one, and a locked one goes to its sign-in ("Continue as …").
     void restoreSession().then(async (found) => {
       if (!live) return;
       const here = portalForSegment(segment);
@@ -82,10 +90,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         const access = await portalAccess(found.session.user, found.roles, here);
         if (!live) return;
         if (!access.member || !access.signedIn) active = null;
+        // Opening the portal is using it.
+        else touchPortal(found.session.user.id, here);
       }
       if (!active && GUEST_PORTALS.includes(portalForSegment(segment) ?? '')) {
         // Following a load needs no account; the page asks to sign in only
         // for creating consignments.
+        setUserId(null);
         setUserRole(null);
         setGuest(true);
         setIsAuthenticated(true);
@@ -93,9 +104,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         // Replace, not push: the portal page must not stay in history, or
         // Back would land on it and bounce straight back to sign-in.
         const portal = portalForSegment(segment);
+        setIsAuthenticated(false);
         router.replace(portal ? loginHref(portal, window.location.pathname + window.location.search) : '/login');
       } else {
         setGuest(false);
+        setLocked(false);
+        setUserId(active.session.user.id);
         setUserRole(localStorage.getItem('user_role'));
         setUserRoles(storedRoles());
 
@@ -111,12 +125,25 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
         setIsAuthenticated(true);
       }
+      setCheckedFor(segment);
       setIsMounted(true);
     });
     return () => {
       live = false;
     };
   }, [router, segment]);
+
+  // While the portal is open: use keeps its sign-in going; unused for 12
+  // hours (or signed out in another tab) it locks — hidden at once, then its
+  // sign-in page with "Continue as …".
+  useEffect(() => {
+    const here = portalForSegment(segment);
+    if (!isAuthenticated || guest || !userId || !here) return;
+    return watchPortalUse(userId, here, () => {
+      setLocked(true);
+      router.replace(loginHref(here, window.location.pathname + window.location.search));
+    });
+  }, [guest, isAuthenticated, router, segment, userId]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -142,7 +169,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }, [isAuthenticated, refreshKyc]);
 
   // A guest who leaves Tracking for another portal waits here for its sign-in.
-  if (!isMounted || !isAuthenticated || (guest && !GUEST_PORTALS.includes(portalForSegment(segment) ?? ''))) {
+  if (!isMounted || !isAuthenticated || locked || checkedFor !== segment || (guest && !GUEST_PORTALS.includes(portalForSegment(segment) ?? ''))) {
     // Prevent flicker and layout shift while checking credentials
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-amber-50">
@@ -226,7 +253,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             </div>
           </div>
         </div>
-        <SiteFooter tone="light" />
+        <SiteFooter tone="light" portal={portal} />
       </div>
     );
   }
@@ -260,7 +287,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <div className="flex flex-1 flex-col">
         {children}
       </div>
-      <SiteFooter tone="light" />
+      <SiteFooter tone="light" portal={portal} />
       <KYCPanel
         open={showKyc}
         onClose={() => setShowKyc(false)}

@@ -4,14 +4,16 @@
  * Farmer portal — overview, everything the farmer sells, orders and safe payment.
  *
  * Produce and farm inputs (what the old Seller portal did) are listed on the
- * shared marketplace (market_listings), so buyers see them on Price
- * Comparison and can order. Orders are pay-after-delivery: the buyer pays the
- * farmer directly by UPI / bank once the goods arrive. Escrow payment holds
- * the identity check (KYC) and where buyers pay. Orchard Health and the
- * Season Planner are part of this portal (/farmer/orchard-health,
- * /farmer/season-planner); Cold Storage, mandi rates and Price Comparison
- * have their own places on the home page. Today's weather comes from
- * Open-Meteo for the farmer's district (My details).
+ * shared marketplace (market_listings): produce shows in the Buyer portal's
+ * shop within 30 seconds, and everything on Price Comparison; buyers order
+ * from either. Orders are pay-after-delivery: the buyer pays the farmer
+ * directly by UPI / bank once the goods arrive. Escrow payment holds the
+ * identity check (KYC) and where buyers pay. Orchard Health and the Season
+ * Planner are part of this portal (/farmer/orchard-health,
+ * /farmer/season-planner); Cold Storage, mandi rates, Price Comparison and
+ * the fertiliser check have their own places on the home page, not in here.
+ * Today's weather for spraying comes from Open-Meteo for the farmer's
+ * district (My details).
  */
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -23,7 +25,6 @@ import {
   CalendarDays,
   CloudSun,
   Droplets,
-  FlaskConical,
   Loader2,
   MessageCircleQuestion,
   Package,
@@ -41,6 +42,7 @@ import { Btn, PORTAL_THEMES, Panel, Tile } from '@/components/portal/kit';
 import { inr, loadAccount, type Account } from '@/lib/db/client';
 import { dryHours } from '@/lib/sprayWindow';
 import type { MarketCategory, MarketListing, MarketOrder } from '@/lib/db/market';
+import { sellerToAct } from '@/lib/db/shop';
 
 const theme = PORTAL_THEMES.farmer;
 type Tab = 'overview' | 'lots' | 'orders' | 'payouts';
@@ -83,7 +85,7 @@ function FarmerDashboard() {
 
   const products = stats?.products ?? [];
   const orders = stats?.orders ?? [];
-  const toAct = orders.filter((o) => ['placed', 'accepted', 'paid'].includes(o.status)).length;
+  const toAct = sellerToAct(orders);
   const received = orders.filter((o) => o.status === 'completed').reduce((s, o) => s + Number(o.amount), 0);
   const onSale = products.filter((p) => p.active && Number(p.quantity) > 0).length;
 
@@ -115,20 +117,19 @@ function FarmerDashboard() {
       {tab === 'overview' && (
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
               <Tile theme={theme} icon={PlusCircle} label="Sell produce" hint="List apples, walnuts…" onClick={listProduce} />
               <Tile theme={theme} icon={Store} label="Sell farm inputs" hint="Fertiliser, sprays, tools…" onClick={() => listProduct('supplies')} />
               <Tile theme={theme} icon={ShieldCheck} label="Escrow payment" hint="Paid after delivery" onClick={() => setTab('payouts')} />
               <Tile theme={theme} icon={Activity} label="Orchard health" hint="Scab map, photo check" href="/farmer/orchard-health" />
               <Tile theme={theme} icon={CalendarDays} label="Season planner" hint="Tasks & costs" href="/farmer/season-planner" />
               <Tile theme={theme} icon={MessageCircleQuestion} label="Ask an expert" hint="Agronomist answers" href="/expert" />
-              <Tile theme={theme} icon={FlaskConical} label="Test inputs" hint="Spot fake batches" href="/supplies/tester" />
             </div>
 
             <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-700 via-emerald-600 to-amber-600 p-7 text-white shadow-lg">
               <h3 className="font-sans text-2xl font-bold">Ready to harvest?</h3>
               <p className="mt-1 max-w-md text-white/90">
-                List apples, walnuts or saffron with your price. Buyers order on Price Comparison and pay you directly by UPI once the goods reach them.
+                List apples, walnuts or saffron with your price. Buyers see it in their Buyer portal right away, order, and pay you directly by UPI once the goods reach them.
               </p>
               <div className="mt-5 flex flex-wrap gap-2">
                 <Btn theme={theme} variant="white" icon={PlusCircle} onClick={listProduce}>

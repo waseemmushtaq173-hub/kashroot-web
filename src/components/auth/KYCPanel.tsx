@@ -460,6 +460,8 @@ function useIdentityVerification(simple = false) {
   const [panBusy, setPanBusy] = useState(false);
   const [panCheckError, setPanCheckError] = useState<string | null>(null);
   const [panShared, setPanShared] = useState(false);
+  // Why PAN was not taken from DigiLocker (e.g. no PAN card there).
+  const [panNote, setPanNote] = useState('');
   const [digiLockerError, setDigiLockerError] = useState<string | null>(null);
   const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
@@ -557,7 +559,7 @@ function useIdentityVerification(simple = false) {
     setDigiLocker('connecting');
     setDigiLockerError(null);
     try {
-      const { panShared: shared, ...result } = await verifyWithDigiLocker(popup);
+      const { panShared: shared, panNote: note, ...result } = await verifyWithDigiLocker(popup);
       if (current !== attempt.current) return;
       // DigiLocker must be the same Aadhaar as the one verified (or typed) here.
       const want = verified?.aadhaarLast4 ?? (aadhaarValid ? aadhaarDigits.slice(-4) : '');
@@ -567,6 +569,7 @@ function useIdentityVerification(simple = false) {
       // Aadhaar already verified by OTP stays as it is; DigiLocker adds the details (PAN and documents).
       setVerified((v) => v ?? { ...result, method: 'DIGILOCKER' });
       setPanShared(shared);
+      setPanNote(note);
       setSynced('yes');
       setDigiLocker('idle');
     } catch (err) {
@@ -694,6 +697,7 @@ function useIdentityVerification(simple = false) {
     panCheckError,
     panApiOk,
     panShared,
+    panNote,
     digiLockerError,
     mobile,
     setMobile,
@@ -941,6 +945,7 @@ function IdentityStep({
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-slate-900">Synced with DigiLocker</p>
                 <p className="text-sm text-slate-600">{model.panShared ? 'Your Aadhaar details and PAN were shared from DigiLocker.' : 'Your Aadhaar details were shared from DigiLocker.'}</p>
+                {model.panNote && <p className="mt-1 text-sm text-amber-900">{model.panNote}</p>}
               </div>
             </div>
           ) : model.synced === 'no' ? (

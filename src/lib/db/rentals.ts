@@ -5,7 +5,11 @@
  * rental_listings, rental_bookings, payout_accounts). Money goes straight
  * from the renter to the owner by UPI or bank transfer — no escrow; the
  * owner confirms the payment, which reserves the space.
+ * Cold stores set up with the owner wizard also keep the manager, the state
+ * and area, and the building's size and main door
+ * (supabase/migrations/20261025000000_cold_store_details.sql, lib/coldStore).
  */
+import { asBuilding, type Building, type StoreRow } from '@/lib/coldStore';
 import { dbMessage, supabase } from '@/lib/db/client';
 
 export type RentalKind = 'cold_store' | 'machinery';
@@ -30,6 +34,12 @@ export interface RentalListing {
   details: string | null;
   active: boolean;
   updated_at: string;
+  /** Owner wizard: the manager, the state and area / village, and the building (metres); null for stores listed before it. */
+  manager_name: string | null;
+  manager_phone: string | null;
+  state: string;
+  area: string | null;
+  building: Building | null;
 }
 
 export interface RentalBooking {
@@ -77,33 +87,72 @@ const fail = (error: { message?: string; code?: string } | null, fallback: strin
   throw new Error(dbMessage(error, fallback));
 };
 
-const LISTING_COLUMNS = 'id, owner_id, kind, title, owner_name, phone, district, address, unit, capacity, available, rate, min_units, temperature, details, active, updated_at';
+const BASE_LISTING_COLUMNS = 'id, owner_id, kind, title, owner_name, phone, district, address, unit, capacity, available, rate, min_units, temperature, details, active, updated_at';
+const LISTING_COLUMNS = `${BASE_LISTING_COLUMNS}, manager_name, manager_phone, state, area, building`;
+/** Before the cold store details SQL (20261025000000) is run the wizard's columns are missing. */
+const noStoreColumns = (m?: string) => /manager_|state|area|building/i.test(m ?? '') && /column|schema cache|does not exist/i.test(m ?? '');
+const asListings = (rows: unknown[] | null): RentalListing[] =>
+  ((rows ?? []) as Partial<RentalListing>[]).map((l) => ({ ...l, manager_name: l.manager_name ?? null, manager_phone: l.manager_phone ?? null, state: l.state || 'Jammu & Kashmir', area: l.area ?? null, building: asBuilding(l.building) }) as RentalListing);
+
+/** Listings with the wizard's columns, or without them before that SQL is run. */
+async function readListings(query: (cols: string) => PromiseLike<{ data: unknown[] | null; error: { message?: string; code?: string } | null }>, fallback: string): Promise<RentalListing[]> {
+  let { data, error } = await query(LISTING_COLUMNS);
+  if (error && noStoreColumns(error.message)) ({ data, error } = await query(BASE_LISTING_COLUMNS));
+  if (error) fail(error, fallback);
+  return asListings(data);
+}
 
 export async function listListings(kind: RentalKind): Promise<RentalListing[]> {
-  const { data, error } = await supabase.from('rental_listings').select(LISTING_COLUMNS).eq('kind', kind).eq('active', true).order('available', { ascending: false }).limit(200);
-  if (error) fail(error, 'Could not load listings.');
-  return (data ?? []) as RentalListing[];
+  return readListings((cols) => supabase.from('rental_listings').select(cols).eq('kind', kind).eq('active', true).order('available', { ascending: false }).limit(200), 'Could not load listings.');
 }
 
 export async function myListings(ownerId: string): Promise<RentalListing[]> {
-  const { data, error } = await supabase.from('rental_listings').select(LISTING_COLUMNS).eq('owner_id', ownerId).order('created_at', { ascending: false });
-  if (error) fail(error, 'Could not load your listings.');
-  return (data ?? []) as RentalListing[];
+  return readListings((cols) => supabase.from('rental_listings').select(cols).eq('owner_id', ownerId).order('created_at', { ascending: false }), 'Could not load your listings.');
 }
 
-export type ListingInput = Omit<RentalListing, 'id' | 'owner_id' | 'active' | 'updated_at'>;
+export type ListingInput = Omit<RentalListing, 'id' | 'owner_id' | 'active' | 'updated_at' | 'manager_name' | 'manager_phone' | 'state' | 'area' | 'building'>;
 
 export async function saveListing(input: ListingInput, id?: string): Promise<RentalListing> {
   const row = { ...input, available: Math.min(input.available, input.capacity) };
   const q = id ? supabase.from('rental_listings').update(row).eq('id', id) : supabase.from('rental_listings').insert(row);
-  const { data, error } = await q.select(LISTING_COLUMNS).single();
+  const { data, error } = await q.select(BASE_LISTING_COLUMNS).single();
   if (error) fail(error, 'Could not save the listing.');
-  return data as RentalListing;
+  return asListings([data])[0];
+}
+
+/**
+ * Save the owner wizard's store details (step 1) and building (step 2). A
+ * new store starts hidden from farmers until it is published; its capacity
+ * and vacancy are counted from its chambers once they are saved.
+ */
+export async function saveStore(input: Partial<StoreRow>, id?: string): Promise<RentalListing> {
+  const q = id
+    ? supabase.from('rental_listings').update(input).eq('id', id)
+    : supabase.from('rental_listings').insert({ kind: 'cold_store', unit: 'box_month', capacity: 1, available: 0, rate: 0, min_units: 1, active: false, ...input });
+  const { data, error } = await q.select(LISTING_COLUMNS).single();
+  if (error && noStoreColumns(error.message)) throw new Error('Run the new cold store SQL (20261025000000_cold_store_details.sql, also in RUN_THIS_ONCE.sql) in Supabase, then save again.');
+  if (error) fail(error, 'Could not save your cold store.');
+  return asListings([data])[0];
+}
+
+/** Show the store to farmers. */
+export async function publishStore(id: string): Promise<void> {
+  const { error } = await supabase.from('rental_listings').update({ active: true }).eq('id', id);
+  if (error) fail(error, 'Could not publish your cold store.');
 }
 
 export async function setAvailability(id: string, available: number, active?: boolean): Promise<void> {
   const { error } = await supabase.from('rental_listings').update({ available, ...(active === undefined ? {} : { active }) }).eq('id', id);
   if (error) fail(error, 'Could not update the vacancy.');
+}
+
+/**
+ * A store set up before the owner wizard: its rent for one box a month and,
+ * for a store without chambers, how many boxes it holds (and so how many are free).
+ */
+export async function setRent(id: string, rate: number, space?: { capacity: number; available: number }): Promise<void> {
+  const { error } = await supabase.from('rental_listings').update({ rate, ...(space ?? {}) }).eq('id', id);
+  if (error) fail(error, 'Could not save the rent.');
 }
 
 export async function deleteListing(id: string): Promise<void> {

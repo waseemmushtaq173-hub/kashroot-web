@@ -24,7 +24,7 @@ import { KYC_CHANGED, kycMissing, kycRules, myKyc, type KycRules, type KycStatus
 
 const STEPS = {
   buyer: [
-    'Order on Price Comparison. You pay nothing now.',
+    'Order in Buy apples & produce (or on Price Comparison). You pay nothing now.',
     'The farmer accepts and sends the goods.',
     'When they arrive, check them. Something wrong? Press “Report a problem” — before paying.',
     'All good: press “I received the goods”, pay the farmer from your UPI app and type the payment number.',
@@ -99,7 +99,7 @@ export function SafePayment({ as, account, theme, children }: { as: 'buyer' | 'f
         <ol className="list-decimal space-y-2 pl-5 text-sm text-slate-700">
           {STEPS[as].map((s) => <li key={s}>{s}</li>)}
         </ol>
-        <p className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-600 ring-1 ring-slate-900/5">The money is released only after delivery: it stays with the buyer until the goods arrive and are checked, then goes straight from the buyer’s UPI / bank to the farmer’s. KashRoot never holds it. Every payment number is recorded on the order, so either side can prove what was paid.</p>
+        <p className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-600 ring-1 ring-slate-900/5">The buyer pays only after delivery: the money stays with the buyer until the goods arrive and are checked, then goes straight from the buyer’s UPI / bank to the farmer’s. KashRoot never holds or releases it. Every payment number is recorded on the order, so either side can prove what was paid.</p>
       </Panel>
 
       {children && <div className="lg:col-span-2">{children}</div>}

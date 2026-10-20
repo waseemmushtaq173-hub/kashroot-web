@@ -5,6 +5,10 @@
  *   buyer:  cancel (before acceptance) → I received it → pay the seller → report a problem
  *   seller: accept / decline → shipped → money received (completes it)
  * Payment happens only after delivery, straight to the seller (PayDirect).
+ *
+ * Kissan Tools orders are pay first and may hold several products from one
+ * seller (a basket): those show as one card (PayFirstOrder) with payment
+ * before shipping and the delivery map. Pass all the basket's rows as `lines`.
  */
 import { useState } from 'react';
 import { CheckCircle2, Flag, PackageCheck, Phone, Truck, XCircle } from 'lucide-react';
@@ -12,10 +16,26 @@ import { toast } from '@/lib/client/toast';
 
 import { PayDirect } from '@/components/payments/PayDirect';
 import { Badge, Btn, type PortalTheme } from '@/components/portal/kit';
+import { PayFirstOrder } from '@/components/shop/PayFirstOrder';
 import { ago, inr } from '@/lib/db/client';
 import { ORDER_STATUS, orderAction, type MarketOrder, type OrderAction } from '@/lib/db/market';
+import type { ShopSeller } from '@/lib/db/shop';
 
-export function OrderCard({ order: o, as, theme, onChange }: { order: MarketOrder; as: 'buyer' | 'seller'; theme: PortalTheme; onChange: () => void }) {
+export function OrderCard({ order, as, theme, onChange, lines, seller }: {
+  order: MarketOrder;
+  as: 'buyer' | 'seller';
+  theme: PortalTheme;
+  onChange: () => void;
+  /** Pay-first orders: every row of the basket (defaults to this order alone). */
+  lines?: MarketOrder[];
+  /** Pay-first orders, buyer side: who sells it. */
+  seller?: ShopSeller | null;
+}) {
+  if (order.pay_first) return <PayFirstOrder lines={lines?.length ? lines : [order]} as={as} theme={theme} seller={seller} onChange={onChange} />;
+  return <PayAfterDeliveryOrder order={order} as={as} theme={theme} onChange={onChange} />;
+}
+
+function PayAfterDeliveryOrder({ order: o, as, theme, onChange }: { order: MarketOrder; as: 'buyer' | 'seller'; theme: PortalTheme; onChange: () => void }) {
   const [busy, setBusy] = useState(false);
   const s = ORDER_STATUS[o.status];
 

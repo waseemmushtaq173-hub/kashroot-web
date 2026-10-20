@@ -5,19 +5,22 @@
  * price, hide / remove), orders received with the next step, and where
  * buyers pay them. Used by the Farmer portal (What I sell), the Agro-dealer
  * portal (Price Comparison tab) and Price Comparison itself — everything
- * listed here is on the one shared Price Comparison.
+ * listed here is on the one shared Price Comparison, and farm tools and
+ * inputs are also in the Kissan Tools shop. Kissan Tools orders (pay first,
+ * possibly several products in one order) show as one card per order.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Boxes, CheckCircle2, Loader2, Minus, Package, Pencil, Plus, PlusCircle, Trash2 } from 'lucide-react';
+import { Banknote, Boxes, CheckCircle2, ImageOff, Loader2, Minus, Package, Pencil, Plus, PlusCircle, Trash2 } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { OrderCard } from '@/components/market/OrderCard';
-import { ProductForm, productProblem } from '@/components/market/ProductForm';
+import { ProductForm, photosOf, productProblem } from '@/components/market/ProductForm';
 import { PayoutForm } from '@/components/payments/PayoutForm';
 import { Badge, Btn, EmptyState, Modal, Panel, type PortalTheme } from '@/components/portal/kit';
 import { inr, type Account } from '@/lib/db/client';
 import { deleteListing, myListings, saveListing, sellerOrders, updateListing, type ListingInput, type MarketCategory, type MarketListing, type MarketOrder } from '@/lib/db/market';
 import { myPayout, type PayoutAccount } from '@/lib/db/rentals';
+import { groupBaskets, sellerMustAct } from '@/lib/db/shop';
 
 export function blankProduct(account: Account, category: MarketCategory = 'supplies'): ListingInput {
   const produce = category === 'produce';
@@ -69,8 +72,9 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
     setBusy(true);
     try {
       await fn();
-      toast.success(ok);
+      // The list first, then the message: "Listed" shows when the product is on screen.
       await reload();
+      toast.success(ok);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Something went wrong.');
     } finally {
@@ -80,7 +84,7 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
 
   const save = () => {
     if (!editing) return;
-    const problem = productProblem(editing.data);
+    const problem = productProblem(editing.data, { isNew: !editing.id });
     if (problem) return toast.error(problem);
     void run(async () => {
       await saveListing({ ...editing.data, product: editing.data.product.trim(), phone: editing.data.phone.replace(/\s/g, ''), variety: editing.data.variety || null, grade: editing.data.grade || null, details: editing.data.details || null }, editing.id);
@@ -91,18 +95,31 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
   if (error) return <p role="alert" className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">{error}</p>;
   if (products === null) return <p className="flex items-center gap-2 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>;
 
-  const waiting = orders.filter((o) => ['placed', 'paid'].includes(o.status));
-  const others = orders.filter((o) => !['placed', 'paid'].includes(o.status));
+  // Orders that need the seller now come first: new ones, payments to check, orders to ship.
+  const groups = groupBaskets(orders);
+  const waiting = groups.filter((g) => sellerMustAct(g[0]));
+  const others = groups.filter((g) => !sellerMustAct(g[0]));
+  // A Kissan Tools buyer pays before shipping: the seller needs payout details to accept.
+  const needsPayout = payout === null && show !== 'all' && show !== 'payouts' && orders.some((o) => o.pay_first && ['placed', 'accepted'].includes(o.status));
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
+      {needsPayout && (
+        <div className="space-y-3 lg:col-span-2">
+          <p className="flex items-start gap-2 rounded-2xl bg-amber-50 p-4 text-sm text-amber-950 ring-1 ring-amber-200">
+            <Banknote className="mt-0.5 h-5 w-5 shrink-0" aria-hidden /> A Kissan Tools buyer pays you before you ship. Add your bank account or UPI ID below, so you can accept the order and the buyer can pay you.
+          </p>
+          <PayoutForm theme={theme} payout={payout} onSaved={setPayout} title="Where buyers pay you" intro="Only a buyer with a live order from you sees these. The money comes straight to you." />
+        </div>
+      )}
+
       {(show === 'all' || show === 'sell' || show === 'orders') && (
         <Panel theme={theme} title="Orders to act on" icon={CheckCircle2} className="lg:col-span-2">
           {waiting.length === 0 && others.length === 0 ? (
             <EmptyState theme={theme} icon={Package} title="No orders yet" text="When a buyer orders one of your products, it appears here. Accept it, ship it, and confirm when the money reaches you." />
           ) : (
             <ul className="space-y-3">
-              {[...waiting, ...others].map((o) => <OrderCard key={o.id} order={o} as="seller" theme={theme} onChange={() => void reload()} />)}
+              {[...waiting, ...others].map((g) => <OrderCard key={g[0].basket ?? g[0].id} order={g[0]} lines={g} as="seller" theme={theme} onChange={() => void reload()} />)}
             </ul>
           )}
         </Panel>
@@ -117,16 +134,27 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
           action={
             mixed ? (
               <div className="flex flex-wrap gap-2">
-                <Btn theme={theme} size="sm" icon={PlusCircle} onClick={() => setEditing({ data: blankProduct(account, 'produce') })}>List produce</Btn>
-                <Btn theme={theme} size="sm" variant="soft" icon={PlusCircle} onClick={() => setEditing({ data: blankProduct(account, 'supplies') })}>Add farm input</Btn>
+                <Btn theme={theme} size="sm" icon={PlusCircle} className="min-h-11" onClick={() => setEditing({ data: blankProduct(account, 'produce') })}>List produce</Btn>
+                <Btn theme={theme} size="sm" variant="soft" icon={PlusCircle} className="min-h-11" onClick={() => setEditing({ data: blankProduct(account, 'supplies') })}>Add farm input</Btn>
               </div>
             ) : (
-              <Btn theme={theme} size="sm" icon={PlusCircle} onClick={() => setEditing({ data: blankProduct(account, category) })}>{category === 'produce' ? 'List produce' : 'Add product'}</Btn>
+              <Btn theme={theme} size="sm" icon={PlusCircle} className="min-h-11" onClick={() => setEditing({ data: blankProduct(account, category) })}>{category === 'produce' ? 'List produce' : 'Add product'}</Btn>
             )
           }
         >
           {products.length === 0 ? (
-            <EmptyState theme={theme} icon={Boxes} title="Nothing listed yet" text={mixed ? 'List your apples, walnuts or saffron — or farm inputs you sell (fertiliser, sprays, packaging, tools) — with price and quantity. Buyers see them on Price Comparison right away and can order.' : category === 'produce' ? 'List your apples, walnuts or saffron with price and quantity. Buyers see them on Price Comparison right away and can order.' : 'Add your products with price and stock. They appear on Price Comparison for buyers and farmers right away.'} />
+            <EmptyState
+              theme={theme}
+              icon={Boxes}
+              title="Nothing listed yet"
+              text={
+                mixed
+                  ? 'List your apples, walnuts or saffron, or farm inputs you sell (fertiliser, sprays, packaging, tools), with price and quantity. Buyers see your produce right away in their Buyer portal (Buy apples & produce) and on Price Comparison. Farm inputs, with a photo, show in the Kissan Tools shop.'
+                  : category === 'produce'
+                    ? 'List your apples, walnuts or saffron with price and quantity. Buyers see them right away in their Buyer portal (Buy apples & produce) and on Price Comparison, and can order.'
+                    : 'Add your products with price, stock and a photo. Farmers see them right away in the Kissan Tools shop and on Price Comparison, and can order.'
+              }
+            />
           ) : (
             <ul className="space-y-3">
               {products.map((p) => {
@@ -134,24 +162,33 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
                 return (
                   <li key={p.id} className="rounded-2xl bg-white/85 p-4 ring-1 ring-slate-900/5">
                     <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div>
-                        <p className="text-xs text-slate-500">{p.subcategory ?? p.category}</p>
-                        <p className="font-semibold text-slate-900">{p.product}{p.variety ? ` · ${p.variety}` : ''}</p>
-                        <p className="text-sm text-slate-700"><strong>{inr(p.price)}</strong> per {p.unit}</p>
+                      <div className="flex min-w-0 gap-3">
+                        {p.photo ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- seller photo (data URL)
+                          <img src={p.photo} alt="" className="h-16 w-16 shrink-0 rounded-xl object-cover ring-1 ring-slate-200" />
+                        ) : (
+                          <span className="grid h-16 w-16 shrink-0 place-items-center rounded-xl bg-slate-50 text-slate-400 ring-1 ring-slate-200" title="No photo yet"><ImageOff className="h-5 w-5" aria-hidden /></span>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-xs text-slate-500">{p.subcategory ?? p.category}</p>
+                          <p className="font-semibold text-slate-900">{p.product}{p.variety ? ` · ${p.variety}` : ''}</p>
+                          <p className="text-sm text-slate-700"><strong>{inr(p.price)}</strong> per {p.unit}</p>
+                          {p.category === 'supplies' && !p.photo && <p className="text-xs font-medium text-amber-800">No photo yet. Press Edit and add one: buyers in Kissan Tools choose by the photo.</p>}
+                        </div>
                       </div>
-                      {!p.active ? <Badge tone="slate">Hidden</Badge> : p.quantity === 0 ? <Badge tone="red">Out of stock</Badge> : <Badge tone="green">On Price Comparison</Badge>}
+                      {!p.active ? <Badge tone="slate">Hidden</Badge> : Number(p.quantity) === 0 ? <Badge tone="red">Out of stock</Badge> : <Badge tone="green">On sale to buyers</Badge>}
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <span className="text-sm text-slate-600">Stock:</span>
-                      <button type="button" aria-label={`${step} fewer`} disabled={busy} onClick={() => void run(() => updateListing(p.id, { quantity: Math.max(0, Number(p.quantity) - step) }), 'Stock updated')} className="grid h-8 w-8 cursor-pointer place-items-center rounded-lg bg-slate-100 hover:bg-slate-200"><Minus className="h-4 w-4" aria-hidden /></button>
+                      <button type="button" aria-label={`${step} fewer`} disabled={busy} onClick={() => void run(() => updateListing(p.id, { quantity: Math.max(0, Number(p.quantity) - step) }), 'Stock updated')} className="grid h-11 w-11 cursor-pointer place-items-center rounded-xl bg-slate-100 hover:bg-slate-200"><Minus className="h-4 w-4" aria-hidden /></button>
                       <span className="min-w-[4rem] text-center font-bold tabular-nums">{Number(p.quantity).toLocaleString('en-IN')}</span>
-                      <button type="button" aria-label={`${step} more`} disabled={busy} onClick={() => void run(() => updateListing(p.id, { quantity: Number(p.quantity) + step }), 'Stock updated')} className="grid h-8 w-8 cursor-pointer place-items-center rounded-lg bg-slate-100 hover:bg-slate-200"><Plus className="h-4 w-4" aria-hidden /></button>
+                      <button type="button" aria-label={`${step} more`} disabled={busy} onClick={() => void run(() => updateListing(p.id, { quantity: Number(p.quantity) + step }), 'Stock updated')} className="grid h-11 w-11 cursor-pointer place-items-center rounded-xl bg-slate-100 hover:bg-slate-200"><Plus className="h-4 w-4" aria-hidden /></button>
                       <span className="text-sm text-slate-500">{p.unit}</span>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <Btn theme={theme} size="sm" variant="soft" icon={Pencil} onClick={() => setEditing({ id: p.id, data: { seller_name: p.seller_name, phone: p.phone, district: p.district, category: p.category, subcategory: p.subcategory, product: p.product, variety: p.variety ?? '', grade: p.grade ?? '', unit: p.unit, price: Number(p.price), quantity: Number(p.quantity), details: p.details ?? '', photo: p.photo } })}>Edit</Btn>
-                      <Btn theme={theme} size="sm" variant="ghost" disabled={busy} onClick={() => void run(() => updateListing(p.id, { active: !p.active }), p.active ? 'Hidden from buyers' : 'Visible again')}>{p.active ? 'Hide' : 'Show again'}</Btn>
-                      <Btn theme={theme} size="sm" variant="danger" icon={Trash2} disabled={busy} onClick={() => { if (window.confirm(`Remove ${p.product}?`)) void run(() => deleteListing(p.id), 'Removed'); }}>Remove</Btn>
+                      <Btn theme={theme} size="sm" variant="soft" icon={Pencil} className="min-h-11" onClick={() => setEditing({ id: p.id, data: { seller_name: p.seller_name, phone: p.phone, district: p.district, category: p.category, subcategory: p.subcategory, product: p.product, variety: p.variety ?? '', grade: p.grade ?? '', unit: p.unit, price: Number(p.price), quantity: Number(p.quantity), details: p.details ?? '', photo: p.photo, photos: photosOf(p) } })}>Edit</Btn>
+                      <Btn theme={theme} size="sm" variant="ghost" className="min-h-11" disabled={busy} onClick={() => void run(() => updateListing(p.id, { active: !p.active }), p.active ? 'Hidden from buyers' : 'Visible again')}>{p.active ? 'Hide' : 'Show again'}</Btn>
+                      <Btn theme={theme} size="sm" variant="danger" icon={Trash2} className="min-h-11" disabled={busy} onClick={() => { if (window.confirm(`Remove ${p.product}?`)) void run(() => deleteListing(p.id), 'Removed'); }}>Remove</Btn>
                     </div>
                   </li>
                 );
@@ -162,7 +199,7 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
       )}
 
       {(show === 'all' || show === 'payouts') && (
-        <PayoutForm theme={theme} payout={payout} onSaved={setPayout} title="Where buyers pay you" intro="Buyers pay you here after they receive the goods. Only a buyer with a live order sees these details." />
+        <PayoutForm theme={theme} payout={payout} onSaved={setPayout} title="Where buyers pay you" intro="Price Comparison buyers pay you here after the goods reach them. Kissan Tools buyers pay you here before you ship. Only a buyer with a live order sees these details." />
       )}
 
       {editing && (
@@ -173,12 +210,12 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
           title={editing.id ? 'Edit' : editing.data.category === 'produce' ? 'List your produce' : mixed ? 'Add a farm input' : 'Add a product'}
           footer={
             <>
-              <Btn theme={theme} variant="ghost" onClick={() => setEditing(null)}>Cancel</Btn>
-              <Btn theme={theme} icon={CheckCircle2} disabled={busy} onClick={save}>Save</Btn>
+              <Btn theme={theme} variant="ghost" className="min-h-11" onClick={() => setEditing(null)}>Cancel</Btn>
+              <Btn theme={theme} icon={CheckCircle2} className="min-h-11" disabled={busy} onClick={save}>Save</Btn>
             </>
           }
         >
-          <ProductForm value={editing.data} onChange={(data) => setEditing({ ...editing, data })} />
+          <ProductForm value={editing.data} isNew={!editing.id} onChange={(data) => setEditing({ ...editing, data })} />
         </Modal>
       )}
     </div>

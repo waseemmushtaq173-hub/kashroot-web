@@ -1,28 +1,37 @@
 'use client';
 
 /**
- * Buyer portal — the buyer's orders (placed on Price Comparison, which is its
- * own portal) and Escrow payment: identity check (KYC) and pay-after-delivery.
- * Cold Storage and mandi rates have their own places on the home page.
+ * Buyer portal — buying produce right here, the buyer's orders, and Escrow
+ * payment: identity check (KYC) and pay-after-delivery.
+ *   Buy apples & produce: the produce farmers publish from the Farmer portal
+ *   (market_listings), live — a new listing shows up within 30 seconds —
+ *   with photos, filters and Order (shared with Price Comparison:
+ *   components/market/shop). Buyers do not need Price Comparison to buy.
+ *   My orders: every order of this account, wherever it was placed.
  * Nothing is paid up front; once the goods arrive and are checked, the buyer
  * pays the farmer directly by UPI / bank. KashRoot never holds the money.
- * Following a truck is in the Tracking portal.
+ * Mandi rates, Price Comparison and Cold Storage have their own places on
+ * the home page; following a truck is in the Tracking portal.
  */
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Loader2, PackageCheck, ShieldCheck, ShoppingBag, ShoppingCart } from 'lucide-react';
+import { Apple, Loader2, PackageCheck, ShieldCheck, ShoppingBag, ShoppingCart } from 'lucide-react';
+import { toast } from '@/lib/client/toast';
 
 import { PortalShell } from '@/components/layout/PortalShell';
 import { OrderCard } from '@/components/market/OrderCard';
+import { ListingBrowser } from '@/components/market/shop/ListingBrowser';
+import { OrderModal } from '@/components/market/shop/OrderModal';
+import type { ShopListing } from '@/components/market/shop/useLiveListings';
 import { SafePayment } from '@/components/payments/SafePayment';
-import { EmptyState, PORTAL_THEMES, Panel, Tile } from '@/components/portal/kit';
+import { Btn, EmptyState, PORTAL_THEMES, Panel, Tile } from '@/components/portal/kit';
 import { loadAccount, type Account } from '@/lib/db/client';
 import { buyerOrders, type MarketOrder } from '@/lib/db/market';
 
 const theme = PORTAL_THEMES.buyer;
-type Tab = 'overview' | 'orders' | 'payment';
+type Tab = 'overview' | 'shop' | 'orders' | 'payment';
 
-const TABS: Tab[] = ['overview', 'orders', 'payment'];
+const TABS: Tab[] = ['overview', 'shop', 'orders', 'payment'];
 
 export default function BuyerDashboardPage() {
   return (
@@ -43,6 +52,7 @@ function BuyerDashboard() {
   const [account, setAccount] = useState<Account | null | undefined>(undefined);
   const [orders, setOrders] = useState<MarketOrder[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [ordering, setOrdering] = useState<ShopListing | null>(null);
 
   useEffect(() => {
     const none = () => {
@@ -87,11 +97,14 @@ function BuyerDashboard() {
   const list = (items: MarketOrder[]) => (
     <ul className="space-y-3">{items.map((o) => <OrderCard key={o.id} order={o} as="buyer" theme={theme} onChange={() => void reload()} />)}</ul>
   );
+  const shopButton = (
+    <Btn theme={theme} icon={Apple} className="min-h-11" onClick={() => setTab('shop')}>Buy apples & produce</Btn>
+  );
 
   return (
     <PortalShell
       title="Source with confidence"
-      description="Your orders, and escrow payment: verify once, and pay the farmer only after the goods reach you."
+      description="Buy apples and other produce straight from farmers, and pay the farmer only after the goods reach you."
       eyebrow="Buyer portal"
       theme="buyer"
       kpis={[
@@ -101,6 +114,7 @@ function BuyerDashboard() {
       ]}
       tabs={[
         { id: 'overview', label: 'Overview', icon: ShoppingBag },
+        { id: 'shop', label: 'Buy apples & produce', icon: Apple },
         { id: 'orders', label: 'My orders', icon: ShoppingCart, count: all.length || undefined },
         { id: 'payment', label: 'Escrow payment', icon: ShieldCheck, count: toPay.length || undefined },
       ]}
@@ -109,7 +123,8 @@ function BuyerDashboard() {
     >
       {tab === 'overview' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Tile theme={theme} icon={Apple} label="Buy apples & produce" hint="From farmers, with photos" onClick={() => setTab('shop')} />
             <Tile theme={theme} icon={ShoppingCart} label="My orders" hint="Receive & pay" onClick={() => setTab('orders')} />
             <Tile theme={theme} icon={ShieldCheck} label="Escrow payment" hint="Pay after delivery" onClick={() => setTab('payment')} />
           </div>
@@ -125,7 +140,8 @@ function BuyerDashboard() {
                   theme={theme}
                   icon={ShoppingBag}
                   title="No open orders"
-                  text="Orders you place on Price Comparison (on the home page) appear here — you pay only after the goods reach you."
+                  text="Open Buy apples & produce, choose what you want and press Order. You pay only after the goods reach you."
+                  action={shopButton}
                 />
               ) : (
                 list(active)
@@ -134,7 +150,7 @@ function BuyerDashboard() {
 
             <Panel theme={theme} title="Pay after delivery" icon={ShieldCheck}>
               <ol className="list-decimal space-y-1 pl-5 text-sm text-slate-700">
-                <li>Order on Price Comparison. You pay nothing now.</li>
+                <li>Order in Buy apples & produce. You pay nothing now.</li>
                 <li>The seller accepts and sends it.</li>
                 <li>When it arrives, check it and press “I received the goods”.</li>
                 <li>Pay the seller from your UPI app and type the payment number.</li>
@@ -142,6 +158,30 @@ function BuyerDashboard() {
               <p className="mt-3 text-xs text-slate-500">Something wrong? Press “Report a problem” on the order before you pay.</p>
             </Panel>
           </div>
+        </div>
+      )}
+
+      {tab === 'shop' && (
+        <div className="space-y-5">
+          <p className="flex items-start gap-2 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-950 ring-1 ring-emerald-200">
+            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" aria-hidden />
+            <span><strong>Pay after delivery.</strong> Farmers list their produce in the Farmer portal and it shows here by itself. Order now; pay the farmer by UPI only when the goods reach you and you have checked them. KashRoot never holds your money.</span>
+          </p>
+          <ListingBrowser
+            category="produce"
+            theme={theme}
+            accountId={account?.id}
+            onOrder={(l) => (account ? setOrdering(l) : toast.error('Please sign in to the Buyer portal again to order.'))}
+            // Only real produce from real farmers — nothing made up.
+            empty={
+              <EmptyState
+                theme={theme}
+                icon={Apple}
+                title="No produce listed yet"
+                text="When farmers list apples, walnuts, cherries or other produce in the Farmer portal, it shows here by itself — you do not need to reload. Please check again later."
+              />
+            }
+          />
         </div>
       )}
 
@@ -164,11 +204,25 @@ function BuyerDashboard() {
           ) : error ? (
             <p role="alert" className="text-rose-800">{error}</p>
           ) : all.length === 0 ? (
-            <EmptyState theme={theme} icon={ShoppingCart} title="No orders yet" text="Orders you place on Price Comparison (on the home page) appear here. You pay the farmer only after the goods reach you." />
+            <EmptyState theme={theme} icon={ShoppingCart} title="No orders yet" text="Open Buy apples & produce, choose what you want and press Order. You pay the farmer only after the goods reach you." action={shopButton} />
           ) : (
             list(all)
           )}
         </Panel>
+      )}
+
+      {ordering && account && (
+        <OrderModal
+          listing={ordering}
+          account={account}
+          theme={theme}
+          onClose={() => setOrdering(null)}
+          onPlaced={() => {
+            setOrdering(null);
+            setTab('orders');
+            void reload();
+          }}
+        />
       )}
     </PortalShell>
   );

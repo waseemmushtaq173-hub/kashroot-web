@@ -4,8 +4,9 @@
  * Admin → Accounts: everyone who has a KashRoot account (kr_admin_accounts,
  * admins only) — name, email, mobile, the kind of account and the portals
  * they filled in, staff roles, district, when they joined and last signed
- * in, and whether the email and Aadhaar / PAN are verified. Search, filter
- * and download as a spreadsheet (CSV). Passwords are never read.
+ * in, and whether the email and Aadhaar / PAN are verified — with the last
+ * four characters of each, so an admin can check them. Search, filter and
+ * download as a spreadsheet (CSV). Passwords are never read.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Download, Loader2, Phone, Search, Users } from 'lucide-react';
@@ -32,6 +33,9 @@ interface AccountRow {
   pan_verified: boolean;
   /** Newest of last sign-in and the app renewing its sign-in while used (null before the 20261018 SQL). */
   last_active_at?: string | null;
+  /** Last four of the verified Aadhaar / PAN (from the 20261027 SQL; PAN counts only with them). */
+  aadhaar_last4?: string | null;
+  pan_last4?: string | null;
 }
 
 const KIND: Record<string, string> = { FARMER: 'Farmer', BUYER: 'Buyer', SELLER: 'Seller', PROVIDER: 'Cold store / transport', ADMIN: 'Admin', EXPERT: 'Agronomist', DEALER: 'Agro-dealer', REPORTER: 'Mandi Helper' };
@@ -39,12 +43,14 @@ const label = (r: string) => KIND[r] ?? r.charAt(0).toUpperCase() + r.slice(1).t
 /** When they last used KashRoot: staying signed in renews the session, not the sign-in. */
 const lastSeen = (r: AccountRow) => r.last_active_at ?? r.last_sign_in_at;
 const date = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+/** A PAN is verified only with the last four characters of its number (a PAN merely allowed in DigiLocker is not one). */
+const panLast4 = (r: AccountRow) => (r.pan_verified && r.pan_last4 ? r.pan_last4 : null);
 
 function toCsv(rows: AccountRow[]) {
   const cell = (v: string) => `"${v.replace(/"/g, '""')}"`;
-  const head = ['Name', 'Email', 'Mobile', 'Account', 'Portals', 'Staff', 'District', 'Joined', 'Last active', 'Last sign-in', 'Email confirmed', 'Aadhaar verified', 'PAN verified'];
+  const head = ['Name', 'Email', 'Mobile', 'Account', 'Portals', 'Staff', 'District', 'Joined', 'Last active', 'Last sign-in', 'Email confirmed', 'Aadhaar verified', 'Aadhaar last 4', 'PAN verified', 'PAN last 4'];
   const body = rows.map((r) =>
-    [r.full_name, r.email, r.phone, r.roles.map(label).join(' / '), r.portals.join(' / '), r.staff.map(label).join(' / '), r.district, r.joined_at.slice(0, 10), lastSeen(r)?.slice(0, 16).replace('T', ' ') ?? 'never', r.last_sign_in_at?.slice(0, 16).replace('T', ' ') ?? 'never', r.email_confirmed ? 'yes' : 'no', r.aadhaar_verified ? 'yes' : 'no', r.pan_verified ? 'yes' : 'no'].map(cell).join(','),
+    [r.full_name, r.email, r.phone, r.roles.map(label).join(' / '), r.portals.join(' / '), r.staff.map(label).join(' / '), r.district, r.joined_at.slice(0, 10), lastSeen(r)?.slice(0, 16).replace('T', ' ') ?? 'never', r.last_sign_in_at?.slice(0, 16).replace('T', ' ') ?? 'never', r.email_confirmed ? 'yes' : 'no', r.aadhaar_verified ? 'yes' : 'no', r.aadhaar_verified ? r.aadhaar_last4 ?? '' : '', panLast4(r) ? 'yes' : 'no', panLast4(r) ?? ''].map(cell).join(','),
   );
   return [head.map(cell).join(','), ...body].join('\r\n');
 }
@@ -177,8 +183,16 @@ export function AccountsPanel({ onRefreshed }: { onRefreshed?: () => Promise<unk
                         <span className="font-semibold text-slate-900">{r.full_name || r.email.split('@')[0]}</span>
                         {r.roles.map((k) => <Badge key={k} tone="blue">{label(k)}</Badge>)}
                         {r.staff.map((k) => <Badge key={`s-${k}`} tone="violet">{label(k)}</Badge>)}
-                        {r.aadhaar_verified && <Badge tone="green">Aadhaar ✓</Badge>}
-                        {r.pan_verified && <Badge tone="green">PAN ✓</Badge>}
+                        {r.aadhaar_verified && (
+                          <span title={r.aadhaar_last4 ? `Aadhaar verified, ending ${r.aadhaar_last4}` : 'Aadhaar verified'}>
+                            <Badge tone="green">Aadhaar ✓{r.aadhaar_last4 ? ` ···${r.aadhaar_last4}` : ''}</Badge>
+                          </span>
+                        )}
+                        {panLast4(r) && (
+                          <span title={`PAN verified, ending ${panLast4(r)}`}>
+                            <Badge tone="green">PAN ✓ ···{panLast4(r)}</Badge>
+                          </span>
+                        )}
                       </p>
                       <p className="mt-0.5 truncate text-slate-600">
                         {r.email}

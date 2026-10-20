@@ -8,9 +8,13 @@
  *     short-lived token has expired — instead of a copied token, so the site
  *     never looks signed in while the data refuses to load, or sends someone
  *     to sign-in while their session is still good.
- *   - Closed the app and came back — after minutes or months: straight in.
- *     There is no time limit: people stay signed in on their phone until
- *     they press Sign out themselves.
+ *   - Each portal sign-in lasts 12 hours from its last use on this device
+ *     (lib/auth/portalAccess, PORTAL_SIGNIN_LIMIT_MS). Then the portal is
+ *     locked: its sign-in page shows "Continue as <name>", one tap.
+ *   - KashRoot not used on this device for 7 days (DEVICE_IDLE_LIMIT_MS):
+ *     the device signs out (this browser only), but remembers the name and
+ *     email — never the password — so the sign-in page says "Welcome back"
+ *     with the email filled in.
  *   - After Sign out, the next sign-in needs their email and password again
  *     (signOutCompletely forgets them on this device). Everything they saved
  *     stays in their account.
@@ -19,18 +23,29 @@ import { useEffect, useState } from 'react';
 import { isAuthRetryableFetchError, type Session } from '@supabase/supabase-js';
 
 import { authApi, rolesOf, tokenStore } from '@/lib/api/auth';
-import { forgetPortalSignIns, markPortalSignedOut, portalAccess, signedInPortals } from '@/lib/auth/portalAccess';
+import {
+  deviceIdleTooLong,
+  forgetDeviceUse,
+  forgetPortalSignIns,
+  markDeviceUsed,
+  markPortalSignedOut,
+  portalAccess,
+  portalOpen,
+  signedInPortals,
+  touchPortal,
+  USE_STEP_MS,
+} from '@/lib/auth/portalAccess';
 import { forgetStaffRoles, staffRolesOf } from '@/lib/auth/staffRoles';
 import { isPortalId, type PortalId } from '@/lib/auth/roles';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 
-const ACTIVE_KEY = 'kr_last_active';
 const REMEMBER_KEY = 'kr_remember';
 
+/** Who signed in on this device last: shown as "Welcome back" (no password, nothing secret). */
 export interface RememberedPerson {
   email: string;
   name: string;
-  portal: PortalId;
+  portal?: PortalId;
 }
 
 export interface ActiveSession {
@@ -74,8 +89,33 @@ export function forgetPerson() {
 
 /** Note that the person used KashRoot now (at most once a minute). */
 export function touchActivity() {
-  const last = Number(read(ACTIVE_KEY) ?? 0);
-  if (Date.now() - last > 60_000) write(ACTIVE_KEY, String(Date.now()));
+  markDeviceUsed();
+}
+
+let ending: Promise<boolean> | null = null;
+/**
+ * KashRoot unused on this device for the idle limit: sign out here (other
+ * devices stay signed in), keeping only the name and email for "Welcome
+ * back". True when it signed out.
+ */
+function endIdleDevice(): Promise<boolean> {
+  if (!supabaseConfigured || typeof window === 'undefined' || !deviceIdleTooLong()) return Promise.resolve(false);
+  ending ??= (async () => {
+    const { data } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+    const user = data.session?.user;
+    if (user?.email) {
+      const last = read('auth_portal');
+      rememberPerson({ email: user.email, name: String(user.user_metadata?.full_name ?? '') || user.email.split('@')[0], portal: last && isPortalId(last) ? last : undefined });
+    }
+    forgetPortalSignIns();
+    forgetStaffRoles();
+    await authApi.logout();
+    forgetDeviceUse();
+    return Boolean(user);
+  })().finally(() => {
+    ending = null;
+  });
+  return ending;
 }
 
 let listening = false;
@@ -103,6 +143,8 @@ function listen() {
 export async function restoreSession(): Promise<ActiveSession | null> {
   if (!supabaseConfigured || typeof window === 'undefined') return null;
   listen();
+  // Unused for days: signed out first (nothing of the old session is used).
+  if (await endIdleDevice()) return null;
   const { data } = await supabase.auth.getSession();
   let session = data.session;
   if (!session) {
@@ -133,11 +175,54 @@ export async function restoreSession(): Promise<ActiveSession | null> {
 
 /** After a successful sign-in: remember who this is on this device and start the activity clock. */
 export async function rememberSignedIn(portal: PortalId, email: string) {
-  touchActivity();
-  write(ACTIVE_KEY, String(Date.now()));
+  markDeviceUsed(true);
   const { data } = await supabase.auth.getSession();
   const name = String(data.session?.user.user_metadata?.full_name ?? '') || email.split('@')[0];
   rememberPerson({ email, name, portal });
+}
+
+/**
+ * While a portal is open: use in it (a tap, a key, coming back to it) keeps
+ * its sign-in going, written down at most once a minute. Once it has gone
+ * unused past the time limit — or was signed out in another tab — onLocked
+ * runs (the portal then asks "Continue as …"), and the tap that found it
+ * locked does nothing in the portal. Returns the clean-up.
+ */
+export function watchPortalUse(userId: string, portal: PortalId, onLocked: () => void): () => void {
+  let locked = false;
+  const lock = () => {
+    if (locked) return;
+    locked = true;
+    onLocked();
+  };
+  const used = () => {
+    if (!touchPortal(userId, portal)) lock();
+  };
+  const guard = (e: Event) => {
+    if (portalOpen(userId, portal)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    lock();
+  };
+  const back = () => {
+    if (document.visibilityState === 'visible') used();
+  };
+  window.addEventListener('pointerdown', used, { capture: true, passive: true });
+  window.addEventListener('keydown', used, { capture: true });
+  window.addEventListener('click', guard, { capture: true });
+  window.addEventListener('focus', back);
+  document.addEventListener('visibilitychange', back);
+  const timer = window.setInterval(() => {
+    if (!portalOpen(userId, portal)) lock();
+  }, USE_STEP_MS);
+  return () => {
+    window.removeEventListener('pointerdown', used, { capture: true });
+    window.removeEventListener('keydown', used, { capture: true });
+    window.removeEventListener('click', guard, { capture: true });
+    window.removeEventListener('focus', back);
+    document.removeEventListener('visibilitychange', back);
+    window.clearInterval(timer);
+  };
 }
 
 /** The portal of the person signed in on this device (no network), or null. */
@@ -204,4 +289,11 @@ export async function signOutOfPortal(portal: PortalId) {
   const user = data.session?.user;
   if (!user) return;
   if (markPortalSignedOut(user.id, portal).length === 0) await signOutCompletely();
+}
+
+// Any page that loads this file: a device unused for too long signs out
+// before anything else, and use from now on is noted.
+if (typeof window !== 'undefined') {
+  void endIdleDevice();
+  listen();
 }

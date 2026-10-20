@@ -3,9 +3,11 @@
 /**
  * Agro-dealer portal — batch-coded inventory, licence compliance, batch
  * manifest upload to the authenticity registry, payouts, and selling on the
- * shared Price Comparison: what a dealer lists in the Price Comparison tab
+ * shared Price Comparison: what a dealer lists in the Sell products tab
  * (or from a batch with "Sell on Price Comparison") goes to market_listings,
- * the same list farmers and buyers compare and order from.
+ * the same list farmers and buyers compare and order from. The public tools
+ * (fertiliser check, mandi rates, Price Comparison itself) are on the home
+ * page, not in here.
  *
  * Stock and licence files are kept on this device (kr_dealer_*); registering
  * a batch writes it to the shared registry farmers check (fertilizer_batches),
@@ -22,7 +24,6 @@ import {
   FileUp,
   FlaskConical,
   Minus,
-  PackageSearch,
   Plus,
   PlusCircle,
   ShieldCheck,
@@ -111,7 +112,7 @@ export default function DealerDashboardPage() {
     });
   }, []);
   const [addOpen, setAddOpen] = useState(false);
-  // "Sell on Price Comparison" from a batch: opens the product form in the Price Comparison tab, filled in.
+  // "Sell on Price Comparison" from a batch: opens the product form in the Sell products tab, filled in.
   const [sell, setSell] = useState<{ n: number; draft?: Partial<ListingInput> }>({ n: 0 });
   const sellOnPriceComparison = (draft?: Partial<ListingInput>) => {
     setSell((s) => ({ n: s.n + 1, draft }));
@@ -219,7 +220,7 @@ export default function DealerDashboardPage() {
       ]}
       tabs={[
         { id: 'inventory', label: 'Inventory', icon: FlaskConical, count: batches.length },
-        { id: 'market', label: 'Price Comparison', icon: Store },
+        { id: 'market', label: 'Sell products', icon: Store },
         { id: 'compliance', label: 'Compliance', icon: ClipboardCheck },
         { id: 'payouts', label: 'Payouts', icon: Banknote },
       ]}
@@ -257,9 +258,8 @@ export default function DealerDashboardPage() {
         }}
       />
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <Tile theme={theme} icon={PackageSearch} label="Batch tester" hint="Check any code the way farmers do" href="/supplies/tester" />
-        <Tile theme={theme} icon={Store} label="Price Comparison" hint="Sell to farmers on Price Comparison" onClick={() => setTab('market')} />
+      <div className="mb-6 grid gap-4 sm:grid-cols-2">
+        <Tile theme={theme} icon={Store} label="Sell products" hint="In Kissan Tools and on Price Comparison" onClick={() => setTab('market')} />
         <Tile theme={theme} icon={ClipboardCheck} label="Compliance checklist" hint={`${compliant} of ${licences.length} done`} onClick={() => setTab('compliance')} />
       </div>
 
@@ -337,7 +337,7 @@ export default function DealerDashboardPage() {
       {tab === 'market' && (
         <div className="space-y-4">
           <p className="rounded-2xl bg-white/80 p-4 text-sm text-slate-700 ring-1 ring-slate-900/5">
-            What you list here is on the main <strong>Price Comparison</strong> — the same list every farmer and buyer sees on KashRoot, next to other sellers’ prices. Farmers order from it; their orders come here to accept and ship, and they pay you after delivery.
+            What you list here shows in the <strong>Kissan Tools</strong> shop (with your photos) and on the main <strong>Price Comparison</strong>, next to other sellers’ prices. Kissan Tools buyers pay you after you accept, before you ship; Price Comparison buyers pay you after delivery. Orders from both come here.
           </p>
           {account ? (
             <SellerDesk account={account} theme={theme} show="sell" category="supplies" addRequest={sell.n} addDraft={sell.draft} />

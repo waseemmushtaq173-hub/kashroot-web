@@ -108,9 +108,9 @@ const HELP: { keys: string[]; text: Text }[] = [
   {
     keys: ['buy', 'order', 'kharid', 'खरीद', 'ख़रीद', 'ऑर्डर', 'خرید', 'آرڈر', 'ہیون'],
     text: {
-      en: 'Open Price Comparison, choose Farm inputs or Fruit and produce, and press Order. You pay nothing now; when the goods reach you, press I received the goods in My orders and pay the seller from your UPI app.',
-      hi: 'Price Comparison खोलें, खाद-दवा या फल-सब्ज़ी चुनें और Order दबाएँ। अभी कुछ नहीं देना है; सामान पहुँचने पर My orders में "I received the goods" दबाएँ और अपने UPI ऐप से विक्रेता को भुगतान करें।',
-      ur: 'Price Comparison کھولیں، کھاد دوائی یا پھل سبزی چنیں اور Order دبائیں۔ ابھی کچھ نہیں دینا ہے؛ سامان پہنچنے پر My orders میں "I received the goods" دبائیں اور اپنے UPI ایپ سے بیچنے والے کو ادائیگی کریں۔',
+      en: 'To buy apples or other produce, open the Buyer portal and press Buy apples & produce. For farm inputs, open Price Comparison. Press Order. You pay nothing now; when the goods reach you, press I received the goods in My orders and pay the seller from your UPI app.',
+      hi: 'सेब या दूसरी फ़सल ख़रीदने के लिए Buyer portal खोलें और "Buy apples & produce" दबाएँ। खाद-दवा के लिए Price Comparison खोलें। Order दबाएँ। अभी कुछ नहीं देना है; सामान पहुँचने पर My orders में "I received the goods" दबाएँ और अपने UPI ऐप से विक्रेता को भुगतान करें।',
+      ur: 'سیب یا دوسری فصل خریدنے کے لیے Buyer portal کھولیں اور "Buy apples & produce" دبائیں۔ کھاد دوائی کے لیے Price Comparison کھولیں۔ Order دبائیں۔ ابھی کچھ نہیں دینا ہے؛ سامان پہنچنے پر My orders میں "I received the goods" دبائیں اور اپنے UPI ایپ سے بیچنے والے کو ادائیگی کریں۔',
     },
   },
   {
@@ -132,9 +132,9 @@ const HELP: { keys: string[]; text: Text }[] = [
   {
     keys: ['sell', 'list produce', 'bech', 'बेच', 'बिक्री', 'بیچ', 'فروخت'],
     text: {
-      en: 'To sell your harvest, open the Farmer portal and press List produce. Choose the crop, write its name, your price and how many boxes, and press Save. Buyers order it on Price Comparison and pay you by UPI after the goods reach them.',
-      hi: 'अपनी फ़सल बेचने के लिए किसान पोर्टल खोलें और "List produce" दबाएँ। फ़सल चुनें, उसका नाम, अपना दाम और कितनी पेटियाँ हैं लिखें, और Save दबाएँ। ख़रीदार Price Comparison पर ऑर्डर करेंगे और सामान मिलने के बाद आपको UPI से भुगतान करेंगे।',
-      ur: 'اپنی فصل بیچنے کے لیے کسان پورٹل کھولیں اور "List produce" دبائیں۔ فصل چنیں، اس کا نام، اپنا دام اور کتنی پیٹیاں ہیں لکھیں، اور Save دبائیں۔ خریدار Price Comparison پر آرڈر کریں گے اور سامان ملنے کے بعد آپ کو UPI سے ادائیگی کریں گے۔',
+      en: 'To sell your harvest, open the Farmer portal and press List produce. Choose the crop, write its name, your price and how many boxes, and press Save. Buyers see it in their Buyer portal and on Price Comparison, order it, and pay you by UPI after the goods reach them.',
+      hi: 'अपनी फ़सल बेचने के लिए किसान पोर्टल खोलें और "List produce" दबाएँ। फ़सल चुनें, उसका नाम, अपना दाम और कितनी पेटियाँ हैं लिखें, और Save दबाएँ। ख़रीदार इसे अपने Buyer portal में और Price Comparison पर देखकर ऑर्डर करेंगे, और सामान मिलने के बाद आपको UPI से भुगतान करेंगे।',
+      ur: 'اپنی فصل بیچنے کے لیے کسان پورٹل کھولیں اور "List produce" دبائیں۔ فصل چنیں، اس کا نام، اپنا دام اور کتنی پیٹیاں ہیں لکھیں، اور Save دبائیں۔ خریدار اسے اپنے Buyer portal میں اور Price Comparison پر دیکھ کر آرڈر کریں گے، اور سامان ملنے کے بعد آپ کو UPI سے ادائیگی کریں گے۔',
     },
   },
   {

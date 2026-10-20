@@ -3,7 +3,8 @@
 /**
  * Escrow payment (/escrow) — how paying works on KashRoot. The verification
  * (KYC) and the orders to pay live in the two portals where money changes
- * hands: Farmer → Escrow payment and Buyer → Escrow payment.
+ * hands: Farmer → Escrow payment and Buyer → Escrow payment. Buyers order in
+ * the Buyer portal's shop or on Price Comparison.
  *
  * KashRoot does not hold money. Orders are pay-after-delivery: the buyer pays
  * the farmer directly by UPI / bank once the goods arrive and are checked.
@@ -19,7 +20,7 @@ const theme = PORTAL_THEMES.provider;
 
 const STEPS: { label: string; text: string; icon: LucideIcon }[] = [
   { label: 'Verify', text: 'Farmer and buyer each verify their identity once (Aadhaar; PAN when required) in their portal’s Escrow payment tab.', icon: IdCard },
-  { label: 'Order', text: 'The buyer orders on Price Comparison at the farmer’s listed price. Nothing is paid now.', icon: ShoppingCart },
+  { label: 'Order', text: 'The buyer orders at the farmer’s price, in the Buyer portal (Buy apples & produce) or on Price Comparison. Nothing is paid now.', icon: ShoppingCart },
   { label: 'Dispatch', text: 'The farmer accepts and sends it; a truck can be followed on Tracking with its KashRoot code.', icon: Truck },
   { label: 'Check', text: 'When it arrives the buyer checks grade and weight. Something wrong? Report a problem before paying.', icon: PackageCheck },
   { label: 'Pay', text: 'The buyer pays the farmer directly from a UPI app and types the payment number.', icon: BadgeIndianRupee },
@@ -52,10 +53,11 @@ export default function SafePaymentPage() {
           ))}
         </ol>
         <Panel theme={theme} title="Verify and pay in your portal" icon={ShieldCheck}>
-          <p className="text-sm text-slate-700">The identity check and your payments are in the Escrow payment tab of your portal.</p>
+          <p className="text-sm text-slate-700">The identity check and your payments are in the Escrow payment tab of your portal. Buyers buy produce in their Buyer portal.</p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Link href="/farmer/dashboard?tab=payouts" className={`${OPEN} bg-emerald-700 text-white hover:bg-emerald-800`}>Farmer: Escrow payment</Link>
             <Link href="/buyer/dashboard?tab=payment" className={`${OPEN} bg-sky-700 text-white hover:bg-sky-800`}>Buyer: Escrow payment</Link>
+            <Link href="/buyer/dashboard?tab=shop" className={`${OPEN} bg-white text-sky-800 ring-1 ring-sky-200 hover:bg-sky-50`}>Buyer: Buy apples & produce</Link>
           </div>
         </Panel>
       </div>

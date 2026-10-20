@@ -5,9 +5,10 @@
  * over the HeroShowcase slideshow, so slate-900 text stays legible whatever the
  * photograph underneath.
  *
- * Every tool CTA that needs an account goes straight to the matching role
- * sign-in (/login/{farmer|buyer|seller}) with `next` set to the tool, so the
- * user lands where they clicked — there is no generic auth page in between.
+ * A card's buttons lead where they say: "Buy produce" opens buying inside
+ * the Buyer portal (its own sign-in first, with `next` set to the shop), and
+ * both Price Comparison buttons stay on Price Comparison, which asks to sign
+ * in right there only when someone orders or sells.
  * Below the hero: the voice assistant, Orchard Health, fertiliser testing and
  * every portal as a coloured 3D card (each with its own sign-in).
  *
@@ -48,12 +49,13 @@ interface ToolAction {
   href: string;
 }
 
-/** Primary + secondary CTA per card. Logins carry the tool as `next`. */
+/** Primary + secondary CTA per card. Logins carry where to land as `next`. */
 const TOOL_ACTIONS: Record<ToolId, { primary: ToolAction; secondary: ToolAction }> = {
   escrow: {
     // Public: how paying works (UPI after delivery, identity checks) — no sign-in.
     primary: { label: 'How escrow payment works', href: TOOLS.escrow.href },
-    secondary: { label: 'Buy produce', href: '/compare-prices?category=produce' },
+    // Buying with pay-after-delivery happens in the Buyer portal's shop.
+    secondary: { label: 'Buy produce', href: loginHref('buyer', '/buyer/dashboard?tab=shop') },
   },
   mandi: {
     primary: { label: 'Open farmer portal', href: loginHref('farmer', '/farmer/dashboard') },
@@ -62,8 +64,8 @@ const TOOL_ACTIONS: Record<ToolId, { primary: ToolAction; secondary: ToolAction 
   },
   priceComparison: {
     primary: { label: 'Compare prices', href: TOOLS.priceComparison.href },
-    // Selling (produce and farm inputs) is part of the Farmer portal.
-    secondary: { label: 'List your products', href: loginHref('farmer', `${TOOLS.priceComparison.href}?tab=sell`) },
+    // Selling on Price Comparison: its Sell here tab (sign-in happens there, no portal).
+    secondary: { label: 'List your products', href: `${TOOLS.priceComparison.href}?tab=sell` },
   },
 };
 

@@ -2714,6 +2714,691 @@ end $$;
 drop trigger if exists cold_store_directory_suggestion on public.cold_store_directory;
 create trigger cold_store_directory_suggestion before insert on public.cold_store_directory for each row execute function public.kr_cold_suggestion_before();
 
+-- ════════ 20261025000000_cold_store_details.sql ════════
+-- KashRoot: cold stores described in full by their owners (the owner wizard,
+-- components/rental/owner and lib/coldStore).
+--   rental_listings  + manager_name, manager_phone (10 digits), state (default
+--                      Jammu & Kashmir), area (area / village), building:
+--                      {unit: 'ft' | 'm', length, width, height,
+--                       door: {wall: 'front' | 'back' | 'left' | 'right',
+--                              from, width, height}}
+--                      in metres; length runs along the front, width from the
+--                      front to the back; the door's `from` is from the left
+--                      corner of its wall as you stand outside facing it.
+--   cold_chambers    + chamber_no, floor (1 = lowest), storage ('bins',
+--                      'crates', or 'boxes' for stores set up before),
+--                      unit_kg (kg in one bin / crate), capacity_mt (what the
+--                      owner says the whole chamber holds), rate (rupees per
+--                      bin / crate per month; null = the store's rate).
+--                      Each floor of a chamber is its own row ("Chamber 1 ·
+--                      Floor 2"), so booking, holds and the map work as
+--                      before: one place = one stack, boxes_per_slot = bins /
+--                      crates in it. A floor may now have up to 99 rows.
+--   kr_save_cold_chambers(listing, rows)  the owner saves all the wizard's
+--                      chambers of a store at once: new floors added, changed
+--                      ones changed in place, removed ones deleted — refused
+--                      (nothing saved) when a farmer has booked a place that
+--                      would go or shrink. Older chambers are left alone.
+--   A booking by place costs each chamber's own rate (else the store's):
+--   boxes × rate × months, worked out here, never in the browser.
+-- Run after 20261024000000_cold_store_suggestions.sql. Safe to run again.
+
+-- ───────────────────────── the store ─────────────────────────
+alter table public.rental_listings add column if not exists manager_name text;
+alter table public.rental_listings add column if not exists manager_phone text;
+alter table public.rental_listings add column if not exists state text not null default 'Jammu & Kashmir';
+alter table public.rental_listings add column if not exists area text;
+alter table public.rental_listings add column if not exists building jsonb;
+
+alter table public.rental_listings drop constraint if exists rental_listings_manager_name_check;
+alter table public.rental_listings add constraint rental_listings_manager_name_check check (manager_name is null or char_length(manager_name) <= 80);
+alter table public.rental_listings drop constraint if exists rental_listings_manager_phone_check;
+alter table public.rental_listings add constraint rental_listings_manager_phone_check check (manager_phone is null or manager_phone ~ '^[6-9][0-9]{9}$');
+alter table public.rental_listings drop constraint if exists rental_listings_state_check;
+alter table public.rental_listings add constraint rental_listings_state_check check (char_length(state) between 2 and 60);
+alter table public.rental_listings drop constraint if exists rental_listings_area_check;
+alter table public.rental_listings add constraint rental_listings_area_check check (area is null or char_length(area) <= 80);
+alter table public.rental_listings drop constraint if exists rental_listings_building_check;
+alter table public.rental_listings add constraint rental_listings_building_check
+  check (building is null or (jsonb_typeof(building) = 'object' and pg_column_size(building) < 2000));
+
+-- ───────────────────────── chambers and their floors ─────────────────────────
+alter table public.cold_chambers add column if not exists chamber_no integer;
+alter table public.cold_chambers add column if not exists floor integer not null default 1;
+alter table public.cold_chambers add column if not exists storage text not null default 'boxes';
+alter table public.cold_chambers add column if not exists unit_kg numeric(10, 2);
+alter table public.cold_chambers add column if not exists capacity_mt numeric(12, 3);
+alter table public.cold_chambers add column if not exists rate numeric(12, 2);
+
+alter table public.cold_chambers drop constraint if exists cold_chambers_chamber_no_check;
+alter table public.cold_chambers add constraint cold_chambers_chamber_no_check check (chamber_no is null or chamber_no between 1 and 999);
+alter table public.cold_chambers drop constraint if exists cold_chambers_floor_check;
+alter table public.cold_chambers add constraint cold_chambers_floor_check check (floor between 1 and 10);
+alter table public.cold_chambers drop constraint if exists cold_chambers_storage_check;
+alter table public.cold_chambers add constraint cold_chambers_storage_check check (storage in ('bins', 'crates', 'boxes'));
+alter table public.cold_chambers drop constraint if exists cold_chambers_unit_kg_check;
+alter table public.cold_chambers add constraint cold_chambers_unit_kg_check check (unit_kg is null or (unit_kg > 0 and unit_kg <= 5000));
+alter table public.cold_chambers drop constraint if exists cold_chambers_capacity_mt_check;
+alter table public.cold_chambers add constraint cold_chambers_capacity_mt_check check (capacity_mt is null or (capacity_mt > 0 and capacity_mt <= 1000000));
+alter table public.cold_chambers drop constraint if exists cold_chambers_rate_check;
+alter table public.cold_chambers add constraint cold_chambers_rate_check check (rate is null or (rate >= 0 and rate <= 100000));
+-- A floor of a big chamber may need more rows than the old map's 60 (place codes allow 1–99).
+alter table public.cold_chambers drop constraint if exists cold_chambers_rows_check;
+alter table public.cold_chambers add constraint cold_chambers_rows_check check (rows between 1 and 99);
+alter table public.cold_chambers drop constraint if exists cold_chambers_blocked_check;
+alter table public.cold_chambers add constraint cold_chambers_blocked_check check (cardinality(blocked) <= 2574);
+-- One row per floor of each numbered chamber.
+create unique index if not exists cold_chambers_floor on public.cold_chambers (listing_id, chamber_no, floor) where chamber_no is not null;
+
+-- ───────────────────────── saving a store's chambers ─────────────────────────
+-- p_rows: [{chamber_no, floor, name, position, rows, cols, boxes_per_slot,
+-- blocked, storage, unit_kg, capacity_mt, rate, size}, …] — every floor of
+-- every wizard chamber the store should have (lib/coldStore storeModel).
+create or replace function public.kr_save_cold_chambers(p_listing uuid, p_rows jsonb)
+returns integer
+language plpgsql security definer set search_path = public as $$
+declare
+  l public.rental_listings;
+  r jsonb;
+  keep text[] := '{}';
+  found_id uuid;
+  n integer := 0;
+  lowest numeric;
+begin
+  if auth.uid() is null then raise exception 'Please sign in again to save your cold store'; end if;
+  select * into l from public.rental_listings where id = p_listing;
+  if not found or l.owner_id is distinct from auth.uid() then raise exception 'This is not your cold store'; end if;
+  if l.kind <> 'cold_store' then raise exception 'Chambers belong to a cold store'; end if;
+  if p_rows is null or jsonb_typeof(p_rows) <> 'array' then raise exception 'Nothing to save'; end if;
+  if jsonb_array_length(p_rows) > 100 then
+    raise exception 'A cold store on KashRoot can have at most 100 chamber floors (chambers × floors). Use fewer chambers or floors.';
+  end if;
+
+  -- The same lock as booking, so nobody books a place while it changes.
+  perform pg_advisory_xact_lock(hashtext('cold:' || p_listing::text));
+
+  for r in select * from jsonb_array_elements(p_rows) loop
+    if jsonb_typeof(r) <> 'object' or coalesce(r ->> 'chamber_no', '') !~ '^[0-9]{1,3}$' or coalesce(r ->> 'floor', '') !~ '^[0-9]{1,2}$' then
+      raise exception 'Each chamber needs a number (1 to 999) and a floor (1 to 10)';
+    end if;
+    if coalesce(r ->> 'storage', '') not in ('bins', 'crates') then raise exception 'Each chamber holds bins or crates'; end if;
+    keep := keep || ((r ->> 'chamber_no')::int || ':' || (r ->> 'floor')::int);
+  end loop;
+  if cardinality(keep) <> (select count(distinct k) from unnest(keep) k) then
+    raise exception 'Two chambers have the same number. Give each chamber its own number.';
+  end if;
+
+  -- Floors no longer there go first (the chamber trigger refuses a booked one).
+  delete from public.cold_chambers c
+   where c.listing_id = p_listing and c.chamber_no is not null
+     and not ((c.chamber_no || ':' || c.floor) = any (keep));
+
+  -- Then every floor: changed in place, or added.
+  for r in select * from jsonb_array_elements(p_rows) loop
+    update public.cold_chambers c set
+      name = r ->> 'name',
+      position = (r ->> 'position')::int,
+      rows = (r ->> 'rows')::int,
+      cols = (r ->> 'cols')::int,
+      boxes_per_slot = (r ->> 'boxes_per_slot')::int,
+      blocked = coalesce((select array_agg(b) from jsonb_array_elements_text(coalesce(r -> 'blocked', '[]'::jsonb)) b), '{}'),
+      storage = r ->> 'storage',
+      unit_kg = (r ->> 'unit_kg')::numeric,
+      capacity_mt = (r ->> 'capacity_mt')::numeric,
+      rate = (r ->> 'rate')::numeric,
+      size = r -> 'size'
+     where c.listing_id = p_listing and c.chamber_no = (r ->> 'chamber_no')::int and c.floor = (r ->> 'floor')::int
+     returning c.id into found_id;
+    if found_id is null then
+      insert into public.cold_chambers (listing_id, chamber_no, floor, name, position, rows, cols, boxes_per_slot, blocked, storage, unit_kg, capacity_mt, rate, size)
+      values (
+        p_listing, (r ->> 'chamber_no')::int, (r ->> 'floor')::int, r ->> 'name', (r ->> 'position')::int, (r ->> 'rows')::int, (r ->> 'cols')::int,
+        (r ->> 'boxes_per_slot')::int,
+        coalesce((select array_agg(b) from jsonb_array_elements_text(coalesce(r -> 'blocked', '[]'::jsonb)) b), '{}'),
+        r ->> 'storage', (r ->> 'unit_kg')::numeric, (r ->> 'capacity_mt')::numeric, (r ->> 'rate')::numeric, r -> 'size'
+      );
+    end if;
+    n := n + 1;
+  end loop;
+
+  -- The store's own rate (shown as "from ₹…"): the lowest chamber rate, unless
+  -- older chambers (which use the store's rate) are still there.
+  if not exists (select 1 from public.cold_chambers where listing_id = p_listing and chamber_no is null) then
+    select min(rate) into lowest from public.cold_chambers where listing_id = p_listing and rate is not null;
+    if lowest is not null then update public.rental_listings set rate = lowest where id = p_listing; end if;
+  end if;
+  return n;
+end $$;
+revoke execute on function public.kr_save_cold_chambers(uuid, jsonb) from public, anon;
+grant execute on function public.kr_save_cold_chambers(uuid, jsonb) to authenticated;
+
+-- ───────────────────────── what a booking costs ─────────────────────────
+-- Once a booking's places are in: its boxes on each place × that chamber's
+-- rate (else the store's) × months. Same as before for stores without
+-- chamber rates.
+create or replace function public.kr_cold_booking_amount() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  update public.rental_bookings b
+     set amount = round(b.duration * coalesce((
+           select sum(coalesce(s.boxes, c.boxes_per_slot) * coalesce(c.rate, l.rate))
+             from public.cold_slot_bookings s
+             join public.cold_chambers c on c.id = s.chamber_id
+             join public.rental_listings l on l.id = c.listing_id
+            where s.booking_id = b.id), 0), 2)
+   where b.id in (select distinct a.booking_id from added a);
+  return null;
+end $$;
+revoke execute on function public.kr_cold_booking_amount() from public, anon, authenticated;
+drop trigger if exists cold_slot_bookings_amount on public.cold_slot_bookings;
+create trigger cold_slot_bookings_amount after insert on public.cold_slot_bookings
+  referencing new table as added for each statement execute function public.kr_cold_booking_amount();
+
+-- ════════ 20261026000000_shop_orders.sql ════════
+-- Kissan Tools shop: farm tools and inputs with up to three photos, and
+-- pay-first orders with shipping and live delivery tracking.
+--
+--   * market_listings.photos: up to three photos (data URLs). The old single
+--     photo column stays and always holds the first photo, so older pages and
+--     older rows keep working.
+--   * market_orders, pay_first (Kissan Tools only — Price Comparison and the
+--     Buyer portal stay pay-after-delivery). One checkout to one seller is one
+--     basket: each product line is a row with the same basket id, and every
+--     step moves the whole basket:
+--       placed → seller accepts (stock checked and reserved; needs the
+--       seller's payout details) → buyer pays the seller directly by UPI or
+--       bank and enters the reference (payment_state 'paid') → seller
+--       confirms the money arrived ('received') → seller ships (vehicle or
+--       courier, driver) and the vehicle's position comes from the seller's
+--       phone or the driver's tracking link → buyer presses "I received it"
+--       (completed). KashRoot never holds the money.
+--   * market_order_drivers: the driver's tracking-link token per basket. No
+--     direct access: only the functions below read or use it.
+-- Safe to run again; no existing row changes.
+
+-- ───────────────────────── listing photos ─────────────────────────
+alter table public.market_listings add column if not exists photos text[];
+
+create or replace function public.kr_photos_ok(p text[]) returns boolean
+language sql immutable set search_path = public as $$
+  select p is null or (
+    cardinality(p) <= 3
+    and not exists (select 1 from unnest(p) x where x is null or x not like 'data:image/%' or char_length(x) > 600000)
+  )
+$$;
+alter table public.market_listings drop constraint if exists market_listings_photos_check;
+alter table public.market_listings add constraint market_listings_photos_check check (public.kr_photos_ok(photos));
+
+-- photo is always the first of photos. A page that only knows the single
+-- photo still works: what it sets becomes the first photo.
+create or replace function public.kr_listing_photos() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if tg_op = 'INSERT' then
+    if coalesce(cardinality(new.photos), 0) > 0 then new.photo := new.photos[1];
+    elsif new.photo is not null then new.photos := array[new.photo];
+    else new.photos := null;
+    end if;
+  elsif new.photos is distinct from old.photos then
+    new.photo := case when coalesce(cardinality(new.photos), 0) > 0 then new.photos[1] end;
+    if coalesce(cardinality(new.photos), 0) = 0 then new.photos := null; end if;
+  elsif new.photo is distinct from old.photo then
+    new.photos := case when new.photo is null then null else array[new.photo] || coalesce(old.photos[2:3], '{}') end;
+  end if;
+  return new;
+end $$;
+drop trigger if exists market_listings_photos on public.market_listings;
+create trigger market_listings_photos before insert or update on public.market_listings for each row execute function public.kr_listing_photos();
+
+-- ───────────────────────── pay-first orders ─────────────────────────
+alter table public.market_orders add column if not exists pay_first boolean not null default false;
+alter table public.market_orders add column if not exists basket uuid;
+alter table public.market_orders add column if not exists payment_state text;
+alter table public.market_orders add column if not exists paid_at timestamptz;
+alter table public.market_orders add column if not exists payment_confirmed_at timestamptz;
+alter table public.market_orders add column if not exists delivery_lat double precision;
+alter table public.market_orders add column if not exists delivery_lon double precision;
+alter table public.market_orders add column if not exists ship_vehicle text;
+alter table public.market_orders add column if not exists driver_name text;
+alter table public.market_orders add column if not exists driver_phone text;
+alter table public.market_orders add column if not exists shipped_at timestamptz;
+alter table public.market_orders add column if not exists last_lat double precision;
+alter table public.market_orders add column if not exists last_lon double precision;
+alter table public.market_orders add column if not exists last_accuracy real;
+alter table public.market_orders add column if not exists last_at timestamptz;
+alter table public.market_orders add column if not exists delivered_at timestamptz;
+
+alter table public.market_orders drop constraint if exists market_orders_payment_state_check;
+alter table public.market_orders add constraint market_orders_payment_state_check check (payment_state is null or payment_state in ('unpaid', 'paid', 'received'));
+alter table public.market_orders drop constraint if exists market_orders_delivery_point_check;
+alter table public.market_orders add constraint market_orders_delivery_point_check
+  check ((delivery_lat is null and delivery_lon is null) or (delivery_lat between -90 and 90 and delivery_lon between -180 and 180));
+alter table public.market_orders drop constraint if exists market_orders_last_point_check;
+alter table public.market_orders add constraint market_orders_last_point_check
+  check ((last_lat is null and last_lon is null) or (last_lat between -90 and 90 and last_lon between -180 and 180));
+alter table public.market_orders drop constraint if exists market_orders_ship_vehicle_check;
+alter table public.market_orders add constraint market_orders_ship_vehicle_check check (ship_vehicle is null or char_length(ship_vehicle) between 2 and 40);
+alter table public.market_orders drop constraint if exists market_orders_driver_name_check;
+alter table public.market_orders add constraint market_orders_driver_name_check check (driver_name is null or char_length(driver_name) <= 80);
+alter table public.market_orders drop constraint if exists market_orders_driver_phone_check;
+alter table public.market_orders add constraint market_orders_driver_phone_check check (driver_phone is null or driver_phone ~ '^[6-9][0-9]{9}$');
+create index if not exists market_orders_basket on public.market_orders (basket) where basket is not null;
+
+-- The driver's tracking link: one per basket (or per order without a basket).
+create table if not exists public.market_order_drivers (
+  basket     uuid primary key,
+  token      text not null unique default (replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '')),
+  created_at timestamptz not null default now()
+);
+alter table public.market_order_drivers enable row level security;
+revoke all on public.market_order_drivers from anon, authenticated;
+
+-- New orders: the price, seller and product come from the listing. Pay first
+-- is only for farm tools and inputs, and a basket holds one buyer's products
+-- from one seller. Nothing about payment or shipping can be set by the buyer.
+create or replace function public.kr_before_order() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare l public.market_listings; other public.market_orders;
+begin
+  select * into l from public.market_listings where id = new.listing_id;
+  if not found or not l.active then raise exception 'This product is no longer listed'; end if;
+  if l.seller_id = new.buyer_id then raise exception 'You cannot order your own product'; end if;
+  if new.quantity > l.quantity then
+    raise exception 'Only % % of % left. Order % or less.', trim_scale(l.quantity), l.unit, l.product, trim_scale(l.quantity);
+  end if;
+  new.seller_id := l.seller_id;
+  new.product := l.product || coalesce(' · ' || l.variety, '');
+  new.unit := l.unit;
+  new.unit_price := l.price;
+  new.amount := round(l.price * new.quantity, 2);
+  new.status := 'placed';
+  new.payment_ref := null;
+  new.seller_note := null;
+  new.pay_first := coalesce(new.pay_first, false);
+  if new.pay_first then
+    if l.category <> 'supplies' then raise exception 'Paying first is only for farm tools and inputs'; end if;
+    new.basket := coalesce(new.basket, gen_random_uuid());
+    select * into other from public.market_orders where basket = new.basket limit 1;
+    if found and (other.buyer_id <> new.buyer_id or other.seller_id <> new.seller_id or other.status <> 'placed' or not other.pay_first) then
+      raise exception 'One order can hold products from one seller only';
+    end if;
+    new.payment_state := 'unpaid';
+  else
+    new.basket := null;
+    new.payment_state := null;
+  end if;
+  new.paid_at := null;
+  new.payment_confirmed_at := null;
+  new.shipped_at := null;
+  new.delivered_at := null;
+  new.ship_vehicle := null;
+  new.driver_name := null;
+  new.driver_phone := null;
+  new.last_lat := null;
+  new.last_lon := null;
+  new.last_accuracy := null;
+  new.last_at := null;
+  return new;
+end $$;
+
+-- Puts a basket's reserved stock back (an accepted order that is cancelled before payment).
+create or replace function public.kr_shop_restock(p_basket uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare r public.market_orders;
+begin
+  for r in select * from public.market_orders where basket = p_basket loop
+    update public.market_listings set quantity = quantity + r.quantity where id = r.listing_id;
+  end loop;
+end $$;
+
+-- One step of a pay-first order; the whole basket moves together. Called
+-- from kr_order_action after it has checked who is asking.
+create or replace function public.kr_shop_step(o public.market_orders, p_action text, p_ref text, p_note text)
+returns public.market_orders language plpgsql security definer set search_path = public as $$
+declare r public.market_orders; l public.market_listings; b uuid := o.basket;
+begin
+  perform 1 from public.market_orders where basket = b for update;
+  if p_action = 'accept' then
+    if o.status <> 'placed' then raise exception 'This order is already %', o.status; end if;
+    if not exists (select 1 from public.payout_accounts where user_id = o.seller_id) then
+      raise exception 'Add where buyers pay you first (UPI ID or bank account). Then accept the order.';
+    end if;
+    for r in select * from public.market_orders where basket = b order by created_at loop
+      select * into l from public.market_listings where id = r.listing_id for update;
+      if found then
+        if l.quantity < r.quantity then
+          raise exception 'Only % % of % left in stock. Add stock first, or decline the order.', trim_scale(l.quantity), l.unit, l.product;
+        end if;
+        update public.market_listings set quantity = quantity - r.quantity where id = l.id;
+      end if;
+    end loop;
+    update public.market_orders set status = 'accepted', seller_note = coalesce(left(p_note, 300), seller_note) where basket = b;
+  elsif p_action = 'reject' then
+    if o.status <> 'placed' then raise exception 'This order is already %', o.status; end if;
+    update public.market_orders set status = 'rejected', seller_note = left(p_note, 300) where basket = b;
+  elsif p_action = 'cancel' then
+    if o.status = 'placed' then
+      update public.market_orders set status = 'cancelled' where basket = b;
+    elsif o.status = 'accepted' and o.payment_state = 'unpaid' then
+      perform public.kr_shop_restock(b);
+      update public.market_orders set status = 'cancelled' where basket = b;
+    elsif o.status = 'accepted' then
+      raise exception 'You have already paid for this order. Call the seller, or press “Report a problem”.';
+    else
+      raise exception 'This order is already %. It cannot be cancelled now.', o.status;
+    end if;
+  elsif p_action = 'seller_cancel' then
+    if not (o.status = 'accepted' and o.payment_state = 'unpaid') then raise exception 'You can cancel only while the buyer has not paid'; end if;
+    perform public.kr_shop_restock(b);
+    update public.market_orders set status = 'cancelled', seller_note = coalesce(left(p_note, 300), 'Cancelled by the seller: the payment did not come.') where basket = b;
+  elsif p_action = 'pay' then
+    if o.status = 'placed' then raise exception 'Wait until the seller accepts the order. Then pay.'; end if;
+    if o.status <> 'accepted' then raise exception 'This order is already %', o.status; end if;
+    if o.payment_state = 'received' then raise exception 'The seller has already confirmed your payment'; end if;
+    if p_ref is null or p_ref !~ '^[A-Za-z0-9]{6,30}$' then
+      raise exception 'Enter the payment reference (UTR) from your UPI app or bank: 6 to 30 letters or numbers, no spaces.';
+    end if;
+    update public.market_orders set payment_state = 'paid', payment_ref = p_ref, paid_at = now() where basket = b;
+  elsif p_action in ('confirm_payment', 'not_received') then
+    if o.status <> 'accepted' or o.payment_state <> 'paid' then raise exception 'The buyer has not marked this order paid yet'; end if;
+    if p_action = 'confirm_payment' then
+      update public.market_orders set payment_state = 'received', payment_confirmed_at = now() where basket = b;
+    else
+      update public.market_orders set payment_state = 'unpaid', seller_note = coalesce(left(p_note, 300), 'The money has not reached the seller yet.') where basket = b;
+    end if;
+  elsif p_action = 'ship' then
+    raise exception 'Write the vehicle or courier first, then press “Mark shipped”';
+  elsif p_action = 'delivered' then
+    if o.status <> 'shipped' then raise exception 'The seller has not shipped this order yet'; end if;
+    update public.market_orders set status = 'completed', delivered_at = now() where basket = b;
+  elsif p_action = 'dispute' then
+    if o.status in ('completed', 'cancelled', 'rejected') then raise exception 'This order is already %', o.status; end if;
+    update public.market_orders set status = 'disputed', buyer_note = left(p_note, 300) where basket = b;
+  end if;
+  select * into r from public.market_orders where id = o.id;
+  return r;
+end $$;
+
+-- Pay after delivery (Price Comparison, Buyer portal), unchanged: seller
+-- accept → ship; buyer confirms delivery → pays the seller directly and
+-- enters the reference → seller confirms. Pay-first orders go to kr_shop_step.
+create or replace function public.kr_order_action(p_order uuid, p_action text, p_ref text default null, p_note text default null)
+returns public.market_orders language plpgsql security definer set search_path = public as $$
+declare o public.market_orders; l public.market_listings;
+begin
+  select * into o from public.market_orders where id = p_order for update;
+  if not found then raise exception 'Order not found'; end if;
+  if p_action in ('accept', 'reject', 'ship', 'confirm_payment', 'not_received', 'seller_cancel') then
+    if o.seller_id is distinct from auth.uid() then raise exception 'Only the seller can do this'; end if;
+  elsif p_action in ('cancel', 'delivered', 'pay', 'dispute') then
+    if o.buyer_id is distinct from auth.uid() then raise exception 'Only the buyer can do this'; end if;
+  else
+    raise exception 'Unknown action';
+  end if;
+  if o.pay_first and o.basket is not null then return public.kr_shop_step(o, p_action, p_ref, p_note); end if;
+  if p_action in ('not_received', 'seller_cancel') then raise exception 'Unknown action'; end if;
+
+  if p_action = 'accept' then
+    if o.status <> 'placed' then raise exception 'Order is already %', o.status; end if;
+    select * into l from public.market_listings where id = o.listing_id for update;
+    if found then
+      if l.quantity < o.quantity then raise exception 'Only % % left in stock', l.quantity, l.unit; end if;
+      update public.market_listings set quantity = quantity - o.quantity where id = l.id;
+    end if;
+    update public.market_orders set status = 'accepted', seller_note = left(p_note, 300) where id = p_order returning * into o;
+  elsif p_action = 'reject' then
+    if o.status <> 'placed' then raise exception 'Order is already %', o.status; end if;
+    update public.market_orders set status = 'rejected', seller_note = left(p_note, 300) where id = p_order returning * into o;
+  elsif p_action = 'ship' then
+    if o.status <> 'accepted' then raise exception 'Accept the order first'; end if;
+    update public.market_orders set status = 'shipped', shipped_at = now(), seller_note = coalesce(left(p_note, 300), seller_note) where id = p_order returning * into o;
+  elsif p_action = 'cancel' then
+    if o.status <> 'placed' then raise exception 'The seller has already accepted this order'; end if;
+    update public.market_orders set status = 'cancelled' where id = p_order returning * into o;
+  elsif p_action = 'delivered' then
+    if o.status not in ('accepted', 'shipped') then raise exception 'Order is %', o.status; end if;
+    update public.market_orders set status = 'delivered', delivered_at = now() where id = p_order returning * into o;
+  elsif p_action = 'pay' then
+    if o.status not in ('delivered', 'paid') then raise exception 'Confirm the delivery first'; end if;
+    if p_ref is null or p_ref !~ '^[A-Za-z0-9]{6,30}$' then raise exception 'Enter the 12-digit UPI reference (UTR) from your payment app'; end if;
+    update public.market_orders set status = 'paid', payment_ref = p_ref, paid_at = now() where id = p_order returning * into o;
+  elsif p_action = 'dispute' then
+    if o.status in ('completed', 'cancelled', 'rejected') then raise exception 'Order is %', o.status; end if;
+    update public.market_orders set status = 'disputed', buyer_note = left(p_note, 300) where id = p_order returning * into o;
+  elsif p_action = 'confirm_payment' then
+    if o.status <> 'paid' then raise exception 'The buyer has not marked this order paid yet'; end if;
+    update public.market_orders set status = 'completed', payment_confirmed_at = now() where id = p_order returning * into o;
+  end if;
+  return o;
+end $$;
+
+-- The seller ships: vehicle number or courier, and the driver (optional).
+-- A pay-first order ships only after the seller confirmed the money arrived.
+-- Called again on a shipped order, it corrects the details.
+create or replace function public.kr_order_ship(p_order uuid, p_vehicle text, p_driver_name text default null, p_driver_phone text default null, p_note text default null)
+returns public.market_orders language plpgsql security definer set search_path = public as $$
+declare o public.market_orders; v text := btrim(coalesce(p_vehicle, '')); ph text := regexp_replace(coalesce(p_driver_phone, ''), '\D', '', 'g');
+begin
+  select * into o from public.market_orders where id = p_order for update;
+  if not found then raise exception 'Order not found'; end if;
+  if o.seller_id is distinct from auth.uid() then raise exception 'Only the seller can do this'; end if;
+  if o.status not in ('accepted', 'shipped') then raise exception 'This order is %. It cannot be shipped now.', o.status; end if;
+  if o.pay_first and o.status = 'accepted' and o.payment_state is distinct from 'received' then
+    raise exception 'Ship after the money reaches you. First press “Money received”.';
+  end if;
+  if char_length(v) < 2 or char_length(v) > 40 then
+    raise exception 'Write the vehicle number or the courier name (for example JK01 AB 1234, or India Post).';
+  end if;
+  if char_length(ph) = 12 and ph like '91%' then ph := substr(ph, 3); end if;
+  if ph <> '' and ph !~ '^[6-9][0-9]{9}$' then
+    raise exception 'Write the driver’s 10-digit mobile number (for example 9876543210), or leave it empty.';
+  end if;
+  update public.market_orders
+     set status = 'shipped', shipped_at = coalesce(shipped_at, now()), ship_vehicle = upper(v),
+         driver_name = nullif(left(btrim(coalesce(p_driver_name, '')), 80), ''), driver_phone = nullif(ph, ''),
+         seller_note = coalesce(left(nullif(btrim(p_note), ''), 300), seller_note)
+   where (o.basket is not null and basket = o.basket) or (o.basket is null and id = o.id);
+  select * into o from public.market_orders where id = p_order;
+  return o;
+end $$;
+
+-- Where the vehicle is now, from the seller's phone. At most one update every 10 seconds.
+create or replace function public.kr_order_location(p_order uuid, p_lat double precision, p_lon double precision, p_accuracy real default null)
+returns timestamptz language plpgsql security definer set search_path = public as $$
+declare o public.market_orders;
+begin
+  if p_lat is null or p_lon is null or p_lat not between -90 and 90 or p_lon not between -180 and 180 then raise exception 'Bad location'; end if;
+  select * into o from public.market_orders where id = p_order for update;
+  if not found then raise exception 'Order not found'; end if;
+  if o.seller_id is distinct from auth.uid() then raise exception 'Only the seller can do this'; end if;
+  if o.status <> 'shipped' then raise exception 'Share the location after the order is shipped'; end if;
+  if o.last_at is not null and o.last_at > now() - interval '10 seconds' then return o.last_at; end if;
+  update public.market_orders set last_lat = p_lat, last_lon = p_lon, last_accuracy = p_accuracy, last_at = now()
+   where (o.basket is not null and basket = o.basket) or (o.basket is null and id = o.id);
+  return now();
+end $$;
+
+-- The seller's link for the driver (makes one the first time).
+create or replace function public.kr_order_driver_link(p_order uuid) returns text
+language plpgsql security definer set search_path = public as $$
+declare o public.market_orders; k uuid; t text;
+begin
+  select * into o from public.market_orders where id = p_order;
+  if not found then raise exception 'Order not found'; end if;
+  if o.seller_id is distinct from auth.uid() then raise exception 'Only the seller can do this'; end if;
+  if o.status not in ('accepted', 'shipped') or (o.pay_first and o.status = 'accepted' and o.payment_state is distinct from 'received') then
+    raise exception 'Make the driver link when the order is ready to ship';
+  end if;
+  k := coalesce(o.basket, o.id);
+  insert into public.market_order_drivers (basket) values (k) on conflict (basket) do nothing;
+  select token into t from public.market_order_drivers where basket = k;
+  return t;
+end $$;
+
+-- The driver's page (no sign-in; the token is the key): what to deliver and where.
+create or replace function public.kr_order_driver_view(p_token text) returns jsonb
+language sql stable security definer set search_path = public as $$
+  select jsonb_build_object(
+    'status', o.status, 'delivery_address', o.delivery_address, 'delivery_lat', o.delivery_lat, 'delivery_lon', o.delivery_lon,
+    'buyer_name', o.buyer_name, 'buyer_phone', o.buyer_phone, 'ship_vehicle', o.ship_vehicle, 'last_at', o.last_at,
+    'items', (select jsonb_agg(jsonb_build_object('product', x.product, 'quantity', x.quantity, 'unit', x.unit) order by x.created_at)
+                from public.market_orders x where x.basket = d.basket or x.id = d.basket))
+  from public.market_order_drivers d
+  join lateral (select * from public.market_orders m where m.basket = d.basket or m.id = d.basket order by m.created_at limit 1) o on true
+  where p_token is not null and char_length(p_token) >= 32 and d.token = p_token
+$$;
+
+-- The driver's phone sends its position (only while the order is on the way).
+create or replace function public.kr_order_driver_ping(p_token text, p_lat double precision, p_lon double precision, p_accuracy real default null)
+returns text language plpgsql security definer set search_path = public as $$
+declare k uuid; o public.market_orders;
+begin
+  if p_lat is null or p_lon is null or p_lat not between -90 and 90 or p_lon not between -180 and 180 then raise exception 'Bad location'; end if;
+  select basket into k from public.market_order_drivers where p_token is not null and char_length(p_token) >= 32 and token = p_token;
+  if k is null then raise exception 'This driver link is not valid. Ask the seller for a new one.'; end if;
+  select * into o from public.market_orders where basket = k or id = k order by created_at limit 1 for update;
+  if not found then raise exception 'This driver link is not valid. Ask the seller for a new one.'; end if;
+  if o.status <> 'shipped' then return o.status; end if;
+  if o.last_at is not null and o.last_at > now() - interval '10 seconds' then return o.status; end if;
+  update public.market_orders set last_lat = p_lat, last_lon = p_lon, last_accuracy = p_accuracy, last_at = now()
+   where basket = k or id = k;
+  return 'shipped';
+end $$;
+
+-- ───────────────────────── grants ─────────────────────────
+revoke execute on function public.kr_shop_step(public.market_orders, text, text, text) from public, anon, authenticated;
+revoke execute on function public.kr_shop_restock(uuid) from public, anon, authenticated;
+revoke execute on function public.kr_order_action(uuid, text, text, text) from public, anon;
+revoke execute on function public.kr_order_ship(uuid, text, text, text, text) from public, anon;
+revoke execute on function public.kr_order_location(uuid, double precision, double precision, real) from public, anon;
+revoke execute on function public.kr_order_driver_link(uuid) from public, anon;
+grant execute on function public.kr_order_action(uuid, text, text, text), public.kr_order_ship(uuid, text, text, text, text),
+  public.kr_order_location(uuid, double precision, double precision, real), public.kr_order_driver_link(uuid) to authenticated;
+grant execute on function public.kr_order_driver_view(text), public.kr_order_driver_ping(text, double precision, double precision, real) to anon, authenticated;
+
+-- ════════ 20261027000000_pan_and_signin.sql ════════
+-- KashRoot: a PAN counts as verified only when its number was really read.
+-- Before this, a DigiLocker sign-in where the person only ALLOWED sharing a
+-- PAN (without having one in DigiLocker) recorded "PAN verified" with no PAN
+-- number, and Admin → Accounts showed "PAN ✓" for people with no PAN card.
+--   1. kr_record_kyc refuses a PAN without the last four characters of the
+--      PAN number (read from the Income Tax record or the DigiLocker PAN card).
+--   2. Those wrong records are cleared (the PAN part only; Aadhaar stays).
+--   3. The table itself refuses "PAN verified" without the last four.
+--   4. Admin → Accounts counts PAN only with its last four, and shows the
+--      last four of the PAN and the Aadhaar so an admin can check them.
+-- (The sign-in time limits of this change live in the browser: no SQL.)
+-- Run after 20261018000000_accounts_last_active.sql. Safe to run again.
+
+-- ───────────────────────── 1. recording a check ─────────────────────────
+create or replace function public.kr_record_kyc(p_secret text, p_kind text, p_last4 text, p_name text, p_method text) returns boolean
+language plpgsql security definer set search_path = public as $$
+declare s text;
+begin
+  if auth.uid() is null then return false; end if;
+  select kyc_secret into s from public.kr_settings where id = 1;
+  if s is null or p_secret is null or p_secret <> s then return false; end if;
+  if p_kind = 'aadhaar' then
+    insert into public.identity_checks (user_id, aadhaar_last4, aadhaar_name, aadhaar_method, aadhaar_verified_at, updated_at)
+    values (auth.uid(), nullif(p_last4, ''), left(nullif(trim(p_name), ''), 120), left(p_method, 40), now(), now())
+    on conflict (user_id) do update set aadhaar_last4 = coalesce(excluded.aadhaar_last4, public.identity_checks.aadhaar_last4),
+      aadhaar_name = coalesce(excluded.aadhaar_name, public.identity_checks.aadhaar_name), aadhaar_method = excluded.aadhaar_method,
+      aadhaar_verified_at = now(), updated_at = now();
+  elsif p_kind = 'pan' then
+    -- No PAN number read, no PAN: allowing PAN on a consent screen is not having one.
+    if coalesce(upper(trim(p_last4)), '') !~ '^[A-Z0-9]{4}$' then return false; end if;
+    insert into public.identity_checks (user_id, pan_last4, pan_name, pan_verified_at, updated_at)
+    values (auth.uid(), upper(trim(p_last4)), left(nullif(trim(p_name), ''), 120), now(), now())
+    on conflict (user_id) do update set pan_last4 = excluded.pan_last4,
+      pan_name = coalesce(excluded.pan_name, public.identity_checks.pan_name), pan_verified_at = now(), updated_at = now();
+  else
+    return false;
+  end if;
+  return true;
+end $$;
+revoke execute on function public.kr_record_kyc(text, text, text, text, text) from public, anon;
+grant execute on function public.kr_record_kyc(text, text, text, text, text) to authenticated;
+
+-- ───────────────────────── 2. clear the wrong records ─────────────────────────
+update public.identity_checks
+   set pan_verified_at = null, pan_name = null, updated_at = now()
+ where pan_verified_at is not null and pan_last4 is null;
+
+-- ───────────────────────── 3. the table refuses it too ─────────────────────────
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'identity_checks_pan_needs_last4' and conrelid = 'public.identity_checks'::regclass) then
+    alter table public.identity_checks
+      add constraint identity_checks_pan_needs_last4 check (pan_verified_at is null or pan_last4 is not null);
+  end if;
+end $$;
+
+-- ───────────────────────── 4. Admin → Accounts ─────────────────────────
+-- Dropped first: the answer has two more columns, and Postgres cannot change it in place.
+drop function if exists public.kr_admin_accounts();
+create function public.kr_admin_accounts()
+returns table (
+  user_id uuid, email text, full_name text, phone text, roles text[], portals text[], staff text[],
+  district text, joined_at timestamptz, last_sign_in_at timestamptz, email_confirmed boolean,
+  aadhaar_verified boolean, pan_verified boolean, last_active_at timestamptz,
+  aadhaar_last4 text, pan_last4 text
+)
+language plpgsql stable security definer set search_path = public, auth as $$
+declare
+  seen jsonb := '{}'::jsonb;
+begin
+  if not public.kr_has_role('ADMIN') then raise exception 'Only KashRoot admins can see this'; end if;
+  -- Newest token renewal per person. If this Supabase version keeps them
+  -- differently, the list still loads and uses the last sign-in instead.
+  begin
+    select coalesce(jsonb_object_agg(t.user_id, t.at), '{}'::jsonb) into seen
+      from (select r.user_id::text as user_id, max(greatest(r.created_at, r.updated_at)) as at
+              from auth.refresh_tokens r where r.user_id is not null group by r.user_id) t;
+  exception when others then
+    seen := '{}'::jsonb;
+  end;
+  return query
+    select
+      a.id, a.email, a.full_name, a.phone, a.roles, a.portals, a.staff, a.district, a.joined_at,
+      a.last_sign_in_at, a.email_confirmed,
+      a.aadhaar_at is not null,
+      -- A PAN counts only with the last four characters of its number.
+      a.pan_at is not null and a.pan4 is not null,
+      greatest(a.last_sign_in_at, a.renewed),
+      case when a.aadhaar_at is not null then a.aadhaar4 end,
+      case when a.pan_at is not null then a.pan4 end
+    from (
+      select
+        u.id,
+        u.email::text as email,
+        coalesce(u.raw_user_meta_data ->> 'full_name', '')::text as full_name,
+        coalesce(nullif(u.raw_user_meta_data ->> 'phone', ''), nullif(u.phone::text, ''), '')::text as phone,
+        -- The kind of account chosen at sign-up (FARMER, BUYER, SELLER, PROVIDER…).
+        coalesce((select array_agg(distinct r) from jsonb_array_elements_text(
+          case when jsonb_typeof(u.raw_user_meta_data -> 'roles') = 'array' then u.raw_user_meta_data -> 'roles'
+               else jsonb_build_array(coalesce(u.raw_user_meta_data ->> 'role', 'FARMER')) end) r), '{}')::text[] as roles,
+        -- Portals where they filled in "My details" (profile_farmer, profile_seller…).
+        coalesce((select array_agg(substr(k, 9) order by k) from jsonb_object_keys(coalesce(u.raw_user_meta_data, '{}'::jsonb)) k where k like 'profile\_%'), '{}')::text[] as portals,
+        coalesce((select array_agg(s.role order by s.role) from public.staff_roles s where s.user_id = u.id), '{}')::text[] as staff,
+        coalesce((select v ->> 'district' from jsonb_each(coalesce(u.raw_user_meta_data, '{}'::jsonb)) e(k, v)
+                   where k like 'profile\_%' and jsonb_typeof(v) = 'object' and coalesce(v ->> 'district', '') <> '' limit 1), '')::text as district,
+        u.created_at as joined_at,
+        u.last_sign_in_at,
+        u.email_confirmed_at is not null as email_confirmed,
+        k.aadhaar_verified_at as aadhaar_at,
+        k.aadhaar_last4::text as aadhaar4,
+        k.pan_verified_at as pan_at,
+        k.pan_last4::text as pan4,
+        (seen ->> u.id::text)::timestamptz as renewed
+      from auth.users u
+      left join public.identity_checks k on k.user_id = u.id
+    ) a
+    order by coalesce(greatest(a.last_sign_in_at, a.renewed), a.joined_at) desc
+    limit 2000;
+end $$;
+revoke execute on function public.kr_admin_accounts() from public, anon;
+grant execute on function public.kr_admin_accounts() to authenticated;
+
 -- ════════ Make kashroot08@gmail.com the owner admin ════════
 -- The result below says "Done" — or, if that account does not exist yet,
 -- create it on the website first (any portal) and run this file again.

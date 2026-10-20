@@ -17,6 +17,8 @@ export async function recordKyc(request: Request, kind: 'aadhaar' | 'pan', check
   const anon = supabaseAnonKey(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
   const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '').trim();
   if (!secret || !origin || !anon || !token) return false;
+  // A PAN counts only with the last four characters read from the card or the Income Tax record.
+  if (kind === 'pan' && !/^[A-Z0-9]{4}$/.test((check.last4 ?? '').toUpperCase())) return false;
   try {
     const res = await fetch(`${origin}/rest/v1/rpc/kr_record_kyc`, {
       method: 'POST',

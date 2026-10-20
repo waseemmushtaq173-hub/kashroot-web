@@ -8,27 +8,30 @@
  *   place) for some months, pay the owner directly by UPI / bank for their
  *   own boxes, and the owner confirms. Later they see exactly where their
  *   boxes are.
- *   Owners: list their cold store (capacity in boxes, vacancy, rate, UPI /
- *   bank details), measure its chambers (or draw them as rows of stacks),
- *   and confirm bookings.
- *   (components/rental)
+ *   Owners: set up their cold store step by step in the owner wizard —
+ *   the store and its people, the building and main door, each chamber
+ *   (bins or crates, floors, size, its own door, rent), where farmers pay
+ *   them — drawn and in 3D as they type; then confirm bookings.
+ *   (components/rental, components/rental/owner)
  * Payments go straight to the owner — KashRoot does not hold them.
  * Data: rental_listings, rental_bookings, payout_accounts (shared database).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Apple, Boxes, CalendarDays, CheckCircle2, ClipboardCheck, Landmark, Loader2, Map as MapIcon, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, Search, Snowflake, Store, Trash2, Warehouse, XCircle } from 'lucide-react';
+import { Apple, ArrowRight, Boxes, CalendarDays, CheckCircle2, ClipboardCheck, IndianRupee, Landmark, Loader2, Map as MapIcon, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, Search, Snowflake, Store, Trash2, Warehouse, XCircle } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { IdentityStatus } from '@/components/auth/IdentityStatus';
 import { PortalShell } from '@/components/layout/PortalShell';
 import { PayDirect } from '@/components/payments/PayDirect';
-import { PayoutForm } from '@/components/payments/PayoutForm';
 import { ColdBooking, MyPlaces, placesText } from '@/components/rental/ColdBooking';
 import { ColdMapEditor } from '@/components/rental/ColdMapEditor';
+import { OwnerWizard, type Step } from '@/components/rental/owner/OwnerWizard';
+import { PaymentDetails } from '@/components/rental/owner/PaymentStep';
 import { ColdStoreDirectory, useColdDirectory } from '@/components/rental/ColdStoreDirectory';
 import { Badge, Btn, EmptyState, Field, INPUT, Modal, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { inr, loadAccount, type Account } from '@/lib/db/client';
 import { showLength } from '@/lib/coldLayout';
+import { countText, groupChambers, unitsText } from '@/lib/coldStore';
 import { chambersOf, placesOfBookings, usablePlaces, type BookedPlace, type ColdChamber } from '@/lib/db/coldMap';
 import {
   bookingAction,
@@ -40,10 +43,9 @@ import {
   myListings,
   myPayout,
   requestBooking,
-  saveListing,
   setAvailability,
+  setRent,
   UNIT_LABEL,
-  type ListingInput,
   type PayoutAccount,
   type RentalBooking,
   type RentalListing,
@@ -51,22 +53,6 @@ import {
 
 const theme = PORTAL_THEMES.rental;
 const today = () => new Date().toISOString().slice(0, 10);
-
-const blankListing = (account: Account | null): ListingInput => ({
-  kind: 'cold_store',
-  title: '',
-  owner_name: account?.name ?? '',
-  phone: account?.phone ?? '',
-  district: account?.district ?? '',
-  address: '',
-  unit: 'box_month',
-  capacity: 1000,
-  available: 1000,
-  rate: 15,
-  min_units: 10,
-  temperature: '0–2 °C, CA',
-  details: '',
-});
 
 type Side = 'farmer' | 'owner';
 /** The side last chosen on this device. */
@@ -163,6 +149,8 @@ export default function RentalPage() {
   };
   const activeBookings = mine.filter((b) => b.status === 'requested' || b.status === 'paid' || b.status === 'confirmed');
   const directory = useColdDirectory(listings);
+  // What the owner's stores hold: "bins and crates", or "boxes" for older stores.
+  const ownedUnits = unitsText(chambers.filter((c) => owned.some((l) => l.id === c.listing_id)).map((c) => c.storage));
 
   if (account === undefined) return <p className="flex items-center gap-2 p-10 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>;
 
@@ -172,7 +160,7 @@ export default function RentalPage() {
       description={
         side === 'farmer'
           ? 'Find a cold store, see every chamber on a plan and in 3D, choose your own place for any number of boxes, and pay the owner directly.'
-          : 'List your cold store and enter each chamber’s size — farmers see it on a plan and in 3D — then confirm bookings and get paid directly.'
+          : 'Set up your cold store step by step — the building, each chamber with its bins or crates — and see it drawn and in 3D as you type. Then confirm bookings and get paid directly.'
       }
       eyebrow="Cold storage"
       theme="rental"
@@ -185,9 +173,9 @@ export default function RentalPage() {
               { label: 'Your boxes booked', value: activeBookings.reduce((s, b) => s + b.units, 0).toLocaleString('en-IN'), trend: activeBookings.length ? `in ${activeBookings.length} booking${activeBookings.length === 1 ? '' : 's'}` : 'Book any number of boxes' },
             ]
           : [
-              { label: 'My cold stores', value: String(owned.length), trend: owned.length ? `${owned.reduce((s, l) => s + l.capacity, 0).toLocaleString('en-IN')} boxes in all` : 'List your cold store', onClick: () => setTab('stores') },
+              { label: 'My cold stores', value: String(owned.length), trend: owned.length ? `${owned.reduce((s, l) => s + l.capacity, 0).toLocaleString('en-IN')} ${ownedUnits} in all` : 'List your cold store', onClick: () => setTab('stores') },
               { label: 'Waiting for you', value: String(waiting), trend: 'Bookings to confirm', onClick: () => setTab('requests') },
-              { label: 'Boxes free in my stores', value: owned.reduce((s, l) => s + l.available, 0).toLocaleString('en-IN'), trend: `of ${owned.reduce((s, l) => s + l.capacity, 0).toLocaleString('en-IN')}` },
+              { label: 'Free in my stores', value: owned.reduce((s, l) => s + l.available, 0).toLocaleString('en-IN'), trend: `${ownedUnits} free, of ${owned.reduce((s, l) => s + l.capacity, 0).toLocaleString('en-IN')}` },
             ]
       }
       tabs={
@@ -500,10 +488,11 @@ function OwnerPanel({
   prefill: { title: string; district: string; address: string } | null;
   onChange: () => Promise<void> | void;
 }) {
-  const [editing, setEditing] = useState<{ id?: string; data: ListingInput } | null>(() =>
-    prefill ? { data: { ...blankListing(account), title: prefill.title, district: prefill.district || account.district || '', address: prefill.address } } : null,
-  );
+  // The owner wizard: a new store (listing null) or one being changed, from a step.
+  const [wizard, setWizard] = useState<{ key: string; listing: RentalListing | null; start?: Step; prefill?: typeof prefill } | null>(() => (prefill ? { key: 'claim', listing: null, prefill } : null));
   const [mapOf, setMapOf] = useState<RentalListing | null>(null);
+  // A store set up before the wizard: its rent per box (and boxes, without chambers).
+  const [rentOf, setRentOf] = useState<RentalListing | null>(null);
   const [payout, setPayout] = useState<PayoutAccount | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
 
@@ -523,17 +512,10 @@ function OwnerPanel({
       setBusy(false);
     }
   };
-
-  const save = async () => {
-    if (!editing) return;
-    const d = editing.data;
-    if (d.title.trim().length < 2 || d.district.trim().length < 2) return toast.error('Add a name and district.');
-    if (!/^(\+?91)?[6-9]\d{9}$/.test(d.phone.replace(/\s/g, ''))) return toast.error('Add a 10-digit mobile number farmers can call.');
-    if (!(d.capacity > 0) || d.available < 0 || !(d.rate >= 0)) return toast.error('Check capacity, free space and rate.');
-    await run(async () => {
-      await saveListing({ ...d, title: d.title.trim(), phone: d.phone.replace(/\s/g, ''), available: Math.min(d.available, d.capacity) }, editing.id);
-      setEditing(null);
-    }, editing.id ? 'Listing updated' : 'Listed — farmers can now book it');
+  const openWizard = (listing: RentalListing | null, start?: Step) => {
+    setMapOf(null);
+    setWizard({ key: `${listing?.id ?? 'new'}-${Date.now()}`, listing, start });
+    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
   };
 
   const pending = incoming.filter((b) => b.status === 'requested' || b.status === 'paid');
@@ -573,53 +555,91 @@ function OwnerPanel({
       </Panel>
       )}
 
-      {section === 'stores' && (
+      {section === 'stores' && wizard && (
+        <OwnerWizard
+          key={wizard.key}
+          account={account}
+          listing={wizard.listing}
+          rows={wizard.listing ? chambers.filter((c) => c.listing_id === wizard.listing!.id) : []}
+          payout={payout}
+          prefill={wizard.prefill}
+          start={wizard.start}
+          onClose={() => setWizard(null)}
+          onChanged={onChange}
+          onPayout={setPayout}
+        />
+      )}
+
+      {section === 'stores' && !wizard && (
       <Panel
         theme={theme}
         title="My cold stores"
         icon={Warehouse}
         className="lg:col-span-2"
         // With no store yet, the button is in the message below instead.
-        action={owned.length ? <Btn theme={theme} size="sm" icon={PlusCircle} onClick={() => setEditing({ data: blankListing(account) })}>Add cold store</Btn> : undefined}
+        action={owned.length ? <Btn theme={theme} className="min-h-[44px]" icon={PlusCircle} onClick={() => openWizard(null)}>Add cold store</Btn> : undefined}
       >
         {owned.length === 0 ? (
           <EmptyState
             theme={theme}
             icon={Warehouse}
             title="List your cold store"
-            text="Add your cold store, then open “Draw your cold store map” and enter each chamber’s length, breadth and height: farmers see every chamber on a floor plan and in 3D, and book their own places."
-            action={<Btn theme={theme} icon={PlusCircle} onClick={() => setEditing({ data: blankListing(account) })}>Add cold store</Btn>}
+            text="Five short steps: your store, the building, the chambers (bins or crates, floors, size, door, rent), where farmers pay you, then publish. Your store is drawn and shown in 3D as you type — farmers see exactly that and book their own places."
+            action={<Btn theme={theme} className="min-h-[48px]" icon={PlusCircle} onClick={() => openWizard(null)}>Add cold store</Btn>}
           />
         ) : (
           <ul className="space-y-3">
             {owned.map((l) => {
               const unit = UNIT_LABEL[l.unit];
               const step = 100;
-              const mapped = chambers.some((c) => c.listing_id === l.id);
+              const mine = chambers.filter((c) => c.listing_id === l.id);
+              const mapped = mine.length > 0;
+              const groups = groupChambers(mine);
+              const words = unitsText(mine.map((c) => c.storage));
+              // A store set up in the wizard is ready once it has chambers and payment details.
+              const ready = mapped && payout !== null && payout !== undefined;
+              const wizardStore = Boolean(l.building) || mine.some((c) => c.chamber_no !== null);
               return (
                 <li key={l.id} className="rounded-2xl bg-white/85 p-4 ring-1 ring-slate-900/5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="font-semibold text-slate-900">{l.title} {!l.active && <Badge tone="slate">Hidden</Badge>}</p>
-                    <span className="text-sm text-slate-600">{inr(l.rate)} {unit.per}</span>
+                    <p className="font-semibold text-slate-900">
+                      {l.title}{' '}
+                      {!l.active && (wizardStore && !ready ? <Badge tone="amber">Not finished — farmers cannot see it yet</Badge> : <Badge tone="slate">Hidden from farmers</Badge>)}
+                    </p>
+                    <span className="text-sm text-slate-600">{mine.some((c) => c.rate !== null) ? `from ${inr(l.rate)} a ${words === 'bins' ? 'bin' : words === 'crates' ? 'crate' : 'bin or crate'} a month` : `${inr(l.rate)} ${unit.per}`}</span>
                   </div>
+                  {(l.area || l.district) && <p className="mt-0.5 flex items-center gap-1.5 text-sm text-slate-600"><MapPin className="h-4 w-4" aria-hidden /> {[l.area, l.district, l.state].filter(Boolean).join(', ')}</p>}
+                  {groups.length > 0 && (
+                    <p className="mt-2 text-sm text-slate-700">
+                      {groups.length} chamber{groups.length === 1 ? '' : 's'}: {groups.slice(0, 4).map((g) => `${g.name} (${countText(g.count, g.storage)}${g.floors.length > 1 ? `, ${g.floors.length} floors` : ''})`).join(' · ')}
+                      {groups.length > 4 ? ` and ${groups.length - 4} more` : ''}
+                    </p>
+                  )}
                   {mapped ? (
                     <p className="mt-3 text-sm text-slate-700">
-                      Free now: <strong className="text-lg tabular-nums text-slate-900"><Boxes className="mr-1 inline h-4 w-4 text-violet-600" aria-hidden />{l.available.toLocaleString('en-IN')}</strong> of {l.capacity.toLocaleString('en-IN')} boxes — counted from your map
+                      Free now: <strong className="text-lg tabular-nums text-slate-900"><Boxes className="mr-1 inline h-4 w-4 text-violet-600" aria-hidden />{l.available.toLocaleString('en-IN')}</strong> of {l.capacity.toLocaleString('en-IN')} {words} — counted from your chambers
                     </p>
+                  ) : wizardStore ? (
+                    <p className="mt-3 text-sm text-amber-800">No chambers yet — add them so farmers can book.</p>
                   ) : (
                   <div className="mt-3 flex flex-wrap items-center gap-3">
                     <span className="text-sm text-slate-700">Free now:</span>
-                    <button type="button" aria-label={`${step} fewer free`} disabled={busy} onClick={() => void run(() => setAvailability(l.id, Math.max(0, l.available - step)), 'Vacancy updated')} className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg bg-slate-100 hover:bg-slate-200"><Minus className="h-4 w-4" aria-hidden /></button>
+                    <button type="button" aria-label={`${step} fewer free`} disabled={busy} onClick={() => void run(() => setAvailability(l.id, Math.max(0, l.available - step)), 'Vacancy updated')} className="grid h-11 w-11 cursor-pointer place-items-center rounded-lg bg-slate-100 hover:bg-slate-200"><Minus className="h-4 w-4" aria-hidden /></button>
                     <span className="min-w-[6rem] text-center text-lg font-bold tabular-nums text-slate-900"><Boxes className="mr-1 inline h-4 w-4 text-violet-600" aria-hidden />{l.available.toLocaleString('en-IN')}</span>
-                    <button type="button" aria-label={`${step} more free`} disabled={busy} onClick={() => void run(() => setAvailability(l.id, Math.min(l.capacity, l.available + step)), 'Vacancy updated')} className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg bg-slate-100 hover:bg-slate-200"><Plus className="h-4 w-4" aria-hidden /></button>
+                    <button type="button" aria-label={`${step} more free`} disabled={busy} onClick={() => void run(() => setAvailability(l.id, Math.min(l.capacity, l.available + step)), 'Vacancy updated')} className="grid h-11 w-11 cursor-pointer place-items-center rounded-lg bg-slate-100 hover:bg-slate-200"><Plus className="h-4 w-4" aria-hidden /></button>
                     <span className="text-sm text-slate-500">of {l.capacity.toLocaleString('en-IN')} {unit.unit}</span>
                   </div>
                   )}
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <Btn theme={theme} size="sm" icon={MapIcon} onClick={() => setMapOf(l)}>{mapped ? 'Cold store map & 3D' : 'Draw your cold store map'}</Btn>
-                    <Btn theme={theme} size="sm" variant="soft" icon={Pencil} onClick={() => setEditing({ id: l.id, data: { kind: l.kind, title: l.title, owner_name: l.owner_name, phone: l.phone, district: l.district, address: l.address ?? '', unit: l.unit, capacity: l.capacity, available: l.available, rate: Number(l.rate), min_units: l.min_units, temperature: l.temperature ?? '', details: l.details ?? '' } })}>Edit</Btn>
-                    <Btn theme={theme} size="sm" variant="ghost" disabled={busy} onClick={() => void run(() => setAvailability(l.id, l.available, !l.active), l.active ? 'Hidden from farmers' : 'Visible to farmers again')}>{l.active ? 'Hide' : 'Show again'}</Btn>
-                    <Btn theme={theme} size="sm" variant="danger" icon={Trash2} disabled={busy} onClick={() => { if (window.confirm(`Remove ${l.title}? Its bookings are removed too.`)) void run(() => deleteListing(l.id), 'Listing removed'); }}>Remove</Btn>
+                    {wizardStore && !ready && !l.active && <Btn theme={theme} className="min-h-[44px]" icon={ArrowRight} onClick={() => openWizard(l)}>Finish setting up</Btn>}
+                    {mapped && <Btn theme={theme} variant={wizardStore && !ready && !l.active ? 'soft' : 'solid'} className="min-h-[44px]" icon={MapIcon} onClick={() => setMapOf(l)}>Cold store map & 3D</Btn>}
+                    <Btn theme={theme} variant="soft" className="min-h-[44px]" icon={Pencil} onClick={() => openWizard(l, 1)}>Change details</Btn>
+                    {!wizardStore && <Btn theme={theme} variant="soft" className="min-h-[44px]" icon={IndianRupee} onClick={() => setRentOf(l)}>Change rent</Btn>}
+                    <Btn theme={theme} variant="soft" className="min-h-[44px]" icon={Warehouse} onClick={() => openWizard(l, wizardStore || !mapped ? (l.building ? 3 : 2) : 3)}>{mapped ? 'Change chambers' : 'Add chambers'}</Btn>
+                    {(!wizardStore || ready || l.active) && (
+                      <Btn theme={theme} variant="ghost" className="min-h-[44px]" disabled={busy} onClick={() => void run(() => setAvailability(l.id, l.available, !l.active), l.active ? 'Hidden from farmers' : 'Farmers can see it again')}>{l.active ? 'Hide' : 'Show to farmers'}</Btn>
+                    )}
+                    <Btn theme={theme} variant="danger" className="min-h-[44px]" icon={Trash2} disabled={busy} onClick={() => { if (window.confirm(`Remove ${l.title}? Its bookings are removed too.`)) void run(() => deleteListing(l.id), 'Listing removed'); }}>Remove</Btn>
                   </div>
                 </li>
               );
@@ -631,11 +651,11 @@ function OwnerPanel({
 
       {section === 'payments' && (
         <>
-          <PayoutForm theme={theme} payout={payout} onSaved={setPayout} />
+          <PaymentDetails payout={payout} onSaved={setPayout} name={owned[0]?.owner_name ?? account.name} />
           <Panel theme={theme} title="How farmers pay you" icon={Landmark}>
             <ol className="list-decimal space-y-2 pl-5 text-sm text-slate-700">
               <li>A farmer books places in your store; they are held for 24 hours.</li>
-              <li>The farmer pays you directly by UPI or bank transfer, to the details on the left, and enters the payment number.</li>
+              <li>The farmer pays you directly — to your bank account or UPI ID on the left — and enters the payment number.</li>
               <li>Check the money in your bank or UPI app, then confirm the booking in “Bookings to confirm”.</li>
             </ol>
             <p className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-600 ring-1 ring-slate-900/5">KashRoot never holds the money: it goes straight from the farmer to you.</p>
@@ -666,71 +686,93 @@ function OwnerPanel({
           bookings={incoming.filter((b) => b.listing_id === mapOf.id)}
           places={places}
           onClose={() => setMapOf(null)}
-          onChanged={onChange}
+          onEdit={() => openWizard(owned.find((l) => l.id === mapOf.id) ?? mapOf, 3)}
         />
       )}
 
-      {editing && (
-        <Modal
-          open
-          wide
-          onClose={() => setEditing(null)}
-          title={editing.id ? 'Edit your cold store' : 'Add your cold store'}
-          footer={
-            <>
-              <Btn theme={theme} variant="ghost" onClick={() => setEditing(null)}>Cancel</Btn>
-              <Btn theme={theme} icon={CheckCircle2} disabled={busy} onClick={() => void save()}>Save</Btn>
-            </>
-          }
-        >
-          <ListingForm value={editing.data} mapped={Boolean(editing.id && chambers.some((c) => c.listing_id === editing.id))} onChange={(data) => setEditing({ ...editing, data })} />
-        </Modal>
+      {rentOf && (
+        <OlderRent
+          listing={rentOf}
+          mapped={chambers.some((c) => c.listing_id === rentOf.id)}
+          onClose={() => setRentOf(null)}
+          onSaved={async () => {
+            setRentOf(null);
+            await onChange();
+          }}
+        />
       )}
     </div>
   );
 }
 
-function ListingForm({ value: v, mapped = false, onChange }: { value: ListingInput; mapped?: boolean; onChange: (v: ListingInput) => void }) {
-  const set = <K extends keyof ListingInput>(k: K, val: ListingInput[K]) => onChange({ ...v, [k]: val });
-  const num = (s: string) => (s === '' ? 0 : Number(s));
+/**
+ * The rent of a store set up before the owner wizard (one rate for every
+ * box), and — when it has no chambers — how many boxes it holds. Stores set
+ * up in the wizard have a rent for each chamber instead.
+ */
+function OlderRent({ listing: l, mapped, onClose, onSaved }: { listing: RentalListing; mapped: boolean; onClose: () => void; onSaved: () => Promise<void> }) {
+  const [rent, setRentText] = useState(String(Number(l.rate)));
+  const [boxes, setBoxes] = useState(String(l.capacity));
+  const [tried, setTried] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const booked = Math.max(0, l.capacity - l.available);
+  const r = Number(rent.replace(/[,\s]/g, ''));
+  const n = Number(boxes.replace(/[,\s]/g, ''));
+  const rentProblem = !rent.trim() || !Number.isFinite(r) || r <= 0 ? 'Write the rent for one box for one month, in rupees, like 15.' : r > 100000 ? `₹${r.toLocaleString('en-IN')} for one box for one month is too much. Please check.` : null;
+  const boxProblem = mapped
+    ? null
+    : !boxes.trim() || !Number.isInteger(n) || n < 1
+      ? 'Write how many boxes your store holds, as a whole number, like 1000.'
+      : n > 10_000_000
+        ? 'That is more than 1 crore boxes. Please check the number.'
+        : n < booked
+          ? `${booked.toLocaleString('en-IN')} boxes are booked now, so your store holds at least ${booked.toLocaleString('en-IN')}.`
+          : null;
+  const save = async () => {
+    setTried(true);
+    if (rentProblem || boxProblem) return toast.error(rentProblem ?? boxProblem!);
+    setBusy(true);
+    try {
+      await setRent(l.id, r, mapped ? undefined : { capacity: n, available: n - booked });
+      toast.success('Rent saved');
+      await onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not save the rent.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const problem = (m: string | null) => (tried && m ? <span role="alert" className="mt-1.5 block rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-900 ring-1 ring-rose-200">{m}</span> : null);
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      <Field label="Cold store name">
-        <input className={INPUT} value={v.title} onChange={(e) => set('title', e.target.value)} placeholder="e.g. Valley Fresh CA Store" />
-      </Field>
-      <Field label="Your name">
-        <input className={INPUT} value={v.owner_name} onChange={(e) => set('owner_name', e.target.value)} />
-      </Field>
-      <Field label="Mobile (farmers call this)">
-        <input type="tel" className={INPUT} value={v.phone} onChange={(e) => set('phone', e.target.value)} />
-      </Field>
-      <Field label="District">
-        <input className={INPUT} value={v.district} onChange={(e) => set('district', e.target.value)} placeholder="e.g. Shopian" />
-      </Field>
-      <Field label="Village / address">
-        <input className={INPUT} value={v.address ?? ''} onChange={(e) => set('address', e.target.value)} placeholder="e.g. Industrial Estate, Lassipora" />
-      </Field>
-      <Field label="Temperature / type">
-        <input className={INPUT} value={v.temperature ?? ''} onChange={(e) => set('temperature', e.target.value)} placeholder="e.g. 0–2 °C, controlled atmosphere" />
-      </Field>
-      <Field label="Total capacity (boxes)" hint={mapped ? 'Counted from your cold store map' : undefined}>
-        <input type="number" min={1} disabled={mapped} className={INPUT} value={v.capacity || ''} onChange={(e) => set('capacity', num(e.target.value))} />
-      </Field>
-      <Field label="Free right now (boxes)" hint={mapped ? 'Counted from your cold store map' : undefined}>
-        <input type="number" min={0} disabled={mapped} className={INPUT} value={v.available} onChange={(e) => set('available', num(e.target.value))} />
-      </Field>
-      <Field label="Rate (₹ per box per month)">
-        <input type="number" min={0} step="0.5" className={INPUT} value={v.rate} onChange={(e) => set('rate', num(e.target.value))} />
-      </Field>
-      <Field label="Minimum boxes per booking">
-        <input type="number" min={1} className={INPUT} value={v.min_units} onChange={(e) => set('min_units', Math.max(1, num(e.target.value)))} />
-      </Field>
-      <div className="sm:col-span-2">
-        <Field label="More details (optional)">
-          <textarea rows={2} className={INPUT} value={v.details ?? ''} onChange={(e) => set('details', e.target.value)} placeholder="e.g. Grading line, loading bay, 24-hour power backup" />
-        </Field>
-      </div>
-    </div>
+    <Modal
+      open
+      onClose={onClose}
+      title={`Rent · ${l.title}`}
+      footer={
+        <>
+          <Btn theme={theme} variant="ghost" className="min-h-[44px]" onClick={onClose}>Cancel</Btn>
+          <Btn theme={theme} className="min-h-[44px]" icon={CheckCircle2} disabled={busy} onClick={() => void save()}>{busy ? 'Saving…' : 'Save'}</Btn>
+        </>
+      }
+    >
+      <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void save(); }}>
+        <div>
+          <Field label="Rent for one box for one month (₹)">
+            <input className={`${INPUT} min-h-[48px] text-base`} inputMode="decimal" value={rent} onChange={(e) => setRentText(e.target.value)} />
+          </Field>
+          {problem(rentProblem)}
+        </div>
+        {!mapped && (
+          <div>
+            <Field label="How many boxes your store holds" hint={booked ? `${booked.toLocaleString('en-IN')} are booked now.` : undefined}>
+              <input className={`${INPUT} min-h-[48px] text-base`} inputMode="numeric" value={boxes} onChange={(e) => setBoxes(e.target.value)} />
+            </Field>
+            {problem(boxProblem)}
+          </div>
+        )}
+        <p className="text-sm text-slate-600">To set a rent for each chamber, with bins or crates, tap “Add chambers” and set up your store step by step.</p>
+      </form>
+    </Modal>
   );
 }
 

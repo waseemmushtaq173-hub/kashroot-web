@@ -39,7 +39,10 @@ export interface SourceState {
   count: number;
   /** When the copy shown was read. */
   at: string | null;
+  /** Why it could not be read now, in plain words. */
   error?: string;
+  /** Read, but worth saying (e.g. rows in the list, none in Jammu & Kashmir). */
+  note?: string;
 }
 
 export const NHB_GIS_URL = 'https://www.nhb.gov.in/Handlers/GeoIndiaHandlerGis.ashx';
@@ -61,7 +64,8 @@ export function niceName(s: string): string {
   const keep = new Set(['CA', 'MT', 'LLP', 'NHB', 'J&K', 'JK', 'II', 'III', 'IV', 'M/S']);
   return t
     .split(' ')
-    .map((w) => (keep.has(w) ? w : w.charAt(0) + w.slice(1).toLowerCase()))
+    // The first letter, even after a quote or bracket ("FRESH" → "Fresh").
+    .map((w) => (keep.has(w) ? w : w.toLowerCase().replace(/[a-z]/, (c) => c.toUpperCase())))
     .join(' ');
 }
 
@@ -74,41 +78,68 @@ export function storeKey(name: string): string {
     .replace(/[^a-z0-9]+/g, '');
 }
 
-/** Splits one CSV line, with "quoted, values" and "" inside quotes. */
-function csvLine(line: string, sep: string): string[] {
-  const out: string[] = [];
+/**
+ * Splits CSV text into rows of cells: "quoted, values", "" inside quotes, and
+ * line breaks inside quoted cells (addresses often have them) all handled.
+ */
+function csvRows(text: string, sep: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
   let cur = '';
   let quoted = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
     if (quoted) {
-      if (ch === '"' && line[i + 1] === '"') {
+      if (ch === '"' && text[i + 1] === '"') {
         cur += '"';
         i++;
       } else if (ch === '"') quoted = false;
       else cur += ch;
     } else if (ch === '"') quoted = true;
     else if (ch === sep) {
-      out.push(cur.trim());
+      row.push(cur.trim());
+      cur = '';
+    } else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      row.push(cur.trim());
+      if (row.some((c) => c !== '')) rows.push(row);
+      row = [];
       cur = '';
     } else cur += ch;
   }
-  out.push(cur.trim());
-  return out;
+  row.push(cur.trim());
+  if (row.some((c) => c !== '')) rows.push(row);
+  return rows;
+}
+
+/** How many times `sep` splits a line outside "quotes". */
+function sepCount(line: string, sep: string): number {
+  let n = 0;
+  let quoted = false;
+  for (const ch of line) {
+    if (ch === '"') quoted = !quoted;
+    else if (ch === sep && !quoted) n++;
+  }
+  return n;
 }
 
 type Field = 'name' | 'district' | 'state' | 'place' | 'capacity' | 'phone' | 'lat' | 'lon';
 /** Which column is which, from its heading (e.g. NHB: NameofProject, latitude, longitude, StateName, DistrictName). */
 function fieldOf(heading: string): Field | null {
   const h = heading.toLowerCase().replace(/[^a-z]/g, '');
-  if (/^(lat|latitude)$/.test(h)) return 'lat';
-  if (/^(lon|lng|long|longitude)$/.test(h)) return 'lon';
+  // Government lists often spell these "Lattitude" / "Longtitude".
+  if (/^(lat|latt?itt?ude|ycoord)$/.test(h)) return 'lat';
+  if (/^(lon|lng|long|longt?itt?ude|longitute|xcoord)$/.test(h)) return 'lon';
   if (h.includes('district')) return 'district';
   if (h.includes('state')) return 'state';
   if (/capacity|mt$|tonnes?/.test(h)) return 'capacity';
-  if (/phone|mobile|contact/.test(h)) return 'phone';
-  if (/address|place|location|village|city|town|area/.test(h)) return 'place';
-  if (/name|project|firm|coldstor|castore/.test(h)) return 'name';
+  if (/phone|mobile|contactno|contactnumber|telephone|^contact$/.test(h)) return 'phone';
+  // Not the store's name: the owner's or contact person's, or the kind of store.
+  if (/owner|proprietor|promoter|person|applicant|contact|type|category|kind|status|scheme/.test(h)) return null;
+  // "Name (and address) of the cold storage" is the name.
+  if (h.includes('name') && /project|firm|unit|coldstor|castore|storage/.test(h)) return 'name';
+  if (/address|place|location|village|city|town|area|tehsil|block/.test(h)) return 'place';
+  if (/name|project|firm|unit|coldstor|castore|storage/.test(h)) return 'name';
   return null;
 }
 
@@ -131,6 +162,7 @@ function fromRecords(records: Record<string, unknown>[], onlyJK: boolean): Parse
   for (const r of records) {
     const v: Partial<Record<Field, string>> = {};
     for (const [k, val] of Object.entries(r)) {
+      if (val !== null && typeof val === 'object') continue;
       const f = fieldOf(k);
       if (f && v[f] === undefined && val !== null && val !== undefined && String(val).trim() !== '') v[f] = String(val).trim();
     }
@@ -158,36 +190,98 @@ function fromRecords(records: Record<string, unknown>[], onlyJK: boolean): Parse
 const JK_DISTRICTS = ['anantnag', 'bandipora', 'baramulla', 'budgam', 'ganderbal', 'kulgam', 'kupwara', 'pulwama', 'shopian', 'srinagar', 'doda', 'jammu', 'kathua', 'kishtwar', 'poonch', 'rajouri', 'ramban', 'reasi', 'samba', 'udhampur'];
 export const isJKDistrict = (d: string | null | undefined) => JK_DISTRICTS.includes((d ?? '').trim().toLowerCase());
 
+/** The rows inside a JSON answer: an array, or the first array of rows inside it ({d: …}, {records: …}, {data: {rows: …}}…). */
+function jsonRows(data: unknown, depth = 0): Record<string, unknown>[] | null {
+  // ASP.NET handlers sometimes send the list as JSON written inside a string.
+  if (typeof data === 'string' && /^\s*[[{]/.test(data) && depth < 3) {
+    try {
+      return jsonRows(JSON.parse(data), depth + 1);
+    } catch {
+      return null;
+    }
+  }
+  if (Array.isArray(data)) {
+    const rows = data.filter((r): r is Record<string, unknown> => Boolean(r) && typeof r === 'object' && !Array.isArray(r));
+    return rows.map((r) => {
+      // GeoJSON: the fields are in properties, the location in geometry ([lon, lat]).
+      if (r.properties && typeof r.properties === 'object') {
+        const at = (r.geometry as { type?: string; coordinates?: unknown } | undefined)?.coordinates;
+        const point = Array.isArray(at) && typeof at[0] === 'number' && typeof at[1] === 'number' ? { longitude: at[0], latitude: at[1] } : {};
+        return { ...point, ...(r.properties as Record<string, unknown>) };
+      }
+      return r;
+    });
+  }
+  if (data && typeof data === 'object' && depth < 3) {
+    const o = data as Record<string, unknown>;
+    for (const key of ['records', 'data', 'features', 'd', 'Table', 'rows', 'result', 'results', 'items', 'list']) {
+      if (key in o) {
+        const rows = jsonRows(o[key], depth + 1);
+        if (rows) return rows;
+      }
+    }
+    for (const value of Object.values(o)) {
+      if (Array.isArray(value) && value.some((r) => r && typeof r === 'object')) return jsonRows(value, depth + 1);
+    }
+  }
+  return null;
+}
+
+const xmlText = (s: string) =>
+  s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').trim();
+
 /**
- * Reads a cold storage list: CSV (comma, semicolon or tab separated, with a
- * heading row) or JSON (an array of rows, or {records|data|features: […]}).
- * `onlyJK` keeps Jammu & Kashmir.
+ * Rows from an XML list: repeated elements whose children are plain values
+ * (<Table><NameofProject>…</NameofProject>…</Table>, as ASP.NET writes a
+ * DataSet), or repeated elements with the values as attributes.
+ */
+function xmlRows(xml: string): Record<string, unknown>[] {
+  const nested: Record<string, unknown>[] = [];
+  const record = /<([\w:.-]+)(?:\s[^>]*)?>((?:\s*<([\w:.-]+)(?:\s[^>]*)?>[^<]*<\/\3>|\s*<[\w:.-]+(?:\s[^>]*)?\/>)+)\s*<\/\1>/g;
+  for (const m of xml.matchAll(record)) {
+    const row: Record<string, unknown> = {};
+    for (const c of m[2].matchAll(/<([\w:.-]+)(?:\s[^>]*)?>([^<]*)<\/\1>/g)) row[c[1]] = xmlText(c[2]);
+    nested.push(row);
+  }
+  const flat: Record<string, unknown>[] = [];
+  for (const m of xml.matchAll(/<[\w:.-]+((?:\s+[\w:.-]+\s*=\s*"[^"]*"){2,})\s*\/?>/g)) {
+    flat.push(Object.fromEntries([...m[1].matchAll(/([\w:.-]+)\s*=\s*"([^"]*)"/g)].map((a) => [a[1], xmlText(a[2])])));
+  }
+  return nested.length >= flat.length ? nested : flat;
+}
+
+/**
+ * Reads a cold storage list: CSV (comma, semicolon, tab or | separated, with
+ * a heading row), JSON (an array of rows, or rows inside {records|data|d|
+ * features…}, GeoJSON included) or XML rows. `onlyJK` keeps Jammu & Kashmir.
  */
 export function parseColdStoreList(text: string, onlyJK = true): ParsedList {
-  const body = text.replace(/^﻿/, '').trim();
+  const body = text.replace(/^\uFEFF/, '').trim();
   if (!body) return { entries: [], rows: 0, problem: 'The list is empty.' };
-  if (/^[[{]/.test(body)) {
+  if (/^<(!doctype\s+html|html)\b/i.test(body) || /^<\?xml[^>]*\?>\s*<html\b/i.test(body)) return { entries: [], rows: 0, problem: 'This is a web page, not a list. Save the list itself (CSV) and try again.' };
+  let records: Record<string, unknown>[];
+  if (/^[[{"]/.test(body)) {
+    let data: unknown;
     try {
-      const data = JSON.parse(body) as unknown;
-      const list = Array.isArray(data)
-        ? data
-        : ((data as Record<string, unknown>).records ?? (data as Record<string, unknown>).data ?? (data as Record<string, unknown>).features ?? []) as unknown[];
-      const records = (list as Record<string, unknown>[]).map((r) => (r && typeof r === 'object' && 'properties' in r ? { ...(r.properties as object) } : r)) as Record<string, unknown>[];
-      return fromRecords(records.filter((r) => r && typeof r === 'object'), onlyJK);
+      data = JSON.parse(body) as unknown;
     } catch {
       return { entries: [], rows: 0, problem: 'The list looks like JSON but could not be read.' };
     }
+    const rows = jsonRows(data);
+    if (!rows) return { entries: [], rows: 0, problem: 'The JSON has no list of cold stores in it.' };
+    records = rows;
+  } else if (body.startsWith('<')) {
+    records = xmlRows(body);
+    if (!records.length) return { entries: [], rows: 0, problem: 'The XML has no list of cold stores in it.' };
+  } else {
+    const first = body.split(/\r?\n/, 1)[0];
+    const sep = [',', '\t', ';', '|'].sort((a, b) => sepCount(first, b) - sepCount(first, a))[0];
+    const [headings, ...lines] = csvRows(body, sep);
+    if (!headings.some((h) => fieldOf(h) === 'name')) return { entries: [], rows: lines.length + 1, problem: 'No heading row with the cold store names (e.g. "Name") was found.' };
+    records = lines.map((cells) => Object.fromEntries(headings.map((h, i) => [h, cells[i] ?? ''])));
   }
-  if (/^<(!doctype|html)/i.test(body)) return { entries: [], rows: 0, problem: 'This is a web page, not a list. Save the list itself (CSV) and try again.' };
-  const lines = body.split(/\r?\n/).filter((l) => l.trim());
-  const first = lines[0];
-  const sep = [',', '\t', ';', '|'].sort((a, b) => first.split(b).length - first.split(a).length)[0];
-  const headings = csvLine(first, sep);
-  if (!headings.some((h) => fieldOf(h) === 'name')) return { entries: [], rows: lines.length, problem: 'No heading row with the cold store names (e.g. "Name") was found.' };
-  const records = lines.slice(1).map((l) => {
-    const cells = csvLine(l, sep);
-    return Object.fromEntries(headings.map((h, i) => [h, cells[i] ?? '']));
-  });
+  if (!records.length) return { entries: [], rows: 0, problem: 'The list is empty: it has no cold stores in it.' };
+  if (!records.some((r) => Object.keys(r).some((k) => fieldOf(k) === 'name'))) return { entries: [], rows: records.length, problem: 'No column with the cold store names (e.g. "Name") was found.' };
   return fromRecords(records, onlyJK);
 }
 

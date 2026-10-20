@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   Calendar, Clock, Globe, ChevronLeft, ChevronRight,
-  Loader2, AlertTriangle, CheckCircle2, Info,
+  Loader2, AlertTriangle, CheckCircle2,
 } from 'lucide-react';
 import { buyerListingsApi, buyerAppointmentsApi } from '@/lib/api/buyer';
 import { ApiError } from '@/lib/api/client';
@@ -151,7 +151,7 @@ export default function AppointmentBookPage() {
           <CheckCircle2 className="w-14 h-14 text-kr-success-500 mx-auto" aria-hidden="true" />
           <h1 className="font-heading text-h2 text-kr-text-primary">Appointment requested!</h1>
           <p className="text-body text-kr-text-secondary">
-            The farmer has been notified. You'll hear back once they confirm.
+            The farmer has been notified. You’ll hear back once they confirm.
           </p>
           {selectedSlot && (
             <p className="text-body-sm font-medium text-kr-text-primary">

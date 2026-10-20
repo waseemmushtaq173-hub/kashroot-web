@@ -12,7 +12,7 @@
 import 'server-only';
 
 import { NHB_DATABASE_URL, NHB_GIS_URL, niceName, parseColdStoreList, SOURCE_LABEL, type DirEntry, type SourceState } from '@/lib/coldDirectory';
-import { govFetch } from '@/lib/server/govFetch';
+import { causeCode, govFetch } from '@/lib/server/govFetch';
 
 const KEEP_MS = 12 * 60 * 60 * 1000;
 /** The most a source may take, and how long one that failed is left alone. */
@@ -20,7 +20,16 @@ const BUDGET_MS = { nhb: 15_000, osm: 25_000 };
 const RETRY_MS = 15 * 60 * 1000;
 /** NHB_COLD_STORAGE_URL (optional): another address for the same NHB file, e.g. a mirror. */
 const nhbUrl = () => process.env.NHB_COLD_STORAGE_URL?.trim() || NHB_GIS_URL;
-const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter', 'https://overpass.private.coffee/api/interpreter'];
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+};
+const OVERPASS_SERVERS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter', 'https://overpass.private.coffee/api/interpreter'];
+/** OSM_OVERPASS_URL (optional): one Overpass server to ask instead, e.g. a local one for tests. */
+const overpass = () => (process.env.OSM_OVERPASS_URL?.trim() ? [process.env.OSM_OVERPASS_URL.trim()] : OVERPASS_SERVERS);
 // Jammu & Kashmir (ISO 3166-2 IN-JK): places tagged as cold storage, or named as one.
 const OSM_QUERY = `[out:json][timeout:22];
 area["ISO3166-2"="IN-JK"]->.jk;
@@ -34,10 +43,13 @@ out center tags;`;
 const cache = new Map<'nhb' | 'osm', { at: number; entries: DirEntry[] }>();
 const failed = new Map<'nhb' | 'osm', { at: number; error: string }>();
 
+/** A source that answered, but with nothing to add (said to the admin, not a failure). */
+class Note extends Error {}
+
 /** A read that gives up after `ms`. */
 function within<T>(work: Promise<T>, ms: number, what: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`${what} did not answer in ${Math.round(ms / 1000)} seconds`)), ms);
+    const timer = setTimeout(() => reject(new Error(`${what} did not answer within ${Math.round(ms / 1000)} seconds.`)), ms);
     work.then(
       (v) => {
         clearTimeout(timer);
@@ -51,11 +63,41 @@ function within<T>(work: Promise<T>, ms: number, what: string): Promise<T> {
   });
 }
 
+/** Why a website could not be read, in plain words (never just "fetch failed"). */
+function plainReason(err: unknown, site: string, host: string): string {
+  if (err instanceof Note) return err.message;
+  const code = causeCode(err) ?? '';
+  const name = err instanceof Error ? err.name : '';
+  if (/timeout|abort/i.test(`${name} ${code}`) || code === 'ETIMEDOUT' || code === 'UND_ERR_CONNECT_TIMEOUT') return `${site} (${host}) did not answer in time.`;
+  if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') return `The KashRoot server could not find ${site} (${host}) on the internet. The server may have no internet, or the address is wrong.`;
+  if (code === 'ECONNREFUSED') return `${site} (${host}) refused the connection. It may be down.`;
+  if (code === 'ECONNRESET' || code === 'UND_ERR_SOCKET' || code === 'EPIPE') return `${site} (${host}) cut the connection before sending the list.`;
+  if (/CERT|SSL|TLS|SELF_SIGNED|UNABLE_TO/i.test(code)) return `The security certificate of ${site} (${host}) could not be checked (${code}).`;
+  const message = err instanceof Error ? err.message : '';
+  if (message && !/^fetch failed$/i.test(message)) return message;
+  return `${site} (${host}) could not be reached${code ? ` (${code})` : ''}.`;
+}
+
+/** An HTTP error from a website, in plain words. */
+function httpReason(site: string, status: number): string {
+  if (status === 403 || status === 401) return `${site} refused to send the list (error ${status}). It may block servers outside India or automatic readers.`;
+  if (status === 404 || status === 410) return `${site} says the list is not at this address any more (error ${status}). The address may have changed.`;
+  if (status === 429) return `${site} is busy and asked us to slow down (error 429). Try again in a few minutes.`;
+  if (status >= 500) return `${site} has a problem on its side right now (error ${status}). Try again later.`;
+  return `${site} answered with error ${status}.`;
+}
+
 async function readNhb(fresh: boolean): Promise<DirEntry[]> {
-  const res = await govFetch(nhbUrl(), { Accept: 'text/csv,application/json,text/plain,*/*', 'User-Agent': 'Mozilla/5.0 (compatible; KashRoot cold store directory)' }, 12_000, fresh ? 0 : KEEP_MS / 1000);
-  if (!res.ok) throw new Error(`NHB answered ${res.status}`);
+  const url = nhbUrl();
+  const site = 'The NHB website';
+  const res = await govFetch(url, { Accept: 'text/csv,application/json,application/xml,text/plain,*/*', 'User-Agent': 'Mozilla/5.0 (compatible; KashRoot cold store directory)' }, 12_000, fresh ? 0 : KEEP_MS / 1000);
+  if (!res.ok) throw new Error(httpReason(site, res.status));
   const parsed = parseColdStoreList(await res.text(), true);
-  if (parsed.problem) throw new Error(parsed.problem);
+  if (parsed.problem) {
+    if (/web page/.test(parsed.problem)) throw new Error(`${site} sent a web page instead of the list. The list's address may have changed.`);
+    throw new Error(`${site} answered, but the list could not be read: ${parsed.problem}`);
+  }
+  if (!parsed.entries.length) throw new Note(`The NHB list was read (${parsed.rows.toLocaleString('en-IN')} rows), but none of them is in Jammu & Kashmir.`);
   return parsed.entries.map((e) => ({ ...e, source: 'nhb', sourceLabel: SOURCE_LABEL.nhb, sourceUrl: NHB_GIS_URL }));
 }
 
@@ -70,8 +112,12 @@ async function askOverpass(url: string, signal: AbortSignal): Promise<OsmElement
     signal,
     cache: 'no-store',
   });
-  if (!res.ok) throw new Error(`OpenStreetMap answered ${res.status}`);
-  return ((await res.json()) as { elements?: OsmElement[] }).elements ?? [];
+  if (!res.ok) throw new Error(httpReason('OpenStreetMap', res.status));
+  const json = (await res.json().catch(() => null)) as { elements?: OsmElement[]; remark?: string } | null;
+  if (!json) throw new Error('OpenStreetMap answered, but not with a list.');
+  // Overpass reports a query it had to stop (too busy, too slow) as a remark.
+  if (!json.elements?.length && json.remark && /error|timed? ?out|runtime/i.test(json.remark)) throw new Error('OpenStreetMap was too busy to finish the search. Try again in a few minutes.');
+  return json.elements ?? [];
 }
 
 async function readOsm(): Promise<DirEntry[]> {
@@ -80,10 +126,10 @@ async function readOsm(): Promise<DirEntry[]> {
   const signal = AbortSignal.any([stop.signal, AbortSignal.timeout(BUDGET_MS.osm - 1_000)]);
   let elements: OsmElement[];
   try {
-    elements = await Promise.any(OVERPASS.map((url) => askOverpass(url, signal)));
+    elements = await Promise.any(overpass().map((url) => askOverpass(url, signal)));
   } catch (err) {
     const first = err instanceof AggregateError ? err.errors[0] : err;
-    throw first instanceof Error ? first : new Error('OpenStreetMap could not be reached');
+    throw new Error(plainReason(first, 'OpenStreetMap', hostOf(overpass()[0])));
   } finally {
     stop.abort();
   }
@@ -120,12 +166,18 @@ async function source(id: 'nhb' | 'osm', read: (fresh: boolean) => Promise<DirEn
     return { entries: [], state: { id, label: SOURCE_LABEL[id], url, ok: false, count: 0, at: null, error: down.error } };
   }
   try {
-    const entries = await within(read(fresh), BUDGET_MS[id], SOURCE_LABEL[id]);
+    const entries = await within(read(fresh), BUDGET_MS[id], id === 'nhb' ? 'The NHB website' : 'OpenStreetMap');
     cache.set(id, { at: Date.now(), entries });
     failed.delete(id);
     return { entries, state: { id, label: SOURCE_LABEL[id], url, ok: true, count: entries.length, at: new Date().toISOString() } };
   } catch (err) {
-    const error = err instanceof Error ? err.message : 'could not be reached';
+    // Read, but nothing in Jammu & Kashmir: said as it is, not as a failure.
+    if (err instanceof Note) {
+      cache.set(id, { at: Date.now(), entries: [] });
+      failed.delete(id);
+      return { entries: [], state: { id, label: SOURCE_LABEL[id], url, ok: true, count: 0, at: new Date().toISOString(), note: err.message } };
+    }
+    const error = id === 'nhb' ? plainReason(err, 'The NHB website', hostOf(nhbUrl())) : plainReason(err, 'OpenStreetMap', hostOf(overpass()[0]));
     failed.set(id, { at: Date.now(), error });
     // The last good copy, if there is one.
     if (have) return { entries: have.entries, state: { id, label: SOURCE_LABEL[id], url, ok: false, count: have.entries.length, at: new Date(have.at).toISOString(), error } };

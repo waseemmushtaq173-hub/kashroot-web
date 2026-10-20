@@ -193,7 +193,7 @@ export default function SeasonPlannerPage() {
               <Field label="Area (acres)"><input type="number" min={0} step="0.1" className={INPUT} value={roi.area} onChange={num('area')} /></Field>
               <Field label="Trees per acre"><input type="number" min={0} className={INPUT} value={roi.treesPerAcre} onChange={num('treesPerAcre')} /></Field>
               <Field label="Boxes per tree"><input type="number" min={0} step="0.1" className={INPUT} value={roi.yieldPerTree} onChange={num('yieldPerTree')} /></Field>
-              <Field label="Expected price per box (₹)" hint="Check today's rate on Live Mandi Rates."><input type="number" min={0} className={INPUT} value={roi.pricePerBox} onChange={num('pricePerBox')} /></Field>
+              <Field label="Expected price per box (₹)" hint="Today’s rate is on Live Mandi Rates on the KashRoot home page."><input type="number" min={0} className={INPUT} value={roi.pricePerBox} onChange={num('pricePerBox')} /></Field>
               <Field label="Sprays, fertiliser & inputs (₹)"><input type="number" min={0} className={INPUT} value={roi.inputs} onChange={num('inputs')} /></Field>
               <Field label="Labour for the season (₹)"><input type="number" min={0} className={INPUT} value={roi.labour} onChange={num('labour')} /></Field>
               <Field label="Packaging per box (₹)"><input type="number" min={0} className={INPUT} value={roi.packaging} onChange={num('packaging')} /></Field>
@@ -220,10 +220,6 @@ export default function SeasonPlannerPage() {
               Break-even price: <strong>{inr.format(breakEven)}</strong> per box.{' '}
               {roi.pricePerBox > 0 && <Badge tone={roi.pricePerBox >= breakEven ? 'green' : 'red'}>{roi.pricePerBox >= breakEven ? `${inr.format(roi.pricePerBox - breakEven)} margin per box` : 'Price below break-even'}</Badge>}
             </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Btn theme={theme} variant="soft" href="/mandi-weather">Check mandi rates</Btn>
-              <Btn theme={theme} variant="soft" href="/compare-prices">Compare input prices</Btn>
-            </div>
           </Panel>
         </div>
       )}
