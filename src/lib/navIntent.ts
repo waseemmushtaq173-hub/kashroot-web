@@ -40,8 +40,12 @@ const PLACES: { href: string; label: Text; keys: string[] }[] = [
   { href: '/expert', label: { en: 'Ask an expert', hi: 'विशेषज्ञ से पूछें', ur: 'ماہر سے پوچھیں' }, keys: ['expert', 'agronomist', 'advisory', 'doctor', 'video call', 'soil test', 'विशेषज्ञ', 'सलाह', 'ماہر', 'مشورہ'] },
   { href: '/mandi-weather', label: { en: 'mandi rates and weather', hi: 'मंडी भाव और मौसम', ur: 'منڈی بھاؤ اور موسم' }, keys: ['mandi', 'rates', 'prices', 'bhav', 'weather', 'mausam', 'मंडी', 'भाव', 'मौसम', 'منڈی', 'بھاؤ', 'موسم'] },
   { href: '/compare-prices', label: { en: 'Price Comparison', hi: 'भाव तुलना', ur: 'قیمتوں کا موازنہ' }, keys: ['compare', 'price comparison', 'तुलना', 'موازنہ'] },
+  // Farm tools and supplies have their own shop: checked before "buy", so "open kissan tools shop" lands there.
+  { href: '/kissan-tools/dashboard', label: { en: 'Kissan Tools', hi: 'किसान टूल्स', ur: 'کسان ٹولز' }, keys: ['kissan', 'kisan', 'farm tools', 'tools', 'किसान टूल', 'کسان ٹول'] },
+  // "Open buyer portal" opens the portal itself, not straight into its shop.
+  { href: '/buyer/dashboard', label: { en: 'the Buyer portal', hi: 'ख़रीदार पोर्टल', ur: 'خریدار پورٹل' }, keys: ['buyer', 'ख़रीदार', 'खरीदार', 'خریدار'] },
   // Buying produce happens in the Buyer portal (its own sign-in first).
-  { href: '/buyer/dashboard?tab=shop', label: { en: 'Buy apples & produce', hi: 'सेब और फ़सल ख़रीदना', ur: 'سیب اور فصل خریدنا' }, keys: ['buy', 'shop', 'kharid', 'खरीद', 'ख़रीद', 'خرید'] },
+  { href: '/buyer/dashboard?tab=shop', label: { en: 'Buy apples & produce', hi: 'सेब और फ़सल ख़रीदना', ur: 'سیب اور فصل خریدنا' }, keys: ['buy', 'kharid', 'खरीद', 'ख़रीद', 'خرید'] },
   { href: '/farmer/season-planner', label: { en: 'the season planner', hi: 'सीज़न प्लानर', ur: 'سیزن پلانر' }, keys: ['planner', 'season', 'प्लानर', 'پلانر'] },
   { href: '/', label: { en: 'the home page', hi: 'होम पेज', ur: 'ہوم پیج' }, keys: ['home', 'होम', 'ہوم'] },
 ];

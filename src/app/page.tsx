@@ -6,9 +6,11 @@
  * photograph underneath.
  *
  * A card's buttons lead where they say: "Buy produce" opens buying inside
- * the Buyer portal (its own sign-in first, with `next` set to the shop), and
+ * the Buyer portal (its own sign-in first, with `next` set to the shop),
  * both Price Comparison buttons stay on Price Comparison, which asks to sign
- * in right there only when someone orders or sells.
+ * in right there only when someone orders or sells, and the mandi card opens
+ * the rates (posting them is the Mandi Helpers portal) — no card leads into
+ * a portal it does not name.
  * Below the hero: the voice assistant, Orchard Health, fertiliser testing and
  * every portal as a coloured 3D card (each with its own sign-in).
  *
@@ -58,9 +60,10 @@ const TOOL_ACTIONS: Record<ToolId, { primary: ToolAction; secondary: ToolAction 
     secondary: { label: 'Buy produce', href: loginHref('buyer', '/buyer/dashboard?tab=shop') },
   },
   mandi: {
-    primary: { label: 'Open farmer portal', href: loginHref('farmer', '/farmer/dashboard') },
     // The mandi board is public — no sign-in needed to read it.
-    secondary: { label: 'View today’s rates', href: TOOLS.mandi.href },
+    primary: { label: 'View today’s rates', href: TOOLS.mandi.href },
+    // Posting a mandi's rates is the Mandi Helpers portal's job (its own sign-in).
+    secondary: { label: 'Post your mandi’s rates', href: loginHref('trader', '/trader/dashboard') },
   },
   priceComparison: {
     primary: { label: 'Compare prices', href: TOOLS.priceComparison.href },
@@ -175,7 +178,7 @@ function ToolCard({ id }: { id: ToolId }) {
       <div className="relative mt-auto flex flex-wrap gap-2 pt-6">
         <Link
           href={primary.href}
-          className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold shadow-sm transition ${BUTTON_LINK} ${FOCUS_RING} ${theme.primaryButton}`}
+          className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold shadow-sm transition ${BUTTON_LINK} ${FOCUS_RING} ${theme.primaryButton}`}
         >
           {primary.label}
           <ArrowRight
@@ -185,7 +188,7 @@ function ToolCard({ id }: { id: ToolId }) {
         </Link>
         <Link
           href={secondary.href}
-          className={`inline-flex items-center rounded-xl px-4 py-2.5 text-sm font-semibold transition ${BUTTON_LINK} ${FOCUS_RING} ${theme.secondaryButton}`}
+          className={`inline-flex min-h-11 items-center rounded-xl px-4 py-2.5 text-sm font-semibold transition ${BUTTON_LINK} ${FOCUS_RING} ${theme.secondaryButton}`}
         >
           {secondary.label}
         </Link>

@@ -26,11 +26,13 @@ const REFRESH_MS = 30_000;
 /** Listings per photo request (keeps the request address short). */
 const PHOTO_BATCH = 40;
 const LOAD_FAILED = 'Could not load the products. Check your internet and try again.';
+/** Fired when a listing is found changed or gone (e.g. while ordering): shops refresh at once. */
+export const LISTINGS_CHANGED = 'kr:listings-changed';
 
 export interface LiveListings {
   /** null until the first load. */
   listings: ShopListing[] | null;
-  /** Sellers KashRoot has verified. */
+  /** Sellers KashRoot has verified: Aadhaar checked, or a dealer (kr_verified_sellers). */
   verified: Set<string>;
   error: string | null;
   refresh: () => Promise<void>;
@@ -108,11 +110,13 @@ export function useLiveListings(category: MarketCategory): LiveListings {
     void load();
     const id = window.setInterval(run, REFRESH_MS);
     window.addEventListener('focus', run);
+    window.addEventListener(LISTINGS_CHANGED, run);
     document.addEventListener('visibilitychange', run);
     return () => {
       live = false;
       window.clearInterval(id);
       window.removeEventListener('focus', run);
+      window.removeEventListener(LISTINGS_CHANGED, run);
       document.removeEventListener('visibilitychange', run);
     };
   }, [category, load]);

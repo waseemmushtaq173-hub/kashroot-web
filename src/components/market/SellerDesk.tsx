@@ -14,13 +14,13 @@ import { Banknote, Boxes, CheckCircle2, ImageOff, Loader2, Minus, Package, Penci
 import { toast } from '@/lib/client/toast';
 
 import { OrderCard } from '@/components/market/OrderCard';
-import { ProductForm, photosOf, productProblem } from '@/components/market/ProductForm';
+import { ProductForm, productProblem } from '@/components/market/ProductForm';
 import { PayoutForm } from '@/components/payments/PayoutForm';
 import { Badge, Btn, EmptyState, Modal, Panel, type PortalTheme } from '@/components/portal/kit';
 import { inr, type Account } from '@/lib/db/client';
 import { deleteListing, myListings, saveListing, sellerOrders, updateListing, type ListingInput, type MarketCategory, type MarketListing, type MarketOrder } from '@/lib/db/market';
 import { myPayout, type PayoutAccount } from '@/lib/db/rentals';
-import { groupBaskets, sellerMustAct } from '@/lib/db/shop';
+import { groupBaskets, listingPhotos, sellerMustAct } from '@/lib/db/shop';
 
 export function blankProduct(account: Account, category: MarketCategory = 'supplies'): ListingInput {
   const produce = category === 'produce';
@@ -33,6 +33,7 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
   const [payout, setPayout] = useState<PayoutAccount | null | undefined>(undefined);
   const [editing, setEditing] = useState<{ id?: string; data: ListingInput } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [opening, setOpening] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Bumping addRequest (e.g. a "List produce" button outside) opens the form.
   const [seenAdd, setSeenAdd] = useState(0);
@@ -54,19 +55,36 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
     }
   }, [account.id, onLoaded]);
 
+  // Every 30 seconds while the page is on screen, and at once when the seller comes back to it.
   useEffect(() => {
     let live = true;
     const run = async () => {
-      if (live) await reload();
+      if (live && document.visibilityState === 'visible') await reload();
     };
     void run();
     void myPayout(account.id).then((p) => live && setPayout(p)).catch(() => live && setPayout(null));
     const id = window.setInterval(() => void run(), 30000);
+    const back = () => void run();
+    document.addEventListener('visibilitychange', back);
     return () => {
       live = false;
       window.clearInterval(id);
+      document.removeEventListener('visibilitychange', back);
     };
   }, [account.id, reload]);
+
+  // The list carries only the first photo; Edit loads all of them.
+  const edit = async (p: MarketListing) => {
+    setOpening(p.id);
+    try {
+      const photos = p.photo ? await listingPhotos(p.id) : [];
+      setEditing({ id: p.id, data: { seller_name: p.seller_name, phone: p.phone, district: p.district, category: p.category, subcategory: p.subcategory, product: p.product, variety: p.variety ?? '', grade: p.grade ?? '', unit: p.unit, price: Number(p.price), quantity: Number(p.quantity), details: p.details ?? '', photo: photos[0] ?? null, photos: photos.length ? photos : null } });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not open the product. Check your internet and try again.');
+    } finally {
+      setOpening(null);
+    }
+  };
 
   const run = async (fn: () => Promise<void>, ok: string) => {
     setBusy(true);
@@ -186,7 +204,7 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
                       <span className="text-sm text-slate-500">{p.unit}</span>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <Btn theme={theme} size="sm" variant="soft" icon={Pencil} className="min-h-11" onClick={() => setEditing({ id: p.id, data: { seller_name: p.seller_name, phone: p.phone, district: p.district, category: p.category, subcategory: p.subcategory, product: p.product, variety: p.variety ?? '', grade: p.grade ?? '', unit: p.unit, price: Number(p.price), quantity: Number(p.quantity), details: p.details ?? '', photo: p.photo, photos: photosOf(p) } })}>Edit</Btn>
+                      <Btn theme={theme} size="sm" variant="soft" icon={opening === p.id ? Loader2 : Pencil} className="min-h-11" disabled={opening !== null} onClick={() => void edit(p)}>{opening === p.id ? 'Opening…' : 'Edit'}</Btn>
                       <Btn theme={theme} size="sm" variant="ghost" className="min-h-11" disabled={busy} onClick={() => void run(() => updateListing(p.id, { active: !p.active }), p.active ? 'Hidden from buyers' : 'Visible again')}>{p.active ? 'Hide' : 'Show again'}</Btn>
                       <Btn theme={theme} size="sm" variant="danger" icon={Trash2} className="min-h-11" disabled={busy} onClick={() => { if (window.confirm(`Remove ${p.product}?`)) void run(() => deleteListing(p.id), 'Removed'); }}>Remove</Btn>
                     </div>

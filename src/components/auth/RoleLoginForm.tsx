@@ -20,7 +20,9 @@
  *     signed in on this device: one big "Continue as <name>" opens it again;
  *   - the device signed out after 7 days unused: "Welcome back, <name>" with
  *     the email filled in and the password box ready (the browser's saved
- *     password makes it one tap). "Forget me on this device" removes that.
+ *     password makes it one tap). "Forget me on this device" removes that;
+ *     on the "Continue as" card, "Sign out and forget me on this device"
+ *     also signs the account out here (a shared phone).
  * Accounts created before roles were saved have no role: they may use the
  * farmer and buyer portals (bound to that portal, as before), but not the
  * admin portal.
@@ -38,7 +40,7 @@ import { PORTAL_LOGIN } from '@/components/auth/portalLoginConfig';
 import { authApi, SELF_JOIN_ROLES, tokenStore } from '@/lib/api/auth';
 import { isMember, joinPortal, markPortalSignedIn, portalAccess, PORTAL_SIGNIN_LIMIT_MS, signedInPortals } from '@/lib/auth/portalAccess';
 import { AUTH_ROUTES, loginHref, PORTALS, portalForRole, safeNextPath, type PortalId } from '@/lib/auth/roles';
-import { forgetPerson, rememberedPerson, rememberSignedIn, restoreSession, type RememberedPerson } from '@/lib/auth/session';
+import { forgetPerson, rememberedPerson, rememberSignedIn, restoreSession, signOutCompletely, type RememberedPerson } from '@/lib/auth/session';
 import { getKycConfig } from '@/lib/kyc/kyc-service';
 
 const LEGACY_OK: PortalId[] = ['farmer', 'buyer'];
@@ -152,7 +154,6 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   const finish = (session: Session) => {
     markPortalSignedIn(session.userId, portal);
     tokenStore.setToken(session.accessToken, session.role, session.roles);
-    localStorage.setItem('auth_email', email.trim());
     localStorage.setItem('auth_portal', portal);
     void rememberSignedIn(portal, email.trim());
     // KYC done on any device: never ask again. Otherwise the dashboard opens
@@ -180,6 +181,20 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
     localStorage.setItem('auth_portal', portal);
     void rememberSignedIn(portal, resume.email);
     router.replace(destination);
+  };
+
+  /** "Not you?" on the "Continue as …" card: sign out on this device and forget the name and email (a shared phone). */
+  const forgetHere = async () => {
+    setPending(true);
+    setError(null);
+    await signOutCompletely().catch(() => undefined);
+    setResume(null);
+    setRemembered(null);
+    setElsewhere([]);
+    setEmail('');
+    setPassword('');
+    setPending(false);
+    window.setTimeout(() => emailRef.current?.focus(), 0);
   };
 
   /** Back out of this portal's sign-in; other portals signed in on this device stay signed in. */
@@ -314,6 +329,17 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
         >
           Use another account
         </button>
+        <p className="mt-6 border-t border-slate-900/5 pt-3 text-sm text-slate-600">
+          Not you, or a shared phone?
+          <button
+            type="button"
+            onClick={() => void forgetHere()}
+            disabled={pending}
+            className={`mt-1 flex min-h-11 w-full cursor-pointer items-center justify-center rounded-xl px-4 py-2 font-semibold text-rose-800 ring-1 ring-rose-200 hover:bg-rose-50 disabled:cursor-wait disabled:opacity-60 ${focusRing}`}
+          >
+            Sign out and forget me on this device
+          </button>
+        </p>
       </PortalAuthFrame>
     );
   }

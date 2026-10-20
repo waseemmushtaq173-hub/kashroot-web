@@ -163,7 +163,7 @@ export default function AppointmentBookPage() {
             </p>
           )}
           <Button
-            onClick={() => router.push('/buyer/discover')}
+            onClick={() => router.push('/buyer/dashboard?tab=shop')}
             className="kr-btn-primary"
           >
             Back to listings

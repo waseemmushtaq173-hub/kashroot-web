@@ -16,6 +16,8 @@ import { Badge, Btn, EmptyState, INPUT, PORTAL_THEMES, Panel } from '@/component
 import { ago, dbMessage, supabase } from '@/lib/db/client';
 
 const theme = PORTAL_THEMES.admin ?? PORTAL_THEMES.expert;
+/** Rows drawn at once (a phone stays quick); search and the filters look through every account. */
+const SHOW = 300;
 
 interface AccountRow {
   user_id: string;
@@ -174,7 +176,7 @@ export function AccountsPanel({ onRefreshed }: { onRefreshed?: () => Promise<unk
             <EmptyState theme={theme} icon={Users} title={rows.length ? 'No account matches' : 'No accounts yet'} text={rows.length ? 'Try another name or kind.' : 'People who create an account on any portal appear here.'} />
           ) : (
             <ul className="divide-y divide-slate-200 rounded-2xl ring-1 ring-slate-200">
-              {shown.map((r) => {
+              {shown.slice(0, SHOW).map((r) => {
                 const tel = r.phone.replace(/\D/g, '').slice(-10);
                 return (
                   <li key={r.user_id} className="grid gap-2 px-4 py-3 text-sm sm:grid-cols-[1fr_auto]">
@@ -214,6 +216,11 @@ export function AccountsPanel({ onRefreshed }: { onRefreshed?: () => Promise<unk
                 );
               })}
             </ul>
+          )}
+          {shown.length > SHOW && (
+            <p className="text-sm text-slate-600">
+              Showing the {SHOW} most recently active of {shown.length.toLocaleString('en-IN')}. Search by name, email, mobile or district to find anyone else. Download (CSV) has all {shown.length.toLocaleString('en-IN')}.
+            </p>
           )}
         </div>
       )}

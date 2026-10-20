@@ -92,7 +92,7 @@ function PayAfterDeliveryOrder({ order: o, as, theme, onChange }: { order: Marke
           <Btn theme={theme} size="sm" icon={PackageCheck} disabled={busy} onClick={() => { if (window.confirm('Have the goods reached you, and have you checked them?')) void act('delivered', 'Thanks — now pay the seller'); }}>I received the goods</Btn>
         )}
         {as === 'buyer' && !['completed', 'cancelled', 'rejected', 'disputed'].includes(o.status) && o.status !== 'placed' && (
-          <Btn theme={theme} size="sm" variant="ghost" icon={Flag} disabled={busy} onClick={() => { const n = ask('What went wrong? (wrong item, damaged, not delivered…)'); if (n) void act('dispute', 'Problem reported to the seller and KashRoot', n); }}>Report a problem</Btn>
+          <Btn theme={theme} size="sm" variant="ghost" icon={Flag} disabled={busy} onClick={() => { const n = ask('What went wrong? (wrong item, damaged, not delivered…)'); if (n === null) return; if (!n) return toast.error('Write what went wrong, for example: wrong item, broken, not delivered. Then press OK.'); void act('dispute', 'Problem reported to the seller and KashRoot', n); }}>Report a problem</Btn>
         )}
       </div>
 

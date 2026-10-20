@@ -86,14 +86,19 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       if (!live) return;
       const here = portalForSegment(segment);
       let active = found;
+      // Signed in to this portal but unused for hours: its sign-in page offers "Continue as …" (Tracking too, not its guest view).
+      let lockedHere = false;
       if (found && here) {
         const access = await portalAccess(found.session.user, found.roles, here);
         if (!live) return;
-        if (!access.member || !access.signedIn) active = null;
+        if (!access.member || !access.signedIn) {
+          active = null;
+          lockedHere = access.member && access.locked;
+        }
         // Opening the portal is using it.
         else touchPortal(found.session.user.id, here);
       }
-      if (!active && GUEST_PORTALS.includes(portalForSegment(segment) ?? '')) {
+      if (!active && !lockedHere && GUEST_PORTALS.includes(portalForSegment(segment) ?? '')) {
         // Following a load needs no account; the page asks to sign in only
         // for creating consignments.
         setUserId(null);
@@ -204,7 +209,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   if (!authorized) {
     return (
       <div className="kr-light flex min-h-screen flex-col bg-gradient-to-br from-amber-50 via-white to-emerald-50 text-slate-900">
-        <SiteHeader tone="light" />
+        <SiteHeader tone="light" portal={portal} />
         <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
           <div className="max-w-lg rounded-3xl bg-white/80 p-8 shadow-[0_20px_60px_rgba(15,23,42,0.12)] ring-1 ring-slate-900/5 backdrop-blur-xl">
             <h2 className="mb-3 font-sans text-2xl font-bold text-slate-900">{canJoin ? `Add the ${requiredRoleMsg} portal?` : 'This portal needs a different account'}</h2>

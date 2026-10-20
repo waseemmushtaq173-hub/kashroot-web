@@ -26,7 +26,7 @@ import { ProductCard, ProductPhoto } from '@/components/shop/ProductCard';
 import { CART_KEY, EMPTY_CART, WHOLE, forgetSampleShop, qtyProblem, type CartLine } from '@/components/shop/cart';
 import { inr, loadAccount, type Account } from '@/lib/db/client';
 import { SUBCATEGORIES, type MarketOrder } from '@/lib/db/market';
-import { groupBaskets, sellersOf, shopOrders, type ShopSeller } from '@/lib/db/shop';
+import { groupBaskets, sellerOfOrder, sellersOf, shopOrders, type ShopSeller } from '@/lib/db/shop';
 import { usePersistentState } from '@/lib/portal-store';
 
 const theme = PORTAL_THEMES.kissan;
@@ -57,8 +57,8 @@ export default function KissanToolsDashboardPage() {
     if (!account) return;
     try {
       const rows = await shopOrders(account.id);
-      // Who sells each order comes with it, so a card shows complete at once.
-      const who = await sellersOf(rows.map((o) => o.listing_id ?? ''));
+      // Who sells it is kept on the order; only older orders look it up on the listing.
+      const who = await sellersOf(rows.filter((o) => !o.seller_name).map((o) => o.listing_id ?? ''));
       setSellers(who);
       setOrders(rows);
       setOrdersError(null);
@@ -296,7 +296,7 @@ export default function KissanToolsDashboardPage() {
           ) : (
             <ul className="space-y-3">
               {baskets.map((g) => (
-                <OrderCard key={g[0].basket ?? g[0].id} order={g[0]} lines={g} as="buyer" seller={sellers.get(g[0].listing_id ?? '') ?? null} theme={theme} onChange={() => void loadOrders()} />
+                <OrderCard key={g[0].basket ?? g[0].id} order={g[0]} lines={g} as="buyer" seller={sellerOfOrder(g[0], sellers)} theme={theme} onChange={() => void loadOrders()} />
               ))}
             </ul>
           )}

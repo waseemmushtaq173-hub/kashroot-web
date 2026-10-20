@@ -31,6 +31,16 @@ function optionsOf(listings: ShopListing[], field: 'variety' | 'grade' | 'distri
   return [...seen].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
 }
 
+/**
+ * A choice whose last product has gone (sold out, taken off sale) stays in
+ * its box, marked, so the box never says "All" while it still filters.
+ */
+function keepChoice(options: { value: string; label: string }[], chosen: string): { value: string; label: string }[] {
+  if (!chosen || options.some((o) => o.value === chosen)) return options;
+  const label = chosen.replace(/(^|\s)\S/g, (c) => c.toUpperCase());
+  return [...options, { value: chosen, label: `${label} (none on sale now)` }];
+}
+
 export function ListingBrowser({ category, theme, accountId, onOrder, empty, toolbar }: {
   category: MarketCategory;
   theme: PortalTheme;
@@ -54,7 +64,10 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
 
   const all = useMemo(() => listings ?? [], [listings]);
   const ofKind = useMemo(() => all.filter((l) => !kind || l.subcategory === kind), [all, kind]);
-  const facets = useMemo(() => ({ variety: optionsOf(ofKind, 'variety'), grade: optionsOf(ofKind, 'grade'), district: optionsOf(all, 'district') }), [all, ofKind]);
+  const facets = useMemo(
+    () => ({ variety: keepChoice(optionsOf(ofKind, 'variety'), variety), grade: keepChoice(optionsOf(ofKind, 'grade'), grade), district: keepChoice(optionsOf(all, 'district'), district) }),
+    [all, ofKind, variety, grade, district],
+  );
 
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -85,7 +98,7 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
   };
 
   return (
-    <div className="space-y-5">
+    <section aria-label="Products" className="space-y-5">
       <div className="grid gap-3 rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-slate-900/5">
         {toolbar}
         <label className="relative block">
@@ -158,6 +171,6 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
           ))}
         </ul>
       )}
-    </div>
+    </section>
   );
 }

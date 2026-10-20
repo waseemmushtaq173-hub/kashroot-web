@@ -12,8 +12,9 @@
  * Planner are part of this portal (/farmer/orchard-health,
  * /farmer/season-planner); Cold Storage, mandi rates, Price Comparison and
  * the fertiliser check have their own places on the home page, not in here.
- * Today's weather for spraying comes from Open-Meteo for the farmer's
- * district (My details).
+ * "Spraying today" is orchard work, not the weather tool: dry hours to spray
+ * from Open-Meteo for the farmer's district (My details), next to the scab
+ * risk map and the spray log.
  */
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -92,7 +93,7 @@ function FarmerDashboard() {
   return (
     <PortalShell
       title={account?.name ? `Welcome, ${account.name.split(' ')[0]}` : 'Welcome back'}
-      description="Sell your harvest and farm inputs, get paid safely after delivery, and check today’s weather before you spray."
+      description="Sell your harvest and farm inputs, get paid by the buyer directly, and see when it is dry enough to spray."
       eyebrow="Farmer portal"
       theme="farmer"
       kpis={[
@@ -120,7 +121,7 @@ function FarmerDashboard() {
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
               <Tile theme={theme} icon={PlusCircle} label="Sell produce" hint="List apples, walnuts…" onClick={listProduce} />
               <Tile theme={theme} icon={Store} label="Sell farm inputs" hint="Fertiliser, sprays, tools…" onClick={() => listProduct('supplies')} />
-              <Tile theme={theme} icon={ShieldCheck} label="Escrow payment" hint="Paid after delivery" onClick={() => setTab('payouts')} />
+              <Tile theme={theme} icon={ShieldCheck} label="Escrow payment" hint="How buyers pay you" onClick={() => setTab('payouts')} />
               <Tile theme={theme} icon={Activity} label="Orchard health" hint="Scab map, photo check" href="/farmer/orchard-health" />
               <Tile theme={theme} icon={CalendarDays} label="Season planner" hint="Tasks & costs" href="/farmer/season-planner" />
               <Tile theme={theme} icon={MessageCircleQuestion} label="Ask an expert" hint="Agronomist answers" href="/expert" />
@@ -229,7 +230,7 @@ function TodayWeather({ district }: { district?: string }) {
   const rainToday = w?.daily[0]?.precipitation ?? 0;
 
   return (
-    <Panel theme={theme} title={`Today in ${w?.place.name ?? place}`} icon={CloudSun}>
+    <Panel theme={theme} title={`Spraying today · ${w?.place.name ?? place}`} icon={CloudSun}>
       {error ? (
         <p className="text-sm text-slate-600">{error}</p>
       ) : !w ? (
@@ -255,8 +256,8 @@ function TodayWeather({ district }: { district?: string }) {
         </>
       )}
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <Btn theme={theme} variant="soft" size="sm" href="/farmer/orchard-health?tab=risk">Scab risk map</Btn>
-        <Btn theme={theme} variant="soft" size="sm" href="/farmer/orchard-health?tab=sprays">Log a spray</Btn>
+        <Btn theme={theme} variant="soft" size="sm" className="min-h-11" href="/farmer/orchard-health?tab=risk">Scab risk map</Btn>
+        <Btn theme={theme} variant="soft" size="sm" className="min-h-11" href="/farmer/orchard-health?tab=sprays">Log a spray</Btn>
       </div>
     </Panel>
   );

@@ -41,6 +41,8 @@ export interface SourceState {
   at: string | null;
   /** Why it could not be read now, in plain words. */
   error?: string;
+  /** Whose side the problem is on, when that is clear: the website's, or the KashRoot server's (it could not get out). */
+  fault?: 'site' | 'server';
   /** Read, but worth saying (e.g. rows in the list, none in Jammu & Kashmir). */
   note?: string;
 }
@@ -134,10 +136,13 @@ function fieldOf(heading: string): Field | null {
   if (h.includes('state')) return 'state';
   if (/capacity|mt$|tonnes?/.test(h)) return 'capacity';
   if (/phone|mobile|contactno|contactnumber|telephone|^contact$/.test(h)) return 'phone';
+  // "Name (and address) of the cold storage", also "… / Owner", is the name;
+  // "Name of the owner of the cold storage" is not.
+  const other = h.search(/owner|proprietor|promoter|person|applicant|contact|type|category|kind|status|scheme/);
+  const store = h.search(/project|firm|unit|coldstor|castore|storage/);
+  if (h.includes('name') && store >= 0 && (other < 0 || store < other)) return 'name';
   // Not the store's name: the owner's or contact person's, or the kind of store.
-  if (/owner|proprietor|promoter|person|applicant|contact|type|category|kind|status|scheme/.test(h)) return null;
-  // "Name (and address) of the cold storage" is the name.
-  if (h.includes('name') && /project|firm|unit|coldstor|castore|storage/.test(h)) return 'name';
+  if (other >= 0) return null;
   if (/address|place|location|village|city|town|area|tehsil|block/.test(h)) return 'place';
   if (/name|project|firm|unit|coldstor|castore|storage/.test(h)) return 'name';
   return null;
@@ -250,6 +255,16 @@ function xmlRows(xml: string): Record<string, unknown>[] {
   return nested.length >= flat.length ? nested : flat;
 }
 
+/** The JSON written inside a JSON string ("[{…}]"), or null when the body is not that. */
+function jsonString(body: string): string | null {
+  try {
+    const v = JSON.parse(body) as unknown;
+    return typeof v === 'string' && /^\s*[[{]/.test(v) ? v : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Reads a cold storage list: CSV (comma, semicolon, tab or | separated, with
  * a heading row), JSON (an array of rows, or rows inside {records|data|d|
@@ -260,12 +275,17 @@ export function parseColdStoreList(text: string, onlyJK = true): ParsedList {
   if (!body) return { entries: [], rows: 0, problem: 'The list is empty.' };
   if (/^<(!doctype\s+html|html)\b/i.test(body) || /^<\?xml[^>]*\?>\s*<html\b/i.test(body)) return { entries: [], rows: 0, problem: 'This is a web page, not a list. Save the list itself (CSV) and try again.' };
   let records: Record<string, unknown>[];
-  if (/^[[{"]/.test(body)) {
-    let data: unknown;
-    try {
-      data = JSON.parse(body) as unknown;
-    } catch {
-      return { entries: [], rows: 0, problem: 'The list looks like JSON but could not be read.' };
+  // A list written as JSON inside a string ("[{…}]") is JSON too; a CSV whose
+  // headings are in quotes ("Name","District",…) is not.
+  const quotedJson = body.startsWith('"') ? jsonString(body) : null;
+  if (/^[[{]/.test(body) || quotedJson !== null) {
+    let data: unknown = quotedJson;
+    if (quotedJson === null) {
+      try {
+        data = JSON.parse(body) as unknown;
+      } catch {
+        return { entries: [], rows: 0, problem: 'The list looks like JSON but could not be read. Save it again as CSV or JSON and try again.' };
+      }
     }
     const rows = jsonRows(data);
     if (!rows) return { entries: [], rows: 0, problem: 'The JSON has no list of cold stores in it.' };
@@ -277,7 +297,7 @@ export function parseColdStoreList(text: string, onlyJK = true): ParsedList {
     const first = body.split(/\r?\n/, 1)[0];
     const sep = [',', '\t', ';', '|'].sort((a, b) => sepCount(first, b) - sepCount(first, a))[0];
     const [headings, ...lines] = csvRows(body, sep);
-    if (!headings.some((h) => fieldOf(h) === 'name')) return { entries: [], rows: lines.length + 1, problem: 'No heading row with the cold store names (e.g. "Name") was found.' };
+    if (!headings.some((h) => fieldOf(h) === 'name')) return { entries: [], rows: lines.length + 1, problem: 'No heading row with the cold store names was found. The first line must name the columns, e.g. "Name,District".' };
     records = lines.map((cells) => Object.fromEntries(headings.map((h, i) => [h, cells[i] ?? ''])));
   }
   if (!records.length) return { entries: [], rows: 0, problem: 'The list is empty: it has no cold stores in it.' };

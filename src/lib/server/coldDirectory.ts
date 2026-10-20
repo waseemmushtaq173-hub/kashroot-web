@@ -41,15 +41,28 @@ area["ISO3166-2"="IN-JK"]->.jk;
 out center tags;`;
 
 const cache = new Map<'nhb' | 'osm', { at: number; entries: DirEntry[] }>();
-const failed = new Map<'nhb' | 'osm', { at: number; error: string }>();
+const failed = new Map<'nhb' | 'osm', Pick<SourceState, 'error' | 'fault'> & { at: number }>();
 
 /** A source that answered, but with nothing to add (said to the admin, not a failure). */
 class Note extends Error {}
+/** A reason already in plain words, and whose side it is on when that is clear (see plainReason). */
+class Reason extends Error {
+  fault?: SourceState['fault'];
+  constructor(message: string, fault?: SourceState['fault']) {
+    super(message);
+    this.fault = fault;
+  }
+}
+/** The website itself answered badly (an error, not the list) or did not answer in time. */
+const siteError = (message: string) => new Reason(message, 'site');
+
+/** "the NHB website" at the start of a sentence. */
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** A read that gives up after `ms`. */
 function within<T>(work: Promise<T>, ms: number, what: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`${what} did not answer within ${Math.round(ms / 1000)} seconds.`)), ms);
+    const timer = setTimeout(() => reject(siteError(`${cap(what)} did not answer within ${Math.round(ms / 1000)} seconds.`)), ms);
     work.then(
       (v) => {
         clearTimeout(timer);
@@ -63,39 +76,46 @@ function within<T>(work: Promise<T>, ms: number, what: string): Promise<T> {
   });
 }
 
-/** Why a website could not be read, in plain words (never just "fetch failed"). */
-function plainReason(err: unknown, site: string, host: string): string {
-  if (err instanceof Note) return err.message;
+/**
+ * Why a website could not be read, in plain words (never just "fetch failed"),
+ * and on whose side the problem is when that is clear: `site` — the website
+ * (an error, refused, too slow), `server` — the KashRoot server could not get
+ * out to it. `site` is written as inside a sentence ("the NHB website").
+ */
+function plainReason(err: unknown, site: string, host: string): Pick<SourceState, 'error' | 'fault'> {
+  if (err instanceof Note) return { error: err.message };
+  if (err instanceof Reason) return { error: err.message, fault: err.fault };
   const code = causeCode(err) ?? '';
   const name = err instanceof Error ? err.name : '';
-  if (/timeout|abort/i.test(`${name} ${code}`) || code === 'ETIMEDOUT' || code === 'UND_ERR_CONNECT_TIMEOUT') return `${site} (${host}) did not answer in time.`;
-  if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') return `The KashRoot server could not find ${site} (${host}) on the internet. The server may have no internet, or the address is wrong.`;
-  if (code === 'ECONNREFUSED') return `${site} (${host}) refused the connection. It may be down.`;
-  if (code === 'ECONNRESET' || code === 'UND_ERR_SOCKET' || code === 'EPIPE') return `${site} (${host}) cut the connection before sending the list.`;
-  if (/CERT|SSL|TLS|SELF_SIGNED|UNABLE_TO/i.test(code)) return `The security certificate of ${site} (${host}) could not be checked (${code}).`;
+  if (/timeout|abort/i.test(`${name} ${code}`) || code === 'ETIMEDOUT' || code === 'UND_ERR_CONNECT_TIMEOUT') return { error: `${cap(site)} (${host}) did not answer in time.`, fault: 'site' };
+  if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') return { error: `The KashRoot server could not find ${site} (${host}) on the internet. The server may have no internet, or the address is wrong.`, fault: 'server' };
+  if (code === 'ECONNREFUSED') return { error: `${cap(site)} (${host}) refused the connection. It may be down.`, fault: 'site' };
+  if (code === 'ECONNRESET' || code === 'UND_ERR_SOCKET' || code === 'EPIPE') return { error: `${cap(site)} (${host}) cut the connection before sending the list.`, fault: 'site' };
+  if (/CERT|SSL|TLS|SELF_SIGNED|UNABLE_TO/i.test(code)) return { error: `The security certificate of ${site} (${host}) could not be checked (${code}).` };
   const message = err instanceof Error ? err.message : '';
-  if (message && !/^fetch failed$/i.test(message)) return message;
-  return `${site} (${host}) could not be reached${code ? ` (${code})` : ''}.`;
+  if (message && !/^fetch failed$/i.test(message)) return { error: message };
+  return { error: `${cap(site)} (${host}) could not be reached${code ? ` (${code})` : ''}.` };
 }
 
 /** An HTTP error from a website, in plain words. */
-function httpReason(site: string, status: number): string {
-  if (status === 403 || status === 401) return `${site} refused to send the list (error ${status}). It may block servers outside India or automatic readers.`;
-  if (status === 404 || status === 410) return `${site} says the list is not at this address any more (error ${status}). The address may have changed.`;
-  if (status === 429) return `${site} is busy and asked us to slow down (error 429). Try again in a few minutes.`;
-  if (status >= 500) return `${site} has a problem on its side right now (error ${status}). Try again later.`;
-  return `${site} answered with error ${status}.`;
+function httpReason(site: string, status: number): Reason {
+  const s = cap(site);
+  if (status === 403 || status === 401) return siteError(`${s} refused to send the list (error ${status}). It may block servers outside India or automatic readers.`);
+  if (status === 404 || status === 410) return siteError(`${s} says the list is not at this address any more (error ${status}). The address may have changed.`);
+  if (status === 429) return siteError(`${s} is busy and asked us to slow down (error 429). Try again in a few minutes.`);
+  if (status >= 500) return siteError(`${s} has a problem on its side right now (error ${status}). Try again later.`);
+  return siteError(`${s} answered with error ${status}.`);
 }
 
 async function readNhb(fresh: boolean): Promise<DirEntry[]> {
   const url = nhbUrl();
   const site = 'The NHB website';
   const res = await govFetch(url, { Accept: 'text/csv,application/json,application/xml,text/plain,*/*', 'User-Agent': 'Mozilla/5.0 (compatible; KashRoot cold store directory)' }, 12_000, fresh ? 0 : KEEP_MS / 1000);
-  if (!res.ok) throw new Error(httpReason(site, res.status));
+  if (!res.ok) throw httpReason(site, res.status);
   const parsed = parseColdStoreList(await res.text(), true);
   if (parsed.problem) {
-    if (/web page/.test(parsed.problem)) throw new Error(`${site} sent a web page instead of the list. The list's address may have changed.`);
-    throw new Error(`${site} answered, but the list could not be read: ${parsed.problem}`);
+    if (/web page/.test(parsed.problem)) throw siteError(`${site} sent a web page instead of the list. The list's address may have changed.`);
+    throw siteError(`${site} answered, but the list could not be read: ${parsed.problem}`);
   }
   if (!parsed.entries.length) throw new Note(`The NHB list was read (${parsed.rows.toLocaleString('en-IN')} rows), but none of them is in Jammu & Kashmir.`);
   return parsed.entries.map((e) => ({ ...e, source: 'nhb', sourceLabel: SOURCE_LABEL.nhb, sourceUrl: NHB_GIS_URL }));
@@ -112,11 +132,11 @@ async function askOverpass(url: string, signal: AbortSignal): Promise<OsmElement
     signal,
     cache: 'no-store',
   });
-  if (!res.ok) throw new Error(httpReason('OpenStreetMap', res.status));
+  if (!res.ok) throw httpReason('OpenStreetMap', res.status);
   const json = (await res.json().catch(() => null)) as { elements?: OsmElement[]; remark?: string } | null;
-  if (!json) throw new Error('OpenStreetMap answered, but not with a list.');
+  if (!json) throw siteError('OpenStreetMap answered, but not with a list.');
   // Overpass reports a query it had to stop (too busy, too slow) as a remark.
-  if (!json.elements?.length && json.remark && /error|timed? ?out|runtime/i.test(json.remark)) throw new Error('OpenStreetMap was too busy to finish the search. Try again in a few minutes.');
+  if (!json.elements?.length && json.remark && /error|timed? ?out|runtime/i.test(json.remark)) throw siteError('OpenStreetMap was too busy to finish the search. Try again in a few minutes.');
   return json.elements ?? [];
 }
 
@@ -129,7 +149,8 @@ async function readOsm(): Promise<DirEntry[]> {
     elements = await Promise.any(overpass().map((url) => askOverpass(url, signal)));
   } catch (err) {
     const first = err instanceof AggregateError ? err.errors[0] : err;
-    throw new Error(plainReason(first, 'OpenStreetMap', hostOf(overpass()[0])));
+    const why = plainReason(first, 'OpenStreetMap', hostOf(overpass()[0]));
+    throw new Reason(why.error ?? 'OpenStreetMap could not be reached.', why.fault);
   } finally {
     stop.abort();
   }
@@ -162,11 +183,12 @@ async function source(id: 'nhb' | 'osm', read: (fresh: boolean) => Promise<DirEn
   // Failed a moment ago: not asked again yet (Admin's "read again" always asks).
   const down = failed.get(id);
   if (down && !fresh && Date.now() - down.at < RETRY_MS) {
-    if (have) return { entries: have.entries, state: { id, label: SOURCE_LABEL[id], url, ok: false, count: have.entries.length, at: new Date(have.at).toISOString(), error: down.error } };
-    return { entries: [], state: { id, label: SOURCE_LABEL[id], url, ok: false, count: 0, at: null, error: down.error } };
+    const why = { error: down.error, fault: down.fault };
+    if (have) return { entries: have.entries, state: { id, label: SOURCE_LABEL[id], url, ok: false, count: have.entries.length, at: new Date(have.at).toISOString(), ...why } };
+    return { entries: [], state: { id, label: SOURCE_LABEL[id], url, ok: false, count: 0, at: null, ...why } };
   }
   try {
-    const entries = await within(read(fresh), BUDGET_MS[id], id === 'nhb' ? 'The NHB website' : 'OpenStreetMap');
+    const entries = await within(read(fresh), BUDGET_MS[id], id === 'nhb' ? 'the NHB website' : 'OpenStreetMap');
     cache.set(id, { at: Date.now(), entries });
     failed.delete(id);
     return { entries, state: { id, label: SOURCE_LABEL[id], url, ok: true, count: entries.length, at: new Date().toISOString() } };
@@ -177,11 +199,11 @@ async function source(id: 'nhb' | 'osm', read: (fresh: boolean) => Promise<DirEn
       failed.delete(id);
       return { entries: [], state: { id, label: SOURCE_LABEL[id], url, ok: true, count: 0, at: new Date().toISOString(), note: err.message } };
     }
-    const error = id === 'nhb' ? plainReason(err, 'The NHB website', hostOf(nhbUrl())) : plainReason(err, 'OpenStreetMap', hostOf(overpass()[0]));
-    failed.set(id, { at: Date.now(), error });
+    const why = id === 'nhb' ? plainReason(err, 'the NHB website', hostOf(nhbUrl())) : plainReason(err, 'OpenStreetMap', hostOf(overpass()[0]));
+    failed.set(id, { at: Date.now(), ...why });
     // The last good copy, if there is one.
-    if (have) return { entries: have.entries, state: { id, label: SOURCE_LABEL[id], url, ok: false, count: have.entries.length, at: new Date(have.at).toISOString(), error } };
-    return { entries: [], state: { id, label: SOURCE_LABEL[id], url, ok: false, count: 0, at: null, error } };
+    if (have) return { entries: have.entries, state: { id, label: SOURCE_LABEL[id], url, ok: false, count: have.entries.length, at: new Date(have.at).toISOString(), ...why } };
+    return { entries: [], state: { id, label: SOURCE_LABEL[id], url, ok: false, count: 0, at: null, ...why } };
   }
 }
 

@@ -77,6 +77,10 @@ export interface MarketOrder {
   last_accuracy?: number | null;
   last_at?: string | null;
   delivered_at?: string | null;
+  /** Who sells it, kept on the order when it is made (older orders: null). */
+  seller_name?: string | null;
+  seller_phone?: string | null;
+  seller_district?: string | null;
 }
 
 export const SUBCATEGORIES = ['Packaging', 'Fertiliser', 'Pesticide / fungicide', 'Seeds & saplings', 'Tools & machinery', 'Irrigation', 'Anti-hail net', 'Other'];
@@ -100,8 +104,10 @@ const fail = (error: { message?: string; code?: string } | null, fallback: strin
 };
 
 const LISTING = 'id, seller_id, seller_name, phone, district, category, subcategory, product, variety, grade, unit, price, quantity, details, photo, active, updated_at';
-/** A seller's own products, with every photo for editing. */
-const MY_LISTING = `${LISTING}, photos`;
+/** A seller's own products without the photos (heavy): the list reloads every 30 seconds. */
+const MY_LISTING = 'id, seller_id, seller_name, phone, district, category, subcategory, product, variety, grade, unit, price, quantity, details, active, updated_at, photo_at';
+/** The first photo of each of the seller's products, fetched again only when photo_at changes. */
+const myPhotos = new Map<string, { at: string; photo: string | null }>();
 
 export async function browseListings(category: MarketCategory): Promise<{ listings: MarketListing[]; verified: Set<string> }> {
   const { data, error } = await supabase.from('market_listings').select(LISTING).eq('category', category).eq('active', true).gt('quantity', 0).order('updated_at', { ascending: false }).limit(300);
@@ -116,10 +122,23 @@ export async function browseListings(category: MarketCategory): Promise<{ listin
   return { listings, verified };
 }
 
+/** A seller's own products with the first photo of each (every photo: listingPhotos in shop.ts). */
 export async function myListings(sellerId: string): Promise<MarketListing[]> {
   const { data, error } = await supabase.from('market_listings').select(MY_LISTING).eq('seller_id', sellerId).order('updated_at', { ascending: false });
   if (error) fail(error, 'Could not load your products.');
-  return (data ?? []) as MarketListing[];
+  const rows = (data ?? []) as (Omit<MarketListing, 'photo'> & { photo_at: string | null })[];
+  const missing = rows.filter((r) => myPhotos.get(r.id)?.at !== (r.photo_at ?? '')).map((r) => r.id);
+  // A few photos per request keeps the request address short.
+  for (let i = 0; i < missing.length; i += 20) {
+    const p = await supabase.from('market_listings').select('id, photo, photo_at').in('id', missing.slice(i, i + 20));
+    if (p.error) fail(p.error, 'Could not load your products.');
+    for (const x of (p.data ?? []) as { id: string; photo: string | null; photo_at: string | null }[]) myPhotos.set(x.id, { at: x.photo_at ?? '', photo: x.photo });
+  }
+  return rows.map((r) => {
+    const row: MarketListing & { photo_at?: string | null } = { ...r, photo: myPhotos.get(r.id)?.photo ?? null };
+    delete row.photo_at;
+    return row;
+  });
 }
 
 export type ListingInput = Pick<MarketListing, 'seller_name' | 'phone' | 'district' | 'category' | 'subcategory' | 'product' | 'variety' | 'grade' | 'unit' | 'price' | 'quantity' | 'details' | 'photo'> & {
@@ -162,8 +181,8 @@ export async function sellerOrders(sellerId: string): Promise<MarketOrder[]> {
   return (data ?? []) as MarketOrder[];
 }
 
-/** not_received and seller_cancel are for pay-first orders only. */
-export type OrderAction = 'accept' | 'reject' | 'ship' | 'confirm_payment' | 'cancel' | 'delivered' | 'pay' | 'dispute' | 'not_received' | 'seller_cancel';
+/** not_received, seller_cancel and seller_dispute (the seller's "Report a problem") are for pay-first orders only. */
+export type OrderAction = 'accept' | 'reject' | 'ship' | 'confirm_payment' | 'cancel' | 'delivered' | 'pay' | 'dispute' | 'not_received' | 'seller_cancel' | 'seller_dispute';
 
 export async function orderAction(id: string, action: OrderAction, ref?: string, note?: string): Promise<void> {
   const { error } = await supabase.rpc('kr_order_action', { p_order: id, p_action: action, p_ref: ref ?? null, p_note: note ?? null });

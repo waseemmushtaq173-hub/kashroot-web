@@ -161,12 +161,14 @@ export function etaOf(from: Point, to: Point): { km: number; minutes: number } {
   return { km, minutes: Math.round((km / HILL_SPEED_KMH) * 60) };
 }
 
-/** "about 25 minutes", "about 1 hour 20 minutes". */
+/** "about 25 minutes", "about 1 hour 20 minutes" (an hour or more: to the nearest 5 minutes). */
 export function minutesText(m: number): string {
   if (m < 2) return 'a minute or two';
   if (m < 60) return `${m} minutes`;
-  const h = Math.floor(m / 60);
-  const rest = Math.round((m - h * 60) / 5) * 5;
+  // Round the whole time first, so 118 minutes reads "2 hours", never "1 hour 60 minutes".
+  const t = Math.round(m / 5) * 5;
+  const h = Math.floor(t / 60);
+  const rest = t - h * 60;
   return `${h} ${h === 1 ? 'hour' : 'hours'}${rest ? ` ${rest} minutes` : ''}`;
 }
 
@@ -178,12 +180,14 @@ export const kmText = (km: number) => (km < 1 ? `${Math.max(50, Math.round((km *
 type Tone = 'amber' | 'blue' | 'violet' | 'green' | 'red' | 'slate';
 
 /** The order's status in plain words for whoever is looking. */
-export function shopStatus(o: Pick<MarketOrder, 'status' | 'payment_state'>, as: 'buyer' | 'seller'): { label: string; tone: Tone } {
+export function shopStatus(o: Pick<MarketOrder, 'status' | 'payment_state'> & { payment_ref?: string | null }, as: 'buyer' | 'seller'): { label: string; tone: Tone } {
   const buyer = as === 'buyer';
   if (o.status === 'placed') return buyer ? { label: 'Waiting for the seller to accept', tone: 'amber' } : { label: 'New order — accept or decline', tone: 'amber' };
   if (o.status === 'accepted') {
     if (o.payment_state === 'paid') return buyer ? { label: 'Paid — the seller is checking the money', tone: 'blue' } : { label: 'Buyer says paid — check your bank', tone: 'amber' };
     if (o.payment_state === 'received') return buyer ? { label: 'Money received — being packed', tone: 'violet' } : { label: 'Money received — ship it now', tone: 'amber' };
+    // A reference was given, but the seller pressed "Money not received".
+    if (o.payment_ref) return buyer ? { label: 'The seller has not found your money', tone: 'red' } : { label: 'Money not found — check again', tone: 'amber' };
     return buyer ? { label: 'Accepted — pay the seller now', tone: 'amber' } : { label: 'Accepted — waiting for the buyer to pay', tone: 'violet' };
   }
   if (o.status === 'shipped') return { label: 'On the way', tone: 'blue' };
@@ -208,7 +212,13 @@ export interface ShopSeller {
   district: string;
 }
 
-/** The seller's shop name, mobile and district for each listing (for the buyer's order cards). */
+/** Who sells an order: kept on the order since it was made; older orders fall back to the listing. */
+export function sellerOfOrder(o: MarketOrder, byListing?: Map<string, ShopSeller>): ShopSeller | null {
+  if (o.seller_name) return { seller_name: o.seller_name, phone: o.seller_phone ?? '', district: o.seller_district ?? '' };
+  return byListing?.get(o.listing_id ?? '') ?? null;
+}
+
+/** The seller's shop name, mobile and district for each listing (older orders, made before the order kept them). */
 export async function sellersOf(listingIds: string[]): Promise<Map<string, ShopSeller>> {
   const ids = [...new Set(listingIds.filter(Boolean))];
   if (!ids.length) return new Map();

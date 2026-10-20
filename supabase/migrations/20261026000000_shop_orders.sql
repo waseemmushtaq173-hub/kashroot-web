@@ -17,10 +17,16 @@
 --       (completed). KashRoot never holds the money.
 --   * market_order_drivers: the driver's tracking-link token per basket. No
 --     direct access: only the functions below read or use it.
+--   * market_listings.photo_at: when the photos last changed, so a list that
+--     refreshes often fetches a photo again only when it is new.
+--   * market_orders.seller_name / seller_phone / seller_district: who sells
+--     it, copied when the order is made, so the buyer keeps the name and the
+--     call button even if the product is hidden or removed later.
 -- Safe to run again; no existing row changes.
 
 -- ───────────────────────── listing photos ─────────────────────────
 alter table public.market_listings add column if not exists photos text[];
+alter table public.market_listings add column if not exists photo_at timestamptz;
 
 create or replace function public.kr_photos_ok(p text[]) returns boolean
 language sql immutable set search_path = public as $$
@@ -33,7 +39,8 @@ alter table public.market_listings drop constraint if exists market_listings_pho
 alter table public.market_listings add constraint market_listings_photos_check check (public.kr_photos_ok(photos));
 
 -- photo is always the first of photos. A page that only knows the single
--- photo still works: what it sets becomes the first photo.
+-- photo still works: what it sets becomes the first photo. photo_at moves
+-- only when the photos change (not with the price or the stock).
 create or replace function public.kr_listing_photos() returns trigger
 language plpgsql set search_path = public as $$
 begin
@@ -42,12 +49,16 @@ begin
     elsif new.photo is not null then new.photos := array[new.photo];
     else new.photos := null;
     end if;
-  elsif new.photos is distinct from old.photos then
+    new.photo_at := case when new.photo is not null then now() end;
+    return new;
+  end if;
+  if new.photos is distinct from old.photos then
     new.photo := case when coalesce(cardinality(new.photos), 0) > 0 then new.photos[1] end;
     if coalesce(cardinality(new.photos), 0) = 0 then new.photos := null; end if;
   elsif new.photo is distinct from old.photo then
     new.photos := case when new.photo is null then null else array[new.photo] || coalesce(old.photos[2:3], '{}') end;
   end if;
+  new.photo_at := case when new.photo is distinct from old.photo or new.photos is distinct from old.photos then now() else old.photo_at end;
   return new;
 end $$;
 drop trigger if exists market_listings_photos on public.market_listings;
@@ -70,6 +81,9 @@ alter table public.market_orders add column if not exists last_lon double precis
 alter table public.market_orders add column if not exists last_accuracy real;
 alter table public.market_orders add column if not exists last_at timestamptz;
 alter table public.market_orders add column if not exists delivered_at timestamptz;
+alter table public.market_orders add column if not exists seller_name text;
+alter table public.market_orders add column if not exists seller_phone text;
+alter table public.market_orders add column if not exists seller_district text;
 
 alter table public.market_orders drop constraint if exists market_orders_payment_state_check;
 alter table public.market_orders add constraint market_orders_payment_state_check check (payment_state is null or payment_state in ('unpaid', 'paid', 'received'));
@@ -96,8 +110,9 @@ create table if not exists public.market_order_drivers (
 alter table public.market_order_drivers enable row level security;
 revoke all on public.market_order_drivers from anon, authenticated;
 
--- New orders: the price, seller and product come from the listing. Pay first
--- is only for farm tools and inputs, and a basket holds one buyer's products
+-- New orders: the price, seller and product come from the listing (and the
+-- seller's name, mobile and district are kept on the order). Pay first is
+-- only for farm tools and inputs, and a basket holds one buyer's products
 -- from one seller. Nothing about payment or shipping can be set by the buyer.
 create or replace function public.kr_before_order() returns trigger
 language plpgsql security definer set search_path = public as $$
@@ -110,6 +125,9 @@ begin
     raise exception 'Only % % of % left. Order % or less.', trim_scale(l.quantity), l.unit, l.product, trim_scale(l.quantity);
   end if;
   new.seller_id := l.seller_id;
+  new.seller_name := l.seller_name;
+  new.seller_phone := l.phone;
+  new.seller_district := l.district;
   new.product := l.product || coalesce(' · ' || l.variety, '');
   new.unit := l.unit;
   new.unit_price := l.price;
@@ -144,7 +162,9 @@ begin
   return new;
 end $$;
 
--- Puts a basket's reserved stock back (an accepted order that is cancelled before payment).
+-- Puts a basket's reserved stock back: an accepted order that is cancelled,
+-- or stopped by "Report a problem" before it was shipped (the goods are
+-- still with the seller).
 create or replace function public.kr_shop_restock(p_basket uuid) returns void
 language plpgsql security definer set search_path = public as $$
 declare r public.market_orders;
@@ -192,6 +212,10 @@ begin
     end if;
   elsif p_action = 'seller_cancel' then
     if not (o.status = 'accepted' and o.payment_state = 'unpaid') then raise exception 'You can cancel only while the buyer has not paid'; end if;
+    -- The buyer gave a payment reference: the seller cannot just cancel it away.
+    if o.payment_ref is not null then
+      raise exception 'The buyer says they paid (reference %). Check your bank or UPI app again, or call the buyer. If the money did not come, press “Report a problem”.', o.payment_ref;
+    end if;
     perform public.kr_shop_restock(b);
     update public.market_orders set status = 'cancelled', seller_note = coalesce(left(p_note, 300), 'Cancelled by the seller: the payment did not come.') where basket = b;
   elsif p_action = 'pay' then
@@ -201,11 +225,15 @@ begin
     if p_ref is null or p_ref !~ '^[A-Za-z0-9]{6,30}$' then
       raise exception 'Enter the payment reference (UTR) from your UPI app or bank: 6 to 30 letters or numbers, no spaces.';
     end if;
-    update public.market_orders set payment_state = 'paid', payment_ref = p_ref, paid_at = now() where basket = b;
+    -- A new payment: an older "money not received" note no longer applies.
+    update public.market_orders set payment_state = 'paid', payment_ref = p_ref, paid_at = now(), seller_note = null where basket = b;
   elsif p_action in ('confirm_payment', 'not_received') then
-    if o.status <> 'accepted' or o.payment_state <> 'paid' then raise exception 'The buyer has not marked this order paid yet'; end if;
+    -- "Money received" also works after "not received", when the money came late.
+    if o.status <> 'accepted' or not (o.payment_state = 'paid' or (p_action = 'confirm_payment' and o.payment_state = 'unpaid' and o.payment_ref is not null)) then
+      raise exception 'The buyer has not marked this order paid yet';
+    end if;
     if p_action = 'confirm_payment' then
-      update public.market_orders set payment_state = 'received', payment_confirmed_at = now() where basket = b;
+      update public.market_orders set payment_state = 'received', payment_confirmed_at = now(), seller_note = null where basket = b;
     else
       update public.market_orders set payment_state = 'unpaid', seller_note = coalesce(left(p_note, 300), 'The money has not reached the seller yet.') where basket = b;
     end if;
@@ -214,9 +242,20 @@ begin
   elsif p_action = 'delivered' then
     if o.status <> 'shipped' then raise exception 'The seller has not shipped this order yet'; end if;
     update public.market_orders set status = 'completed', delivered_at = now() where basket = b;
-  elsif p_action = 'dispute' then
-    if o.status in ('completed', 'cancelled', 'rejected') then raise exception 'This order is already %', o.status; end if;
-    update public.market_orders set status = 'disputed', buyer_note = left(p_note, 300) where basket = b;
+  elsif p_action in ('dispute', 'seller_dispute') then
+    -- "Report a problem", by the buyer or (for a payment the seller cannot
+    -- find) the seller. KashRoot's admins see it. Not shipped yet: the goods
+    -- are still with the seller, so their stock goes back on sale.
+    if o.status = 'placed' then raise exception 'The seller has not accepted this order yet. Press “Cancel order” instead.'; end if;
+    if o.status = 'disputed' then raise exception 'A problem is already reported on this order.'; end if;
+    if o.status not in ('accepted', 'shipped') then raise exception 'This order is already %. A problem cannot be reported now.', o.status; end if;
+    if btrim(coalesce(p_note, '')) = '' then raise exception 'Write what went wrong, for example: wrong item, broken, not delivered, money not received.'; end if;
+    if o.status = 'accepted' then perform public.kr_shop_restock(b); end if;
+    if p_action = 'dispute' then
+      update public.market_orders set status = 'disputed', buyer_note = left(btrim(p_note), 300) where basket = b;
+    else
+      update public.market_orders set status = 'disputed', seller_note = left(btrim(p_note), 300) where basket = b;
+    end if;
   end if;
   select * into r from public.market_orders where id = o.id;
   return r;
@@ -231,7 +270,7 @@ declare o public.market_orders; l public.market_listings;
 begin
   select * into o from public.market_orders where id = p_order for update;
   if not found then raise exception 'Order not found'; end if;
-  if p_action in ('accept', 'reject', 'ship', 'confirm_payment', 'not_received', 'seller_cancel') then
+  if p_action in ('accept', 'reject', 'ship', 'confirm_payment', 'not_received', 'seller_cancel', 'seller_dispute') then
     if o.seller_id is distinct from auth.uid() then raise exception 'Only the seller can do this'; end if;
   elsif p_action in ('cancel', 'delivered', 'pay', 'dispute') then
     if o.buyer_id is distinct from auth.uid() then raise exception 'Only the buyer can do this'; end if;
@@ -239,7 +278,7 @@ begin
     raise exception 'Unknown action';
   end if;
   if o.pay_first and o.basket is not null then return public.kr_shop_step(o, p_action, p_ref, p_note); end if;
-  if p_action in ('not_received', 'seller_cancel') then raise exception 'Unknown action'; end if;
+  if p_action in ('not_received', 'seller_cancel', 'seller_dispute') then raise exception 'Unknown action'; end if;
 
   if p_action = 'accept' then
     if o.status <> 'placed' then raise exception 'Order is already %', o.status; end if;
@@ -314,7 +353,8 @@ begin
   select * into o from public.market_orders where id = p_order for update;
   if not found then raise exception 'Order not found'; end if;
   if o.seller_id is distinct from auth.uid() then raise exception 'Only the seller can do this'; end if;
-  if o.status <> 'shipped' then raise exception 'Share the location after the order is shipped'; end if;
+  if o.status = 'accepted' or o.status = 'placed' then raise exception 'Share the location after the order is shipped'; end if;
+  if o.status <> 'shipped' then raise exception 'This order is not on the way any more. Sharing the location has stopped.'; end if;
   if o.last_at is not null and o.last_at > now() - interval '10 seconds' then return o.last_at; end if;
   update public.market_orders set last_lat = p_lat, last_lon = p_lon, last_accuracy = p_accuracy, last_at = now()
    where (o.basket is not null and basket = o.basket) or (o.basket is null and id = o.id);

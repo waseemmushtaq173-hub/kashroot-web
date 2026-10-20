@@ -7,7 +7,9 @@
 --   2. Those wrong records are cleared (the PAN part only; Aadhaar stays).
 --   3. The table itself refuses "PAN verified" without the last four.
 --   4. Admin → Accounts counts PAN only with its last four, and shows the
---      last four of the PAN and the Aadhaar so an admin can check them.
+--      last four of the PAN and the Aadhaar so an admin can check them. It
+--      also lists every account now (it stopped at 2,000 before, so the
+--      least recently active people could not be found).
 -- (The sign-in time limits of this change live in the browser: no SQL.)
 -- Run after 20261018000000_accounts_last_active.sql. Safe to run again.
 
@@ -114,8 +116,9 @@ begin
       from auth.users u
       left join public.identity_checks k on k.user_id = u.id
     ) a
-    order by coalesce(greatest(a.last_sign_in_at, a.renewed), a.joined_at) desc
-    limit 2000;
+    -- Every account (no cap): Admin → Accounts reads them page by page. The
+    -- id keeps the order the same between pages.
+    order by coalesce(greatest(a.last_sign_in_at, a.renewed), a.joined_at) desc, a.id;
 end $$;
 revoke execute on function public.kr_admin_accounts() from public, anon;
 grant execute on function public.kr_admin_accounts() to authenticated;

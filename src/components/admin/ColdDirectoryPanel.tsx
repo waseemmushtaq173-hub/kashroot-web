@@ -35,8 +35,10 @@ const blank = { name: '', district: '', place: '', capacity: '', phone: '', sour
 const FILE_INPUT = 'block min-h-11 w-full text-sm file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-lg file:border-0 file:bg-violet-100 file:px-3 file:py-2 file:font-semibold file:text-violet-900';
 
 type Live = { entries: DirEntry[]; sources: SourceState[] };
-type ListFile = { name: string; parsed: ParsedList; from: 'nhb' | 'import' };
+type ListFile = { name: string; parsed: ParsedList; onlyJK: boolean };
+type ListSource = { source: string; url: string };
 type Row = Omit<DirEntry, 'source' | 'sourceLabel' | 'sourceUrl'>;
+const NHB_FILE_SOURCE: ListSource = { source: NHB_SOURCE, url: NHB_DATABASE_URL };
 
 export function ColdDirectoryPanel() {
   const [rows, setRows] = useState<DirectoryRow[] | null>(null);
@@ -48,11 +50,14 @@ export function ColdDirectoryPanel() {
   const [readError, setReadError] = useState<string | null>(null);
   const [live, setLive] = useState<Live | null>(null);
   const [added, setAdded] = useState<Partial<Record<SourceState['id'], number>>>({});
-  // A list to import (in the Import panel, or the saved NHB file when NHB cannot be reached).
+  // The saved NHB file (when NHB cannot be reached) and a list in the Import
+  // panel: each its own, so neither takes the other's file or source.
+  const [nhbFile, setNhbFile] = useState<ListFile | null>(null);
+  const [nhbSource, setNhbSource] = useState<ListSource>(NHB_FILE_SOURCE);
   const [file, setFile] = useState<ListFile | null>(null);
   const [onlyJK, setOnlyJK] = useState(true);
   const [text, setText] = useState('');
-  const [importSource, setImportSource] = useState({ source: '', url: '' });
+  const [importSource, setImportSource] = useState<ListSource>({ source: '', url: '' });
   const [one, setOne] = useState(blank);
 
   const load = useCallback(async () => {
@@ -127,67 +132,69 @@ export function ColdDirectoryPanel() {
       await load();
     });
 
-  const parse = (body: string, name: string, from: ListFile['from'] = 'import') => {
-    setFile({ name, parsed: parseColdStoreList(body, from === 'nhb' || onlyJK), from });
-    // The saved NHB file: where it comes from is known.
-    if (from === 'nhb') setImportSource({ source: NHB_SOURCE, url: NHB_DATABASE_URL });
-  };
+  /** A list read from a file or pasted: the saved NHB file is always Jammu & Kashmir only. */
+  const read = (body: string, name: string, jk: boolean): ListFile => ({ name, parsed: parseColdStoreList(body, jk), onlyJK: jk });
 
   /** What was read from a file, with where it comes from and the Add button. */
-  const preview = (f: ListFile) =>
+  const preview = (f: ListFile, src: ListSource, setSrc: (s: ListSource) => void, done: () => void) =>
     f.parsed.problem ? (
       <p role="alert" className="rounded-xl bg-rose-50 p-3 text-rose-900 ring-1 ring-rose-200">{f.name}: {f.parsed.problem}</p>
     ) : (
       <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-slate-800 ring-1 ring-slate-900/5">
-        <p><strong>{f.parsed.entries.length.toLocaleString('en-IN')}</strong> cold stores read from {f.name} ({f.parsed.rows.toLocaleString('en-IN')} rows{f.from === 'nhb' || onlyJK ? ', Jammu & Kashmir only' : ''}).</p>
+        <p><strong>{f.parsed.entries.length.toLocaleString('en-IN')}</strong> cold stores read from {f.name} ({f.parsed.rows.toLocaleString('en-IN')} rows{f.onlyJK ? ', Jammu & Kashmir only' : ''}).</p>
         <ul className="list-disc pl-5 text-xs text-slate-600">
           {f.parsed.entries.slice(0, 5).map((e) => <li key={`${e.name}|${e.district}`}>{e.name}{e.district ? ` — ${e.district}` : ''}{e.capacity_mt ? ` — ${e.capacity_mt} MT` : ''}</li>)}
         </ul>
         <Field label="Where the list comes from (shown to farmers)">
-          <input className={INPUT} value={importSource.source} onChange={(e) => setImportSource({ ...importSource, source: e.target.value })} placeholder="e.g. NHB cold storage database, saved 17 Oct 2026" />
+          <input className={INPUT} value={src.source} onChange={(e) => setSrc({ ...src, source: e.target.value })} placeholder="e.g. NHB cold storage database, saved 17 Oct 2026" />
         </Field>
         <Field label="Link to the source (optional)">
-          <input className={INPUT} value={importSource.url} onChange={(e) => setImportSource({ ...importSource, url: e.target.value })} placeholder="https://…" />
+          <input className={INPUT} value={src.url} onChange={(e) => setSrc({ ...src, url: e.target.value })} placeholder="https://…" />
         </Field>
+        {src.source.trim().length < 2 && <p className="text-amber-900">Write where the list comes from, then tap Add.</p>}
         <Btn
           theme={theme}
           icon={Plus}
           className="min-h-11"
-          disabled={busy || !f.parsed.entries.length || importSource.source.trim().length < 2}
-          onClick={() => void addFrom(f.parsed.entries, importSource.source.trim(), /^https?:\/\//.test(importSource.url.trim()) ? importSource.url.trim() : null, () => setFile(null))}
+          disabled={busy || !f.parsed.entries.length || src.source.trim().length < 2}
+          onClick={() => void addFrom(f.parsed.entries, src.source.trim(), /^https?:\/\//.test(src.url.trim()) ? src.url.trim() : null, done)}
         >
           Add {f.parsed.entries.length.toLocaleString('en-IN')} to the directory
         </Btn>
       </div>
     );
 
-  /** One source's answer: how many Jammu & Kashmir cold stores, or exactly why it failed. */
+  /**
+   * One source's answer: how many Jammu & Kashmir cold stores, or exactly why
+   * it failed. A failed source still offers its last good copy (if the server
+   * has one) and, for NHB, the saved-file import.
+   */
   const sourceResult = (s: SourceState) => {
     const entries = live?.entries.filter((e) => e.source === s.id) ?? [];
     const nhb = s.id === 'nhb';
     const name = nhb ? 'National Horticulture Board (NHB)' : 'OpenStreetMap';
     const Icon = nhb ? Database : MapIcon;
-    if (entries.length > 0) {
+    const where = nhb ? 'in the NHB list' : 'on OpenStreetMap';
+    const add =
+      added[s.id] !== undefined ? (
+        <p className="flex items-center gap-1.5 font-semibold"><CheckCircle2 className="h-4 w-4" aria-hidden /> Added to the directory.</p>
+      ) : (
+        <Btn
+          theme={theme}
+          icon={Plus}
+          className="min-h-11"
+          disabled={busy}
+          onClick={() => void addFrom(entries, nhb ? NHB_SOURCE : OSM_SOURCE, nhb ? NHB_DATABASE_URL : OSM_URL, (n) => setAdded((a) => ({ ...a, [s.id]: n })))}
+        >
+          Add the {entries.length.toLocaleString('en-IN')} {nhb ? 'NHB' : 'OpenStreetMap'} cold stores to the directory
+        </Btn>
+      );
+    if (s.ok && entries.length > 0) {
       return (
         <li key={s.id} className="space-y-2 rounded-xl bg-emerald-50 p-3 text-emerald-950 ring-1 ring-emerald-200">
           <p className="flex items-center gap-2 font-semibold"><Icon className="h-4 w-4 shrink-0" aria-hidden /> {name}</p>
-          <p>
-            <strong>{entries.length.toLocaleString('en-IN')}</strong> cold stores in Jammu &amp; Kashmir {nhb ? 'in the NHB list' : 'on OpenStreetMap'}.
-            {!s.ok && <> This is the last copy, read {s.at ? new Date(s.at).toLocaleString('en-IN') : 'earlier'}. It could not be read now: {s.error ?? 'no answer'}</>}
-          </p>
-          {added[s.id] !== undefined ? (
-            <p className="flex items-center gap-1.5 font-semibold"><CheckCircle2 className="h-4 w-4" aria-hidden /> Added to the directory.</p>
-          ) : (
-            <Btn
-              theme={theme}
-              icon={Plus}
-              className="min-h-11"
-              disabled={busy}
-              onClick={() => void addFrom(entries, nhb ? NHB_SOURCE : OSM_SOURCE, nhb ? NHB_DATABASE_URL : OSM_URL, (n) => setAdded((a) => ({ ...a, [s.id]: n })))}
-            >
-              Add the {entries.length.toLocaleString('en-IN')} {nhb ? 'NHB' : 'OpenStreetMap'} cold stores to the directory
-            </Btn>
-          )}
+          <p><strong>{entries.length.toLocaleString('en-IN')}</strong> cold stores in Jammu &amp; Kashmir {where}.</p>
+          {add}
         </li>
       );
     }
@@ -201,11 +208,21 @@ export function ColdDirectoryPanel() {
     }
     return (
       <li key={s.id} className="space-y-2 rounded-xl bg-amber-50 p-3 text-amber-950 ring-1 ring-amber-200">
-        <p className="flex items-center gap-2 font-semibold"><AlertTriangle className="h-4 w-4 shrink-0" aria-hidden /> {name}: could not be read</p>
+        <p className="flex items-center gap-2 font-semibold"><AlertTriangle className="h-4 w-4 shrink-0" aria-hidden /> {name}: could not be read{entries.length > 0 ? ' now' : ''}</p>
         <p>Reason: {s.error ?? 'no answer.'}</p>
+        {entries.length > 0 && (
+          <div className="space-y-2 rounded-lg bg-white/70 p-2.5 ring-1 ring-amber-200">
+            <p>
+              The last copy the KashRoot server read{s.at ? ` (${new Date(s.at).toLocaleString('en-IN')})` : ''} has <strong>{entries.length.toLocaleString('en-IN')}</strong> cold stores in Jammu &amp; Kashmir {where}.
+            </p>
+            {add}
+          </div>
+        )}
         {nhb ? (
           <>
-            <p>The problem is on the NHB website or the internet between, not in KashRoot. You can still add the official list yourself:</p>
+            {s.fault === 'site' && <p>The problem is on the NHB website or the internet between, not in KashRoot.</p>}
+            {s.fault === 'server' && <p>The KashRoot server could not get out to the NHB website. Ask the person who runs the KashRoot server to check its internet.</p>}
+            <p>You can {entries.length > 0 ? 'also' : 'still'} add the official list yourself:</p>
             <ol className="list-decimal space-y-1 pl-5">
               <li>
                 Open{' '}
@@ -224,10 +241,13 @@ export function ColdDirectoryPanel() {
               className={FILE_INPUT}
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) void f.text().then((t) => parse(t, f.name, 'nhb'));
+                if (f) void f.text().then((t) => setNhbFile(read(t, f.name, true)));
               }}
             />
-            {file?.from === 'nhb' && preview(file)}
+            {nhbFile && preview(nhbFile, nhbSource, setNhbSource, () => {
+              setNhbFile(null);
+              setNhbSource(NHB_FILE_SOURCE);
+            })}
           </>
         ) : (
           <p>OpenStreetMap is an extra list; the directory works without it. Try again in a few minutes.</p>
@@ -309,15 +329,15 @@ export function ColdDirectoryPanel() {
             className={FILE_INPUT}
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) void f.text().then((t) => parse(t, f.name));
+              if (f) void f.text().then((t) => setFile(read(t, f.name, onlyJK)));
             }}
           />
           <details>
             <summary className="cursor-pointer text-slate-600">Or paste the list</summary>
             <textarea className={`${INPUT} mt-2 h-28 font-mono text-xs`} aria-label="Pasted cold store list" value={text} onChange={(e) => setText(e.target.value)} placeholder={'Name,District,Address,Capacity (MT)\n…'} />
-            <Btn theme={theme} size="sm" variant="soft" className="mt-2" disabled={!text.trim()} onClick={() => parse(text, 'pasted list')}>Read the pasted list</Btn>
+            <Btn theme={theme} size="sm" variant="soft" className="mt-2" disabled={!text.trim()} onClick={() => setFile(read(text, 'Pasted list', onlyJK))}>Read the pasted list</Btn>
           </details>
-          {file?.from === 'import' && preview(file)}
+          {file && preview(file, importSource, setImportSource, () => setFile(null))}
         </div>
       </Panel>
 

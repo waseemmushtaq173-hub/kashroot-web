@@ -20,6 +20,7 @@ import { useSearchParams } from 'next/navigation';
 import { LogIn, LogOut, Search, ShieldCheck, ShoppingCart, Store, UserRound } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
+import type { KycRole } from '@/components/auth/KYCPanel';
 import { ToolShell } from '@/components/layout/ToolShell';
 import { OrderCard } from '@/components/market/OrderCard';
 import { SellerDesk } from '@/components/market/SellerDesk';
@@ -29,15 +30,29 @@ import type { ShopListing } from '@/components/market/shop/useLiveListings';
 import { Btn, EmptyState, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { ListProductsButton, PriceComparisonHeader } from '@/components/price-comparison/PriceComparisonHeader';
 import { SignInModal, type SignInReason } from '@/components/price-comparison/SignInModal';
-import { signedInPortals } from '@/lib/auth/portalAccess';
+import { portalsOf, signedInPortals } from '@/lib/auth/portalAccess';
 import { signOutCompletely } from '@/lib/auth/session';
 import { OPEN_KYC } from '@/lib/client/identityCheck';
-import { loadAccount, type Account } from '@/lib/db/client';
+import { loadAccount, supabase, type Account } from '@/lib/db/client';
 import { buyerOrders, type MarketCategory, type MarketOrder } from '@/lib/db/market';
 import { KYC_CHANGED } from '@/lib/db/security';
 
 // The identity check is heavy: it loads only when someone needs it.
 const KYCPanel = dynamic(() => import('@/components/auth/KYCPanel').then((m) => m.KYCPanel), { ssr: false });
+
+/**
+ * Which identity check this person gets, as in their portal: a farmer gets
+ * the farmer's (Aadhaar only) whatever they do here; others the buyer's to
+ * order and the seller's to sell.
+ */
+async function kycRoleFor(tab: Tab): Promise<KycRole> {
+  const { data } = await supabase.auth.getSession();
+  const user = data.session?.user;
+  const meta = user?.user_metadata ?? {};
+  const roles = [meta.role, ...(Array.isArray(meta.roles) ? meta.roles : [])];
+  if (roles.includes('FARMER') || portalsOf(user)?.includes('farmer')) return 'FARMER';
+  return tab === 'sell' ? 'SELLER' : 'BUYER';
+}
 
 const theme = PORTAL_THEMES.buyer;
 type Tab = 'compare' | 'orders' | 'sell';
@@ -58,15 +73,19 @@ function ComparePrices() {
   const [ordering, setOrdering] = useState<ShopListing | null>(null);
   const [signIn, setSignIn] = useState<SignInReason | null>(null);
   const [orders, setOrders] = useState<MarketOrder[]>([]);
-  const [kycOpen, setKycOpen] = useState(false);
+  // The identity check, open for this role; null while closed.
+  const [kycRole, setKycRole] = useState<KycRole | null>(null);
 
   useEffect(() => {
     void loadAccount().then(setAccount).catch(() => setAccount(null));
+  }, []);
+
+  useEffect(() => {
     // "Verify now" on an error (ordering or selling before the identity check) opens the check right here.
-    const openKyc = () => setKycOpen(true);
+    const openKyc = () => void kycRoleFor(tab).then(setKycRole, () => setKycRole(tab === 'sell' ? 'SELLER' : 'BUYER'));
     window.addEventListener(OPEN_KYC, openKyc);
     return () => window.removeEventListener(OPEN_KYC, openKyc);
-  }, []);
+  }, [tab]);
 
   const loadOrders = useCallback(async () => {
     if (!account) return;
@@ -92,13 +111,18 @@ function ComparePrices() {
   // Signed in only here (no portal on this device): Sign out lives on this page. Otherwise it is in their portal.
   const onlyHere = Boolean(account) && signedInPortals(account!.id).length === 0;
 
+  // Sign in only when nobody is: an account still loading is waited for first.
+  const needAccount = (reason: SignInReason) => {
+    if (account === undefined) void loadAccount().then((a) => (a ? setAccount(a) : setSignIn(reason)), () => setSignIn(reason));
+    else if (!account) setSignIn(reason);
+  };
   const order = (l: ShopListing) => {
     setOrdering(l);
-    if (!account) setSignIn('order');
+    needAccount('order');
   };
   const sell = () => {
     setTab('sell');
-    if (!account) setSignIn('sell');
+    needAccount('sell');
   };
   const signedIn = (a: Account) => {
     setAccount(a);
@@ -219,11 +243,12 @@ function ComparePrices() {
         />
       )}
 
-      {kycOpen && (
+      {kycRole && (
         <KYCPanel
           open
-          onClose={() => setKycOpen(false)}
-          defaultRole={tab === 'sell' ? 'SELLER' : 'BUYER'}
+          onClose={() => setKycRole(null)}
+          defaultRole={kycRole}
+          // As in every portal: marked submitted (the server records what was verified).
           onComplete={() => {
             try {
               localStorage.setItem('kyc_status', 'submitted');
@@ -231,6 +256,8 @@ function ComparePrices() {
               /* private mode */
             }
             window.dispatchEvent(new Event(KYC_CHANGED));
+            // Remember it on the account, so other devices don't ask again.
+            void supabase.auth.updateUser({ data: { kyc_status: 'submitted' } }).catch(() => undefined);
           }}
         />
       )}

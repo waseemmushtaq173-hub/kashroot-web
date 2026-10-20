@@ -462,6 +462,8 @@ function useIdentityVerification(simple = false) {
   const [panShared, setPanShared] = useState(false);
   // Why PAN was not taken from DigiLocker (e.g. no PAN card there).
   const [panNote, setPanNote] = useState('');
+  // The last four characters of the PAN DigiLocker sent: a typed PAN counts as DigiLocker's only when it matches.
+  const [panLast4, setPanLast4] = useState('');
   const [digiLockerError, setDigiLockerError] = useState<string | null>(null);
   const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
@@ -559,7 +561,7 @@ function useIdentityVerification(simple = false) {
     setDigiLocker('connecting');
     setDigiLockerError(null);
     try {
-      const { panShared: shared, panNote: note, ...result } = await verifyWithDigiLocker(popup);
+      const { panShared: shared, panLast4: last4, panNote: note, ...result } = await verifyWithDigiLocker(popup);
       if (current !== attempt.current) return;
       // DigiLocker must be the same Aadhaar as the one verified (or typed) here.
       const want = verified?.aadhaarLast4 ?? (aadhaarValid ? aadhaarDigits.slice(-4) : '');
@@ -570,6 +572,7 @@ function useIdentityVerification(simple = false) {
       setVerified((v) => v ?? { ...result, method: 'DIGILOCKER' });
       setPanShared(shared);
       setPanNote(note);
+      setPanLast4(last4.toUpperCase());
       setSynced('yes');
       setDigiLocker('idle');
     } catch (err) {
@@ -630,7 +633,8 @@ function useIdentityVerification(simple = false) {
   // PAN is optional for everyone (Aadhaar through DigiLocker is enough). Given:
   // online it must be confirmed (Income Tax check or DigiLocker); offline the
   // format is checked now and the PAN is re-checked once online.
-  const panConfirmed = pan.trim() === '' || (isValidPan(pan) && (panApiOk || panShared || !online));
+  const panFromDigiLocker = panShared && panLast4 !== '' && pan.trim().toUpperCase().slice(-4) === panLast4;
+  const panConfirmed = pan.trim() === '' || (isValidPan(pan) && (panApiOk || panFromDigiLocker || !online));
   const mobileFromAadhaar = aadhaarMobile?.matches === true;
   // Codes are required only for channels the site has a provider for.
   // Farmers confirmed their mobile and email when signing up; don't ask again.
@@ -645,7 +649,7 @@ function useIdentityVerification(simple = false) {
           referenceId: verified.referenceId,
           aadhaarLast4: verified.aadhaarLast4,
           pan,
-          panVerifiedBy: panApiOk ? 'PAN_API' : panShared ? 'DIGILOCKER' : 'FORMAT_ONLY',
+          panVerifiedBy: panApiOk ? 'PAN_API' : panFromDigiLocker ? 'DIGILOCKER' : 'FORMAT_ONLY',
           mobile: mobileOk ? mobile : mobileFromAadhaar ? aadhaarMobile!.number : '',
           email: emailOk ? email : '',
         }
@@ -698,6 +702,8 @@ function useIdentityVerification(simple = false) {
     panApiOk,
     panShared,
     panNote,
+    panLast4,
+    panFromDigiLocker,
     digiLockerError,
     mobile,
     setMobile,
@@ -1021,9 +1027,13 @@ function IdentityStep({
                   PAN format checked. It will be confirmed with the Income Tax Department automatically once online checks are switched on.
                 </p>
               )
-            ) : model.panShared ? (
+            ) : model.panFromDigiLocker || (model.panShared && model.pan.trim() === '') ? (
               <p className="flex items-center gap-2 rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-900 ring-1 ring-emerald-200">
                 <CheckIcon className="h-4 w-4" /> PAN shared from DigiLocker (issued by the Income Tax Department).
+              </p>
+            ) : model.panShared && model.panLast4 && panOk ? (
+              <p role="alert" className="rounded-2xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
+                This PAN does not match the PAN in your DigiLocker (it ends in {model.panLast4}). Check the PAN you typed, or leave it empty.
               </p>
             ) : model.panApiOk ? (
               <p className="flex items-center gap-2 rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-900 ring-1 ring-emerald-200">

@@ -16,7 +16,8 @@
  *     email — never the password — so the sign-in page says "Welcome back"
  *     with the email filled in.
  *   - After Sign out, the next sign-in needs their email and password again
- *     (signOutCompletely forgets them on this device). Everything they saved
+ *     (signOutCompletely forgets them on this device; so does "Not you? Sign
+ *     out and forget me" on the "Continue as …" card). Everything they saved
  *     stays in their account.
  */
 import { useEffect, useState } from 'react';
@@ -29,6 +30,7 @@ import {
   forgetPortalSignIns,
   markDeviceUsed,
   markPortalSignedOut,
+  openPortals,
   portalAccess,
   portalOpen,
   signedInPortals,
@@ -272,7 +274,10 @@ export function useSignedIn(portal?: PortalId): boolean | null {
   return signedIn;
 }
 
-/** The person pressed Sign out: end the session and forget them on this device. */
+/**
+ * The person pressed Sign out (or "Not you? Sign out and forget me"): end the
+ * session and forget them on this device.
+ */
 export async function signOutCompletely() {
   forgetPerson();
   forgetPortalSignIns();
@@ -281,19 +286,24 @@ export async function signOutCompletely() {
 }
 
 /**
- * Sign out of one portal. The other portals they are signed in to on this
- * device stay signed in; signing out of the last one ends the session.
+ * Sign out of one portal. The other portals open on this device stay signed
+ * in. When none is open any more (only portals locked after hours unused are
+ * left), the session ends: someone who signs out of the portal they were
+ * using, e.g. on a shared phone, leaves no other portal one tap away.
  */
 export async function signOutOfPortal(portal: PortalId) {
   const { data } = await supabase.auth.getSession();
   const user = data.session?.user;
   if (!user) return;
-  if (markPortalSignedOut(user.id, portal).length === 0) await signOutCompletely();
+  markPortalSignedOut(user.id, portal);
+  if (openPortals(user.id).length === 0) await signOutCompletely();
 }
 
 // Any page that loads this file: a device unused for too long signs out
 // before anything else, and use from now on is noted.
 if (typeof window !== 'undefined') {
+  // An older copy of the email that nothing reads any more ("Welcome back" uses kr_remember).
+  write('auth_email', null);
   void endIdleDevice();
   listen();
 }

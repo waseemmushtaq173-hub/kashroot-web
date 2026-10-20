@@ -156,7 +156,7 @@ export async function verifyPan(pan: string, name: string, dobIso: string): Prom
  * state) and polls until the user finishes. `popup` must be opened by the
  * click handler itself, or browsers block it.
  */
-export async function verifyWithDigiLocker(popup: Window | null): Promise<IdentityVerification & { panShared: boolean; panNote: string }> {
+export async function verifyWithDigiLocker(popup: Window | null): Promise<IdentityVerification & { panShared: boolean; panLast4: string; panNote: string }> {
   let start: { sessionId: string; authorizationUrl: string; ticket: string };
   try {
     start = await post('/api/kyc/digilocker/start', {});
@@ -172,11 +172,11 @@ export async function verifyWithDigiLocker(popup: Window | null): Promise<Identi
   while (Date.now() < deadline) {
     await delay(2500);
     const res = await authFetch(`/api/kyc/digilocker/status?session=${encodeURIComponent(start.sessionId)}&ticket=${encodeURIComponent(start.ticket)}`);
-    const s = (await res.json().catch(() => ({}))) as { status?: string; aadhaar?: boolean; pan?: boolean; aadhaarLast4?: string; panNote?: string; error?: string };
+    const s = (await res.json().catch(() => ({}))) as { status?: string; aadhaar?: boolean; pan?: boolean; aadhaarLast4?: string; panLast4?: string; panNote?: string; error?: string };
     if (!res.ok) throw new Error(s.error ?? 'DigiLocker did not respond.');
     if (s.status === 'succeeded') {
       if (!s.aadhaar) throw new Error('Aadhaar was not shared from DigiLocker. Please allow Aadhaar on the consent screen.');
-      return { referenceId: start.sessionId, aadhaarLast4: s.aadhaarLast4 ?? '', panShared: Boolean(s.pan), panNote: s.panNote ?? '' };
+      return { referenceId: start.sessionId, aadhaarLast4: s.aadhaarLast4 ?? '', panShared: Boolean(s.pan), panLast4: s.panLast4 ?? '', panNote: s.panNote ?? '' };
     }
     if (s.status === 'failed' || s.status === 'expired') throw new Error(`DigiLocker consent ${s.status}. Please try again.`);
     if (popup?.closed && s.status === 'created') {

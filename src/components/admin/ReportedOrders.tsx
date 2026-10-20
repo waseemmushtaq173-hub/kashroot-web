@@ -23,6 +23,11 @@ export interface ReportedOrder {
   buyer_name: string;
   buyer_phone: string;
   buyer_note: string | null;
+  /** A Kissan Tools seller can report a problem too (e.g. a payment they cannot find). */
+  seller_note: string | null;
+  seller_name: string | null;
+  seller_phone: string | null;
+  pay_first: boolean | null;
   delivery_address: string;
   payment_ref: string | null;
   created_at: string;
@@ -32,7 +37,7 @@ export interface ReportedOrder {
 export async function loadReportedOrders(): Promise<ReportedOrder[]> {
   const { data, error } = await supabase
     .from('market_orders')
-    .select('id, product, quantity, unit, amount, buyer_name, buyer_phone, buyer_note, delivery_address, payment_ref, created_at, market_listings(seller_name, phone)')
+    .select('id, product, quantity, unit, amount, buyer_name, buyer_phone, buyer_note, seller_note, seller_name, seller_phone, pay_first, delivery_address, payment_ref, created_at, market_listings(seller_name, phone)')
     .eq('status', 'disputed')
     .order('created_at', { ascending: false })
     .limit(100);
@@ -67,7 +72,7 @@ export function ReportedOrders() {
 
   return (
     <Panel theme={theme} title="Orders with a problem" icon={PackageX}>
-      <p className="mb-4 text-sm text-slate-600">A buyer pressed “Report a problem” on these. KashRoot does not hold the money — call both sides and help them settle it.</p>
+      <p className="mb-4 text-sm text-slate-600">A buyer or a seller pressed “Report a problem” on these. KashRoot does not hold the money — call both sides and help them settle it.</p>
       {orders === null ? (
         <p className="flex items-center gap-2 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>
       ) : error ? (
@@ -79,13 +84,15 @@ export function ReportedOrders() {
           {orders.map((o) => (
             <li key={o.id} className="rounded-2xl bg-white/85 p-4 text-sm ring-1 ring-slate-900/5">
               <p className="font-semibold text-slate-900">{o.quantity} {o.unit} · {o.product} · {inr(o.amount)} <span className="text-xs font-normal text-slate-500">{ago(o.created_at)}</span></p>
-              {o.buyer_note && <p className="mt-1 text-rose-800">“{o.buyer_note}”</p>}
+              {o.pay_first && <p className="text-xs font-semibold text-amber-800">Kissan Tools order — the buyer pays before it is shipped</p>}
+              {o.buyer_note && <p className="mt-1 text-rose-800">Buyer: “{o.buyer_note}”</p>}
+              {o.seller_note && <p className="mt-1 text-rose-800">Seller: “{o.seller_note}”</p>}
               <p className="mt-2 text-slate-700">
                 Buyer: {o.buyer_name} · <a href={`tel:${o.buyer_phone}`} className="inline-flex items-center gap-1 font-semibold text-sky-800"><Phone className="h-3.5 w-3.5" aria-hidden /> {o.buyer_phone}</a>
               </p>
-              {o.market_listings && (
+              {(o.seller_phone || o.market_listings) && (
                 <p className="text-slate-700">
-                  Seller: {o.market_listings.seller_name} · <a href={`tel:${o.market_listings.phone}`} className="inline-flex items-center gap-1 font-semibold text-sky-800"><Phone className="h-3.5 w-3.5" aria-hidden /> {o.market_listings.phone}</a>
+                  Seller: {o.seller_name ?? o.market_listings?.seller_name} · <a href={`tel:${o.seller_phone ?? o.market_listings?.phone}`} className="inline-flex items-center gap-1 font-semibold text-sky-800"><Phone className="h-3.5 w-3.5" aria-hidden /> {o.seller_phone ?? o.market_listings?.phone}</a>
                 </p>
               )}
               <p className="text-xs text-slate-500">Deliver to: {o.delivery_address}{o.payment_ref ? ` · Payment reference: ${o.payment_ref}` : ' · Not paid yet'}</p>

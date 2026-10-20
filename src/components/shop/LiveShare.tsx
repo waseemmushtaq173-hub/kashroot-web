@@ -5,83 +5,140 @@
  * location from this phone (sent about every 30 seconds while the page is
  * open), or send the driver a tracking link — a small page where the driver
  * taps Start and their phone shares it instead.
+ *
+ * Sharing is kept outside the card, one per order, for as long as the page is
+ * open: it goes on while the seller looks at another tab of the portal and
+ * comes back. It stops on "Stop sharing", when the order is no longer on the
+ * way, when location is blocked, when the seller leaves this page or signs
+ * out, and the card then says why.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { Copy, Link2, MapPin, MessageCircle, Square } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { Btn, type PortalTheme } from '@/components/portal/kit';
-import { ago } from '@/lib/db/client';
+import { ago, supabase } from '@/lib/db/client';
 import { driverLink, sendLocation } from '@/lib/db/shop';
 
 const EVERY_MS = 30_000;
 type WakeLock = { release: () => Promise<void> };
 
-export function LiveShare({ orderId, driverPhone, lastAt, theme, onSent }: { orderId: string; driverPhone?: string | null; lastAt?: string | null; theme: PortalTheme; onSent?: () => void }) {
-  const [sharing, setSharing] = useState(false);
-  const [sentAt, setSentAt] = useState<string | null>(null);
-  const [problem, setProblem] = useState<string | null>(null);
+interface ShareView {
+  sharing: boolean;
+  sentAt: string | null;
+  problem: string | null;
+}
+interface Share {
+  view: ShareView;
+  watch: number | null;
+  timer: number | null;
+  latest: GeolocationPosition | null;
+  wake: WakeLock | null;
+  /** The page it was started on: leaving it stops the sharing. */
+  path: string;
+}
+
+const IDLE: ShareView = { sharing: false, sentAt: null, problem: null };
+const shares = new Map<string, Share>();
+const listeners = new Set<() => void>();
+const subscribe = (l: () => void) => {
+  listeners.add(l);
+  return () => {
+    listeners.delete(l);
+  };
+};
+
+function show(orderId: string, patch: Partial<ShareView>) {
+  const s = shares.get(orderId);
+  if (!s) return;
+  s.view = { ...s.view, ...patch };
+  listeners.forEach((l) => l());
+}
+
+async function keepAwake(s: Share) {
+  try {
+    const nav = navigator as Navigator & { wakeLock?: { request: (t: 'screen') => Promise<WakeLock> } };
+    s.wake = (await nav.wakeLock?.request('screen')) ?? null;
+  } catch {
+    /* the screen may sleep; sharing continues while the page is open */
+  }
+}
+
+// The browser lets go of the screen lock when the page is hidden: ask again when it is back.
+// Signing out stops every sharing at once.
+let watching = false;
+function watchPage() {
+  if (watching) return;
+  watching = true;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    for (const s of shares.values()) if (s.view.sharing) void keepAwake(s);
+  });
+  supabase.auth.onAuthStateChange((event) => {
+    if (event !== 'SIGNED_OUT') return;
+    for (const [id, s] of shares) if (s.view.sharing) stopSharing(id, 'Sharing stopped: you signed out.');
+  });
+}
+
+/** Stops sharing one order's location; `why` tells the seller when they did not press Stop. */
+function stopSharing(orderId: string, why: string | null = null) {
+  const s = shares.get(orderId);
+  if (!s) return;
+  if (s.watch != null) navigator.geolocation.clearWatch(s.watch);
+  if (s.timer != null) window.clearInterval(s.timer);
+  void s.wake?.release().catch(() => undefined);
+  Object.assign(s, { watch: null, timer: null, latest: null, wake: null });
+  show(orderId, { sharing: false, problem: why });
+}
+
+async function send(orderId: string) {
+  const s = shares.get(orderId);
+  if (!s?.view.sharing) return;
+  if (window.location.pathname !== s.path) return stopSharing(orderId, 'Sharing stopped because you left the orders page. Press the button again to share.');
+  const p = s.latest;
+  if (!p) return;
+  try {
+    await sendLocation(orderId, p.coords.latitude, p.coords.longitude, p.coords.accuracy);
+    show(orderId, { sentAt: new Date().toISOString(), problem: null });
+  } catch (err) {
+    const m = err instanceof Error ? err.message : '';
+    // Received or closed: there is nothing more to share.
+    if (/not on the way any more/.test(m)) return stopSharing(orderId, m);
+    show(orderId, { problem: m || 'Could not send the location. Check your internet.' });
+  }
+}
+
+function startSharing(orderId: string) {
+  const s: Share = shares.get(orderId) ?? { view: IDLE, watch: null, timer: null, latest: null, wake: null, path: '' };
+  shares.set(orderId, s);
+  if (s.view.sharing) return;
+  s.path = window.location.pathname;
+  if (!navigator.geolocation) return show(orderId, { problem: 'This phone cannot share its location. Send the tracking link to the driver instead.' });
+  show(orderId, { sharing: true, problem: null });
+  watchPage();
+  void keepAwake(s);
+  let first = true;
+  s.watch = navigator.geolocation.watchPosition(
+    (pos) => {
+      s.latest = pos;
+      if (first) {
+        first = false;
+        void send(orderId);
+      }
+    },
+    (err) => {
+      if (err.code === err.PERMISSION_DENIED) stopSharing(orderId, 'Sharing stopped: location is blocked for this site. Allow it in the browser settings, then press the button again.');
+      else show(orderId, { problem: 'Waiting for GPS. Go outside or turn on location.' });
+    },
+    { enableHighAccuracy: true, maximumAge: 15_000, timeout: 60_000 },
+  );
+  s.timer = window.setInterval(() => void send(orderId), EVERY_MS);
+}
+
+export function LiveShare({ orderId, driverPhone, lastAt, theme }: { orderId: string; driverPhone?: string | null; lastAt?: string | null; theme: PortalTheme }) {
+  const { sharing, sentAt, problem } = useSyncExternalStore(subscribe, () => shares.get(orderId)?.view ?? IDLE, () => IDLE);
   const [link, setLink] = useState<string | null>(null);
   const [making, setMaking] = useState(false);
-  const watch = useRef<number | null>(null);
-  const timer = useRef<number | null>(null);
-  const latest = useRef<GeolocationPosition | null>(null);
-  const wake = useRef<WakeLock | null>(null);
-
-  const stop = useCallback(() => {
-    if (watch.current != null) navigator.geolocation.clearWatch(watch.current);
-    if (timer.current != null) window.clearInterval(timer.current);
-    watch.current = null;
-    timer.current = null;
-    latest.current = null;
-    void wake.current?.release().catch(() => undefined);
-    wake.current = null;
-    setSharing(false);
-  }, []);
-  useEffect(() => stop, [stop]);
-
-  const send = useCallback(async () => {
-    const p = latest.current;
-    if (!p) return;
-    try {
-      await sendLocation(orderId, p.coords.latitude, p.coords.longitude, p.coords.accuracy);
-      setSentAt(new Date().toISOString());
-      setProblem(null);
-      onSent?.();
-    } catch (err) {
-      setProblem(err instanceof Error ? err.message : 'Could not send the location. Check your internet.');
-    }
-  }, [orderId, onSent]);
-
-  const start = () => {
-    setProblem(null);
-    if (!navigator.geolocation) return setProblem('This phone cannot share its location. Send the tracking link to the driver instead.');
-    setSharing(true);
-    void (async () => {
-      try {
-        const nav = navigator as Navigator & { wakeLock?: { request: (t: 'screen') => Promise<WakeLock> } };
-        wake.current = (await nav.wakeLock?.request('screen')) ?? null;
-      } catch {
-        /* the screen may sleep; sharing continues while the page is open */
-      }
-    })();
-    let first = true;
-    watch.current = navigator.geolocation.watchPosition(
-      (pos) => {
-        latest.current = pos;
-        if (first) {
-          first = false;
-          void send();
-        }
-      },
-      (err) => {
-        setProblem(err.code === err.PERMISSION_DENIED ? 'Location is blocked for this site. Allow it in the browser settings, then press the button again.' : 'Waiting for GPS. Go outside or turn on location.');
-        if (err.code === err.PERMISSION_DENIED) stop();
-      },
-      { enableHighAccuracy: true, maximumAge: 15_000, timeout: 60_000 },
-    );
-    timer.current = window.setInterval(() => void send(), EVERY_MS);
-  };
 
   const makeLink = async () => {
     setMaking(true);
@@ -116,12 +173,12 @@ export function LiveShare({ orderId, driverPhone, lastAt, theme, onSent }: { ord
           <p className="flex items-center gap-2 rounded-xl bg-emerald-600 p-3 font-semibold text-white">
             <MapPin className="h-5 w-5 animate-pulse" aria-hidden /> Sharing this phone’s location{last ? ` · sent ${ago(last)}` : ' · getting GPS…'}
           </p>
-          <p className="text-sm text-slate-700">Keep this page open on the phone that travels with the goods. It sends the location about every 30 seconds.</p>
-          <Btn theme={theme} variant="ghost" icon={Square} className="min-h-11" onClick={stop}>Stop sharing</Btn>
+          <p className="text-sm text-slate-700">Keep this page open on the phone that travels with the goods. It sends the location about every 30 seconds, also while you look at other tabs here.</p>
+          <Btn theme={theme} variant="ghost" icon={Square} className="min-h-11" onClick={() => stopSharing(orderId)}>Stop sharing</Btn>
         </div>
       ) : (
         <>
-          <Btn theme={theme} icon={MapPin} className="min-h-11" onClick={start}>Share live location from this phone</Btn>
+          <Btn theme={theme} icon={MapPin} className="min-h-11" onClick={() => startSharing(orderId)}>Share live location from this phone</Btn>
           {last && <p className="text-sm text-slate-600">Last position sent {ago(last)}.</p>}
         </>
       )}

@@ -39,6 +39,7 @@ export function Checkout({ lines, account, theme, onClose, onPlaced }: { lines: 
 
   const whereProblem = (): string | null => {
     if (form.name.trim().length < 2) return 'Write your name, so the seller knows who ordered.';
+    if (form.name.trim().length > 80) return 'Write a shorter name (80 letters or fewer).';
     if (!/^(\+?91)?[6-9]\d{9}$/.test(form.phone.replace(/[\s-]/g, ''))) return 'Write your 10-digit mobile number, for example 9876543210. The seller and the driver call you on it.';
     if (form.address.trim().length < 5) return 'Write where to deliver: village, tehsil and district, and a landmark.';
     if (!pin) return 'Set the delivery pin: press “Use my location”, or type your village and pick it from the list.';
