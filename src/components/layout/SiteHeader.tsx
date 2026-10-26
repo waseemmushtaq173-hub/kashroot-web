@@ -33,7 +33,7 @@ interface MenuItem {
 export const TOOL_ITEMS: MenuItem[] = [
   { title: 'Price Comparison', href: '/compare-prices', desc: 'Compare offers and order, or list what you sell' },
   { title: 'Live mandi rates & weather', href: '/mandi-weather', desc: 'Today’s prices and the forecast' },
-  { title: 'Fertiliser check', href: '/supplies/tester', desc: 'Is your fertiliser or spray genuine?' },
+  { title: 'KashRoot TrueScan — is it genuine?', href: '/supplies/tester', desc: 'Check a fertiliser or pesticide against the Government lists' },
 ];
 const PORTAL_ITEMS: MenuItem[] = PUBLIC_PORTAL_IDS.map((id) => ({ title: PORTALS[id].label, href: PORTALS[id].home, desc: PORTALS[id].tagline }));
 

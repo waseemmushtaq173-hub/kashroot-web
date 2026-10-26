@@ -11,7 +11,8 @@
  * in right there only when someone orders or sells, and the mandi card opens
  * the rates (posting them is the Mandi Helpers portal) — no card leads into
  * a portal it does not name.
- * Below the hero: the voice assistant, Orchard Health, fertiliser testing and
+ * Below the hero: the voice assistant, Orchard Health, KashRoot TrueScan
+ * (is this fertiliser or pesticide genuine?) and
  * every portal as a coloured 3D card (each with its own sign-in).
  *
  * A server component; the interactive sections are client islands.
@@ -119,14 +120,14 @@ export default function HomePage() {
 
           <section aria-labelledby="fertilizer-heading" className="grid gap-6 lg:grid-cols-[1fr_1.6fr] lg:items-start">
             <div className="pt-2">
-              <p className="inline-flex rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-800 ring-1 ring-rose-200">Fertiliser testing</p>
-              <h2 id="fertilizer-heading" className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">Know your fertiliser is genuine</h2>
+              <p className="inline-flex rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-800 ring-1 ring-rose-200">Fertilisers and pesticides</p>
+              <h2 id="fertilizer-heading" className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">KashRoot TrueScan — is it genuine?</h2>
               <p className="mt-3 leading-relaxed text-slate-600">
-                Photograph the label: it is checked against the Government’s labelling rules and the official Fertiliser (Control) Order
-                standards. Or compare a lab report with those standards.
+                Type the registration number or the name from the label: it is checked against the Government list of registered
+                products. Or photograph the label, or compare a lab report with the official Fertiliser (Control) Order standards.
               </p>
-              <Link href="/supplies/tester" className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-rose-800 no-underline shadow-sm ring-1 ring-rose-200 transition hover:bg-rose-50 hover:no-underline">
-                Open full tester <ArrowRight className="h-4 w-4" aria-hidden />
+              <Link href="/supplies/tester" className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-rose-800 no-underline shadow-sm ring-1 ring-rose-200 transition hover:bg-rose-50 hover:no-underline">
+                Open TrueScan <ArrowRight className="h-4 w-4" aria-hidden />
               </Link>
             </div>
             <FertilizerChecker />

@@ -1,27 +1,38 @@
 'use client';
 
 /**
- * FertilizerChecker — checks a farmer can do before using a bag or bottle:
+ * FertilizerChecker — KashRoot TrueScan: is this fertiliser or pesticide
+ * genuine? Checks anyone can do before using a bag or bottle:
  *   1. Photo of the label → the AI reads product, batch, registration number
  *      (CIB&RC for pesticides, FCO for fertilisers), dates and MRP, points out
- *      what is missing or suspicious, and the batch is looked up in the
- *      registry. Can be read aloud.
- *   2. Batch number → the shared KashRoot registry (fertilizer_batches via
- *      kr_check_batch), filled by dealers; shows whether KashRoot has verified
- *      that dealer and how many farmers reported the batch. Not found is NOT
- *      proof of a fake, and the result says so.
+ *      what is missing or suspicious; the registration number is looked up in
+ *      the Government list and the batch in KashRoot's dealer records. Can be
+ *      read aloud.
+ *   2. Registration / batch → what is printed on the label:
+ *        • a CIB&RC registration number or a product name is looked up in the
+ *          official lists the KashRoot admin imported (official_products via
+ *          kr_registry_search) — every answer names its source and date, and
+ *          "not in the list" or "list not loaded yet" is said plainly;
+ *        • a fertiliser type (DAP 18-46-0, Urea…) is matched to its Fertiliser
+ *          (Control) Order standard;
+ *        • a batch number: the Government publishes no list of batch numbers,
+ *          and the result says so; a KashRoot dealer record for the batch
+ *          (fertilizer_batches via kr_check_batch) is shown as extra information.
  *   3. Lab report → Fertiliser (Control) Order, 1985 minimums.
  * Anyone — signed in or not — can report a suspicious product to the KashRoot admin.
  */
-import { useEffect, useState } from 'react';
-import { Camera, CheckCircle2, CircleAlert, Flag, FlaskConical, Loader2, ScanLine, ShieldCheck, XCircle } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { BadgeCheck, Camera, CheckCircle2, CircleAlert, FileQuestion, Flag, FlaskConical, Loader2, ScanLine, ShieldCheck, XCircle } from 'lucide-react';
 
 import { LangPicker, SpeakButton } from '@/components/voice/VoiceButtons';
-import { checkAgainstFco, FCO_PRODUCTS } from '@/lib/fertilizer/fco';
+import { checkAgainstFco, FCO_PRODUCTS, type FcoProduct } from '@/lib/fertilizer/fco';
 import { checkLabel, type LabelFacts, type RuleReport } from '@/lib/fertilizer/labelRules';
+import { KIND_WORDS } from '@/lib/fertilizer/officialList';
+import { fcoTypeOf, readTyped, type Typed } from '@/lib/fertilizer/trueScan';
 import { compressImage } from '@/lib/client/image';
 import { isRtl, type SpeechLang } from '@/lib/client/speech';
 import { dbMessage, loadAccount, supabase, supabaseConfigured, type Account } from '@/lib/db/client';
+import { registryStats, searchRegistry, type OfficialHit, type OfficialKind, type RegistryStats } from '@/lib/db/registry';
 import { reportBatch } from '@/lib/db/security';
 
 interface BatchRow {
@@ -53,22 +64,69 @@ type Lookup =
   | { state: 'missing'; code: string }
   | { state: 'error'; message: string };
 
+/** What TrueScan found for what was typed. `hits` and `stats` are null when the lists are not set up on this site. */
+type Scan =
+  | { state: 'idle' }
+  | { state: 'loading' }
+  | { state: 'error'; message: string }
+  | { state: 'done'; typed: Typed; hits: OfficialHit[] | null; stats: RegistryStats | null; fco?: FcoProduct; dealer?: Lookup };
+
+/** A registration number read from the label photo, looked up in the official list. */
+type RegCheck = { state: 'idle' } | { state: 'loading' } | { state: 'error'; message: string } | { state: 'done'; no: string; hits: OfficialHit[] | null; stats: RegistryStats | null };
+
 const INPUT = 'block w-full rounded-xl border-0 bg-white px-4 py-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-600';
+const ASK = 'Ask the dealer for the registration certificate, or ask your agriculture officer.';
+
+/** "26 Oct 2026" */
+const day = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+const count = (n: number) => n.toLocaleString('en-IN');
+/** "1 product", "1,234 products" */
+const products = (n: number) => `${count(n)} product${n === 1 ? '' : 's'}`;
+const offline = (err: unknown) => (err instanceof Error && !/Failed to fetch|NetworkError|Load failed/i.test(err.message) ? err.message : 'No internet connection. Please try again.');
+
+/** The heading of a product found in an official list. */
+const REGISTERED: Record<OfficialKind, string> = {
+  pesticide: 'Registered with the Government (CIB&RC)',
+  fertiliser: 'In the Government list of fertilisers',
+  seed: 'In the Government list of seeds',
+  other: 'In an official list',
+};
 
 async function lookupBatch(raw: string): Promise<Lookup> {
   const batch = raw.trim().toUpperCase();
   if (batch.length < 3) return { state: 'error', message: 'Enter the batch number printed on the bag.' };
   if (!supabaseConfigured) return { state: 'error', message: 'The batch registry is not connected on this site yet.' };
-  const { data, error } = await supabase.rpc('kr_check_batch', { p_code: batch });
+  const { data, error } = await supabase.rpc('kr_check_batch', { p_code: batch.slice(0, 40) });
   if (error) return { state: 'error', message: dbMessage(error, 'Could not reach the registry. Try again.') };
   return data ? { state: 'found', row: data as BatchRow } : { state: 'missing', code: batch };
 }
 
+/** Everything TrueScan can say about what was typed — all looked up at once. */
+async function scan(raw: string): Promise<Scan> {
+  const typed = readTyped(raw);
+  if (!typed.text) return { state: 'error', message: 'Type what is printed on the label: the registration number (CIR-…), the product name, or the batch number.' };
+  if (typed.text.length < 2) return { state: 'error', message: `“${typed.text}” is too short. Type the whole registration number, product name or batch number.` };
+  try {
+    const [stats, hits, dealer] = await Promise.all([
+      registryStats(),
+      searchRegistry(typed.text),
+      typed.kind === 'batch' && typed.text.length >= 3 ? lookupBatch(typed.text) : Promise.resolve(undefined),
+    ]);
+    return { state: 'done', typed, hits, stats, dealer, fco: typed.kind === 'name' ? fcoTypeOf(typed.text) : undefined };
+  } catch (err) {
+    return { state: 'error', message: offline(err) };
+  }
+}
+
 export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
-  const [mode, setMode] = useState<'photo' | 'batch' | 'lab'>('photo');
+  const [mode, setMode] = useState<'photo' | 'registry' | 'lab'>('photo');
   const [account, setAccount] = useState<Account | null>(null);
   const [code, setCode] = useState('');
-  const [lookup, setLookup] = useState<Lookup>({ state: 'idle' });
+  const [result, setResult] = useState<Scan>({ state: 'idle' });
+  // A new check starts its answer afresh (e.g. "Show all" closed again).
+  const [scans, setScans] = useState(0);
+  // undefined: not read yet; null: the official lists are not set up on this site.
+  const [stats, setStats] = useState<RegistryStats | null | undefined>(undefined);
   const [productId, setProductId] = useState(FCO_PRODUCTS[0].id);
   const [values, setValues] = useState<Record<string, string>>({});
 
@@ -80,9 +138,17 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
   const measured = Object.fromEntries(product.parameters.map((p) => [p.key, values[p.key] === undefined || values[p.key] === '' ? undefined : Number(values[p.key])]));
   const report = checkAgainstFco(product, measured);
 
-  const verify = async (batch = code) => {
-    setLookup({ state: 'loading' });
-    setLookup(await lookupBatch(batch));
+  const open = (id: typeof mode) => {
+    setMode(id);
+    // What the lists hold, said under the box before anything is typed.
+    if (id === 'registry' && stats === undefined) void registryStats().then(setStats).catch(() => undefined);
+  };
+  const check = async () => {
+    setResult({ state: 'loading' });
+    const r = await scan(code);
+    if (r.state === 'done') setStats(r.stats);
+    setScans((n) => n + 1);
+    setResult(r);
   };
 
   return (
@@ -90,15 +156,15 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
       <div role="group" aria-label="Check type" className="inline-flex flex-wrap rounded-xl bg-slate-900/5 p-1">
         {([
           ['photo', 'Photo of the label', Camera],
-          ['batch', 'Batch number', ScanLine],
+          ['registry', 'Registration / batch', ScanLine],
           ['lab', 'Lab report vs FCO', FlaskConical],
         ] as const).map(([id, label, Icon]) => (
           <button
             key={id}
             type="button"
             aria-pressed={mode === id}
-            onClick={() => setMode(id)}
-            className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition ${mode === id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+            onClick={() => open(id)}
+            className={`inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition ${mode === id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
           >
             <Icon className="h-4 w-4" aria-hidden /> {label}
           </button>
@@ -107,17 +173,22 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
 
       {mode === 'photo' && <LabelPhoto account={account} />}
 
-      {mode === 'batch' && (
+      {mode === 'registry' && (
         <div className="mt-5">
-          <form className="flex flex-col gap-2 sm:flex-row" onSubmit={(e) => { e.preventDefault(); void verify(); }}>
-            <label htmlFor="batch-code" className="sr-only">Batch number</label>
-            <input id="batch-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Batch number on the bag, e.g. MZ-24-1187" className={`${INPUT} flex-1 font-mono uppercase tracking-wider placeholder:font-sans placeholder:normal-case placeholder:tracking-normal`} />
-            <button type="submit" disabled={lookup.state === 'loading'} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 disabled:opacity-60">
-              {lookup.state === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <ShieldCheck className="h-4 w-4" aria-hidden />} Verify batch
-            </button>
-          </form>
+          <RegistryForm code={code} setCode={setCode} busy={result.state === 'loading'} onCheck={() => void check()} />
+          <ListsHeld stats={stats} />
           <div aria-live="polite" className="mt-4">
-            <BatchResult lookup={lookup} account={account} onPhoto={() => setMode('photo')} />
+            <ScanResult
+              key={scans}
+              result={result}
+              account={account}
+              onPhoto={() => setMode('photo')}
+              onLab={(id) => {
+                setProductId(id);
+                setValues({});
+                setMode('lab');
+              }}
+            />
           </div>
         </div>
       )}
@@ -161,10 +232,205 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
 }
 
 /**
+ * One big box for whatever is printed on the label. Codes are mostly
+ * numbers, so a tap switches the phone to its number keypad and back.
+ */
+function RegistryForm({ code, setCode, busy, onCheck }: { code: string; setCode: (v: string) => void; busy: boolean; onCheck: () => void }) {
+  const [numbers, setNumbers] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); onCheck(); }}>
+      <label htmlFor="truescan-text" className="block text-base font-semibold text-slate-900">What is printed on the label?</label>
+      <p id="truescan-hint" className="mt-0.5 text-sm text-slate-600">The registration number (CIR-…), the product name, or the batch number.</p>
+      <div className="mt-2 flex gap-2">
+        <input
+          ref={input}
+          id="truescan-text"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          inputMode={numbers ? 'numeric' : 'text'}
+          enterKeyHint="search"
+          autoCapitalize="characters"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          maxLength={120}
+          aria-describedby="truescan-hint truescan-lists"
+          placeholder="CIR-…, product name or batch no."
+          className={`${INPUT} min-h-14 min-w-0 flex-1 text-lg font-semibold tracking-wide placeholder:text-base placeholder:font-normal placeholder:tracking-normal`}
+        />
+        <button
+          type="button"
+          aria-pressed={numbers}
+          aria-label={numbers ? 'Letters keyboard' : 'Number keypad'}
+          title={numbers ? 'Letters keyboard' : 'Number keypad'}
+          onClick={() => {
+            setNumbers(!numbers);
+            input.current?.focus();
+          }}
+          className="grid min-h-14 min-w-14 shrink-0 cursor-pointer place-items-center rounded-xl bg-white px-2 text-sm font-bold text-slate-700 shadow-sm ring-1 ring-inset ring-slate-200 hover:bg-slate-50"
+        >
+          {numbers ? 'ABC' : '123'}
+        </button>
+      </div>
+      <button type="submit" disabled={busy} className="mt-3 inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-700 px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-emerald-800 disabled:opacity-60 sm:w-auto">
+        {busy ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <ShieldCheck className="h-5 w-5" aria-hidden />} {busy ? 'Checking…' : 'Check'}
+      </button>
+    </form>
+  );
+}
+
+/** Under the box: which official lists KashRoot holds, and how fresh they are. */
+function ListsHeld({ stats }: { stats: RegistryStats | null | undefined }) {
+  if (stats === undefined) return <p id="truescan-lists" className="sr-only" />;
+  const kinds = (Object.entries(stats?.kinds ?? {}) as [OfficialKind, { count: number; last_import: string }][]).filter(([, k]) => k.count > 0);
+  return (
+    <p id="truescan-lists" className="mt-2 text-xs text-slate-500">
+      {kinds.length
+        ? `Checked against: ${kinds.map(([kind, k]) => `${KIND_WORDS[kind]}, ${products(k.count)}, updated ${day(k.last_import)}`).join('; ')} — and the FCO standards of ${FCO_PRODUCTS.length} common fertilisers.`
+        : `The Government lists of registered products are not loaded on KashRoot yet. Fertiliser types are checked against the FCO standards of ${FCO_PRODUCTS.length} common fertilisers.`}
+    </p>
+  );
+}
+
+/** The official-list answer for one product, in one sentence, with its source and date. */
+function HitLine({ hit, strong = false }: { hit: OfficialHit; strong?: boolean }) {
+  const extra = (['brand', 'formulation', 'valid_until'] as const)
+    .map((k) => [k, hit.details?.[k]] as const)
+    .filter(([, v]) => typeof v === 'string' && v.trim());
+  const label = { brand: 'Brand', formulation: 'Formulation', valid_until: 'Valid until' } as const;
+  return (
+    <div>
+      <p className={strong ? 'text-base text-slate-900' : 'text-slate-900'}>
+        <strong>{hit.name}</strong>
+        {hit.registrant ? <> by <strong>{hit.registrant}</strong></> : null}
+        {hit.registration_no ? <>, registration <span className="break-all font-semibold">{hit.registration_no}</span></> : null}.
+      </p>
+      {extra.length > 0 && <p className="text-xs text-slate-600">{extra.map(([k, v]) => `${label[k]}: ${v}`).join(' · ')}</p>}
+      <p className="text-xs text-slate-600">
+        Source:{' '}
+        <a href={hit.source_url} target="_blank" rel="noopener noreferrer" className="font-medium text-sky-800 underline">{hit.source}</a>, updated {day(hit.imported_at)}.
+      </p>
+    </div>
+  );
+}
+
+/** Which lists were checked (kinds that apply), and the newest import among them. */
+function listsFor(stats: RegistryStats | null, kind: Typed['kind']) {
+  const kinds = (Object.entries(stats?.kinds ?? {}) as [OfficialKind, { count: number; last_import: string }][]).filter(([k, v]) => v.count > 0 && (kind !== 'registration' || k === 'pesticide'));
+  const last = kinds.map(([, v]) => v.last_import).sort().at(-1) ?? null;
+  return { kinds, last, held: kinds.length > 0 };
+}
+
+function ScanResult({ result, account, onPhoto, onLab }: { result: Scan; account: Account | null; onPhoto: () => void; onLab: (fcoId: string) => void }) {
+  const [all, setAll] = useState(false);
+  if (result.state === 'idle') return null;
+  if (result.state === 'loading') return <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Checking the official lists…</p>;
+  if (result.state === 'error') return <p role="alert" className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">{result.message}</p>;
+
+  const { typed, hits, stats, fco, dealer } = result;
+  const byNumber = (hits ?? []).filter((h) => h.matched === 'registration');
+  const byName = (hits ?? []).filter((h) => h.matched === 'name');
+  const lists = listsFor(stats, typed.kind);
+  const found = byNumber.length + byName.length > 0;
+  const shownNames = all ? byName : byName.slice(0, 5);
+
+  return (
+    <div className="space-y-3 text-sm">
+      {typed.kind === 'batch' && (
+        <div className="rounded-2xl bg-slate-50 p-4 text-slate-800 ring-1 ring-slate-200">
+          <p className="flex items-center gap-2 font-semibold text-slate-900"><ScanLine className="h-5 w-5 shrink-0" aria-hidden /> {typed.text.toUpperCase()} looks like a batch number</p>
+          <p className="mt-1">The Government of India publishes no list of batch numbers, so no website — KashRoot included — can confirm a batch number.</p>
+          <p className="mt-1">To check the product itself, type its <strong>registration number (CIR-…)</strong> or its <strong>name</strong> from the label, or photograph the label.</p>
+          <button type="button" onClick={onPhoto} className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 font-semibold text-white hover:bg-emerald-800">
+            <Camera className="h-4 w-4" aria-hidden /> Check the label photo
+          </button>
+          {dealer?.state === 'found' && (
+            <div className="mt-4">
+              <p className="mb-2 font-semibold text-slate-800">Extra information: a KashRoot dealer listed batch {dealer.row.batch_code}</p>
+              <DealerRecord row={dealer.row} account={account} />
+            </div>
+          )}
+          {dealer?.state === 'missing' && <p className="mt-3 text-xs text-slate-600">No KashRoot dealer has listed batch {dealer.code}. That is normal — most genuine products are not listed by dealers on KashRoot.</p>}
+          {dealer?.state === 'error' && <p className="mt-3 text-xs text-rose-800">KashRoot’s dealer records could not be checked: {dealer.message}</p>}
+        </div>
+      )}
+
+      {byNumber.map((h, i) => (
+        <section key={`${h.source}|${h.registration_no}|${h.name}|${i}`} aria-label="Found in the official list" className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
+          <p className="flex items-center gap-2 text-base font-semibold text-emerald-900"><BadgeCheck className="h-5 w-5 shrink-0" aria-hidden /> {REGISTERED[h.kind]}</p>
+          <div className="mt-1"><HitLine hit={h} strong /></div>
+          <p className="mt-2 text-xs text-emerald-950">A fake can copy a real number. Check that the company on the label is exactly the same, and buy only with a bill.</p>
+        </section>
+      ))}
+
+      {byName.length > 0 && (
+        <section aria-label="Found by name in the official list" className="rounded-2xl bg-emerald-50/70 p-4 ring-1 ring-emerald-200">
+          <p className="flex items-center gap-2 text-base font-semibold text-emerald-900"><BadgeCheck className="h-5 w-5 shrink-0" aria-hidden /> Found by name in the Government list</p>
+          <p className="mt-1 text-slate-800">
+            {byName.length === 1 ? 'One registered product has this name.' : `${byName.length === 20 ? '20 or more' : byName.length} registered products have this name.`} The company and the registration number on your label must match {byName.length === 1 ? 'it' : 'one of these'}.
+          </p>
+          <ul className="mt-3 space-y-3">
+            {shownNames.map((h, i) => (
+              <li key={`${h.source}|${h.registration_no}|${h.name}|${i}`} className="rounded-xl bg-white/80 p-3 ring-1 ring-emerald-100">
+                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-800">{REGISTERED[h.kind]}</p>
+                <HitLine hit={h} />
+              </li>
+            ))}
+          </ul>
+          {byName.length > shownNames.length && (
+            <button type="button" onClick={() => setAll(true)} className="mt-3 min-h-11 cursor-pointer rounded-xl bg-white px-4 py-2 font-semibold text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-50">
+              Show all {byName.length}
+            </button>
+          )}
+          {byName.length === 20 && all && <p className="mt-2 text-xs text-slate-600">Only the first 20 are shown: type more of the name, or the company, to narrow it down.</p>}
+        </section>
+      )}
+
+      {fco && (
+        <section aria-label="Fertiliser (Control) Order" className="rounded-2xl bg-sky-50 p-4 text-slate-800 ring-1 ring-sky-200">
+          <p className="flex items-center gap-2 text-base font-semibold text-sky-950"><ShieldCheck className="h-5 w-5 shrink-0" aria-hidden /> This fertiliser type is specified in the Fertiliser (Control) Order — check the label photo against its standard</p>
+          <p className="mt-2 font-semibold">Government standard for {fco.name} ({fco.grade})</p>
+          <ul className="mt-1 list-disc ps-5">
+            {fco.parameters.map((p) => <li key={p.key}>{p.label}: {p.min !== undefined ? `at least ${p.min}%` : `at most ${p.max}%`}</li>)}
+          </ul>
+          <p className="mt-2 text-xs text-slate-600">Fertiliser (Control) Order, 1985, Schedule I. The type being in the Order does not prove a bag is genuine — the label must show it, and only a Government lab test proves what is inside.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" onClick={onPhoto} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-sky-800 px-4 py-2 font-semibold text-white hover:bg-sky-900">
+              <Camera className="h-4 w-4" aria-hidden /> Check the label photo
+            </button>
+            <button type="button" onClick={() => onLab(fco.id)} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-white px-4 py-2 font-semibold text-sky-900 ring-1 ring-sky-200 hover:bg-sky-100">
+              <FlaskConical className="h-4 w-4" aria-hidden /> Compare a lab report
+            </button>
+          </div>
+        </section>
+      )}
+
+      {!found && !fco && typed.kind !== 'batch' && (lists.held && hits !== null ? (
+        <section aria-label="Not in the official list" className="rounded-2xl bg-amber-50 p-4 text-amber-950 ring-1 ring-amber-200">
+          <p className="flex items-center gap-2 text-base font-semibold"><CircleAlert className="h-5 w-5 shrink-0" aria-hidden /> Not in the official list KashRoot holds (updated {day(lists.last)})</p>
+          <p className="mt-1">It may be very new — or fake. {ASK}</p>
+          <p className="mt-2 text-xs text-amber-900">Lists checked: {lists.kinds.map(([kind, k]) => `${KIND_WORDS[kind]} (${products(k.count)})`).join('; ')}. Check that you typed it exactly as printed.</p>
+        </section>
+      ) : (
+        <section aria-label="Official list not loaded" className="rounded-2xl bg-slate-50 p-4 text-slate-800 ring-1 ring-slate-200">
+          <p className="flex items-center gap-2 text-base font-semibold text-slate-900"><FileQuestion className="h-5 w-5 shrink-0" aria-hidden /> {typed.kind === 'registration' ? 'The Government list of registered pesticides (CIB&RC) is not on KashRoot yet' : 'The Government lists of registered products are not on KashRoot yet'}</p>
+          <p className="mt-1">So KashRoot cannot say whether this is registered. {ASK}</p>
+        </section>
+      ))}
+
+      {/* A dealer's record has its own "Report as suspicious". */}
+      {dealer?.state !== 'found' && <ReportBatch code={typed.text} account={account} />}
+    </div>
+  );
+}
+
+/**
  * What the law requires and where the Government checks a doubtful product.
  * India publishes no batch-number database, and the pesticide registry
- * (CIB&RC, ppqs.gov.in) refuses automatic access — so KashRoot cannot ask the
- * Government about a batch for you; these are the official routes.
+ * (CIB&RC, ppqs.gov.in) refuses automatic access — so KashRoot checks
+ * registrations against the official lists its admin imports, and these are
+ * the official routes for everything else.
  */
 function OfficialChecks() {
   return (
@@ -177,39 +443,20 @@ function OfficialChecks() {
         <li>Doubtful product: keep the bag/bottle and bill, and tell your district <strong>Chief Agriculture Officer</strong> (fertilisers) or <strong>Chief Horticulture Officer</strong> (orchard sprays). Their inspector can take a sample to the Government quality-control lab — that test is the legal proof.</li>
         <li>Free advice and complaints: <a href="tel:18001801551" className="font-semibold text-sky-800 underline">Kisan Call Centre 1800-180-1551</a> (Government of India, every day 6 am – 10 pm, Kashmiri, Urdu, Hindi).</li>
       </ul>
-      <p className="mt-2 text-xs text-slate-500">KashRoot’s batch registry is filled by dealers KashRoot has verified; it is not a Government list.</p>
+      <p className="mt-2 text-xs text-slate-500">Registrations are checked against the Government lists the KashRoot team loads — each answer names its source and date. Batch records come from dealers on KashRoot; they are not a Government list.</p>
     </section>
   );
 }
 
-function BatchResult({ lookup, account, onPhoto }: { lookup: Lookup; account: Account | null; onPhoto?: () => void }) {
-  if (lookup.state === 'idle' || lookup.state === 'loading') return lookup.state === 'loading' ? <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Checking the registry…</p> : null;
-  if (lookup.state === 'error') return <p className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">{lookup.message}</p>;
-  if (lookup.state === 'missing') {
-    return (
-      <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-800 ring-1 ring-slate-200">
-        <p className="font-semibold text-slate-900">No dealer record for {lookup.code} on KashRoot — this is normal</p>
-        <p className="mt-1">The Government of India publishes no list of batch numbers, so no website can confirm a batch number on its own. Most genuine products are not in KashRoot’s dealer list.</p>
-        {onPhoto && (
-          <>
-            <p className="mt-2">For a real check, photograph the label: KashRoot reads it and checks it against the Government’s labelling rules and official fertiliser standards.</p>
-            <button type="button" onClick={onPhoto} className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 font-semibold text-white hover:bg-emerald-800">
-              <Camera className="h-4 w-4" aria-hidden /> Check the label photo
-            </button>
-          </>
-        )}
-        <ReportBatch code={lookup.code} account={account} />
-      </div>
-    );
-  }
-  const row = lookup.row;
+/** A batch a dealer listed on KashRoot (fertilizer_batches) — extra information, not a Government list. */
+function DealerRecord({ row, account }: { row: BatchRow; account: Account | null }) {
   const expired = row.expiry_date && row.expiry_date < new Date().toISOString().slice(0, 10);
   const good = row.dealer_verified && !expired && row.reports === 0;
   return (
     <div className={`rounded-2xl p-4 ring-1 ${good ? 'bg-emerald-50 ring-emerald-200' : 'bg-amber-50 ring-amber-200'}`}>
       <p className={`flex items-center gap-2 font-semibold ${good ? 'text-emerald-900' : 'text-amber-900'}`}>
         {good ? <CheckCircle2 className="h-5 w-5" aria-hidden /> : <CircleAlert className="h-5 w-5" aria-hidden />}
-        {expired ? 'Registered — but past its expiry date' : row.dealer_verified ? 'Registered by a KashRoot-verified dealer' : 'Registered by a dealer KashRoot has not verified yet'}
+        {expired ? 'Listed by a dealer — but past its expiry date' : row.dealer_verified ? 'Listed by a KashRoot-verified dealer' : 'Listed by a dealer KashRoot has not verified yet'}
       </p>
       <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
         {[
@@ -225,7 +472,7 @@ function BatchResult({ lookup, account, onPhoto }: { lookup: Lookup; account: Ac
         ))}
       </dl>
       {row.reports > 0 && <p className="mt-3 rounded-xl bg-rose-100 p-2 text-sm font-semibold text-rose-900">{row.reports} farmer{row.reports === 1 ? ' has' : 's have'} reported this batch as suspicious.</p>}
-      <p className="mt-3 text-xs text-slate-600">Also match the batch number, MRP and manufacturer printed on the bag with your bill.</p>
+      <p className="mt-3 text-xs text-slate-600">A dealer’s record, not a Government list. Also match the batch number, MRP and manufacturer printed on the bag with your bill.</p>
       <ReportBatch code={row.batch_code} account={account} />
     </div>
   );
@@ -239,7 +486,7 @@ function ReportBatch({ code, account }: { code: string; account: Account | null 
   if (state === 'sent') return <p className="mt-3 text-sm font-semibold text-emerald-800">Reported to the KashRoot admin. Thank you. Please also tell your district agriculture officer.</p>;
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className="mt-3 inline-flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-rose-800 hover:underline">
+      <button type="button" onClick={() => setOpen(true)} className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-1.5 text-sm font-semibold text-rose-800 hover:underline">
         <Flag className="h-4 w-4" aria-hidden /> Report as suspicious
       </button>
     );
@@ -262,7 +509,7 @@ function ReportBatch({ code, account }: { code: string; account: Account | null 
       {!account && (
         <input className={INPUT} inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Your mobile (optional) — so KashRoot can call you back" />
       )}
-      <button type="button" disabled={state === 'sending'} onClick={() => void send()} className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-rose-700 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-800 disabled:opacity-60">
+      <button type="button" disabled={state === 'sending'} onClick={() => void send()} className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-xl bg-rose-700 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-800 disabled:opacity-60">
         <Flag className="h-4 w-4" aria-hidden /> Send report
       </button>
       <p className="text-xs text-slate-500">No account needed.</p>
@@ -277,6 +524,7 @@ function LabelPhoto({ account }: { account: Account | null }) {
   const [busy, setBusy] = useState(false);
   const [reading, setReading] = useState<LabelReading | null>(null);
   const [lookup, setLookup] = useState<Lookup>({ state: 'idle' });
+  const [regCheck, setRegCheck] = useState<RegCheck>({ state: 'idle' });
   const [error, setError] = useState<string | null>(null);
 
   const [langFrom, setLangFrom] = useState<Account | null>(null);
@@ -285,11 +533,23 @@ function LabelPhoto({ account }: { account: Account | null }) {
     if (account?.lang) setLang(account.lang);
   }
 
+  /** The registration number on a pesticide label, looked up in the official list. */
+  const checkRegistration = async (no: string) => {
+    setRegCheck({ state: 'loading' });
+    try {
+      const [hits, stats] = await Promise.all([searchRegistry(no), registryStats()]);
+      setRegCheck({ state: 'done', no, hits, stats });
+    } catch (err) {
+      setRegCheck({ state: 'error', message: offline(err) });
+    }
+  };
+
   const read = async (file?: File) => {
     if (!file) return;
     setError(null);
     setReading(null);
     setLookup({ state: 'idle' });
+    setRegCheck({ state: 'idle' });
     try {
       const image = await compressImage(file, 1600, 0.85);
       setPhoto(image);
@@ -299,10 +559,14 @@ function LabelPhoto({ account }: { account: Account | null }) {
       if (!res.ok) throw new Error(data.error ?? 'The label could not be read.');
       const r = data as LabelReading;
       setReading(r);
+      const reg = r.registration_no?.trim();
+      const checks: Promise<void>[] = [];
+      if (reg && reg.length >= 3 && (r.product_type === 'pesticide' || /cir/i.test(reg))) checks.push(checkRegistration(reg));
       if (r.batch_code) {
         setLookup({ state: 'loading' });
-        setLookup(await lookupBatch(r.batch_code));
+        checks.push(lookupBatch(r.batch_code).then(setLookup));
       }
+      await Promise.all(checks);
     } catch (err) {
       setError(err instanceof Error && err.message !== 'Failed to fetch' ? err.message : 'No internet connection. Please try again.');
     } finally {
@@ -368,10 +632,11 @@ function LabelPhoto({ account }: { account: Account | null }) {
           <p dir={rtl} className="text-sm text-slate-800">{reading.summary_spoken}</p>
           <SpeakButton text={reading.summary_spoken} lang={lang} label="Listen" />
           {reading.readable && <RuleChecks report={checkLabel(reading)} />}
+          <LabelRegistration check={regCheck} />
           {reading.batch_code && lookup.state === 'found' && (
             <div>
               <p className="mb-2 text-sm font-semibold text-slate-800">Also on KashRoot: batch {reading.batch_code}</p>
-              <BatchResult lookup={lookup} account={account} />
+              <DealerRecord row={lookup.row} account={account} />
             </div>
           )}
           {reading.batch_code && lookup.state === 'missing' && (
@@ -383,6 +648,33 @@ function LabelPhoto({ account }: { account: Account | null }) {
       )}
     </div>
   );
+}
+
+/** The label's registration number against the Government list: found, not found, or the list not loaded yet. */
+function LabelRegistration({ check }: { check: RegCheck }) {
+  if (check.state === 'idle') return null;
+  if (check.state === 'loading') return <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Checking the registration number in the Government list…</p>;
+  if (check.state === 'error') return <p className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800 ring-1 ring-rose-200">The registration number could not be checked: {check.message}</p>;
+  const hit = (check.hits ?? []).find((h) => h.matched === 'registration');
+  if (hit) {
+    return (
+      <section aria-label="Registration number in the official list" className="rounded-xl bg-emerald-50 p-3 text-sm ring-1 ring-emerald-200">
+        <p className="flex items-center gap-2 font-semibold text-emerald-900"><BadgeCheck className="h-5 w-5 shrink-0" aria-hidden /> {REGISTERED[hit.kind]}</p>
+        <div className="mt-1"><HitLine hit={hit} /></div>
+        <p className="mt-1 text-xs text-emerald-950">Check that the company on the label is exactly the same — a fake can copy a real number.</p>
+      </section>
+    );
+  }
+  const lists = listsFor(check.stats, 'registration');
+  if (check.hits !== null && lists.held) {
+    return (
+      <section aria-label="Registration number not in the official list" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-amber-200">
+        <p className="flex items-center gap-2 font-semibold"><CircleAlert className="h-5 w-5 shrink-0" aria-hidden /> Registration {check.no}: not in the official list KashRoot holds (updated {day(lists.last)})</p>
+        <p className="mt-1">It may be very new — or fake. {ASK} If the photo was unclear, type the number in “Registration / batch”.</p>
+      </section>
+    );
+  }
+  return <p className="text-xs text-slate-500">The Government list of registered pesticides (CIB&amp;RC) is not on KashRoot yet, so registration {check.no} could not be checked against it.</p>;
 }
 
 const RULE_ICON = { ok: CheckCircle2, missing: XCircle, problem: XCircle, caution: CircleAlert } as const;
