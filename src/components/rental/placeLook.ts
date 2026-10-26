@@ -28,6 +28,17 @@ export const PLACE_LOOK: Record<Look, { label: string; cell: string; swatch: str
   },
 };
 
+/**
+ * A look in the words of what the store holds (`units`: "bins", "bins and
+ * crates"; stores set up before the owner wizard hold boxes):
+ * "Shared — room for more bins", "Your crates".
+ */
+export function lookLabel(look: Look, units = 'boxes'): string {
+  if (look === 'part') return `Shared — room for more ${units}`;
+  if (look === 'mine') return `Your ${units}`;
+  return PLACE_LOOK[look].label;
+}
+
 /** Every place of a chamber, front row first: [row, stack index, code]. */
 export function placesOf(c: Pick<ColdChamber, 'rows' | 'cols'>): [number, number, string][] {
   const out: [number, number, string][] = [];

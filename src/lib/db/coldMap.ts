@@ -208,3 +208,210 @@ export async function deleteChamber(id: string): Promise<void> {
   const { error } = await supabase.from('cold_chambers').delete().eq('id', id);
   if (error) fail(error, 'Could not remove the chamber.');
 }
+
+// ───────────────────────── booking in words (farmers, owners, receipts) ─────────────────────────
+
+/**
+ * Bins / crates / boxes still free today on each chamber floor of these
+ * stores (kr_cold_free_now): chamber id → count. Places held for payment
+ * count as taken. Empty before that SQL is run.
+ */
+export async function freeNow(listingIds: string[]): Promise<Map<string, number>> {
+  if (!listingIds.length) return new Map();
+  const { data, error } = await supabase.rpc('kr_cold_free_now', { p_listings: listingIds.slice(0, 200) });
+  if (error) {
+    if (missingFunction(error)) return new Map();
+    fail(error, 'Could not load how much space is free.');
+  }
+  return new Map(((data ?? []) as { chamber_id: string; free: number }[]).map((r) => [r.chamber_id, Number(r.free) || 0]));
+}
+
+/** A place a booking has (or will have), with the farmer's bins on it (null: the whole place). */
+export type PlacedOn = { chamber_id: string; slot: string; boxes?: number | null };
+/** The chamber facts the words need. */
+type Named = Pick<ColdChamber, 'id' | 'name' | 'storage' | 'boxes_per_slot'>;
+
+/** One line per chamber floor: "Chamber 2 · Floor 1 · Row 3, stacks 4–6", with how many bins it is. */
+export interface PlaceLine {
+  chamberId: string;
+  name: string;
+  storage: Storage;
+  /** Bins / crates / boxes on these places. */
+  count: number;
+  /** The places in words, chamber name first. */
+  text: string;
+}
+
+const UNIT_ONE: Record<Storage, [string, string]> = { bins: ['bin', 'bins'], crates: ['crate', 'crates'], boxes: ['box', 'boxes'] };
+const unitOf = (s: Storage, n: number) => `${n.toLocaleString('en-IN')} ${UNIT_ONE[s][n === 1 ? 0 : 1]}`;
+
+/**
+ * The places in words, a line per chamber floor (in the chambers' order):
+ * "Chamber 1 · Floor 2 · Row 3, stacks 4–6" — whole places in runs, a
+ * shared place with the farmer's own count: "Row 1, stack 3 (20 bins)".
+ */
+export function placeLines(places: PlacedOn[], chambers: Named[]): PlaceLine[] {
+  const by = new Map<string, PlacedOn[]>();
+  for (const p of places) by.set(p.chamber_id, [...(by.get(p.chamber_id) ?? []), p]);
+  return chambers
+    .filter((c) => by.has(c.id))
+    .map((c) => {
+      const mine = by.get(c.id) ?? [];
+      const rows = new Map<number, { stack: number; boxes: number; whole: boolean }[]>();
+      for (const p of mine) {
+        const { row, stack } = parsePlace(p.slot);
+        const boxes = p.boxes ?? c.boxes_per_slot;
+        rows.set(row, [...(rows.get(row) ?? []), { stack, boxes, whole: boxes >= c.boxes_per_slot }]);
+      }
+      const parts = [...rows.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([row, stacks]) => {
+          stacks.sort((a, b) => a.stack - b.stack);
+          // Whole places in runs of stacks next to each other: "stacks 1–3, 5".
+          const runs: [number, number][] = [];
+          for (const s of stacks.filter((x) => x.whole)) {
+            const last = runs.at(-1);
+            if (last && s.stack === last[1] + 1) last[1] = s.stack;
+            else runs.push([s.stack, s.stack]);
+          }
+          const wholeCount = runs.reduce((n, [a, b]) => n + b - a + 1, 0);
+          const whole = runs.length ? `${wholeCount === 1 ? 'stack' : 'stacks'} ${runs.map(([a, b]) => (a === b ? String(a) : `${a}–${b}`)).join(', ')}` : '';
+          const shared = stacks.filter((x) => !x.whole).map((x) => `stack ${x.stack} (${unitOf(c.storage, x.boxes)})`);
+          return `Row ${row}, ${[whole, ...shared].filter(Boolean).join(', ')}`;
+        });
+      return {
+        chamberId: c.id,
+        name: c.name,
+        storage: c.storage,
+        count: mine.reduce((n, p) => n + (p.boxes ?? c.boxes_per_slot), 0),
+        text: `${c.name} · ${parts.join('; ')}`,
+      };
+    });
+}
+
+/** "40 bins", "40 bins and 100 crates" — a booking's count in the words of its chambers. */
+export function countsText(places: PlacedOn[], chambers: Named[], fallback?: { units: number; storage?: Storage }): string {
+  const sums = new Map<Storage, number>();
+  for (const line of placeLines(places, chambers)) sums.set(line.storage, (sums.get(line.storage) ?? 0) + line.count);
+  if (!sums.size) return fallback ? unitOf(fallback.storage ?? 'boxes', fallback.units) : '';
+  return (['bins', 'crates', 'boxes'] as const)
+    .filter((s) => sums.has(s))
+    .map((s) => unitOf(s, sums.get(s)!))
+    .join(' and ');
+}
+
+/** A chosen place and the farmer's bins on it. */
+export interface ChosenPlace {
+  chamber: ColdChamber;
+  slot: string;
+  boxes: number;
+}
+
+/**
+ * "Just give me 40 bins": places for `want` bins / crates / boxes, nearest
+ * the door. All on one chamber floor when one has room (chambers in number
+ * order, lowest floor first), else all in one chamber, else spread over the
+ * chambers in order. Inside a floor, row 1 (at the chamber door) fills
+ * first, a shared place takes only what still fits. Places already chosen
+ * stay; returns the choice and how many now have a place.
+ */
+export function pickNearest(input: {
+  chambers: ColdChamber[];
+  want: number;
+  roomFor: (c: ColdChamber, slot: string) => number;
+  already?: Map<string, ChosenPlace>;
+}): { picked: Map<string, ChosenPlace>; placed: number } {
+  const picked = new Map(input.already ?? []);
+  let placed = [...picked.values()].reduce((n, p) => n + p.boxes, 0);
+  // Chamber floors in order: chambers by number (older ones after, by position), lowest floor first.
+  const groups: ColdChamber[][] = [];
+  const at = new Map<string, number>();
+  const sorted = [...input.chambers].sort((a, b) => (a.chamber_no ?? 1e6) - (b.chamber_no ?? 1e6) || a.floor - b.floor || a.position - b.position || a.name.localeCompare(b.name));
+  for (const c of sorted) {
+    const key = c.chamber_no !== null ? `no:${c.chamber_no}` : `id:${c.id}`;
+    if (!at.has(key)) {
+      at.set(key, groups.length);
+      groups.push([]);
+    }
+    groups[at.get(key)!].push(c);
+  }
+  const roomIn = (c: ColdChamber) => {
+    let n = 0;
+    for (let r = 1; r <= c.rows; r++) for (let i = 0; i < c.cols; i++) {
+      const slot = placeName(r, i);
+      if (!picked.has(placeKey(c.id, slot)) && !c.blocked.includes(slot)) n += Math.max(0, input.roomFor(c, slot));
+    }
+    return n;
+  };
+  const fill = (c: ColdChamber) => {
+    for (let r = 1; r <= c.rows && placed < input.want; r++) for (let i = 0; i < c.cols && placed < input.want; i++) {
+      const slot = placeName(r, i);
+      const key = placeKey(c.id, slot);
+      const room = c.blocked.includes(slot) ? 0 : input.roomFor(c, slot);
+      if (picked.has(key) || room <= 0) continue;
+      const n = Math.min(room, input.want - placed);
+      picked.set(key, { chamber: c, slot, boxes: n });
+      placed += n;
+    }
+  };
+  const need = input.want - placed;
+  if (need <= 0) return { picked, placed };
+  const floors = groups.flat();
+  const oneFloor = floors.find((c) => roomIn(c) >= need);
+  const oneChamber = oneFloor ? null : groups.find((g) => g.reduce((n, c) => n + roomIn(c), 0) >= need);
+  for (const c of oneFloor ? [oneFloor] : oneChamber ?? floors) fill(c);
+  return { picked, placed };
+}
+
+/**
+ * The last day of a booking of `months` months from `start`, as the
+ * database counts it (kr_cold_period: from start up to, not including, the
+ * same day `months` later, or that month's last day when it is shorter):
+ * "2026-11-01", 6 → "2027-04-30"; "2026-01-31", 1 → "2026-02-27". Worked out
+ * on the calendar date, so it is the same in every time zone.
+ */
+export function lastDay(start: string, months: number): string {
+  const [y, m, d] = start.split('-').map(Number);
+  const month = m - 1 + Math.max(1, months);
+  const days = new Date(Date.UTC(y, month + 1, 0)).getUTCDate();
+  const end = new Date(Date.UTC(y, month, Math.min(d, days)) - 86_400_000);
+  return end.toISOString().slice(0, 10);
+}
+
+/** One chamber's part of a booking's price: its bins × its rent × months. */
+export interface PriceLine {
+  key: string;
+  /** "Chamber 2" (all its floors together), or an older chamber's own name. */
+  name: string;
+  storage: Storage;
+  count: number;
+  /** Rupees for one bin / crate / box for one month. */
+  rate: number;
+  /** count × rate × months. */
+  amount: number;
+}
+
+/**
+ * What a booking costs, chamber by chamber, the same way the database works
+ * it out (kr_cold_booking_amount): the bins on each place × that chamber's
+ * own rent (else the store's) × months. `rate` on an item is the rent kept
+ * when it was booked (receipts); without it today's rent is used.
+ */
+export function priceLines(
+  items: { chamber: Pick<ColdChamber, 'id' | 'name' | 'chamber_no' | 'storage' | 'rate'>; boxes: number; rate?: number | null }[],
+  storeRate: number,
+  months: number,
+): { lines: PriceLine[]; total: number } {
+  const lines = new Map<string, PriceLine>();
+  for (const it of items) {
+    const rate = Number(it.rate ?? it.chamber.rate ?? storeRate) || 0;
+    const group = it.chamber.chamber_no !== null ? `no:${it.chamber.chamber_no}` : `id:${it.chamber.id}`;
+    const key = `${group}:${rate}`;
+    const line = lines.get(key) ?? { key, name: it.chamber.chamber_no !== null ? `Chamber ${it.chamber.chamber_no}` : it.chamber.name, storage: it.chamber.storage, count: 0, rate, amount: 0 };
+    line.count += it.boxes;
+    line.amount = line.count * rate * months;
+    lines.set(key, line);
+  }
+  const list = [...lines.values()];
+  return { lines: list, total: Math.round(list.reduce((s, l) => s + l.amount, 0) * 100) / 100 };
+}

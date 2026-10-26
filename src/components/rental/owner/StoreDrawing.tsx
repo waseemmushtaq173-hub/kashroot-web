@@ -3,10 +3,12 @@
 /**
  * The owner's cold store from above, drawn to scale from what they typed
  * (lib/coldStore storeModel) and redrawn on every keystroke: the building's
- * walls with the main door where they measured it, every chamber where it
- * stands with its own door, its walkway and every stack of bins or crates on
- * its lowest floor. A chamber that does not fit inside the building is drawn
- * in red, outside the walls. Tap a chamber to open it.
+ * walls with the main door where they measured it, the passage straight in
+ * from it, every chamber where it stands — on the left, the right or both
+ * sides of the passage — with its own door, its walkway and every stack of
+ * bins or crates on its lowest floor. Before any chamber is added, the side
+ * the chambers go on is shaded. A chamber that does not fit is drawn in red,
+ * where it would stand. Tap a chamber to open it.
  * It is drawn at the width it has on screen, so its words stay big enough to
  * read on a phone; the words about a wall stand along that wall.
  */
@@ -14,7 +16,7 @@ import { memo, type SVGProps } from 'react';
 import { DoorOpen } from 'lucide-react';
 
 import { useWidth } from '@/components/rental/owner/useWidth';
-import { countText, doorLine, fromDoor, placeRect, type Building, type ModelChamber, type StoreModel, type Wall } from '@/lib/coldStore';
+import { countText, doorLine, fromDoor, passageOf, placeRect, type Building, type ModelChamber, type Sides, type StoreModel, type Wall } from '@/lib/coldStore';
 import { FOOT, type SizeUnit } from '@/lib/coldLayout';
 
 const WALL_NAME = { front: 'front', back: 'back', left: 'left', right: 'right' } as const;
@@ -29,10 +31,17 @@ const OUT: Record<Wall, [number, number]> = { front: [0, 1], back: [0, -1], left
 /** A font size for words that should fit in `room` px: at most `max`, at least `min`. */
 const fitFont = (text: string, room: number, max: number, min: number) => Math.max(min, Math.min(max, room / (text.length * 0.58)));
 
-/** "Building 120 ft long, 60 ft wide, 30 ft high; main door in the front wall, 10 ft from the left corner, 10 ft wide." */
+/** Where the chambers are, in words: "on both sides of the passage from the main door". */
+export const SIDES_TEXT: Record<Sides, string> = {
+  left: 'on the left side of the passage from the main door',
+  right: 'on the right side of the passage from the main door',
+  both: 'on both sides of the passage from the main door',
+};
+
+/** "Building 120 ft long, 60 ft wide, 30 ft high; main door in the front wall, 10 ft from the left corner, 10 ft wide; chambers on both sides of the passage from the main door." */
 export function buildingText(b: Building): string {
   const u = b.unit;
-  return `Building ${say(b.length, u)} long, ${say(b.width, u)} wide, ${say(b.height, u)} high; main door in the ${WALL_NAME[b.door.wall]} wall, ${say(b.door.from, u)} from the left corner, ${say(b.door.width, u)} wide and ${say(b.door.height, u)} high`;
+  return `Building ${say(b.length, u)} long, ${say(b.width, u)} wide, ${say(b.height, u)} high; main door in the ${WALL_NAME[b.door.wall]} wall, ${say(b.door.from, u)} from the left corner, ${say(b.door.width, u)} wide and ${say(b.door.height, u)} high; chambers ${SIDES_TEXT[b.sides]}`;
 }
 
 export const StoreDrawing = memo(function StoreDrawing({ model, selected, onPick, title, empty }: { model: StoreModel; selected?: string | null; onPick?: (key: string) => void; title?: string; /** What to say before the building is known. */ empty?: string }) {
@@ -79,6 +88,7 @@ export const StoreDrawing = memo(function StoreDrawing({ model, selected, onPick
 
   // Words along a wall: `a` from its left corner (standing outside facing it), `out` px out from it.
   const room = { length: b.length, width: b.width };
+  const pass = model.layout?.passage ?? passageOf(b);
   const at = (w: Wall, a: number, out: number) => {
     const p = fromDoor(w, room, a, 0);
     return { x: X(p.x) + OUT[w][0] * out, y: Y(p.y) + OUT[w][1] * out };
@@ -112,6 +122,54 @@ export const StoreDrawing = memo(function StoreDrawing({ model, selected, onPick
           {words(lengthOn, b.length / 2, off.size, `Length ${say(b.length, u)}`, font, { fontWeight: 700, fill: '#334155' })}
           {words(widthOn, b.width / 2, off.size, `Width ${say(b.width, u)}`, font, { fontWeight: 700, fill: '#334155' })}
           {words('front', b.length / 2, frontAt, 'FRONT', font, { fontWeight: 800, letterSpacing: 3, fill: '#64748b' })}
+          {/* The passage from the main door, and (before any chamber) the side the chambers go on */}
+          {(() => {
+            const r = pass.rect;
+            const upright = pass.wall === 'front' || pass.wall === 'back';
+            const cx = X(r.x + r.w / 2);
+            const cy = Y(r.y + r.d / 2);
+            const across = (upright ? r.w : r.d) * k;
+            const size = Math.min(font - 1, Math.max(9, across * 0.55));
+            const zone = (side: 'left' | 'right') => {
+              const [u0, u1] = side === 'left' ? [0, pass.u0] : [pass.u1, pass.across];
+              if (u1 - u0 < 0.5) return null;
+              const a = fromDoor(pass.wall, room, u0, 0);
+              const c = fromDoor(pass.wall, room, u1, pass.depth);
+              const z = { x: Math.min(a.x, c.x), y: Math.min(a.y, c.y), w: Math.abs(a.x - c.x), d: Math.abs(a.y - c.y) };
+              const zx = X(z.x + z.w / 2);
+              const zy = Y(z.y + z.d / 2);
+              const text = `Chambers on the ${side}`;
+              const fs = fitFont(text, (upright ? z.w : z.d) * k - 8, font, 9);
+              return (
+                <g key={side} data-zone={side}>
+                  <rect x={X(z.x) + 4} y={Y(z.y + z.d) + 4} width={Math.max(0, z.w * k - 8)} height={Math.max(0, z.d * k - 8)} rx={8} fill="#ede9fe" stroke="#7c3aed" strokeWidth={1.5} strokeDasharray="6 4" />
+                  <text x={zx} y={zy} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight={700} fill="#5b21b6">{text}</text>
+                </g>
+              );
+            };
+            return (
+              <g data-passage>
+                <rect x={X(r.x)} y={Y(r.y + r.d)} width={r.w * k} height={r.d * k} fill="#fef3c7" />
+                {upright ? (
+                  <>
+                    <line x1={X(r.x)} y1={Y(r.y)} x2={X(r.x)} y2={Y(r.y + r.d)} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="6 5" />
+                    <line x1={X(r.x + r.w)} y1={Y(r.y)} x2={X(r.x + r.w)} y2={Y(r.y + r.d)} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="6 5" />
+                  </>
+                ) : (
+                  <>
+                    <line x1={X(r.x)} y1={Y(r.y)} x2={X(r.x + r.w)} y2={Y(r.y)} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="6 5" />
+                    <line x1={X(r.x)} y1={Y(r.y + r.d)} x2={X(r.x + r.w)} y2={Y(r.y + r.d)} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="6 5" />
+                  </>
+                )}
+                {across >= 14 && (
+                  <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={size} fontWeight={800} letterSpacing={2} fill="#92400e" transform={upright ? `rotate(-90 ${cx} ${cy})` : undefined}>
+                    PASSAGE
+                  </text>
+                )}
+                {!items.length && (b.sides === 'both' ? [zone('left'), zone('right')] : [zone(b.sides)])}
+              </g>
+            );
+          })()}
           {items.map(({ mc, spot }) => {
             const on = selected === mc.key;
             const sx = (x: number) => X(spot.x + x);
@@ -148,6 +206,8 @@ export const StoreDrawing = memo(function StoreDrawing({ model, selected, onPick
             return (
               <g
                 key={mc.key}
+                data-chamber={mc.no || undefined}
+                data-side={spot.side ?? (spot.byOwner ? 'owner' : undefined)}
                 role={onPick ? 'button' : undefined}
                 tabIndex={onPick ? 0 : undefined}
                 aria-label={onPick ? `${label}. Open ${mc.name}.` : undefined}
@@ -200,9 +260,9 @@ export const StoreDrawing = memo(function StoreDrawing({ model, selected, onPick
         <span className="inline-flex items-center gap-1.5"><span className="inline-block h-1.5 w-5 rounded bg-amber-600" aria-hidden /> <DoorOpen className="h-3.5 w-3.5" aria-hidden /> Doors</span>
         <span className="inline-flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm bg-[#c2884a] ring-1 ring-[#7c2d12]" aria-hidden /> Stacks of bins</span>
         <span className="inline-flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm bg-blue-500 ring-1 ring-blue-900" aria-hidden /> Stacks of crates</span>
-        <span className="inline-flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm bg-amber-100 ring-1 ring-amber-300" aria-hidden /> Walkway</span>
+        <span className="inline-flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm bg-amber-100 ring-1 ring-amber-300" aria-hidden /> Passage and walkways</span>
         {items.some(({ mc }) => mc.floors.length > 1) && <span>Upper floors stand above the lowest one shown.</span>}
-        {items.some(({ spot }) => !spot.byOwner) && <span>Chambers are drawn in order along the back wall; say where one stands under “More details”.</span>}
+        {items.some(({ spot }) => !spot.byOwner) && <span>Chambers stand in number order from the main door inward, {SIDES_TEXT[b.sides]}, each door facing it. To put one somewhere else, say where it stands under “More details”.</span>}
       </figcaption>
     </figure>
   );

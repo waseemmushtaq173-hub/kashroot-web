@@ -124,7 +124,7 @@ function FarmerDashboard() {
               <Tile theme={theme} icon={ShieldCheck} label="Escrow payment" hint="How buyers pay you" onClick={() => setTab('payouts')} />
               <Tile theme={theme} icon={Activity} label="Orchard health" hint="Scab map, photo check" href="/farmer/orchard-health" />
               <Tile theme={theme} icon={CalendarDays} label="Season planner" hint="Tasks & costs" href="/farmer/season-planner" />
-              <Tile theme={theme} icon={MessageCircleQuestion} label="Ask an expert" hint="Agronomist answers" href="/expert" />
+              <Tile theme={theme} icon={MessageCircleQuestion} label="Ask an expert" hint="Agronomist answers" href="/farmer/ask-expert" />
             </div>
 
             <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-700 via-emerald-600 to-amber-600 p-7 text-white shadow-lg">

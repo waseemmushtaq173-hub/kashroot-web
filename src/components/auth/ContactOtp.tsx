@@ -9,6 +9,8 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { CheckCircle2, Loader2, Mail, Send, ShieldCheck, Smartphone } from 'lucide-react';
 
+import { OtpBoxes, OtpCard } from '@/components/ui/OtpBoxes';
+
 /** Full class strings for the panel's accent colour. */
 export interface OtpAccent {
   /** Filled button, including text colour. */
@@ -175,38 +177,31 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
                 className={`${INPUT} pl-9 ${accent.ring}`}
               />
             </span>
-            <button type="button" onClick={() => void send()} disabled={busy !== null || !valid || wait > 0} className={`${BUTTON} ${accent.button}`}>
-              {busy === 'send' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
-              {wait > 0 ? `Resend ${wait}s` : token ? 'Resend OTP' : 'Send OTP'}
-            </button>
+            {/* Once a code is sent, "Resend OTP" lives on the code card. */}
+            {!token && (
+              <button type="button" onClick={() => void send()} disabled={busy !== null || !valid || wait > 0} className={`${BUTTON} ${accent.button}`}>
+                {busy === 'send' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
+                {wait > 0 ? `Resend ${wait}s` : 'Send OTP'}
+              </button>
+            )}
           </div>
 
-          <div className="flex gap-2">
-            <label htmlFor={`${id}-code`} className="sr-only">6-digit OTP</label>
-            <input
-              id={`${id}-code`}
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              value={code}
-              maxLength={6}
-              disabled={!token}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  void verify();
-                }
-              }}
-              placeholder={token ? '••••••' : 'OTP'}
-              className={`${INPUT} flex-1 text-center font-mono tracking-[0.3em] ${accent.ring}`}
-            />
-            <button type="button" onClick={() => void verify()} disabled={!token || code.length !== 6 || busy !== null} className={`${BUTTON} bg-white text-slate-900 ring-1 ring-inset ring-slate-300 hover:bg-slate-50`}>
-              {busy === 'verify' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <ShieldCheck className="h-4 w-4" aria-hidden />}
-              Verify OTP
-            </button>
-          </div>
-
-          {token && !error && <p className="text-xs text-slate-600">OTP sent{sms && sentVia.length ? ` by ${joinNames(sentVia)}` : ''} to <span className="font-semibold">{sentTo}</span>. It expires in 10 minutes.</p>}
+          {token ? (
+            <OtpCard
+              onResend={() => void send()}
+              resendIn={wait}
+              resending={busy === 'send'}
+            >
+              <OtpBoxes id={`${id}-code`} label="6-digit OTP" value={code} onChange={setCode} disabled={busy === 'verify'} invalid={Boolean(error)} onEnter={() => void verify()} />
+              <p className="mt-3 text-sm text-slate-600">OTP sent{sms && sentVia.length ? ` by ${joinNames(sentVia)}` : ''} to <span className="font-semibold text-slate-900">{sentTo}</span>. It expires in 10 minutes.</p>
+              <button type="button" onClick={() => void verify()} disabled={code.length !== 6 || busy !== null} className={`${BUTTON} mt-4 w-full py-3 text-base ${accent.button}`}>
+                {busy === 'verify' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <ShieldCheck className="h-4 w-4" aria-hidden />}
+                Verify OTP
+              </button>
+            </OtpCard>
+          ) : (
+            busy !== 'send' && <p className="text-xs text-slate-500">Press <strong>Send OTP</strong>; the code boxes open here.</p>
+          )}
           {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
         </div>
       )}

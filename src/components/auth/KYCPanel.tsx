@@ -52,6 +52,7 @@ import {
   X as XIcon,
 } from 'lucide-react';
 import { ContactOtp } from '@/components/auth/ContactOtp';
+import { OtpBoxes } from '@/components/ui/OtpBoxes';
 import { liftToasts } from '@/lib/client/toastLayer';
 import { OfflineAadhaarVerify } from '@/components/auth/OfflineAadhaarVerify';
 import {
@@ -1092,11 +1093,7 @@ function IdentityStep({
   );
 }
 
-/**
- * One real input behind six visual boxes: typing, deleting, pasting and SMS
- * autofill (autocomplete="one-time-code") all behave natively, which six
- * separate inputs only approximate.
- */
+/** The six-digit UIDAI code, in the KashRoot one-time-code boxes (components/ui/OtpBoxes). */
 function OtpInput({
   id,
   value,
@@ -1112,40 +1109,9 @@ function OtpInput({
   invalid: boolean;
   describedBy?: string;
 }) {
-  const [focused, setFocused] = useState(false);
-  const caret = Math.min(value.length, 5);
-
   return (
-    <div className="relative mt-4">
-      <input
-        id={id}
-        value={value}
-        onChange={(e: ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        disabled={disabled}
-        inputMode="numeric"
-        autoComplete="one-time-code"
-        aria-invalid={invalid || undefined}
-        aria-describedby={describedById}
-        className="absolute inset-0 z-10 h-full w-full cursor-text border-0 text-base opacity-0 disabled:cursor-wait"
-      />
-      <div aria-hidden className="grid grid-cols-6 gap-2">
-        {Array.from({ length: 6 }, (_, i) => (
-          <div
-            key={i}
-            className={`grid h-12 place-items-center rounded-xl bg-white text-xl font-semibold tabular-nums text-slate-900 shadow-sm ring-inset transition sm:h-14 ${
-              invalid
-                ? 'ring-2 ring-rose-300'
-                : focused && i === caret
-                  ? 'ring-2 ring-emerald-500'
-                  : 'ring-1 ring-slate-200'
-            } ${disabled ? 'opacity-60' : ''}`}
-          >
-            {value[i] ?? ''}
-          </div>
-        ))}
-      </div>
+    <div className="mt-4">
+      <OtpBoxes id={id} value={value} onChange={onChange} disabled={disabled} invalid={invalid} describedBy={describedById} />
     </div>
   );
 }

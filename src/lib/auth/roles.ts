@@ -70,6 +70,12 @@ export function isPortalId(value: string): value is PortalId {
   return value in PORTALS;
 }
 
+/** The portal a path belongs to ('/farmer/dashboard?tab=x' → 'farmer'), or null for pages outside portals. */
+export function portalOfPath(path: string): PortalId | null {
+  const segment = path.split(/[/?#]/)[1] ?? '';
+  return portalForSegment(segment);
+}
+
 /** The portal that owns a (dashboards) route segment, e.g. 'kissan-tools' → 'kissan'. */
 export function portalForSegment(segment: string | null | undefined): PortalId | null {
   return PORTAL_IDS.find((id) => PORTALS[id].segment === segment) ?? null;

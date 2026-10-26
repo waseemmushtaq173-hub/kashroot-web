@@ -247,3 +247,17 @@ section[data-react-aria-top-layer][popover] {
 section[data-react-aria-top-layer][popover] [data-sonner-toast] {
   pointer-events: auto;
 }
+
+/* A digit popping into its one-time-code box (components/ui/OtpBoxes). */
+@keyframes kr-otp-pop { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.kr-otp-pop { animation: kr-otp-pop 0.18s ease-out; }
+@media (prefers-reduced-motion: reduce) { .kr-otp-pop { animation: none; } }
+
+/* The cart button (components/ui/CartButton): the scanner light blinks, its beam sweeps, "Added" slides in. */
+@keyframes kr-cart-led { 0%, 70% { opacity: 1; } 85% { opacity: 0.2; } 100% { opacity: 1; } }
+.kr-cart-led { animation: kr-cart-led 1.6s ease-in-out infinite; }
+@keyframes kr-cart-beam { from { left: -3px; } to { left: 24px; } }
+.kr-cart-beam { animation: kr-cart-beam 0.45s ease-in-out; }
+@keyframes kr-cart-in { from { transform: translateY(6px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.kr-cart-in { animation: kr-cart-in 0.22s ease-out; }
+@media (prefers-reduced-motion: reduce) { .kr-cart-led, .kr-cart-beam, .kr-cart-in { animation: none; } }

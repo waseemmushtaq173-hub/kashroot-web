@@ -1,13 +1,14 @@
 'use client';
 
 /** One product in a shop: photo, what it is, who sells it, the price and Order. */
-import { BadgeCheck, ImageOff, MapPin, Phone, ShoppingCart, Sparkles, Store } from 'lucide-react';
+import { BadgeCheck, ImageOff, MapPin, Phone, Sparkles, Store } from 'lucide-react';
 
-import { Badge, Btn, type PortalTheme } from '@/components/portal/kit';
+import { Badge, type PortalTheme } from '@/components/portal/kit';
 import { inr } from '@/lib/db/client';
 import { amountOf, isNewToday, type ShopListing } from '@/components/market/shop/useLiveListings';
+import { CartButton } from '@/components/ui/CartButton';
 
-export function ListingCard({ listing: l, verified, lowest, own, theme, onOrder }: { listing: ShopListing; verified: boolean; /** Cheapest of the kind being compared. */ lowest: boolean; own: boolean; theme: PortalTheme; onOrder: () => void }) {
+export function ListingCard({ listing: l, verified, lowest, own, onOrder }: { listing: ShopListing; verified: boolean; /** Cheapest of the kind being compared. */ lowest: boolean; own: boolean; theme: PortalTheme; onOrder: () => void }) {
   return (
     <li className="flex flex-col rounded-2xl bg-white/90 p-5 shadow-sm ring-1 ring-slate-900/5">
       {l.photo === undefined ? (
@@ -43,7 +44,7 @@ export function ListingCard({ listing: l, verified, lowest, own, theme, onOrder 
         </div>
         <div className="flex gap-2">
           <a href={`tel:${l.phone}`} aria-label={`Call ${l.seller_name}`} className="grid h-11 w-11 place-items-center rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200"><Phone className="h-4 w-4" aria-hidden /></a>
-          {own ? <Badge tone="violet">Yours</Badge> : <Btn theme={theme} icon={ShoppingCart} className="min-h-11" onClick={onOrder}>Order</Btn>}
+          {own ? <Badge tone="violet">Yours</Badge> : <CartButton doneLabel={null} onClick={onOrder}>Order</CartButton>}
         </div>
       </div>
     </li>

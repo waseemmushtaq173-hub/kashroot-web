@@ -19,6 +19,12 @@
  * nothing left over (a count with no such divisor gives stacks of one).
  * The places are laid out by lib/coldLayout.
  *
+ * The chambers stand along a passage that starts at the main door and runs
+ * straight in: on its left, on its right or on both sides (1 left, 2 right,
+ * 3 left …), in chamber-number order from the main door inward, each with its
+ * door in the wall that faces the passage — unless the owner says where a
+ * chamber stands.
+ *
  * Walls: front, back, left and right as the building is seen from the front.
  * A "length" runs along the front (left to right), a "width" from the front
  * to the back. A door's distance is from the left corner of its wall as you
@@ -30,6 +36,13 @@ import { FOOT, GRID_ROWS, MAX_COLS, planOf, WALLS, type ChamberPlan, type Chambe
 import type { ColdChamber } from '@/lib/db/coldMap';
 
 export { WALLS, type Wall, type SizeUnit };
+
+/** Where the chambers are, as you walk in through the main door: left of the passage, right of it, or both sides. */
+export type Sides = 'left' | 'right' | 'both';
+export type Side = Exclude<Sides, 'both'>;
+export const SIDES: Sides[] = ['left', 'right', 'both'];
+/** The side of the passage for the n-th chamber placed in order (from 0): all on one side, or 1 left, 2 right, 3 left … */
+export const sideOrder = (sides: Sides, n: number): Side => (sides === 'both' ? (n % 2 ? 'right' : 'left') : sides);
 
 // ───────────────────────── what a chamber stores ─────────────────────────
 
@@ -129,7 +142,8 @@ export interface StoreDraft {
   address: string;
   /** Feet or metres, for the building and every chamber. */
   unit: SizeUnit;
-  building: { length: string; width: string; height: string; door: DoorDraft };
+  /** `sides`: where the chambers are along the passage from the main door ('' = not chosen yet). */
+  building: { length: string; width: string; height: string; door: DoorDraft; sides: Sides | '' };
   chambers: ChamberDraft[];
 }
 
@@ -162,7 +176,7 @@ export function blankStore(who?: { name?: string; phone?: string; district?: str
     area: who?.village ?? '',
     address: prefill?.address ?? '',
     unit: 'ft',
-    building: { length: '', width: '', height: '', door: blankDoor() },
+    building: { length: '', width: '', height: '', door: blankDoor(), sides: '' },
     chambers: [],
   };
 }
@@ -261,6 +275,8 @@ export interface Building {
   width: number;
   height: number;
   door: DoorAt;
+  /** Where the chambers are along the passage from the main door ('both' for stores saved before it was asked). */
+  sides: Sides;
 }
 /** A door in metres: its wall, from the left corner of that wall (standing outside facing it), width, height. */
 export interface DoorAt {
@@ -320,7 +336,12 @@ export interface ModelChamber {
   tonnes: number;
   tonnesCalc: number;
   rate: number;
+  /** In the building's frame, its door in the wall facing the passage when it stands along it. */
   outline: Outline;
+  /** The side of the passage it stands on (null: where the owner said, or the building is not known yet). */
+  side: Side | null;
+  /** Where the owner said it stands (metres from the building's left wall and front wall). */
+  spot?: { x: number; y: number };
   /** The floors, laid out (empty until the count, floors and door are right). */
   floors: ModelFloor[];
   /** Everything about it is right: it can be saved. */
@@ -350,6 +371,13 @@ export interface StoreModel {
   rows: ChamberRow[];
   /** Where each chamber stands in the building (when the building is known). */
   layout: Arrangement | null;
+  /**
+   * By chamber key, for chambers that stand along the passage (the owner did
+   * not say where): the side they are on and the wall their door is in — the
+   * wall facing the passage, whatever wall is in the draft. Known as soon as
+   * the building is, even before the chamber's size is typed.
+   */
+  along: Record<string, { side: Side; wall: Wall }>;
   issues: Issue[];
   totals: { bins: number; crates: number; tonnes: number; places: number };
 }
@@ -438,7 +466,10 @@ export function storeModel(d: StoreDraft): StoreModel {
     }
   }
   const mainDoor = readDoor(d.building.door, 'building.door', 'the main door', 'the building', 2, bL !== null && bW !== null && bH !== null ? { length: bL, width: bW, height: bH } : null, u, add);
-  const building: Building | null = bL !== null && bW !== null && bH !== null && mainDoor ? { unit: u, length: bL, width: bW, height: bH, door: mainDoor } : null;
+  const sides = SIDES.includes(d.building.sides as Sides) ? (d.building.sides as Sides) : null;
+  if (!sides) add('error', 2, 'building.sides', 'Choose where the chambers are, as you walk in through the main door: on the left side of the passage, on the right side, or on both sides.');
+  // Drawn on both sides until the owner chooses (it cannot be saved before).
+  const building: Building | null = bL !== null && bW !== null && bH !== null && mainDoor ? { unit: u, length: bL, width: bW, height: bH, door: mainDoor, sides: sides ?? 'both' } : null;
 
   // ── 3. The chambers ──
   if (!d.chambers.length) add('error', 3, 'chambers', 'Add your first chamber: tap “Add a chamber”.');
@@ -447,12 +478,26 @@ export function storeModel(d: StoreDraft): StoreModel {
     const n = readNumber(c.no);
     if (n !== null && Number.isInteger(n)) numbers.set(n, (numbers.get(n) ?? 0) + 1);
   }
+  // In number order from the main door inward, the chambers the owner did not place stand
+  // on their side of the passage, each with its door in the wall that faces the passage.
+  const byNumber = (n: number | null) => (n !== null && Number.isFinite(n) ? n : Infinity);
+  const along = new Map<string, { side: Side; wall: Wall }>();
+  if (building) {
+    d.chambers
+      .map((c, i) => ({ c, i, no: byNumber(readNumber(c.no)) }))
+      .filter(({ c }) => !spotOf(c))
+      .sort((a, b) => a.no - b.no || a.i - b.i)
+      .forEach(({ c }, n) => {
+        const side = sideOrder(building.sides, n);
+        along.set(c.key, { side, wall: passageWall(building.door.wall, side) });
+      });
+  }
   const chambers: ModelChamber[] = [];
   for (const c of d.chambers) {
-    const mc = readChamber(c, numbers, u, add);
+    const mc = readChamber(c, numbers, u, add, along.get(c.key));
     if (mc) chambers.push(mc);
   }
-  chambers.sort((a, b) => a.no - b.no);
+  chambers.sort((a, b) => byNumber(a.no || null) - byNumber(b.no || null));
   const rows: ChamberRow[] = [];
   for (const mc of chambers) for (const f of mc.floors) rows.push(f.row);
   rows.forEach((r, i) => (r.position = i + 1));
@@ -461,7 +506,7 @@ export function storeModel(d: StoreDraft): StoreModel {
   // Where the chambers stand, and whether they fit inside the building.
   let layout: Arrangement | null = null;
   if (building && chambers.length) {
-    layout = arrangeStore(building, chambers.map((mc) => ({ key: mc.key, name: mc.name, outline: mc.outline, spot: mc.floors[0]?.size.spot })));
+    layout = arrangeStore(building, chambers.map((mc) => ({ key: mc.key, name: mc.name, outline: mc.outline, spot: mc.spot, side: mc.side ?? undefined })));
     for (const p of layout.problems) add('warn', 3, `${p.key}.fit`, p.message);
   }
 
@@ -490,6 +535,7 @@ export function storeModel(d: StoreDraft): StoreModel {
     chambers,
     rows,
     layout,
+    along: Object.fromEntries(along),
     issues,
     totals,
   };
@@ -497,8 +543,11 @@ export function storeModel(d: StoreDraft): StoreModel {
 
 type Add = (level: Issue['level'], step: Issue['step'], field: string, message: string, fix?: Issue['fix']) => void;
 
-/** A door as typed, checked against its wall (`room` in the building's frame); null until it is right. */
-function readDoor(dd: DoorDraft, field: string, name: string, of: string, step: Issue['step'], room: { length: number; width: number; height: number } | null, u: SizeUnit, add: Add): DoorAt | null {
+/**
+ * A door as typed, checked against its wall (`room` in the building's frame); null until it is right.
+ * `passage`: the door is in the wall that faces the passage (a chamber standing along it), whatever wall was picked.
+ */
+function readDoor(dd: DoorDraft, field: string, name: string, of: string, step: Issue['step'], room: { length: number; width: number; height: number } | null, u: SizeUnit, add: Add, passage = false): DoorAt | null {
   if (!WALLS.includes(dd.wall)) return add('error', step, `${field}.wall`, `Choose the wall ${name} is in.`), null;
   const read = (k: 'from' | 'width' | 'height', ask: string, like: string) => {
     const n = readNumber(dd[k]);
@@ -506,7 +555,14 @@ function readDoor(dd: DoorDraft, field: string, name: string, of: string, step: 
     if (Number.isNaN(n)) return add('error', step, `${field}.${k}`, `Write it as a number, like ${like}.`), null;
     return n;
   };
-  const from = read('from', `How far is ${name} from the left corner of the ${dd.wall} wall? (Stand outside, facing that wall.) Write 0 if it is at the corner.`, '10');
+  const wallOf = passage ? `the wall of ${of} that faces the passage` : `the ${dd.wall} wall of ${of}`;
+  const from = read(
+    'from',
+    passage
+      ? `How far is ${name} from the left corner of the wall that faces the passage? (Stand in the passage, facing that wall.) Write 0 if it is at the corner.`
+      : `How far is ${name} from the left corner of the ${dd.wall} wall? (Stand outside, facing that wall.) Write 0 if it is at the corner.`,
+    '10',
+  );
   const width = read('width', `Write how wide ${name} is.`, u === 'ft' ? '10' : '3');
   const height = read('height', `Write how high ${name} is.`, u === 'ft' ? '12' : '3.5');
   if (from === null || width === null || height === null) return null;
@@ -519,17 +575,28 @@ function readDoor(dd: DoorDraft, field: string, name: string, of: string, step: 
     const wall = dd.wall === 'front' || dd.wall === 'back' ? room.length : room.width;
     const wallU = wall / (u === 'ft' ? FOOT : 1);
     const slack = 1.005;
-    if (good && wM > wall * slack) good = (add('error', step, `${field}.width`, `${cap(name)} is ${say(width, u)} wide, but the ${dd.wall} wall of ${of} is only ${say(wallU, u)} long. Check the door width.`), false);
+    if (good && wM > wall * slack) good = (add('error', step, `${field}.width`, `${cap(name)} is ${say(width, u)} wide, but ${wallOf} is only ${say(wallU, u)} long. Check the door width.`), false);
     else if (good && metres(from + width, u) > wall * slack)
-      good = (add('error', step, `${field}.from`, `${cap(name)} ends ${say(from + width, u)} from the left corner (${say(from, u)} + ${say(width, u)} wide), but the ${dd.wall} wall of ${of} is only ${say(wallU, u)} long. Check the distance or the door width.`), false);
+      good = (add('error', step, `${field}.from`, `${cap(name)} ends ${say(from + width, u)} from the left corner (${say(from, u)} + ${say(width, u)} wide), but ${wallOf} is only ${say(wallU, u)} long. Check the distance or the door width.`), false);
     if (hM > room.height * slack) good = (add('error', step, `${field}.height`, `${cap(name)} is ${say(height, u)} high, but ${of} is only ${say(room.height / (u === 'ft' ? FOOT : 1), u)} high. Check the door height.`), false);
   }
   return good && room ? { wall: dd.wall, from: metres(from, u), width: wM, height: hM } : null;
 }
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 
-/** One chamber as typed → its outline, floors and rows (null until its length, width and height are right). */
-function readChamber(c: ChamberDraft, numbers: Map<number, number>, u: SizeUnit, add: Add): ModelChamber | null {
+/** Where the owner said a chamber stands (both distances typed as numbers), in metres — else undefined. */
+function spotOf(c: Pick<ChamberDraft, 'spotX' | 'spotY'>, u?: SizeUnit): { x: number; y: number } | undefined {
+  const sx = readNumber(c.spotX);
+  const sy = readNumber(c.spotY);
+  if (sx === null || sy === null || Number.isNaN(sx) || Number.isNaN(sy)) return undefined;
+  return u ? { x: metres(sx, u), y: metres(sy, u) } : { x: sx, y: sy };
+}
+
+/**
+ * One chamber as typed → its outline, floors and rows (null until its length, width and height are right).
+ * `onPassage`: it stands on this side of the passage, its door in this wall (the one facing the passage).
+ */
+function readChamber(c: ChamberDraft, numbers: Map<number, number>, u: SizeUnit, add: Add, onPassage?: { side: Side; wall: Wall }): ModelChamber | null {
   const k = c.key;
   const P = PACKING[c.storage];
   const W = UNIT_WORDS[c.storage];
@@ -611,7 +678,7 @@ function readChamber(c: ChamberDraft, numbers: Map<number, number>, u: SizeUnit,
   if (A === null || D === null || H === null) ok = false;
 
   // The chamber's own door.
-  const door = readDoor(c.door, `${k}.door`, `the door of ${name}`, name, 3, A !== null && D !== null && H !== null ? { length: A, width: D, height: H } : null, u, add);
+  const door = readDoor(onPassage ? { ...c.door, wall: onPassage.wall } : c.door, `${k}.door`, `the door of ${name}`, name, 3, A !== null && D !== null && H !== null ? { length: A, width: D, height: H } : null, u, add, Boolean(onPassage));
   if (!door) ok = false;
   if (door && c.storage === 'bins' && door.width < P.size.w * 0.98) add('warn', 3, `${k}.door.width`, `A bin is about ${u === 'ft' ? '4 ft' : '1.2 m'} wide, but the door of ${name} is only ${say(door.width / (u === 'ft' ? FOOT : 1), u)} wide. Check the door width.`);
 
@@ -640,18 +707,13 @@ function readChamber(c: ChamberDraft, numbers: Map<number, number>, u: SizeUnit,
   }
 
   // Where it stands, if the owner said.
-  let spot: { x: number; y: number } | undefined;
-  const sx = readNumber(c.spotX);
-  const sy = readNumber(c.spotY);
-  if (sx !== null || sy !== null) {
-    if (sx === null || sy === null || Number.isNaN(sx) || Number.isNaN(sy)) ok = (add('error', 3, `${k}.spot`, `Write both distances for where ${name} stands (from the left wall and from the front wall), or leave both empty.`), false);
-    else spot = { x: metres(sx, u), y: metres(sy, u) };
-  }
+  const spot = spotOf(c, u);
+  if (!spot && (readNumber(c.spotX) !== null || readNumber(c.spotY) !== null)) ok = (add('error', 3, `${k}.spot`, `Write both distances for where ${name} stands (from the left wall and from the front wall), or leave both empty.`), false);
 
   // Drawn as soon as its size is known; laid out once the count, floors and door are right too.
   if (A === null || D === null || H === null) return null;
   const outline: Outline = { length: A, width: D, height: H, door };
-  const chamber: ModelChamber = { key: k, no: no !== null && Number.isInteger(no) ? no : 0, name, storage: c.storage, count: count ?? 0, kg: kg ?? 0, tonnes, tonnesCalc, rate: rate ?? 0, outline, floors: [], ready: ok };
+  const chamber: ModelChamber = { key: k, no: no !== null && Number.isInteger(no) ? no : 0, name, storage: c.storage, count: count ?? 0, kg: kg ?? 0, tonnes, tonnesCalc, rate: rate ?? 0, outline, side: onPassage?.side ?? null, ...(spot ? { spot } : {}), floors: [], ready: ok };
   const layable = door && count !== null && Number.isInteger(count) && count >= 1 && count <= 1_000_000 && floors !== null && Number.isInteger(floors) && floors >= 1 && floors <= 10 && count >= floors && fits >= 1 && (sh === null || stackHigh !== null);
   if (!layable) return chamber;
 
@@ -832,101 +894,187 @@ export interface Spot {
   /** Along the front, and front to back. */
   w: number;
   d: number;
-  /** Inside the building, clear of the others. */
+  /** Inside the building, clear of the others and of the passage. */
   fits: boolean;
-  /** The owner said where it stands (else drawn in order). */
+  /** The owner said where it stands (else it stands along the passage). */
   byOwner: boolean;
+  /** The side of the passage it stands on (not when the owner said where). */
+  side?: Side;
 }
+
+/**
+ * The passage from the main door: as wide as the door (at least CORRIDOR),
+ * straight in to the wall opposite. `u` runs along the main door's wall from
+ * its left corner (standing outside facing it, as you walk in: left to
+ * right), `v` in from that wall.
+ */
+export interface Passage {
+  /** In the building's frame. */
+  rect: { x: number; y: number; w: number; d: number };
+  /** The main door's wall. */
+  wall: Wall;
+  /** Where the passage is across the building (u), and how wide and deep the building is that way. */
+  u0: number;
+  u1: number;
+  across: number;
+  depth: number;
+}
+
 export interface Arrangement {
   spots: Record<string, Spot>;
   problems: { key: string; message: string }[];
+  passage: Passage;
+  sides: Sides;
 }
-/** Clear space kept in front of each line of chambers (a corridor to their doors). */
+/** The narrowest passage from the main door. */
 export const CORRIDOR = 3;
 /** How far in from the main door the way in must be clear. */
 const DOOR_CLEAR = 1.5;
 
+/** The passage from the main door (in the middle of the front wall when the door is not known). */
+export function passageOf(b: { length: number; width: number; door?: DoorAt | null }): Passage {
+  const door = b.door ?? { wall: 'front' as Wall, from: b.length / 2, width: 0, height: 0 };
+  const alongFront = door.wall === 'front' || door.wall === 'back';
+  const across = alongFront ? b.length : b.width;
+  const depth = alongFront ? b.width : b.length;
+  const wide = Math.min(across, Math.max(CORRIDOR, door.width));
+  const u0 = Math.min(Math.max(0, door.from + door.width / 2 - wide / 2), across - wide);
+  const room = { length: b.length, width: b.width };
+  const p = fromDoor(door.wall, room, u0, 0);
+  const q = fromDoor(door.wall, room, u0 + wide, depth);
+  return { rect: { x: Math.min(p.x, q.x), y: Math.min(p.y, q.y), w: Math.abs(p.x - q.x), d: Math.abs(p.y - q.y) }, wall: door.wall, u0, u1: u0 + wide, across, depth };
+}
+
+/** The wall of a chamber on this side of the passage that faces the passage (building frame), for a main door in `mainWall`. */
+export function passageWall(mainWall: Wall, side: Side): Wall {
+  // To the right as you walk in (u growing), in the building's frame.
+  const right: Record<Wall, Wall> = { front: 'right', back: 'left', left: 'front', right: 'back' };
+  const left: Record<Wall, Wall> = { front: 'left', back: 'right', left: 'back', right: 'front' };
+  return side === 'left' ? right[mainWall] : left[mainWall];
+}
+
+const SIDE_TEXT: Record<Side, string> = { left: 'Left side', right: 'Right side' };
+
 /**
- * Where each chamber stands. Where the owner said, there; the others in
- * order along the back wall from the left, a new line in front (past a
- * corridor) when a line is full. Chambers that do not fit are still drawn —
- * outside the building — and named in `problems`, as is a chamber standing
- * in the way in from the building's main door (when `b.door` is given).
+ * Where each chamber stands. Where the owner said, there. The others stand
+ * along the passage from the main door, in the order given (chamber
+ * numbers), from the main door inward: against the wall on the left of the
+ * passage, on the right, or 1 left, 2 right, 3 left … for both sides (a
+ * chamber's `side` says which, when known). Chambers that do not fit are
+ * still drawn — into the passage or past the far wall — and named in
+ * `problems`, as is a chamber standing in the passage or in front of the
+ * main door (when `b.door` is given).
  */
-export function arrangeStore(b: Pick<Building, 'length' | 'width' | 'height' | 'unit'> & { door?: DoorAt | null }, chambers: { key: string; name: string; outline: Outline; spot?: { x: number; y: number } }[]): Arrangement {
+export function arrangeStore(
+  b: Pick<Building, 'length' | 'width' | 'height' | 'unit'> & { door?: DoorAt | null; sides?: Sides },
+  chambers: { key: string; name: string; outline: Outline; spot?: { x: number; y: number }; side?: Side }[],
+): Arrangement {
   const spots: Record<string, Spot> = {};
   const problems: { key: string; message: string }[] = [];
   const u = b.unit;
   const show = (m: number) => say(m / (u === 'ft' ? FOOT : 1), u);
   const slack = 0.02;
-  let x = 0;
-  let back = b.width;
-  let lineFront = b.width;
+  const sides = b.sides ?? 'both';
+  const pass = passageOf(b);
+  const alongFront = pass.wall === 'front' || pass.wall === 'back';
+  const room = { length: b.length, width: b.width };
+  const roomOn: Record<Side, number> = { left: pass.u0, right: pass.across - pass.u1 };
+  // How far in from the main door's wall each side is taken.
+  const taken: Record<Side, number> = { left: 0, right: 0 };
+  const sized = new Set<string>();
+  const inPassage = new Set<string>();
+  let n = 0;
   for (const c of chambers) {
     const { length: w, width: d, height } = c.outline;
-    if (w > b.length + slack) problems.push({ key: c.key, message: `${c.name} is ${show(w)} long, but the building is only ${show(b.length)} long. Check the sizes.` });
-    if (d > b.width + slack) problems.push({ key: c.key, message: `${c.name} is ${show(d)} wide (front to back), but the building is only ${show(b.width)} wide. Check the sizes.` });
+    const say1 = (message: string) => (problems.push({ key: c.key, message }), sized.add(c.key));
+    if (w > b.length + slack) say1(`${c.name} is ${show(w)} long, but the building is only ${show(b.length)} long. Check the sizes.`);
+    if (d > b.width + slack) say1(`${c.name} is ${show(d)} wide (front to back), but the building is only ${show(b.width)} wide. Check the sizes.`);
     if (height > b.height + slack) problems.push({ key: c.key, message: `${c.name} is ${show(height)} high, but the building is only ${show(b.height)} high. Check the heights.` });
     if (c.spot) {
       spots[c.key] = { x: c.spot.x, y: c.spot.y, w, d, fits: true, byOwner: true };
       continue;
     }
-    if (x > 0 && x + w > b.length + slack) {
-      back = lineFront - CORRIDOR;
-      x = 0;
+    const side = c.side ?? sideOrder(sides, n);
+    n++;
+    // Across the passage (out from it to the wall) and along it.
+    const out = alongFront ? w : d;
+    const deep = alongFront ? d : w;
+    const ua = side === 'left' ? 0 : pass.across - out;
+    const va = taken[side];
+    taken[side] += deep;
+    const p = fromDoor(pass.wall, room, ua, va);
+    const q = fromDoor(pass.wall, room, ua + out, va + deep);
+    spots[c.key] = { x: Math.min(p.x, q.x), y: Math.min(p.y, q.y), w, d, fits: true, byOwner: false, side };
+    if (sized.has(c.key)) continue;
+    if (va + deep > pass.depth + slack) {
+      spots[c.key].fits = false;
+      problems.push({
+        key: c.key,
+        message: `${c.name} does not fit: the chambers on the ${side} of the passage need ${show(va + deep)} from the main door’s wall inward, but the building is only ${show(pass.depth)} deep that way. ${sides === 'both' ? 'Check the sizes, or say where each chamber stands (More details).' : 'Check the sizes, or choose “Both sides” in step 2 (The building).'}`,
+      });
     }
-    const y = back - d;
-    spots[c.key] = { x, y, w, d, fits: true, byOwner: false };
-    lineFront = Math.min(lineFront, y);
-    x += w;
+    if (out > roomOn[side] + slack) {
+      spots[c.key].fits = false;
+      inPassage.add(c.key);
+      const other: Side = side === 'left' ? 'right' : 'left';
+      const swap = sides !== 'both' && out <= roomOn[other] + slack ? ` or choose “${SIDE_TEXT[other]}” in step 2 (The building),` : '';
+      problems.push({
+        key: c.key,
+        message: `${c.name} needs ${show(out)} on the ${side} of the passage (as you walk in), but there are only ${show(roomOn[side])} between the passage and the wall on that side, so it stands in the passage. Check the sizes,${swap} or check where the main door is.`,
+      });
+    }
   }
-  // Inside the building, and clear of each other.
+  // Placed by the owner: inside the building, and clear of each other and of the passage.
   const list = chambers.map((c) => ({ c, s: spots[c.key] }));
+  const overlaps = (a: { x: number; y: number; w: number; d: number }, o: { x: number; y: number; w: number; d: number }) =>
+    a.x < o.x + o.w - slack && o.x < a.x + a.w - slack && a.y < o.y + o.d - slack && o.y < a.y + a.d - slack;
   for (const { c, s } of list) {
     const inside = s.x >= -slack && s.y >= -slack && s.x + s.w <= b.length + slack && s.y + s.d <= b.width + slack;
-    if (!inside) {
-      s.fits = false;
-      if (!problems.some((p) => p.key === c.key && /long|wide/.test(p.message))) {
-        problems.push({
-          key: c.key,
-          message: s.byOwner
-            ? `${c.name} goes outside the building where you said it stands (${show(s.x)} from the left wall, ${show(s.y)} from the front wall). Check those distances.`
-            : `${c.name} does not fit inside the building next to the chambers before it — together they need more room than ${show(b.length)} × ${show(b.width)}. Check the sizes, or say where each chamber stands.`,
-        });
-      }
+    if (inside) continue;
+    s.fits = false;
+    if (s.byOwner && !sized.has(c.key)) {
+      problems.push({ key: c.key, message: `${c.name} goes outside the building where you said it stands (${show(s.x)} from the left wall, ${show(s.y)} from the front wall). Check those distances.` });
     }
   }
   for (let i = 0; i < list.length; i++) {
     for (let j = i + 1; j < list.length; j++) {
-      const a = list[i].s;
-      const o = list[j].s;
-      if (a.x < o.x + o.w - slack && o.x < a.x + a.w - slack && a.y < o.y + o.d - slack && o.y < a.y + a.d - slack) {
-        a.fits = o.fits = false;
-        problems.push({ key: list[j].c.key, message: `${list[j].c.name} and ${list[i].c.name} overlap in the drawing. Say where each of them stands (More details).` });
-      }
+      const a = list[i];
+      const o = list[j];
+      if (!overlaps(a.s, o.s)) continue;
+      a.s.fits = o.s.fits = false;
+      if (inPassage.has(a.c.key) || inPassage.has(o.c.key)) continue;
+      problems.push({ key: o.c.key, message: `${o.c.name} and ${a.c.name} overlap in the drawing. Say where each of them stands (More details).` });
     }
   }
-  // The way in from the main door: as wide as the door, DOOR_CLEAR deep.
+  // The way in from the main door: as wide as the door, DOOR_CLEAR deep; and the passage.
   if (b.door) {
-    const room = { length: b.length, width: b.width };
     const p = fromDoor(b.door.wall, room, b.door.from, 0);
     const q = fromDoor(b.door.wall, room, b.door.from + b.door.width, 0);
     const way = {
-      front: { x0: Math.min(p.x, q.x), x1: Math.max(p.x, q.x), y0: 0, y1: DOOR_CLEAR },
-      back: { x0: Math.min(p.x, q.x), x1: Math.max(p.x, q.x), y0: b.width - DOOR_CLEAR, y1: b.width },
-      left: { x0: 0, x1: DOOR_CLEAR, y0: Math.min(p.y, q.y), y1: Math.max(p.y, q.y) },
-      right: { x0: b.length - DOOR_CLEAR, x1: b.length, y0: Math.min(p.y, q.y), y1: Math.max(p.y, q.y) },
+      front: { x: Math.min(p.x, q.x), y: 0, w: Math.abs(p.x - q.x), d: DOOR_CLEAR },
+      back: { x: Math.min(p.x, q.x), y: b.width - DOOR_CLEAR, w: Math.abs(p.x - q.x), d: DOOR_CLEAR },
+      left: { x: 0, y: Math.min(p.y, q.y), w: DOOR_CLEAR, d: Math.abs(p.y - q.y) },
+      right: { x: b.length - DOOR_CLEAR, y: Math.min(p.y, q.y), w: DOOR_CLEAR, d: Math.abs(p.y - q.y) },
     }[b.door.wall];
     for (const { c, s } of list) {
-      if (s.x < way.x1 - slack && way.x0 < s.x + s.w - slack && s.y < way.y1 - slack && way.y0 < s.y + s.d - slack) {
+      if (overlaps(s, way)) {
+        s.fits = false;
+        // Said once: standing in front of the main door says it all.
+        if (inPassage.has(c.key)) {
+          const at = problems.findIndex((x) => x.key === c.key && /stands in the passage/.test(x.message));
+          if (at >= 0) problems.splice(at, 1);
+        }
         problems.push({
           key: c.key,
-          message: `${c.name} stands in front of the main door (in the ${b.door.wall} wall), so nobody can walk in. ${s.byOwner ? 'Check where you said it stands, or where the main door is.' : 'Say where each chamber stands (More details), or check where the main door is.'}`,
+          message: `${c.name} stands in front of the main door (in the ${b.door.wall} wall), so nobody can walk in. ${s.byOwner ? 'Check where you said it stands, or where the main door is.' : 'Check the sizes and where the main door is, or choose another side in step 2 (The building).'}`,
         });
+      } else if (s.byOwner && overlaps(s, pass.rect)) {
+        s.fits = false;
+        problems.push({ key: c.key, message: `${c.name} stands in the passage from the main door, where you said it stands, so the way to the other chambers is blocked. Check those distances.` });
       }
     }
   }
-  return { spots, problems };
+  return { spots, problems, passage: pass, sides };
 }
 
 /** A chamber in the building's frame from a saved size (which is measured from its door). */
@@ -985,7 +1133,9 @@ export function asBuilding(v: unknown): Building | null {
   const num = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0;
   const d = b.door as Partial<DoorAt> | undefined;
   if (!num(b.length) || !num(b.width) || !num(b.height) || !d || !WALLS.includes(d.wall as Wall) || typeof d.from !== 'number' || !num(d.width) || !num(d.height)) return null;
-  return { unit: b.unit === 'm' ? 'm' : 'ft', length: b.length, width: b.width, height: b.height, door: { wall: d.wall as Wall, from: d.from, width: d.width, height: d.height } };
+  // Stores saved before the owner was asked which side the chambers are on: both sides.
+  const sides = SIDES.includes(b.sides as Sides) ? (b.sides as Sides) : 'both';
+  return { unit: b.unit === 'm' ? 'm' : 'ft', length: b.length, width: b.width, height: b.height, door: { wall: d.wall as Wall, from: d.from, width: d.width, height: d.height }, sides };
 }
 
 // ───────────────────────── saved chambers, grouped ─────────────────────────
@@ -1026,11 +1176,21 @@ export function groupChambers(rows: ColdChamber[]): ChamberGroup[] {
 }
 
 /**
- * The model's floors as chambers the map and 3D views draw (ids
- * "preview:<chamber key>:<floor>") — the very rows that will be saved.
+ * Preview rows carry the model's building, so a 3D view of them draws the
+ * building and the passage too, and where each chamber stands (by row id)
+ * with the model's warnings — exactly as the owner's top view has it, even
+ * while a chamber before it is still half typed (and so not in 3D yet).
  */
-export function previewChambers(m: Pick<StoreModel, 'chambers'>, listingId: string): ColdChamber[] {
-  return m.chambers.flatMap((mc) =>
+export type PreviewRows = ColdChamber[] & { building?: Building | null; spots?: Record<string, Spot>; problems?: string[] };
+
+/**
+ * The model's floors as chambers the map and 3D views draw (ids
+ * "preview:<chamber key>:<floor>") — the very rows that will be saved —
+ * with the model's building attached (components/rental/ColdStore3D reads
+ * it when it is not given its own).
+ */
+export function previewChambers(m: Pick<StoreModel, 'chambers'> & { building?: Building | null; layout?: Arrangement | null }, listingId: string): PreviewRows {
+  const rows: PreviewRows = m.chambers.flatMap((mc) =>
     mc.floors.map((f) => ({
       id: `preview:${mc.key}:${f.floor}`,
       listing_id: listingId,
@@ -1050,6 +1210,17 @@ export function previewChambers(m: Pick<StoreModel, 'chambers'>, listingId: stri
       rate: f.row.rate,
     })),
   );
+  rows.building = m.building ?? null;
+  if (m.layout) {
+    const spots: Record<string, Spot> = {};
+    for (const mc of m.chambers) {
+      const sp = m.layout.spots[mc.key];
+      if (sp) for (const f of mc.floors) spots[`preview:${mc.key}:${f.floor}`] = sp;
+    }
+    rows.spots = spots;
+    rows.problems = m.layout.problems.map((p) => p.message);
+  }
+  return rows;
 }
 
 /** The draft of a saved store, to change it in the wizard (older chambers are left out). */
@@ -1074,8 +1245,8 @@ export function draftFromSaved(
     address: l.address ?? '',
     unit,
     building: building
-      ? { length: t(building.length), width: t(building.width), height: t(building.height), door: { wall: building.door.wall, from: t(building.door.from), width: t(building.door.width), height: t(building.door.height) } }
-      : { length: '', width: '', height: '', door: blankDoor() },
+      ? { length: t(building.length), width: t(building.width), height: t(building.height), door: { wall: building.door.wall, from: t(building.door.from), width: t(building.door.width), height: t(building.door.height) }, sides: building.sides }
+      : { length: '', width: '', height: '', door: blankDoor(), sides: '' },
     chambers: groups.map((g) => {
       const s = g.size!;
       const o = outlineOf(s);
@@ -1112,7 +1283,7 @@ export function switchUnit(d: StoreDraft, unit: SizeUnit): StoreDraft {
   return {
     ...d,
     unit,
-    building: { length: conv(d.building.length), width: conv(d.building.width), height: conv(d.building.height), door: door(d.building.door) },
+    building: { ...d.building, length: conv(d.building.length), width: conv(d.building.width), height: conv(d.building.height), door: door(d.building.door) },
     chambers: d.chambers.map((c) => ({ ...c, length: conv(c.length), width: conv(c.width), height: conv(c.height), door: door(c.door), spotX: conv(c.spotX), spotY: conv(c.spotY) })),
   };
 }
@@ -1120,7 +1291,7 @@ export function switchUnit(d: StoreDraft, unit: SizeUnit): StoreDraft {
 /** The value of a field of the draft by its issue name ('title', 'building.door.from', '<key>.count'). */
 export function getField(d: StoreDraft, field: string): string {
   const path = field.split('.');
-  if (path[0] === 'building') return String(path[1] === 'door' ? d.building.door[path[2] as keyof DoorDraft] ?? '' : d.building[path[1] as 'length' | 'width' | 'height'] ?? '');
+  if (path[0] === 'building') return String(path[1] === 'door' ? d.building.door[path[2] as keyof DoorDraft] ?? '' : d.building[path[1] as 'length' | 'width' | 'height' | 'sides'] ?? '');
   const c = d.chambers.find((x) => x.key === path[0]);
   if (c) return String(path[1] === 'door' ? c.door[path[2] as keyof DoorDraft] ?? '' : c[path[1] as keyof ChamberDraft] ?? '');
   const v = d[path[0] as keyof StoreDraft];

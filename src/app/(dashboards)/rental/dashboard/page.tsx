@@ -2,39 +2,40 @@
 
 /**
  * Cold Storage Booking portal (/rental — the old name stays in the address).
- *   Farmers: find a cold store with free space (live vacancy), see the whole
- *   store — every chamber on a floor plan and in 3D, with what each holds —
- *   choose their own places for any number of boxes (a small lot shares a
- *   place) for some months, pay the owner directly by UPI / bank for their
- *   own boxes, and the owner confirms. Later they see exactly where their
- *   boxes are.
+ *   Farmers: find a cold store with free space (live vacancy), see each
+ *   chamber — bins or crates, kg in one, tonnes, floors, free now, rent —
+ *   and the whole store drawn and in 3D; choose their own places, or "just
+ *   give me 40 bins" (nearest the door), for some months; pay the owner
+ *   directly to their bank account or UPI ID (each chamber at its own rent),
+ *   write the payment reference, and the owner presses "Money received".
+ *   The receipt (/rental/receipt/<booking>) is what they show at the store.
  *   Owners: set up their cold store step by step in the owner wizard —
  *   the store and its people, the building and main door, each chamber
  *   (bins or crates, floors, size, its own door, rent), where farmers pay
- *   them — drawn and in 3D as they type; then confirm bookings.
+ *   them — drawn and in 3D as they type; then confirm the money arrived.
  *   (components/rental, components/rental/owner)
  * Payments go straight to the owner — KashRoot does not hold them.
  * Data: rental_listings, rental_bookings, payout_accounts (shared database).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Apple, ArrowRight, Boxes, CalendarDays, CheckCircle2, ClipboardCheck, IndianRupee, Landmark, Loader2, Map as MapIcon, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, Search, Snowflake, Store, Trash2, Warehouse, XCircle } from 'lucide-react';
+import { Apple, ArrowRight, Boxes, CalendarDays, CheckCircle2, ClipboardCheck, IndianRupee, Landmark, Loader2, Map as MapIcon, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, ReceiptText, Search, Snowflake, Sparkles, Store, Trash2, Warehouse, XCircle } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { IdentityStatus } from '@/components/auth/IdentityStatus';
 import { PortalShell } from '@/components/layout/PortalShell';
-import { PayDirect } from '@/components/payments/PayDirect';
-import { ColdBooking, MyPlaces, placesText } from '@/components/rental/ColdBooking';
+import { ColdBooking, MyPlaces, niceDate } from '@/components/rental/ColdBooking';
+import { PayOwner } from '@/components/rental/receipt/PayOwner';
 import { ColdMapEditor } from '@/components/rental/ColdMapEditor';
 import { OwnerWizard, type Step } from '@/components/rental/owner/OwnerWizard';
 import { PaymentDetails } from '@/components/rental/owner/PaymentStep';
 import { ColdStoreDirectory, useColdDirectory } from '@/components/rental/ColdStoreDirectory';
 import { Badge, Btn, EmptyState, Field, INPUT, Modal, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { inr, loadAccount, type Account } from '@/lib/db/client';
-import { showLength } from '@/lib/coldLayout';
-import { countText, groupChambers, unitsText } from '@/lib/coldStore';
-import { chambersOf, placesOfBookings, usablePlaces, type BookedPlace, type ColdChamber } from '@/lib/db/coldMap';
+import { countText, groupChambers, nice, UNIT_WORDS, unitsText, type Storage } from '@/lib/coldStore';
+import { chambersOf, countsText, freeNow, lastDay, placeLines, placesOfBookings, type BookedPlace, type ColdChamber } from '@/lib/db/coldMap';
 import {
   bookingAction,
+  bookingCode,
   BOOKING_STATUS,
   deleteListing,
   incomingBookings,
@@ -60,6 +61,12 @@ const SIDE_KEY = 'kr_cold_side';
 
 /** Only cold stores are booked here (older machinery listings are not shown). */
 const isCold = (l: { kind: string }) => l.kind === 'cold_store';
+/** What chambers hold, for "any of them": "bins", "bins or crates". */
+const anyOf = (kinds: Storage[]) => unitsText(kinds).replace(/ and (?=\S+$)/, ' or ');
+/** A booking that holds or held space: it has a receipt to show. */
+const hasReceipt = (b: RentalBooking) => b.status === 'paid' || b.status === 'confirmed' || b.status === 'completed';
+/** Tabs a link may open (?tab=…), on each side. */
+const TABS: Record<Side, string[]> = { farmer: ['cold', 'bookings'], owner: ['stores', 'requests', 'payments'] };
 
 export default function RentalPage() {
   const [account, setAccount] = useState<Account | null | undefined>(undefined);
@@ -73,7 +80,16 @@ export default function RentalPage() {
       return 'farmer';
     }
   });
-  const [tab, setTab] = useState(() => (side === 'owner' ? 'stores' : 'cold'));
+  const [tab, setTab] = useState(() => {
+    // A link back from a receipt opens My bookings or Bookings to confirm.
+    try {
+      const asked = new URLSearchParams(window.location.search).get('tab');
+      if (asked && TABS[side].includes(asked)) return asked;
+    } catch {
+      /* no address to read */
+    }
+    return side === 'owner' ? 'stores' : 'cold';
+  });
   const [listings, setListings] = useState<RentalListing[]>([]);
   const [listError, setListError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -84,7 +100,11 @@ export default function RentalPage() {
   const [mine, setMine] = useState<RentalBooking[]>([]);
   const [incoming, setIncoming] = useState<RentalBooking[]>([]);
   const [owned, setOwned] = useState<RentalListing[]>([]);
-  const [booking, setBooking] = useState<RentalListing | null>(null);
+  // The store being booked, and "just give me 40 bins" when asked from its card.
+  const [booking, setBookingState] = useState<{ listing: RentalListing; quick: { want: number; storage: Storage | null } | null } | null>(null);
+  const setBooking = (listing: RentalListing | null, quick: { want: number; storage: Storage | null } | null = null) => setBookingState(listing ? { listing, quick } : null);
+  // Bins / crates / boxes free today on each chamber floor of the stores shown.
+  const [free, setFree] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(false);
   // The cold store map: chambers of the stores on screen, and the places bookings hold.
   const [chambers, setChambers] = useState<ColdChamber[]>([]);
@@ -103,13 +123,15 @@ export default function RentalPage() {
       const [b0, i0, o0] = await Promise.all([myBookings(account.id), incomingBookings(account.id), myListings(account.id)]);
       const coldOnly = (x: RentalBooking) => !x.rental_listings?.kind || x.rental_listings.kind === 'cold_store';
       const [b, i, o] = [b0.filter(coldOnly), i0.filter(coldOnly), o0.filter(isCold)];
+      const storeIds = [...new Set([...(shown ?? []), ...o].map((l) => l.id).concat([...b, ...i].map((x) => x.listing_id)))];
+      const [c, p, f] = await Promise.all([chambersOf(storeIds), placesOfBookings([...b, ...i].map((x) => x.id)), shown ? freeNow(shown.map((l) => l.id)) : Promise.resolve(null)]);
+      // All at once, so a booking never shows without its places (and their bins or crates).
       setMine(b);
       setIncoming(i);
       setOwned(o);
-      const storeIds = [...new Set([...(shown ?? []), ...o].map((l) => l.id).concat([...b, ...i].map((x) => x.listing_id)))];
-      const [c, p] = await Promise.all([chambersOf(storeIds), placesOfBookings([...b, ...i].map((x) => x.id))]);
       setChambers(c);
       setPlaces(p);
+      if (f) setFree(f);
       setListError(null);
     } catch (err) {
       setListError(err instanceof Error ? err.message : 'Could not load.');
@@ -151,6 +173,15 @@ export default function RentalPage() {
   const directory = useColdDirectory(listings);
   // What the owner's stores hold: "bins and crates", or "boxes" for older stores.
   const ownedUnits = unitsText(chambers.filter((c) => owned.some((l) => l.id === c.listing_id)).map((c) => c.storage));
+  // What the stores on KashRoot hold, and what the farmer's bookings hold.
+  const shownUnits = unitsText(chambers.filter((c) => listings.some((l) => l.id === c.listing_id)).map((c) => c.storage));
+  const bookedUnits = (list: RentalBooking[]) => {
+    const placed = places.filter((p) => list.some((b) => b.id === p.booking_id));
+    const counted = countsText(placed, chambers);
+    // Bookings by count (stores without chambers) are in boxes.
+    const byCount = list.filter((b) => !places.some((p) => p.booking_id === b.id)).reduce((n, b) => n + b.units, 0);
+    return [counted, byCount ? countText(byCount, 'boxes') : ''].filter(Boolean).join(' and ') || '0';
+  };
 
   if (account === undefined) return <p className="flex items-center gap-2 p-10 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>;
 
@@ -159,7 +190,7 @@ export default function RentalPage() {
       title="Cold storage booking"
       description={
         side === 'farmer'
-          ? 'Find a cold store, see every chamber on a plan and in 3D, choose your own place for any number of boxes, and pay the owner directly.'
+          ? 'Find a cold store, see every chamber drawn and in 3D, book your bins or crates, and pay the owner directly. Then show your receipt at the store.'
           : 'Set up your cold store step by step — the building, each chamber with its bins or crates — and see it drawn and in 3D as you type. Then confirm bookings and get paid directly.'
       }
       eyebrow="Cold storage"
@@ -168,9 +199,9 @@ export default function RentalPage() {
       kpis={
         side === 'farmer'
           ? [
-              { label: 'Cold stores in J&K', value: directory.entries.length.toLocaleString('en-IN') + (directory.reading ? '…' : ''), trend: `${listings.length} on KashRoot · ${listings.reduce((s, l) => s + l.available, 0).toLocaleString('en-IN')} boxes free` },
+              { label: 'Cold stores in J&K', value: directory.entries.length.toLocaleString('en-IN') + (directory.reading ? '…' : ''), trend: `${listings.length} on KashRoot · ${listings.reduce((s, l) => s + l.available, 0).toLocaleString('en-IN')} ${shownUnits} free` },
               { label: 'Your bookings', value: String(mine.length), trend: `${mine.filter((b) => b.status === 'confirmed').length} confirmed`, onClick: () => setTab('bookings') },
-              { label: 'Your boxes booked', value: activeBookings.reduce((s, b) => s + b.units, 0).toLocaleString('en-IN'), trend: activeBookings.length ? `in ${activeBookings.length} booking${activeBookings.length === 1 ? '' : 's'}` : 'Book any number of boxes' },
+              { label: 'Your space booked', value: activeBookings.reduce((s, b) => s + b.units, 0).toLocaleString('en-IN'), trend: activeBookings.length ? `${bookedUnits(activeBookings)} in ${activeBookings.length} booking${activeBookings.length === 1 ? '' : 's'}` : 'Book any number of bins or crates' },
             ]
           : [
               { label: 'My cold stores', value: String(owned.length), trend: owned.length ? `${owned.reduce((s, l) => s + l.capacity, 0).toLocaleString('en-IN')} ${ownedUnits} in all` : 'List your cold store', onClick: () => setTab('stores') },
@@ -249,9 +280,9 @@ export default function RentalPage() {
               action={<Btn theme={theme} variant="soft" onClick={() => (listings.length ? setFindView('all') : setSide('owner', 'stores'))}>{listings.length ? 'All cold stores' : 'List your cold store'}</Btn>}
             />
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-4">
               {visible.map((l) => (
-                <ListingCard key={l.id} listing={l} chambers={chambers.filter((c) => c.listing_id === l.id)} own={l.owner_id === account.id} onBook={() => setBooking(l)} />
+                <StoreCard key={l.id} listing={l} chambers={chambers.filter((c) => c.listing_id === l.id)} free={free} own={l.owner_id === account.id} onBook={(quick) => setBooking(l, quick)} />
               ))}
             </div>
           )}
@@ -261,7 +292,7 @@ export default function RentalPage() {
       ) : tab === 'bookings' ? (
         <Panel theme={theme} title="My bookings" icon={CalendarDays}>
           {mine.length === 0 ? (
-            <EmptyState theme={theme} icon={CalendarDays} title="No bookings yet" text="Book your place in a cold store and it appears here, with how to pay the owner and where your boxes are." action={<Btn theme={theme} onClick={() => setTab('cold')}>Find cold storage</Btn>} />
+            <EmptyState theme={theme} icon={CalendarDays} title="No bookings yet" text="Book your place in a cold store and it appears here, with how to pay the owner, where your bins or crates go, and your receipt." action={<Btn theme={theme} className="min-h-[44px]" onClick={() => setTab('cold')}>Find cold storage</Btn>} />
           ) : (
             <ul className="space-y-4">
               {mine.map((b) => (
@@ -283,11 +314,12 @@ export default function RentalPage() {
         />
       ) : null}
 
-      {booking && account && chambers.some((c) => c.listing_id === booking.id) && (
+      {booking && account && chambers.some((c) => c.listing_id === booking.listing.id) && (
         <ColdBooking
-          listing={booking}
-          chambers={chambers.filter((c) => c.listing_id === booking.id)}
+          listing={booking.listing}
+          chambers={chambers.filter((c) => c.listing_id === booking.listing.id)}
           account={account}
+          quick={booking.quick}
           onClose={() => setBooking(null)}
           onBooked={() => {
             setBooking(null);
@@ -296,9 +328,9 @@ export default function RentalPage() {
           }}
         />
       )}
-      {booking && account && !chambers.some((c) => c.listing_id === booking.id) && (
+      {booking && account && !chambers.some((c) => c.listing_id === booking.listing.id) && (
         <BookingModal
-          listing={booking}
+          listing={booking.listing}
           account={account}
           onClose={() => setBooking(null)}
           onBooked={() => {
@@ -312,49 +344,194 @@ export default function RentalPage() {
   );
 }
 
-function ListingCard({ listing: l, chambers, own, onBook }: { listing: RentalListing; chambers: ColdChamber[]; own: boolean; onBook: () => void }) {
+/** Someone at the store to call: their name, number and a big Call button. */
+function CallPerson({ role, name, phone }: { role: string; name: string | null; phone: string }) {
+  return (
+    <a href={`tel:${phone}`} aria-label={`Call the ${role}${name ? `, ${name}` : ''}, ${phone}`} className="flex min-h-[48px] w-full min-w-0 items-center gap-3 rounded-xl bg-violet-50 px-3 py-2 text-sm text-slate-800 no-underline ring-1 ring-violet-200 hover:bg-violet-100 hover:no-underline sm:w-auto">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-violet-700 text-white"><Phone className="h-4 w-4" aria-hidden /></span>
+      <span className="min-w-0">
+        <span className="block text-xs text-slate-600">{role[0].toUpperCase() + role.slice(1)}{name ? `: ${name}` : ''}</span>
+        <span className="block font-semibold tabular-nums text-violet-900">Call {phone}</span>
+      </span>
+    </a>
+  );
+}
+
+/**
+ * A cold store on KashRoot, as farmers see it: where it is, whom to call,
+ * each chamber (bins or crates, kg in one, tonnes, floors, what is free
+ * today and its rent), then "Choose your place" (the whole store drawn and
+ * in 3D) or "Just give me 40 bins" (places nearest the door, chosen at once).
+ */
+function StoreCard({
+  listing: l,
+  chambers,
+  free,
+  own,
+  onBook,
+}: {
+  listing: RentalListing;
+  chambers: ColdChamber[];
+  /** Free today on each chamber floor (kr_cold_free_now); empty before that SQL is run. */
+  free: Map<string, number>;
+  own: boolean;
+  onBook: (quick?: { want: number; storage: Storage | null }) => void;
+}) {
   const unit = UNIT_LABEL[l.unit];
   const map = chambers.length > 0;
+  const groups = useMemo(() => groupChambers(chambers), [chambers]);
+  const kinds = useMemo(() => [...new Set(chambers.map((c) => c.storage))], [chambers]);
+  // What the farmer brings: chosen by tapping when the store holds both bins and crates.
+  const [tapped, setKind] = useState<Storage | null>(null);
+  const kind = tapped ?? (kinds.length === 1 ? kinds[0] : null);
+  const [count, setCount] = useState('');
+  const [problem, setProblem] = useState<string | null>(null);
+  const word = kind ? UNIT_WORDS[kind].many : anyOf(kinds);
+  const known = map && chambers.every((c) => free.has(c.id));
+  const freeIn = (g: { floors: ColdChamber[] }) => g.floors.reduce((n, f) => n + (free.get(f.id) ?? 0), 0);
+  const freeAll = known ? chambers.reduce((n, c) => n + (free.get(c.id) ?? 0), 0) : l.available;
+  const freeOfKind = known && kind ? chambers.filter((c) => c.storage === kind).reduce((n, c) => n + (free.get(c.id) ?? 0), 0) : null;
+  const rates = chambers.map((c) => Number(c.rate ?? l.rate));
+  const lowest = rates.length ? Math.min(...rates) : Number(l.rate);
+  const place = [l.area, l.district, l.state].filter(Boolean).join(', ');
   const pct = l.capacity ? Math.round((l.available / l.capacity) * 100) : 0;
+  const tonnes = (g: ReturnType<typeof groupChambers>[number]) => (g.unitKg ? nice(Math.round((g.count * g.unitKg) / 100) / 10) : g.capacityMt ? nice(g.capacityMt) : null);
+  const rentOf = (g: ReturnType<typeof groupChambers>[number]) => `${inr(Number(g.rate ?? l.rate))} a ${UNIT_WORDS[g.storage].one}`;
+
+  // "Just give me 40 bins": checked here, then the places are chosen in the booking window.
+  const quick = () => {
+    const n = Number(count.replace(/[,\s]/g, ''));
+    const say = kind ?? kinds[0] ?? 'boxes';
+    const m = kinds.length > 1 && !kind
+      ? 'First tap Bins or Crates: what will you bring?'
+      : !count.trim()
+        ? `Write how many ${word} you need, like 40.`
+        : !Number.isInteger(n) || n < 1
+          ? `Write a whole number of ${word}, like 40.`
+          : n < l.min_units
+            ? `This cold store takes at least ${countText(l.min_units, say)} in one booking.`
+            : freeOfKind === 0
+              ? `No ${UNIT_WORDS[say].many} are free today. Choose other months in “Choose your place”, or another cold store.`
+              : freeOfKind !== null && n > freeOfKind
+                ? `Only ${countText(freeOfKind, say)} ${freeOfKind === 1 ? 'is' : 'are'} free today. Write ${freeOfKind.toLocaleString('en-IN')} or fewer, or choose other months in “Choose your place”.`
+                : null;
+    setProblem(m);
+    if (!m) onBook({ want: n, storage: kinds.length > 1 ? kind : null });
+  };
+
   return (
-    <div className="flex flex-col rounded-2xl bg-white/85 p-5 shadow-sm ring-1 ring-slate-900/5">
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="font-sans text-lg font-semibold text-slate-900">{l.title}</h3>
-        {l.available > 0 ? <Badge tone="green">Space free</Badge> : <Badge tone="red">Full</Badge>}
-      </div>
-      <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-600"><MapPin className="h-4 w-4" aria-hidden /> {l.district}{l.address ? ` · ${l.address}` : ''}</p>
-      {l.temperature && <p className="flex items-center gap-1.5 text-sm text-slate-600"><Snowflake className="h-4 w-4" aria-hidden /> {l.temperature}</p>}
-      <div className="mt-3">
-        <p className="flex justify-between text-sm"><span className="font-semibold text-slate-900">{l.available.toLocaleString('en-IN')} boxes free</span><span className="text-slate-500">of {l.capacity.toLocaleString('en-IN')}</span></p>
-        <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100" role="meter" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Free space">
-          <div className="h-full rounded-full bg-violet-600" style={{ width: `${pct}%` }} />
+    <div className="rounded-2xl bg-white/90 p-4 shadow-sm ring-1 ring-slate-900/5 sm:p-5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h3 className="font-sans text-lg font-semibold text-slate-900">{l.title}</h3>
+          <p className="mt-0.5 flex items-start gap-1.5 text-sm text-slate-600"><MapPin className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> <span>{place}{l.address ? ` · ${l.address}` : ''}</span></p>
+          {l.temperature && <p className="flex items-center gap-1.5 text-sm text-slate-600"><Snowflake className="h-4 w-4" aria-hidden /> {l.temperature}</p>}
         </div>
-      </div>
-      {map && (
-        <div className="mt-3 rounded-xl bg-sky-50 p-3 ring-1 ring-sky-200">
-          <p className="flex items-center gap-1.5 text-sm font-semibold text-sky-900"><MapIcon className="h-4 w-4" aria-hidden /> {chambers.length} chamber{chambers.length === 1 ? '' : 's'} · see them in 3D, choose your own place</p>
-          <ul aria-label="What each chamber holds" className="mt-1.5 space-y-0.5 text-xs text-slate-700">
-            {chambers.slice(0, 4).map((c) => (
-              <li key={c.id} className="flex justify-between gap-2">
-                <span className="truncate">{c.name}{c.size ? ` · ${showLength(c.size.length, c.size.unit)} × ${showLength(c.size.width, c.size.unit)} × ${showLength(c.size.height, c.size.unit)}` : ''}</span>
-                <span className="shrink-0">holds <strong className="text-slate-900">{(usablePlaces(c) * c.boxes_per_slot).toLocaleString('en-IN')}</strong> boxes</span>
-              </li>
-            ))}
-            {chambers.length > 4 && <li className="text-slate-500">and {chambers.length - 4} more</li>}
-          </ul>
-          <p className="mt-1.5 text-xs font-medium text-emerald-800">
-            Any number of boxes{l.min_units > 1 ? ` from ${l.min_units.toLocaleString('en-IN')}` : ''}: share a place, pay only for your own boxes
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:flex-col sm:items-end">
+          {freeAll > 0 ? <Badge tone="green">Space free</Badge> : <Badge tone="red">Full</Badge>}
+          <p className="text-lg font-bold text-slate-900">
+            {map && chambers.some((c) => c.rate !== null) ? <>from {inr(lowest)} <span className="text-xs font-normal text-slate-500">a {kinds.length === 1 ? UNIT_WORDS[kinds[0]].one : 'bin or crate'} a month</span></> : <>{inr(l.rate)} <span className="text-xs font-normal text-slate-500">{map ? `a ${UNIT_WORDS[kinds[0] ?? 'boxes'].one} a month` : unit.per}</span></>}
           </p>
         </div>
-      )}
-      {l.details && <p className="mt-2 line-clamp-2 text-sm text-slate-600">{l.details}</p>}
-      <div className="mt-auto flex items-end justify-between gap-2 border-t border-slate-900/5 pt-4">
-        <div>
-          <p className="text-lg font-bold text-slate-900">{inr(l.rate)} <span className="text-xs font-normal text-slate-500">{unit.per}</span></p>
-          <a href={`tel:${l.phone}`} className="inline-flex items-center gap-1 text-xs font-semibold text-violet-700"><Phone className="h-3.5 w-3.5" aria-hidden /> {l.owner_name}</a>
-        </div>
-        {own ? <Badge tone="violet">Your listing</Badge> : map ? <Btn theme={theme} size="sm" icon={MapIcon} onClick={onBook}>Choose your place</Btn> : <Btn theme={theme} size="sm" icon={CalendarDays} disabled={l.available < l.min_units} onClick={onBook}>Book</Btn>}
       </div>
+
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <CallPerson role="owner" name={l.owner_name} phone={l.phone} />
+        {l.manager_phone && <CallPerson role="manager" name={l.manager_name} phone={l.manager_phone} />}
+      </div>
+
+      {map ? (
+        <>
+          <p className="mt-4 flex items-center gap-1.5 text-sm font-semibold text-sky-900"><MapIcon className="h-4 w-4" aria-hidden /> {groups.length} chamber{groups.length === 1 ? '' : 's'} · {known ? `${freeAll.toLocaleString('en-IN')} ${anyOf(kinds)} free today` : `${l.available.toLocaleString('en-IN')} of ${l.capacity.toLocaleString('en-IN')} free`}</p>
+          {/* A table on wider screens, a short card per chamber on a phone. */}
+          <table aria-label="What each chamber holds" className="mt-2 hidden w-full text-left text-sm sm:table">
+            <thead className="text-xs text-slate-500">
+              <tr className="border-b border-slate-200">
+                <th scope="col" className="py-1.5 pr-2 font-medium">Chamber</th>
+                <th scope="col" className="py-1.5 pr-2 font-medium">Holds</th>
+                <th scope="col" className="py-1.5 pr-2 font-medium">Kg in one</th>
+                <th scope="col" className="py-1.5 pr-2 font-medium">Tonnes</th>
+                <th scope="col" className="py-1.5 pr-2 font-medium">Floors</th>
+                <th scope="col" className="py-1.5 pr-2 font-medium">Free now</th>
+                <th scope="col" className="py-1.5 font-medium">Rent a month</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-slate-800">
+              {groups.map((g) => (
+                <tr key={g.key}>
+                  <th scope="row" className="py-1.5 pr-2 font-semibold text-slate-900">{g.name}</th>
+                  <td className="py-1.5 pr-2">{countText(g.count, g.storage)}</td>
+                  <td className="py-1.5 pr-2">{g.unitKg ? `${nice(g.unitKg)} kg` : '—'}</td>
+                  <td className="py-1.5 pr-2">{tonnes(g) ?? '—'}</td>
+                  <td className="py-1.5 pr-2">{g.floors.length}</td>
+                  <td className={`py-1.5 pr-2 font-semibold ${known && freeIn(g) === 0 ? 'text-rose-700' : 'text-emerald-800'}`}>{known ? (freeIn(g) ? countText(freeIn(g), g.storage) : `0 ${UNIT_WORDS[g.storage].many} (full)`) : '—'}</td>
+                  <td className="py-1.5">{rentOf(g)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <ul aria-label="What each chamber holds" className="mt-2 space-y-2 sm:hidden">
+            {groups.map((g) => (
+              <li key={g.key} className="rounded-xl bg-sky-50 p-3 text-sm text-slate-800 ring-1 ring-sky-200">
+                <p className="flex justify-between gap-2"><strong className="text-slate-900">{g.name}</strong> <span>{rentOf(g)} a month</span></p>
+                <p>Holds {countText(g.count, g.storage)}{g.unitKg ? ` of ${nice(g.unitKg)} kg` : ''}{tonnes(g) ? ` (${tonnes(g)} tonnes)` : ''} · {g.floors.length} floor{g.floors.length === 1 ? '' : 's'}</p>
+                <p>Free now: <strong className={known && freeIn(g) === 0 ? 'text-rose-700' : 'text-emerald-800'}>{known ? (freeIn(g) ? countText(freeIn(g), g.storage) : `0 ${UNIT_WORDS[g.storage].many} (full)`) : '—'}</strong></p>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs font-medium text-emerald-800">
+            Any number of {anyOf(kinds)}{l.min_units > 1 ? ` from ${l.min_units.toLocaleString('en-IN')}` : ''}: share a place, pay only for your own {anyOf(kinds)}
+          </p>
+          {own ? (
+            <p className="mt-3"><Badge tone="violet">Your listing</Badge></p>
+          ) : (
+            <div className="mt-4 flex flex-col gap-3 border-t border-slate-900/5 pt-4 lg:flex-row lg:items-end lg:justify-between">
+              <Btn theme={theme} icon={MapIcon} className="min-h-[48px] text-base" onClick={() => onBook()}>Choose your place</Btn>
+              <form
+                className="flex flex-col gap-2 rounded-2xl bg-emerald-50 p-3 ring-1 ring-emerald-200 lg:max-w-xl"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  quick();
+                }}
+              >
+                {kinds.length > 1 && (
+                  <div role="radiogroup" aria-label="What will you bring?" className="flex gap-2">
+                    {kinds.map((k) => (
+                      <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className={`min-h-[44px] flex-1 cursor-pointer rounded-xl px-3 text-sm font-semibold ring-2 ${kind === k ? 'bg-emerald-700 text-white ring-emerald-700' : 'bg-white text-emerald-900 ring-emerald-200'}`}>
+                        {UNIT_WORDS[k].title}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <div className="flex items-center gap-2">
+                    <label htmlFor={`quick-${l.id}`} className="shrink-0 text-base font-semibold text-emerald-950">Just give me</label>
+                    <span className="w-24 shrink-0">
+                      <input id={`quick-${l.id}`} aria-label={`How many ${word} do you need?`} inputMode="numeric" className={`${INPUT} min-h-[44px] text-base`} value={count} onChange={(e) => setCount(e.target.value)} placeholder="40" />
+                    </span>
+                    <span className="text-base font-semibold text-emerald-950">{word}</span>
+                  </div>
+                  <Btn theme={theme} type="submit" variant="soft" icon={Sparkles} className="min-h-[44px] w-full sm:w-auto">Book nearest the door</Btn>
+                </div>
+                {problem && <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-900 ring-1 ring-rose-200">{problem}</p>}
+              </form>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="mt-3">
+            <p className="flex justify-between text-sm"><span className="font-semibold text-slate-900">{l.available.toLocaleString('en-IN')} boxes free</span><span className="text-slate-500">of {l.capacity.toLocaleString('en-IN')}</span></p>
+            <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100" role="meter" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Free space">
+              <div className="h-full rounded-full bg-violet-600" style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+          {l.details && <p className="mt-2 line-clamp-2 text-sm text-slate-600">{l.details}</p>}
+          <div className="mt-4 flex justify-end border-t border-slate-900/5 pt-4">
+            {own ? <Badge tone="violet">Your listing</Badge> : <Btn theme={theme} icon={CalendarDays} className="min-h-[44px]" disabled={l.available < l.min_units} onClick={() => onBook()}>Book</Btn>}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -423,46 +600,69 @@ function BookingModal({ listing: l, account, onClose, onBooked }: { listing: Ren
 function RenterBooking({ booking: b, places, chambers, onChange }: { booking: RentalBooking; places: BookedPlace[]; chambers: ColdChamber[]; onChange: () => void }) {
   // When this card was shown (the list refreshes every 30 seconds).
   const [now] = useState(() => Date.now());
+  const [cancelling, setCancelling] = useState(false);
   const s = BOOKING_STATUS[b.status];
   const l = b.rental_listings;
   const unit = UNIT_LABEL[(l?.unit ?? 'box_month') as keyof typeof UNIT_LABEL];
+  const byPlace = places.length > 0;
+  // "40 bins" for a booking by place; "50 boxes" for a store without chambers.
+  const what = byPlace ? countsText(places, chambers, { units: b.units }) : `${b.units.toLocaleString('en-IN')} ${unit.unit}`;
+  const months = l?.unit === 'box_month' || byPlace;
   const cancel = async () => {
+    if (!window.confirm(b.status === 'paid' ? 'Cancel this booking? You said you already paid: ask the owner to send the money back.' : 'Cancel this booking? Your places are given up.')) return;
+    setCancelling(true);
     try {
       await bookingAction(b.id, 'cancel');
       toast.success('Booking cancelled');
       onChange();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not cancel.');
+    } finally {
+      setCancelling(false);
     }
   };
+  const held = Date.parse(b.created_at) + 86_400_000;
   return (
-    <li className="rounded-2xl bg-white/80 p-4 ring-1 ring-slate-900/5">
+    <li className="rounded-2xl bg-white/85 p-4 ring-1 ring-slate-900/5">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="font-semibold text-slate-900">{l?.title ?? 'Listing'}</p>
-          <p className="text-sm text-slate-600">{b.units} {unit.unit} · {b.duration} {unit.duration} from {b.start_date} · <strong>{inr(b.amount)}</strong></p>
-          {l?.phone && <a href={`tel:${l.phone}`} className="text-xs font-semibold text-violet-700">Call {l.owner_name}</a>}
+        <div className="min-w-0">
+          <p className="font-semibold text-slate-900">{l?.title ?? 'Cold store'} <span className="font-mono text-xs font-normal text-slate-500">{bookingCode(b.id)}</span></p>
+          <p className="text-sm text-slate-700">
+            <strong>{what}</strong> · {months ? `${niceDate(b.start_date)} to ${niceDate(lastDay(b.start_date, b.duration))} (${b.duration} month${b.duration === 1 ? '' : 's'})` : `${b.duration} ${unit.duration} from ${b.start_date}`} · <strong>{inr(b.amount)}</strong>
+          </p>
         </div>
         <Badge tone={s.tone}>{s.label}</Badge>
       </div>
+      {l?.phone && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          <CallPerson role="owner" name={l.owner_name} phone={l.phone} />
+          {l.manager_phone && <CallPerson role="manager" name={l.manager_name ?? null} phone={l.manager_phone} />}
+        </div>
+      )}
       <MyPlaces places={places} chambers={chambers} listingId={b.listing_id} start={b.start_date} months={b.duration} />
-      {places.length > 0 && b.status === 'requested' && (
+      {byPlace && b.status === 'requested' && (
         <p className="mt-2 text-sm text-amber-800">
-          {Date.parse(b.created_at) + 86_400_000 > now
-            ? `Your places are held until ${new Date(Date.parse(b.created_at) + 86_400_000).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}. Pay the owner before then.`
-            : 'The 24-hour hold has ended: pay now and enter the payment number — if someone else has taken a place meanwhile, you will be told to choose again.'}
+          {held > now
+            ? `Your places are held until ${new Date(held).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}. Pay the owner before then.`
+            : 'The 24-hour hold has ended: pay now and write the payment reference. If someone else has taken a place meanwhile, you will be told to choose again.'}
         </p>
       )}
       {b.owner_note && <p className="mt-2 text-sm text-slate-700">Owner: {b.owner_note}</p>}
-      {b.payment_ref && <p className="mt-2 text-xs text-slate-500">Your payment reference: <span className="font-mono">{b.payment_ref}</span></p>}
-      {b.status === 'requested' && (
-        <div className="mt-3">
-          <PayDirect kind="booking" id={b.id} amount={b.amount} note={`KashRoot booking ${b.id.slice(0, 8)}`} theme={theme} onPaid={async (ref) => { await bookingAction(b.id, 'pay', ref); onChange(); }} />
-        </div>
+      {b.status === 'confirmed' && <p className="mt-2 text-sm font-semibold text-emerald-800">Confirmed by the owner{b.confirmed_at ? ` on ${new Date(b.confirmed_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}. Show your receipt at the cold store.</p>}
+      {(b.status === 'requested' || b.status === 'paid') && l && (
+        <details className="mt-3 rounded-2xl bg-slate-50 ring-1 ring-slate-900/5" open={b.status === 'requested'}>
+          <summary className="min-h-[44px] cursor-pointer px-4 py-3 text-sm font-semibold text-violet-800">{b.status === 'requested' ? 'Pay the owner' : `You said you paid · reference ${b.payment_ref ?? ''}`}</summary>
+          <div className="px-4 pb-4">
+            <PayOwner bookingId={b.id} amount={Number(b.amount)} owner={{ name: l.owner_name, phone: l.phone }} paidRef={b.status === 'paid' ? b.payment_ref : null} onPaid={() => onChange()} />
+          </div>
+        </details>
       )}
-      {(b.status === 'requested' || b.status === 'paid') && (
-        <Btn theme={theme} size="sm" variant="ghost" className="mt-3" icon={XCircle} onClick={() => void cancel()}>Cancel booking</Btn>
-      )}
+      <div className="mt-3 flex flex-wrap gap-2">
+        {hasReceipt(b) && <Btn theme={theme} href={`/rental/receipt/${b.id}`} icon={ReceiptText} className="min-h-[44px]">Receipt</Btn>}
+        {(b.status === 'requested' || b.status === 'paid') && (
+          <Btn theme={theme} variant="ghost" className="min-h-[44px]" icon={XCircle} disabled={cancelling} onClick={() => void cancel()}>Cancel booking</Btn>
+        )}
+      </div>
     </li>
   );
 }
@@ -529,27 +729,37 @@ function OwnerPanel({
       {section === 'requests' && (
       <Panel theme={theme} title="Bookings to confirm" icon={CheckCircle2} className="lg:col-span-2">
         {pending.length === 0 ? (
-          <p className="text-sm text-slate-600">No bookings waiting. When a farmer books and pays, confirm it here after checking the money arrived in your bank or UPI app.</p>
+          <p className="text-sm text-slate-600">No bookings waiting. When a farmer books and pays you, check the money in your bank or UPI app, then press “Money received” here.</p>
         ) : (
           <ul className="space-y-3">
-            {pending.map((b) => (
-              <li key={b.id} className="flex flex-col gap-3 rounded-2xl bg-white/85 p-4 ring-1 ring-slate-900/5 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <p className="font-semibold text-slate-900">{b.renter_name} · {b.units} {UNIT_LABEL[(b.rental_listings?.unit ?? 'box_month') as keyof typeof UNIT_LABEL].unit} · {b.duration} {UNIT_LABEL[(b.rental_listings?.unit ?? 'box_month') as keyof typeof UNIT_LABEL].duration}</p>
-                  <p className="text-sm text-slate-600">{b.rental_listings?.title} · from {b.start_date} · <strong>{inr(b.amount)}</strong> · <a href={`tel:${b.renter_phone}`} className="font-semibold text-violet-700">{b.renter_phone}</a></p>
-                  {places.some((p) => p.booking_id === b.id) && <p className="text-sm text-slate-700">Places: <strong>{placesText(places.filter((p) => p.booking_id === b.id), chambers)}</strong></p>}
-                  {b.payment_ref ? (
-                    <p className="mt-1 text-sm text-emerald-800">Farmer says paid · reference <span className="font-mono font-semibold">{b.payment_ref}</span> — check it in your bank app before confirming.</p>
-                  ) : (
-                    <p className="mt-1 text-sm text-amber-800">Not paid yet.</p>
-                  )}
-                </div>
-                <div className="flex shrink-0 gap-2">
-                  <Btn theme={theme} size="sm" icon={CheckCircle2} disabled={busy} onClick={() => void run(() => bookingAction(b.id, 'confirm'), 'Booking confirmed — space reserved')}>{b.payment_ref ? 'Payment received, confirm' : 'Confirm without payment'}</Btn>
-                  <Btn theme={theme} size="sm" variant="danger" icon={XCircle} disabled={busy} onClick={() => { const note = window.prompt('Reason (the farmer will see this). If they already paid, tell them how you will return the money.') ?? ''; void run(() => bookingAction(b.id, 'reject', undefined, note), 'Booking declined'); }}>Decline</Btn>
-                </div>
-              </li>
-            ))}
+            {pending.map((b) => {
+              const mineHere = places.filter((p) => p.booking_id === b.id);
+              const lines = placeLines(mineHere, chambers);
+              const what = mineHere.length ? countsText(mineHere, chambers, { units: b.units }) : `${b.units.toLocaleString('en-IN')} ${UNIT_LABEL[(b.rental_listings?.unit ?? 'box_month') as keyof typeof UNIT_LABEL].unit}`;
+              const received = () => {
+                if (!b.payment_ref && !window.confirm(`${b.renter_name} has not written a payment reference yet. Did ${inr(b.amount)} reach your bank or UPI app?`)) return;
+                void run(() => bookingAction(b.id, 'confirm'), 'Money received — the booking is confirmed');
+              };
+              return (
+                <li key={b.id} className="flex flex-col gap-3 rounded-2xl bg-white/85 p-4 ring-1 ring-slate-900/5 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-slate-900">{b.renter_name} · {what} · {b.duration} month{b.duration === 1 ? '' : 's'} <span className="font-mono text-xs font-normal text-slate-500">{bookingCode(b.id)}</span></p>
+                    <p className="text-sm text-slate-600">{b.rental_listings?.title} · {niceDate(b.start_date)} to {niceDate(lastDay(b.start_date, b.duration))} · <strong>{inr(b.amount)}</strong> · <a href={`tel:${b.renter_phone}`} className="inline-flex min-h-[44px] items-center gap-1 font-semibold text-violet-700"><Phone className="h-3.5 w-3.5" aria-hidden />{b.renter_phone}</a></p>
+                    {lines.length > 0 && <p className="text-sm text-slate-700">Places: <strong>{lines.map((x) => x.text).join('. ')}</strong></p>}
+                    {b.payment_ref ? (
+                      <p className="mt-1 text-sm text-emerald-800">Farmer says paid · reference <span className="font-mono font-semibold">{b.payment_ref}</span> — check it in your bank or UPI app first.</p>
+                    ) : (
+                      <p className="mt-1 text-sm text-amber-800">Not paid yet.</p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    <Btn theme={theme} className="min-h-[44px]" icon={CheckCircle2} disabled={busy} onClick={received}>Money received</Btn>
+                    {hasReceipt(b) && <Btn theme={theme} variant="soft" className="min-h-[44px]" icon={ReceiptText} href={`/rental/receipt/${b.id}`}>Receipt</Btn>}
+                    <Btn theme={theme} variant="danger" className="min-h-[44px]" icon={XCircle} disabled={busy} onClick={() => { const note = window.prompt('Why can you not take this booking? The farmer will see this. If they already paid, say how you will return the money.'); if (note === null) return; void run(() => bookingAction(b.id, 'reject', undefined, note), 'Booking declined'); }}>Decline</Btn>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </Panel>
@@ -655,8 +865,9 @@ function OwnerPanel({
           <Panel theme={theme} title="How farmers pay you" icon={Landmark}>
             <ol className="list-decimal space-y-2 pl-5 text-sm text-slate-700">
               <li>A farmer books places in your store; they are held for 24 hours.</li>
-              <li>The farmer pays you directly — to your bank account or UPI ID on the left — and enters the payment number.</li>
-              <li>Check the money in your bank or UPI app, then confirm the booking in “Bookings to confirm”.</li>
+              <li>The farmer pays you directly — to your bank account or UPI ID on the left — and writes the payment reference.</li>
+              <li>Check the money in your bank or UPI app, then press “Money received” in “Bookings to confirm”.</li>
+              <li>The farmer gets a receipt. When they come with their apples, scan its code: signed in here, you see “This booking is in your store”.</li>
             </ol>
             <p className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-600 ring-1 ring-slate-900/5">KashRoot never holds the money: it goes straight from the farmer to you.</p>
           </Panel>
@@ -666,15 +877,20 @@ function OwnerPanel({
       {section === 'requests' && others.length > 0 && (
         <Panel theme={theme} title="Booking history" icon={CalendarDays} className="lg:col-span-2">
           <ul className="divide-y divide-slate-900/5">
-            {others.map((b) => (
-              <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
-                <span className="text-slate-800">{b.renter_name} · {b.rental_listings?.title} · {b.units} × {b.duration} · {inr(b.amount)}</span>
-                <span className="flex items-center gap-2">
-                  <Badge tone={BOOKING_STATUS[b.status].tone}>{BOOKING_STATUS[b.status].label}</Badge>
-                  {b.status === 'confirmed' && <Btn theme={theme} size="sm" variant="soft" disabled={busy} onClick={() => void run(() => bookingAction(b.id, 'complete'), 'Completed — space is free again')}>Goods taken out</Btn>}
-                </span>
-              </li>
-            ))}
+            {others.map((b) => {
+              const mineHere = places.filter((p) => p.booking_id === b.id);
+              const what = mineHere.length ? countsText(mineHere, chambers, { units: b.units }) : `${b.units.toLocaleString('en-IN')} ${UNIT_LABEL[(b.rental_listings?.unit ?? 'box_month') as keyof typeof UNIT_LABEL].unit}`;
+              return (
+                <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
+                  <span className="text-slate-800">{b.renter_name} · {b.rental_listings?.title} · {what} · {b.duration} month{b.duration === 1 ? '' : 's'} · {inr(b.amount)}</span>
+                  <span className="flex flex-wrap items-center gap-2">
+                    <Badge tone={BOOKING_STATUS[b.status].tone}>{BOOKING_STATUS[b.status].label}</Badge>
+                    {hasReceipt(b) && <Btn theme={theme} size="sm" variant="soft" className="min-h-[44px]" icon={ReceiptText} href={`/rental/receipt/${b.id}`}>Receipt</Btn>}
+                    {b.status === 'confirmed' && <Btn theme={theme} size="sm" variant="soft" className="min-h-[44px]" disabled={busy} onClick={() => void run(() => bookingAction(b.id, 'complete'), 'Completed — space is free again')}>Goods taken out</Btn>}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         </Panel>
       )}

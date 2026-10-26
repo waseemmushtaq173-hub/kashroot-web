@@ -3,8 +3,10 @@
 /**
  * Staff roles (admin, expert, dealer — granted by an admin in staff_roles),
  * asked from the database once and kept for ten minutes in this tab, so
- * opening a portal does not wait for the same answer three times. Signing in
- * asks afresh (`fresh`), so a newly granted role shows at the next sign-in.
+ * opening a portal does not wait for the same answer three times. Only a
+ * found role is kept: someone without one (or just approved by an admin) is
+ * asked again on the next page load, so a new role shows at once. Signing in
+ * asks afresh (`fresh`).
  */
 import { supabase } from '@/lib/supabase';
 
@@ -16,7 +18,7 @@ export function staffRolesOf(userId: string, fresh = false): Promise<string[]> {
   if (!fresh) {
     try {
       const kept = JSON.parse(sessionStorage.getItem(KEY) ?? 'null') as { id: string; roles: string[]; at: number } | null;
-      if (kept && kept.id === userId && Date.now() - kept.at < TTL && Array.isArray(kept.roles)) return Promise.resolve(kept.roles);
+      if (kept && kept.id === userId && Date.now() - kept.at < TTL && Array.isArray(kept.roles) && kept.roles.length) return Promise.resolve(kept.roles);
     } catch {
       /* private mode: ask the database */
     }
@@ -25,7 +27,7 @@ export function staffRolesOf(userId: string, fresh = false): Promise<string[]> {
   const promise = (async () => {
     const { data, error } = await supabase.from('staff_roles').select('role').eq('user_id', userId);
     const roles = error ? [] : (data ?? []).map((r) => String(r.role));
-    if (!error) {
+    if (!error && roles.length) {
       try {
         sessionStorage.setItem(KEY, JSON.stringify({ id: userId, roles, at: Date.now() }));
       } catch {

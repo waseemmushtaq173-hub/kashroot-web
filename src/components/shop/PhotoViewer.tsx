@@ -5,13 +5,14 @@
  * stock, seller and the seller's details, with "Add to cart".
  */
 import { useEffect, useState } from 'react';
-import { Loader2, MapPin, ShoppingCart } from 'lucide-react';
+import { Loader2, MapPin } from 'lucide-react';
 
 import { amountOf, type ShopListing } from '@/components/market/shop/useLiveListings';
 import { Btn, Modal, type PortalTheme } from '@/components/portal/kit';
 import { ProductPhoto } from '@/components/shop/ProductCard';
 import { inr } from '@/lib/db/client';
 import { listingPhotos } from '@/lib/db/shop';
+import { CartButton } from '@/components/ui/CartButton';
 
 export function PhotoViewer({ listing: l, own, theme, onAdd, onClose }: { listing: ShopListing; own: boolean; theme: PortalTheme; onAdd: () => void; onClose: () => void }) {
   const [photos, setPhotos] = useState<string[] | null>(null);
@@ -39,7 +40,7 @@ export function PhotoViewer({ listing: l, own, theme, onAdd, onClose }: { listin
       footer={
         <>
           <Btn theme={theme} variant="ghost" className="min-h-11" onClick={onClose}>Close</Btn>
-          {!own && <Btn theme={theme} icon={ShoppingCart} className="min-h-11" onClick={onAdd}>Add to cart</Btn>}
+          {!own && <CartButton onClick={onAdd}>Add to cart</CartButton>}
         </>
       }
     >

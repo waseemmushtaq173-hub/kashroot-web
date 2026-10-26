@@ -176,7 +176,7 @@ export function PhotoDiagnosis({ account }: { account: Account | null }) {
             <p className="text-xs text-slate-500" dir="ltr">AI suggestion from a photo, not a lab test. Follow the product label and your horticulture department.</p>
             <div dir="ltr">
               {sentId ? (
-                <Btn theme={theme} variant="soft" href="/expert?tab=mine">See the agronomist’s reply</Btn>
+                <Btn theme={theme} variant="soft" href="/farmer/ask-expert?tab=mine">See the agronomist’s reply</Btn>
               ) : account ? (
                 <Btn theme={theme} icon={Send} variant={result.see_expert ? 'solid' : 'soft'} disabled={busy} onClick={() => void sendToExpert()}>Send to an agronomist</Btn>
               ) : (

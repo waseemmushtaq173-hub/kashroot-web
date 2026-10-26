@@ -6,11 +6,12 @@
  * from where, and "Add to cart". A product without a photo says so — no
  * stand-in picture.
  */
-import { BadgeCheck, ImageOff, MapPin, Phone, ShoppingCart, Store } from 'lucide-react';
+import { BadgeCheck, ImageOff, MapPin, Phone, Store } from 'lucide-react';
 
 import { amountOf, type ShopListing } from '@/components/market/shop/useLiveListings';
-import { Badge, Btn, type PortalTheme } from '@/components/portal/kit';
+import { Badge, type PortalTheme } from '@/components/portal/kit';
 import { inr } from '@/lib/db/client';
+import { CartButton } from '@/components/ui/CartButton';
 
 export function ProductPhoto({ listing: l, className = 'h-48' }: { listing: Pick<ShopListing, 'photo' | 'product'>; className?: string }) {
   if (l.photo === undefined) return <div aria-hidden className={`${className} w-full animate-pulse bg-slate-100`} />;
@@ -25,7 +26,7 @@ export function ProductPhoto({ listing: l, className = 'h-48' }: { listing: Pick
   return <img src={l.photo} alt={l.product} className={`${className} w-full object-cover`} />;
 }
 
-export function ProductCard({ listing: l, verified, own, inCart, theme, onAdd, onOpen }: {
+export function ProductCard({ listing: l, verified, own, inCart, onAdd, onOpen }: {
   listing: ShopListing;
   verified: boolean;
   /** The signed-in person's own product. */
@@ -66,9 +67,9 @@ export function ProductCard({ listing: l, verified, own, inCart, theme, onAdd, o
           {own ? (
             <Badge tone="violet">Your product</Badge>
           ) : (
-            <Btn theme={theme} icon={ShoppingCart} className="min-h-11 flex-1" onClick={onAdd}>
+            <CartButton className="flex-1" onClick={onAdd}>
               {inCart ? `Add one more (${inCart} in cart)` : 'Add to cart'}
-            </Btn>
+            </CartButton>
           )}
           {/^[6-9]\d{9}$/.test(phone) && (
             <a href={`tel:+91${phone}`} aria-label={`Call ${l.seller_name}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200">

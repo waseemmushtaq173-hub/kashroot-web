@@ -39,7 +39,7 @@ import { PortalAuthFrame } from '@/components/auth/PortalAuthFrame';
 import { PORTAL_LOGIN } from '@/components/auth/portalLoginConfig';
 import { authApi, SELF_JOIN_ROLES, tokenStore } from '@/lib/api/auth';
 import { isMember, joinPortal, markPortalSignedIn, portalAccess, PORTAL_SIGNIN_LIMIT_MS, signedInPortals } from '@/lib/auth/portalAccess';
-import { AUTH_ROUTES, loginHref, PORTALS, portalForRole, safeNextPath, type PortalId } from '@/lib/auth/roles';
+import { AUTH_ROUTES, loginHref, PORTALS, portalForRole, portalOfPath, safeNextPath, type PortalId } from '@/lib/auth/roles';
 import { forgetPerson, rememberedPerson, rememberSignedIn, restoreSession, signOutCompletely, type RememberedPerson } from '@/lib/auth/session';
 import { getKycConfig } from '@/lib/kyc/kyc-service';
 
@@ -99,7 +99,11 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
 
-  const destination = safeNextPath(next, info.home);
+  // Where to go after signing in: never into another portal (it has its own
+  // sign-in, so it would only bounce to that portal's sign-in page).
+  const wanted = safeNextPath(next, info.home);
+  const wantedPortal = portalOfPath(wanted);
+  const destination = wantedPortal && wantedPortal !== portal ? info.home : wanted;
 
   // Already signed in on this device (came back after closing the app): go
   // straight to the portal. Locked after hours unused: "Continue as …".

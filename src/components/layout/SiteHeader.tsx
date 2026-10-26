@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { LayoutGrid, ChevronDown, Home, LogIn, LogOut, Menu, UserPlus, UserRound, X } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { ArrowLeft, LayoutGrid, ChevronDown, Home, LogIn, LogOut, Menu, UserPlus, UserRound, X } from 'lucide-react';
 import { BrandMark } from '@/components/brand/Shikara';
 import { MyDetailsPanel } from '@/components/portal/MyDetailsPanel';
 import { MY_DETAILS } from '@/components/portal/myDetailsConfig';
@@ -45,6 +45,34 @@ function useMenuSections(): { heading: string; items: MenuItem[] }[] {
     { heading: 'Tools — no sign-in needed', items: TOOL_ITEMS },
     ...(showAdmin ? [{ heading: 'Staff', items: [{ title: 'Admin', href: PORTALS.admin.home, desc: PORTALS.admin.tagline }] }] : []),
   ];
+}
+
+/**
+ * Back, on every page but the home page: the tool pages (Price Comparison,
+ * mandi rates, fertiliser check) and the rest had no way back in the phone
+ * app. Goes to the previous page, or home when the page was opened directly.
+ */
+function BackButton({ light }: { light: boolean }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  if (pathname === '/') return null;
+  const back = () => {
+    // A page opened from a link elsewhere (or a fresh app start) has nothing of ours to go back to.
+    const fromHere = typeof document !== 'undefined' && document.referrer.startsWith(window.location.origin);
+    if (fromHere && window.history.length > 1) router.back();
+    else router.push('/');
+  };
+  return (
+    <button
+      type="button"
+      onClick={back}
+      aria-label="Back"
+      className={`inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center gap-1 rounded-xl px-2.5 text-sm font-semibold transition ${light ? 'text-slate-800 ring-1 ring-slate-900/10 hover:bg-white' : 'text-kr-text-primary ring-1 ring-white/30 hover:bg-white/20'}`}
+    >
+      <ArrowLeft className="h-5 w-5" aria-hidden />
+      <span className="hidden sm:inline">Back</span>
+    </button>
+  );
 }
 
 /**
@@ -240,12 +268,15 @@ export function SiteHeader({
         }
         aria-label="Primary"
       >
-        <Link href="/" onClick={secretTap} className={`shrink-0 ${light ? 'text-slate-900 no-underline hover:no-underline' : ''}`}>
-          <BrandMark />
-        </Link>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <BackButton light={light} />
+          <Link href="/" onClick={secretTap} className={`shrink-0 ${light ? 'text-slate-900 no-underline hover:no-underline' : ''}`}>
+            <BrandMark />
+          </Link>
+        </div>
 
         <div className="hidden items-center gap-1 md:flex">
-          <Link href="/buyer/discover" className={navLink}>
+          <Link href="/compare-prices?category=produce" className={navLink}>
             Produce
           </Link>
           <Link href="/compare-prices?category=supplies" className={navLink}>

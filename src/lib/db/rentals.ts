@@ -57,7 +57,24 @@ export interface RentalBooking {
   status: BookingStatus;
   owner_note: string | null;
   created_at: string;
-  rental_listings?: Pick<RentalListing, 'title' | 'kind' | 'unit' | 'owner_name' | 'phone' | 'district'> | null;
+  /**
+   * Set by the database only (20261025100000_cold_booking_pay.sql): when the
+   * farmer said they paid (with the reference), when the owner confirmed,
+   * and whom the farmer was asked to pay. Missing before that SQL is run.
+   */
+  paid_at?: string | null;
+  confirmed_at?: string | null;
+  paid_to?: PaidTo | null;
+  rental_listings?: (Pick<RentalListing, 'title' | 'kind' | 'unit' | 'owner_name' | 'phone' | 'district'> & Partial<Pick<RentalListing, 'manager_name' | 'manager_phone' | 'area' | 'state'>>) | null;
+}
+
+/** Whom a farmer paid: the owner's payment details when the payment was recorded (the account's last 4 digits only). */
+export interface PaidTo {
+  name: string;
+  upi: string | null;
+  account_end: string | null;
+  ifsc: string | null;
+  bank: string | null;
 }
 
 export interface PayoutAccount {
@@ -161,17 +178,47 @@ export async function deleteListing(id: string): Promise<void> {
 }
 
 const BOOKING_COLUMNS = '*, rental_listings(title, kind, unit, owner_name, phone, district)';
+/** With the store's manager and place (owner wizard columns, 20261025000000). */
+const BOOKING_COLUMNS_FULL = '*, rental_listings(title, kind, unit, owner_name, phone, district, manager_name, manager_phone, area, state)';
+
+/** Bookings with the store's manager and area, or without them before that SQL is run. */
+async function readBookings(column: 'renter_id' | 'owner_id', id: string, fallback: string): Promise<RentalBooking[]> {
+  const read = (cols: string) => supabase.from('rental_bookings').select(cols).eq(column, id).order('created_at', { ascending: false });
+  let { data, error } = await read(BOOKING_COLUMNS_FULL);
+  if (error && noStoreColumns(error.message)) ({ data, error } = await read(BOOKING_COLUMNS));
+  if (error) fail(error, fallback);
+  return (data ?? []) as unknown as RentalBooking[];
+}
 
 export async function myBookings(renterId: string): Promise<RentalBooking[]> {
-  const { data, error } = await supabase.from('rental_bookings').select(BOOKING_COLUMNS).eq('renter_id', renterId).order('created_at', { ascending: false });
-  if (error) fail(error, 'Could not load your bookings.');
-  return (data ?? []) as RentalBooking[];
+  return readBookings('renter_id', renterId, 'Could not load your bookings.');
 }
 
 export async function incomingBookings(ownerId: string): Promise<RentalBooking[]> {
-  const { data, error } = await supabase.from('rental_bookings').select(BOOKING_COLUMNS).eq('owner_id', ownerId).order('created_at', { ascending: false });
-  if (error) fail(error, 'Could not load bookings.');
-  return (data ?? []) as RentalBooking[];
+  return readBookings('owner_id', ownerId, 'Could not load bookings.');
+}
+
+/** One booking (the farmer's or the owner's): what the database priced it at, and where it stands. */
+export async function bookingById(id: string): Promise<Pick<RentalBooking, 'id' | 'amount' | 'status' | 'created_at' | 'payment_ref'> | null> {
+  const { data, error } = await supabase.from('rental_bookings').select('id, amount, status, created_at, payment_ref').eq('id', id).maybeSingle();
+  if (error) fail(error, 'Could not load the booking.');
+  return data as Pick<RentalBooking, 'id' | 'amount' | 'status' | 'created_at' | 'payment_ref'> | null;
+}
+
+/** The short number a farmer and the owner read out: receipt number, UPI note. "CS-3F2A9C1B". */
+export const bookingCode = (id: string) => `CS-${id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+
+/** The payment reference as stored: letters and numbers only (spaces and dashes left out). */
+export const cleanRef = (text: string) => text.replace(/[\s-]/g, '');
+
+/** What is wrong with a payment reference the farmer wrote, and how to fix it (null: fine). */
+export function paymentRefProblem(text: string): string | null {
+  const v = cleanRef(text);
+  if (!v) return 'Write the payment reference. Your bank or UPI app shows it after you pay. A UPI reference has 12 digits, like 412345678901.';
+  if (/[^A-Za-z0-9]/.test(v)) return 'Use only letters and numbers in the payment reference, with no signs like / or #.';
+  if (v.length < 6) return `This reference has only ${v.length} letters or numbers. A UPI reference has 12 digits. Please copy it again from your bank or UPI app.`;
+  if (v.length > 30) return `This reference has ${v.length} letters and numbers, which is too long. A UPI reference has 12 digits; a bank transfer reference (NEFT, IMPS) has up to 22. Please check it.`;
+  return null;
 }
 
 export async function requestBooking(input: { listing_id: string; renter_name: string; renter_phone: string; units: number; duration: number; start_date: string }): Promise<RentalBooking> {
@@ -183,6 +230,63 @@ export async function requestBooking(input: { listing_id: string; renter_name: s
 export async function bookingAction(id: string, action: 'pay' | 'cancel' | 'confirm' | 'reject' | 'complete', ref?: string, note?: string): Promise<void> {
   const { error } = await supabase.rpc('kr_booking_action', { p_booking: id, p_action: action, p_ref: ref ?? null, p_note: note ?? null });
   if (error) fail(error, 'Could not update the booking.');
+}
+
+/** Everything a cold store booking's receipt shows (kr_cold_receipt): only for the farmer who booked and the store's owner. */
+export interface ColdReceipt {
+  /** Who is looking: the farmer who booked, or the store's owner. */
+  viewer: 'farmer' | 'owner';
+  booking: {
+    id: string;
+    status: BookingStatus;
+    units: number;
+    months: number;
+    start: string;
+    amount: number;
+    payment_ref: string | null;
+    created_at: string;
+    paid_at: string | null;
+    confirmed_at: string | null;
+    paid_to: PaidTo | null;
+    farmer_name: string;
+    farmer_phone: string;
+    owner_note: string | null;
+  };
+  store: {
+    title: string;
+    owner_name: string;
+    phone: string;
+    manager_name: string | null;
+    manager_phone: string | null;
+    address: string | null;
+    area: string | null;
+    district: string;
+    state: string | null;
+    rate: number;
+    unit: RentalUnit;
+  };
+  /** Each place with the farmer's bins on it and the rate kept when it was booked (`rate_kept` false: today's rate). */
+  places: { chamber_id: string; name: string; chamber_no: number | null; floor: number; position: number; storage: 'bins' | 'crates' | 'boxes'; boxes_per_slot: number; slot: string; boxes: number; rate: number; rate_kept: boolean }[];
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** A booking's receipt, or null when this account may not see it (or there is no such booking). */
+export async function coldReceipt(id: string): Promise<ColdReceipt | null> {
+  if (!UUID.test(id)) return null;
+  const { data, error } = await supabase.rpc('kr_cold_receipt', { p_booking: id });
+  if (error && (error.code === 'PGRST202' || /Could not find the function/i.test(error.message ?? ''))) {
+    throw new Error('Receipts need the latest cold store update: run 20261025100000_cold_booking_pay.sql (also in RUN_THIS_ONCE.sql) in Supabase.');
+  }
+  if (error) fail(error, 'Could not load the receipt.');
+  if (!data) return null;
+  const r = data as ColdReceipt;
+  return {
+    ...r,
+    booking: { ...r.booking, amount: Number(r.booking.amount) || 0 },
+    store: { ...r.store, rate: Number(r.store.rate) || 0 },
+    places: (r.places ?? []).map((p) => ({ ...p, rate: Number(p.rate) || 0, boxes: Number(p.boxes) || 0 })),
+  };
 }
 
 /** The owner's UPI / bank details, for a renter with a live booking. */

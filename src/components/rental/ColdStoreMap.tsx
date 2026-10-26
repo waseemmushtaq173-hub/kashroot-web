@@ -1,25 +1,31 @@
 'use client';
 
 /**
- * The cold store, drawn so anyone can find their way around it:
+ * The cold store, drawn so anyone can find their way around it — all from
+ * the owner's own numbers (three/storeScene), so the drawing, the 3D view
+ * and the walk inside show the very same store:
  *
- *   StorePlan     the whole store from above — every chamber as a room along
- *                 the corridor, with how many boxes it holds and how many
- *                 are free. Tap a room to open it.
- *   ChamberFacts  what one chamber holds, as the owner set it up: size,
- *                 places, boxes on each place, boxes in all, boxes free.
- *   ChamberDiagram  one chamber up close, drawn to scale from its measured
- *                 size: walls, door, walkway, every stack where it stands,
- *                 with the measurements (components/rental/ChamberDiagram).
+ *   Drawing       the whole store from above to scale (three/StoreTopView):
+ *                 the building, the main door, the passage, every chamber
+ *                 where it stands with its door, and the places of one floor
+ *                 (a floor switcher when chambers have floors). Tap a chamber
+ *                 to open it; underneath, the open chamber's floor up close.
+ *   ChamberFacts  what one chamber floor holds: size, places, bins / crates /
+ *                 boxes on each place and in all, how many are free.
+ *   ChamberDiagram  one chamber floor up close, drawn to scale: walls, door,
+ *                 walkway, every stack where it stands, with measurements
+ *                 (components/rental/ChamberDiagram).
  *   ChamberGrid   the same for a chamber drawn only as rows × stacks: the door
  *                 at the bottom, rows counted from the door ("Row 1" is
  *                 nearest), stacks counted from the left.
- *   ColdStore3D   the same store in 3D (components/rental/ColdStore3D).
- *   ColdStoreExplorer  plan ⇄ 3D switch around all of the above.
+ *   3D view       the whole store in 3D; Walk inside: a visitor at eye
+ *                 height walking in through the main door
+ *                 (components/rental/ColdStore3D, loaded only when opened).
+ *   ColdStoreExplorer  Drawing ⇄ 3D view ⇄ Walk inside around all of the above.
  *
- * A place can be shared: farmers book just the boxes they have, and a place
- * with some boxes on it ("part") still takes more until it is full.
- * `roomOf` says how many boxes still fit on each place.
+ * A place can be shared: farmers book just the bins, crates or boxes they
+ * have, and a place with some on it ("part") still takes more until it is
+ * full. `roomOf` says how many still fit on each place.
  *
  * Modes:
  *   book   farmers tap free or shared places to choose them
@@ -27,23 +33,27 @@
  *   view   a farmer's own boxes, highlighted
  */
 import dynamic from 'next/dynamic';
-import { useMemo, useState, type CSSProperties } from 'react';
-import { Box, Check, Clock, DoorOpen, Hand, Layers, Map as MapIcon } from 'lucide-react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { Box, Check, Clock, DoorOpen, Footprints, Hand, Layers, Map as MapIcon } from 'lucide-react';
 
 import { ChamberDiagram } from '@/components/rental/ChamberDiagram';
-import { countLooks, PLACE_LOOK, placesOf, type Look } from '@/components/rental/placeLook';
+import { lookLabel, PLACE_LOOK, placesOf, type Look } from '@/components/rental/placeLook';
+import { StoreTopView, type ChamberCount } from '@/components/rental/three/StoreTopView';
+import { buildScene } from '@/components/rental/three/storeScene';
 import { layersText, planOf, showLength } from '@/lib/coldLayout';
+import { asBuilding, countText, unitsText, unitWord, type Building, type Storage } from '@/lib/coldStore';
+import { supabase } from '@/lib/db/client';
 import { placeKey, placeLabel, placeName, usablePlaces, type ColdChamber } from '@/lib/db/coldMap';
 
 export { PLACE_LOOK, type Look };
 
-// three.js loads only when someone opens the 3D view.
+// three.js loads only when someone opens the 3D view or walks inside.
 const ColdStore3D = dynamic(() => import('@/components/rental/ColdStore3D').then((m) => m.ColdStore3D), {
   ssr: false,
   loading: () => <div className="grid h-[420px] place-items-center rounded-3xl bg-slate-100 text-sm text-slate-500">Opening the 3D view…</div>,
 });
 
-/** "4,480" — boxes, Indian grouping. */
+/** "4,480" — Indian grouping. */
 const boxes = (n: number) => n.toLocaleString('en-IN');
 
 export type RoomOf = (c: ColdChamber, slot: string) => number;
@@ -64,13 +74,17 @@ export function chamberBoxes(c: ColdChamber, roomOf: RoomOf) {
 }
 
 /**
- * What one chamber holds, as its owner set it up: its size, the places in
- * it, the boxes on each place and in all, and how many are free.
+ * What one chamber floor holds, as its owner set it up: its size, the
+ * places on it, the bins, crates or boxes on each place and in all, and how
+ * many are free.
  */
 export function ChamberFacts({ chamber: c, roomOf, mode }: { chamber: ColdChamber; roomOf: RoomOf; mode: 'book' | 'owner' | 'view' }) {
   const b = chamberBoxes(c, roomOf);
   const size = c.size;
   const plan = size ? planOf(size) : null;
+  const st: Storage = c.storage;
+  const floors = size?.floors ?? 1;
+  const counted = Boolean(size?.places);
   const fact = (label: string, value: string, sub?: string, strong = false) => (
     <div className={`rounded-2xl p-3 ring-1 ${strong ? 'bg-sky-700 text-white ring-sky-800' : 'bg-white ring-slate-900/5'}`}>
       <dt className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${strong ? 'text-sky-100' : 'text-slate-500'}`}>{label}</dt>
@@ -78,21 +92,25 @@ export function ChamberFacts({ chamber: c, roomOf, mode }: { chamber: ColdChambe
       {sub && <dd className={`text-xs ${strong ? 'text-sky-100' : 'text-slate-600'}`}>{sub}</dd>}
     </div>
   );
+  const sizeFact = () => {
+    if (!size || !plan) return fact('Places', String(b.places), `${c.rows} rows × ${c.cols} stacks`);
+    if (!counted) return fact('Size', `${showLength(size.length, size.unit)} × ${showLength(size.width, size.unit)}`, `length × breadth · ${showLength(size.height, size.unit)} high`);
+    // Owner wizard: measured from its door; each floor is the chamber's height ÷ its floors.
+    return fact('Size', `${showLength(size.width, size.unit)} × ${showLength(size.length, size.unit)}`, `wide × deep from its door · ${showLength(size.height, size.unit)} high${floors > 1 ? `, floor ${size.floor ?? 1} of ${floors} (${showLength(plan.floorH ?? size.height / floors, size.unit)} each)` : ''}`);
+  };
   return (
     <div className="space-y-2">
       <dl aria-label={`${c.name}: what it holds`} className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-        {size && plan
-          ? fact('Size', `${showLength(size.length, size.unit)} × ${showLength(size.width, size.unit)}`, `length × breadth · ${showLength(size.height, size.unit)} high`)
-          : fact('Places', String(b.places), `${c.rows} rows × ${c.cols} stacks`)}
+        {sizeFact()}
         {size && plan ? fact('Places', String(b.places), `${c.rows} rows × ${c.cols} stacks${plan.aisleAfter !== null ? ' + walkway' : ''}`) : null}
-        {fact('Each place holds', `${boxes(c.boxes_per_slot)} boxes`, plan ? `${layersText(plan)} · ${showLength(plan.stackHeight, size!.unit)} high` : undefined)}
-        {fact('Chamber holds', `${boxes(b.holds)} boxes`, mode === 'view' ? undefined : `${boxes(b.free)} free · room on ${b.open} of ${b.places} places`, true)}
+        {fact('Each place holds', countText(c.boxes_per_slot, st), plan ? `${layersText(plan)} · ${showLength(plan.stackHeight, size!.unit)} high` : undefined)}
+        {fact(floors > 1 ? `Floor ${size?.floor ?? 1} holds` : 'Chamber holds', countText(b.holds, st), mode === 'view' ? undefined : `${boxes(b.free)} free · room on ${b.open} of ${b.places} places`, true)}
       </dl>
       {mode === 'book' && (
         <p className="flex items-start gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-950 ring-1 ring-emerald-200">
           <Hand className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           <span>
-            You choose: tap any place with room where you want your boxes — any number, small or big. A place in {c.name} takes up to {boxes(c.boxes_per_slot)} boxes; a part-filled place takes the rest, and you pay only for your own boxes.
+            You choose: tap any place with room where you want your {unitWord(st)} — any number, small or big. A place in {c.name} takes up to {countText(c.boxes_per_slot, st)}; a part-filled place takes the rest, and you pay only for your own {unitWord(st)}.
           </span>
         </p>
       )}
@@ -100,108 +118,17 @@ export function ChamberFacts({ chamber: c, roomOf, mode }: { chamber: ColdChambe
   );
 }
 
-export function PlaceLegend({ show }: { show: Look[] }) {
+/** What each colour means, in the words of what the store holds (`units`: "bins and crates"; boxes when not given). */
+export function PlaceLegend({ show, units }: { show: Look[]; units?: string }) {
   return (
     <ul className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-700">
       {show.map((k) => (
         <li key={k} className="flex items-center gap-2">
           <span className={`inline-block h-5 w-5 rounded-md ${PLACE_LOOK[k].swatch}`} aria-hidden />
-          {PLACE_LOOK[k].label}
+          {lookLabel(k, units)}
         </li>
       ))}
     </ul>
-  );
-}
-
-/**
- * The whole store from above: one room per chamber, side by side along the
- * corridor, each with a small picture of its places and what is free.
- */
-export function StorePlan({ chambers, stateOf, roomOf, active, onPick, mode }: { chambers: ColdChamber[]; stateOf: (c: ColdChamber, slot: string) => Look; roomOf: RoomOf; active: string | null; onPick: (id: string) => void; mode: 'book' | 'owner' | 'view' }) {
-  // Measured chambers share one scale, so a bigger chamber looks bigger.
-  const sized = chambers.filter((c) => c.size);
-  const scale = sized.length ? Math.min(160 / Math.max(...sized.map((c) => c.size!.length)), 190 / Math.max(...sized.map((c) => c.size!.width))) : 0;
-  return (
-    <div className="rounded-3xl bg-gradient-to-b from-slate-100 to-slate-50 p-3 ring-1 ring-slate-900/10 sm:p-4">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">The whole store · tap a chamber to open it</p>
-      <ul className="flex flex-wrap items-end gap-3">
-        {chambers.map((c) => {
-          const n = countLooks(c, stateOf);
-          const b = chamberBoxes(c, roomOf);
-          const cell = Math.max(4, Math.min(10, Math.floor(150 / Math.max(c.cols, c.rows))));
-          const on = active === c.id;
-          return (
-            <li key={c.id}>
-              <button
-                type="button"
-                onClick={() => onPick(c.id)}
-                aria-pressed={on}
-                aria-label={`${c.name}: holds ${boxes(b.holds)} boxes, ${boxes(b.free)} free (${b.open} places with room)${n.mine ? `, ${n.mine} yours` : ''}${n.selected ? `, ${n.selected} chosen` : ''}. Open this chamber.`}
-                className={`group flex cursor-pointer flex-col items-center rounded-2xl border-[3px] bg-white p-2.5 pb-0 text-left transition ${on ? 'border-sky-700 shadow-lg' : 'border-slate-400 hover:border-sky-500 hover:shadow-md'}`}
-              >
-                <span className="flex w-full items-center justify-between gap-3 text-sm font-semibold text-slate-900">
-                  {c.name}
-                  {on && <span className="rounded-full bg-sky-700 px-2 py-0.5 text-[10px] font-bold uppercase text-white">Open</span>}
-                </span>
-                <span className="mt-0.5 block w-full text-xs text-slate-700">
-                  Holds <strong className="text-slate-900">{boxes(b.holds)}</strong> boxes
-                </span>
-                <span className="block w-full text-xs text-slate-600">
-                  <strong className="text-sky-800">{boxes(b.free)}</strong> free · room on {b.open}/{b.places}
-                  {mode === 'book' && n.selected > 0 && <> · <strong className="text-emerald-700">{n.selected} chosen</strong></>}
-                  {n.mine > 0 && <> · <strong className="text-violet-700">{n.mine} yours</strong></>}
-                </span>
-                {c.size ? (
-                  <MiniToScale chamber={c} k={scale} stateOf={stateOf} />
-                ) : (
-                  <svg aria-hidden width={c.cols * cell + 2} height={c.rows * cell + 2} className="mt-2" role="presentation">
-                    {placesOf(c).map(([r, i, slot]) => (
-                      // Row 1 (nearest the door) at the bottom, as you walk in.
-                      <rect key={slot} x={1 + i * cell} y={1 + (c.rows - r) * cell} width={cell - 1} height={cell - 1} rx={cell > 6 ? 1.5 : 0.5} fill={PLACE_LOOK[stateOf(c, slot)].mini} />
-                    ))}
-                  </svg>
-                )}
-                {c.size && <span className="mt-1 block text-[10px] font-medium text-slate-500">{showLength(c.size.length, c.size.unit)} × {showLength(c.size.width, c.size.unit)} × {showLength(c.size.height, c.size.unit)}</span>}
-                <span className="mt-1 flex h-4 w-12 items-end justify-center rounded-t-md bg-amber-100 text-[9px] font-bold uppercase leading-none text-amber-900">door</span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      <p className="mt-0 flex items-center justify-center gap-2 rounded-xl bg-amber-50 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-amber-900 ring-1 ring-amber-200">
-        <DoorOpen className="h-4 w-4" aria-hidden /> Corridor · loading bay
-      </p>
-    </div>
-  );
-}
-
-/** A measured chamber in the whole-store plan, to scale: walkway and stacks where they stand. */
-function MiniToScale({ chamber: c, k, stateOf }: { chamber: ColdChamber; k: number; stateOf: (c: ColdChamber, slot: string) => Look }) {
-  const size = c.size!;
-  const plan = planOf(size);
-  const w = size.width * k;
-  const h = size.length * k;
-  const Y = (z: number) => 1 + (size.length - z) * k;
-  return (
-    <svg aria-hidden width={w + 2} height={h + 2} className="mt-2" role="presentation">
-      <rect x={1} y={1} width={w} height={h} fill="#f8fafc" stroke="#94a3b8" />
-      {plan.aisleX && <rect x={1 + plan.aisleX[0] * k} y={1} width={(plan.aisleX[1] - plan.aisleX[0]) * k} height={h} fill="#fef3c7" />}
-      <line x1={1 + plan.doorX[0] * k} y1={h + 1} x2={1 + plan.doorX[1] * k} y2={h + 1} stroke="#d97706" strokeWidth={3} />
-      {plan.windows.map((win, i) => {
-        const along = win.wall === 'front' || win.wall === 'back';
-        const y = win.wall === 'back' ? 1 : h + 1;
-        return along ? (
-          <line key={i} x1={1 + win.at * k} y1={y} x2={1 + (win.at + win.width) * k} y2={y} stroke="#0284c7" strokeWidth={3} />
-        ) : (
-          <line key={i} x1={win.wall === 'left' ? 1 : w + 1} y1={Y(win.at)} x2={win.wall === 'left' ? 1 : w + 1} y2={Y(win.at + win.width)} stroke="#0284c7" strokeWidth={3} />
-        );
-      })}
-      {placesOf(c)
-        .filter(([r, i]) => r <= plan.rows && i < plan.cols)
-        .map(([r, i, slot]) => (
-          <rect key={slot} x={1 + plan.colX[i] * k} y={Y(plan.rowZ[r - 1] + plan.placeD)} width={Math.max(1, plan.placeW * k)} height={Math.max(1, plan.placeD * k)} rx={0.8} fill={PLACE_LOOK[stateOf(c, slot)].mini} />
-        ))}
-    </svg>
   );
 }
 
@@ -303,8 +230,57 @@ export function ChamberGrid({
 }
 
 /**
- * The whole store, plan or 3D, with the open chamber up close underneath
- * the plan. `stateOf` must be stable (useCallback) for the 3D view.
+ * The store's building and rent, read once when the explorer opens without
+ * them (stores listed before the wizard have no building). `wizard`: the
+ * store has chambers from the owner wizard, so it has a building — until it
+ * is read the whole store is not drawn (it would jump from one layout to
+ * another); older stores are drawn at once.
+ */
+function useStoreDetails(listingId: string | undefined, building: Building | null | undefined, rate: number | null | undefined, wizard: boolean) {
+  const [read, setRead] = useState<{ id: string; building: Building | null; rate: number | null } | null>(null);
+  const need = building === undefined || rate === undefined;
+  const readable = need && Boolean(listingId) && /^[0-9a-f-]{36}$/i.test(listingId ?? '');
+  useEffect(() => {
+    if (!readable || !listingId) return;
+    let on = true;
+    void supabase
+      .from('rental_listings')
+      .select('building, rate')
+      .eq('id', listingId)
+      .maybeSingle()
+      .then(
+        ({ data }) => on && setRead({ id: listingId, building: asBuilding((data as { building?: unknown } | null)?.building ?? null), rate: Number((data as { rate?: unknown } | null)?.rate) || null }),
+        // Not read (no network): the chambers are still drawn, side by side.
+        () => on && setRead({ id: listingId, building: null, rate: null }),
+      );
+    return () => {
+      on = false;
+    };
+  }, [readable, listingId]);
+  const mine = read?.id === listingId ? read : null;
+  return {
+    building: building !== undefined ? building : (mine?.building ?? null),
+    rate: rate !== undefined ? rate : (mine?.rate ?? null),
+    // The building is still being read.
+    waiting: wizard && building === undefined && readable && !mine,
+  };
+}
+
+/** "80 bins, 3,000 crates and 480 boxes" — or "600 boxes" for one kind. */
+function mixText(by: Partial<Record<Storage, number>>): string {
+  const parts = (['bins', 'crates', 'boxes'] as const).filter((k) => by[k] !== undefined).map((k) => countText(by[k] ?? 0, k));
+  if (parts.length < 2) return parts[0] ?? countText(0, 'boxes');
+  return `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`;
+}
+
+export type ExplorerView = 'drawing' | '3d' | 'walk';
+
+/**
+ * The whole store: the Drawing (to scale, a floor at a time, with the open
+ * chamber up close underneath), the 3D view, and the walk inside — the same
+ * store in all three, built from the owner's numbers. `stateOf` and `roomOf`
+ * must be stable (useCallback) for the 3D view. `building` and `rate` are
+ * the store's (rental_listings); when not given they are read once.
  */
 export function ColdStoreExplorer({
   chambers,
@@ -317,6 +293,8 @@ export function ColdStoreExplorer({
   active,
   onActive,
   single = false,
+  building: buildingProp,
+  rate: rateProp,
 }: {
   chambers: ColdChamber[];
   stateOf: (c: ColdChamber, slot: string) => Look;
@@ -330,42 +308,107 @@ export function ColdStoreExplorer({
   onActive: (id: string) => void;
   /** One chamber on its own (the owner's preview): no whole-store overview. */
   single?: boolean;
+  /** The store's building (rental_listings.building); null: none. Read from the store when not given. */
+  building?: Building | null;
+  /** The store's rent for chambers without their own; read from the store when not given. */
+  rate?: number | null;
 }) {
-  const [view, setView] = useState<'plan' | '3d'>('plan');
+  const [view, setView] = useState<ExplorerView>('drawing');
+  const { building, rate, waiting } = useStoreDetails(
+    chambers[0]?.listing_id,
+    buildingProp,
+    rateProp,
+    chambers.some((c) => c.chamber_no !== null),
+  );
   const chamber = chambers.find((c) => c.id === active) ?? chambers[0];
   const byLook = useMemo(() => roomByLook(stateOf), [stateOf]);
   const roomOf = roomOfProp ?? byLook;
-  const totals = useMemo(() => chambers.reduce((s, c) => {
-    const b = chamberBoxes(c, roomOf);
-    return { free: s.free + b.free, holds: s.holds + b.holds };
-  }, { free: 0, holds: 0 }), [chambers, roomOf]);
-  const tab = (id: 'plan' | '3d', label: string, Icon: typeof MapIcon) => (
+  const scene = useMemo(() => buildScene(chambers, building), [chambers, building]);
+  // What each chamber (all its floors) holds and has free.
+  const counts = useMemo<ChamberCount[]>(
+    () =>
+      scene.chambers.map((sc) =>
+        sc.group.floors.reduce<ChamberCount>((s, row) => {
+          const n = chamberBoxes(row, roomOf);
+          return { holds: s.holds + n.holds, free: s.free + n.free, open: s.open + n.open, places: s.places + n.places };
+        }, { holds: 0, free: 0, open: 0, places: 0 }),
+      ),
+    [scene, roomOf],
+  );
+  const totals = useMemo(() => {
+    const holds: Partial<Record<Storage, number>> = {};
+    const free: Partial<Record<Storage, number>> = {};
+    scene.chambers.forEach((sc, i) => {
+      holds[sc.storage] = (holds[sc.storage] ?? 0) + counts[i].holds;
+      free[sc.storage] = (free[sc.storage] ?? 0) + counts[i].free;
+    });
+    return { holds, free };
+  }, [scene, counts]);
+  const openIndex = scene.chambers.findIndex((sc) => sc.group.floors.some((r) => r.id === chamber?.id));
+  const floor = chamber?.floor ?? 1;
+  const floorsUp = scene.floors;
+  // Another floor: the open chamber's own row on it, else the first chamber that has it.
+  const toFloor = (n: number) => {
+    const open = scene.chambers[openIndex];
+    const row = open?.group.floors.find((r) => r.floor === n) ?? scene.chambers.find((sc) => sc.group.floors.some((r) => r.floor === n))?.group.floors.find((r) => r.floor === n);
+    if (row) onActive(row.id);
+  };
+  // Open a chamber at the floor being looked at (or its top floor).
+  const openChamber = (i: number) => {
+    const g = scene.chambers[i]?.group;
+    if (!g) return;
+    const row = g.floors.find((r) => r.floor === floor) ?? g.floors.at(-1);
+    if (row) onActive(row.id);
+  };
+  const tab = (id: ExplorerView, label: string, Icon: typeof MapIcon) => (
     <button
       type="button"
       role="tab"
       aria-selected={view === id}
       onClick={() => setView(id)}
-      className={`inline-flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition sm:flex-none ${view === id ? 'bg-sky-700 text-white shadow' : 'text-sky-900 hover:bg-sky-100'}`}
+      className={`inline-flex min-h-[44px] flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition sm:flex-none sm:px-4 ${view === id ? 'bg-sky-700 text-white shadow' : 'text-sky-900 hover:bg-sky-100'}`}
     >
-      <Icon className="h-4 w-4" aria-hidden /> {label}
+      <Icon className="h-4 w-4 shrink-0" aria-hidden /> {label}
     </button>
   );
+  const groups = scene.chambers.length;
+  // Until the building is read the whole store is not drawn, so it never jumps from one layout to another.
+  const drawingSoon = <p className="grid min-h-[280px] place-items-center rounded-3xl bg-slate-50 text-sm text-slate-500 ring-1 ring-slate-900/5">Drawing the cold store…</p>;
+  const anyFree = Object.values(totals.free).some((n) => n);
+  const freeText = Object.keys(totals.free).length < 2 ? boxes(Object.values(totals.free)[0] ?? 0) : mixText(totals.free);
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div role="tablist" aria-label="How to see the store" className="flex w-full gap-1 rounded-2xl bg-sky-50 p-1 ring-1 ring-sky-200 sm:w-auto">
-          {tab('plan', 'Floor plan', MapIcon)}
+          {tab('drawing', 'Drawing', MapIcon)}
           {tab('3d', '3D view', Layers)}
+          {tab('walk', 'Walk inside', Footprints)}
         </div>
         <p className="text-sm text-slate-700">
-          {chambers.length} chamber{chambers.length === 1 ? '' : 's'} · holds <strong className="text-slate-900">{boxes(totals.holds)}</strong> boxes · <strong className="text-sky-800">{boxes(totals.free)}</strong> free
+          {groups} chamber{groups === 1 ? '' : 's'} · holds <strong className="text-slate-900">{mixText(totals.holds)}</strong> · <strong className={anyFree ? 'text-sky-800' : 'text-slate-900'}>{freeText}</strong> free
         </p>
       </div>
 
-      {view === '3d' ? (
+      {view !== 'drawing' ? (
         <>
-          <ColdStore3D chambers={chambers} stateOf={stateOf} roomOf={roomOf} mode={mode} onPlace={onPlace} active={chamber?.id ?? null} onActive={onActive} />
+          {waiting ? (
+            drawingSoon
+          ) : (
+            <ColdStore3D
+              chambers={chambers}
+              stateOf={stateOf}
+              roomOf={roomOf}
+              mode={mode}
+              onPlace={onPlace}
+              active={chamber?.id ?? null}
+              onActive={onActive}
+              building={building}
+              rate={rate}
+              view={view === 'walk' ? 'walk' : 'orbit'}
+              onView={(v) => setView(v === 'walk' ? 'walk' : '3d')}
+            />
+          )}
           {chamber && (
             <section aria-label={`${chamber.name} in numbers`} className="space-y-2">
               <h3 className="text-base font-semibold text-slate-900">{chamber.name}</h3>
@@ -375,10 +418,38 @@ export function ColdStoreExplorer({
         </>
       ) : (
         <>
-          {!single && <StorePlan chambers={chambers} stateOf={stateOf} roomOf={roomOf} active={chamber?.id ?? null} onPick={onActive} mode={mode} />}
+          {!single && (
+            <section aria-label="The whole store from above" className="space-y-2">
+              {floorsUp > 1 && (
+                <div role="radiogroup" aria-label="Which floor to show" className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-semibold text-slate-800">Floor:</span>
+                  {Array.from({ length: floorsUp }, (_, i) => i + 1).map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      role="radio"
+                      aria-checked={floor === n}
+                      onClick={() => toFloor(n)}
+                      className={`min-h-[44px] min-w-[44px] cursor-pointer rounded-xl px-4 text-sm font-bold transition ${floor === n ? 'bg-sky-700 text-white shadow' : 'bg-white text-sky-900 ring-1 ring-sky-200 hover:bg-sky-50'}`}
+                    >
+                      {`Floor ${n}`}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {waiting ? drawingSoon : <StoreTopView scene={scene} floor={floor} stateOf={stateOf} counts={counts} active={openIndex} onPick={openChamber} mode={mode} />}
+              {scene.problems.length > 0 && (
+                <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-950 ring-1 ring-amber-300">
+                  {mode === 'owner' ? scene.problems.slice(0, 3).join(' ') : 'As the owner measured them, some chambers do not fit inside the building, so they are drawn where they would stand (in red).'}
+                </p>
+              )}
+            </section>
+          )}
           {chamber && (
             <section aria-label={chamber.name} className="space-y-2">
-              <h3 className="text-base font-semibold text-slate-900">{chamber.name} <span className="font-normal text-slate-500">· {chamber.size ? 'drawn to scale' : 'up close'}</span></h3>
+              <h3 className="text-base font-semibold text-slate-900">
+                {chamber.name} <span className="font-normal text-slate-500">· {chamber.size ? 'drawn to scale' : 'up close'}</span>
+              </h3>
               <ChamberFacts chamber={chamber} roomOf={roomOf} mode={mode} />
               {chamber.size ? (
                 <ChamberDiagram chamber={chamber} size={chamber.size} stateOf={stateOf} roomOf={roomOf} onPlace={onPlace} mode={mode} labelOf={labelOf} />
@@ -389,8 +460,7 @@ export function ColdStoreExplorer({
           )}
         </>
       )}
-      <PlaceLegend show={legend} />
+      <PlaceLegend show={legend} units={unitsText(scene.chambers.map((sc) => sc.storage))} />
     </div>
   );
 }
-

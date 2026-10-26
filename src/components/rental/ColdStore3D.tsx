@@ -1,91 +1,163 @@
 'use client';
 
 /**
- * The whole cold store in 3D: every chamber as a room along the corridor,
- * each place as a stack of crates coloured by what it is — booked stacks
- * stand full height, free places are blue floor spaces, your boxes are
- * violet, your choice is green. Drag to turn, pinch / scroll to zoom, tap a
- * place to choose it (when booking) or to see whose it is (owner).
- * A chamber with a measured size is built to scale in metres: its walls,
- * height, the door and windows where the owner measured them, the walkway, and every stack where it stands, as many boxes
- * high as the store stacks them (lib/coldLayout).
+ * The whole cold store in 3D, built to scale from the owner's numbers
+ * (three/storeScene, three/buildStore): the building with its roof off and
+ * its front wall see-through, the main door where it was measured, every
+ * chamber where it stands with its own door, the floors inside a chamber as
+ * grating decks, and every bin or crate stacked where the plan puts it.
+ * Colours say what each place is (components/rental/placeLook): booked
+ * stacks stand full, a free place is a marked space with the outline of the
+ * stack that fits there.
  *
- * three.js is imported inside the effect (only when this view opens), the
- * scene renders only when something moves or changes, and the WebGL context
- * is released when the view closes. Without WebGL the floor plan is the way.
+ *   orbit  drag to turn, pinch or scroll to zoom; one tap for the whole store,
+ *          the view from the main door or from above; tap a chamber for what
+ *          it holds, tap a place to choose it (booking) or see whose it is.
+ *   walk   a visitor at eye height (1.6 m) starting outside the main door:
+ *          arrows and keys to walk, drag to look; walls and stacks stop you,
+ *          doors let you through; "Go to floor 2" inside a chamber with
+ *          floors; a small map shows where you are; tap a place in front of
+ *          you, or the mark in the middle, to choose it.
+ *
+ * three.js is imported inside the effect (only when the view opens), stacks
+ * are instanced, a frame is drawn only when something moves or changes, the
+ * pixel ratio is lower on phones, and everything is freed when the view
+ * closes. Without WebGL the Drawing is the way.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Maximize2 } from 'lucide-react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { DoorOpen, Footprints, Maximize2, ScanEye, X } from 'lucide-react';
 
-import { PLACE_LOOK, placesOf, type Look } from '@/components/rental/placeLook';
-import { parsePlace, placeLabel, usablePlaces, type ColdChamber } from '@/lib/db/coldMap';
-import { placeDirections, planOf, showLength, type ChamberPlan, type ChamberSize } from '@/lib/coldLayout';
+import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
+import { buildPlaces, buildShell, disposeGroup, faceWalls, makeKit, sizeLabels, wx, wz, type Cell, type Origin, type Places, type Shell } from '@/components/rental/three/buildStore';
+import { buildScene, chamberAt, EYE, insideDoor, midOf, sceneText, startPoint, type SceneChamber, type StoreScene } from '@/components/rental/three/storeScene';
+import { drawMiniMap } from '@/components/rental/walk/miniMap';
+import { noInput, usePageZoom, WalkHud, type Press, type Target, type WalkInput, type Where } from '@/components/rental/walk/WalkHud';
+import { canStand, walk, walkWorld, type Walker, type WalkWorld } from '@/components/rental/walk/walker';
+import { placeDirections, showLength } from '@/lib/coldLayout';
+import { countText, nice, unitWord, type Building, type PreviewRows, type Storage } from '@/lib/coldStore';
+import { placeLabel, type ColdChamber } from '@/lib/db/coldMap';
 
-const PITCH = 1.2; // between the centres of two places
-const PAD = 0.7; // wall to the first stack
-const GAP = 2; // between two chambers (room for the next room's row numbers)
-const WALL_H = 1.1;
-const STACK_H = 1.4;
-const CORRIDOR = 3;
+export type View3D = 'orbit' | 'walk';
 
-interface Cell {
-  room: number;
-  row: number;
-  col: number;
-  slot: string;
-  look: Look;
-  /** Boxes that still fit on the place. */
-  free: number;
-  /** How full the place is (0–1), for a place shared with other farmers. */
-  full: number;
-}
-
-interface Room {
-  c: ColdChamber;
-  x0: number;
-  w: number;
-  d: number;
-  /** Wall height. */
-  h: number;
-  /** A measured chamber, built to scale. */
-  sized: { size: ChamberSize; plan: ChamberPlan } | null;
-}
-
-function layout(chambers: ColdChamber[]): { rooms: Room[]; width: number; depth: number } {
-  const rooms: Room[] = [];
-  let x = 0;
-  for (const c of chambers) {
-    const sized = c.size ? { size: c.size, plan: planOf(c.size) } : null;
-    const w = sized ? sized.size.width : c.cols * PITCH + 2 * PAD;
-    const d = sized ? sized.size.length : c.rows * PITCH + 2 * PAD;
-    rooms.push({ c, x0: x, w, d, h: sized ? sized.size.height : WALL_H, sized });
-    x += w + GAP;
+/** A place in words: "Chamber 2 · Floor 1 · Row 3, stack 4 · 4 bins free". */
+export function placeText(c: SceneChamber, cell: Cell): string {
+  const f = c.floors[cell.floor];
+  const st = c.storage;
+  const at = `${f.row.name} · ${placeLabel(cell.slot)}`;
+  switch (cell.look) {
+    case 'free':
+      return `${at} · ${countText(cell.free, st)} free`;
+    case 'part':
+      return `${at} · shared, room for ${cell.free.toLocaleString('en-IN')} of ${countText(f.k, st)}`;
+    case 'selected':
+      return `${at} · your choice (${countText(cell.free, st)})`;
+    case 'held':
+      return `${at} · ${PLACE_LOOK.held.label}`;
+    case 'booked':
+      return `${at} · ${PLACE_LOOK.booked.label}`;
+    case 'mine':
+      return `${at} · your ${unitWord(st)}`;
+    default:
+      return `${at} · no place here`;
   }
-  const width = Math.max(0, x - GAP);
-  for (const r of rooms) r.x0 -= width / 2;
-  return { rooms, width, depth: Math.max(1, ...rooms.map((r) => r.d)) };
 }
 
-/** Where a place stands (its centre): row 1 by the front wall (z = 0), rooms go back (−z). */
-function spot(room: Room, row: number, col: number) {
-  const s = room.sized;
-  if (s && s.plan.colX[col] !== undefined && s.plan.rowZ[row - 1] !== undefined) {
-    return { x: room.x0 + s.plan.colX[col] + s.plan.placeW / 2, z: -(s.plan.rowZ[row - 1] + s.plan.placeD / 2) };
+/** The places of the store as cells, with what each is for the months looked at. */
+export function cellsOf(scene: StoreScene, stateOf: (c: ColdChamber, slot: string) => Look, roomOf: (c: ColdChamber, slot: string) => number): Cell[] {
+  const out: Cell[] = [];
+  for (const c of scene.chambers) {
+    c.floors.forEach((f, fi) => {
+      f.places.forEach((p, pi) => {
+        const look: Look = p.blocked ? 'blocked' : stateOf(f.row, p.slot);
+        const free = look === 'blocked' ? 0 : Math.max(0, roomOf(f.row, p.slot));
+        out.push({ chamber: c.index, floor: fi, place: pi, row: p.row, col: p.col, slot: p.slot, look, free, full: 1 - free / Math.max(1, f.k) });
+      });
+    });
   }
-  return { x: room.x0 + PAD + (col + 0.5) * PITCH, z: -(PAD + (row - 0.5) * PITCH) };
+  return out;
 }
-/** A place's footprint on the floor. */
-const footprint = (room: Room) => (room.sized ? { w: room.sized.plan.placeW * 0.98, d: room.sized.plan.placeD * 0.98 } : { w: PITCH * 0.82, d: PITCH * 0.82 });
-/** How tall a stack of boxes stands at this place (a shared place: as full as it is). */
-function stackHeight(room: Room, look: Look, part = 1) {
-  const full = room.sized ? room.sized.plan.stackHeight : STACK_H;
-  return look === 'held' ? full * 0.75 : look === 'part' ? full * Math.min(1, Math.max(0.12, part)) : full;
-}
+
+/** The shapes of a chamber in words: "12.2 m × 7.6 m, 8.5 m high". */
+const sizeText = (c: SceneChamber, unit: 'ft' | 'm') => `${showLength(c.rect.w, unit)} × ${showLength(c.rect.d, unit)}, ${showLength(c.h, unit)} high`;
 
 interface Api {
-  setData: (chambers: ColdChamber[], cells: Cell[]) => void;
-  focus: (roomIndex: number | null) => void;
+  setData: (scene: StoreScene, cells: Cell[], free: number[]) => void;
+  setActive: (index: number) => void;
+  setView: (v: View3D) => void;
+  frame: (what: 'all' | 'door' | 'top' | number) => void;
+  walkTo: (index: number | null) => void;
+  /** Where the next walk starts (a chamber's door), instead of the main door. */
+  walkFrom: (index: number) => void;
+  goFloor: (n: number) => void;
+  /** Say again where the visitor is and draw the small map (when the buttons over the view appear). */
+  showWhere: () => void;
+  choose: () => void;
+  kick: () => void;
 }
+
+const TURN = 1.7; // radians a second
+const LOOK = 1.1;
+const PITCH = 1.05;
+/** Field of view: looking at the whole store, and walking (wider, as your eyes see). */
+const FOV = { orbit: 45, walk: 68 } as const;
+
+/** What a chamber holds: over the 3D view's corner, or under the view on a phone (`zoom`: bigger words there). */
+function InfoCard({ c, free, rate, unit, onClose, onWalk, zoom }: { c: SceneChamber; free: number; rate: number | null; unit: 'ft' | 'm'; onClose: () => void; onWalk?: () => void; zoom: number }) {
+  const g = c.group;
+  const st: Storage = c.storage;
+  const r = g.rate ?? rate;
+  const below = zoom > 1.3;
+  return (
+    <section
+      aria-label={`${c.name}: what it holds`}
+      style={below ? { zoom: Math.min(1.8, zoom * 0.8) } : undefined}
+      className={`pointer-events-auto rounded-2xl bg-white/95 p-3 text-sm text-slate-800 shadow-xl ring-1 ring-slate-900/10 backdrop-blur ${below ? 'w-full' : 'absolute bottom-2 left-2 z-20 w-[min(300px,calc(100%-16px))]'}`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <h4 className="text-base font-bold text-slate-900">{c.name}</h4>
+        <button type="button" onClick={onClose} aria-label="Close" className="-m-1 grid h-11 w-11 cursor-pointer place-items-center rounded-xl text-slate-500 hover:bg-slate-100">
+          <X className="h-5 w-5" aria-hidden />
+        </button>
+      </div>
+      <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
+        <dt className="text-slate-500">Holds</dt>
+        <dd className="font-semibold">{countText(g.count, st)}{g.floors.length > 1 ? ` on ${g.floors.length} floors` : ''}</dd>
+        {g.unitKg ? (
+          <>
+            <dt className="text-slate-500">Each {UNIT_ONE[st]}</dt>
+            <dd>{nice(g.unitKg)} kg of apples</dd>
+          </>
+        ) : null}
+        {g.capacityMt ? (
+          <>
+            <dt className="text-slate-500">Capacity</dt>
+            <dd>{nice(g.capacityMt)} tonnes</dd>
+          </>
+        ) : null}
+        <dt className="text-slate-500">Free now</dt>
+        <dd className="font-semibold text-sky-800">{countText(free, st)}</dd>
+        {r ? (
+          <>
+            <dt className="text-slate-500">Rent</dt>
+            <dd>₹{nice(r)} a {UNIT_ONE[st]} a month</dd>
+          </>
+        ) : null}
+        {c.toScale && (
+          <>
+            <dt className="text-slate-500">Size</dt>
+            <dd>{sizeText(c, unit)}</dd>
+          </>
+        )}
+      </dl>
+      {onWalk && (
+        <button type="button" onClick={onWalk} className="mt-2 inline-flex min-h-[44px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-sky-700 px-3 font-semibold text-white hover:bg-sky-800">
+          <Footprints className="h-4 w-4" aria-hidden /> Walk in here
+        </button>
+      )}
+    </section>
+  );
+}
+const UNIT_ONE: Record<Storage, string> = { bins: 'bin', crates: 'crate', boxes: 'box' };
 
 export function ColdStore3D({
   chambers,
@@ -95,39 +167,69 @@ export function ColdStore3D({
   onPlace,
   active,
   onActive,
+  building,
+  rate = null,
+  view = 'orbit',
+  onView,
 }: {
   chambers: ColdChamber[];
   stateOf: (c: ColdChamber, slot: string) => Look;
-  /** Boxes that still fit on a place (stable, like stateOf). */
+  /** Bins / crates / boxes that still fit on a place (stable, like stateOf). */
   roomOf: (c: ColdChamber, slot: string) => number;
   mode: 'book' | 'owner' | 'view';
   onPlace?: (c: ColdChamber, slot: string, look: Look) => void;
   active: string | null;
   onActive: (id: string) => void;
+  /** The store's building (rental_listings.building); without it the chambers stand side by side. Not given: the preview rows' own (owner wizard). */
+  building?: Building | null;
+  /** The store's rent for chambers without their own. */
+  rate?: number | null;
+  /** Look around from outside (orbit) or walk inside. */
+  view?: View3D;
+  onView?: (v: View3D) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const tip = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<HTMLCanvasElement>(null);
   const api = useRef<Api | null>(null);
+  const input = useRef<WalkInput>(noInput());
   const [failed, setFailed] = useState(false);
-  const [focus, setFocus] = useState<string | 'all'>('all');
+  const [ready, setReady] = useState(false);
+  const [info, setInfo] = useState<number | null>(null);
+  const [where, setWhere] = useState<Where>({ text: 'You are outside the main door.', chamber: -1, level: 1, floors: 1 });
+  const [target, setTarget] = useState<Target | null>(null);
+  // On a phone the page is shrunk to fit: a taller view and bigger buttons.
+  const zoom = usePageZoom();
+  const textId = useId();
 
-  const cells = useMemo<Cell[]>(
-    () =>
-      chambers.flatMap((c, room) =>
-        placesOf(c).map(([row, col, slot]) => {
-          const free = roomOf(c, slot);
-          return { room, row, col, slot, look: stateOf(c, slot), free, full: 1 - free / Math.max(1, c.boxes_per_slot) };
-        }),
-      ),
-    [chambers, stateOf, roomOf],
-  );
+  // The owner's live preview brings its building with its rows (lib/coldStore previewChambers).
+  const shownBuilding = building !== undefined ? building : ((chambers as PreviewRows).building ?? null);
+  const scene = useMemo(() => buildScene(chambers, shownBuilding), [chambers, shownBuilding]);
+  const cells = useMemo(() => cellsOf(scene, stateOf, roomOf), [scene, stateOf, roomOf]);
+  const free = useMemo(() => {
+    const out = scene.chambers.map(() => 0);
+    for (const c of cells) out[c.chamber] += c.free;
+    return out;
+  }, [scene, cells]);
+  const activeIndex = useMemo(() => scene.chambers.findIndex((c) => c.group.floors.some((r) => r.id === active)), [scene, active]);
 
-  // The latest data and callbacks, for the scene (which is built once).
-  const latest = useRef({ chambers, cells, mode, onPlace, onActive });
+  // The latest data and callbacks, for the scene (which is set up once).
+  const latest = useRef({ scene, cells, free, mode, onPlace, onActive, view, activeIndex });
   useEffect(() => {
-    latest.current = { chambers, cells, mode, onPlace, onActive };
-    api.current?.setData(chambers, cells);
-  }, [chambers, cells, mode, onPlace, onActive]);
+    latest.current = { scene, cells, free, mode, onPlace, onActive, view, activeIndex };
+  }, [scene, cells, free, mode, onPlace, onActive, view, activeIndex]);
+  // The places are built again only when the store or what its places are changes (not when the page around it redraws).
+  useEffect(() => api.current?.setData(scene, cells, free), [scene, cells, free]);
+  useEffect(() => api.current?.setActive(activeIndex), [activeIndex]);
+  useEffect(() => api.current?.setView(view), [view]);
+  // The small map is drawn into the walk's buttons, which appear once the view is ready.
+  useEffect(() => {
+    if (view === 'walk' && ready) api.current?.showWhere();
+  }, [view, ready]);
+  const press = useCallback<Press>((k, on) => {
+    input.current[k] = on;
+    if (on) api.current?.kick();
+  }, []);
 
   useEffect(() => {
     const el = host.current;
@@ -136,431 +238,432 @@ export function ColdStore3D({
     let cleanup = () => {};
 
     void (async () => {
-      const THREE = await import('three');
+      const T = await import('three');
       const { OrbitControls } = await import('three/examples/jsm/controls/OrbitControls.js');
       if (disposed) return;
 
-      let renderer: InstanceType<typeof THREE.WebGLRenderer>;
+      const phone = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 640;
+      let renderer: InstanceType<typeof T.WebGLRenderer>;
       try {
-        renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'low-power' });
+        renderer = new T.WebGLRenderer({ antialias: !phone, powerPreference: phone ? 'low-power' : 'default' });
       } catch {
         setFailed(true);
         return;
       }
       const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.setClearColor('#e8f3fa');
-      renderer.domElement.className = 'block h-full w-full rounded-3xl';
-      renderer.domElement.setAttribute('role', 'img');
-      renderer.domElement.setAttribute('aria-label', 'The whole cold store in 3D. Drag to turn it, pinch or scroll to zoom.');
-      el.prepend(renderer.domElement);
+      // Sharp when still. On a slow phone, fewer pixels while something moves (see the loop).
+      const fullRatio = Math.min(window.devicePixelRatio || 1, phone ? 1.5 : 2);
+      let moveRatio = fullRatio;
+      let slowFrames = 0;
+      let handHeld = false;
+      renderer.setPixelRatio(fullRatio);
+      renderer.setClearColor('#e3edf5');
+      const cv = renderer.domElement;
+      cv.className = 'block h-full w-full rounded-3xl outline-none';
+      cv.setAttribute('role', 'img');
+      cv.setAttribute('aria-describedby', textId);
+      cv.setAttribute('aria-label', 'The whole cold store in 3D. Drag to turn it, pinch or scroll to zoom.');
+      el.prepend(cv);
 
-      const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 500);
-      const controls = new OrbitControls(camera, renderer.domElement);
+      const world3 = new T.Scene();
+      const camera = new T.PerspectiveCamera(FOV.orbit, 1, 0.05, 2000);
+      camera.rotation.order = 'YXZ';
+      const controls = new OrbitControls(camera, cv);
       controls.enableDamping = !reduceMotion;
       controls.dampingFactor = 0.12;
-      controls.maxPolarAngle = Math.PI * 0.46;
-      controls.minDistance = 3;
+      controls.maxPolarAngle = Math.PI * 0.49;
+      controls.minDistance = 2;
       controls.screenSpacePanning = false;
 
-      scene.add(new THREE.HemisphereLight('#ffffff', '#b6c2cf', 2.2));
-      const sun = new THREE.DirectionalLight('#ffffff', 1.6);
-      sun.position.set(6, 14, 10);
-      scene.add(sun);
+      world3.add(new T.HemisphereLight('#ffffff', '#94a3b8', 1.9));
+      const sun = new T.DirectionalLight('#fff7ed', 1.6);
+      sun.position.set(-40, 80, 55);
+      world3.add(sun);
+      const fill = new T.DirectionalLight('#dbeafe', 0.55);
+      fill.position.set(50, 30, -40);
+      world3.add(fill);
 
-      // A crate face: slats and layers, tinted per place by the instance colour.
-      const crate = document.createElement('canvas');
-      crate.width = crate.height = 128;
-      const g = crate.getContext('2d');
-      if (g) {
-        g.fillStyle = '#ffffff';
-        g.fillRect(0, 0, 128, 128);
-        g.strokeStyle = '#8b97a6';
-        g.lineWidth = 5;
-        for (const y of [3, 43, 85, 125]) {
-          g.beginPath();
-          g.moveTo(0, y);
-          g.lineTo(128, y);
-          g.stroke();
-        }
-        g.lineWidth = 3;
-        for (const x of [3, 64, 125]) {
-          g.beginPath();
-          g.moveTo(x, 0);
-          g.lineTo(x, 128);
-          g.stroke();
-        }
-      }
-      const crateTex = new THREE.CanvasTexture(crate);
-      crateTex.colorSpace = THREE.SRGBColorSpace;
-      // One box face, repeated box by box and layer by layer on a measured stack.
-      const face = document.createElement('canvas');
-      face.width = face.height = 64;
-      const fg = face.getContext('2d');
-      if (fg) {
-        fg.fillStyle = '#ffffff';
-        fg.fillRect(0, 0, 64, 64);
-        fg.strokeStyle = '#7b8794';
-        fg.lineWidth = 5;
-        fg.strokeRect(2.5, 2.5, 59, 59);
-        fg.fillStyle = '#9aa5b1';
-        fg.fillRect(22, 12, 20, 7); // hand hole
-      }
-      const faceTex = new THREE.CanvasTexture(face);
-      faceTex.colorSpace = THREE.SRGBColorSpace;
-      faceTex.wrapS = faceTex.wrapT = THREE.RepeatWrapping;
-      const aisleMat = new THREE.MeshStandardMaterial({ color: '#fde68a', roughness: 1 });
-      // Measured chambers: lighter walls, and a faint full-height outline on each free place.
-      const tallWallMat = new THREE.MeshStandardMaterial({ color: '#64748b', transparent: true, opacity: 0.14, depthWrite: false });
-      const ghostMat = new THREE.MeshStandardMaterial({ color: '#7dd3fc', transparent: true, opacity: 0.13, depthWrite: false });
-      const edgeMat = new THREE.LineBasicMaterial({ color: '#475569', transparent: true, opacity: 0.5 });
-
-      const unitBox = new THREE.BoxGeometry(1, 1, 1);
-      unitBox.translate(0, 0.5, 0);
-      const stackMat = new THREE.MeshStandardMaterial({ map: crateTex, roughness: 0.85 });
-      const tileMat = new THREE.MeshStandardMaterial({ roughness: 0.9 });
-      const floorMat = new THREE.MeshStandardMaterial({ color: '#f8fafc', roughness: 1 });
-      const corridorMat = new THREE.MeshStandardMaterial({ color: '#fde9b0', roughness: 1 });
-      const doorMat = new THREE.MeshStandardMaterial({ color: '#f59e0b', roughness: 0.8 });
-      const glassMat = new THREE.MeshStandardMaterial({ color: '#38bdf8', emissive: '#0ea5e9', emissiveIntensity: 0.25, transparent: true, opacity: 0.75, roughness: 0.2 });
-      const wallMat = new THREE.MeshStandardMaterial({ color: '#64748b', transparent: true, opacity: 0.32, depthWrite: false });
-      const hover = new THREE.LineSegments(new THREE.EdgesGeometry(unitBox), new THREE.LineBasicMaterial({ color: '#0f172a' }));
-      hover.visible = false;
-      scene.add(hover);
-
-      let group = new THREE.Group();
-      scene.add(group);
-      let rooms: Room[] = [];
-      let size = { width: 1, depth: 1 };
-      // Instance id → cell, for each picking mesh.
-      let picks: { mesh: InstanceType<typeof THREE.InstancedMesh>; cells: Cell[] }[] = [];
+      const kit = makeKit(T, phone);
+      const root = new T.Group();
+      world3.add(root);
+      let shell: Shell | null = null;
+      let places: Places | null = null;
+      let shown: StoreScene | null = null;
+      let origin: Origin = { ox: 0, oy: 0 };
+      let walkWorldNow: WalkWorld | null = null;
+      let mode3: View3D = 'orbit';
       let dirty = true;
-      let fitted = '';
+      // The frame loop's state (kick() may run before the loop is defined below).
+      let raf = 0;
+      let running = false;
+      let last = 0;
+      let held = 0;
+      const me: Walker & { heading: number; pitch: number } = { x: 0, y: 0, level: 1, inside: -1, heading: Math.PI / 2, pitch: -0.08 };
+      let orbitPose: { pos: [number, number, number]; target: [number, number, number] } | null = null;
+      let startAt: number | null = null;
 
-      const label = (title: string, sub: string, width: number) => {
-        const canvas = document.createElement('canvas');
-        canvas.width = 512;
-        canvas.height = 168;
-        const c = canvas.getContext('2d');
-        if (c) {
-          c.fillStyle = 'rgba(255,255,255,0.94)';
-          if (c.roundRect) {
-            c.beginPath();
-            c.roundRect(4, 4, 504, 160, 28);
-            c.fill();
-          } else c.fillRect(4, 4, 504, 160);
-          c.textAlign = 'center';
-          c.fillStyle = '#0f172a';
-          let px = 60;
-          do c.font = `700 ${px}px system-ui, sans-serif`;
-          while (c.measureText(title).width > 470 && (px -= 4) > 24);
-          c.fillText(title, 256, 78);
-          c.fillStyle = '#0369a1';
-          let sp = 44;
-          do c.font = `600 ${sp}px system-ui, sans-serif`;
-          while (c.measureText(sub).width > 480 && (sp -= 2) > 18);
-          c.fillText(sub, 256, 138);
-        }
-        const tex = new THREE.CanvasTexture(canvas);
-        tex.colorSpace = THREE.SRGBColorSpace;
-        const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
-        s.scale.set(width, (width * 168) / 512, 1);
-        s.renderOrder = 10;
-        return s;
-      };
-      // A small "Row 5" marker beside a room.
-      const rowTag = (text: string) => {
-        const canvas = document.createElement('canvas');
-        canvas.width = 256;
-        canvas.height = 96;
-        const c = canvas.getContext('2d');
-        if (c) {
-          c.fillStyle = 'rgba(15,23,42,0.78)';
-          if (c.roundRect) {
-            c.beginPath();
-            c.roundRect(4, 4, 248, 88, 22);
-            c.fill();
-          } else c.fillRect(4, 4, 248, 88);
-          c.fillStyle = '#ffffff';
-          c.font = '700 50px system-ui, sans-serif';
-          c.textAlign = 'center';
-          c.fillText(text, 128, 66);
-        }
-        const tex = new THREE.CanvasTexture(canvas);
-        tex.colorSpace = THREE.SRGBColorSpace;
-        const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
-        s.scale.set(1.1, 0.41, 1);
-        s.renderOrder = 9;
-        return s;
-      };
-
-      const disposeGroup = (gr: InstanceType<typeof THREE.Group>) => {
-        gr.traverse((o) => {
-          const m = o as unknown as { geometry?: { dispose: () => void }; material?: { dispose: () => void; map?: { dispose: () => void } | null } };
-          // Sprites share one geometry inside three.js; instanced meshes free their own buffers.
-          if (o instanceof THREE.InstancedMesh) o.dispose();
-          else if (m.geometry && m.geometry !== unitBox && !(o instanceof THREE.Sprite)) m.geometry.dispose();
-          if (m.material && ![stackMat, tileMat, floorMat, corridorMat, doorMat, glassMat, wallMat, aisleMat, edgeMat, tallWallMat, ghostMat].includes(m.material as never)) {
-            m.material.map?.dispose();
-            m.material.dispose();
-          }
-        });
-      };
-
-      const box = (w: number, h: number, d: number, x: number, y: number, z: number, mat: InstanceType<typeof THREE.Material>) => {
-        const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-        m.position.set(x, y, z);
-        group.add(m);
-        return m;
-      };
-
-      const setData = (chs: ColdChamber[], cs: Cell[]) => {
-        disposeGroup(group);
-        scene.remove(group);
-        group = new THREE.Group();
-        scene.add(group);
-        const L = layout(chs);
-        rooms = L.rooms;
-        size = { width: L.width, depth: L.depth };
-
-        // Floors, the corridor in front, and low see-through walls with a door.
-        box(L.width + 2, 0.04, CORRIDOR, 0, -0.02, CORRIDOR / 2, corridorMat);
-        for (const r of rooms) {
-          const cx = r.x0 + r.w / 2;
-          const H = r.h;
-          const wm = r.sized ? tallWallMat : wallMat;
-          box(r.w, 0.04, r.d, cx, -0.02, -r.d / 2, floorMat);
-          box(r.w, H, 0.12, cx, H / 2, -r.d, wm);
-          box(0.12, H, r.d, r.x0, H / 2, -r.d / 2, wm);
-          box(0.12, H, r.d, r.x0 + r.w, H / 2, -r.d / 2, wm);
-          // The door — in front of the walkway for a measured chamber.
-          const [d0, d1] = r.sized ? r.sized.plan.doorX : [(r.w - Math.min(1.6, r.w * 0.4)) / 2, (r.w + Math.min(1.6, r.w * 0.4)) / 2];
-          const doorW = d1 - d0;
-          if (r.sized) {
-            // Cut away: no front wall, so the inside is in plain view — just the door frame, as high as measured.
-            const doorH = r.sized.plan.doorH;
-            box(0.14, doorH, 0.14, r.x0 + d0, doorH / 2, 0, doorMat);
-            box(0.14, doorH, 0.14, r.x0 + d1, doorH / 2, 0, doorMat);
-            box(doorW + 0.14, 0.14, 0.14, r.x0 + (d0 + d1) / 2, doorH, 0, doorMat);
-          } else {
-            if (d0 > 0.01) box(d0, H, 0.12, r.x0 + d0 / 2, H / 2, 0, wallMat);
-            if (r.w - d1 > 0.01) box(r.w - d1, H, 0.12, r.x0 + (d1 + r.w) / 2, H / 2, 0, wallMat);
-          }
-          box(doorW, 0.06, 0.7, r.x0 + (d0 + d1) / 2, 0.01, 0.4, doorMat);
-          if (r.sized) {
-            // The room's full size as an outline, and the walkway on the floor.
-            const outline = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(r.w, H, r.d)), edgeMat);
-            outline.position.set(cx, H / 2, -r.d / 2);
-            group.add(outline);
-            // Windows and vents: glass in their walls (the front ones stand in the cut-away front wall).
-            r.sized.plan.windows.forEach((win, i) => {
-              const y = win.sill + win.height / 2;
-              const along = win.wall === 'front' || win.wall === 'back';
-              const z = win.wall === 'back' ? -r.d : 0;
-              const m = along
-                ? box(win.width, win.height, 0.18, r.x0 + win.at + win.width / 2, y, z, glassMat)
-                : box(0.18, win.height, win.width, win.wall === 'left' ? r.x0 : r.x0 + r.w, y, -(win.at + win.width / 2), glassMat);
-              m.renderOrder = 2;
-              const t = rowTag(`W${i + 1}`);
-              t.position.set(m.position.x + (win.wall === 'left' ? 0.5 : win.wall === 'right' ? -0.5 : 0), win.sill + win.height + 0.35, m.position.z + (win.wall === 'back' ? 0.4 : win.wall === 'front' ? -0.4 : 0));
-              group.add(t);
-            });
-            const a = r.sized.plan.aisleX;
-            if (a) {
-              box(a[1] - a[0], 0.02, r.d - 0.1, r.x0 + (a[0] + a[1]) / 2, 0.012, -r.d / 2, aisleMat);
-              const walk = rowTag('Walkway');
-              walk.position.set(r.x0 + (a[0] + a[1]) / 2, 0.45, -Math.min(r.d * 0.5, 4));
-              group.add(walk);
-            }
-          }
-          const free = cs.filter((x) => x.room === rooms.indexOf(r)).reduce((n, x) => n + x.free, 0);
-          const mine = cs.filter((x) => x.room === rooms.indexOf(r) && x.look === 'mine').length;
-          const dims = r.sized ? `${showLength(r.sized.size.length, r.sized.size.unit)} × ${showLength(r.sized.size.width, r.sized.size.unit)} × ${showLength(H, r.sized.size.unit)} · ` : '';
-          const holds = `holds ${(usablePlaces(r.c) * r.c.boxes_per_slot).toLocaleString('en-IN')} boxes`;
-          const tag = label(r.c.name, `${dims}${holds} · ${mine ? `${mine} place${mine === 1 ? '' : 's'} yours · ` : ''}${free.toLocaleString('en-IN')} free`, Math.min(Math.max(r.w * 0.8, 2.8), r.sized ? 7 : 5));
-          tag.position.set(cx, H + 1.1, -r.d - 0.2);
-          group.add(tag);
-          // Row numbers along the left wall: Row 1 by the door, then every fifth, and the last.
-          for (let row = 1; row <= r.c.rows; row++) {
-            if (row !== 1 && row !== r.c.rows && row % 5) continue;
-            const t = rowTag(`Row ${row}`);
-            const p = spot(r, row, 0);
-            // Just outside its own left wall, so it reads as this chamber's row.
-            t.position.set(r.x0 - 0.62, 0.35, p.z);
-            group.add(t);
-          }
-        }
-        const hall = label('Corridor', 'Door to each chamber', 2.2);
-        hall.position.set(0, 0.45, CORRIDOR - 0.2);
-        group.add(hall);
-
-        // Stacks (booked, held, shared, yours, your choice) and floor spaces (free, none).
-        const stacks = cs.filter((x) => x.look !== 'free' && x.look !== 'blocked');
-        const tiles = cs.filter((x) => x.look === 'free' || x.look === 'blocked');
-        const m4 = new THREE.Matrix4();
-        const colour = new THREE.Color();
-        picks = [];
-        const add = (list: Cell[], mat: InstanceType<typeof THREE.Material>, height: (c: Cell) => number) => {
-          if (!list.length) return;
-          const mesh = new THREE.InstancedMesh(unitBox, mat, list.length);
-          list.forEach((cell, i) => {
-            const room = rooms[cell.room];
-            const p = spot(room, cell.row, cell.col);
-            const f = footprint(room);
-            m4.makeScale(f.w, height(cell), f.d).setPosition(p.x, 0, p.z);
-            mesh.setMatrixAt(i, m4);
-            mesh.setColorAt(i, colour.set(PLACE_LOOK[cell.look].hex));
-          });
-          mesh.instanceMatrix.needsUpdate = true;
-          if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-          group.add(mesh);
-          picks.push({ mesh, cells: list });
-        };
-        // Measured chambers: their own box texture, one box per tile, one layer per row of tiles.
-        rooms.forEach((room, ri) => {
-          const list = stacks.filter((c) => c.room === ri);
-          if (!room.sized) return add(list, stackMat, (c) => stackHeight(room, c.look, c.full));
-          const { size: sz, plan } = room.sized;
-          const tex = faceTex.clone();
-          tex.needsUpdate = true;
-          tex.repeat.set(Math.max(1, Math.round(plan.placeW / Math.max(sz.box.l, sz.box.w))), Math.max(1, plan.layers));
-          add(list, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 }), (c) => stackHeight(room, c.look, c.full));
-        });
-        add(tiles, tileMat, (c) => (c.look === 'free' ? 0.1 : 0.03));
-        // How high boxes will stand on each free or shared place of a measured chamber (not tappable).
-        const ghosts = cs.filter((c) => (c.look === 'free' || c.look === 'part') && rooms[c.room]?.sized);
-        if (ghosts.length) {
-          const g = new THREE.InstancedMesh(unitBox, ghostMat, ghosts.length);
-          ghosts.forEach((cell, i) => {
-            const room = rooms[cell.room];
-            const p = spot(room, cell.row, cell.col);
-            const f = footprint(room);
-            g.setMatrixAt(i, m4.makeScale(f.w, stackHeight(room, 'free'), f.d).setPosition(p.x, 0, p.z));
-          });
-          g.instanceMatrix.needsUpdate = true;
-          g.raycast = () => undefined;
-          group.add(g);
-        }
-
-        const sig = rooms.map((r) => `${r.c.id}:${r.c.rows}x${r.c.cols}:${r.w}x${r.d}`).join('|');
-        if (sig !== fitted) {
-          fitted = sig;
-          frame(null, true);
+      // ── Camera ──
+      let flight: { from: number[]; to: number[]; t0: number } | null = null;
+      // The view last chosen (whole store, from the door, from above, a chamber) until the camera is moved by hand:
+      // when the view changes size (a phone turned, buttons growing on a phone) it is framed again, so nothing is cut off.
+      let framed: 'all' | 'door' | 'top' | number | null = null;
+      const setPose = (pos: number[], target: number[], instant: boolean) => {
+        if (instant || reduceMotion) {
+          camera.position.set(pos[0], pos[1], pos[2]);
+          controls.target.set(target[0], target[1], target[2]);
+          controls.update();
+          flight = null;
+        } else {
+          flight = { from: [camera.position.x, camera.position.y, camera.position.z, controls.target.x, controls.target.y, controls.target.z], to: [...pos, ...target], t0: performance.now() };
         }
         dirty = true;
+        kick();
+      };
+      const aspect = () => camera.aspect || 1;
+      /**
+       * A box (building frame) filling the view, seen from the front, a little to the right and above
+       * (higher on a tall phone view, so the store fills it): the camera steps back until all eight
+       * corners of the box are on screen, with a small margin.
+       */
+      const probe = new T.PerspectiveCamera();
+      const fit = (x: number, y: number, w: number, d: number, h: number, instant = false) => {
+        const cx = wx(origin, x + w / 2);
+        const cz = wz(origin, y + d / 2);
+        const cy = Math.min(h, 12) * 0.22;
+        const v = T.MathUtils.degToRad(camera.fov / 2);
+        const hv = Math.atan(Math.tan(v) * aspect());
+        const dir = new T.Vector3(0.3, aspect() < 1 ? 1 : 0.72, 0.95).normalize();
+        const corners: InstanceType<typeof T.Vector3>[] = [];
+        for (const px of [x, x + w]) for (const pz of [y, y + d]) for (const py of [0, h]) corners.push(new T.Vector3(wx(origin, px), py, wz(origin, pz)));
+        probe.fov = camera.fov;
+        probe.aspect = aspect();
+        probe.near = camera.near;
+        probe.far = camera.far;
+        probe.updateProjectionMatrix();
+        let dist = (0.5 * Math.hypot(w, d, h)) / Math.sin(Math.min(v, hv));
+        const p = new T.Vector3();
+        for (let i = 0; i < 8; i++) {
+          probe.position.set(cx + dir.x * dist, cy + dir.y * dist, cz + dir.z * dist);
+          probe.lookAt(cx, cy, cz);
+          probe.updateMatrixWorld();
+          let most = 0;
+          for (const c of corners) {
+            p.copy(c).project(probe);
+            // Behind the camera: step well back.
+            most = Math.max(most, p.z > 1 ? 2 : Math.abs(p.x), p.z > 1 ? 2 : Math.abs(p.y));
+          }
+          const k = Math.min(2, Math.max(0.6, most / 0.9));
+          if (Math.abs(k - 1) < 0.01) break;
+          dist *= k;
+        }
+        controls.maxDistance = Math.max(60, dist * 4);
+        setPose([cx + dir.x * dist, cy + dir.y * dist, cz + dir.z * dist], [cx, cy, cz], instant);
+      };
+      const frame = (what: 'all' | 'door' | 'top' | number, instant = false) => {
+        const s = shown;
+        if (!s) return;
+        framed = what;
+        if (typeof what === 'number') {
+          // The chamber and its name above it.
+          const c = s.chambers[what];
+          if (c) fit(c.rect.x, c.rect.y, c.rect.w, c.rect.d, c.h + 2.5, instant);
+          return;
+        }
+        const b = s.bounds;
+        if (what === 'all') return fit(b.x, b.y, b.w, b.d, s.height + 1.5, instant); // and the names over the chambers
+        if (what === 'top') {
+          const v = T.MathUtils.degToRad(camera.fov / 2);
+          const hv = Math.atan(Math.tan(v) * aspect());
+          const dist = Math.max((b.w * 0.55) / Math.tan(hv), (b.d * 0.55) / Math.tan(v)) + s.height;
+          const cx = wx(origin, b.x + b.w / 2);
+          const cz = wz(origin, b.y + b.d / 2);
+          controls.maxDistance = Math.max(controls.maxDistance, dist * 2);
+          return setPose([cx, dist, cz + 0.01], [cx, 0, cz], instant);
+        }
+        // Standing back from the main door and above it, looking in along the passage: the chambers on either side.
+        const st = startPoint(s);
+        const n = st.facing;
+        const deep = s.building ? (n.x ? s.hall.w : s.hall.d) : 12;
+        // Far enough back that the passage and the chamber doors on both sides of it fit across the view (further on a narrow phone).
+        const across = (s.passage ? (n.x ? s.passage.d : s.passage.w) : 3) / 2 + 6;
+        const hv = Math.atan(Math.tan(T.MathUtils.degToRad(camera.fov / 2)) * aspect());
+        const back = Math.min(40, Math.max(6, across / Math.tan(hv) - 3));
+        const up = (s.building?.height ?? s.height) + Math.max(3, deep * 0.2, back * 0.3);
+        const p = { x: st.at.x - n.x * back, y: st.at.y - n.y * back };
+        const t = { x: st.at.x + n.x * (3 + deep * 0.45), y: st.at.y + n.y * (3 + deep * 0.45) };
+        setPose([wx(origin, p.x), up, wz(origin, p.y)], [wx(origin, t.x), 0, wz(origin, t.y)], instant);
       };
 
-      // Camera: the whole store, or one chamber, filling the view.
-      let flight: { from: [number, number, number, number, number, number]; to: [number, number, number, number, number, number]; t0: number } | null = null;
-      const frame = (roomIndex: number | null, instant = false) => {
-        const r = roomIndex === null ? null : rooms[roomIndex];
-        const w = r ? r.w : size.width + 2;
-        const d = (r ? r.d : size.depth) + CORRIDOR;
-        const cx = r ? r.x0 + r.w / 2 : 0;
-        const cz = r ? -r.d / 2 + 0.8 : -size.depth / 2 + CORRIDOR / 2;
-        // Tall measured chambers: keep the full height and the name above it in view.
-        const tall = r ? r.h : Math.max(WALL_H, ...rooms.map((x) => x.h));
-        const cy = Math.min(tall, 8) * 0.45;
-        const v = THREE.MathUtils.degToRad(camera.fov / 2);
-        const h = Math.atan(Math.tan(v) * camera.aspect);
-        const dist = Math.max((w + 1.5) / 2 / Math.tan(h), (d * 0.8) / 2 / Math.tan(v), (tall + 3) / Math.tan(v)) + 1;
-        const dir = new THREE.Vector3(0.28, 0.66, 0.86).normalize().multiplyScalar(dist);
-        controls.maxDistance = Math.max(30, dist * 3);
-        const to: [number, number, number, number, number, number] = [cx + dir.x, cy + dir.y, cz + dir.z, cx, cy, cz];
-        const from: [number, number, number, number, number, number] = [camera.position.x, camera.position.y, camera.position.z, controls.target.x, controls.target.y, controls.target.z];
-        if (instant || reduceMotion) {
-          camera.position.set(to[0], to[1], to[2]);
-          controls.target.set(to[3], to[4], to[5]);
-          controls.update();
-          dirty = true;
-        } else flight = { from, to, t0: performance.now() };
+      // ── Walking ──
+      const placeWalker = () => {
+        camera.position.set(wx(origin, me.x), eyeY(), wz(origin, me.y));
+        // Heading (building frame) → camera yaw: forward is (cos h, 0, −sin h) in the world.
+        camera.rotation.set(me.pitch, Math.atan2(-Math.cos(me.heading), Math.sin(me.heading)), 0, 'YXZ');
+        dirty = true;
+      };
+      const eyeY = () => {
+        if (!shown || me.level <= 1 || me.inside < 0) return EYE;
+        const f = shown.chambers[me.inside]?.floors[me.level - 1];
+        return (f?.z0 ?? 0) + EYE;
+      };
+      let lastWhere = '';
+      const tellWhere = () => {
+        const s = shown;
+        if (!s) return;
+        const ci = me.inside >= 0 ? me.inside : chamberAt(s, me);
+        const c = ci >= 0 ? s.chambers[ci] : null;
+        const inHall = me.x >= s.hall.x && me.x <= s.hall.x + s.hall.w && me.y >= s.hall.y && me.y <= s.hall.y + s.hall.d;
+        const text = c
+          ? `You are in ${c.name}${c.floors.length > 1 ? ` · Floor ${me.level}` : ''}.`
+          : s.building
+            ? inHall
+              ? 'You are inside the building, in the passage.'
+              : 'You are outside the building.'
+            : 'You are in the corridor.';
+        const key = `${text}|${ci}|${me.level}|${c?.floors.length ?? 1}`;
+        if (key !== lastWhere) {
+          lastWhere = key;
+          setWhere({ text, chamber: ci, level: me.level, floors: c?.floors.length ?? 1 });
+        }
+        if (mapRef.current) drawMiniMap(mapRef.current, s, me, me.heading, me.level, me.inside);
+      };
+      const standAt = (p: { x: number; y: number }, heading: number) => {
+        me.x = p.x;
+        me.y = p.y;
+        me.level = 1;
+        me.inside = -1;
+        me.heading = heading;
+        me.pitch = -0.08;
+        placeWalker();
+        tellWhere();
+        aim(true);
+        kick();
+      };
+      const toMainDoor = () => {
+        if (!shown) return;
+        const st = startPoint(shown);
+        standAt(st.at, Math.atan2(st.facing.y, st.facing.x));
+      };
+      const walkTo = (index: number | null) => {
+        if (!shown) return;
+        if (index === null) return toMainDoor();
+        const c = shown.chambers[index];
+        if (!c || !walkWorldNow) return;
+        const m = c.door ? midOf(c.door) : { x: c.rect.x + c.rect.w / 2, y: c.rect.y };
+        for (const back of [1.4, 1.0, 2.2, 0.7]) {
+          const p = { x: m.x - c.inward.x * back, y: m.y - c.inward.y * back };
+          if (canStand(walkWorldNow, p, 1, -1)) return standAt(p, Math.atan2(c.inward.y, c.inward.x));
+        }
+        standAt(insideDoor(c), Math.atan2(c.inward.y, c.inward.x));
+      };
+      const goFloor = (n: number) => {
+        const s = shown;
+        if (!s || !walkWorldNow) return;
+        const ci = me.inside >= 0 ? me.inside : chamberAt(s, me);
+        const c = s.chambers[ci];
+        if (!c || n < 1 || n > c.floors.length) return;
+        const level = n;
+        const inside = n > 1 ? ci : -1;
+        if (!canStand(walkWorldNow, me, level, inside)) {
+          const p = insideDoor(c, 0.9);
+          me.x = p.x;
+          me.y = p.y;
+          me.heading = Math.atan2(c.inward.y, c.inward.x);
+        }
+        me.level = level;
+        me.inside = inside;
+        placeWalker();
+        tellWhere();
+        aim(true);
+        kick();
       };
 
-      // Picking: tap / click a place.
-      const ray = new THREE.Raycaster();
-      const pointer = new THREE.Vector2();
-      const hit = (clientX: number, clientY: number): Cell | null => {
-        const rect = renderer.domElement.getBoundingClientRect();
-        pointer.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
-        ray.setFromCamera(pointer, camera);
-        const found = ray.intersectObjects(picks.map((p) => p.mesh), false)[0];
-        if (!found || found.instanceId === undefined) return null;
-        return picks.find((p) => p.mesh === found.object)?.cells[found.instanceId] ?? null;
+      // ── Picking ──
+      const ray = new T.Raycaster();
+      const ptr = new T.Vector2();
+      const cellAt = (nx: number, ny: number): Cell | null => {
+        if (!places) return null;
+        ray.setFromCamera(ptr.set(nx, ny), camera);
+        ray.far = mode3 === 'walk' ? 40 : Infinity;
+        const targets: InstanceType<typeof T.Object3D>[] = places.picks.map((p) => p.mesh);
+        // Walking, the walls are solid: no choosing through them.
+        const walking = mode3 === 'walk';
+        if (walking && shell) targets.push(...shell.walls);
+        for (const hit of ray.intersectObjects(targets, false)) {
+          if (hit.instanceId === undefined) return null; // a wall
+          const cell = places.picks.find((p) => p.mesh === hit.object)?.cells[hit.instanceId];
+          if (!cell) continue;
+          // Walking, only the places of the floor you stand on (the grating between floors is see-through).
+          if (walking && (cell.floor !== me.level - 1 || (me.level > 1 && cell.chamber !== me.inside))) continue;
+          return cell;
+        }
+        return null;
       };
-      const describe = (cell: Cell) => {
-        const c = latest.current.chambers[cell.room];
-        if (!c) return '';
-        const look = PLACE_LOOK[cell.look].label;
-        const room = rooms[cell.room];
-        const where = room?.sized ? placeDirections(room.sized.size, room.sized.plan, parsePlace(cell.slot).row, parsePlace(cell.slot).stack) : '';
-        const boxes = cell.look === 'free' ? ` · ${c.boxes_per_slot} boxes` : cell.look === 'part' ? ` · room for ${cell.free} of ${c.boxes_per_slot} boxes` : '';
-        return `${c.name} · ${placeLabel(cell.slot)} · ${look}${boxes}${where ? ` · ${where}` : ''}`;
+      const chamberHit = (nx: number, ny: number): number | null => {
+        if (!shell) return null;
+        ray.setFromCamera(ptr.set(nx, ny), camera);
+        ray.far = Infinity;
+        const hit = ray.intersectObjects(shell.hits, false)[0];
+        return hit ? (hit.object.userData.chamber as number) : null;
       };
+      const choosable = (cell: Cell) => {
+        const md = latest.current.mode;
+        return md === 'owner' ? cell.look !== 'blocked' : md === 'book' && (cell.look === 'free' || cell.look === 'part' || cell.look === 'selected');
+      };
+      const act = (cell: Cell) => {
+        const s = shown;
+        const { onPlace: pick, onActive: activate } = latest.current;
+        const f = s?.chambers[cell.chamber]?.floors[cell.floor];
+        if (!f) return;
+        activate(f.row.id);
+        if (choosable(cell)) pick?.(f.row, cell.slot, cell.look);
+      };
+      let aimed: Cell | null = null;
+      let aimAt = 0;
+      const aim = (force = false) => {
+        if (mode3 !== 'walk') return;
+        const now = performance.now();
+        if (!force && now - aimAt < 120) return;
+        aimAt = now;
+        const cell = cellAt(0, 0);
+        aimed = cell;
+        const s = shown;
+        const next: Target | null = cell && s ? { key: `${cell.chamber}:${cell.floor}:${cell.slot}:${cell.look}:${cell.free}`, text: placeText(s.chambers[cell.chamber], cell), can: choosable(cell), chosen: cell.look === 'selected' } : null;
+        setTarget((t) => (t?.key === next?.key && t?.can === next?.can ? t : next));
+      };
+
+      // ── Hover and tap ──
       const showTip = (cell: Cell | null, x: number, y: number) => {
         const t = tip.current;
         if (!t) return;
-        if (!cell) {
+        if (!cell || !shown) {
           t.style.opacity = '0';
-          hover.visible = false;
-          dirty = true;
           return;
         }
         const rect = el.getBoundingClientRect();
-        t.textContent = describe(cell);
+        // What the place is, and how to walk to it from the chamber's door.
+        const f = shown.chambers[cell.chamber].floors[cell.floor];
+        const way = f.plan && f.row.size ? placeDirections(f.row.size, f.plan, cell.row, cell.col + 1) : '';
+        t.textContent = `${placeText(shown.chambers[cell.chamber], cell)}${way ? `\n${way}` : ''}`;
         t.style.opacity = '1';
-        t.style.left = `${Math.min(Math.max(8, x - rect.left + 12), rect.width - 220)}px`;
-        t.style.top = `${Math.max(8, y - rect.top - 44)}px`;
-        const room = rooms[cell.room];
-        const p = spot(room, cell.row, cell.col);
-        const f = footprint(room);
-        const tall = cell.look === 'free' || cell.look === 'blocked' ? 0.12 : stackHeight(room, cell.look, cell.full);
-        hover.scale.set(f.w * 1.04, tall + 0.02, f.d * 1.04);
-        hover.position.set(p.x, 0, p.z);
-        hover.visible = true;
-        dirty = true;
+        t.style.left = `${Math.min(Math.max(8, x - rect.left + 12), rect.width - 236)}px`;
+        t.style.top = `${Math.max(8, y - rect.top - 52)}px`;
       };
-
-      let down: { x: number; y: number } | null = null;
+      const norm = (e: { clientX: number; clientY: number }) => {
+        const r = cv.getBoundingClientRect();
+        return [((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1] as const;
+      };
+      let down: { x: number; y: number; id: number; heading: number; pitch: number; moved: boolean } | null = null;
       let hideTip = 0;
       const onDown = (e: PointerEvent) => {
-        down = { x: e.clientX, y: e.clientY };
+        down = { x: e.clientX, y: e.clientY, id: e.pointerId, heading: me.heading, pitch: me.pitch, moved: false };
+        if (mode3 === 'walk') {
+          cv.setPointerCapture?.(e.pointerId);
+          el.focus({ preventScroll: true });
+        }
+      };
+      const onMoveDrag = (e: PointerEvent) => {
+        if (!down || e.pointerId !== down.id) return false;
+        const dx = e.clientX - down.x;
+        const dy = e.clientY - down.y;
+        if (Math.hypot(dx, dy) > 6) down.moved = true;
+        if (mode3 === 'walk' && down.moved) {
+          // Drag the view: like turning your head (the store moves with your finger).
+          const k = 3.2 / Math.max(300, cv.clientWidth);
+          me.heading = down.heading + dx * k;
+          me.pitch = Math.max(-PITCH, Math.min(PITCH, down.pitch + dy * k));
+          placeWalker();
+          tellWhere();
+          aim();
+          kick();
+        }
+        return true;
       };
       const onUp = (e: PointerEvent) => {
-        if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) return;
+        if (!down || e.pointerId !== down.id) return;
+        const tap = !down.moved && Math.hypot(e.clientX - down.x, e.clientY - down.y) <= 6;
         down = null;
-        const cell = hit(e.clientX, e.clientY);
+        if (!tap) {
+          if (mode3 === 'walk') aim(true);
+          // Sharp again after looking round.
+          dirty = true;
+          kick();
+          return;
+        }
+        const [nx, ny] = norm(e);
+        const cell = cellAt(nx, ny);
         showTip(cell, e.clientX, e.clientY);
         window.clearTimeout(hideTip);
         if (e.pointerType !== 'mouse') hideTip = window.setTimeout(() => showTip(null, 0, 0), 2600);
-        if (!cell) return;
-        const { chambers: chs, mode: md, onPlace: pick, onActive: act } = latest.current;
-        const c = chs[cell.room];
-        if (!c) return;
-        act(c.id);
-        if (md === 'book' && (cell.look === 'free' || cell.look === 'part' || cell.look === 'selected')) pick?.(c, cell.slot, cell.look);
-        else if (md === 'owner') pick?.(c, cell.slot, cell.look);
+        if (cell) {
+          act(cell);
+          return;
+        }
+        if (mode3 === 'orbit') {
+          const ci = chamberHit(nx, ny);
+          setInfo(ci);
+          if (ci !== null) {
+            const row = shown?.chambers[ci]?.floors[0]?.row;
+            if (row) latest.current.onActive(row.id);
+          }
+        }
       };
       let moveQueued = false;
       const onMove = (e: PointerEvent) => {
-        if (e.pointerType !== 'mouse' || e.buttons || moveQueued) return;
+        if (onMoveDrag(e)) return;
+        if (e.pointerType !== 'mouse' || e.buttons || moveQueued || mode3 === 'walk') return;
         moveQueued = true;
         requestAnimationFrame(() => {
           moveQueued = false;
-          const cell = hit(e.clientX, e.clientY);
+          const [nx, ny] = norm(e);
+          const cell = cellAt(nx, ny);
           showTip(cell, e.clientX, e.clientY);
-          const { mode: md } = latest.current;
-          renderer.domElement.style.cursor = cell && (md === 'owner' || (md === 'book' && (cell.look === 'free' || cell.look === 'part' || cell.look === 'selected'))) ? 'pointer' : 'grab';
+          cv.style.cursor = cell && choosable(cell) ? 'pointer' : 'grab';
         });
       };
       const onLeave = () => showTip(null, 0, 0);
-      renderer.domElement.addEventListener('pointerdown', onDown);
-      renderer.domElement.addEventListener('pointerup', onUp);
-      renderer.domElement.addEventListener('pointermove', onMove);
-      renderer.domElement.addEventListener('pointerleave', onLeave);
+      cv.addEventListener('pointerdown', onDown);
+      cv.addEventListener('pointerup', onUp);
+      cv.addEventListener('pointercancel', () => (down = null));
+      cv.addEventListener('pointermove', onMove);
+      cv.addEventListener('pointerleave', onLeave);
       controls.addEventListener('change', () => {
         dirty = true;
+        kick();
       });
+      controls.addEventListener('start', () => {
+        framed = null;
+        handHeld = true;
+        kick();
+      });
+      controls.addEventListener('end', () => {
+        // Sharp again once the finger lifts.
+        handHeld = false;
+        dirty = true;
+        kick();
+      });
+
+      // Keys while walking: W A S D or arrows to walk, ← → (Q E) to turn, R F to look up and down.
+      const keyMap: Record<string, keyof WalkInput> = {
+        w: 'fwd', arrowup: 'fwd', s: 'back', arrowdown: 'back', a: 'left', d: 'right',
+        arrowleft: 'turnL', q: 'turnL', arrowright: 'turnR', e: 'turnR', r: 'up', pageup: 'up', f: 'down', pagedown: 'down',
+      };
+      const onKey = (on: boolean) => (e: KeyboardEvent) => {
+        if (mode3 !== 'walk') return;
+        const t = e.target as HTMLElement | null;
+        if (t && /^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(t.tagName)) return;
+        const k = keyMap[e.key.toLowerCase()];
+        if (!k) return;
+        e.preventDefault();
+        input.current[k] = on;
+        if (on) kick();
+      };
+      const keyDown = onKey(true);
+      const keyUp = onKey(false);
+      const clearKeys = () => Object.assign(input.current, noInput());
+      el.addEventListener('keydown', keyDown);
+      el.addEventListener('keyup', keyUp);
+      window.addEventListener('blur', clearKeys);
 
       const resize = () => {
         const w = el.clientWidth;
@@ -569,46 +672,223 @@ export function ColdStore3D({
         renderer.setSize(w, h, false);
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
+        if (framed !== null && mode3 === 'orbit') frame(framed, true);
         dirty = true;
+        kick();
       };
       const ro = new ResizeObserver(resize);
       ro.observe(el);
       resize();
 
-      let raf = 0;
+      // ── The data ──
+      let shownCells = '';
+      const setData = (s: StoreScene, cs: Cell[], freeBy: number[]) => {
+        const fresh = s !== shown;
+        // The same store with the same places: nothing to build again.
+        const sign = `${cs.map((c) => `${c.look}${c.free}`).join()}|${freeBy.join()}`;
+        if (!fresh && sign === shownCells) return;
+        shownCells = sign;
+        if (fresh) {
+          if (shell) {
+            root.remove(shell.group);
+            disposeGroup(T, kit, shell.group);
+          }
+          const b = s.bounds;
+          origin = { ox: b.x + b.w / 2, oy: b.y + b.d / 2 };
+          shell = buildShell(kit, s, origin);
+          root.add(shell.group);
+        }
+        if (places) {
+          root.remove(places.group);
+          disposeGroup(T, kit, places.group);
+        }
+        places = buildPlaces(kit, s, cs, origin, (i) => freeBy[i] ?? 0);
+        root.add(places.group);
+        const stops = new Set<string>();
+        for (const c of cs) {
+          const ch = s.chambers[c.chamber];
+          if (c.look === 'booked' || c.look === 'mine' || c.look === 'part' || (c.look === 'blocked' && ch?.storage === 'boxes')) stops.add(`${c.chamber}:${c.floor}:${c.place}`);
+        }
+        walkWorldNow = walkWorld(s, (ci, fi, pi) => stops.has(`${ci}:${fi}:${pi}`));
+        const first = !shown;
+        const moved = shown && (shown.bounds.w !== s.bounds.w || shown.bounds.d !== s.bounds.d || shown.chambers.length !== s.chambers.length);
+        shown = s;
+        setActive(latest.current.activeIndex);
+        if (first || moved) {
+          frame('all', true);
+          if (mode3 === 'walk') toMainDoor();
+        } else if (mode3 === 'walk') {
+          placeWalker();
+          tellWhere();
+          aim(true);
+        }
+        dirty = true;
+        kick();
+      };
+      const setActive = (index: number) => {
+        if (!shell) return;
+        for (const line of shell.outlines) line.material = line.userData.chamber === index ? kit.edgeOn : kit.edge;
+        dirty = true;
+        kick();
+      };
+      /**
+       * One frame. From outside, the walls between the camera and the inside
+       * are see-through (a cutaway from any side); walking, every wall looks
+       * solid. Labels stay readable however far away they are.
+       */
+      const render = () => {
+        if (shell) faceWalls(kit, shell.walls, mode3 === 'walk' ? null : { x: camera.position.x, z: camera.position.z });
+        const px = (2 * Math.tan(T.MathUtils.degToRad(camera.fov / 2))) / Math.max(1, el.clientHeight);
+        sizeLabels([...(shell?.labels ?? []), ...(places?.labels ?? [])], camera, px);
+        renderer.render(world3, camera);
+      };
+      const setView = (v: View3D) => {
+        if (v === mode3) return;
+        mode3 = v;
+        Object.assign(input.current, noInput());
+        camera.fov = FOV[v];
+        camera.updateProjectionMatrix();
+        showTip(null, 0, 0);
+        if (v === 'walk') {
+          orbitPose = { pos: [camera.position.x, camera.position.y, camera.position.z], target: [controls.target.x, controls.target.y, controls.target.z] };
+          controls.enabled = false;
+          flight = null;
+          cv.setAttribute('aria-label', 'Walking inside the cold store. Use the arrows to walk and turn, drag to look around.');
+          cv.style.cursor = 'grab';
+          walkTo(startAt);
+          startAt = null;
+        } else {
+          controls.enabled = true;
+          cv.setAttribute('aria-label', 'The whole cold store in 3D. Drag to turn it, pinch or scroll to zoom.');
+          setTarget(null);
+          if (orbitPose) setPose(orbitPose.pos, orbitPose.target, true);
+          else frame('all', true);
+        }
+        dirty = true;
+        kick();
+      };
+      const choose = () => {
+        if (aimed) act(aimed);
+      };
+
+      // ── The loop: runs only while something moves ──
       const ease = (t: number) => 1 - Math.pow(1 - t, 3);
-      const loop = () => {
-        raf = requestAnimationFrame(loop);
+      let moving = false;
+      const step = (dt: number) => {
+        const i = input.current;
+        let busy = false;
+        const turn = (i.turnL ? 1 : 0) - (i.turnR ? 1 : 0);
+        if (turn) {
+          me.heading += turn * TURN * dt;
+          busy = true;
+        }
+        const look = (i.up ? 1 : 0) - (i.down ? 1 : 0);
+        if (look) {
+          me.pitch = Math.max(-PITCH, Math.min(PITCH, me.pitch + look * LOOK * dt));
+          busy = true;
+        }
+        const go = (i.fwd ? 1 : 0) - (i.back ? 1 : 0);
+        const side = (i.left ? 1 : 0) - (i.right ? 1 : 0);
+        if ((go || side) && walkWorldNow) {
+          held += dt;
+          // A slow first step, then a brisk walk.
+          const speed = Math.min(4, 1.4 + held * 1.4);
+          const hx = Math.cos(me.heading);
+          const hy = Math.sin(me.heading);
+          walk(walkWorldNow, me, (hx * go - hy * side) * speed * dt, (hy * go + hx * side) * speed * dt);
+          busy = true;
+        } else held = 0;
+        if (busy) {
+          placeWalker();
+          tellWhere();
+          aim();
+        } else if (moving) aim(true); // stopped: say exactly what the ring rests on
+        moving = busy;
+        return busy;
+      };
+      function loop(t: number) {
+        // Real time, even on a slow phone (walk() goes in small steps, so walls still stop you).
+        const gap = last ? (t - last) / 1000 : 0;
+        const dt = last ? Math.min(0.2, gap) : 1 / 60;
+        last = t;
+        let busy = false;
         if (flight) {
-          const t = Math.min(1, (performance.now() - flight.t0) / 650);
-          const k = ease(t);
+          const k = ease(Math.min(1, (performance.now() - flight.t0) / 700));
           const f = flight.from;
           const to = flight.to;
           camera.position.set(f[0] + (to[0] - f[0]) * k, f[1] + (to[1] - f[1]) * k, f[2] + (to[2] - f[2]) * k);
           controls.target.set(f[3] + (to[3] - f[3]) * k, f[4] + (to[4] - f[4]) * k, f[5] + (to[5] - f[5]) * k);
-          if (t >= 1) flight = null;
+          if (k >= 1) flight = null;
+          busy = true;
           dirty = true;
         }
-        if (controls.update() || dirty) {
-          renderer.render(scene, camera);
+        if (mode3 === 'walk') busy = step(dt) || busy;
+        else if (controls.update()) busy = true;
+        // Slower than 20 frames a second while moving: a slow phone. Draw fewer pixels while
+        // moving (sharp again when still) and stop gliding as soon as the finger lifts.
+        if (busy && gap > 0.05) {
+          if (++slowFrames >= 6) {
+            slowFrames = 0;
+            moveRatio = Math.max(0.5, moveRatio * 0.8);
+            controls.enableDamping = false;
+          }
+        } else if (busy) slowFrames = 0;
+        const moving = busy || handHeld || Boolean(down?.moved);
+        if (dirty || busy) {
+          const want = moving ? moveRatio : fullRatio;
+          if (renderer.getPixelRatio() !== want) renderer.setPixelRatio(want);
+          render();
           dirty = false;
         }
-      };
+        if (busy || flight) raf = requestAnimationFrame(loop);
+        else {
+          running = false;
+          last = 0;
+          if (!moving && renderer.getPixelRatio() !== fullRatio) {
+            renderer.setPixelRatio(fullRatio);
+            render();
+          }
+        }
+      }
+      function kick() {
+        if (running) return;
+        running = true;
+        raf = requestAnimationFrame(loop);
+      }
 
-      api.current = { setData, focus: (i) => frame(i) };
-      setData(latest.current.chambers, latest.current.cells);
-      loop();
+      api.current = {
+        setData,
+        setActive,
+        setView,
+        frame: (w) => frame(w),
+        walkTo,
+        walkFrom: (i) => (startAt = i),
+        goFloor,
+        choose,
+        kick,
+        showWhere: () => {
+          lastWhere = '';
+          if (mode3 === 'walk') tellWhere();
+        },
+      };
+      setData(latest.current.scene, latest.current.cells, latest.current.free);
+      setView(latest.current.view);
+      setReady(true);
 
       cleanup = () => {
         cancelAnimationFrame(raf);
         window.clearTimeout(hideTip);
         ro.disconnect();
+        el.removeEventListener('keydown', keyDown);
+        el.removeEventListener('keyup', keyUp);
+        window.removeEventListener('blur', clearKeys);
         controls.dispose();
-        disposeGroup(group);
-        for (const x of [unitBox, hover.geometry, stackMat, tileMat, floorMat, corridorMat, doorMat, glassMat, wallMat, aisleMat, edgeMat, tallWallMat, ghostMat, crateTex, faceTex, hover.material as { dispose: () => void }]) x.dispose();
+        if (shell) disposeGroup(T, kit, shell.group);
+        if (places) disposeGroup(T, kit, places.group);
+        kit.dispose();
         renderer.dispose();
         renderer.forceContextLoss();
-        renderer.domElement.remove();
+        cv.remove();
         api.current = null;
       };
     })();
@@ -617,36 +897,99 @@ export function ColdStore3D({
       disposed = true;
       cleanup();
     };
-  }, []);
-
-  const go = (id: string | 'all') => {
-    setFocus(id);
-    if (id !== 'all') onActive(id);
-    api.current?.focus(id === 'all' ? null : chambers.findIndex((c) => c.id === id));
-  };
+    // Set up once (textId never changes); data and callbacks reach the scene through `latest` and `api`.
+  }, [textId]);
 
   if (failed) {
-    return <p className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-950 ring-1 ring-amber-200">This phone or browser cannot show 3D. Use the Floor plan — it shows the same places.</p>;
+    return <p className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-950 ring-1 ring-amber-200">This phone or browser cannot show 3D. Use the Drawing — it shows the same chambers and places.</p>;
   }
 
+  const walking = view === 'walk';
+  const chip = (on: boolean) => `inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition ${on ? 'bg-sky-700 text-white' : 'bg-sky-50 text-sky-900 ring-1 ring-sky-200 hover:bg-sky-100'}`;
+  const shownInfo = info !== null ? scene.chambers[info] : null;
+  const note = scene.problems.length ? (mode === 'owner' ? scene.problems.slice(0, 2).join(' ') : 'As the owner measured them, some chambers do not fit inside the building, so they are drawn outside it.') : '';
+  const big = zoom > 1.3;
+  const height = walking ? (big ? 'min(78vh, 1050px)' : 'min(70vh, 560px)') : big ? 'min(62vh, 820px)' : 'min(62vh, 520px)';
+  const card =
+    !walking && shownInfo ? (
+      <InfoCard
+        zoom={zoom}
+        c={shownInfo}
+        free={free[shownInfo.index] ?? 0}
+        rate={rate}
+        unit={scene.unit}
+        onClose={() => setInfo(null)}
+        onWalk={
+          onView
+            ? () => {
+                api.current?.walkFrom(shownInfo.index);
+                onView('walk');
+              }
+            : undefined
+        }
+      />
+    ) : null;
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Look at">
-        <button type="button" onClick={() => go('all')} aria-pressed={focus === 'all'} className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition ${focus === 'all' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'}`}>
-          <Maximize2 className="h-4 w-4" aria-hidden /> Whole store
-        </button>
-        {chambers.map((c) => (
-          <button key={c.id} type="button" onClick={() => go(c.id)} aria-pressed={focus === c.id} className={`cursor-pointer rounded-xl px-3 py-2 text-sm font-semibold transition ${focus === c.id ? 'bg-sky-700 text-white' : active === c.id ? 'bg-sky-100 text-sky-900 ring-1 ring-sky-300' : 'bg-sky-50 text-sky-900 hover:bg-sky-100'}`}>
-            {c.name}
+      <div className="flex flex-wrap gap-2" role="group" aria-label={walking ? 'Walk to' : 'Look at'}>
+        {walking ? (
+          <button type="button" onClick={() => api.current?.walkTo(null)} className={chip(false)}>
+            <DoorOpen className="h-4 w-4" aria-hidden /> Back to the main door
+          </button>
+        ) : (
+          <>
+            <button type="button" onClick={() => api.current?.frame('all')} className={chip(false)}>
+              <Maximize2 className="h-4 w-4" aria-hidden /> Whole store
+            </button>
+            <button type="button" onClick={() => api.current?.frame('door')} className={chip(false)}>
+              <DoorOpen className="h-4 w-4" aria-hidden /> View from the door
+            </button>
+            <button type="button" onClick={() => api.current?.frame('top')} className={chip(false)}>
+              <ScanEye className="h-4 w-4" aria-hidden /> Top view
+            </button>
+          </>
+        )}
+        {scene.chambers.map((c) => (
+          <button
+            key={c.key}
+            type="button"
+            aria-pressed={activeIndex === c.index}
+            onClick={() => {
+              const row = c.floors[0]?.row;
+              if (row && activeIndex !== c.index) onActive(row.id);
+              if (walking) api.current?.walkTo(c.index);
+              else {
+                setInfo(c.index);
+                api.current?.frame(c.index);
+              }
+            }}
+            className={chip(activeIndex === c.index)}
+          >
+            {walking ? `Go to ${c.name}` : c.name}
           </button>
         ))}
       </div>
-      <div ref={host} className="relative w-full touch-none select-none overflow-hidden rounded-3xl ring-1 ring-slate-900/10" style={{ height: 'min(62vh, 500px)' }}>
-        <div ref={tip} aria-live="polite" className="pointer-events-none absolute z-10 max-w-[220px] rounded-xl bg-slate-900/90 px-3 py-2 text-xs font-semibold text-white opacity-0 shadow-lg transition-opacity" />
+      <div
+        ref={host}
+        tabIndex={walking ? 0 : -1}
+        className="relative w-full touch-none select-none overflow-hidden rounded-3xl bg-gradient-to-b from-sky-50 to-slate-100 outline-none ring-1 ring-slate-900/10 focus-visible:ring-2 focus-visible:ring-sky-600"
+        style={{ height }}
+      >
+        {!ready && <p className="absolute inset-0 grid place-items-center text-sm text-slate-500">Opening the 3D view…</p>}
+        <p id={textId} data-scene-text className="sr-only">{sceneText(scene)}</p>
+        <div ref={tip} aria-live="polite" className="pointer-events-none absolute z-30 max-w-[228px] whitespace-pre-line rounded-xl bg-slate-900/90 px-3 py-2 text-xs font-semibold text-white opacity-0 shadow-lg transition-opacity" />
+        {walking && ready && (
+          <WalkHud press={press} where={where} onFloor={(n) => api.current?.goFloor(n)} target={target} onChoose={() => api.current?.choose()} mapRef={mapRef} mode={mode} zoom={zoom} />
+        )}
+        {!big && card}
       </div>
+      {big && card}
+      {note && <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-950 ring-1 ring-amber-300">{note}</p>}
+      {scene.beside && <p className="text-xs text-slate-600">Chambers set up before the building was measured stand beside it, outside its walls.</p>}
       <p className="text-xs text-slate-600">
-        Drag to turn the store · pinch or scroll to zoom · two fingers to move.{' '}
-        {mode === 'book' ? 'Tap a blue floor space to choose it; tap it again to undo.' : mode === 'owner' ? 'Tap a stack to see whose boxes they are.' : 'Your boxes are the violet stacks.'}
+        {walking
+          ? `Walk with the arrows (or the keys W A S D, ← →) · drag to look around · ${mode === 'book' ? 'tap a free place in front of you, or aim the ring at it, to choose it.' : mode === 'owner' ? 'tap a stack to see whose it is.' : 'your stacks are tinted violet.'}`
+          : `Drag to turn the store · pinch or scroll to zoom · two fingers to move. Tap a chamber to see what it holds. ${mode === 'book' ? 'Tap a free place (an outlined stack) to choose it; tap it again to undo.' : mode === 'owner' ? 'Tap a stack to see whose it is.' : 'Your stacks are tinted violet.'}`}
       </p>
     </div>
   );

@@ -1,18 +1,21 @@
 'use client';
 
 /**
- * One chamber drawn to scale from its measured size (lib/coldLayout): the
- * walls with the door and windows where the owner measured them, the
- * walkway, and every stack where it really stands, with the measurements
- * written on the drawing. Row 1 is by the door (at the
- * bottom), stacks are counted from the left wall. A shared place shows how
- * full it is and the boxes that still fit. Tap a place to choose it
- * (booking), to see whose it is or mark a pillar (owner).
+ * One chamber (one floor of it) drawn to scale from its measured size
+ * (lib/coldLayout), as you see it walking in through its door: the walls
+ * with the door and windows where the owner measured them, the walkway, and
+ * every stack of bins, crates or boxes where it really stands, with the
+ * measurements written on the drawing. Row 1 is by the door (at the
+ * bottom), stacks are counted from the left. A shared place shows how full
+ * it is and how many still fit. Tap a place to choose it (booking) or to
+ * see whose it is (owner). Drawn to the width it has on screen; only very
+ * small places (crates) make it wider than a phone, to stay easy to tap.
  */
-import { useId } from 'react';
+import { useCallback, useId, useState } from 'react';
 
-import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
+import { lookLabel, type Look } from '@/components/rental/placeLook';
 import { layersText, planOf, showLength, type ChamberPlan, type ChamberSize, type WindowSize } from '@/lib/coldLayout';
+import { countText, UNIT_WORDS } from '@/lib/coldStore';
 import { placeKey, placeLabel, placeName, type ColdChamber } from '@/lib/db/coldMap';
 
 /** Drawing margins (px) for row labels, stack numbers, measurements and the door. */
@@ -27,8 +30,20 @@ export function windowText(win: WindowSize, i: number, unit: ChamberSize['unit']
 }
 /** A place is never drawn smaller than this (px), so it stays easy to tap. */
 const MIN_PLACE = 30;
-/** The room is drawn about this wide (px) when places allow. */
+/** The room is drawn about this wide (px) when there is room on screen. */
 const ROOM_W = 560;
+
+/** How wide the drawing's box is on screen (0 until known). */
+function useShownWidth(): [(el: HTMLElement | null) => (() => void) | undefined, number] {
+  const [width, setWidth] = useState(0);
+  const ref = useCallback((el: HTMLElement | null) => {
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const watch = new ResizeObserver(([e]) => setWidth(Math.round(e.contentRect.width)));
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, []);
+  return [ref, width];
+}
 
 const FILL: Record<Look, { fill: string; stroke: string; text: string }> = {
   free: { fill: '#e0f2fe', stroke: '#38bdf8', text: '#0369a1' },
@@ -59,9 +74,15 @@ export function ChamberDiagram({
   labelOf?: (key: string) => string | undefined;
 }) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
+  const [boxRef, shown] = useShownWidth();
   const plan: ChamberPlan = planOf(size);
   const { width: W, length: L } = size;
-  const k = Math.max(ROOM_W / W, MIN_PLACE / Math.min(plan.placeW, plan.placeD));
+  const room = shown ? Math.max(160, Math.min(ROOM_W, shown - M.l - M.r)) : ROOM_W;
+  const k = Math.max(room / W, MIN_PLACE / Math.min(plan.placeW, plan.placeD));
+  const words = UNIT_WORDS[c.storage];
+  // Owner wizard floors: the cells left over (so the count is exact) are just floor, not places.
+  const counted = size.places !== undefined;
+  const floors = size.floors ?? 1;
   const w = W * k;
   const h = L * k;
   const svgW = M.l + w + M.r;
@@ -81,16 +102,17 @@ export function ChamberDiagram({
     const slot = placeName(r, i);
     const key = placeKey(c.id, slot);
     const look = stateOf(c, slot);
+    if (counted && look === 'blocked') return null;
     const quiet = mode === 'view' && look === 'free';
     const f = quiet ? { fill: '#ffffff', stroke: '#e2e8f0', text: '#cbd5e1' } : FILL[look];
     const clickable = mode === 'book' ? look === 'free' || look === 'part' || look === 'selected' : mode === 'owner';
     const label = labelOf?.(key);
     const x = X(plan.colX[i]);
     const y = Y(plan.rowZ[r - 1] + plan.placeD);
-    const room = look === 'part' ? roomOf(c, slot) : 0;
+    const spare = look === 'part' ? roomOf(c, slot) : 0;
     // How much of a shared place is taken, drawn from the bottom of the place.
-    const taken = look === 'part' ? Math.min(1, Math.max(0, 1 - room / c.boxes_per_slot)) : 0;
-    const mark = look === 'selected' ? '✓' : label && (look === 'booked' || look === 'held' || look === 'part') ? label : look === 'mine' ? (label ?? 'You') : look === 'part' ? String(room) : look === 'free' && mode === 'book' ? '+' : '';
+    const taken = look === 'part' ? Math.min(1, Math.max(0, 1 - spare / c.boxes_per_slot)) : 0;
+    const mark = look === 'selected' ? '✓' : label && (look === 'booked' || look === 'held' || look === 'part') ? label : look === 'mine' ? (label ?? 'You') : look === 'part' ? String(spare) : look === 'free' && mode === 'book' ? '+' : '';
     const name = placeLabel(slot);
     const act = () => clickable && onPlace?.(c, slot, look);
     return (
@@ -100,7 +122,7 @@ export function ChamberDiagram({
         tabIndex={clickable ? 0 : -1}
         aria-disabled={!clickable}
         aria-pressed={mode === 'book' ? look === 'selected' : undefined}
-        aria-label={`${c.name}, ${name}: ${PLACE_LOOK[look].label}${look === 'free' ? `, ${c.boxes_per_slot} boxes` : look === 'part' ? `, room for ${room} of ${c.boxes_per_slot} boxes` : ''}${label ? `, ${label}` : ''}`}
+        aria-label={`${c.name}, ${name}: ${lookLabel(look, words.many)}${look === 'free' ? `, ${countText(c.boxes_per_slot, c.storage)}` : look === 'part' ? `, room for ${spare} of ${countText(c.boxes_per_slot, c.storage)}` : ''}${label ? `, ${label}` : ''}`}
         onClick={act}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -110,7 +132,7 @@ export function ChamberDiagram({
         }}
         className={clickable ? 'cursor-pointer outline-none [&:focus-visible>rect]:stroke-sky-900 [&:focus-visible>rect]:[stroke-width:3]' : 'cursor-default'}
       >
-        <title>{`${name} · ${PLACE_LOOK[look].label}${look === 'part' ? ` · room for ${room} boxes` : ''}${label ? ` · ${label}` : ''}`}</title>
+        <title>{`${name} · ${lookLabel(look, words.many)}${look === 'part' ? ` · room for ${countText(spare, c.storage)}` : ''}${label ? ` · ${label}` : ''}`}</title>
         <rect x={x} y={y} width={pw} height={pd} rx={Math.min(6, pw / 6)} fill={look === 'blocked' && !quiet ? `url(#${hatch})` : f.fill} stroke={f.stroke} strokeWidth={1.5} />
         {taken > 0 && <rect x={x + 1} y={y + pd * (1 - taken)} width={pw - 2} height={pd * taken - 1} rx={Math.min(5, pw / 7)} fill="#cbd5e1" pointerEvents="none" />}
         {mark && pw >= 18 && pd >= 14 && (
@@ -148,7 +170,7 @@ export function ChamberDiagram({
   };
 
   return (
-    <div className="overflow-x-auto overscroll-x-contain pb-2">
+    <div ref={boxRef} className="overflow-x-auto overscroll-x-contain pb-2">
       <svg
         width={svgW}
         height={svgH}
@@ -206,7 +228,7 @@ export function ChamberDiagram({
           {plan.doorSet && plan.doorX[0] > 0.05 && (
             <g stroke="#b45309" strokeWidth={1} fill="#b45309" fontSize={11} fontWeight={600}>
               <line x1={M.l} y1={M.t + h + 54} x2={doorL} y2={M.t + h + 54} markerStart={`url(#arr-${uid})`} markerEnd={`url(#arr-${uid})`} />
-              <text x={(M.l + doorL) / 2} y={M.t + h + 68} textAnchor="middle" stroke="none">{`${showLength(plan.doorX[0], u)} from the left wall`}</text>
+              <text x={(M.l + doorL) / 2} y={M.t + h + 68} textAnchor="middle" stroke="none">{`${showLength(plan.doorX[0], u)} from the ${counted ? 'left corner' : 'left wall'}`}</text>
             </g>
           )}
         </g>
@@ -235,7 +257,7 @@ export function ChamberDiagram({
         {/* Measurements */}
         <g aria-hidden stroke="#64748b" strokeWidth={1.2} fill="#334155" fontSize={12} fontWeight={600}>
           <line x1={M.l} y1={M.t - 34} x2={M.l + w} y2={M.t - 34} markerStart={`url(#arr-${uid})`} markerEnd={`url(#arr-${uid})`} />
-          <text x={M.l + w / 2} y={M.t - 40} textAnchor="middle" stroke="none">{`Breadth ${showLength(W, u)}`}</text>
+          <text x={M.l + w / 2} y={M.t - 40} textAnchor="middle" stroke="none">{`Width ${showLength(W, u)}`}</text>
           <line x1={M.l + w + 30} y1={M.t} x2={M.l + w + 30} y2={M.t + h} markerStart={`url(#arr-${uid})`} markerEnd={`url(#arr-${uid})`} />
           <text x={M.l + w + 46} y={M.t + h / 2} transform={`rotate(90 ${M.l + w + 46} ${M.t + h / 2})`} textAnchor="middle" stroke="none">
             {`Length ${showLength(L, u)} (door → back wall)`}
@@ -243,7 +265,11 @@ export function ChamberDiagram({
         </g>
       </svg>
       <p className="mt-1 text-center text-xs text-slate-600">
-        Height {showLength(size.height, u)} · each place {showLength(plan.placeW, u)} × {showLength(plan.placeD, u)}: {layersText(plan)} = <strong>{c.boxes_per_slot.toLocaleString('en-IN')} boxes</strong>, stacked {showLength(plan.stackHeight, u)} high
+        {counted && floors > 1
+          ? `Floor ${size.floor ?? 1} of ${floors} · ${showLength(plan.floorH ?? size.height / floors, u)} high (the chamber is ${showLength(size.height, u)})`
+          : `Height ${showLength(size.height, u)}`}{' '}
+        · each place {showLength(plan.placeW, u)} × {showLength(plan.placeD, u)}: {layersText(plan)} = <strong>{countText(c.boxes_per_slot, c.storage)}</strong>, stacked {showLength(plan.stackHeight, u)} high
+        {plan.crowded ? ` · ${words.title} are drawn closer together than they stand: there are more of them than fit on this floor.` : ''}
       </p>
       {plan.windows.length > 0 && (
         <ul aria-label={`${c.name}: windows`} className="mt-1 space-y-0.5 text-center text-xs text-sky-900">

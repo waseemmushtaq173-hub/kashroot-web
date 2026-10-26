@@ -7,6 +7,7 @@ import { useMutation } from '@tanstack/react-query';
 import { AlertCircle, Loader2, ShieldCheck, Copy, CheckCircle2 } from 'lucide-react';
 import { authApi } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
+import { OtpBoxes } from '@/components/ui/OtpBoxes';
 
 /**
  * MfaSetupPage
@@ -168,21 +169,13 @@ export default function MfaSetupPage() {
           {/* TOTP confirm */}
           <div className="space-y-3">
             <label htmlFor="totp" className="kr-label">Enter the 6-digit code from your app</label>
-            <input
+            <OtpBoxes
               id="totp"
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]{6}"
-              maxLength={6}
-              autoComplete="one-time-code"
-              placeholder="123456"
-              aria-describedby={verifyError ? 'totp-error' : undefined}
-              aria-invalid={!!verifyError}
               value={totpCode}
-              onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              className={`kr-input text-center text-h3 font-heading tracking-widest ${
-                verifyError ? 'kr-input-error' : ''
-              }`}
+              onChange={setTotpCode}
+              invalid={!!verifyError}
+              describedBy={verifyError ? 'totp-error' : undefined}
+              onEnter={() => totpCode.length === 6 && verifyMutation.mutate()}
             />
             {verifyError && (
               <p id="totp-error" role="alert" className="kr-error-msg">

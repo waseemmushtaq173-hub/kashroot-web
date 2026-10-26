@@ -4,16 +4,18 @@
  * Owner wizard, steps 1 and 2:
  *   1 Your cold store   name, owner and manager with their mobiles, state,
  *                       district, area / village and address.
- *   2 The building      length, width and height (feet or metres) and the
- *                       main door: which wall, how far from the left
- *                       corner, how wide and how high — drawn from above as
+ *   2 The building      length, width and height (feet or metres), the
+ *                       main door (which wall, how far from the left
+ *                       corner, how wide and how high) and where the
+ *                       chambers are: left, right or both sides of the
+ *                       passage from the main door — drawn from above as
  *                       the owner types.
  */
-import { DoorOpen, Ruler, Store } from 'lucide-react';
+import { DoorOpen, Ruler, Store, Warehouse } from 'lucide-react';
 
-import { Box, Choose, UnitSwitch, WallPicker } from '@/components/rental/owner/fields';
+import { Box, Choose, Problems, UnitSwitch, WallPicker } from '@/components/rental/owner/fields';
 import { StoreDrawing } from '@/components/rental/owner/StoreDrawing';
-import { getField, JK, JK_DISTRICTS, STATES, switchUnit, type Issue, type StoreDraft, type StoreModel } from '@/lib/coldStore';
+import { getField, JK, JK_DISTRICTS, STATES, switchUnit, type Issue, type Sides, type StoreDraft, type StoreModel } from '@/lib/coldStore';
 
 /** What every step gets from the wizard. */
 export interface Kit {
@@ -69,6 +71,67 @@ export function StoreStep({ kit }: { kit: Kit }) {
   );
 }
 
+const SIDE_TEXT: Record<Sides, { title: string; text: string }> = {
+  left: { title: 'Left side', text: 'Chambers on your left' },
+  right: { title: 'Right side', text: 'Chambers on your right' },
+  both: { title: 'Both sides', text: 'Chambers left and right' },
+};
+
+/** The store from above as you walk in: the main door at the bottom, the passage up from it, chambers on one side or both. */
+function SidesIcon({ sides, on }: { sides: Sides; on: boolean }) {
+  const room = (x: number, y: number, door: 'l' | 'r') => (
+    <g key={`${x}-${y}`}>
+      <rect x={x} y={y} width="22" height="17" rx="1.5" fill={on ? '#c4b5fd' : '#bfdbfe'} stroke={on ? '#5b21b6' : '#1d4ed8'} strokeWidth="1.5" />
+      <line x1={door === 'r' ? x + 22 : x} y1={y + 5} x2={door === 'r' ? x + 22 : x} y2={y + 12} stroke="#d97706" strokeWidth="3" />
+    </g>
+  );
+  const left = sides !== 'right';
+  const right = sides !== 'left';
+  return (
+    <svg aria-hidden width="84" height="72" viewBox="0 0 84 72">
+      <rect x="4" y="3" width="76" height="60" rx="3" fill="#ffffff" stroke="#64748b" strokeWidth="2" />
+      <rect x="35" y="3" width="14" height="60" fill="#fef3c7" />
+      <line x1="42" y1="58" x2="42" y2="12" stroke="#b45309" strokeWidth="1.5" strokeDasharray="3 3" />
+      <path d="M38 17 L42 11 L46 17" fill="none" stroke="#b45309" strokeWidth="1.5" />
+      {left && [room(7, 6, 'r'), room(7, 25, 'r'), room(7, 44, 'r')]}
+      {right && [room(55, 6, 'l'), room(55, 25, 'l'), room(55, 44, 'l')]}
+      <line x1="34" y1="63" x2="50" y2="63" stroke="#d97706" strokeWidth="5" />
+      <text x="42" y="71.5" textAnchor="middle" fontSize="7" fontWeight="700" fill="#b45309">MAIN DOOR</text>
+    </svg>
+  );
+}
+
+/** Where the chambers are along the passage from the main door: three big picture buttons. */
+function SidesPicker({ value, onChange, issues }: { value: Sides | ''; onChange: (v: Sides) => void; issues: Issue[] }) {
+  const label = 'Where are the chambers?';
+  return (
+    <fieldset data-field="building.sides" className="space-y-2 rounded-2xl bg-violet-50/70 p-4 ring-1 ring-violet-200">
+      <legend className="sr-only">{label}</legend>
+      <p className="flex items-center gap-2 text-base font-semibold text-violet-950"><Warehouse className="h-5 w-5" aria-hidden /> {label}</p>
+      <p className="text-sm text-slate-700">Stand in the main door and look in. The passage starts at the main door. Are the chambers on its left, on its right, or on both sides?</p>
+      <div role="radiogroup" aria-label={label} className="grid grid-cols-3 gap-2">
+        {(['left', 'right', 'both'] as const).map((s) => (
+          <button
+            key={s}
+            type="button"
+            role="radio"
+            aria-checked={value === s}
+            aria-label={SIDE_TEXT[s].title}
+            onClick={() => onChange(s)}
+            className={`flex min-h-[124px] cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl p-2 text-center ring-2 transition ${value === s ? 'bg-violet-700 text-white shadow-md ring-violet-700' : 'bg-white text-slate-800 ring-slate-200 hover:ring-violet-300'}`}
+          >
+            <span className="rounded-xl bg-white p-0.5"><SidesIcon sides={s} on={value === s} /></span>
+            <span className="text-base font-bold leading-tight">{SIDE_TEXT[s].title}</span>
+            <span className={`hidden text-xs sm:block ${value === s ? 'text-violet-100' : 'text-slate-600'}`}>{SIDE_TEXT[s].text}</span>
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-slate-600">KashRoot puts the chambers in number order from the main door inward{value === 'both' ? ' — Chamber 1 on the left, 2 on the right, 3 on the left and so on' : ''}, each with its door facing the passage. To put a chamber somewhere else, say where it stands in step 3 (More details).</p>
+      <Problems issues={issues} />
+    </fieldset>
+  );
+}
+
 export function BuildingStep({ kit }: { kit: Kit }) {
   const { draft } = kit;
   const u = draft.unit;
@@ -104,6 +167,7 @@ export function BuildingStep({ kit }: { kit: Kit }) {
             <KitBox kit={kit} field="building.door.height" label={`Main door: height (${u})`} number />
           </div>
         </fieldset>
+        <SidesPicker value={draft.building.sides ?? ''} onChange={(v) => kit.set('building.sides', v)} issues={kit.issuesOf('building.sides')} />
       </div>
       <section aria-label="Live drawing of the building" className="space-y-2 lg:sticky lg:top-4 lg:self-start">
         <p className="text-sm font-semibold text-slate-800">Live drawing <span className="font-normal text-slate-600">— changes as you type</span></p>
