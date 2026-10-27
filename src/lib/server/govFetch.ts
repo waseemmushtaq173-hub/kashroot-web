@@ -92,21 +92,62 @@ async function missingIntermediates(host: string, port: number): Promise<string[
   return found;
 }
 
-function getWith(url: string, headers: Record<string, string>, ca: string[], timeout: number): Promise<GovResponse> {
+/**
+ * `endOnClose`: a response with no length that ends by the server dropping
+ * the connection is taken as complete (what a browser does) instead of failing.
+ */
+function getWith(url: string, headers: Record<string, string>, ca: string[], timeout: number, endOnClose = false): Promise<GovResponse> {
   return new Promise((resolve, reject) => {
+    let settled = false;
+    const chunks: Buffer[] = [];
+    let status = 0;
+    let closeDelimited = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      const body = Buffer.concat(chunks).toString('utf8');
+      resolve({ ok: status >= 200 && status < 300, status, json: async () => JSON.parse(body), text: async () => body });
+    };
+    const fail = (err: unknown) => {
+      if (settled) return;
+      // The server dropped the connection after sending the body it had: that was the end.
+      if (endOnClose && closeDelimited && chunks.length && (err as Error)?.name !== 'TimeoutError') return finish();
+      settled = true;
+      reject(err);
+    };
     const req = https.get(url, { headers, ca, timeout }, (res) => {
-      const chunks: Buffer[] = [];
+      status = res.statusCode ?? 0;
+      closeDelimited = res.headers['content-length'] === undefined && res.headers['transfer-encoding'] === undefined;
       res.on('data', (c: Buffer) => chunks.push(c));
-      res.on('end', () => {
-        const body = Buffer.concat(chunks).toString('utf8');
-        const status = res.statusCode ?? 0;
-        resolve({ ok: status >= 200 && status < 300, status, json: async () => JSON.parse(body), text: async () => body });
-      });
-      res.on('error', reject);
+      res.on('end', finish);
+      res.on('error', fail);
+      res.on('close', () => (res.complete ? finish() : fail(Object.assign(new Error('The connection was closed'), { code: 'ECONNRESET' }))));
     });
     req.on('timeout', () => req.destroy(Object.assign(new Error('The request timed out'), { name: 'TimeoutError' })));
-    req.on('error', reject);
+    req.on('error', fail);
   });
+}
+
+/**
+ * GET with Node's https module instead of fetch(), for a server that ends its
+ * answer by dropping the connection (the NHB cold storage file: no length,
+ * then a reset). fetch() can crash the whole server process on that — an
+ * internal assertion, thrown where no try/catch can reach it. Here such a
+ * body counts as the whole answer. Missing intermediate certificates are
+ * fetched as in govFetch. Not cached by Next.js: the caller keeps its copy.
+ */
+export async function nodeGet(url: string, headers: Record<string, string>, timeout = 12_000): Promise<GovResponse> {
+  const { hostname, port } = new URL(url);
+  const host = `${hostname}:${port || 443}`;
+  try {
+    return await getWith(url, headers, [...roots(), ...(intermediates.get(host) ?? [])], timeout, true);
+  } catch (err) {
+    if (!CHAIN_ERRORS.has(causeCode(err) ?? '')) throw err;
+    const found = await missingIntermediates(hostname, Number(port) || 443).catch(() => []);
+    if (!found.length) throw err;
+    intermediates.set(host, found);
+    return getWith(url, headers, [...roots(), ...found], timeout, true);
+  }
 }
 
 /** `revalidate`: seconds Next.js may keep the answer (0: always ask the site again). */

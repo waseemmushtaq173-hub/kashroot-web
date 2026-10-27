@@ -13,7 +13,7 @@
 import 'server-only';
 
 import { NHB_DATABASE_URL, NHB_GIS_URL, niceName, parseColdStoreList, SOURCE_LABEL, type DirEntry, type SourceState } from '@/lib/coldDirectory';
-import { causeCode, govFetch } from '@/lib/server/govFetch';
+import { causeCode, nodeGet } from '@/lib/server/govFetch';
 import { keepGood, lastGood } from '@/lib/server/lastGood';
 
 const KEEP_MS = 12 * 60 * 60 * 1000;
@@ -109,10 +109,13 @@ function httpReason(site: string, status: number): Reason {
   return siteError(`${s} answered with error ${status}.`);
 }
 
-async function readNhb(fresh: boolean): Promise<DirEntry[]> {
+async function readNhb(): Promise<DirEntry[]> {
   const url = nhbUrl();
   const site = 'The NHB website';
-  const res = await govFetch(url, { Accept: 'text/csv,application/json,application/xml,text/plain,*/*', 'User-Agent': 'Mozilla/5.0 (compatible; KashRoot cold store directory)' }, 12_000, fresh ? 0 : KEEP_MS / 1000);
+  // nodeGet, not fetch(): the NHB server ends the file by dropping the
+  // connection, which can crash fetch() (see lib/server/govFetch). The
+  // 12-hour copy above keeps it from being read more often than needed.
+  const res = await nodeGet(url, { Accept: 'text/csv,application/json,application/xml,text/plain,*/*', 'User-Agent': 'Mozilla/5.0 (compatible; KashRoot cold store directory)' }, 12_000);
   if (!res.ok) throw httpReason(site, res.status);
   const parsed = parseColdStoreList(await res.text(), true);
   if (parsed.problem) {
