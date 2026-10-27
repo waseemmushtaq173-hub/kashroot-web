@@ -58,6 +58,18 @@ export const GLASS = {
   card: 'rounded-3xl bg-white/70 backdrop-blur-xl ring-1 ring-slate-900/5 shadow-[0_8px_30px_rgba(15,23,42,0.06)]',
 } as const;
 
+/** The one KashRoot look (as the portals: components/portal/kit BRAND) — chinar green, saffron gold, ivory. */
+const TOOL_BRAND: ToolTheme = {
+  canvas: 'bg-gradient-to-br from-[#FBF8F0] via-[#F6F1E3] to-[#EAF3EE]',
+  glowA: 'bg-emerald-300/30',
+  glowB: 'bg-amber-200/40',
+  header: 'bg-gradient-to-r from-[#FBF8F0]/95 via-white/85 to-emerald-50/90 border-b border-amber-200/70',
+  eyebrow: 'bg-amber-50 text-amber-900 ring-1 ring-amber-300/70',
+  iconTile: 'bg-gradient-to-br from-emerald-700 to-[#052E26] text-amber-200 shadow-lg shadow-emerald-950/25 ring-1 ring-amber-300/40',
+  primaryButton: 'bg-emerald-800 text-white hover:bg-emerald-900 focus-visible:outline-emerald-700',
+  secondaryButton: 'bg-white/85 text-emerald-900 ring-1 ring-amber-300/80 hover:bg-white focus-visible:outline-emerald-700',
+};
+
 export const TOOLS: Record<ToolId, Tool> = {
   escrow: {
     id: 'escrow',
@@ -67,16 +79,7 @@ export const TOOLS: Record<ToolId, Tool> = {
       'Order now and pay the seller directly by UPI only after the goods reach you and you have checked them — no advance-payment risk.',
     href: '/escrow',
     icon: ShieldCheck,
-    theme: {
-      canvas: 'bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50',
-      glowA: 'bg-emerald-300/40',
-      glowB: 'bg-teal-300/30',
-      header: 'bg-gradient-to-r from-emerald-50/90 via-white/80 to-teal-50/90 border-b border-emerald-100',
-      eyebrow: 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200',
-      iconTile: 'bg-gradient-to-br from-emerald-400 to-teal-600 text-white shadow-lg shadow-teal-600/25',
-      primaryButton: 'bg-teal-700 text-white hover:bg-teal-800 focus-visible:outline-teal-700',
-      secondaryButton: 'bg-white/80 text-teal-800 ring-1 ring-teal-200 hover:bg-white focus-visible:outline-teal-700',
-    },
+    theme: TOOL_BRAND,
   },
   mandi: {
     id: 'mandi',
@@ -86,16 +89,7 @@ export const TOOLS: Record<ToolId, Tool> = {
       'Today’s rates from the mandis near you — so you know the price before you load the truck.',
     href: '/mandi-weather',
     icon: TrendingUp,
-    theme: {
-      canvas: 'bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50',
-      glowA: 'bg-amber-300/40',
-      glowB: 'bg-orange-200/50',
-      header: 'bg-gradient-to-r from-amber-50/90 via-white/80 to-orange-50/90 border-b border-amber-100',
-      eyebrow: 'bg-amber-100 text-amber-900 ring-1 ring-amber-200',
-      iconTile: 'bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg shadow-orange-500/25',
-      primaryButton: 'bg-amber-400 text-amber-950 hover:bg-amber-300 focus-visible:outline-amber-600',
-      secondaryButton: 'bg-white/80 text-amber-900 ring-1 ring-amber-200 hover:bg-white focus-visible:outline-amber-600',
-    },
+    theme: TOOL_BRAND,
   },
   priceComparison: {
     id: 'priceComparison',
@@ -105,18 +99,7 @@ export const TOOLS: Record<ToolId, Tool> = {
       'Compare verified offers across growers and traders side by side, or list your own products to reach buyers across India.',
     href: '/compare-prices',
     icon: Scale,
-    theme: {
-      canvas: 'bg-gradient-to-br from-sky-50 via-white to-indigo-50',
-      glowA: 'bg-sky-300/40',
-      glowB: 'bg-indigo-200/40',
-      // The fix for the old dark-blue header: a soft light gradient that keeps
-      // slate-900 text (≈17:1) and the "List your products" button legible.
-      header: 'bg-gradient-to-r from-sky-50/90 via-white/80 to-amber-50/90 border-b border-sky-100',
-      eyebrow: 'bg-sky-100 text-sky-800 ring-1 ring-sky-200',
-      iconTile: 'bg-gradient-to-br from-sky-400 to-indigo-500 text-white shadow-lg shadow-indigo-500/25',
-      primaryButton: 'bg-sky-700 text-white hover:bg-sky-800 focus-visible:outline-sky-700',
-      secondaryButton: 'bg-white/80 text-sky-800 ring-1 ring-sky-200 hover:bg-white focus-visible:outline-sky-700',
-    },
+    theme: TOOL_BRAND,
   },
 };
 

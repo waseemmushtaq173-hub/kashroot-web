@@ -27,7 +27,7 @@ export function ReviewStep({ model, payout, listingId, warnings }: { model: Stor
   const len = (m: number) => `${nice(Math.round((m / (u === 'ft' ? FOOT : 1)) * 10) / 10)} ${u}`;
   const row = (Icon: typeof Store, title: string, body: ReactNode, key?: string) => (
     <div key={key} className="flex gap-3 rounded-2xl bg-white/90 p-4 ring-1 ring-slate-900/5">
-      <Icon className="mt-0.5 h-5 w-5 shrink-0 text-violet-700" aria-hidden />
+      <Icon className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" aria-hidden />
       <div className="min-w-0 text-base text-slate-800">
         <p className="font-semibold text-slate-900">{title}</p>
         {body}

@@ -171,7 +171,7 @@ export function ReceiptView({ id }: { id: string }) {
       <article id="kr-receipt" aria-label="Cold storage receipt" className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-900/10 sm:p-7 print:rounded-none print:ring-0">
         <header className="flex flex-wrap items-start justify-between gap-3 border-b border-dashed border-slate-300 pb-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-violet-700">KashRoot · Cold storage receipt</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">KashRoot · Cold storage receipt</p>
             <h1 className="mt-1 font-sans text-2xl font-bold text-slate-900">Receipt {bookingCode(b.id)}</h1>
             <p className="text-sm text-slate-600">Booked on {when(b.created_at)}</p>
           </div>
@@ -193,18 +193,18 @@ export function ReceiptView({ id }: { id: string }) {
             <p className="mt-1 font-semibold text-slate-900">{s.title}</p>
             <p className="text-slate-700">{address}</p>
             <p className="mt-1 text-slate-700">
-              Owner {s.owner_name}: <a href={`tel:${s.phone}`} className="inline-flex items-center gap-1 font-semibold text-violet-800"><Phone className="h-3.5 w-3.5 print:hidden" aria-hidden />{s.phone}</a>
+              Owner {s.owner_name}: <a href={`tel:${s.phone}`} className="inline-flex items-center gap-1 font-semibold text-emerald-800"><Phone className="h-3.5 w-3.5 print:hidden" aria-hidden />{s.phone}</a>
             </p>
             {s.manager_phone && (
               <p className="text-slate-700">
-                Manager{s.manager_name ? ` ${s.manager_name}` : ''}: <a href={`tel:${s.manager_phone}`} className="inline-flex items-center gap-1 font-semibold text-violet-800"><Phone className="h-3.5 w-3.5 print:hidden" aria-hidden />{s.manager_phone}</a>
+                Manager{s.manager_name ? ` ${s.manager_name}` : ''}: <a href={`tel:${s.manager_phone}`} className="inline-flex items-center gap-1 font-semibold text-emerald-800"><Phone className="h-3.5 w-3.5 print:hidden" aria-hidden />{s.manager_phone}</a>
               </p>
             )}
           </div>
         </section>
 
-        <section className="mt-5 rounded-2xl bg-violet-50 p-4 ring-1 ring-violet-200 print:bg-white">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-violet-800">Space booked</h2>
+        <section className="mt-5 rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200 print:bg-white">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-emerald-800">Space booked</h2>
           <p className="mt-1 text-xl font-bold text-slate-900">{countWords}</p>
           <p className="text-slate-800">From {day(b.start)} to {day(lastDay(b.start, b.months))} ({b.months} month{b.months === 1 ? '' : 's'})</p>
           {words.lines.length > 0 && (

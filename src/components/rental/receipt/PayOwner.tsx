@@ -61,7 +61,7 @@ export function CopyRow({ label, value, mono = true }: { label: string; value: s
         type="button"
         onClick={() => void copy()}
         aria-label={`Copy ${label.toLowerCase()}`}
-        className="inline-flex min-h-[44px] shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-violet-50 px-3 text-sm font-semibold text-violet-800 ring-1 ring-violet-200 hover:bg-violet-100 print:hidden"
+        className="inline-flex min-h-[44px] shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-emerald-50 px-3 text-sm font-semibold text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-100 print:hidden"
       >
         <Copy className="h-4 w-4" aria-hidden /> Copy
       </button>
@@ -154,7 +154,7 @@ export function PayOwner({
       {!details ? (
         <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-950 ring-1 ring-amber-200">
           <p>The owner has not added a bank account or UPI ID yet. Call the owner and ask where to pay.</p>
-          <a href={`tel:${owner.phone}`} className="mt-2 inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-white px-4 font-semibold text-violet-800 ring-1 ring-violet-200">
+          <a href={`tel:${owner.phone}`} className="mt-2 inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-white px-4 font-semibold text-emerald-800 ring-1 ring-emerald-200">
             <Phone className="h-4 w-4" aria-hidden /> Call {owner.name}
           </a>
         </div>
@@ -162,7 +162,7 @@ export function PayOwner({
         <>
           {details.account_number && (
             <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-200">
-              <p className="flex items-center gap-2 font-semibold text-slate-900"><Landmark className="h-5 w-5 text-violet-700" aria-hidden /> Pay to the bank account (NEFT, IMPS or at the bank)</p>
+              <p className="flex items-center gap-2 font-semibold text-slate-900"><Landmark className="h-5 w-5 text-emerald-700" aria-hidden /> Pay to the bank account (NEFT, IMPS or at the bank)</p>
               <div className="mt-1 divide-y divide-slate-100">
                 <CopyRow label="Account holder name" value={details.account_name} mono={false} />
                 <CopyRow label="Account number" value={details.account_number} />
@@ -173,7 +173,7 @@ export function PayOwner({
           )}
           {upi && link && (
             <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-200">
-              <p className="flex items-center gap-2 font-semibold text-slate-900"><Smartphone className="h-5 w-5 text-violet-700" aria-hidden /> {details.account_number ? 'Or pay by UPI' : 'Pay by UPI'}</p>
+              <p className="flex items-center gap-2 font-semibold text-slate-900"><Smartphone className="h-5 w-5 text-emerald-700" aria-hidden /> {details.account_number ? 'Or pay by UPI' : 'Pay by UPI'}</p>
               <div className="mt-1 divide-y divide-slate-100">
                 {!details.account_number && <CopyRow label="Name" value={details.account_name} mono={false} />}
                 <CopyRow label="UPI ID" value={upi} />
@@ -213,7 +213,7 @@ export function PayOwner({
             <p className="text-xs text-slate-600">Your bank or UPI app shows it after you pay. A UPI reference has 12 digits, like 412345678901.</p>
             <input
               id={`ref-${bookingId}`}
-              className="block min-h-[48px] w-full rounded-xl border-0 bg-white px-3 font-mono text-base tracking-wide text-slate-900 ring-1 ring-slate-300 focus:ring-2 focus:ring-violet-600"
+              className="block min-h-[48px] w-full rounded-xl border-0 bg-white px-3 font-mono text-base tracking-wide text-slate-900 ring-1 ring-slate-300 focus:ring-2 focus:ring-emerald-600"
               inputMode="text"
               autoCapitalize="characters"
               autoComplete="off"

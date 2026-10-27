@@ -63,7 +63,7 @@ export default function FounderAnalyticsPage() {
             <div className="bg-black/30 backdrop-blur-md border border-white/20 p-6 rounded-2xl">
               <div className="flex justify-between items-start mb-2">
                 <div className="text-white/60 text-sm">Weekly Active Users</div>
-                <Users className="w-5 h-5 text-purple-400" />
+                <Users className="w-5 h-5 text-emerald-400" />
               </div>
               <div className="text-2xl font-bold">12,450</div>
               <div className="text-xs text-white/40 mt-2">Farmers & Buyers</div>
@@ -104,7 +104,7 @@ export default function FounderAnalyticsPage() {
                     <span>Data Insights APIs</span>
                     <span>₹1.1 L</span>
                   </div>
-                  <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden"><div className="h-full bg-purple-500 w-[15%]"></div></div>
+                  <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 w-[15%]"></div></div>
                 </div>
               </div>
             </div>

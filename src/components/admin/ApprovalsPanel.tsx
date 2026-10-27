@@ -34,7 +34,7 @@ interface RoleRequest {
 }
 
 const ROLE_LOOK: Record<RoleRequest['role'], { label: string; tone: 'violet' | 'red' | 'green'; icon: LucideIcon; colour: string }> = {
-  EXPERT: { label: 'Agronomist', tone: 'violet', icon: GraduationCap, colour: 'text-purple-700' },
+  EXPERT: { label: 'Agronomist', tone: 'violet', icon: GraduationCap, colour: 'text-emerald-700' },
   DEALER: { label: 'Dealer', tone: 'red', icon: Store, colour: 'text-rose-700' },
   REPORTER: { label: 'Mandi Helper', tone: 'green', icon: Megaphone, colour: 'text-emerald-700' },
 };

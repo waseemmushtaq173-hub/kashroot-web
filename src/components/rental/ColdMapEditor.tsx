@@ -154,7 +154,7 @@ export function ColdMapEditor({
                       {b.units.toLocaleString('en-IN')} in all · {niceDate(b.start_date)} to {niceDate(periodEnd(b.start_date, b.duration))} · {inr(Number(b.amount))}
                     </p>
                     <p className="mt-1 text-slate-700">Places: {placesText(places.filter((p) => p.booking_id === b.id), chambers)}</p>
-                    <a href={`tel:${b.renter_phone}`} className="mt-2 inline-flex items-center gap-1 font-semibold text-violet-700"><Phone className="h-4 w-4" aria-hidden /> {b.renter_phone}</a>
+                    <a href={`tel:${b.renter_phone}`} className="mt-2 inline-flex items-center gap-1 font-semibold text-emerald-700"><Phone className="h-4 w-4" aria-hidden /> {b.renter_phone}</a>
                   </div>
                 ))}
               </section>

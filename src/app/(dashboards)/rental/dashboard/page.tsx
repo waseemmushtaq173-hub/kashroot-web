@@ -245,12 +245,12 @@ export default function RentalPage() {
         <p role="alert" className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">{listError}</p>
       ) : tab === 'cold' ? (
         <div className="space-y-5">
-          <div role="tablist" aria-label="Which cold stores" className="flex w-full gap-1 rounded-2xl bg-violet-50 p-1 ring-1 ring-violet-200 sm:w-auto sm:max-w-xl">
+          <div role="tablist" aria-label="Which cold stores" className="flex w-full gap-1 rounded-2xl bg-emerald-50 p-1 ring-1 ring-emerald-200 sm:w-auto sm:max-w-xl">
             {([
               ['all', `All cold stores (${directory.entries.length.toLocaleString('en-IN')}${directory.reading ? '…' : ''})`],
               ['kashroot', `Book on KashRoot (${listings.length})`],
             ] as const).map(([id, label]) => (
-              <button key={id} type="button" role="tab" aria-selected={findView === id} onClick={() => setFindView(id)} className={`flex-1 cursor-pointer rounded-xl px-4 py-2.5 text-sm font-semibold transition ${findView === id ? 'bg-violet-700 text-white shadow' : 'text-violet-900 hover:bg-violet-100'}`}>
+              <button key={id} type="button" role="tab" aria-selected={findView === id} onClick={() => setFindView(id)} className={`flex-1 cursor-pointer rounded-xl px-4 py-2.5 text-sm font-semibold transition ${findView === id ? 'bg-emerald-700 text-white shadow' : 'text-emerald-900 hover:bg-emerald-100'}`}>
                 {label}
               </button>
             ))}
@@ -358,11 +358,11 @@ export default function RentalPage() {
 /** Someone at the store to call: their name, number and a big Call button. */
 function CallPerson({ role, name, phone }: { role: string; name: string | null; phone: string }) {
   return (
-    <a href={`tel:${phone}`} aria-label={`Call the ${role}${name ? `, ${name}` : ''}, ${phone}`} className="flex min-h-[48px] w-full min-w-0 items-center gap-3 rounded-xl bg-violet-50 px-3 py-2 text-sm text-slate-800 no-underline ring-1 ring-violet-200 hover:bg-violet-100 hover:no-underline sm:w-auto">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-violet-700 text-white"><Phone className="h-4 w-4" aria-hidden /></span>
+    <a href={`tel:${phone}`} aria-label={`Call the ${role}${name ? `, ${name}` : ''}, ${phone}`} className="flex min-h-[48px] w-full min-w-0 items-center gap-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-slate-800 no-underline ring-1 ring-emerald-200 hover:bg-emerald-100 hover:no-underline sm:w-auto">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-700 text-white"><Phone className="h-4 w-4" aria-hidden /></span>
       <span className="min-w-0">
         <span className="block text-xs text-slate-600">{role[0].toUpperCase() + role.slice(1)}{name ? `: ${name}` : ''}</span>
-        <span className="block font-semibold tabular-nums text-violet-900">Call {phone}</span>
+        <span className="block font-semibold tabular-nums text-emerald-900">Call {phone}</span>
       </span>
     </a>
   );
@@ -540,7 +540,7 @@ function StoreCard({
           <div className="mt-3">
             <p className="flex justify-between text-sm"><span className="font-semibold text-slate-900">{l.available.toLocaleString('en-IN')} boxes free</span><span className="text-slate-500">of {l.capacity.toLocaleString('en-IN')}</span></p>
             <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100" role="meter" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Free space">
-              <div className="h-full rounded-full bg-violet-600" style={{ width: `${pct}%` }} />
+              <div className="h-full rounded-full bg-emerald-600" style={{ width: `${pct}%` }} />
             </div>
           </div>
           {l.details && <p className="mt-2 line-clamp-2 text-sm text-slate-600">{l.details}</p>}
@@ -606,7 +606,7 @@ function BookingModal({ listing: l, account, want, onClose, onBooked }: { listin
             <input type="tel" className={INPUT} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           </Field>
         </div>
-        <p className="rounded-xl bg-violet-50 p-3 text-sm text-violet-950">
+        <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-950">
           Total <strong className="text-lg">{inr(total)}</strong>. After booking you pay the owner directly by UPI or bank transfer; the space is yours once the owner confirms your payment.
         </p>
       </div>
@@ -668,7 +668,7 @@ function RenterBooking({ booking: b, places, chambers, onChange }: { booking: Re
       {b.status === 'confirmed' && <p className="mt-2 text-sm font-semibold text-emerald-800">Confirmed by the owner{b.confirmed_at ? ` on ${new Date(b.confirmed_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}. Show your receipt at the cold store.</p>}
       {(b.status === 'requested' || b.status === 'paid') && l && (
         <details className="mt-3 rounded-2xl bg-slate-50 ring-1 ring-slate-900/5" open={b.status === 'requested'}>
-          <summary className="min-h-[44px] cursor-pointer px-4 py-3 text-sm font-semibold text-violet-800">{b.status === 'requested' ? 'Pay the owner' : `You said you paid · reference ${b.payment_ref ?? ''}`}</summary>
+          <summary className="min-h-[44px] cursor-pointer px-4 py-3 text-sm font-semibold text-emerald-800">{b.status === 'requested' ? 'Pay the owner' : `You said you paid · reference ${b.payment_ref ?? ''}`}</summary>
           <div className="px-4 pb-4">
             <PayOwner bookingId={b.id} amount={Number(b.amount)} owner={{ name: l.owner_name, phone: l.phone }} paidRef={b.status === 'paid' ? b.payment_ref : null} onPaid={() => onChange()} />
           </div>
@@ -762,7 +762,7 @@ function OwnerPanel({
                 <li key={b.id} className="flex flex-col gap-3 rounded-2xl bg-white/85 p-4 ring-1 ring-slate-900/5 lg:flex-row lg:items-center lg:justify-between">
                   <div className="min-w-0">
                     <p className="font-semibold text-slate-900">{b.renter_name} · {what} · {b.duration} month{b.duration === 1 ? '' : 's'} <span className="font-mono text-xs font-normal text-slate-500">{bookingCode(b.id)}</span></p>
-                    <p className="text-sm text-slate-600">{b.rental_listings?.title} · {niceDate(b.start_date)} to {niceDate(lastDay(b.start_date, b.duration))} · <strong>{inr(b.amount)}</strong> · <a href={`tel:${b.renter_phone}`} className="inline-flex min-h-[44px] items-center gap-1 font-semibold text-violet-700"><Phone className="h-3.5 w-3.5" aria-hidden />{b.renter_phone}</a></p>
+                    <p className="text-sm text-slate-600">{b.rental_listings?.title} · {niceDate(b.start_date)} to {niceDate(lastDay(b.start_date, b.duration))} · <strong>{inr(b.amount)}</strong> · <a href={`tel:${b.renter_phone}`} className="inline-flex min-h-[44px] items-center gap-1 font-semibold text-emerald-700"><Phone className="h-3.5 w-3.5" aria-hidden />{b.renter_phone}</a></p>
                     {lines.length > 0 && <p className="text-sm text-slate-700">Places: <strong>{lines.map((x) => x.text).join('. ')}</strong></p>}
                     {b.payment_ref ? (
                       <p className="mt-1 text-sm text-emerald-800">Farmer says paid · reference <span className="font-mono font-semibold">{b.payment_ref}</span> — check it in your bank or UPI app first.</p>
@@ -845,7 +845,7 @@ function OwnerPanel({
                   )}
                   {mapped ? (
                     <p className="mt-3 text-sm text-slate-700">
-                      Free now: <strong className="text-lg tabular-nums text-slate-900"><Boxes className="mr-1 inline h-4 w-4 text-violet-600" aria-hidden />{l.available.toLocaleString('en-IN')}</strong> of {l.capacity.toLocaleString('en-IN')} {words} — counted from your chambers
+                      Free now: <strong className="text-lg tabular-nums text-slate-900"><Boxes className="mr-1 inline h-4 w-4 text-emerald-600" aria-hidden />{l.available.toLocaleString('en-IN')}</strong> of {l.capacity.toLocaleString('en-IN')} {words} — counted from your chambers
                     </p>
                   ) : wizardStore ? (
                     <p className="mt-3 text-sm text-amber-800">No chambers yet — add them so farmers can book.</p>
@@ -853,7 +853,7 @@ function OwnerPanel({
                   <div className="mt-3 flex flex-wrap items-center gap-3">
                     <span className="text-sm text-slate-700">Free now:</span>
                     <button type="button" aria-label={`${step} fewer free`} disabled={busy} onClick={() => void run(() => setAvailability(l.id, Math.max(0, l.available - step)), 'Vacancy updated')} className="grid h-11 w-11 cursor-pointer place-items-center rounded-lg bg-slate-100 hover:bg-slate-200"><Minus className="h-4 w-4" aria-hidden /></button>
-                    <span className="min-w-[6rem] text-center text-lg font-bold tabular-nums text-slate-900"><Boxes className="mr-1 inline h-4 w-4 text-violet-600" aria-hidden />{l.available.toLocaleString('en-IN')}</span>
+                    <span className="min-w-[6rem] text-center text-lg font-bold tabular-nums text-slate-900"><Boxes className="mr-1 inline h-4 w-4 text-emerald-600" aria-hidden />{l.available.toLocaleString('en-IN')}</span>
                     <button type="button" aria-label={`${step} more free`} disabled={busy} onClick={() => void run(() => setAvailability(l.id, Math.min(l.capacity, l.available + step)), 'Vacancy updated')} className="grid h-11 w-11 cursor-pointer place-items-center rounded-lg bg-slate-100 hover:bg-slate-200"><Plus className="h-4 w-4" aria-hidden /></button>
                     <span className="text-sm text-slate-500">of {l.capacity.toLocaleString('en-IN')} {unit.unit}</span>
                   </div>
@@ -1027,17 +1027,17 @@ function SideSwitch({ side, waiting, onChange }: { side: Side; waiting: number; 
         role="radio"
         aria-checked={on}
         onClick={() => !on && onChange(id)}
-        className={`flex flex-1 cursor-pointer items-start gap-3 rounded-2xl p-4 text-left ring-2 transition ${on ? 'bg-violet-700 text-white shadow-lg ring-violet-700' : 'bg-white/80 text-slate-800 ring-slate-900/10 hover:ring-violet-300'}`}
+        className={`flex flex-1 cursor-pointer items-start gap-3 rounded-2xl p-4 text-left ring-2 transition ${on ? 'bg-emerald-700 text-white shadow-lg ring-emerald-700' : 'bg-white/80 text-slate-800 ring-slate-900/10 hover:ring-emerald-300'}`}
       >
-        <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${on ? 'bg-white/15' : 'bg-violet-50 text-violet-700'}`}>
+        <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${on ? 'bg-white/15' : 'bg-emerald-50 text-emerald-700'}`}>
           <Icon className="h-5 w-5" aria-hidden />
         </span>
         <span className="min-w-0">
           <span className="flex items-center gap-2 text-base font-semibold">
             {title}
-            {badge ? <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${on ? 'bg-white text-violet-800' : 'bg-amber-400 text-amber-950'}`}>{badge} waiting</span> : null}
+            {badge ? <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${on ? 'bg-white text-emerald-800' : 'bg-amber-400 text-amber-950'}`}>{badge} waiting</span> : null}
           </span>
-          <span className={`mt-0.5 block text-sm ${on ? 'text-violet-100' : 'text-slate-600'}`}>{text}</span>
+          <span className={`mt-0.5 block text-sm ${on ? 'text-emerald-100' : 'text-slate-600'}`}>{text}</span>
         </span>
       </button>
     );

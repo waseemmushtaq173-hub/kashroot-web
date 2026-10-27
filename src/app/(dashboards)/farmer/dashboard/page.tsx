@@ -131,7 +131,7 @@ function FarmerDashboard() {
               <Tile theme={theme} icon={MessageCircleQuestion} label="Ask an expert" hint="Agronomist answers" href="/farmer/ask-expert" />
             </div>
 
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-700 via-emerald-600 to-amber-600 p-7 text-white shadow-lg">
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-800 via-emerald-900 to-[#04241D] p-7 text-white shadow-lg ring-1 ring-amber-300/40">
               <h3 className="font-sans text-2xl font-bold">Ready to harvest?</h3>
               <p className="mt-1 max-w-md text-white/90">
                 List apples, walnuts or saffron with your price. Buyers see it in their Buyer portal right away, order, and pay you directly by UPI once the goods reach them.

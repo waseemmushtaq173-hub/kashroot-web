@@ -58,7 +58,7 @@ export default function LearnPage() {
                     </div>
                     <div className="flex-1">
                       <div className="flex justify-between items-start mb-1">
-                        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${lesson.type === 'Video' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'}`}>
+                        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${lesson.type === 'Video' ? 'bg-blue-500/20 text-blue-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
                           {lesson.type}
                         </span>
                         <span className="text-xs text-white/50">{lesson.duration}</span>

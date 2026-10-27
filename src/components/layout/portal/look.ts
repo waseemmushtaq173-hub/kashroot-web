@@ -1,5 +1,5 @@
 /**
- * What the portal frame adds to each PORTAL_THEMES palette: the ink of the
+ * What the portal frame adds to the PORTAL_THEMES palette: the ink of the
  * valley drawn behind the page (mountains, lake, shikara) and the deep
  * gradient of the one highlighted card (first stat card, app card). The
  * chinar leaves keep the theme's own `leaf` colour.
@@ -16,18 +16,21 @@ export interface ShellLook {
   feature: string;
 }
 
+/** Every portal shares the KashRoot look (see BRAND in components/portal/kit). */
+const BRAND_LOOK: ShellLook = { ink: '#0B4D3B', feature: 'bg-gradient-to-br from-emerald-800 via-emerald-900 to-[#04241D] ring-1 ring-amber-300/40' };
+
 export const SHELL_LOOK: Record<PortalThemeId, ShellLook> = {
-  farmer: { ink: '#065F46', feature: 'bg-gradient-to-br from-emerald-700 via-emerald-800 to-emerald-950' },
-  buyer: { ink: '#075985', feature: 'bg-gradient-to-br from-sky-700 via-sky-800 to-indigo-950' },
-  seller: { ink: '#92400E', feature: 'bg-gradient-to-br from-amber-700 via-orange-800 to-orange-950' },
-  kissan: { ink: '#7C2D12', feature: 'bg-gradient-to-br from-orange-700 via-orange-800 to-stone-900' },
-  rental: { ink: '#5B21B6', feature: 'bg-gradient-to-br from-violet-700 via-violet-800 to-purple-950' },
-  provider: { ink: '#115E59', feature: 'bg-gradient-to-br from-teal-700 via-teal-800 to-cyan-950' },
-  dealer: { ink: '#9F1239', feature: 'bg-gradient-to-br from-rose-700 via-rose-800 to-red-950' },
-  admin: { ink: '#3730A3', feature: 'bg-gradient-to-br from-indigo-700 via-indigo-800 to-slate-900' },
-  tracking: { ink: '#155E75', feature: 'bg-gradient-to-br from-cyan-700 via-cyan-800 to-sky-950' },
-  trader: { ink: '#115E59', feature: 'bg-gradient-to-br from-teal-700 via-teal-800 to-emerald-950' },
-  expert: { ink: '#6B21A8', feature: 'bg-gradient-to-br from-purple-700 via-purple-800 to-fuchsia-950' },
+  farmer: BRAND_LOOK,
+  buyer: BRAND_LOOK,
+  seller: BRAND_LOOK,
+  kissan: BRAND_LOOK,
+  rental: BRAND_LOOK,
+  provider: BRAND_LOOK,
+  dealer: BRAND_LOOK,
+  admin: BRAND_LOOK,
+  tracking: BRAND_LOOK,
+  trader: BRAND_LOOK,
+  expert: BRAND_LOOK,
 };
 
 /** The look for a theme name as pages pass it (unknown names fall back like resolveTheme). */

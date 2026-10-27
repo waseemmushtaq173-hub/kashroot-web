@@ -150,7 +150,7 @@ function InfoCard({ c, free, rate, unit, onClose, onWalk, zoom }: { c: SceneCham
         )}
       </dl>
       {onWalk && (
-        <button type="button" onClick={onWalk} className="mt-2 inline-flex min-h-[44px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-sky-700 px-3 font-semibold text-white hover:bg-sky-800">
+        <button type="button" onClick={onWalk} className="mt-2 inline-flex min-h-[44px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-700 px-3 font-semibold text-white hover:bg-emerald-800">
           <Footprints className="h-4 w-4" aria-hidden /> Walk in here
         </button>
       )}
@@ -922,7 +922,7 @@ export function ColdStore3D({
   }
 
   const walking = view === 'walk';
-  const chip = (on: boolean) => `inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition ${on ? 'bg-sky-700 text-white' : 'bg-sky-50 text-sky-900 ring-1 ring-sky-200 hover:bg-sky-100'}`;
+  const chip = (on: boolean) => `inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition ${on ? 'bg-emerald-700 text-white' : 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200 hover:bg-emerald-100'}`;
   const shownInfo = info !== null ? scene.chambers[info] : null;
   const note = scene.problems.length ? (mode === 'owner' ? scene.problems.slice(0, 2).join(' ') : 'As the owner measured them, some chambers do not fit inside the building, so they are drawn outside it.') : '';
   const big = zoom > 1.3;

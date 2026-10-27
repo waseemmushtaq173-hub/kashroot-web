@@ -111,7 +111,7 @@ export function AskForm({ account, onSent, initialKind = 'question' }: { account
               type="button"
               aria-pressed={kind === k.id}
               onClick={() => setKind(k.id)}
-              className={`flex cursor-pointer items-center gap-3 rounded-2xl p-3 text-left transition ${kind === k.id ? 'bg-purple-50 ring-2 ring-purple-500' : 'bg-white ring-1 ring-slate-200 hover:bg-slate-50'}`}
+              className={`flex cursor-pointer items-center gap-3 rounded-2xl p-3 text-left transition ${kind === k.id ? 'bg-emerald-50 ring-2 ring-emerald-500' : 'bg-white ring-1 ring-slate-200 hover:bg-slate-50'}`}
             >
               <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${theme.tile}`}>
                 <k.icon className="h-5 w-5" aria-hidden />
@@ -160,7 +160,7 @@ export function AskForm({ account, onSent, initialKind = 'question' }: { account
             </button>
           </div>
         ) : (
-          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-purple-300 bg-purple-50/60 p-5 text-sm font-semibold text-purple-900 hover:bg-purple-50">
+          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50/60 p-5 text-sm font-semibold text-emerald-900 hover:bg-emerald-50">
             <Camera className="h-5 w-5" aria-hidden /> Take or choose a photo
             <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => void choosePhoto(e.target.files?.[0])} />
           </label>

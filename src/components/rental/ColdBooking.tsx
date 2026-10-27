@@ -81,7 +81,7 @@ export function PlaceDirections({ places, chambers }: { places: Placed[]; chambe
   const first = items[0];
   const kinds = [...new Set(items.map((x) => x.c.storage))];
   return (
-    <div className="mt-2 rounded-xl bg-violet-50 p-3 text-sm text-violet-950 ring-1 ring-violet-200">
+    <div className="mt-2 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-950 ring-1 ring-emerald-200">
       <p className="flex items-center gap-1.5 font-semibold"><Navigation className="h-4 w-4" aria-hidden /> Where to put your {wordFor(kinds)}</p>
       <ul className="mt-1 space-y-0.5">
         {items.map(({ c, p, size, plan, row, stack }) => (
@@ -91,7 +91,7 @@ export function PlaceDirections({ places, chambers }: { places: Placed[]; chambe
           </li>
         ))}
       </ul>
-      <p className="mt-1 text-xs text-violet-900/80">
+      <p className="mt-1 text-xs text-emerald-900/80">
         A full place takes {countText(first.c.boxes_per_slot, first.c.storage)}: {layersText(first.plan)} ({showLength(first.plan.stackHeight, first.size.unit)} high).
       </p>
     </div>
@@ -562,7 +562,7 @@ export function MyPlaces({ places, chambers, listingId, start, months, name }: {
       )}
       <PlaceDirections places={places} chambers={chambers} />
       {chambers.length > 0 && (
-        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="mt-1 inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 text-sm font-semibold text-violet-700 hover:underline">
+        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="mt-1 inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 text-sm font-semibold text-emerald-700 hover:underline">
           <MapIcon className="h-4 w-4" aria-hidden /> {open ? 'Hide the cold store' : `See where your ${wordFor(kinds.length ? kinds : ['boxes'])} are (drawing & 3D)`}
         </button>
       )}

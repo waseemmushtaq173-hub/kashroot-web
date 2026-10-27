@@ -89,7 +89,7 @@ export default function SustainabilityPage() {
                         <tr key={i} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                           <td className="py-4 whitespace-nowrap">{rec.date}</td>
                           <td className="py-4 font-bold flex items-center gap-2 mt-2">
-                            {rec.type === 'Pesticide' ? <FlaskConical className="w-4 h-4 text-purple-400" /> : <Droplets className="w-4 h-4 text-blue-400" />}
+                            {rec.type === 'Pesticide' ? <FlaskConical className="w-4 h-4 text-emerald-400" /> : <Droplets className="w-4 h-4 text-blue-400" />}
                             {rec.type}
                           </td>
                           <td className="py-4">{rec.detail}</td>

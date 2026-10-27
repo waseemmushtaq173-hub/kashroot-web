@@ -94,7 +94,7 @@ export function RequestThread({ requestId, account, asExpert, onBack }: { reques
 
   return (
     <div className="space-y-5">
-      <button type="button" onClick={onBack} className="inline-flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-purple-800 hover:underline">
+      <button type="button" onClick={onBack} className="inline-flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-emerald-800 hover:underline">
         <ArrowLeft className="h-4 w-4" aria-hidden /> All requests
       </button>
 
@@ -109,7 +109,7 @@ export function RequestThread({ requestId, account, asExpert, onBack }: { reques
           <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-700">
             <span className="inline-flex items-center gap-1.5"><UserRound className="h-4 w-4" aria-hidden /> {req.farmer_name}{req.district ? ` · ${req.district}` : ''}</span>
             {phoneDigits && (
-              <a href={`tel:+91${phoneDigits}`} className="inline-flex items-center gap-1.5 font-semibold text-purple-800">
+              <a href={`tel:+91${phoneDigits}`} className="inline-flex items-center gap-1.5 font-semibold text-emerald-800">
                 <Phone className="h-4 w-4" aria-hidden /> {phoneDigits}
               </a>
             )}
@@ -158,7 +158,7 @@ export function RequestThread({ requestId, account, asExpert, onBack }: { reques
           const { text, speech } = splitBody(m.body);
           const mine = m.sender_id === account.id && m.sender_role !== 'ai';
           return (
-            <li key={m.id} className={`rounded-2xl p-4 ring-1 ${m.sender_role === 'ai' ? 'bg-amber-50/80 ring-amber-200' : m.sender_role === 'expert' ? 'bg-purple-50/80 ring-purple-200' : 'bg-white/80 ring-slate-900/5'} ${mine ? 'ml-6' : 'mr-6'}`}>
+            <li key={m.id} className={`rounded-2xl p-4 ring-1 ${m.sender_role === 'ai' ? 'bg-amber-50/80 ring-amber-200' : m.sender_role === 'expert' ? 'bg-emerald-50/80 ring-emerald-200' : 'bg-white/80 ring-slate-900/5'} ${mine ? 'ml-6' : 'mr-6'}`}>
               <p className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-600">
                 {m.sender_role === 'ai' ? <Sparkles className="h-3.5 w-3.5 text-amber-600" aria-hidden /> : <UserRound className="h-3.5 w-3.5" aria-hidden />}
                 {m.sender_role === 'ai' ? 'KashRoot AI — first suggestion (an expert will also check)' : m.sender_role === 'expert' ? `Expert · ${m.sender_name ?? 'Agronomist'}` : m.sender_name ?? 'Farmer'}

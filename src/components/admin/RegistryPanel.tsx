@@ -23,7 +23,7 @@ import { importRegistry, registryStats, REGISTRY_SQL, removeRegistryList, type O
 
 const theme = PORTAL_THEMES.admin ?? PORTAL_THEMES.expert;
 const KINDS: OfficialKind[] = ['pesticide', 'fertiliser', 'seed', 'other'];
-const FILE_INPUT = 'block min-h-11 w-full text-sm file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-lg file:border-0 file:bg-violet-100 file:px-3 file:py-2 file:font-semibold file:text-violet-900';
+const FILE_INPUT = 'block min-h-11 w-full text-sm file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-lg file:border-0 file:bg-emerald-100 file:px-3 file:py-2 file:font-semibold file:text-emerald-900';
 const day = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 const count = (n: number) => n.toLocaleString('en-IN');
 /** "1 product", "1,234 products" */
@@ -151,7 +151,7 @@ export function RegistryPanel() {
                   <div className="min-w-0">
                     <p className="font-medium text-slate-900">{l.source}</p>
                     <p className="text-xs text-slate-600">{KIND_LABEL[l.kind]} · {products(l.count)} · imported {day(l.imported_at)}</p>
-                    <a href={l.source_url} target="_blank" rel="noopener noreferrer" className="mt-0.5 inline-flex max-w-full items-center gap-1 break-all text-xs font-medium text-violet-800 underline">
+                    <a href={l.source_url} target="_blank" rel="noopener noreferrer" className="mt-0.5 inline-flex max-w-full items-center gap-1 break-all text-xs font-medium text-emerald-800 underline">
                       {l.source_url} <ExternalLink className="h-3 w-3 shrink-0" aria-hidden />
                     </a>
                   </div>
@@ -237,12 +237,12 @@ export function RegistryPanel() {
               {name.length < 2 && <p className="text-amber-900">Write the name of the list, then tap Import.</p>}
               {name.length >= 2 && !linkOk && <p className="text-amber-900">Add the link where the list is published — it starts with https://</p>}
               {progress && (
-                <div role="status" className="space-y-1.5 rounded-lg bg-violet-50 p-2.5 text-violet-950 ring-1 ring-violet-200">
+                <div role="status" className="space-y-1.5 rounded-lg bg-emerald-50 p-2.5 text-emerald-950 ring-1 ring-emerald-200">
                   <p className="flex items-center gap-2 font-medium">
                     <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
                     {progress.step === 'removing' ? 'Removing the older copy…' : `Importing… ${count(progress.done)} of ${count(progress.total)}`}
                   </p>
-                  <progress className="h-2 w-full accent-violet-700" max={progress.total} value={progress.done} aria-label="Import progress" />
+                  <progress className="h-2 w-full accent-emerald-700" max={progress.total} value={progress.done} aria-label="Import progress" />
                 </div>
               )}
               {importError && !progress && (

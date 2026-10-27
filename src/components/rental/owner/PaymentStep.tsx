@@ -53,7 +53,7 @@ export function PayoutFields({ value, onChange, showAll }: { value: PayoutDraft;
       {box('name', 'Account holder name', { autoComplete: 'name', hint: 'As the bank has it.', maxLength: 80 })}
       <fieldset className="space-y-5 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-900/5">
         <legend className="sr-only">Bank account</legend>
-        <p className="flex items-center gap-2 text-base font-semibold text-slate-900"><Landmark className="h-5 w-5 text-violet-700" aria-hidden /> Bank account</p>
+        <p className="flex items-center gap-2 text-base font-semibold text-slate-900"><Landmark className="h-5 w-5 text-emerald-700" aria-hidden /> Bank account</p>
         {box('account', 'Bank account number', { number: true, whole: true, autoComplete: 'off' })}
         {box('account2', 'Type the account number again', { number: true, whole: true, autoComplete: 'off' })}
         <div className="grid gap-5 sm:grid-cols-2">
@@ -77,7 +77,7 @@ export function PayoutFields({ value, onChange, showAll }: { value: PayoutDraft;
         </div>
       </fieldset>
       {box('upi', 'UPI ID (optional)', { placeholder: 'e.g. 9876543210@ybl', hint: 'For farmers who pay with PhonePe, Google Pay, Paytm or BHIM.' })}
-      <p className="rounded-xl bg-violet-50 p-3 text-sm text-violet-950 ring-1 ring-violet-200">A bank account or a UPI ID is enough. Only farmers with a booking at your store see these, and they pay you directly — KashRoot never holds the money.</p>
+      <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-950 ring-1 ring-emerald-200">A bank account or a UPI ID is enough. Only farmers with a booking at your store see these, and they pay you directly — KashRoot never holds the money.</p>
     </div>
   );
 }

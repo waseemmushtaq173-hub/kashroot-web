@@ -87,10 +87,10 @@ export function ChamberFacts({ chamber: c, roomOf, mode }: { chamber: ColdChambe
   const floors = size?.floors ?? 1;
   const counted = Boolean(size?.places);
   const fact = (label: string, value: string, sub?: string, strong = false) => (
-    <div className={`rounded-2xl p-3 ring-1 ${strong ? 'bg-sky-700 text-white ring-sky-800' : 'bg-white ring-slate-900/5'}`}>
-      <dt className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${strong ? 'text-sky-100' : 'text-slate-500'}`}>{label}</dt>
+    <div className={`rounded-2xl p-3 ring-1 ${strong ? 'bg-emerald-700 text-white ring-emerald-800' : 'bg-white ring-slate-900/5'}`}>
+      <dt className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${strong ? 'text-emerald-100' : 'text-slate-500'}`}>{label}</dt>
       <dd className={`mt-0.5 text-lg font-bold tabular-nums ${strong ? 'text-white' : 'text-slate-900'}`}>{value}</dd>
-      {sub && <dd className={`text-xs ${strong ? 'text-sky-100' : 'text-slate-600'}`}>{sub}</dd>}
+      {sub && <dd className={`text-xs ${strong ? 'text-emerald-100' : 'text-slate-600'}`}>{sub}</dd>}
     </div>
   );
   const sizeFact = () => {
@@ -370,7 +370,7 @@ export function ColdStoreExplorer({
       role="tab"
       aria-selected={view === id}
       onClick={() => setView(id)}
-      className={`inline-flex min-h-[44px] flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition sm:flex-none sm:px-4 ${view === id ? 'bg-sky-700 text-white shadow' : 'text-sky-900 hover:bg-sky-100'}`}
+      className={`inline-flex min-h-[44px] flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition sm:flex-none sm:px-4 ${view === id ? 'bg-emerald-700 text-white shadow' : 'text-emerald-900 hover:bg-emerald-100'}`}
     >
       <Icon className="h-4 w-4 shrink-0" aria-hidden /> {label}
     </button>
@@ -389,7 +389,7 @@ export function ColdStoreExplorer({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div role="tablist" aria-label="How to see the store" className={`${realStore ? 'grid grid-cols-2 sm:flex' : 'flex'} w-full gap-1 rounded-2xl bg-sky-50 p-1 ring-1 ring-sky-200 sm:w-auto`}>
+        <div role="tablist" aria-label="How to see the store" className={`${realStore ? 'grid grid-cols-2 sm:flex' : 'flex'} w-full gap-1 rounded-2xl bg-emerald-50 p-1 ring-1 ring-emerald-200 sm:w-auto`}>
           {tab('drawing', 'Drawing', MapIcon)}
           {tab('3d', '3D view', Layers)}
           {tab('walk', 'Walk inside', Footprints)}
@@ -448,7 +448,7 @@ export function ColdStoreExplorer({
                       role="radio"
                       aria-checked={floor === n}
                       onClick={() => toFloor(n)}
-                      className={`min-h-[44px] min-w-[44px] cursor-pointer rounded-xl px-4 text-sm font-bold transition ${floor === n ? 'bg-sky-700 text-white shadow' : 'bg-white text-sky-900 ring-1 ring-sky-200 hover:bg-sky-50'}`}
+                      className={`min-h-[44px] min-w-[44px] cursor-pointer rounded-xl px-4 text-sm font-bold transition ${floor === n ? 'bg-emerald-700 text-white shadow' : 'bg-white text-emerald-900 ring-1 ring-emerald-200 hover:bg-emerald-50'}`}
                     >
                       {`Floor ${n}`}
                     </button>

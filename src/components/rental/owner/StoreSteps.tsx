@@ -41,7 +41,7 @@ export function StoreStep({ kit }: { kit: Kit }) {
   return (
     <div className="space-y-5">
       <p className="flex items-start gap-2 text-base text-slate-700">
-        <Store className="mt-1 h-5 w-5 shrink-0 text-violet-700" aria-hidden /> Tell farmers whose cold store this is and where it is.
+        <Store className="mt-1 h-5 w-5 shrink-0 text-emerald-700" aria-hidden /> Tell farmers whose cold store this is and where it is.
       </p>
       <KitBox kit={kit} field="title" label="Cold store name" autoComplete="organization" maxLength={100} />
       <div className="grid gap-5 sm:grid-cols-2">
@@ -105,9 +105,9 @@ function SidesIcon({ sides, on }: { sides: Sides; on: boolean }) {
 function SidesPicker({ value, onChange, issues }: { value: Sides | ''; onChange: (v: Sides) => void; issues: Issue[] }) {
   const label = 'Where are the chambers?';
   return (
-    <fieldset data-field="building.sides" className="space-y-2 rounded-2xl bg-violet-50/70 p-4 ring-1 ring-violet-200">
+    <fieldset data-field="building.sides" className="space-y-2 rounded-2xl bg-emerald-50/70 p-4 ring-1 ring-emerald-200">
       <legend className="sr-only">{label}</legend>
-      <p className="flex items-center gap-2 text-base font-semibold text-violet-950"><Warehouse className="h-5 w-5" aria-hidden /> {label}</p>
+      <p className="flex items-center gap-2 text-base font-semibold text-emerald-950"><Warehouse className="h-5 w-5" aria-hidden /> {label}</p>
       <p className="text-sm text-slate-700">Stand in the main door and look in. The passage starts at the main door. Are the chambers on its left, on its right, or on both sides?</p>
       <div role="radiogroup" aria-label={label} className="grid grid-cols-3 gap-2">
         {(['left', 'right', 'both'] as const).map((s) => (
@@ -118,11 +118,11 @@ function SidesPicker({ value, onChange, issues }: { value: Sides | ''; onChange:
             aria-checked={value === s}
             aria-label={SIDE_TEXT[s].title}
             onClick={() => onChange(s)}
-            className={`flex min-h-[124px] cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl p-2 text-center ring-2 transition ${value === s ? 'bg-violet-700 text-white shadow-md ring-violet-700' : 'bg-white text-slate-800 ring-slate-200 hover:ring-violet-300'}`}
+            className={`flex min-h-[124px] cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl p-2 text-center ring-2 transition ${value === s ? 'bg-emerald-700 text-white shadow-md ring-emerald-700' : 'bg-white text-slate-800 ring-slate-200 hover:ring-emerald-300'}`}
           >
             <span className="rounded-xl bg-white p-0.5"><SidesIcon sides={s} on={value === s} /></span>
             <span className="text-base font-bold leading-tight">{SIDE_TEXT[s].title}</span>
-            <span className={`hidden text-xs sm:block ${value === s ? 'text-violet-100' : 'text-slate-600'}`}>{SIDE_TEXT[s].text}</span>
+            <span className={`hidden text-xs sm:block ${value === s ? 'text-emerald-100' : 'text-slate-600'}`}>{SIDE_TEXT[s].text}</span>
           </button>
         ))}
       </div>
@@ -140,7 +140,7 @@ export function BuildingStep({ kit }: { kit: Kit }) {
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
       <div className="space-y-5">
         <p className="flex items-start gap-2 text-base text-slate-700">
-          <Ruler className="mt-1 h-5 w-5 shrink-0 text-violet-700" aria-hidden /> Measure the whole cold store building from outside. The front is the side facing the road.
+          <Ruler className="mt-1 h-5 w-5 shrink-0 text-emerald-700" aria-hidden /> Measure the whole cold store building from outside. The front is the side facing the road.
         </p>
         <div>
           <p className="mb-1.5 text-sm font-semibold text-slate-800">Measure in</p>
