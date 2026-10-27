@@ -39,7 +39,7 @@ import {
 import { PortalShell } from '@/components/layout/PortalShell';
 import { Badge, Btn, EmptyState, INPUT, PORTAL_THEMES, Panel, inr } from '@/components/portal/kit';
 import { PostedRates } from '@/components/mandi/PostedRates';
-import { SavedAt } from '@/components/pwa/SavedAt';
+import { LastUpdated, SavedAt } from '@/components/pwa/SavedAt';
 import { useSavedAt } from '@/components/pwa/savedCopies';
 import { perKg, recentRates } from '@/lib/db/mandiRates';
 import { Tilt3D } from '@/components/three/Tilt3D';
@@ -63,6 +63,9 @@ interface Forecast {
   hourly: { time: string; temperature: number; precipitationProbability: number; code: number }[];
   daily: { date: string; max: number; min: number; precipitation: number; code: number }[];
   source: string;
+  fetchedAt: string;
+  /** Open-Meteo did not answer: the server's last good forecast, from fetchedAt. */
+  stale?: boolean;
 }
 interface MandiResult {
   records: MandiRecord[];
@@ -75,6 +78,8 @@ interface MandiResult {
   partial?: boolean;
   /** The mandi/district asked for had no report today; nearby ones are shown. */
   widened?: string;
+  /** Agmarknet and data.gov.in did not answer: the server's last good reports, from fetchedAt. */
+  stale?: boolean;
 }
 
 /**
@@ -369,6 +374,7 @@ export default function MandiWeatherPage() {
             <Btn theme={theme} size="sm" variant="ghost" icon={RefreshCw} onClick={() => void weatherQ.refetch()}>Retry</Btn>
           </div>
         )}
+        {f?.stale && <LastUpdated at={f.fetchedAt} source="Open-Meteo" className="mt-6" />}
         {f && (
           <div className="mt-6 space-y-5">
             {/* minmax(0, …) and min-w-0: the 24-hour strip scrolls inside its box instead of widening the page on phones. */}
@@ -512,6 +518,7 @@ export default function MandiWeatherPage() {
               )}
             </div>
           )}
+          {mandiQ.data?.stale && <LastUpdated at={mandiQ.data.fetchedAt} source="Agmarknet" className="mt-5" />}
           {mandiQ.data?.widened && rows.length > 0 && (
             <p className="mt-5 flex items-start gap-2 rounded-2xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
               <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> {mandiQ.data.widened}

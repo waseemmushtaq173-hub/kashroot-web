@@ -5,6 +5,7 @@
  */
 import 'server-only';
 
+import { keepGood, lastGood } from '@/lib/server/lastGood';
 import type { Place } from '@/lib/server/places';
 
 export { geocode, type Place } from '@/lib/server/places';
@@ -17,6 +18,31 @@ export interface Forecast {
   daily: { date: string; max: number; min: number; precipitation: number; code: number }[];
   fetchedAt: string;
   source: string;
+  /** Open-Meteo did not answer: this is the last good forecast, from fetchedAt. */
+  stale?: boolean;
+}
+
+/** A kept forecast older than this is no help for deciding today's spraying: say it is unavailable instead. */
+const WEATHER_KEEP_MS = 48 * 3600_000;
+
+/**
+ * The forecast for a place; when Open-Meteo is down, the last good one for
+ * the same spot (to about 1 km) with `stale` and its time.
+ */
+export async function forecast(place: Place): Promise<Forecast> {
+  // Rounded: the kept copy is for an area, never a person's exact position.
+  const key = `weather:${place.lat.toFixed(2)},${place.lng.toFixed(2)}`;
+  try {
+    const live = await readForecast(place);
+    const body: Partial<Forecast> = { ...live };
+    delete body.place;
+    keepGood(key, body, live.fetchedAt);
+    return live;
+  } catch (err) {
+    const kept = await lastGood<Omit<Forecast, 'place'>>(key);
+    if (!kept || Date.now() - Date.parse(kept.fetchedAt) > WEATHER_KEEP_MS) throw err;
+    return { ...kept.body, place, fetchedAt: kept.fetchedAt, stale: true };
+  }
 }
 
 function host(sub: 'api' | 'geocoding-api') {
@@ -25,7 +51,7 @@ function host(sub: 'api' | 'geocoding-api') {
   return { base: `https://${sub}.open-meteo.com`, key: undefined };
 }
 
-export async function forecast(place: Place): Promise<Forecast> {
+async function readForecast(place: Place): Promise<Forecast> {
   const { base, key } = host('api');
   const params = new URLSearchParams({
     latitude: String(place.lat),

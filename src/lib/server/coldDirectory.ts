@@ -4,8 +4,9 @@
  *   nhb  the National Horticulture Board's National Cold Storage database
  *        (its map file: name, district, state, location) — Jammu & Kashmir
  *   osm  OpenStreetMap: places in Jammu & Kashmir mapped as cold storage
- * When a source cannot be reached the last good copy is used, and the
- * answer says so. Each source gets a few seconds at most, and one that did
+ * When a source cannot be reached the last good copy is used (this server's,
+ * or the one kept in the database by lib/server/lastGood), and the answer
+ * says so. Each source gets a few seconds at most, and one that did
  * not answer is not asked again for 15 minutes — so the page never waits
  * long for a website that is down or far away. Server-only.
  */
@@ -13,6 +14,7 @@ import 'server-only';
 
 import { NHB_DATABASE_URL, NHB_GIS_URL, niceName, parseColdStoreList, SOURCE_LABEL, type DirEntry, type SourceState } from '@/lib/coldDirectory';
 import { causeCode, govFetch } from '@/lib/server/govFetch';
+import { keepGood, lastGood } from '@/lib/server/lastGood';
 
 const KEEP_MS = 12 * 60 * 60 * 1000;
 /** The most a source may take, and how long one that failed is left alone. */
@@ -174,6 +176,17 @@ async function readOsm(): Promise<DirEntry[]> {
     });
 }
 
+/** This instance's copy, else the last good copy any instance kept (lib/server/lastGood). */
+async function lastCopy(id: 'nhb' | 'osm'): Promise<{ at: number; entries: DirEntry[] } | undefined> {
+  const have = cache.get(id);
+  if (have) return have;
+  const kept = await lastGood<DirEntry[]>(`directory:${id}`);
+  if (!kept || !Array.isArray(kept.body)) return undefined;
+  const copy = { at: Date.parse(kept.fetchedAt), entries: kept.body };
+  cache.set(id, copy);
+  return copy;
+}
+
 async function source(id: 'nhb' | 'osm', read: (fresh: boolean) => Promise<DirEntry[]>, fresh: boolean): Promise<{ entries: DirEntry[]; state: SourceState }> {
   const url = id === 'nhb' ? NHB_DATABASE_URL : 'https://www.openstreetmap.org';
   const have = cache.get(id);
@@ -184,14 +197,17 @@ async function source(id: 'nhb' | 'osm', read: (fresh: boolean) => Promise<DirEn
   const down = failed.get(id);
   if (down && !fresh && Date.now() - down.at < RETRY_MS) {
     const why = { error: down.error, fault: down.fault };
+    const have = await lastCopy(id);
     if (have) return { entries: have.entries, state: { id, label: SOURCE_LABEL[id], url, ok: false, count: have.entries.length, at: new Date(have.at).toISOString(), ...why } };
     return { entries: [], state: { id, label: SOURCE_LABEL[id], url, ok: false, count: 0, at: null, ...why } };
   }
   try {
     const entries = await within(read(fresh), BUDGET_MS[id], id === 'nhb' ? 'the NHB website' : 'OpenStreetMap');
-    cache.set(id, { at: Date.now(), entries });
+    const at = Date.now();
+    cache.set(id, { at, entries });
+    keepGood(`directory:${id}`, entries, new Date(at).toISOString());
     failed.delete(id);
-    return { entries, state: { id, label: SOURCE_LABEL[id], url, ok: true, count: entries.length, at: new Date().toISOString() } };
+    return { entries, state: { id, label: SOURCE_LABEL[id], url, ok: true, count: entries.length, at: new Date(at).toISOString() } };
   } catch (err) {
     // Read, but nothing in Jammu & Kashmir: said as it is, not as a failure.
     if (err instanceof Note) {
@@ -201,7 +217,8 @@ async function source(id: 'nhb' | 'osm', read: (fresh: boolean) => Promise<DirEn
     }
     const why = id === 'nhb' ? plainReason(err, 'the NHB website', hostOf(nhbUrl())) : plainReason(err, 'OpenStreetMap', hostOf(overpass()[0]));
     failed.set(id, { at: Date.now(), ...why });
-    // The last good copy, if there is one.
+    // The last good copy, if there is one (this instance's, or one any instance kept).
+    const have = await lastCopy(id);
     if (have) return { entries: have.entries, state: { id, label: SOURCE_LABEL[id], url, ok: false, count: have.entries.length, at: new Date(have.at).toISOString(), ...why } };
     return { entries: [], state: { id, label: SOURCE_LABEL[id], url, ok: false, count: 0, at: null, ...why } };
   }

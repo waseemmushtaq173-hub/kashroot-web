@@ -40,6 +40,7 @@ import { PortalShell } from '@/components/layout/PortalShell';
 import { SellerDesk } from '@/components/market/SellerDesk';
 import { SafePayment } from '@/components/payments/SafePayment';
 import { Btn, PORTAL_THEMES, Panel, Tile } from '@/components/portal/kit';
+import { LastUpdated } from '@/components/pwa/SavedAt';
 import { inr, loadAccount, type Account } from '@/lib/db/client';
 import { listingDraftFromLink } from '@/lib/navIntent';
 import { regionSpot, spotParams, stateLabel, useRegion } from '@/lib/region';
@@ -210,6 +211,9 @@ interface Weather {
   current: { time: string; temperature: number; humidity: number; precipitation: number; wind: number };
   hourly: { time: string; precipitationProbability: number }[];
   daily: { date: string; max: number; min: number; precipitation: number }[];
+  fetchedAt: string;
+  /** Open-Meteo did not answer: the server's last good forecast, from fetchedAt. */
+  stale?: boolean;
 }
 
 function TodayWeather({ district }: { district?: string }) {
@@ -251,6 +255,7 @@ function TodayWeather({ district }: { district?: string }) {
         <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading weather…</p>
       ) : (
         <>
+          {w.stale && <LastUpdated at={w.fetchedAt} source="Open-Meteo" className="mb-3" />}
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-2xl bg-amber-50 p-4 text-center ring-1 ring-amber-100">
               <Thermometer className="mx-auto h-7 w-7 text-amber-600" aria-hidden />

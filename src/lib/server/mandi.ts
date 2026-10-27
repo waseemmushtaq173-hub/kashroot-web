@@ -15,6 +15,7 @@ import 'server-only';
 import { MANDI_SAMPLE_KEY, mandiUrl, narrowMandi, parseMandi, titleCase, type MandiQuery, type MandiRecord } from '@/lib/mandi-shared';
 import { fetchAgmarknet } from '@/lib/server/agmarknet';
 import { causeCode, govFetch, type GovResponse } from '@/lib/server/govFetch';
+import { keepGood, lastGood } from '@/lib/server/lastGood';
 
 export type { MandiQuery, MandiRecord };
 
@@ -38,7 +39,12 @@ export interface MandiResult {
   partial?: boolean;
   /** The exact district/market had no report today; a wider area is shown. */
   widened?: string;
+  /** Agmarknet and data.gov.in did not answer: these are the last good reports, read at fetchedAt. */
+  stale?: boolean;
 }
+
+/** Older kept reports than this are not shown in place of today's. */
+const MANDI_KEEP_MS = 7 * 24 * 3600_000;
 
 /**
  * Prices for a state + crop, then narrowed to the district and market here:
@@ -49,10 +55,25 @@ export interface MandiResult {
  */
 export async function fetchMandiPrices(query: MandiQuery): Promise<MandiResult> {
   const wide: MandiQuery = { state: titleCase(query.state), commodity: titleCase(query.commodity), limit: Math.max(query.limit ?? 1000, 1000) };
-  const result = await fetchStateWide(wide);
+  const result = await stateWideOrLast(wide);
   if (!query.district?.trim() && !query.market?.trim()) return result;
   const n = narrowMandi(result.records, query.district, query.market, wide.state);
   return { ...result, records: n.records, total: n.records.length, widened: n.widened };
+}
+
+/** The state's reports; when both feeds are down, the last good ones for the same state and crop (lib/server/lastGood). */
+async function stateWideOrLast(query: MandiQuery): Promise<MandiResult> {
+  const key = `mandi:${query.state || 'all'}|${query.commodity || 'all'}`;
+  try {
+    const live = await fetchStateWide(query);
+    // A partial all-India answer is not kept: it would hide the states it missed.
+    if (!live.partial) keepGood(key, live, live.fetchedAt);
+    return live;
+  } catch (err) {
+    const kept = await lastGood<MandiResult>(key);
+    if (!kept || Date.now() - Date.parse(kept.fetchedAt) > MANDI_KEEP_MS) throw err;
+    return { ...kept.body, fetchedAt: kept.fetchedAt, stale: true };
+  }
 }
 
 async function fetchStateWide(query: MandiQuery): Promise<MandiResult> {

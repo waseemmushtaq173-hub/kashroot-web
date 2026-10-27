@@ -157,7 +157,11 @@ async function runTool(name: string, input: Record<string, unknown>, here?: Here
         })),
         posted_note: all.length && !ours.length ? 'Nothing posted for the exact area asked; these are other mandis.' : undefined,
         agmarknet: rows.length
-          ? { unit: 'INR per quintal', source: gov.status === 'fulfilled' ? gov.value.source : undefined, rows: rows.slice(0, 12).map((x) => ({ market: x.market, district: x.district, state: x.state, variety: x.variety, date: x.arrivalDate, min: x.minPrice, max: x.maxPrice, modal: x.modalPrice })) }
+          ? {
+              unit: 'INR per quintal',
+              source: gov.status === 'fulfilled' ? gov.value.source : undefined,
+              ...(gov.status === 'fulfilled' && gov.value.stale ? { stale: true, last_updated: gov.value.fetchedAt, note: 'Agmarknet is not answering: these are the last reports KashRoot read. Say when they are from.' } : {}),
+              rows: rows.slice(0, 12).map((x) => ({ market: x.market, district: x.district, state: x.state, variety: x.variety, date: x.arrivalDate, min: x.minPrice, max: x.maxPrice, modal: x.modalPrice })) }
           : { result: gov.status === 'rejected' ? 'SERVICE_UNAVAILABLE' : 'NO_DATA' },
       };
     }
@@ -174,6 +178,7 @@ async function runTool(name: string, input: Record<string, unknown>, here?: Here
         now: { temperatureC: f.current.temperature, humidity: f.current.humidity, precipitationMm: f.current.precipitation, windKmh: f.current.wind, observedAt: f.current.time },
         nextDays: f.daily.slice(0, 4).map((d) => ({ date: d.date, maxC: d.max, minC: d.min, rainMm: d.precipitation })),
         source: f.source,
+        ...(f.stale ? { stale: true, last_updated: f.fetchedAt, note: 'Open-Meteo is not answering: this is the last forecast KashRoot read. Say when it is from.' } : {}),
       };
     }
     return { result: 'UNKNOWN_TOOL' };

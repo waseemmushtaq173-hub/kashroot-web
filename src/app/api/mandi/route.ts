@@ -2,6 +2,8 @@
  * GET /api/mandi?state=&district=&market=&commodity=&limit=
  * Live Agmarknet prices (Rs/quintal) from agmarknet.gov.in, with data.gov.in
  * as the backup. Never fabricates: an empty board is returned as an empty list.
+ * When both are down, the last good reports (up to 7 days) come back with
+ * `stale: true` and their `fetchedAt` instead of an error.
  */
 import { NextResponse } from 'next/server';
 
@@ -33,7 +35,8 @@ export async function GET(request: Request) {
       commodity: pick('commodity'),
       limit: Math.min(Number(q.get('limit')) || 1000, 2000),
     });
-    return NextResponse.json(result, { headers: { 'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=1800' } });
+    // A kept copy (both feeds down) is not held at the edge: the next request tries for today's.
+    return NextResponse.json(result, { headers: { 'Cache-Control': result.stale ? 'public, s-maxage=60' : 'public, s-maxage=900, stale-while-revalidate=1800' } });
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     // Agmarknet now asks for a CAPTCHA and data.gov.in refuses servers: say so plainly.

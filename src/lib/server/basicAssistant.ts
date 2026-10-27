@@ -387,9 +387,20 @@ async function weatherAnswer(lang: Lang, query: string, place: (typeof PLACES)[n
         return `${day}: ${range}, ${rain(d.precipitation, l)}`;
       })
       .join(l === 'en' ? '; ' : l === 'hi' ? '; ' : '؛ ');
+  /** Open-Meteo down: said first, so "now" is never taken as this minute. India time (the server runs in UTC). */
+  const kept = (l: 'en' | 'hi' | 'ur') => {
+    if (!fc.stale) return '';
+    const at = new Date(fc.fetchedAt).toLocaleString(l === 'en' ? 'en-IN' : l === 'hi' ? 'hi-IN' : 'ur-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+    return {
+      en: `The weather service is not answering, so this is the forecast from ${at}.`,
+      hi: `मौसम सेवा अभी जवाब नहीं दे रही, इसलिए यह ${at} का पूर्वानुमान है।`,
+      ur: `موسم کی سروس ابھی جواب نہیں دے رہی، اس لیے یہ ${at} کی پیش گوئی ہے۔`,
+    }[l];
+  };
   return answer(lang, (l) => {
     const parts = {
       en: [
+        kept('en'),
         `Weather in ${where.en}: now ${t}°C, humidity ${Math.round(fc.current.humidity)}%.`,
         weekAsked ? `This week — ${week('en')}.` : '',
         !weekAsked && today ? `Today ${Math.round(today.min)}° to ${Math.round(today.max)}°, ${rain(mm1, 'en')}.` : '',
@@ -398,6 +409,7 @@ async function weatherAnswer(lang: Lang, query: string, place: (typeof PLACES)[n
         note?.en ?? '',
       ],
       hi: [
+        kept('hi'),
         `${where.hi} का मौसम: अभी ${t} डिग्री, नमी ${Math.round(fc.current.humidity)} प्रतिशत।`,
         weekAsked ? `इस हफ़्ते — ${week('hi')}।` : '',
         !weekAsked && today ? `आज ${Math.round(today.min)} से ${Math.round(today.max)} डिग्री, ${rain(mm1, 'hi')}।` : '',
@@ -406,6 +418,7 @@ async function weatherAnswer(lang: Lang, query: string, place: (typeof PLACES)[n
         note?.hi ?? '',
       ],
       ur: [
+        kept('ur'),
         `${where.ur} کا موسم: ابھی ${t} ڈگری، نمی ${Math.round(fc.current.humidity)} فیصد۔`,
         weekAsked ? `اس ہفتے — ${week('ur')}۔` : '',
         !weekAsked && today ? `آج ${Math.round(today.min)} سے ${Math.round(today.max)} ڈگری، ${rain(mm1, 'ur')}۔` : '',
