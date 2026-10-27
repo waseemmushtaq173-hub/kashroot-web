@@ -565,6 +565,23 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
     group.add(mesh);
     picks.push({ mesh, cells: tiles });
   }
+  // A free place is only a painted bay, but it can be pointed at anywhere in the space its stack would take
+  // (walking, the ring need not be aimed at the floor): an unseen box over each bay, for choosing only.
+  const open = tiles.filter((cell) => cell.look === 'free');
+  if (open.length) {
+    const mesh = new T.InstancedMesh(kit.unitBox, mats.tile, open.length);
+    open.forEach((cell, i) => {
+      const r = place(cell);
+      const f = scene.chambers[cell.chamber].floors[cell.floor];
+      m4.makeScale(r.w * 0.9, f.stackH, r.d * 0.9).setPosition(wx(o, r.x + r.w / 2), f.z0 + 0.03, wz(o, r.y + r.d / 2));
+      mesh.setMatrixAt(i, m4);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere();
+    mesh.visible = false;
+    group.add(mesh);
+    picks.push({ mesh, cells: open });
+  }
 
   // A label over each chamber: its number, what it holds and what is free.
   const labels: Places['labels'] = [];
