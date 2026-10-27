@@ -15,12 +15,14 @@
  *                     CSV (CIB&RC, FCO…), see counts, remove a list.
  *   Platform numbers: real counts (kr_admin_stats) — sign-ups per portal,
  *                     orders, cold-store bookings, expert requests…
+ *   Setup check:      which database setup files have been run in Supabase
+ *                     (kr_setup_status), and how to run a missing one.
  *
  * Who may enter is decided by staff_roles (kr_make_admin / kr_grant_role),
  * and every query above is limited to admins in the database itself.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BarChart3, GraduationCap, ListChecks, LockKeyhole, PackageX, Snowflake, Users, Wallet } from 'lucide-react';
+import { BarChart3, DatabaseZap, GraduationCap, ListChecks, LockKeyhole, PackageX, Snowflake, Users, Wallet } from 'lucide-react';
 
 import { AccountsPanel } from '@/components/admin/AccountsPanel';
 import { AdminLock } from '@/components/admin/AdminLock';
@@ -31,10 +33,11 @@ import { PlatformNumbers, loadAdminStats } from '@/components/admin/PlatformNumb
 import { RegistryPanel } from '@/components/admin/RegistryPanel';
 import { ReportedOrders, loadReportedOrders } from '@/components/admin/ReportedOrders';
 import { SecurityPanel } from '@/components/admin/SecurityPanel';
+import { SetupCheckPanel } from '@/components/admin/SetupCheckPanel';
 import { PortalShell } from '@/components/layout/PortalShell';
 import { supabase } from '@/lib/db/client';
 
-type Tab = 'approvals' | 'accounts' | 'problems' | 'contributors' | 'coldstores' | 'registry' | 'numbers' | 'security';
+type Tab = 'approvals' | 'accounts' | 'problems' | 'contributors' | 'coldstores' | 'registry' | 'numbers' | 'security' | 'setup';
 
 interface Counts {
   waiting: number;
@@ -122,6 +125,7 @@ function AdminConsole() {
         { id: 'registry', label: 'Official lists', icon: ListChecks },
         { id: 'numbers', label: 'Platform numbers', icon: BarChart3 },
         { id: 'security', label: 'Security', icon: LockKeyhole },
+        { id: 'setup', label: 'Setup check', icon: DatabaseZap },
       ]}
       activeTab={tab}
       onTabChange={(id) => show(id as Tab)}
@@ -134,6 +138,7 @@ function AdminConsole() {
       {tab === 'registry' && <RegistryPanel />}
       {tab === 'numbers' && <PlatformNumbers onRefreshed={load} />}
       {tab === 'security' && <SecurityPanel />}
+      {tab === 'setup' && <SetupCheckPanel />}
     </PortalShell>
   );
 }

@@ -9,7 +9,7 @@
  * from /api/cold-stores.
  */
 import { SOURCE_LABEL, type DirEntry } from '@/lib/coldDirectory';
-import { dbMessage, supabase } from '@/lib/db/client';
+import { dbMessage, SETUP_NEEDED, supabase } from '@/lib/db/client';
 
 export interface DirectoryRow {
   id: string;
@@ -35,7 +35,6 @@ const COLUMNS = `${BASE_COLUMNS}, status`;
 /** Before the suggestions SQL (20261024000000) there is no status: everything is checked. */
 const noStatus = (m?: string) => /status/i.test(m ?? '') && /column|does not exist/i.test(m ?? '');
 const missing = (m?: string) => /cold_store_directory|schema cache|does not exist|Could not find the function/i.test(m ?? '');
-export const DIRECTORY_SQL = 'Run the new cold store SQL (20261023000000_cold_store_directory.sql, also in RUN_THIS_ONCE.sql) in Supabase first.';
 
 /**
  * Every entry the viewer may see: checked ones, plus (admin) all suggestions
@@ -61,13 +60,12 @@ export async function directoryRows(): Promise<DirectoryRow[]> {
   return rows;
 }
 
-export const SUGGEST_SQL = 'Suggestions need the latest cold store update: run 20261024000000_cold_store_suggestions.sql (also in RUN_THIS_ONCE.sql) in Supabase.';
 
 /** Anyone signed in: a cold store missing from the list. It waits for the admin's check. */
 export async function suggestColdStore(input: { name: string; district: string | null; place: string | null; phone: string | null }): Promise<void> {
   const { error } = await supabase.from('cold_store_directory').insert({ ...input, status: 'pending', source: 'Suggested by a KashRoot user' });
   if (error) {
-    if (missing(error.message) || noStatus(error.message)) throw new Error(SUGGEST_SQL);
+    if (missing(error.message) || noStatus(error.message)) throw new Error(SETUP_NEEDED);
     if (/duplicate key|unique/i.test(error.message ?? '')) throw new Error('This cold store is already in the list (same name and district) — thank you.');
     if (/enough suggestions/i.test(error.message ?? '')) throw new Error(error.message ?? '');
     throw new Error(dbMessage(error, 'Could not send your suggestion.'));
@@ -98,7 +96,7 @@ export const asEntry = (r: DirectoryRow): DirEntry => ({
 export async function addDirectoryEntry(input: DirectoryInput): Promise<void> {
   const { error } = await supabase.from('cold_store_directory').insert(input);
   if (error) {
-    if (missing(error.message)) throw new Error(DIRECTORY_SQL);
+    if (missing(error.message)) throw new Error(SETUP_NEEDED);
     if (/duplicate key|unique/i.test(error.message ?? '')) throw new Error('This cold store is already in the directory (same name and district).');
     throw new Error(dbMessage(error, 'Could not add the cold store.'));
   }
@@ -115,7 +113,7 @@ export async function importDirectory(rows: Omit<DirEntry, 'source' | 'sourceLab
   for (let i = 0; i < rows.length; i += 2000) {
     const { data, error } = await supabase.rpc('kr_directory_import', { p_rows: rows.slice(i, i + 2000), p_source: source, p_source_url: sourceUrl });
     if (error) {
-      if (missing(error.message)) throw new Error(DIRECTORY_SQL);
+      if (missing(error.message)) throw new Error(SETUP_NEEDED);
       throw new Error(dbMessage(error, 'Could not import the list.'));
     }
     added += Number(data) || 0;

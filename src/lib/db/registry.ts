@@ -7,7 +7,7 @@
  * imports a list (in batches) or removes one. Every answer carries its
  * source and date, because KashRoot only holds what the admin imported.
  */
-import { dbMessage, supabase, supabaseConfigured } from '@/lib/db/client';
+import { dbMessage, SETUP_NEEDED, supabase, supabaseConfigured } from '@/lib/db/client';
 import type { OfficialKind, OfficialRow } from '@/lib/fertilizer/officialList';
 
 export type { OfficialKind } from '@/lib/fertilizer/officialList';
@@ -40,7 +40,6 @@ export interface RegistryStats {
   lists: OfficialListInfo[];
 }
 
-export const REGISTRY_SQL = 'Run the new TrueScan SQL (20261029000000_official_registry.sql, also in RUN_THIS_ONCE.sql) in Supabase first.';
 /** The table or functions are not there yet (the SQL has not been run). */
 const missing = (e: { code?: string; message?: string }) =>
   ['PGRST202', 'PGRST205', '42P01', '42883'].includes(e.code ?? '') || /schema cache|does not exist|Could not find the (function|table)/i.test(e.message ?? '');
@@ -108,7 +107,7 @@ export async function importRegistry(
     const { data, error } = await supabase.rpc('kr_registry_import', { p_rows: rows.slice(i, i + BATCH), p_kind: kind, p_source: source, p_source_url: sourceUrl });
     if (error) {
       statsMemo = null;
-      if (missing(error)) throw new Error(REGISTRY_SQL);
+      if (missing(error)) throw new Error(SETUP_NEEDED);
       const done = i > 0 ? ` ${i.toLocaleString('en-IN')} rows were imported before this; import the file again to add the rest.` : '';
       throw new Error(`${dbMessage(error, 'Could not import the list.')}${done}`);
     }
@@ -124,7 +123,7 @@ export async function removeRegistryList(source: string, kind: OfficialKind): Pr
   const { data, error } = await supabase.rpc('kr_registry_remove', { p_source: source, p_kind: kind });
   statsMemo = null;
   if (error) {
-    if (missing(error)) throw new Error(REGISTRY_SQL);
+    if (missing(error)) throw new Error(SETUP_NEEDED);
     throw new Error(dbMessage(error, 'Could not remove the list.'));
   }
   return Number(data) || 0;

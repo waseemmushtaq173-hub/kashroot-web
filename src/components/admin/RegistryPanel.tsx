@@ -19,7 +19,7 @@ import { AlertTriangle, ExternalLink, FileUp, ListChecks, Loader2, Trash2, Uploa
 import { Badge, Btn, EmptyState, Field, INPUT, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { toast } from '@/lib/client/toast';
 import { decodeListFile, KIND_LABEL, parseOfficialList, type OfficialKind, type ParsedOfficialList } from '@/lib/fertilizer/officialList';
-import { importRegistry, registryStats, REGISTRY_SQL, removeRegistryList, type OfficialListInfo, type RegistryStats } from '@/lib/db/registry';
+import { importRegistry, registryStats, removeRegistryList, type OfficialListInfo, type RegistryStats } from '@/lib/db/registry';
 
 const theme = PORTAL_THEMES.admin ?? PORTAL_THEMES.expert;
 const KINDS: OfficialKind[] = ['pesticide', 'fertiliser', 'seed', 'other'];
@@ -134,7 +134,7 @@ export function RegistryPanel() {
         ) : stats === undefined ? (
           <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>
         ) : stats === null ? (
-          <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-amber-200">The official lists are not set up in the database yet. {REGISTRY_SQL}</p>
+          <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-amber-200">The official lists are not set up in the database yet. Open the Setup check tab to see which setup file to run in Supabase.</p>
         ) : stats.lists.length === 0 ? (
           <EmptyState theme={theme} icon={ListChecks} title="No official list yet" text="Import the CIB&RC list of registered pesticides (as CSV) here. Until a list is imported, TrueScan tells people it cannot check registrations yet." />
         ) : (

@@ -16,7 +16,7 @@
  */
 import { asChamberSize, type ChamberSize } from '@/lib/coldLayout';
 import type { ChamberRow, Storage } from '@/lib/coldStore';
-import { dbMessage, supabase, VERIFY_FIRST } from '@/lib/db/client';
+import { dbMessage, SETUP_NEEDED, supabase, VERIFY_FIRST } from '@/lib/db/client';
 
 export interface ColdChamber {
   id: string;
@@ -69,7 +69,7 @@ export interface BookedPlace {
 }
 
 /** Shown when a place is shared before the shared-places SQL is run. */
-const SHARED_SQL = 'Sharing a place needs the latest cold store update: run 20261022000000_cold_shared_places.sql (also in RUN_THIS_ONCE.sql) in Supabase. Until then choose whole places.';
+const SHARED_SQL = 'Sharing a place is still being set up. Until then, choose whole places. (KashRoot team: open Admin portal → Setup check.)';
 
 const fail = (error: { message?: string; code?: string } | null, fallback: string): never => {
   const m = error?.message ?? '';
@@ -187,7 +187,7 @@ export type ChamberInput = Pick<ColdChamber, 'listing_id' | 'name' | 'position' 
 export async function saveChamber(input: ChamberInput, id?: string): Promise<ColdChamber> {
   const q = id ? supabase.from('cold_chambers').update(input).eq('id', id) : supabase.from('cold_chambers').insert(input);
   const { data, error } = await q.select(SIZE_COLUMNS).single();
-  if (error && noSizeColumn(error.message)) throw new Error('Run the new cold store SQL (20261021000000_cold_chamber_size.sql, also in RUN_THIS_ONCE.sql) in Supabase, then save again.');
+  if (error && noSizeColumn(error.message)) throw new Error(SETUP_NEEDED);
   if (error) fail(error, 'Could not save the chamber.');
   return withSize([data])[0];
 }
@@ -204,7 +204,7 @@ export async function saveChamber(input: ChamberInput, id?: string): Promise<Col
 export async function saveColdStore(listingId: string, rows: ChamberRow[]): Promise<number> {
   const { data, error } = await supabase.rpc('kr_save_cold_chambers', { p_listing: listingId, p_rows: rows });
   if (error && (error.code === 'PGRST202' || /Could not find the function/i.test(error.message ?? ''))) {
-    throw new Error('Run the new cold store SQL (20261025000000_cold_store_details.sql, also in RUN_THIS_ONCE.sql) in Supabase, then save again.');
+    throw new Error(SETUP_NEEDED);
   }
   if (error && /not your cold store|same number|at most 100|Each chamber needs/i.test(error.message ?? '')) throw new Error(error.message);
   if (error) fail(error, 'Could not save the chambers.');

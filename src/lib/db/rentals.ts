@@ -10,7 +10,7 @@
  * (supabase/migrations/20261025000000_cold_store_details.sql, lib/coldStore).
  */
 import { asBuilding, type Building, type StoreRow } from '@/lib/coldStore';
-import { dbMessage, supabase } from '@/lib/db/client';
+import { dbMessage, SETUP_NEEDED, supabase } from '@/lib/db/client';
 
 export type RentalKind = 'cold_store' | 'machinery';
 export type RentalUnit = 'box_month' | 'day' | 'hour';
@@ -159,7 +159,7 @@ export async function saveStore(input: Partial<StoreRow>, id?: string): Promise<
     ? supabase.from('rental_listings').update(input).eq('id', id)
     : supabase.from('rental_listings').insert({ kind: 'cold_store', unit: 'box_month', capacity: 1, available: 0, rate: 0, min_units: 1, active: false, ...input });
   const { data, error } = await q.select(LISTING_COLUMNS).single();
-  if (error && noStoreColumns(error.message)) throw new Error('Run the new cold store SQL (20261025000000_cold_store_details.sql, also in RUN_THIS_ONCE.sql) in Supabase, then save again.');
+  if (error && noStoreColumns(error.message)) throw new Error(SETUP_NEEDED);
   if (error) fail(error, 'Could not save your cold store.');
   return asListings([data])[0];
 }
@@ -190,7 +190,7 @@ export async function storePhotos(listingId: string): Promise<StorePhoto[]> {
 export async function saveStorePhotos(listingId: string, photos: StorePhoto[]): Promise<void> {
   const list = photos.slice(0, MAX_STORE_PHOTOS).map((p) => ({ src: p.src, note: p.note.trim().slice(0, 80) }));
   const { error } = await supabase.from('rental_listings').update({ photos: list.length ? list : null }).eq('id', listingId).select('id').single();
-  if (error && noPhotosColumn(error.message)) throw new Error('Run the store photos SQL (20261030000000_cold_store_photos.sql, also in RUN_THIS_ONCE.sql) in Supabase, then save again.');
+  if (error && noPhotosColumn(error.message)) throw new Error(SETUP_NEEDED);
   if (error && /photos_check/i.test(error.message ?? '')) throw new Error('One of the photos is too big. Remove it and add it again (it is made smaller on the phone).');
   if (error) fail(error, 'Could not save the photos.');
 }
@@ -319,7 +319,7 @@ export async function coldReceipt(id: string): Promise<ColdReceipt | null> {
   if (!UUID.test(id)) return null;
   const { data, error } = await supabase.rpc('kr_cold_receipt', { p_booking: id });
   if (error && (error.code === 'PGRST202' || /Could not find the function/i.test(error.message ?? ''))) {
-    throw new Error('Receipts need the latest cold store update: run 20261025100000_cold_booking_pay.sql (also in RUN_THIS_ONCE.sql) in Supabase.');
+    throw new Error(SETUP_NEEDED);
   }
   if (error) fail(error, 'Could not load the receipt.');
   if (!data) return null;

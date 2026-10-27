@@ -34,12 +34,28 @@ export const VERIFY_FIRST = 'Verify your identity first (Aadhaar, about a minute
 /** A new row refused by the database: a missing identity check, or a session that has ended. */
 const REFUSED = 'Verify your identity first (Aadhaar, about a minute): tap “Verify now”, then try again. Already verified? Sign in again and try once more.';
 
+/**
+ * Shown to everyone (owner, farmer, admin) when the live database is missing a
+ * table, column or function the site needs: a setup file has not been run in
+ * Supabase. Admin → Setup check says which one.
+ */
+export const SETUP_NEEDED = 'This part of KashRoot is still being set up, so it cannot be used just now. Please try again later. (KashRoot team: open Admin portal → Setup check.)';
+
+/**
+ * The error means the database has not had every setup file run: a missing
+ * table (42P01, PGRST205), column (42703, PGRST204) or function (42883,
+ * PGRST202), or one the API does not know about yet.
+ */
+export function isSetupMissing(error: { message?: string; code?: string } | null | undefined): boolean {
+  if (!error) return false;
+  if (['PGRST202', 'PGRST204', 'PGRST205', '42P01', '42703', '42883'].includes(error.code ?? '')) return true;
+  return /schema cache|does not exist|Could not find the (function|table)/i.test(error.message ?? '');
+}
+
 export function dbMessage(error: { message?: string; code?: string } | null | undefined, fallback = 'Something went wrong. Please try again.'): string {
   if (!error) return fallback;
   const m = error.message ?? '';
-  if (error.code === 'PGRST205' || error.code === '42P01' || error.code === 'PGRST202' || /schema cache|does not exist/i.test(m)) {
-    return 'The KashRoot database is not set up yet. The site owner needs to run the KashRoot SQL file in Supabase (SQL Editor).';
-  }
+  if (isSetupMissing(error)) return SETUP_NEEDED;
   // A new row refused by the "KYC before …" rules — or by an ended session.
   if (/new row violates row-level security/i.test(m)) return REFUSED;
   if (/JWT|not authenticated|permission denied|row-level security/i.test(m)) return 'Please sign in again to do this.';
