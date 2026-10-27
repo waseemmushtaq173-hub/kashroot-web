@@ -119,8 +119,20 @@ async function readListings(query: (cols: string) => PromiseLike<{ data: unknown
   return asListings(data);
 }
 
+/**
+ * Every active listing, most free space first. Read a page at a time so none
+ * is ever left out: the search filters this list, so a store missing here
+ * could not be found at all.
+ */
 export async function listListings(kind: RentalKind): Promise<RentalListing[]> {
-  return readListings((cols) => supabase.from('rental_listings').select(cols).eq('kind', kind).eq('active', true).order('available', { ascending: false }).limit(200), 'Could not load listings.');
+  const PAGE = 500;
+  const all: RentalListing[] = [];
+  for (let from = 0; from < 10_000; from += PAGE) {
+    const page = await readListings((cols) => supabase.from('rental_listings').select(cols).eq('kind', kind).eq('active', true).order('available', { ascending: false }).order('id').range(from, from + PAGE - 1), 'Could not load listings.');
+    all.push(...page);
+    if (page.length < PAGE) break;
+  }
+  return all;
 }
 
 export async function myListings(ownerId: string): Promise<RentalListing[]> {

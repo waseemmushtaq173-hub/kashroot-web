@@ -122,8 +122,15 @@ const withSize = (rows: unknown[]): ColdChamber[] =>
     rate: asNumber(c.rate),
   }));
 
+/** Store ids a few dozen at a time: every id goes into the request address, which has a size limit. */
+const inGroups = (ids: string[], size: number): string[][] => Array.from({ length: Math.ceil(ids.length / size) }, (_, i) => ids.slice(i * size, (i + 1) * size));
+
 export async function chambersOf(listingIds: string[]): Promise<ColdChamber[]> {
   if (!listingIds.length) return [];
+  return (await Promise.all(inGroups([...new Set(listingIds)], 60).map(chambersOfFew))).flat();
+}
+
+async function chambersOfFew(listingIds: string[]): Promise<ColdChamber[]> {
   const read = (cols: string) => supabase.from('cold_chambers').select(cols).in('listing_id', listingIds).order('position').order('name');
   let { data, error } = await read(COLUMNS);
   if (error && noWizardColumns(error.message)) ({ data, error } = await read(SIZE_COLUMNS));
@@ -218,12 +225,18 @@ export async function deleteChamber(id: string): Promise<void> {
  */
 export async function freeNow(listingIds: string[]): Promise<Map<string, number>> {
   if (!listingIds.length) return new Map();
-  const { data, error } = await supabase.rpc('kr_cold_free_now', { p_listings: listingIds.slice(0, 200) });
-  if (error) {
-    if (missingFunction(error)) return new Map();
-    fail(error, 'Could not load how much space is free.');
-  }
-  return new Map(((data ?? []) as { chamber_id: string; free: number }[]).map((r) => [r.chamber_id, Number(r.free) || 0]));
+  // Every store, 200 at a time (a store left out would look full).
+  const parts = await Promise.all(
+    inGroups([...new Set(listingIds)], 200).map(async (ids) => {
+      const { data, error } = await supabase.rpc('kr_cold_free_now', { p_listings: ids });
+      if (error) {
+        if (missingFunction(error)) return [];
+        fail(error, 'Could not load how much space is free.');
+      }
+      return (data ?? []) as { chamber_id: string; free: number }[];
+    }),
+  );
+  return new Map(parts.flat().map((r) => [r.chamber_id, Number(r.free) || 0]));
 }
 
 /** A place a booking has (or will have), with the farmer's bins on it (null: the whole place). */

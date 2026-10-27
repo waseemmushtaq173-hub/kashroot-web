@@ -50,7 +50,7 @@ export function ProductCard({ listing: l, verified, own, inCart, onAdd, onOpen }
       <div className="flex flex-1 flex-col p-4">
         <p className="text-xs font-bold uppercase tracking-wider text-orange-800">{l.subcategory ?? 'Farm input'}</p>
         <h3 className="mt-0.5 text-lg font-semibold leading-snug text-slate-900">
-          <button type="button" onClick={onOpen} className="cursor-pointer text-left hover:underline">{l.product}</button>
+          <button type="button" onClick={onOpen} className="inline-flex min-h-11 cursor-pointer items-center text-left hover:underline">{l.product}</button>
         </h3>
         {(l.variety || l.grade) && <p className="text-sm text-slate-600">{[l.variety, l.grade && `Grade ${l.grade}`].filter(Boolean).join(' · ')}</p>}
         <p className="mt-2 text-2xl font-bold text-slate-900">
