@@ -34,9 +34,10 @@
  */
 import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { Box, Check, Clock, DoorOpen, Footprints, Hand, Layers, Map as MapIcon } from 'lucide-react';
+import { Box, Camera, Check, Clock, DoorOpen, Footprints, Hand, Layers, Map as MapIcon } from 'lucide-react';
 
 import { ChamberDiagram } from '@/components/rental/ChamberDiagram';
+import { StorePhotosView } from '@/components/rental/StorePhotos';
 import { lookLabel, PLACE_LOOK, placesOf, type Look } from '@/components/rental/placeLook';
 import { StoreTopView, type ChamberCount } from '@/components/rental/three/StoreTopView';
 import { buildScene } from '@/components/rental/three/storeScene';
@@ -273,7 +274,7 @@ function mixText(by: Partial<Record<Storage, number>>): string {
   return `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`;
 }
 
-export type ExplorerView = 'drawing' | '3d' | 'walk';
+export type ExplorerView = 'drawing' | '3d' | 'walk' | 'photos';
 
 /**
  * The whole store: the Drawing (to scale, a floor at a time, with the open
@@ -295,6 +296,7 @@ export function ColdStoreExplorer({
   single = false,
   building: buildingProp,
   rate: rateProp,
+  mineName,
 }: {
   chambers: ColdChamber[];
   stateOf: (c: ColdChamber, slot: string) => Look;
@@ -312,6 +314,8 @@ export function ColdStoreExplorer({
   building?: Building | null;
   /** The store's rent for chambers without their own; read from the store when not given. */
   rate?: number | null;
+  /** The farmer's name, shown over their own places in the 3D views. */
+  mineName?: string;
 }) {
   const [view, setView] = useState<ExplorerView>('drawing');
   const { building, rate, waiting } = useStoreDetails(
@@ -372,6 +376,11 @@ export function ColdStoreExplorer({
     </button>
   );
   const groups = scene.chambers.length;
+  // A store on KashRoot (not the owner's preview while setting it up) can have real photos.
+  const listingId = chambers[0]?.listing_id ?? '';
+  const realStore = /^[0-9a-f-]{36}$/i.test(listingId);
+  // A store set up before the owner wizard: plain rooms of boxes, no building, chambers or floors from the owner.
+  const plainRooms = mode !== 'owner' && !waiting && !building && scene.chambers.length > 0 && scene.chambers.every((sc) => sc.storage === 'boxes');
   // Until the building is read the whole store is not drawn, so it never jumps from one layout to another.
   const drawingSoon = <p className="grid min-h-[280px] place-items-center rounded-3xl bg-slate-50 text-sm text-slate-500 ring-1 ring-slate-900/5">Drawing the cold store…</p>;
   const anyFree = Object.values(totals.free).some((n) => n);
@@ -380,17 +389,25 @@ export function ColdStoreExplorer({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div role="tablist" aria-label="How to see the store" className="flex w-full gap-1 rounded-2xl bg-sky-50 p-1 ring-1 ring-sky-200 sm:w-auto">
+        <div role="tablist" aria-label="How to see the store" className={`${realStore ? 'grid grid-cols-2 sm:flex' : 'flex'} w-full gap-1 rounded-2xl bg-sky-50 p-1 ring-1 ring-sky-200 sm:w-auto`}>
           {tab('drawing', 'Drawing', MapIcon)}
           {tab('3d', '3D view', Layers)}
           {tab('walk', 'Walk inside', Footprints)}
+          {realStore && tab('photos', 'Photos', Camera)}
         </div>
         <p className="text-sm text-slate-700">
           {groups} chamber{groups === 1 ? '' : 's'} · holds <strong className="text-slate-900">{mixText(totals.holds)}</strong> · <strong className={anyFree ? 'text-sky-800' : 'text-slate-900'}>{freeText}</strong> free
         </p>
       </div>
 
-      {view !== 'drawing' ? (
+      {plainRooms && view !== 'photos' && (
+        <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-950 ring-1 ring-amber-200">
+          The owner has not entered this store’s building, chambers and floors yet, so it is drawn as {groups === 1 ? 'one plain room' : 'plain rooms'} of boxes. Call the owner to ask which chamber and floor your apples will go to, and whether they use bins or crates.
+        </p>
+      )}
+      {view === 'photos' && realStore ? (
+        <StorePhotosView listingId={listingId} />
+      ) : view !== 'drawing' ? (
         <>
           {waiting ? (
             drawingSoon
@@ -405,6 +422,7 @@ export function ColdStoreExplorer({
               onActive={onActive}
               building={building}
               rate={rate}
+              mineName={mineName}
               view={view === 'walk' ? 'walk' : 'orbit'}
               onView={(v) => setView(v === 'walk' ? 'walk' : '3d')}
             />
@@ -460,7 +478,7 @@ export function ColdStoreExplorer({
           )}
         </>
       )}
-      <PlaceLegend show={legend} units={unitsText(scene.chambers.map((sc) => sc.storage))} />
+      {view !== 'photos' && <PlaceLegend show={legend} units={unitsText(scene.chambers.map((sc) => sc.storage))} />}
     </div>
   );
 }

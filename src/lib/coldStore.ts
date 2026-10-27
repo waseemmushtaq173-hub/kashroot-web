@@ -73,7 +73,7 @@ export function unitsText(storages: Storage[]): string {
  * walkway's width (as wide as the door, within these limits).
  */
 export const PACKING: Record<Packed, { size: { l: number; w: number; h: number }; kg: [number, number]; usualKg: string; wallGap: number; gap: number; doorGap: number; walk: [number, number] }> = {
-  bins: { size: { l: 1.2, w: 1.2, h: 0.76 }, kg: [50, 1500], usualKg: 'about 300–400 kg', wallGap: 0.3, gap: 0.1, doorGap: 1.5, walk: [1.2, 3.5] },
+  bins: { size: { l: 1.2, w: 1.2, h: 0.76 }, kg: [50, 1500], usualKg: 'about 200–400 kg', wallGap: 0.3, gap: 0.1, doorGap: 1.5, walk: [1.2, 3.5] },
   crates: { size: { l: 0.6, w: 0.4, h: 0.3 }, kg: [2, 60], usualKg: 'about 20 kg', wallGap: 0.2, gap: 0.05, doorGap: 1, walk: [0.9, 2.5] },
 };
 
@@ -616,7 +616,7 @@ function readChamber(c: ChamberDraft, numbers: Map<number, number>, u: SizeUnit,
   else if (count > 1_000_000) ok = (add('error', 3, `${k}.count`, `${nice(count)} ${W.many} is too many for one chamber. Please check the number.`), false);
   const kg = readNumber(c.kg);
   if (kg === null) ok = (add('error', 3, `${k}.kg`, `Write how many kg of apples one ${W.one} holds.`), false);
-  else if (Number.isNaN(kg) || kg <= 0) ok = (add('error', 3, `${k}.kg`, `Write the kg in one ${W.one} as a number, like ${c.storage === 'bins' ? '350' : '20'}.`), false);
+  else if (Number.isNaN(kg) || kg <= 0) ok = (add('error', 3, `${k}.kg`, `Write the kg in one ${W.one} as a number, like ${c.storage === 'bins' ? '200' : '20'}.`), false);
   else if (kg < P.kg[0]) {
     const other = c.storage === 'bins' ? ' If they are plastic crates (about 20 kg), choose Crates above.' : '';
     ok = (add('error', 3, `${k}.kg`, `${nice(kg)} kg is too little for one ${W.one} — a ${c.storage === 'bins' ? 'wooden apple bin' : 'plastic crate'} usually holds ${P.usualKg}.${other} Check the kg.`), false);

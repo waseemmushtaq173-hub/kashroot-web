@@ -99,6 +99,7 @@ export function ChambersStep({
         {older.length > 0 && (
           <div className="space-y-2 rounded-2xl bg-sky-50 p-3 text-sm text-sky-950 ring-1 ring-sky-200">
             <p className="font-semibold">Chambers you set up before (kept as they are)</p>
+            <p>These were set up before a chamber could have floors, bins or crates, so farmers see each as one plain room of boxes. Add your real chambers below — each with its size, floors and bins or crates — then remove the old ones.</p>
             <ul className="space-y-1.5">
               {older.map((c) => (
                 <li key={c.id} className="flex flex-wrap items-center justify-between gap-2">
@@ -194,7 +195,7 @@ function ChamberEditor({
       <StoragePicker name={`${k}.storage`} value={c.storage} onChange={(v) => kit.set(`${k}.storage`, v)} />
       <div className="grid gap-5 sm:grid-cols-2">
         <KitBox kit={kit} field={`${k}.count`} label={`How many ${W.many} does it hold?`} number whole />
-        <KitBox kit={kit} field={`${k}.kg`} label={`Kg of apples in one ${W.one}`} number hint="A wooden apple bin usually holds about 300–400 kg; a plastic crate about 20 kg." />
+        <KitBox kit={kit} field={`${k}.kg`} label={`Kg of apples in one ${W.one}`} number hint="A wooden apple bin usually holds about 200–400 kg; a plastic crate about 20 kg." />
       </div>
       <KitBox
         kit={kit}

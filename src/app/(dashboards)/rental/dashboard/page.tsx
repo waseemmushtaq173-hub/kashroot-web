@@ -18,7 +18,7 @@
  * Data: rental_listings, rental_bookings, payout_accounts (shared database).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Apple, ArrowRight, Boxes, CalendarDays, CheckCircle2, ClipboardCheck, IndianRupee, Landmark, Loader2, Map as MapIcon, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, ReceiptText, Search, Snowflake, Sparkles, Store, Trash2, Warehouse, XCircle } from 'lucide-react';
+import { Apple, ArrowRight, Boxes, CalendarDays, Camera, CheckCircle2, ClipboardCheck, IndianRupee, Landmark, Loader2, Map as MapIcon, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, ReceiptText, Search, Snowflake, Sparkles, Store, Trash2, Warehouse, XCircle } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { IdentityStatus } from '@/components/auth/IdentityStatus';
@@ -27,6 +27,7 @@ import { ColdBooking, MyPlaces, niceDate } from '@/components/rental/ColdBooking
 import { PayOwner } from '@/components/rental/receipt/PayOwner';
 import { ColdMapEditor } from '@/components/rental/ColdMapEditor';
 import { OwnerWizard, type Step } from '@/components/rental/owner/OwnerWizard';
+import { StorePhotosEditor } from '@/components/rental/StorePhotos';
 import { PaymentDetails } from '@/components/rental/owner/PaymentStep';
 import { ColdStoreDirectory, useColdDirectory } from '@/components/rental/ColdStoreDirectory';
 import { Badge, Btn, EmptyState, Field, INPUT, Modal, PORTAL_THEMES, Panel } from '@/components/portal/kit';
@@ -655,7 +656,7 @@ function RenterBooking({ booking: b, places, chambers, onChange }: { booking: Re
           {l.manager_phone && <CallPerson role="manager" name={l.manager_name ?? null} phone={l.manager_phone} />}
         </div>
       )}
-      <MyPlaces places={places} chambers={chambers} listingId={b.listing_id} start={b.start_date} months={b.duration} />
+      <MyPlaces places={places} chambers={chambers} listingId={b.listing_id} start={b.start_date} months={b.duration} name={b.renter_name} />
       {byPlace && b.status === 'requested' && (
         <p className="mt-2 text-sm text-amber-800">
           {held > now
@@ -709,6 +710,7 @@ function OwnerPanel({
   const [mapOf, setMapOf] = useState<RentalListing | null>(null);
   // A store set up before the wizard: its rent per box (and boxes, without chambers).
   const [rentOf, setRentOf] = useState<RentalListing | null>(null);
+  const [photosOf, setPhotosOf] = useState<RentalListing | null>(null);
   const [payout, setPayout] = useState<PayoutAccount | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
 
@@ -856,12 +858,18 @@ function OwnerPanel({
                     <span className="text-sm text-slate-500">of {l.capacity.toLocaleString('en-IN')} {unit.unit}</span>
                   </div>
                   )}
+                  {mapped && !wizardStore && (
+                    <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-950 ring-1 ring-amber-200">
+                      Farmers see this store as one plain room of boxes. Tap “Set up building & chambers” to enter your building and each chamber — its size, floors, and bins or crates — so farmers see your real store.
+                    </p>
+                  )}
                   <div className="mt-3 flex flex-wrap gap-2">
                     {wizardStore && !ready && !l.active && <Btn theme={theme} className="min-h-[44px]" icon={ArrowRight} onClick={() => openWizard(l)}>Finish setting up</Btn>}
                     {mapped && <Btn theme={theme} variant={wizardStore && !ready && !l.active ? 'soft' : 'solid'} className="min-h-[44px]" icon={MapIcon} onClick={() => setMapOf(l)}>Cold store map & 3D</Btn>}
                     <Btn theme={theme} variant="soft" className="min-h-[44px]" icon={Pencil} onClick={() => openWizard(l, 1)}>Change details</Btn>
+                    <Btn theme={theme} variant="soft" className="min-h-[44px]" icon={Camera} onClick={() => setPhotosOf(l)}>Photos</Btn>
                     {!wizardStore && <Btn theme={theme} variant="soft" className="min-h-[44px]" icon={IndianRupee} onClick={() => setRentOf(l)}>Change rent</Btn>}
-                    <Btn theme={theme} variant="soft" className="min-h-[44px]" icon={Warehouse} onClick={() => openWizard(l, wizardStore || !mapped ? (l.building ? 3 : 2) : 3)}>{mapped ? 'Change chambers' : 'Add chambers'}</Btn>
+                    <Btn theme={theme} variant="soft" className="min-h-[44px]" icon={Warehouse} onClick={() => openWizard(l, l.building ? 3 : 2)}>{mapped && !wizardStore ? 'Set up building & chambers' : mapped ? 'Change chambers' : 'Add chambers'}</Btn>
                     {(!wizardStore || ready || l.active) && (
                       <Btn theme={theme} variant="ghost" className="min-h-[44px]" disabled={busy} onClick={() => void run(() => setAvailability(l.id, l.available, !l.active), l.active ? 'Hidden from farmers' : 'Farmers can see it again')}>{l.active ? 'Hide' : 'Show to farmers'}</Btn>
                     )}
@@ -922,6 +930,7 @@ function OwnerPanel({
         />
       )}
 
+      {photosOf && <StorePhotosEditor listingId={photosOf.id} title={photosOf.title} theme={theme} onClose={() => setPhotosOf(null)} />}
       {rentOf && (
         <OlderRent
           listing={rentOf}

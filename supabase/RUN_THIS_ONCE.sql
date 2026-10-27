@@ -3962,7 +3962,55 @@ $$;
 revoke all on function public.kr_registry_stats() from public;
 grant execute on function public.kr_registry_stats() to anon, authenticated;
 
--- ════════ Make kashroot08@gmail.com the owner admin ════════
--- The result below says "Done" — or, if that account does not exist yet,
--- create it on the website first (any portal) and run this file again.
-select public.kr_make_admin('kashroot08@gmail.com') as result;
+-- ════════ 20261030000000_cold_store_photos.sql ════════
+-- KashRoot: real photos of a cold store, added by its owner, so a farmer sees
+-- the store as it is beside the drawing, the 3D view and the walk inside.
+--   rental_listings.photos  up to 8 photos: [{src, note}], src a JPEG / PNG /
+--                           WebP data URL made smaller on the phone (at most
+--                           about 450 KB each), note a few words ("Main door",
+--                           "Chamber 2, bins") of at most 80 letters.
+-- Read only when a farmer opens the store (never with the list of stores).
+-- The owner changes them like the rest of the store ("Owners edit listings");
+-- anyone who can see the store sees them ("Anyone browses active listings").
+-- Run after 20261029000000_official_registry.sql. Safe to run again.
+
+alter table public.rental_listings add column if not exists photos jsonb;
+
+create or replace function public.kr_store_photos_ok(p jsonb) returns boolean
+language sql immutable set search_path = public as $$
+  select p is null or (
+    jsonb_typeof(p) = 'array'
+    and jsonb_array_length(p) <= 8
+    and not exists (
+      select 1 from jsonb_array_elements(p) x
+      where jsonb_typeof(x) <> 'object'
+         or jsonb_typeof(x -> 'src') is distinct from 'string'
+         or (x ->> 'src') !~ '^data:image/(jpeg|png|webp);base64,'
+         or char_length(x ->> 'src') > 460000
+         or (x ? 'note' and jsonb_typeof(x -> 'note') not in ('string', 'null'))
+         or char_length(coalesce(x ->> 'note', '')) > 80
+    )
+  )
+$$;
+
+alter table public.rental_listings drop constraint if exists rental_listings_photos_check;
+alter table public.rental_listings add constraint rental_listings_photos_check check (public.kr_store_photos_ok(photos));
+
+notify pgrst, 'reload schema';
+
+-- ════════ Make kashroot08@gmail.com the owner admin, and check everything ════════
+-- The site reads the new tables and columns at once.
+notify pgrst, 'reload schema';
+-- One row below. "admin" says "Done" — or, if that account does not exist yet,
+-- create it on the website first (any portal) and run this file again. Every
+-- other column should say "yes". A "NO" means Supabase stopped before that
+-- part: the error it showed (in red, with a line number) says why.
+select
+  public.kr_make_admin('kashroot08@gmail.com') as admin,
+  case when exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'rental_listings' and column_name = 'building') then 'yes' else 'NO' end as cold_store_details,
+  case when exists (select 1 from pg_proc where proname = 'kr_cold_receipt') then 'yes' else 'NO' end as cold_booking_pay,
+  case when exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'market_listings' and column_name = 'photos') then 'yes' else 'NO' end as shop_orders,
+  case when exists (select 1 from pg_proc where proname = 'kr_admin_accounts') then 'yes' else 'NO' end as pan_and_signin,
+  case when exists (select 1 from pg_proc where proname = 'kr_verified_sellers') then 'yes' else 'NO' end as buyer_shop,
+  case when to_regclass('public.official_products') is not null then 'yes' else 'NO' end as truescan_lists,
+  case when exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'rental_listings' and column_name = 'photos') then 'yes' else 'NO' end as store_photos;

@@ -81,7 +81,7 @@ export function cellsOf(scene: StoreScene, stateOf: (c: ColdChamber, slot: strin
 const sizeText = (c: SceneChamber, unit: 'ft' | 'm') => `${showLength(c.rect.w, unit)} × ${showLength(c.rect.d, unit)}, ${showLength(c.h, unit)} high`;
 
 interface Api {
-  setData: (scene: StoreScene, cells: Cell[], free: number[]) => void;
+  setData: (scene: StoreScene, cells: Cell[], free: number[], mineName?: string) => void;
   setActive: (index: number) => void;
   setView: (v: View3D) => void;
   frame: (what: 'all' | 'door' | 'top' | number) => void;
@@ -171,6 +171,7 @@ export function ColdStore3D({
   rate = null,
   view = 'orbit',
   onView,
+  mineName,
 }: {
   chambers: ColdChamber[];
   stateOf: (c: ColdChamber, slot: string) => Look;
@@ -187,6 +188,8 @@ export function ColdStore3D({
   /** Look around from outside (orbit) or walk inside. */
   view?: View3D;
   onView?: (v: View3D) => void;
+  /** The farmer's name, shown over their own places ('mine'). */
+  mineName?: string;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const tip = useRef<HTMLDivElement>(null);
@@ -214,12 +217,12 @@ export function ColdStore3D({
   const activeIndex = useMemo(() => scene.chambers.findIndex((c) => c.group.floors.some((r) => r.id === active)), [scene, active]);
 
   // The latest data and callbacks, for the scene (which is set up once).
-  const latest = useRef({ scene, cells, free, mode, onPlace, onActive, view, activeIndex });
+  const latest = useRef({ scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName });
   useEffect(() => {
-    latest.current = { scene, cells, free, mode, onPlace, onActive, view, activeIndex };
-  }, [scene, cells, free, mode, onPlace, onActive, view, activeIndex]);
+    latest.current = { scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName };
+  }, [scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName]);
   // The places are built again only when the store or what its places are changes (not when the page around it redraws).
-  useEffect(() => api.current?.setData(scene, cells, free), [scene, cells, free]);
+  useEffect(() => api.current?.setData(scene, cells, free, mineName), [scene, cells, free, mineName]);
   useEffect(() => api.current?.setActive(activeIndex), [activeIndex]);
   useEffect(() => api.current?.setView(view), [view]);
   // The small map is drawn into the walk's buttons, which appear once the view is ready.
@@ -284,6 +287,8 @@ export function ColdStore3D({
       world3.add(fill);
 
       const kit = makeKit(T, phone);
+      // Walking: a light haze gives the long rooms their depth.
+      const haze = new T.Fog('#e6edf3', 14, 70);
       const root = new T.Group();
       world3.add(root);
       let shell: Shell | null = null;
@@ -292,6 +297,8 @@ export function ColdStore3D({
       let origin: Origin = { ox: 0, oy: 0 };
       let walkWorldNow: WalkWorld | null = null;
       let mode3: View3D = 'orbit';
+      // Labels: on top of everything from outside; walking, hidden behind walls like real signs (null: set them again).
+      let labelsWalk: boolean | null = null;
       let dirty = true;
       // The frame loop's state (kick() may run before the loop is defined below).
       let raf = 0;
@@ -682,10 +689,10 @@ export function ColdStore3D({
 
       // ── The data ──
       let shownCells = '';
-      const setData = (s: StoreScene, cs: Cell[], freeBy: number[]) => {
+      const setData = (s: StoreScene, cs: Cell[], freeBy: number[], who?: string) => {
         const fresh = s !== shown;
         // The same store with the same places: nothing to build again.
-        const sign = `${cs.map((c) => `${c.look}${c.free}`).join()}|${freeBy.join()}`;
+        const sign = `${cs.map((c) => `${c.look}${c.free}`).join()}|${freeBy.join()}|${who ?? ''}`;
         if (!fresh && sign === shownCells) return;
         shownCells = sign;
         if (fresh) {
@@ -702,8 +709,9 @@ export function ColdStore3D({
           root.remove(places.group);
           disposeGroup(T, kit, places.group);
         }
-        places = buildPlaces(kit, s, cs, origin, (i) => freeBy[i] ?? 0);
+        places = buildPlaces(kit, s, cs, origin, (i) => freeBy[i] ?? 0, who);
         root.add(places.group);
+        labelsWalk = null;
         const stops = new Set<string>();
         for (const c of cs) {
           const ch = s.chambers[c.chamber];
@@ -738,6 +746,15 @@ export function ColdStore3D({
        */
       const render = () => {
         if (shell) faceWalls(kit, shell.walls, mode3 === 'walk' ? null : { x: camera.position.x, z: camera.position.z });
+        // Ceilings, roof and lights only when walking: from outside the roof is off so you can look in.
+        if (shell) shell.walkOnly.visible = mode3 === 'walk';
+        world3.fog = mode3 === 'walk' ? haze : null;
+        if (labelsWalk !== (mode3 === 'walk')) {
+          labelsWalk = mode3 === 'walk';
+          root.traverse((o) => {
+            if (o instanceof T.Sprite) o.material.depthTest = labelsWalk === true;
+          });
+        }
         const px = (2 * Math.tan(T.MathUtils.degToRad(camera.fov / 2))) / Math.max(1, el.clientHeight);
         sizeLabels([...(shell?.labels ?? []), ...(places?.labels ?? [])], camera, px);
         renderer.render(world3, camera);
@@ -871,7 +888,7 @@ export function ColdStore3D({
           if (mode3 === 'walk') tellWhere();
         },
       };
-      setData(latest.current.scene, latest.current.cells, latest.current.free);
+      setData(latest.current.scene, latest.current.cells, latest.current.free, latest.current.mineName);
       setView(latest.current.view);
       setReady(true);
 
@@ -986,6 +1003,7 @@ export function ColdStore3D({
       {big && card}
       {note && <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-950 ring-1 ring-amber-300">{note}</p>}
       {scene.beside && <p className="text-xs text-slate-600">Chambers set up before the building was measured stand beside it, outside its walls.</p>}
+      <p className="text-xs text-slate-500">Sizes, chambers, doors and places are the owner’s. Cooling units, lights and curtains are drawn as in a typical cold store — the Photos tab shows this store as it really is, when the owner has added photos.</p>
       <p className="text-xs text-slate-600">
         {walking
           ? `Walk with the arrows (or the keys W A S D, ← →) · drag to look around · ${mode === 'book' ? 'tap a free place in front of you, or aim the ring at it, to choose it.' : mode === 'owner' ? 'tap a stack to see whose it is.' : 'your stacks are tinted violet.'}`

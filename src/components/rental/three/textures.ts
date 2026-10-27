@@ -235,28 +235,81 @@ export function gratingTexture(T: Three) {
   return t;
 }
 
-/** Insulated wall panels with their joints. */
+/**
+ * Insulated sandwich panels (PUF between two steel sheets), as cold stores are
+ * built: a slight sheen across each panel, fine ribs pressed into the steel,
+ * and the joint between two panels — a dark line with a light edge.
+ */
 export function panelTexture(T: Three) {
-  const { c, g } = canvas(128, 128);
+  const { c, g } = canvas(256, 256);
   if (g) {
-    g.fillStyle = '#eef2f6';
-    g.fillRect(0, 0, 128, 128);
-    g.fillStyle = 'rgba(100,116,139,0.55)';
-    g.fillRect(0, 0, 3, 128);
-    g.fillStyle = 'rgba(148,163,184,0.35)';
-    for (let y = 16; y < 128; y += 32) g.fillRect(3, y, 125, 1);
+    const sheen = g.createLinearGradient(0, 0, 256, 0);
+    sheen.addColorStop(0, '#e6ebf1');
+    sheen.addColorStop(0.45, '#f5f8fb');
+    sheen.addColorStop(1, '#e8edf2');
+    g.fillStyle = sheen;
+    g.fillRect(0, 0, 256, 256);
+    for (let y = 8; y < 256; y += 16) {
+      g.fillStyle = 'rgba(255,255,255,0.75)';
+      g.fillRect(0, y, 256, 1);
+      g.fillStyle = 'rgba(100,116,139,0.16)';
+      g.fillRect(0, y + 1, 256, 1);
+    }
+    g.fillStyle = 'rgba(71,85,105,0.6)';
+    g.fillRect(0, 0, 3, 256);
+    g.fillStyle = 'rgba(255,255,255,0.85)';
+    g.fillRect(3, 0, 2, 256);
   }
   const t = new T.CanvasTexture(c);
   t.colorSpace = T.SRGBColorSpace;
   t.wrapS = t.wrapT = T.RepeatWrapping;
+  t.anisotropy = 4;
   return t;
 }
 
-/** A label: a big title and a smaller line under it. */
-export function labelCanvas(title: string, sub: string, dark = false) {
-  const { c, g } = canvas(512, sub ? 168 : 112);
+/** A cooling fan seen from the front: the dark opening, four blades, the hub and the guard's rings. */
+export function fanTexture(T: Three) {
+  const { c, g } = canvas(128, 128);
   if (g) {
-    g.fillStyle = dark ? 'rgba(15,23,42,0.86)' : 'rgba(255,255,255,0.95)';
+    g.fillStyle = '#334155';
+    g.fillRect(0, 0, 128, 128);
+    g.fillStyle = '#0f172a';
+    g.beginPath();
+    g.arc(64, 64, 60, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#64748b';
+    for (let i = 0; i < 4; i++) {
+      g.save();
+      g.translate(64, 64);
+      g.rotate((i * Math.PI) / 2 + 0.3);
+      g.beginPath();
+      g.ellipse(0, -30, 14, 27, 0.45, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+    }
+    g.fillStyle = '#cbd5e1';
+    g.beginPath();
+    g.arc(64, 64, 11, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = 'rgba(226,232,240,0.55)';
+    g.lineWidth = 2;
+    for (const r of [22, 36, 50, 60]) {
+      g.beginPath();
+      g.arc(64, 64, r, 0, Math.PI * 2);
+      g.stroke();
+    }
+  }
+  const t = new T.CanvasTexture(c);
+  t.colorSpace = T.SRGBColorSpace;
+  return t;
+}
+
+/** A label: a big title and a smaller line under it (`fill`: a coloured label with white words). */
+export function labelCanvas(title: string, sub: string, dark = false, fill?: string) {
+  const { c, g } = canvas(512, sub ? 168 : 112);
+  if (fill) dark = true;
+  if (g) {
+    g.fillStyle = fill ?? (dark ? 'rgba(15,23,42,0.86)' : 'rgba(255,255,255,0.95)');
     if (g.roundRect) {
       g.beginPath();
       g.roundRect(4, 4, 504, c.height - 8, 30);
@@ -269,7 +322,7 @@ export function labelCanvas(title: string, sub: string, dark = false) {
     while (g.measureText(title).width > 470 && (px -= 4) > 22);
     g.fillText(title, 256, sub ? 78 : 76);
     if (sub) {
-      g.fillStyle = dark ? '#bae6fd' : '#0369a1';
+      g.fillStyle = fill ? '#ede9fe' : dark ? '#bae6fd' : '#0369a1';
       let sp = 42;
       do g.font = `600 ${sp}px system-ui, sans-serif`;
       while (g.measureText(sub).width > 480 && (sp -= 2) > 16);

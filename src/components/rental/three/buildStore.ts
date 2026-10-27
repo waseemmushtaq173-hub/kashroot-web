@@ -16,7 +16,8 @@
  * loaded only when the 3D view opens.
  */
 import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
-import { binTexture, cartonTexture, concreteTexture, crateTexture, ghostTexture, gratingTexture, labelCanvas, panelTexture } from '@/components/rental/three/textures';
+import { binTexture, cartonTexture, concreteTexture, crateTexture, fanTexture, ghostTexture, gratingTexture, labelCanvas, panelTexture } from '@/components/rental/three/textures';
+import { buildFixtures } from '@/components/rental/three/fixtures';
 import { midOf, segLength, type Kind, type Rect, type Seg, type StoreScene } from '@/components/rental/three/storeScene';
 import { countText } from '@/lib/coldStore';
 
@@ -56,7 +57,12 @@ export interface Kit {
   unitBox: Geo;
   stackGeo: (units: number) => Geo;
   /** `wall` / `chamberWall` solid, `wallNear` / `chamberNear` see-through (the walls between the camera and the inside). */
-  mats: Record<'bin' | 'crate' | 'carton' | 'ghost' | 'ghostOn' | 'tile' | 'hall' | 'yard' | 'apron' | 'walk' | 'passage' | 'stripe' | 'chamberFloor' | 'wall' | 'wallNear' | 'chamberWall' | 'chamberNear' | 'door' | 'leaf' | 'deck' | 'beam' | 'glass' | 'hit' | 'shutter', Mat>;
+  mats: Record<
+    | 'bin' | 'crate' | 'carton' | 'ghostOn' | 'tile' | 'hall' | 'yard' | 'apron' | 'walk' | 'passage' | 'stripe' | 'chamberFloor' | 'wall' | 'wallNear' | 'chamberWall' | 'chamberNear' | 'door' | 'leaf' | 'deck' | 'beam' | 'glass' | 'hit' | 'shutter'
+    // The machines and fittings (three/fixtures).
+    | 'ceiling' | 'roof' | 'lamp' | 'cooler' | 'fan' | 'guard' | 'pipe' | 'copper' | 'curtain' | 'condenser',
+    Mat
+  >;
   edge: InstanceType<Three['LineBasicMaterial']>;
   edgeOn: InstanceType<Three['LineBasicMaterial']>;
   textures: Tex[];
@@ -93,7 +99,7 @@ function makeStackGeo(T: Three, units: number): Geo {
 }
 
 export function makeKit(T: Three, phone: boolean): Kit {
-  const tex = { bin: binTexture(T), crate: crateTexture(T), carton: cartonTexture(T), ghost: ghostTexture(T), concrete: concreteTexture(T), grating: gratingTexture(T), panel: panelTexture(T) };
+  const tex = { bin: binTexture(T), crate: crateTexture(T), carton: cartonTexture(T), ghost: ghostTexture(T), concrete: concreteTexture(T), grating: gratingTexture(T), panel: panelTexture(T), fan: fanTexture(T) };
   if (phone) for (const t of Object.values(tex)) t.anisotropy = 1;
   const unitBox = new T.BoxGeometry(1, 1, 1);
   unitBox.translate(0, 0.5, 0);
@@ -111,9 +117,7 @@ export function makeKit(T: Three, phone: boolean): Kit {
     bin: new T.MeshStandardMaterial({ map: tex.bin, roughness: 0.82 }),
     crate: new T.MeshStandardMaterial({ map: tex.crate, roughness: 0.55 }),
     carton: new T.MeshStandardMaterial({ map: tex.carton, roughness: 0.9 }),
-    // An empty place: a faint outline of the stack that fits there; stronger when chosen or waiting for payment.
-    // Front faces only: half the see-through layers to draw over a floor full of free places.
-    ghost: new T.MeshBasicMaterial({ map: tex.ghost, ...see, side: T.FrontSide, opacity: 0.38 }),
+    // A place being chosen or waiting for payment: the outline of the stack that fits there (front faces only).
     ghostOn: new T.MeshBasicMaterial({ map: tex.ghost, ...see, side: T.FrontSide, opacity: 0.88 }),
     tile: new T.MeshBasicMaterial({ color: '#ffffff' }),
     hall: new T.MeshStandardMaterial({ map: tex.concrete, roughness: 0.95 }),
@@ -122,7 +126,7 @@ export function makeKit(T: Three, phone: boolean): Kit {
     walk: new T.MeshStandardMaterial({ color: '#fcd34d', roughness: 1, transparent: true, opacity: 0.55, depthWrite: false }),
     passage: new T.MeshStandardMaterial({ color: '#fde68a', roughness: 1, transparent: true, opacity: 0.45, depthWrite: false }),
     stripe: new T.MeshStandardMaterial({ color: '#eab308', roughness: 0.8 }),
-    chamberFloor: new T.MeshStandardMaterial({ color: '#e9eef4', roughness: 0.9 }),
+    chamberFloor: new T.MeshStandardMaterial({ map: tex.concrete, color: '#eef3f8', roughness: 0.85 }),
     wall: new T.MeshStandardMaterial({ map: tex.panel, color: '#e2e8f0', roughness: 0.9 }),
     wallNear: new T.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.9, ...see, opacity: 0.12 }),
     chamberWall: new T.MeshStandardMaterial({ map: tex.panel, roughness: 0.6 }),
@@ -134,6 +138,17 @@ export function makeKit(T: Three, phone: boolean): Kit {
     glass: new T.MeshStandardMaterial({ color: '#38bdf8', emissive: '#0ea5e9', emissiveIntensity: 0.25, transparent: true, opacity: 0.7, roughness: 0.2 }),
     hit: new T.MeshBasicMaterial({ visible: false }),
     shutter: new T.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.4, metalness: 0.5 }),
+    ceiling: new T.MeshStandardMaterial({ map: tex.panel, color: '#f8fafc', roughness: 0.7, side: T.DoubleSide }),
+    roof: new T.MeshStandardMaterial({ color: '#c9d1da', roughness: 0.9, side: T.DoubleSide }),
+    // LED lights glow: they are not lit by anything.
+    lamp: new T.MeshBasicMaterial({ color: '#fbfdff' }),
+    cooler: new T.MeshStandardMaterial({ color: '#e8edf2', roughness: 0.45, metalness: 0.2 }),
+    fan: new T.MeshStandardMaterial({ map: tex.fan, roughness: 0.6 }),
+    guard: new T.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.35, metalness: 0.6 }),
+    pipe: new T.MeshStandardMaterial({ color: '#1f2937', roughness: 0.95 }),
+    copper: new T.MeshStandardMaterial({ color: '#b87333', roughness: 0.35, metalness: 0.7 }),
+    curtain: new T.MeshStandardMaterial({ color: '#cbe8f6', transparent: true, opacity: 0.3, roughness: 0.15, depthWrite: false, side: T.DoubleSide }),
+    condenser: new T.MeshStandardMaterial({ color: '#d5dbe2', roughness: 0.5, metalness: 0.25 }),
   };
   const edge = new T.LineBasicMaterial({ color: '#334155', transparent: true, opacity: 0.55 });
   const edgeOn = new T.LineBasicMaterial({ color: '#0284c7' });
@@ -161,10 +176,8 @@ export function makeKit(T: Three, phone: boolean): Kit {
 export function disposeGroup(T: Three, kit: Kit, g: Obj) {
   const shared = new Set<unknown>([...Object.values(kit.mats), kit.edge, kit.edgeOn, kit.unitBox]);
   g.traverse((o) => {
-    if (o instanceof T.InstancedMesh) {
-      o.dispose();
-      return;
-    }
+    // An instanced mesh's own per-instance data; its shape and look below, unless shared.
+    if (o instanceof T.InstancedMesh) o.dispose();
     const m = o as unknown as { geometry?: Geo; material?: Mat & { map?: Tex | null } };
     // Sprites share one shape inside three.js; stack shapes belong to the kit.
     if (m.geometry && !shared.has(m.geometry) && !(o instanceof T.Sprite) && m.geometry.userData.stack !== true) m.geometry.dispose();
@@ -180,8 +193,8 @@ export function disposeGroup(T: Three, kit: Kit, g: Obj) {
  * smaller than `minPx` pixels high or bigger than `maxPx` (0: as it falls),
  * so a chamber's name stays readable from far away (see sizeLabels).
  */
-export function label(T: Three, title: string, sub: string, width: number, dark = false, minPx = 0, maxPx = 0) {
-  const c = labelCanvas(title, sub, dark);
+export function label(T: Three, title: string, sub: string, width: number, dark = false, minPx = 0, maxPx = 0, fill?: string) {
+  const c = labelCanvas(title, sub, dark, fill);
   const tex = new T.CanvasTexture(c);
   tex.colorSpace = T.SRGBColorSpace;
   const s = new T.Sprite(new T.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
@@ -227,6 +240,8 @@ export interface Shell {
   walls: Mesh[];
   /** Labels kept readable at any distance. */
   labels: InstanceType<Three['Sprite']>[];
+  /** Ceilings, the roof and the lights under them: shown only when walking (from outside the roof is off). */
+  walkOnly: Obj;
 }
 
 /** Make the walls between the camera and the inside see-through (orbit), or every wall solid (walk). */
@@ -354,7 +369,7 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
     const cz = wz(o, r.y + r.d / 2);
     const H = c.h;
     // Its insulated floor, its walls of insulated panels (open at the door), the wall over the door.
-    slab({ x: r.x + 0.07, y: r.y + 0.07, w: r.w - 0.14, d: r.d - 0.14 }, 0.01, 0.008, mats.chamberFloor);
+    slab({ x: r.x + 0.07, y: r.y + 0.07, w: r.w - 0.14, d: r.d - 0.14 }, 0.01, 0.008, mats.chamberFloor, 3);
     for (const s of c.walls) roomWall(s, 0, H, 0.14, r, 'chamber');
     if (c.door) {
       roomWall(c.door, c.doorH, H, 0.14, r, 'chamber');
@@ -429,7 +444,10 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
     add(hit);
     hits.push(hit);
   }
-  return { group, hits, outlines, walls, labels };
+  // Cooling units, pipes, strip curtains, condensers; ceilings and lights for walking.
+  const fixtures = buildFixtures(kit, scene, o);
+  group.add(fixtures.group);
+  return { group, hits, outlines, walls, labels, walkOnly: fixtures.walkOnly };
 }
 
 /** What a place's mark on the floor looks like, and how strongly its bins are tinted. */
@@ -439,7 +457,7 @@ const MARK: Record<Look, { tile: string; tint: string | null; amount: number }> 
   selected: { tile: PLACE_LOOK.selected.hex, tint: '#10b981', amount: 1 },
   held: { tile: PLACE_LOOK.held.hex, tint: '#f59e0b', amount: 1 },
   booked: { tile: PLACE_LOOK.booked.hex, tint: null, amount: 0 },
-  mine: { tile: PLACE_LOOK.mine.hex, tint: '#8b5cf6', amount: 0.55 },
+  mine: { tile: PLACE_LOOK.mine.hex, tint: '#7c3aed', amount: 0.8 },
   blocked: { tile: PLACE_LOOK.blocked.hex, tint: null, amount: 0 },
 };
 
@@ -455,7 +473,7 @@ export interface Places {
  * The places for the months looked at. `cells[i]` belongs to
  * `scene.chambers[cell.chamber].floors[cell.floor].places[cell.place]`.
  */
-export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origin, freeOf: (chamber: number) => number): Places {
+export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origin, freeOf: (chamber: number) => number, mineName?: string): Places {
   const { T, mats } = kit;
   const group = new T.Group();
   const picks: Places['picks'] = [];
@@ -465,11 +483,11 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
 
   type Item = { cell: Cell; y: number; h: number; units: number; tint: string | null; amount: number };
   const stacks = new Map<string, { kind: Kind; units: number; items: Item[] }>();
-  // Outlines of empty stacks: faint for free room, strong for a choice or a hold.
+  // Outlines of the stacks being chosen or held.
   const ghosts = new Map<string, Item[]>();
   const strong = (look: Look) => look === 'selected' || look === 'held';
   const tiles: Cell[] = [];
-  const put = <K>(map: Map<K, Item[]>, key: K, it: Item) => {
+  const put = <K, V>(map: Map<K, V[]>, key: K, it: V) => {
     const list = map.get(key);
     if (list) list.push(it);
     else map.set(key, [it]);
@@ -495,11 +513,11 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
         stacks.set(key, s);
       }
       s.items.push({ cell, y: f.z0, h: units * unitH, units, tint: mk.tint, amount: mk.amount });
-      // The room left on a shared place, as an outline above its bins.
-      if (cell.look === 'part' && f.layers - units > 0) put(ghosts, `faint:${f.layers - units}`, { cell, y: f.z0 + units * unitH, h: (f.layers - units) * unitH, units: f.layers - units, tint: '#22d3ee', amount: 1 });
-    } else {
-      put(ghosts, `${strong(cell.look) ? 'strong' : 'faint'}:${f.layers}`, { cell, y: f.z0, h: f.stackH, units: f.layers, tint: mk.tint, amount: 1 });
+    } else if (strong(cell.look)) {
+      // A place being chosen or held: the outline of the stack that will stand there.
+      put(ghosts, `strong:${f.layers}`, { cell, y: f.z0, h: f.stackH, units: f.layers, tint: mk.tint, amount: 1 });
     }
+    // A free place is only its painted bay on the floor (as in a real store): no stacks of air.
   }
 
   const place = (cell: Cell) => scene.chambers[cell.chamber].floors[cell.floor].places[cell.place].rect;
@@ -524,8 +542,8 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
     picks.push({ mesh, cells: s.items.map((x) => x.cell) });
   }
   for (const [key, items] of ghosts) {
-    const [how, units] = key.split(':');
-    const mesh = new T.InstancedMesh(kit.stackGeo(Number(units)), how === 'strong' ? mats.ghostOn : mats.ghost, items.length);
+    const units = key.split(':')[1];
+    const mesh = new T.InstancedMesh(kit.stackGeo(Number(units)), mats.ghostOn, items.length);
     fill(mesh, items, 0.9);
     mesh.renderOrder = 3;
     group.add(mesh);
@@ -536,7 +554,8 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
     tiles.forEach((cell, i) => {
       const r = place(cell);
       const f = scene.chambers[cell.chamber].floors[cell.floor];
-      m4.makeScale(r.w * 1.02, 0.02, r.d * 1.02).setPosition(wx(o, r.x + r.w / 2), f.z0 + 0.004, wz(o, r.y + r.d / 2));
+      // A painted bay, a little smaller than the place: the gaps between bays show on the floor.
+      m4.makeScale(r.w * 0.9, 0.02, r.d * 0.9).setPosition(wx(o, r.x + r.w / 2), f.z0 + 0.004, wz(o, r.y + r.d / 2));
       mesh.setMatrixAt(i, m4);
       mesh.setColorAt(i, col.set(MARK[cell.look].tile));
     });
@@ -555,6 +574,30 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
     const sub = `${g.floors.length > 1 ? `${g.floors.length} floors · ` : ''}${countText(g.count, c.storage)} · ${free.toLocaleString('en-IN')} free`;
     const tag = label(T, c.name, sub, Math.min(Math.max(c.rect.w * 0.85, 3.2), 8), false, 40, 84);
     tag.position.set(wx(o, c.rect.x + c.rect.w / 2), c.h + 1.3, wz(o, c.rect.y + c.rect.d / 2));
+    group.add(tag);
+    labels.push(tag);
+  }
+
+  // The farmer's own stacks: a violet label over them on each chamber floor, with their name.
+  const mine = new Map<string, Cell[]>();
+  for (const cell of cells) if (cell.look === 'mine') put(mine, `${cell.chamber}:${cell.floor}`, cell);
+  for (const [key, list] of mine) {
+    const [ci, fi] = key.split(':').map(Number);
+    const c = scene.chambers[ci];
+    const f = c?.floors[fi];
+    if (!f) continue;
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const cell of list) {
+      const r = place(cell);
+      x0 = Math.min(x0, r.x);
+      x1 = Math.max(x1, r.x + r.w);
+      y0 = Math.min(y0, r.y);
+      y1 = Math.max(y1, r.y + r.d);
+    }
+    const who = mineName?.trim() ? `${mineName.trim().split(/\s+/)[0]}’s ${c.storage}` : `Your ${c.storage}`;
+    const where = `${c.name}${c.floors.length > 1 ? ` · Floor ${f.floor}` : ''} · ${list.length} place${list.length === 1 ? '' : 's'}`;
+    const tag = label(T, who, where, 2.6, true, 30, 70, '#6d28d9');
+    tag.position.set(wx(o, (x0 + x1) / 2), f.z0 + f.stackH + 0.9, wz(o, (y0 + y1) / 2));
     group.add(tag);
     labels.push(tag);
   }

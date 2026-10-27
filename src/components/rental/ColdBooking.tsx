@@ -418,6 +418,7 @@ export function ColdBooking({
               active={chamber?.id ?? null}
               onActive={setActive}
               legend={['free', 'part', 'selected', 'held', 'booked', 'mine', 'blocked']}
+              mineName={form.name || account.name}
             />
           )}
           {picked.size > 0 && (
@@ -516,7 +517,7 @@ export function ColdBooking({
  * (drawing or 3D) with their stacks in violet and the rest of the store as
  * it is for the months of the booking.
  */
-export function MyPlaces({ places, chambers, listingId, start, months }: { places: BookedPlace[]; chambers: ColdChamber[]; listingId: string; start: string; months: number }) {
+export function MyPlaces({ places, chambers, listingId, start, months, name }: { places: BookedPlace[]; chambers: ColdChamber[]; listingId: string; start: string; months: number; name?: string }) {
   const [open, setOpen] = useState(false);
   const [taken, setTaken] = useState<Map<string, PlaceInfo>>(new Map());
   const mine = useMemo(() => new Set(places.map((p) => placeKey(p.chamber_id, p.slot))), [places]);
@@ -567,7 +568,7 @@ export function MyPlaces({ places, chambers, listingId, start, months }: { place
       )}
       {open && chambers.length > 0 && (
         <div className="mt-3">
-          <ColdStoreExplorer chambers={chambers} stateOf={stateOf} roomOf={roomOf} mode="view" active={active} onActive={setActive} legend={['mine', 'free', 'part', 'held', 'booked', 'blocked']} />
+          <ColdStoreExplorer chambers={chambers} stateOf={stateOf} roomOf={roomOf} mode="view" active={active} onActive={setActive} legend={['mine', 'free', 'part', 'held', 'booked', 'blocked']} mineName={name} />
         </div>
       )}
     </div>

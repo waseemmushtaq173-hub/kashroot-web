@@ -164,6 +164,37 @@ export async function saveStore(input: Partial<StoreRow>, id?: string): Promise<
   return asListings([data])[0];
 }
 
+/** A real photo of the store, with a few words about it (20261030000000_cold_store_photos.sql). */
+export interface StorePhoto {
+  src: string;
+  note: string;
+}
+export const MAX_STORE_PHOTOS = 8;
+/** The longest photo (data URL) the database keeps. */
+export const STORE_PHOTO_MAX_CHARS = 450_000;
+const noPhotosColumn = (m?: string) => /photos/i.test(m ?? '') && /column|schema cache|does not exist/i.test(m ?? '');
+
+/** The store's photos — read only when a farmer opens the store (they are large). None before that SQL is run. */
+export async function storePhotos(listingId: string): Promise<StorePhoto[]> {
+  const { data, error } = await supabase.from('rental_listings').select('photos').eq('id', listingId).maybeSingle();
+  if (error && noPhotosColumn(error.message)) return [];
+  if (error) fail(error, 'Could not load the photos of this store.');
+  const list = (data as { photos?: unknown } | null)?.photos;
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((p): p is { src: string; note?: unknown } => Boolean(p) && typeof (p as { src?: unknown }).src === 'string')
+    .map((p) => ({ src: p.src, note: typeof p.note === 'string' ? p.note : '' }));
+}
+
+/** The owner keeps these photos of the store (all of them at once, in this order). */
+export async function saveStorePhotos(listingId: string, photos: StorePhoto[]): Promise<void> {
+  const list = photos.slice(0, MAX_STORE_PHOTOS).map((p) => ({ src: p.src, note: p.note.trim().slice(0, 80) }));
+  const { error } = await supabase.from('rental_listings').update({ photos: list.length ? list : null }).eq('id', listingId).select('id').single();
+  if (error && noPhotosColumn(error.message)) throw new Error('Run the store photos SQL (20261030000000_cold_store_photos.sql, also in RUN_THIS_ONCE.sql) in Supabase, then save again.');
+  if (error && /photos_check/i.test(error.message ?? '')) throw new Error('One of the photos is too big. Remove it and add it again (it is made smaller on the phone).');
+  if (error) fail(error, 'Could not save the photos.');
+}
+
 /** Show the store to farmers. */
 export async function publishStore(id: string): Promise<void> {
   const { error } = await supabase.from('rental_listings').update({ active: true }).eq('id', id);
