@@ -77,6 +77,30 @@ const cardText = (l: VoiceLang): 'en' | 'hi' | 'ur' => (l === 'ks' ? 'ur' : l ==
 
 /** Dogri is remembered next to the phone's language (which then says Hindi). */
 const DOGRI_KEY = 'kr_lang_dogri';
+/**
+ * Under an answer from KashRoot's answer bank: whose answer it is. Said
+ * plainly, so nobody takes the assistant for a person or an expert's answer
+ * for the AI's. (Kashmiri shows the English line until the editors add theirs.)
+ */
+function ExpertCredit({ from, lang }: { from: { name: string; reviewed: boolean }; lang: string }) {
+  const text = from.reviewed
+    ? lang === 'hi'
+      ? `KashRoot विशेषज्ञ ${from.name} ने जाँचा और मंज़ूर किया`
+      : lang === 'ur'
+        ? `KashRoot ماہر ${from.name} نے جانچا اور منظور کیا`
+        : `Checked and approved by KashRoot expert ${from.name}`
+    : lang === 'hi'
+      ? `KashRoot विशेषज्ञ ${from.name} का जवाब`
+      : lang === 'ur'
+        ? `KashRoot ماہر ${from.name} کا جواب`
+        : `Answer from KashRoot expert ${from.name}`;
+  return (
+    <span dir={lang === 'ur' ? 'rtl' : undefined} className="mt-1 inline-flex max-w-[85%] items-center gap-1 text-xs font-semibold text-emerald-800">
+      <Check className="h-3.5 w-3.5 shrink-0" aria-hidden /> {text}
+    </span>
+  );
+}
+
 function dogriRemembered(): boolean {
   try {
     return localStorage.getItem(DOGRI_KEY) === '1';
@@ -331,6 +355,7 @@ export function VoiceConcierge({ compact = false, autoListen = false, onNavigate
                     </button>
                   )}
                 </p>
+                {turn.role === 'assistant' && turn.from && <ExpertCredit from={turn.from} lang={turn.lang} />}
                 {/* Native speakers correct Kashmiri answers; the assistant learns from them. */}
               </div>
             ))}

@@ -56,7 +56,8 @@ language sql stable security definer set search_path = public as $$
     (20, 'TrueScan official lists',     '20261029000000_official_registry.sql',          public.kr_setup_has_function('kr_registry_stats')),
     (21, 'Cold store: photos',          '20261030000000_cold_store_photos.sql',          public.kr_setup_has_function('kr_store_photos_ok')),
     (22, 'Setup check',                 '20261031000000_setup_check.sql',                public.kr_setup_has_function('kr_setup_status')),
-    (23, 'Last good copy of sources',   '20261101000000_source_cache.sql',               public.kr_setup_has_function('kr_cache_get'))
+    (23, 'Last good copy of sources',   '20261101000000_source_cache.sql',               public.kr_setup_has_function('kr_cache_get')),
+    (24, 'Assistant answer bank',       '20261102000000_assistant_answers.sql',          public.kr_setup_has_function('kr_answer_match'))
   ) as s(step, part, file, ok)
   order by s.step
 $$;

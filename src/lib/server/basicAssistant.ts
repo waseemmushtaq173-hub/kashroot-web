@@ -16,7 +16,7 @@ import type { Lang } from '@/lib/server/claude';
 import { fetchMandiPrices, type MandiQuery, type MandiRecord } from '@/lib/server/mandi';
 import { istDate, perKilo, postedRates, type PostedRate } from '@/lib/server/postedRates';
 import { forecast, geocode, type Forecast } from '@/lib/server/weather';
-import { dryHours } from '@/lib/sprayWindow';
+import { dryHours, sprayDayOver } from '@/lib/sprayWindow';
 import { hasWord as has, norm } from '@/lib/textMatch';
 
 type Text = { en: string; hi: string; ur: string };
@@ -372,6 +372,7 @@ async function weatherAnswer(lang: Lang, query: string, place: (typeof PLACES)[n
   const today = fc.daily[0];
   const tomorrow = fc.daily[1];
   const dry = dryHours(fc.current.time, fc.hourly);
+  const late = !dry && sprayDayOver(fc.current.time);
   const mm1 = today?.precipitation ?? 0;
   const mm2 = tomorrow?.precipitation ?? 0;
   /** "rain 3.2 mm", or "no rain" — in each language. */
@@ -405,7 +406,7 @@ async function weatherAnswer(lang: Lang, query: string, place: (typeof PLACES)[n
         weekAsked ? `This week — ${week('en')}.` : '',
         !weekAsked && today ? `Today ${Math.round(today.min)}° to ${Math.round(today.max)}°, ${rain(mm1, 'en')}.` : '',
         !weekAsked && tomorrow ? `Tomorrow ${Math.round(tomorrow.min)}° to ${Math.round(tomorrow.max)}°, ${rain(mm2, 'en')}.` : '',
-        sprayAsked || mm1 >= 0.1 ? (dry ? `Dry hours for spraying today: ${dry}.` : 'Rain is likely for the rest of today, so better not to spray.') : '',
+        sprayAsked || mm1 >= 0.1 ? (dry ? `Dry hours for spraying today: ${dry}.` : late ? 'It is too late in the day to spray now; check again in the morning.' : 'Rain is likely for the rest of today, so better not to spray.') : '',
         note?.en ?? '',
       ],
       hi: [
@@ -414,7 +415,7 @@ async function weatherAnswer(lang: Lang, query: string, place: (typeof PLACES)[n
         weekAsked ? `इस हफ़्ते — ${week('hi')}।` : '',
         !weekAsked && today ? `आज ${Math.round(today.min)} से ${Math.round(today.max)} डिग्री, ${rain(mm1, 'hi')}।` : '',
         !weekAsked && tomorrow ? `कल ${Math.round(tomorrow.min)} से ${Math.round(tomorrow.max)} डिग्री, ${rain(mm2, 'hi')}।` : '',
-        sprayAsked || mm1 >= 0.1 ? (dry ? `आज स्प्रे के लिए सूखा समय: ${dry}।` : 'आज बाक़ी दिन बारिश की संभावना है, इसलिए स्प्रे न करें।') : '',
+        sprayAsked || mm1 >= 0.1 ? (dry ? `आज स्प्रे के लिए सूखा समय: ${dry}।` : late ? 'आज स्प्रे का समय निकल गया है; सुबह फिर देखें।' : 'आज बाक़ी दिन बारिश की संभावना है, इसलिए स्प्रे न करें।') : '',
         note?.hi ?? '',
       ],
       ur: [
@@ -423,7 +424,7 @@ async function weatherAnswer(lang: Lang, query: string, place: (typeof PLACES)[n
         weekAsked ? `اس ہفتے — ${week('ur')}۔` : '',
         !weekAsked && today ? `آج ${Math.round(today.min)} سے ${Math.round(today.max)} ڈگری، ${rain(mm1, 'ur')}۔` : '',
         !weekAsked && tomorrow ? `کل ${Math.round(tomorrow.min)} سے ${Math.round(tomorrow.max)} ڈگری، ${rain(mm2, 'ur')}۔` : '',
-        sprayAsked || mm1 >= 0.1 ? (dry ? `آج اسپرے کے لیے خشک وقت: ${dry}۔` : 'آج باقی دن بارش کا امکان ہے، اس لیے اسپرے نہ کریں۔') : '',
+        sprayAsked || mm1 >= 0.1 ? (dry ? `آج اسپرے کے لیے خشک وقت: ${dry}۔` : late ? 'آج اسپرے کا وقت نکل گیا ہے؛ صبح پھر دیکھیں۔' : 'آج باقی دن بارش کا امکان ہے، اس لیے اسپرے نہ کریں۔') : '',
         note?.ur ?? '',
       ],
     }[l];
@@ -445,6 +446,16 @@ const HOW = ['how', 'where', 'kaise', 'kese', 'kahan', 'kaha', 'book', 'use', 'k
  * or how to use a KashRoot feature. Everything else — other topics, mixed or
  * long questions — goes to the AI so the reply matches what was asked.
  */
+/**
+ * The question needs today's data — a crop's price, or the weather — so it is
+ * never answered from the answer bank. "Spray" alone is not enough: "when to
+ * spray for scab" is crop care an expert may have answered.
+ */
+export function needsLiveData(query: string): boolean {
+  const q = ` ${norm(query)} `;
+  return has(q, WEATHER) || (has(q, PRICE) && COMMODITIES.some((c) => has(q, c.keys)));
+}
+
 export function quickIntent(query: string): boolean {
   const q = ` ${norm(query)} `;
   const words = query.trim().split(/\s+/).length;

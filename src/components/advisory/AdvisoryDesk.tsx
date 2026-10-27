@@ -7,15 +7,17 @@
  *   Farmers: ask a question, book a soil test or request a video call (with
  *   an instant AI first answer), then follow replies — readable aloud.
  *   Approved experts (staff role EXPERT, granted in Admin → Approvals): a live
- *   queue of every request, replies, and in-browser video calls.
+ *   queue of every request, replies, and in-browser video calls; and the
+ *   Answer bank the KashRoot assistant answers from (components/advisory/AnswerBank).
  *   Anyone else: apply to join as an agronomist.
  * Requests and replies live in the shared database (advisory_requests /
  * advisory_messages), so they reach the other side on any device.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { BookOpen, CheckCircle2, ClipboardList, FlaskConical, GraduationCap, Inbox, Loader2, MessageCircle, ShieldAlert, Stethoscope, Video, Wallet } from 'lucide-react';
+import { BookCheck, BookOpen, CheckCircle2, ClipboardList, FlaskConical, GraduationCap, Inbox, Loader2, MessageCircle, ShieldAlert, Stethoscope, Video, Wallet } from 'lucide-react';
 
+import { AnswerBank } from '@/components/advisory/AnswerBank';
 import { AskForm } from '@/components/advisory/AskForm';
 import { RequestThread } from '@/components/advisory/RequestThread';
 import { PortalShell } from '@/components/layout/PortalShell';
@@ -112,6 +114,7 @@ export function AdvisoryDesk({ farmerView = false }: { farmerView?: boolean }) {
     ? [
         { id: 'queue', label: 'Requests', icon: Inbox, count: openCount },
         { id: 'library', label: 'Library', icon: BookOpen },
+        { id: 'bank', label: 'Answer bank', icon: BookCheck },
       ]
     : [
         { id: 'ask', label: 'Ask an expert', icon: Stethoscope },
@@ -166,6 +169,8 @@ export function AdvisoryDesk({ farmerView = false }: { farmerView?: boolean }) {
             </ol>
           </Panel>
         </div>
+      ) : activeTab === 'bank' && isExpert ? (
+        <AnswerBank theme={theme} />
       ) : activeTab === 'library' ? (
         <div className="grid gap-6 lg:grid-cols-2">
           <Panel theme={theme} title="Disease management" icon={ShieldAlert}>

@@ -44,7 +44,7 @@ import { LastUpdated } from '@/components/pwa/SavedAt';
 import { inr, loadAccount, type Account } from '@/lib/db/client';
 import { listingDraftFromLink } from '@/lib/navIntent';
 import { regionSpot, spotParams, stateLabel, useRegion } from '@/lib/region';
-import { dryHours } from '@/lib/sprayWindow';
+import { dryHours, sprayDayOver } from '@/lib/sprayWindow';
 import type { MarketCategory, MarketListing, MarketOrder } from '@/lib/db/market';
 import { sellerToAct } from '@/lib/db/shop';
 
@@ -269,7 +269,7 @@ function TodayWeather({ district }: { district?: string }) {
             </div>
           </div>
           <p className={`mt-4 rounded-xl p-3 text-center text-sm font-medium ring-1 ${dry ? 'bg-emerald-50 text-emerald-800 ring-emerald-100' : 'bg-amber-50 text-amber-900 ring-amber-100'}`}>
-            {dry ? `Dry hours for spraying today: ${dry}` : 'Rain likely for the rest of today — better not to spray.'}
+            {dry ? `Dry hours for spraying today: ${dry}` : sprayDayOver(w.current.time) ? 'Too late in the day to spray now — check again in the morning.' : 'Rain likely for the rest of today — better not to spray.'}
           </p>
           <p className="mt-2 text-center text-xs text-slate-500">Open-Meteo forecast{district ? '' : ' · add your district in My details for your own village'}</p>
         </>

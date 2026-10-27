@@ -18,9 +18,10 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
 
-import { asLang, claudeClient, claudeConfigured, claudeFailure, LANGUAGE, MODEL, speechInstruction, splitSpeech, textOf, throttled } from '@/lib/server/claude';
+import { matchAnswer, suggestAnswer, type BankAnswer } from '@/lib/server/answerBank';
+import { asLang, claudeClient, claudeConfigured, claudeFailure, LANGUAGE, MODEL, speechInstruction, splitSpeech, textOf, throttled, type Lang } from '@/lib/server/claude';
 import { detectReplyLang } from '@/lib/langDetect';
-import { basicAnswer, quickIntent, type Here } from '@/lib/server/basicAssistant';
+import { basicAnswer, needsLiveData, quickIntent, type Here } from '@/lib/server/basicAssistant';
 import { fetchMandiPrices } from '@/lib/server/mandi';
 import { bhashiniConfigured, toKashmiri } from '@/lib/server/bhashini';
 import { ksText } from '@/lib/kashmiri/phrases';
@@ -36,7 +37,9 @@ Answer exactly what the person asked, whatever the topic — farming, markets an
 
 Some people speak Dogri: browsers cannot hear Dogri, so their words come through Hindi speech recognition and you are asked to reply in Hindi — understand Dogri words and reply in simple Hindi.
 
-Write the way a kind, patient expert talks: short plain sentences, no markdown, no lists, no emojis. Usually two to five sentences; go longer only when the person asks for detail or steps. Lead with the answer; do not open with a greeting such as Salaam or Hello. Latency-sensitive; begin your visible answer immediately.
+Talk the way a warm, experienced person from the area talks to a neighbour — like a trusted village agriculture officer: short, plain, friendly sentences in everyday words, the Kashmiri, Urdu or Hindi people speak at home, not textbook or official language. Sound like a person talking, not a document: no markdown, no lists, no emojis, and none of the stock phrases machines use ("Great question", "I hope this helps", "As an AI", "Certainly!", "Here are some tips"). Usually two to four sentences; go longer only when the person asks for detail or steps. Lead with the answer; do not open with a greeting such as Salaam or Hello. If something is uncertain, say so simply, as a person would. Latency-sensitive; begin your visible answer immediately.
+
+You are KashRoot's assistant, a computer program — not a person. Never say or suggest that you are a person, or that you have a family, an orchard, a village or experiences of your own. If someone asks whether they are talking to a person, say plainly and kindly that you are KashRoot's assistant, and that a real KashRoot expert answers in Advisory → Ask an expert.
 
 Never make up prices, rates or weather figures. For any market price or weather question, call a tool and quote only what it returned, naming the market and date, or the place. If a tool returns NO_DATA or SERVICE_UNAVAILABLE, say plainly that the report is not available right now and suggest another market or a nearby town — never estimate. Mandi prices are in rupees per quintal (100 kg); also give the per-kg figure. When a price question names no state, assume Jammu and Kashmir first, then Himachal Pradesh.
 
@@ -232,6 +235,36 @@ async function kashmiriFrom(english: string, wantDevanagari: boolean, client: An
   }
 }
 
+/**
+ * A bank answer in the person's language. The expert's own words when they
+ * wrote it in that language; otherwise the AI (or Bhashini for Kashmiri)
+ * translates it, keeping the meaning exactly. Null when it cannot be given in
+ * their language (an English answer and no AI): the usual path answers then.
+ */
+async function bankReply(b: BankAnswer, lang: Lang, wantDevanagari: boolean, client: Anthropic | null): Promise<{ reply: string; speech?: string } | null> {
+  if (b.lang === lang && !wantDevanagari) return { reply: b.answer };
+  if (lang === 'ks') {
+    if (b.lang === 'ks') return { reply: b.answer };
+    return b.lang === 'en' ? kashmiriFrom(b.answer, wantDevanagari, client) : null;
+  }
+  if (!client) return b.lang === lang ? { reply: b.answer } : null;
+  try {
+    const response = await client.beta.messages.create({
+      model: MODEL,
+      max_tokens: 2000,
+      system: `This is an answer written by a KashRoot expert. ${b.lang === lang ? 'Keep it exactly as it is' : `Write it in ${LANGUAGE[lang]}, the way people there say it`}. Keep the meaning exactly: do not add, drop or soften any advice, and keep numbers, names and button names as they are. Output only the answer.${wantDevanagari ? ` ${speechInstruction(lang)}` : ''}`,
+      messages: [{ role: 'user', content: b.answer }],
+      output_config: { effort: 'low' },
+    });
+    const full = textOf(response.content);
+    if (!full) return b.lang === lang ? { reply: b.answer } : null;
+    const { text, speech } = splitSpeech(full);
+    return { reply: b.lang === lang ? b.answer : text, ...(wantDevanagari && speech ? { speech } : {}) };
+  } catch {
+    return b.lang === lang ? { reply: b.answer } : null;
+  }
+}
+
 export async function POST(req: Request) {
   if (throttled(req, 20)) return NextResponse.json({ error: 'Too many questions at once. Please wait a minute.' }, { status: 429 });
   let body: { query?: string; lang?: string; exact?: boolean; history?: { role: string; text: string }[]; speakAs?: string; page?: string; where?: unknown };
@@ -259,6 +292,17 @@ export async function POST(req: Request) {
           ur: 'معاف کیجیے، ابھی جواب نہیں دے سکا۔ براہِ کرم ایک منٹ بعد پھر پوچھیں۔',
           ks: 'Sorry, I could not answer that just now. Please try again in a minute.',
         }[lang];
+  // KashRoot's own answer bank first: answers written or approved by its
+  // experts, at once and without the AI (also when it is down or not set up).
+  // Prices and weather are never taken from it: they change every day.
+  if (!needsLiveData(query)) {
+    const bank = await matchAnswer(query, lang);
+    const said = bank ? await bankReply(bank, lang, wantDevanagari, client) : null;
+    if (bank && said) {
+      return NextResponse.json({ ...said, lang, from: { kind: 'expert', name: bank.authorName, reviewed: bank.origin === 'ai_reviewed' } });
+    }
+  }
+
   // Prices, weather and how-to questions: answered at once from live data,
   // without waiting for (or paying for) the AI. Crop problems still go to it.
   // Built-in answers exist in English, Hindi and Urdu only — for Kashmiri they
@@ -311,6 +355,15 @@ export async function POST(req: Request) {
   const system: Anthropic.Beta.BetaTextBlockParam[] = [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }];
   if (kashmiriAi) system.push({ type: 'text', text: kashmiriSystem(), cache_control: { type: 'ephemeral' } });
 
+  // A general answer to a first question goes to the experts' review queue, to
+  // join the answer bank once approved. Not answers that used today's prices
+  // or weather (they go out of date), nor follow-ups ("and for pears?").
+  let usedTools = false;
+  const firstTurn = !(body.history ?? []).some((h) => String(h.text ?? '').trim());
+  const forReview = (reply: string) => {
+    if (!usedTools && firstTurn) suggestAnswer(lang, query, reply);
+  };
+
   try {
     for (let round = 0; round < 4; round++) {
       const response = await client.beta.messages.create({
@@ -326,6 +379,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ reply: lang === 'en' ? 'Sorry, I can’t help with that one. Ask me about crops, mandi prices, the weather or how to use KashRoot.' : sorry(), lang });
       }
       if (response.stop_reason === 'tool_use') {
+        usedTools = true;
         messages.push({ role: 'assistant', content: response.content });
         const calls = response.content.filter((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === 'tool_use');
         const results = await Promise.all(
@@ -348,13 +402,16 @@ export async function POST(req: Request) {
       if (kashmiriTranslator) {
         // The answer was written in English for the translator: never show it untranslated.
         const answer = await kashmiriFrom(full, wantDevanagari, client);
+        if (answer) forReview(answer.reply);
         return NextResponse.json(answer ? { ...answer, lang } : { reply: sorry(), lang });
       }
       const { text, speech } = splitSpeech(full);
       if (ks) {
         const done = await finishKashmiri(text, { client, wantDevanagari, speech: wantDevanagari ? speech : undefined });
+        forReview(done.reply);
         return NextResponse.json({ reply: done.reply, lang, ...(done.speech ? { speech: done.speech } : {}) });
       }
+      forReview(text);
       return NextResponse.json({ reply: text, lang, ...(wantDevanagari && speech ? { speech } : {}) });
     }
     return NextResponse.json({ reply: sorry(), lang });

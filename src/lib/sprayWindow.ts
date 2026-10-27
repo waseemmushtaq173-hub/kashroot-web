@@ -3,6 +3,12 @@
  * an hourly forecast in local time ("2026-10-10T14:00"). Shared by the
  * Farmer portal and the assistant. Returns e.g. "13:00–17:00", or null.
  */
+/**
+ * Too late in the day for a spray window (dryHours looks at 06:00–19:00 and
+ * needs two hours): then "no dry hours" means the day is over, not rain.
+ */
+export const sprayDayOver = (nowIso: string) => Number(nowIso.slice(11, 13)) >= 18;
+
 export function dryHours(nowIso: string, hourly: { time: string; precipitationProbability: number }[]): string | null {
   const today = nowIso.slice(0, 10);
   const nowHour = Number(nowIso.slice(11, 13));

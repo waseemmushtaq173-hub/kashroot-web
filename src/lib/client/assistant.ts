@@ -21,6 +21,8 @@ export interface Turn {
   /** The reply in Devanagari, for a Hindi voice (Urdu / Kashmiri). */
   speech?: string;
   error?: boolean;
+  /** From KashRoot's answer bank: the expert who wrote it, or who checked and approved an AI answer. */
+  from?: { name: string; reviewed: boolean };
 }
 
 /** Spoken when the assistant can't answer — Kashmiri as the editors wrote it. */
@@ -99,10 +101,11 @@ export function useAssistant(opts: { page?: string } = {}) {
           // "My area" for the weather: the phone's location, the district, or the chosen state (lib/region).
           body: JSON.stringify({ query: question, lang, exact: how.exact || undefined, history, speakAs, page: opts.page, where: regionSpot(currentRegion()) ?? undefined }),
         });
-        const data = (await res.json().catch(() => ({}))) as { reply?: string; error?: string; speech?: string; aiError?: string };
+        const data = (await res.json().catch(() => ({}))) as { reply?: string; error?: string; speech?: string; aiError?: string; from?: { kind?: string; name?: string; reviewed?: boolean } };
         // The AI failed and basic mode answered: say why, for the site owner.
         if (data.aiError) setNotice(`Basic answer — the full AI did not answer. ${data.aiError}`);
-        if (data.reply) turn = { role: 'assistant', text: data.reply, lang, speech: data.speech };
+        const from = data.from?.kind === 'expert' && data.from.name ? { name: data.from.name, reviewed: Boolean(data.from.reviewed) } : undefined;
+        if (data.reply) turn = { role: 'assistant', text: data.reply, lang, speech: data.speech, ...(from ? { from } : {}) };
         else {
           if (res.status === 503) setConfigured(false);
           turn = { role: 'assistant', text: lang === 'ks' ? sorryFor('ks').text : (data.error ?? sorryFor(lang).text), lang, error: true };
