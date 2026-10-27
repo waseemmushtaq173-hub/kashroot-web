@@ -10,7 +10,7 @@
  *
  * Nothing is invented: empty feeds and service errors are shown as such.
  */
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowDownWideNarrow,
@@ -45,6 +45,7 @@ import { perKg, recentRates } from '@/lib/db/mandiRates';
 import { Tilt3D } from '@/components/three/Tilt3D';
 import { ReadLink } from '@/components/voice/ReadLink';
 import { mandiFromLink } from '@/lib/navIntent';
+import { regionSpot, useRegion } from '@/lib/region';
 import { MANDI_SAMPLE_KEY, mandiName, mandiUrl, narrowMandi, parseMandi, titleCase, type MandiQuery, type MandiRecord } from '@/lib/mandi-shared';
 
 const theme = PORTAL_THEMES.buyer;
@@ -141,12 +142,23 @@ async function getJson<T>(url: string): Promise<T> {
   return data as T;
 }
 
+const noSubscribe = () => () => {};
+
 export default function MandiWeatherPage() {
   // Weather
   const [placeQuery, setPlaceQuery] = useState('');
-  const [where, setWhere] = useState<{ q?: string; lat?: number; lng?: number; name?: string }>({ q: 'Srinagar' });
+  // A place picked here; until then the person's area (phone location or chosen state, lib/region); else Srinagar.
+  const [pickedPlace, setWhere] = useState<{ q?: string; lat?: number; lng?: number; name?: string } | null>(null);
   const [suggestions, setSuggestions] = useState<Place[]>([]);
   const [locating, setLocating] = useState(false);
+  const { region } = useRegion();
+  // The saved area is read only in the browser: ask for the weather once it is known (never Srinagar first).
+  const inBrowser = useSyncExternalStore(noSubscribe, () => true, () => false);
+  const where = useMemo(() => {
+    if (pickedPlace) return pickedPlace;
+    const s = regionSpot(region);
+    return s ? (s.lat !== undefined && s.lng !== undefined ? { lat: s.lat, lng: s.lng, name: s.name } : { q: s.name }) : { q: 'Srinagar' };
+  }, [pickedPlace, region]);
 
   const weatherQ = useQuery({
     queryKey: ['weather', where],
@@ -160,6 +172,7 @@ export default function MandiWeatherPage() {
       return getJson<Forecast>(`/api/weather?${p}`);
     },
     staleTime: 5 * 60_000,
+    enabled: inBrowser,
     // Asked even with no signal: the service worker answers from the copy saved on this phone.
     networkMode: 'offlineFirst',
   });

@@ -25,9 +25,23 @@ export interface BasicAnswer {
   /** Devanagari copy of an Urdu/Kashmiri reply, for a Hindi voice. */
   speech?: string;
 }
+/**
+ * Where the person is, sent by the page (lib/region): the phone's position, the
+ * district from My details, or the main town of the state they chose (not
+ * exact). Used when the question names no place.
+ */
+export interface Here {
+  name: string;
+  lat?: number;
+  lng?: number;
+  state?: string;
+  exact: boolean;
+}
 export interface BasicDeps {
   prices: (q: MandiQuery) => Promise<{ records: MandiRecord[] }>;
   weather: (place: string) => Promise<Forecast | null>;
+  /** The forecast for where the person is (by position when known, else by name). */
+  weatherAt?: (here: Here) => Promise<Forecast | null>;
   /** Rates posted on KashRoot by Mandi Helpers, for one crop. */
   posted?: (crop: string) => Promise<PostedRate[]>;
 }
@@ -37,6 +51,11 @@ const defaultDeps: BasicDeps = {
   posted: (crop) => postedRates(crop),
   weather: async (name) => {
     const place = (await geocode(name, { deep: true }))[0];
+    return place ? forecast(place) : null;
+  },
+  weatherAt: async (here) => {
+    if (here.lat !== undefined && here.lng !== undefined) return forecast({ name: here.name, admin: here.state ?? '', country: 'India', lat: here.lat, lng: here.lng });
+    const place = (await geocode(here.name, { deep: true }))[0];
     return place ? forecast(place) : null;
   },
 };
@@ -282,53 +301,117 @@ async function priceAnswer(lang: Lang, crop: Crop, place: Place | undefined, dep
   });
 }
 
-async function weatherAnswer(lang: Lang, place: (typeof PLACES)[number] | undefined, sprayAsked: boolean, deps: BasicDeps): Promise<BasicAnswer> {
-  const name = place?.name ?? 'Srinagar';
-  let f: Forecast | null;
-  try {
-    f = await deps.weather(name);
-  } catch {
-    f = null;
+/** "This week", "next 7 days", "hafte"…: the whole forecast, day by day. */
+const WEEK = ['week', 'weekly', '7 days', 'seven days', 'next few days', 'coming days', 'hafta', 'hafte', 'haftay', 'हफ्ते', 'हफ़्ते', 'हफ्ता', 'सप्ताह', 'ہفتے', 'ہفتہ'];
+
+/** A town named in English after "in / at / for / near" ("weather in Mysuru"), unless it is "my area", "this week"… */
+function townIn(query: string): string | null {
+  const m = query.trim().match(/\b(?:in|at|for|near)\s+([a-z][a-z .'-]{2,40}?)\s*(?:\?|\.|$|\btoday\b|\btomorrow\b|\bthis week\b|\bnow\b)/i);
+  const name = m?.[1]?.trim();
+  if (!name || /^(my|our|this|the|today|tomorrow|next|here|spraying|spray|apple|apples|rain|week)\b/i.test(name)) return null;
+  return name;
+}
+
+async function weatherAnswer(lang: Lang, query: string, place: (typeof PLACES)[number] | undefined, sprayAsked: boolean, deps: BasicDeps, here: Here | undefined): Promise<BasicAnswer> {
+  const weekAsked = has(` ${norm(query)} `, WEEK);
+  let f: Forecast | null = null;
+  let label: Text | null = null;
+  /** Said after the forecast: how sure we are of the place. */
+  let note: Text | null = null;
+  const tryGet = async (get: () => Promise<Forecast | null>) => {
+    try {
+      return await get();
+    } catch {
+      return null;
+    }
+  };
+  // 1. A place named in the question; 2. a town named in English; 3. where the person is; 4. Srinagar, asking for their town.
+  if (place) {
+    f = await tryGet(() => deps.weather(place.name));
+    label = place.label;
+  } else {
+    const town = townIn(query);
+    if (town) {
+      f = await tryGet(() => deps.weather(town));
+      if (f) label = { en: town, hi: town, ur: town };
+    }
+    if (!f && here && deps.weatherAt) {
+      f = await tryGet(() => deps.weatherAt!(here));
+      if (f) {
+        label = { en: here.name, hi: here.name, ur: here.name };
+        if (!here.exact) {
+          const st = here.state ?? '';
+          note = {
+            en: `This is for ${here.name}, the main town of ${st}. For your own district, press "Use my location" or tell me your town.`,
+            hi: `यह ${st} के मुख्य शहर ${here.name} का मौसम है। अपने ज़िले का मौसम जानने के लिए "Use my location" दबाएँ या अपने शहर का नाम बताएँ।`,
+            ur: `یہ ${st} کے بڑے شہر ${here.name} کا موسم ہے۔ اپنے ضلع کا موسم جاننے کے لیے "Use my location" دبائیں یا اپنے شہر کا نام بتائیں۔`,
+          };
+        }
+      }
+    }
+    if (!f && !label) {
+      f = await tryGet(() => deps.weather('Srinagar'));
+      label = { en: 'Srinagar', hi: 'श्रीनगर', ur: 'سرینگر' };
+      note = {
+        en: 'I do not know your area yet: press "Use my location" above, or tell me your town for local weather.',
+        hi: 'मुझे अभी आपका इलाक़ा नहीं पता: ऊपर "Use my location" दबाएँ, या अपने शहर का नाम बताएँ।',
+        ur: 'مجھے ابھی آپ کا علاقہ معلوم نہیں: اوپر "Use my location" دبائیں، یا اپنے شہر کا نام بتائیں۔',
+      };
+    }
   }
-  const label = place?.label ?? { en: 'Srinagar', hi: 'श्रीनगर', ur: 'سرینگر' };
-  if (!f) {
+  if (!f || !label) {
     return answer(lang, (l) => ({
       en: 'The weather service is not answering right now. Please try again in a little while.',
       hi: 'मौसम सेवा अभी जवाब नहीं दे रही। थोड़ी देर बाद फिर पूछें।',
       ur: 'موسم کی سروس ابھی جواب نہیں دے رہی۔ تھوڑی دیر بعد دوبارہ پوچھیں۔',
     })[l]);
   }
-  const t = Math.round(f.current.temperature);
-  const today = f.daily[0];
-  const tomorrow = f.daily[1];
-  const dry = dryHours(f.current.time, f.hourly);
+  const fc = f;
+  const where = label;
+  const t = Math.round(fc.current.temperature);
+  const today = fc.daily[0];
+  const tomorrow = fc.daily[1];
+  const dry = dryHours(fc.current.time, fc.hourly);
   const mm1 = today?.precipitation ?? 0;
   const mm2 = tomorrow?.precipitation ?? 0;
   /** "rain 3.2 mm", or "no rain" — in each language. */
   const rain = (mm: number, l: 'en' | 'hi' | 'ur') =>
     mm < 0.1 ? { en: 'no rain', hi: 'बारिश नहीं', ur: 'بارش نہیں' }[l] : { en: `rain ${mm.toFixed(1)} mm`, hi: `बारिश ${mm.toFixed(1)} मिलीमीटर`, ur: `بارش ${mm.toFixed(1)} ملی میٹر` }[l];
+  /** The week, one day after another ("Tue 28: 14° to 27°, no rain"). */
+  const week = (l: 'en' | 'hi' | 'ur') =>
+    fc.daily
+      .slice(0, 7)
+      .map((d) => {
+        const day = new Date(`${d.date}T12:00:00`).toLocaleDateString(l === 'en' ? 'en-IN' : l === 'hi' ? 'hi-IN' : 'ur-IN', { weekday: 'short', day: 'numeric' });
+        const range = { en: `${Math.round(d.min)}° to ${Math.round(d.max)}°`, hi: `${Math.round(d.min)} से ${Math.round(d.max)} डिग्री`, ur: `${Math.round(d.min)} سے ${Math.round(d.max)} ڈگری` }[l];
+        return `${day}: ${range}, ${rain(d.precipitation, l)}`;
+      })
+      .join(l === 'en' ? '; ' : l === 'hi' ? '; ' : '؛ ');
   return answer(lang, (l) => {
     const parts = {
       en: [
-        `Weather in ${label.en}: now ${t}°C, humidity ${Math.round(f.current.humidity)}%.`,
-        today ? `Today ${Math.round(today.min)}° to ${Math.round(today.max)}°, ${rain(mm1, 'en')}.` : '',
-        tomorrow ? `Tomorrow ${Math.round(tomorrow.min)}° to ${Math.round(tomorrow.max)}°, ${rain(mm2, 'en')}.` : '',
+        `Weather in ${where.en}: now ${t}°C, humidity ${Math.round(fc.current.humidity)}%.`,
+        weekAsked ? `This week — ${week('en')}.` : '',
+        !weekAsked && today ? `Today ${Math.round(today.min)}° to ${Math.round(today.max)}°, ${rain(mm1, 'en')}.` : '',
+        !weekAsked && tomorrow ? `Tomorrow ${Math.round(tomorrow.min)}° to ${Math.round(tomorrow.max)}°, ${rain(mm2, 'en')}.` : '',
         sprayAsked || mm1 >= 0.1 ? (dry ? `Dry hours for spraying today: ${dry}.` : 'Rain is likely for the rest of today, so better not to spray.') : '',
-        place ? '' : 'Tell me your town for local weather.',
+        note?.en ?? '',
       ],
       hi: [
-        `${label.hi} का मौसम: अभी ${t} डिग्री, नमी ${Math.round(f.current.humidity)} प्रतिशत।`,
-        today ? `आज ${Math.round(today.min)} से ${Math.round(today.max)} डिग्री, ${rain(mm1, 'hi')}।` : '',
-        tomorrow ? `कल ${Math.round(tomorrow.min)} से ${Math.round(tomorrow.max)} डिग्री, ${rain(mm2, 'hi')}।` : '',
+        `${where.hi} का मौसम: अभी ${t} डिग्री, नमी ${Math.round(fc.current.humidity)} प्रतिशत।`,
+        weekAsked ? `इस हफ़्ते — ${week('hi')}।` : '',
+        !weekAsked && today ? `आज ${Math.round(today.min)} से ${Math.round(today.max)} डिग्री, ${rain(mm1, 'hi')}।` : '',
+        !weekAsked && tomorrow ? `कल ${Math.round(tomorrow.min)} से ${Math.round(tomorrow.max)} डिग्री, ${rain(mm2, 'hi')}।` : '',
         sprayAsked || mm1 >= 0.1 ? (dry ? `आज स्प्रे के लिए सूखा समय: ${dry}।` : 'आज बाक़ी दिन बारिश की संभावना है, इसलिए स्प्रे न करें।') : '',
-        place ? '' : 'अपने इलाक़े का मौसम जानने के लिए अपने शहर का नाम बताएँ।',
+        note?.hi ?? '',
       ],
       ur: [
-        `${label.ur} کا موسم: ابھی ${t} ڈگری، نمی ${Math.round(f.current.humidity)} فیصد۔`,
-        today ? `آج ${Math.round(today.min)} سے ${Math.round(today.max)} ڈگری، ${rain(mm1, 'ur')}۔` : '',
-        tomorrow ? `کل ${Math.round(tomorrow.min)} سے ${Math.round(tomorrow.max)} ڈگری، ${rain(mm2, 'ur')}۔` : '',
+        `${where.ur} کا موسم: ابھی ${t} ڈگری، نمی ${Math.round(fc.current.humidity)} فیصد۔`,
+        weekAsked ? `اس ہفتے — ${week('ur')}۔` : '',
+        !weekAsked && today ? `آج ${Math.round(today.min)} سے ${Math.round(today.max)} ڈگری، ${rain(mm1, 'ur')}۔` : '',
+        !weekAsked && tomorrow ? `کل ${Math.round(tomorrow.min)} سے ${Math.round(tomorrow.max)} ڈگری، ${rain(mm2, 'ur')}۔` : '',
         sprayAsked || mm1 >= 0.1 ? (dry ? `آج اسپرے کے لیے خشک وقت: ${dry}۔` : 'آج باقی دن بارش کا امکان ہے، اس لیے اسپرے نہ کریں۔') : '',
-        place ? '' : 'اپنے علاقے کا موسم جاننے کے لیے اپنے شہر کا نام بتائیں۔',
+        note?.ur ?? '',
       ],
     }[l];
     return parts.filter(Boolean).join(' ');
@@ -365,7 +448,7 @@ export function quickIntent(query: string): boolean {
   return true;
 }
 
-export async function basicAnswer(query: string, lang: Lang, deps: BasicDeps = defaultDeps): Promise<BasicAnswer> {
+export async function basicAnswer(query: string, lang: Lang, deps: BasicDeps = defaultDeps, here?: Here): Promise<BasicAnswer> {
   const q = ` ${norm(query)} `;
   const crop = COMMODITIES.find((c) => has(q, c.keys));
   const place = PLACES.find((p) => has(q, p.keys));
@@ -373,7 +456,7 @@ export async function basicAnswer(query: string, lang: Lang, deps: BasicDeps = d
   const weatherAsked = sprayAsked || has(q, WEATHER);
   const priceAsked = has(q, PRICE);
 
-  if (weatherAsked && !priceAsked) return weatherAnswer(lang, place, sprayAsked, deps);
+  if (weatherAsked && !priceAsked) return weatherAnswer(lang, query, place, sprayAsked, deps, here);
   if (crop && (priceAsked || !HELP.some((h) => has(q, h.keys)))) return priceAnswer(lang, crop, place, deps);
   if (priceAsked) {
     return answer(lang, (l) => ({

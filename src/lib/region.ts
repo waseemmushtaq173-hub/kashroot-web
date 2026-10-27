@@ -255,6 +255,9 @@ export interface Region {
   from: 'location' | 'chosen' | 'district';
   /** The place the map named, when it did. */
   place?: string;
+  /** The phone's position, rounded to about a kilometre (from the location only): the weather for "my area". */
+  lat?: number;
+  lng?: number;
 }
 
 const KEY = 'kr_region';
@@ -271,7 +274,9 @@ function readRaw(): string {
 function parseRegion(raw: string): Region | null {
   try {
     const r = JSON.parse(raw) as Partial<Region> | null;
-    return r && typeof r.state === 'string' && stateInfo(r.state) && (r.from === 'location' || r.from === 'chosen' || r.from === 'district') ? { state: r.state, from: r.from, ...(r.place ? { place: String(r.place) } : {}) } : null;
+    if (!(r && typeof r.state === 'string' && stateInfo(r.state) && (r.from === 'location' || r.from === 'chosen' || r.from === 'district'))) return null;
+    const at = r.from === 'location' && Number.isFinite(r.lat) && Number.isFinite(r.lng) ? { lat: Number(r.lat), lng: Number(r.lng) } : {};
+    return { state: r.state, from: r.from, ...(r.place ? { place: String(r.place) } : {}), ...at };
   } catch {
     return null;
   }
@@ -344,7 +349,8 @@ export function findRegion(): Promise<Region> {
     }
     const state = stateFromName(place) ?? nearestState(lat, lng);
     if (!state) throw new Error(REGION_HELP.outside);
-    return { state, from: 'location' as const, ...(place ? { place } : {}) };
+    const round = (v: number) => Math.round(v * 100) / 100;
+    return { state, from: 'location' as const, ...(place ? { place } : {}), lat: round(lat), lng: round(lng) };
   })().finally(() => {
     finding = null;
   });
@@ -418,6 +424,64 @@ export function useRegion(opts: { district?: string | null } = {}) {
 
   const crops = useMemo(() => cropsFor(region?.state), [region]);
   return { region, crops, locating, problem, locate, choose };
+}
+
+/** The region as last saved on this phone (outside React). */
+export function currentRegion(): Region | null {
+  return typeof window === 'undefined' ? null : parseRegion(snapshot());
+}
+
+/** A state's main district town (the first in the list above). */
+export function mainTown(state: string): { name: string; lat: number; lng: number } | null {
+  const t = TOWNS.find(([, , , s]) => s === state);
+  return t ? { name: t[0], lat: t[1], lng: t[2] } : null;
+}
+
+/**
+ * Where "my area" is, for the weather: the phone's own position (exact),
+ * the district from My details, or — when only a state was chosen — that
+ * state's main town (not exact: the answer says so and asks for the town).
+ */
+export interface Spot {
+  name: string;
+  lat?: number;
+  lng?: number;
+  state: string;
+  exact: boolean;
+}
+export function regionSpot(r: Region | null): Spot | null {
+  if (!r) return null;
+  const state = stateLabel(r.state);
+  if (r.from === 'location' && r.lat !== undefined && r.lng !== undefined) return { name: r.place ?? nearestTown(r.lat, r.lng) ?? state, lat: r.lat, lng: r.lng, state: r.state, exact: true };
+  if (r.place) return { name: r.place, state: r.state, exact: true };
+  const town = mainTown(r.state);
+  return town ? { name: town.name, lat: town.lat, lng: town.lng, state: r.state, exact: false } : null;
+}
+
+/** The weather request for a spot (/api/weather): by position when known, else by name. */
+export function spotParams(s: Spot): string {
+  const p = new URLSearchParams();
+  if (s.lat !== undefined && s.lng !== undefined) {
+    p.set('lat', String(s.lat));
+    p.set('lng', String(s.lng));
+    p.set('name', s.name);
+  } else p.set('q', s.name);
+  return p.toString();
+}
+
+/** The nearest district town's name (to name a position the map could not). */
+export function nearestTown(lat: number, lng: number): string | null {
+  let best: string | null = null;
+  let bestKm = 120;
+  for (const [town, tLat, tLng] of TOWNS) {
+    const x = (lng - tLng) * Math.cos(((lat + tLat) / 2) * (Math.PI / 180));
+    const km = Math.hypot(x, lat - tLat) * 111;
+    if (km < bestKm) {
+      bestKm = km;
+      best = town;
+    }
+  }
+  return best;
 }
 
 /** A list with the region's crops first, in the region's order (the rest keep theirs). */

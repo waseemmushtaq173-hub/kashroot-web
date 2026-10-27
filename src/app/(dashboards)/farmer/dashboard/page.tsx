@@ -42,6 +42,7 @@ import { SafePayment } from '@/components/payments/SafePayment';
 import { Btn, PORTAL_THEMES, Panel, Tile } from '@/components/portal/kit';
 import { inr, loadAccount, type Account } from '@/lib/db/client';
 import { listingDraftFromLink } from '@/lib/navIntent';
+import { regionSpot, spotParams, stateLabel, useRegion } from '@/lib/region';
 import { dryHours } from '@/lib/sprayWindow';
 import type { MarketCategory, MarketListing, MarketOrder } from '@/lib/db/market';
 import { sellerToAct } from '@/lib/db/shop';
@@ -212,29 +213,38 @@ interface Weather {
 }
 
 function TodayWeather({ district }: { district?: string }) {
-  const place = district?.trim() || 'Srinagar';
-  const [w, setW] = useState<Weather | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // The farmer's own district (My details), else their area (phone location or chosen state, lib/region), else Srinagar — saying so.
+  const own = district?.trim();
+  const { region } = useRegion({ district: own });
+  const spot = own ? null : regionSpot(region);
+  const place = own || spot?.name || 'Srinagar';
+  const query = own ? `q=${encodeURIComponent(own)}` : spot ? spotParams(spot) : 'q=Srinagar';
+  const hint = own || spot?.exact ? null : spot ? `The main town of ${stateLabel(spot.state)}. Add your district in My details for your own weather.` : 'Add your district in My details (or press Use my location on the home page) for your own weather.';
+  // Each answer kept with the request it answers, so a new place never shows the last one's weather.
+  const [got, setGot] = useState<{ query: string; w?: Weather; error?: string } | null>(null);
+  const w = got?.query === query ? (got.w ?? null) : null;
+  const error = got?.query === query ? (got.error ?? null) : null;
 
   useEffect(() => {
     let live = true;
-    fetch(`/api/weather?q=${encodeURIComponent(place)}`)
+    fetch(`/api/weather?${query}`)
       .then(async (r) => {
         const j = await r.json();
         if (!r.ok) throw new Error(j.error ?? 'Weather is not available right now.');
-        if (live) setW(j as Weather);
+        if (live) setGot({ query, w: j as Weather });
       })
-      .catch((err) => live && setError(err instanceof Error ? err.message : 'Weather is not available right now.'));
+      .catch((err) => live && setGot({ query, error: err instanceof Error ? err.message : 'Weather is not available right now.' }));
     return () => {
       live = false;
     };
-  }, [place]);
+  }, [query]);
 
   const dry = w ? dryHours(w.current.time, w.hourly) : null;
   const rainToday = w?.daily[0]?.precipitation ?? 0;
 
   return (
     <Panel theme={theme} title={`Spraying today · ${w?.place.name ?? place}`} icon={CloudSun}>
+      {hint && <p className="mb-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-950 ring-1 ring-amber-200">{hint}</p>}
       {error ? (
         <p className="text-sm text-slate-600">{error}</p>
       ) : !w ? (

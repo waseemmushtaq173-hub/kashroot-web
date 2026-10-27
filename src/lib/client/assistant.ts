@@ -12,6 +12,7 @@ import { needsDevanagari, NO_VOICE_HELP, speak, stopSpeaking, type SpeechLang } 
 import { ksText } from '@/lib/kashmiri/phrases';
 import { detectReplyLang, rememberLang } from '@/lib/langDetect';
 import { navigationFor } from '@/lib/navIntent';
+import { currentRegion, regionSpot } from '@/lib/region';
 
 export interface Turn {
   role: 'user' | 'assistant';
@@ -95,7 +96,8 @@ export function useAssistant(opts: { page?: string } = {}) {
         const res = await fetch('/api/ai', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: question, lang, exact: how.exact || undefined, history, speakAs, page: opts.page }),
+          // "My area" for the weather: the phone's location, the district, or the chosen state (lib/region).
+          body: JSON.stringify({ query: question, lang, exact: how.exact || undefined, history, speakAs, page: opts.page, where: regionSpot(currentRegion()) ?? undefined }),
         });
         const data = (await res.json().catch(() => ({}))) as { reply?: string; error?: string; speech?: string; aiError?: string };
         // The AI failed and basic mode answered: say why, for the site owner.

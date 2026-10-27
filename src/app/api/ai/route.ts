@@ -20,7 +20,7 @@ import { NextResponse } from 'next/server';
 
 import { asLang, claudeClient, claudeConfigured, claudeFailure, LANGUAGE, MODEL, speechInstruction, splitSpeech, textOf, throttled } from '@/lib/server/claude';
 import { detectReplyLang } from '@/lib/langDetect';
-import { basicAnswer, quickIntent } from '@/lib/server/basicAssistant';
+import { basicAnswer, quickIntent, type Here } from '@/lib/server/basicAssistant';
 import { fetchMandiPrices } from '@/lib/server/mandi';
 import { bhashiniConfigured, toKashmiri } from '@/lib/server/bhashini';
 import { ksText } from '@/lib/kashmiri/phrases';
@@ -100,7 +100,20 @@ const TOOL_BUDGET_MS = 25_000;
 const withBudget = <T,>(work: Promise<T>): Promise<T> =>
   Promise.race([work, new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timed out')), TOOL_BUDGET_MS))]);
 
-async function runTool(name: string, input: Record<string, unknown>): Promise<unknown> {
+/** The person's area as the page sent it (lib/region): checked, India only. */
+function hereOf(raw: unknown): Here | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const w = raw as Record<string, unknown>;
+  const name = typeof w.name === 'string' ? w.name.replace(/[^\p{L}\p{N} .,'()-]/gu, '').trim().slice(0, 60) : '';
+  if (!name) return undefined;
+  const lat = Number(w.lat);
+  const lng = Number(w.lng);
+  const at = Number.isFinite(lat) && Number.isFinite(lng) && lat > 6 && lat < 37.7 && lng > 68 && lng < 97.6 ? { lat, lng } : {};
+  const state = typeof w.state === 'string' ? w.state.replace(/[^\p{L} &]/gu, '').slice(0, 40) : undefined;
+  return { name, ...at, ...(state ? { state } : {}), exact: w.exact === true };
+}
+
+async function runTool(name: string, input: Record<string, unknown>, here?: Here): Promise<unknown> {
   const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
   try {
     if (name === 'get_mandi_prices') {
@@ -151,7 +164,9 @@ async function runTool(name: string, input: Record<string, unknown>): Promise<un
     if (name === 'get_weather') {
       const placeName = str(input.place);
       if (!placeName) return { result: 'BAD_INPUT', note: 'place is required' };
-      const place = (await withBudget(geocode(placeName, { deep: true })))[0];
+      // "My area": the person's own position when the page knows it, not a town of the same name elsewhere.
+      const mine = here && here.lat !== undefined && here.lng !== undefined && placeName.toLowerCase() === here.name.toLowerCase();
+      const place = mine ? { name: here.name, admin: here.state ?? '', country: 'India', lat: here.lat!, lng: here.lng! } : (await withBudget(geocode(placeName, { deep: true })))[0];
       if (!place) return { result: 'NO_DATA', note: `No place called ${placeName} was found.` };
       const f = await withBudget(forecast(place));
       return {
@@ -214,13 +229,14 @@ async function kashmiriFrom(english: string, wantDevanagari: boolean, client: An
 
 export async function POST(req: Request) {
   if (throttled(req, 20)) return NextResponse.json({ error: 'Too many questions at once. Please wait a minute.' }, { status: 429 });
-  let body: { query?: string; lang?: string; exact?: boolean; history?: { role: string; text: string }[]; speakAs?: string; page?: string };
+  let body: { query?: string; lang?: string; exact?: boolean; history?: { role: string; text: string }[]; speakAs?: string; page?: string; where?: unknown };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
   }
   const query = body.query?.trim().slice(0, 600);
+  const here = hereOf(body.where);
   const lang = body.exact ? asLang(body.lang) : detectReplyLang(body.query ?? '', asLang(body.lang));
   const wantDevanagari = (lang === 'ur' || lang === 'ks') && body.speakAs === 'hi';
   if (!query) return NextResponse.json({ error: 'Say or type a question.' }, { status: 400 });
@@ -244,16 +260,16 @@ export async function POST(req: Request) {
   // are translated (Bhashini), or the AI answers in Kashmiri itself.
   if ((client && quickIntent(query)) || !client) {
     if (ks && (kashmiriTranslator || client)) {
-      const en = await basicAnswer(query, 'en');
+      const en = await basicAnswer(query, 'en', undefined, here);
       const answer = await kashmiriFrom(en.reply, wantDevanagari, client);
       if (answer) return NextResponse.json({ ...answer, lang, quick: true });
     } else {
-      const a = await basicAnswer(query, lang);
+      const a = await basicAnswer(query, lang, undefined, here);
       return NextResponse.json({ reply: a.reply, lang, ...(client ? { quick: true } : { basic: true }), ...(a.speech ? { speech: a.speech } : {}) });
     }
     if (!client) {
       // No AI and no translator: the closest written language (Urdu).
-      const a = await basicAnswer(query, lang);
+      const a = await basicAnswer(query, lang, undefined, here);
       return NextResponse.json({ reply: a.reply, lang, basic: true, ...(a.speech ? { speech: a.speech } : {}) });
     }
   }
@@ -267,6 +283,11 @@ export async function POST(req: Request) {
   if (wantDevanagari && !kashmiriTranslator) instruction += ` ${speechInstruction(lang)}`;
   const page = body.page?.trim().slice(0, 1200);
   if (page) instruction += ` The person is on this KashRoot page right now: ${page}`;
+  if (here) {
+    instruction += here.exact
+      ? ` The person's area is ${here.name}${here.state ? `, ${here.state}` : ''}: for "my area", "my district", "here" or a weather question naming no place, call get_weather with place "${here.name}".`
+      : ` The person chose the state ${here.state ?? here.name} but not their town: for weather in "my area" use ${here.name} (its main town), say so, and ask for their town.`;
+  }
 
   const history: Anthropic.Beta.BetaMessageParam[] = [];
   for (const h of (body.history ?? []).slice(-8)) {
@@ -306,7 +327,7 @@ export async function POST(req: Request) {
           calls.map(async (c): Promise<Anthropic.Beta.BetaToolResultBlockParam> => ({
             type: 'tool_result',
             tool_use_id: c.id,
-            content: JSON.stringify(await runTool(c.name, (c.input ?? {}) as Record<string, unknown>)),
+            content: JSON.stringify(await runTool(c.name, (c.input ?? {}) as Record<string, unknown>, here)),
           })),
         );
         messages.push({ role: 'user', content: results });
@@ -340,7 +361,7 @@ export async function POST(req: Request) {
     // what basic mode can do — say plainly that the answer failed.
     // Kashmiri: basic answers exist only in Urdu, so say sorry in Kashmiri instead.
     if (!quickIntent(query) || ks) return NextResponse.json({ reply: sorry(), lang, basic: true, aiError: f.error });
-    const a = await basicAnswer(query, lang);
+    const a = await basicAnswer(query, lang, undefined, here);
     return NextResponse.json({ reply: a.reply, lang, basic: true, aiError: f.error, ...(a.speech ? { speech: a.speech } : {}) });
   }
 }
