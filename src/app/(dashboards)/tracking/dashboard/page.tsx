@@ -27,6 +27,7 @@ import { loginHref } from '@/lib/auth/roles';
 import { useSignedIn } from '@/lib/auth/session';
 import { ago as agoIso } from '@/lib/db/client';
 import { createConsignment, driverUrl, myConsignments, setConsignmentStatus, STATUS_LABEL, trackUrl, type Consignment } from '@/lib/db/consignments';
+import { consignmentDraftFromLink } from '@/lib/navIntent';
 
 const RouteMap = dynamic(() => import('@/components/tracking/RouteMap'), {
   ssr: false,
@@ -208,7 +209,7 @@ export default function TrackingPage() {
   );
 }
 
-function SignInFirst({ what, tab }: { what: string; tab: string }) {
+function SignInFirst({ what, tab, keep = '' }: { what: string; tab: string; /** More of the address to come back to (a filled-in consignment). */ keep?: string }) {
   return (
     <Panel theme={theme}>
       <EmptyState
@@ -217,7 +218,7 @@ function SignInFirst({ what, tab }: { what: string; tab: string }) {
         title="Sign in for this"
         text={`${what} Following a load with its code needs no account.`}
         action={
-          <Link href={loginHref('tracking', `/tracking/dashboard?tab=${tab}`)} className="inline-flex items-center gap-2 rounded-xl bg-cyan-700 px-4 py-2.5 text-sm font-semibold text-white no-underline hover:bg-cyan-800 hover:no-underline">
+          <Link href={loginHref('tracking', `/tracking/dashboard?tab=${tab}${keep}`)} className="inline-flex items-center gap-2 rounded-xl bg-cyan-700 px-4 py-2.5 text-sm font-semibold text-white no-underline hover:bg-cyan-800 hover:no-underline">
             <LogIn className="h-4 w-4" aria-hidden /> Sign in to Tracking
           </Link>
         }
@@ -231,6 +232,9 @@ function Tracking() {
   const linked = cleanCode(params.get('code'));
   const wanted = params.get('tab') ?? '';
   const [tab, setTab] = useState(TABS.includes(wanted) ? wanted : 'track');
+  // Said to the voice assistant ("load carrier from Shopian to Delhi"): ?from=&to=&cargo= fill the new consignment.
+  const [draft] = useState(() => consignmentDraftFromLink(params));
+  const keep = ['from', 'to', 'cargo'].map((k) => (params.get(k) ? `&${k}=${encodeURIComponent(params.get(k)!)}` : '')).join('');
   const [code, setCode] = useState(linked);
   const [active, setActive] = useState<string | null>(linked.length >= 4 ? linked : null);
   const [mine, setMine] = useState<Consignment[]>([]);
@@ -294,17 +298,17 @@ function Tracking() {
       {tab === 'mine' && (signedIn === null ? (
         <p className="flex items-center gap-2 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>
       ) : signedIn ? (
-        <MyConsignments list={mine} onChange={() => void reload()} onTrack={(c) => { setActive(c); setCode(c); setTab('track'); }} />
+        <MyConsignments list={mine} draft={draft} onChange={() => void reload()} onTrack={(c) => { setActive(c); setCode(c); setTab('track'); }} />
       ) : (
-        <SignInFirst tab="mine" what="Transporters sign in to create consignments, send the driver link and share tracking." />
+        <SignInFirst tab="mine" keep={keep} what="Transporters sign in to create consignments, send the driver link and share tracking." />
       ))}
       {tab === 'vehicle' && (signedIn === false ? <SignInFirst tab="vehicle" what="Looking up a vehicle number uses Government records, so it needs an account." /> : <VehicleLookup onUseCode={() => setTab('track')} />)}
     </PortalShell>
   );
 }
 
-function MyConsignments({ list, onChange, onTrack }: { list: Consignment[]; onChange: () => void; onTrack: (code: string) => void }) {
-  const [form, setForm] = useState({ origin: '', destination: '', cargo: '', vehicle_no: '', driver_name: '', driver_phone: '' });
+function MyConsignments({ list, draft, onChange, onTrack }: { list: Consignment[]; draft?: { origin: string; destination: string; cargo: string }; onChange: () => void; onTrack: (code: string) => void }) {
+  const [form, setForm] = useState({ origin: draft?.origin ?? '', destination: draft?.destination ?? '', cargo: draft?.cargo ?? '', vehicle_no: '', driver_name: '', driver_phone: '' });
   const [busy, setBusy] = useState(false);
 
   const create = async () => {

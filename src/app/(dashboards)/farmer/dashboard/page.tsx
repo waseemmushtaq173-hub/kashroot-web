@@ -41,6 +41,7 @@ import { SellerDesk } from '@/components/market/SellerDesk';
 import { SafePayment } from '@/components/payments/SafePayment';
 import { Btn, PORTAL_THEMES, Panel, Tile } from '@/components/portal/kit';
 import { inr, loadAccount, type Account } from '@/lib/db/client';
+import { listingDraftFromLink } from '@/lib/navIntent';
 import { dryHours } from '@/lib/sprayWindow';
 import type { MarketCategory, MarketListing, MarketOrder } from '@/lib/db/market';
 import { sellerToAct } from '@/lib/db/shop';
@@ -67,6 +68,8 @@ function FarmerDashboard() {
     window.history.replaceState(null, '', tab === 'overview' ? window.location.pathname : `${window.location.pathname}?tab=${tab}`);
   }, [tab]);
   const [addRequest, setAddRequest] = useState(params.get('add') === '1' ? 1 : 0);
+  // Said to the voice assistant ("sell 50 boxes of apples"): ?crop=&qty= fill the form add=1 opens, that time only.
+  const [voiceDraft] = useState(() => (params.get('add') === '1' ? listingDraftFromLink(params) : undefined));
   // What "add" opens: produce from the orchard, or farm inputs for sale.
   const [addCategory, setAddCategory] = useState<MarketCategory>(params.get('sell') === 'supplies' ? 'supplies' : 'produce');
   const [account, setAccount] = useState<Account | null | undefined>(undefined);
@@ -192,6 +195,7 @@ function FarmerDashboard() {
             mixed
             show={tab === 'lots' ? 'products' : tab === 'payouts' ? 'payouts' : 'orders'}
             addRequest={addRequest}
+            addDraft={addRequest === 1 ? voiceDraft : undefined}
             onLoaded={onLoaded}
           />
         </div>

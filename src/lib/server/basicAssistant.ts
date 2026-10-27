@@ -48,8 +48,9 @@ export { norm };
 const COMMODITIES: { name: string; label: Text; keys: string[] }[] = [
   // Plum before potato: "aloo bukhara" contains "aloo".
   { name: 'Plum', label: { en: 'Plum', hi: 'आलूबुखारा', ur: 'آلو بخارا' }, keys: ['plum', 'aloo bukhara', 'alubukhara', 'आलूबुखारा', 'आलू बुखारा', 'آلو بخارا', 'آلوچہ'] },
-  { name: 'Apple', label: { en: 'Apple', hi: 'सेब', ur: 'سیب' }, keys: ['apple', 'seb', 'saeb', 'सेब', 'سیب', 'ژونٹھ', 'tsoont', 'chhunth'] },
-  { name: 'Walnut', label: { en: 'Walnut', hi: 'अखरोट', ur: 'اخروٹ' }, keys: ['walnut', 'akhrot', 'अखरोट', 'اخروٹ'] },
+  { name: 'Apple', label: { en: 'Apple', hi: 'सेब', ur: 'سیب' }, keys: ['apple', 'seb', 'seeb', 'sev', 'saeb', 'सेब', 'सेव', 'سیب', 'ژونٹھ', 'tsoont', 'chhunth'] },
+  { name: 'Walnut', label: { en: 'Walnut', hi: 'अखरोट', ur: 'اخروٹ' }, keys: ['walnut', 'akhrot', 'doon', 'अखरोट', 'اخروٹ'] },
+  { name: 'Saffron', label: { en: 'Saffron', hi: 'केसर', ur: 'زعفران' }, keys: ['saffron', 'kesar', 'zafran', 'kong', 'केसर', 'ज़ाफ़रान', 'زعفران', 'کیسر'] },
   { name: 'Almond(Badam)', label: { en: 'Almond', hi: 'बादाम', ur: 'بادام' }, keys: ['almond', 'badam', 'बादाम', 'بادام', 'وادام'] },
   { name: 'Cherry', label: { en: 'Cherry', hi: 'चेरी', ur: 'چیری' }, keys: ['cherry', 'cherries', 'gilas', 'चेरी', 'چیری', 'گلاس'] },
   { name: 'Pear(Marasebu)', label: { en: 'Pear', hi: 'नाशपाती', ur: 'ناشپاتی' }, keys: ['pear', 'nashpati', 'नाशपाती', 'ناشپاتی'] },
@@ -114,6 +115,15 @@ const HELP: { keys: string[]; text: Text }[] = [
     },
   },
   {
+    // "How do I book a truck?": KashRoot records and tracks loads, it books no trucks.
+    keys: ['book a truck', 'book truck', 'truck book', 'hire a truck', 'load carrier', 'transporter', 'ट्रक बुक', 'ट्रक किराए', 'ٹرک بک', 'ٹرک کرائے'],
+    text: {
+      en: 'KashRoot does not find or book trucks. Arrange the truck with your own transporter. Then, in the Tracking portal, press My consignments and create the consignment: the driver gets a link that shows the load live to you and your buyer.',
+      hi: 'KashRoot ट्रक नहीं ढूँढता और बुक भी नहीं करता। ट्रक अपने ट्रांसपोर्टर से तय करें। फिर Tracking portal में My consignments दबाकर consignment बनाएँ: ड्राइवर को एक लिंक मिलेगा जिससे आपको और ख़रीदार को माल रास्ते में दिखेगा।',
+      ur: 'KashRoot ٹرک نہیں ڈھونڈتا اور بک بھی نہیں کرتا۔ ٹرک اپنے ٹرانسپورٹر سے طے کریں۔ پھر Tracking portal میں My consignments دبا کر consignment بنائیں: ڈرائیور کو ایک لنک ملے گا جس سے آپ کو اور خریدار کو مال راستے میں دکھے گا۔',
+    },
+  },
+  {
     keys: ['track', 'truck', 'consignment', 'gaadi', 'gadi', 'ट्रक', 'गाड़ी', 'ٹرک', 'گاڑی', 'کھیپ'],
     text: {
       en: 'Open Tracking and type the KashRoot code your transporter sent you (it starts with KR-), then press Track to see the truck on the map.',
@@ -122,11 +132,11 @@ const HELP: { keys: string[]; text: Text }[] = [
     },
   },
   {
-    keys: ['fertiliser', 'fertilizer', 'pesticide', 'fungicide', 'khad', 'dawai', 'dawa', 'fake', 'nakli', 'batch', 'खाद', 'दवा', 'दवाई', 'नकली', 'कीटनाशक', 'बैच', 'کھاد', 'دوائی', 'دوا', 'نقلی'],
+    keys: ['truescan', 'fertiliser', 'fertilizer', 'pesticide', 'fungicide', 'khad', 'dawai', 'dawa', 'fake', 'nakli', 'batch', 'खाद', 'दवा', 'दवाई', 'नकली', 'कीटनाशक', 'बैच', 'کھاد', 'دوائی', 'دوا', 'نقلی'],
     text: {
-      en: 'To check fertiliser or pesticide, use the fertiliser check on the KashRoot home page: type the batch number from the bag, or photograph the label. If it looks fake, press Report as suspicious.',
-      hi: 'खाद या दवा जाँचने के लिए KashRoot के होम पेज पर खाद जाँच इस्तेमाल करें: बोरी पर लिखा बैच नंबर लिखें या लेबल की फ़ोटो लें। नकली लगे तो "Report as suspicious" दबाएँ।',
-      ur: 'کھاد یا دوائی جانچنے کے لیے KashRoot کے ہوم پیج پر کھاد کی جانچ استعمال کریں: بوری پر لکھا بیچ نمبر لکھیں یا لیبل کی تصویر لیں۔ نقلی لگے تو "Report as suspicious" دبائیں۔',
+      en: 'To check a fertiliser or pesticide, open KashRoot TrueScan on the KashRoot home page: type the registration number (CIR-…), the product name or the batch number from the bag, or photograph the label. It is checked against the Government lists. If it looks fake, press Report as suspicious.',
+      hi: 'खाद या दवा जाँचने के लिए KashRoot के होम पेज पर KashRoot TrueScan खोलें: बोरी पर लिखा रजिस्ट्रेशन नंबर (CIR-…), दवा का नाम या बैच नंबर लिखें, या लेबल की फ़ोटो लें। इसे सरकारी सूची से मिलाया जाता है। नकली लगे तो "Report as suspicious" दबाएँ।',
+      ur: 'کھاد یا دوائی جانچنے کے لیے KashRoot کے ہوم پیج پر KashRoot TrueScan کھولیں: بوری پر لکھا رجسٹریشن نمبر (CIR-…)، دوائی کا نام یا بیچ نمبر لکھیں، یا لیبل کی تصویر لیں۔ اسے سرکاری فہرست سے ملایا جاتا ہے۔ نقلی لگے تو "Report as suspicious" دبائیں۔',
     },
   },
   {
@@ -138,7 +148,7 @@ const HELP: { keys: string[]; text: Text }[] = [
     },
   },
   {
-    keys: ['pay', 'upi', 'money', 'paisa', 'paise', 'payment', 'पैसा', 'पैसे', 'भुगतान', 'پیسہ', 'پیسے', 'ادائیگی', 'پونسہ'],
+    keys: ['pay', 'escrow', 'upi', 'money', 'paisa', 'paise', 'payment', 'पैसा', 'पैसे', 'भुगतान', 'پیسہ', 'پیسے', 'ادائیگی', 'پونسہ'],
     text: {
       en: 'KashRoot does not hold your money. You pay the seller or cold-store owner directly from your UPI app — for orders, only after the goods reach you — and type the payment number so they can confirm.',
       hi: 'KashRoot आपका पैसा अपने पास नहीं रखता। आप विक्रेता या कोल्ड स्टोर मालिक को सीधे अपने UPI ऐप से भुगतान करते हैं — ऑर्डर में सामान पहुँचने के बाद ही — और भुगतान नंबर लिखते हैं ताकि वे पक्का कर सकें।',
@@ -148,7 +158,7 @@ const HELP: { keys: string[]; text: Text }[] = [
 ];
 
 const INTRO: Text = {
-  en: 'I can tell you mandi prices (say: apple price in Sopore), the weather and when to spray (say: weather in Shopian), and how to use KashRoot — selling, buying, cold storage, tracking, experts and checking fertiliser. For a crop problem, press Ask an expert to reach an agronomist.',
+  en: 'I can tell you mandi prices (say: apple price in Sopore), the weather and when to spray (say: weather in Shopian), and how to use KashRoot — selling, buying, cold storage, tracking, experts and checking fertilisers with KashRoot TrueScan. For a crop problem, press Ask an expert to reach an agronomist.',
   hi: 'मैं मंडी भाव बता सकता हूँ (बोलें: सोपोर में सेब का भाव), मौसम और स्प्रे का सही समय (बोलें: शोपियां का मौसम), और KashRoot इस्तेमाल करने का तरीक़ा — बेचना, ख़रीदना, कोल्ड स्टोर, ट्रैकिंग, विशेषज्ञ और खाद की जाँच। फ़सल की बीमारी के लिए "Ask an expert" दबाएँ।',
   ur: 'میں منڈی بھاؤ بتا سکتا ہوں (بولیں: سوپور میں سیب کا بھاؤ)، موسم اور اسپرے کا صحیح وقت (بولیں: شوپیان کا موسم)، اور KashRoot استعمال کرنے کا طریقہ — بیچنا، خریدنا، کولڈ اسٹور، ٹریکنگ، ماہر اور کھاد کی جانچ۔ فصل کی بیماری کے لیے "Ask an expert" دبائیں۔',
 };
@@ -351,7 +361,7 @@ export function quickIntent(query: string): boolean {
   const help = HELP.find((h) => has(q, h.keys));
   if (!help || help === HELP[0]) return false; // crop care, disease, pests: the AI answers
   // "Which fertiliser for walnut?" is crop care; "is this batch fake?" is the check.
-  if (help.keys.includes('fertiliser') && !has(q, ['check', 'fake', 'nakli', 'batch', 'genuine', 'asli', 'real', 'नकली', 'जाँच', 'जांच', 'असली', 'بیچ نمبر', 'جانچ', 'نقلی', 'اصلی'])) return false;
+  if (help.keys.includes('fertiliser') && !has(q, ['check', 'fake', 'nakli', 'batch', 'genuine', 'asli', 'real', 'registration', 'cir', 'truescan', 'नकली', 'जाँच', 'जांच', 'असली', 'بیچ نمبر', 'جانچ', 'نقلی', 'اصلی'])) return false;
   return true;
 }
 

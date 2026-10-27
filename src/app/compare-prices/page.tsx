@@ -202,7 +202,7 @@ function ComparePrices() {
                     {category === 'produce' ? (
                       <Btn theme={theme} variant="soft" className="min-h-11" href="/mandi-weather">See today’s mandi prices</Btn>
                     ) : (
-                      <Btn theme={theme} variant="soft" className="min-h-11" href="/supplies/tester">Check a fertiliser is genuine</Btn>
+                      <Btn theme={theme} variant="soft" className="min-h-11" href="/supplies/tester">KashRoot TrueScan — is it genuine?</Btn>
                     )}
                   </div>
                 }

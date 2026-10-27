@@ -4,7 +4,7 @@
  * Small voice controls for people who find reading hard:
  *   SpeakButton — reads a text aloud in its language
  *   MicButton   — fills a text box by speaking
- *   LangPicker  — English / Hindi / Urdu / Kashmiri
+ *   LangPicker  — English / Hindi / Urdu / Kashmiri (and Dogri, where asked for)
  */
 import { useEffect, useRef, useState } from 'react';
 import { Mic, Square, Volume2 } from 'lucide-react';
@@ -100,19 +100,35 @@ export function MicButton({ lang, onText, className = '' }: { lang: SpeechLang; 
   );
 }
 
-export function LangPicker({ value, onChange, className = '' }: { value: SpeechLang; onChange: (l: SpeechLang) => void; className?: string }) {
+/**
+ * A language of the voice assistant: the four the phone can speak, and Dogri.
+ * No browser hears or speaks Dogri, so with Dogri it listens and answers in
+ * Hindi (hi-IN) — see `heard`.
+ */
+export type VoiceLang = SpeechLang | 'doi';
+/** The language the phone listens and speaks in. */
+export const heard = (l: VoiceLang): SpeechLang => (l === 'doi' ? 'hi' : l);
+const LABEL: Record<VoiceLang, string> = { ...LANG_LABEL, doi: 'डोगरी' };
+
+type PickerProps = { className?: string } & ({ dogri?: false; value: SpeechLang; onChange: (l: SpeechLang) => void } | { dogri: true; value: VoiceLang; onChange: (l: VoiceLang) => void });
+
+export function LangPicker(props: PickerProps) {
+  const { value, className = '' } = props;
+  const langs: VoiceLang[] = props.dogri ? ['ks', 'ur', 'hi', 'doi', 'en'] : ['ks', 'ur', 'hi', 'en'];
+  const pick = (l: VoiceLang) => (props.dogri ? props.onChange(l) : l !== 'doi' && props.onChange(l));
   return (
     <div role="group" aria-label="Language" className={`inline-flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1 ${className}`}>
-      {(['ks', 'ur', 'hi', 'en'] as SpeechLang[]).map((l) => (
+      {langs.map((l) => (
         <button
           key={l}
           type="button"
           aria-pressed={value === l}
-          onClick={() => onChange(l)}
-          dir={isRtl(l) ? 'rtl' : undefined}
-          className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold transition ${value === l ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+          onClick={() => pick(l)}
+          lang={l === 'en' ? undefined : l}
+          dir={l !== 'doi' && isRtl(l) ? 'rtl' : undefined}
+          className={`min-h-11 cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold transition ${value === l ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
         >
-          {LANG_LABEL[l]}
+          {LABEL[l]}
         </button>
       ))}
     </div>

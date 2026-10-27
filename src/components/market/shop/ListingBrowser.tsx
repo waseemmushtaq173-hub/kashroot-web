@@ -8,14 +8,21 @@
  *
  * Filters: the kind (crop / type) from the fixed list, and variety, grade and
  * district from what is actually listed — so every choice finds something.
+ * For produce, the crops of the person's area come first (lib/region.ts),
+ * with a one-tap button for each. A link's ?q= fills the search (the voice
+ * assistant's "cheapest urea", "buy walnuts").
  */
 import { useMemo, useState, type ReactNode } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Loader2, Package, RefreshCw, Search } from 'lucide-react';
 
 import { ListingCard } from '@/components/market/shop/ListingCard';
 import { useLiveListings, type ShopListing } from '@/components/market/shop/useLiveListings';
 import { Btn, EmptyState, INPUT, type PortalTheme } from '@/components/portal/kit';
+import { RegionChip } from '@/components/voice/RegionChip';
 import { PRODUCE, SUBCATEGORIES, type MarketCategory } from '@/lib/db/market';
+import { searchFromLink } from '@/lib/navIntent';
+import { ownFilter, regionFirst, stateLabel, useRegion, type Crop } from '@/lib/region';
 
 const ALL = '';
 const SELECT = `${INPUT} min-h-11`;
@@ -54,11 +61,15 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
 }) {
   const { listings, verified, error, refresh } = useLiveListings(category);
   const produce = category === 'produce';
+  const params = useSearchParams();
+  const { region, crops } = useRegion();
+  const kinds = useMemo(() => (produce ? regionFirst(PRODUCE, crops, (c) => c) : SUBCATEGORIES), [produce, crops]);
   const [kind, setKind] = useState(ALL);
   const [variety, setVariety] = useState(ALL);
   const [grade, setGrade] = useState(ALL);
   const [district, setDistrict] = useState(ALL);
-  const [search, setSearch] = useState('');
+  // Filled from the link only for the kind of goods it was for.
+  const [search, setSearch] = useState(() => (!params.get('category') || params.get('category') === category ? searchFromLink(params) : ''));
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -96,11 +107,34 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
     await refresh();
     setRefreshing(false);
   };
+  // A crop with its own filter is chosen there; others (cardamom, pepper …) are searched for by name.
+  const pickCrop = (c: Crop) => {
+    if (ownFilter(c)) {
+      setKind(kind === c.category ? ALL : c.category);
+      setVariety(ALL);
+      setGrade(ALL);
+    } else setSearch(key(search) === key(c.name) ? '' : c.name);
+  };
+  const picked = (c: Crop) => (ownFilter(c) ? kind === c.category : key(search) === key(c.name));
 
   return (
     <section aria-label="Products" className="space-y-5">
       <div className="grid gap-3 rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-slate-900/5">
         {toolbar}
+        {produce && (
+          <div className="grid gap-2">
+            <RegionChip />
+            {crops.length > 0 && region && (
+              <div role="group" aria-label={`Grown in ${stateLabel(region.state)}`} className="flex flex-wrap gap-2">
+                {crops.map((c) => (
+                  <button key={c.name} type="button" aria-pressed={picked(c)} onClick={() => pickCrop(c)} className={`min-h-11 cursor-pointer rounded-full px-4 text-sm font-semibold ring-1 transition ${picked(c) ? 'bg-emerald-700 text-white ring-emerald-700' : 'bg-white text-emerald-900 ring-emerald-200 hover:bg-emerald-50'}`}>
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <label className="relative block">
           <span className="sr-only">Search</span>
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
@@ -111,7 +145,7 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
             {produce ? 'Crop' : 'Type'}
             <select value={kind} onChange={(e) => { setKind(e.target.value); setVariety(ALL); setGrade(ALL); }} className={`${SELECT} mt-1`}>
               <option value={ALL}>{produce ? 'All crops' : 'All types'}</option>
-              {(produce ? PRODUCE : SUBCATEGORIES).map((c) => <option key={c} value={c}>{c}</option>)}
+              {kinds.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </label>
           <label className="block text-xs font-semibold text-slate-600">

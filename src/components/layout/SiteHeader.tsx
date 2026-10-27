@@ -7,6 +7,7 @@ import { ArrowLeft, LayoutGrid, ChevronDown, Home, LogIn, LogOut, Menu, UserPlus
 import { BrandMark } from '@/components/brand/Shikara';
 import { MyDetailsPanel } from '@/components/portal/MyDetailsPanel';
 import { MY_DETAILS } from '@/components/portal/myDetailsConfig';
+import { FloatingVoice } from '@/components/voice/FloatingVoice';
 import { loginHref, PORTALS, PUBLIC_PORTAL_IDS, type PortalId } from '@/lib/auth/roles';
 import { useSecretAdminTap, useShowAdmin } from '@/lib/client/adminDevice';
 import { signOutOfPortal, useMyPortal, useSignedIn } from '@/lib/auth/session';
@@ -299,6 +300,7 @@ export function SiteHeader({
           <MobileMenu showAuth={!hideSignIn} />
         </div>
       </nav>
+      <FloatingVoice />
     </header>
   );
 }

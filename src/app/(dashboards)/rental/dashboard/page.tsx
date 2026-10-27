@@ -31,6 +31,7 @@ import { PaymentDetails } from '@/components/rental/owner/PaymentStep';
 import { ColdStoreDirectory, useColdDirectory } from '@/components/rental/ColdStoreDirectory';
 import { Badge, Btn, EmptyState, Field, INPUT, Modal, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { inr, loadAccount, type Account } from '@/lib/db/client';
+import { coldWantFromLink } from '@/lib/navIntent';
 import { countText, groupChambers, nice, UNIT_WORDS, unitsText, type Storage } from '@/lib/coldStore';
 import { chambersOf, countsText, freeNow, lastDay, placeLines, placesOfBookings, type BookedPlace, type ColdChamber } from '@/lib/db/coldMap';
 import {
@@ -93,8 +94,16 @@ export default function RentalPage() {
   const [listings, setListings] = useState<RentalListing[]>([]);
   const [listError, setListError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  // Said to the voice assistant ("book cold storage for 40 bins"): ?want=40&unit=bin fills "Just give me".
+  const [want] = useState(() => {
+    try {
+      return coldWantFromLink(new URLSearchParams(window.location.search));
+    } catch {
+      return null;
+    }
+  });
   // Find a cold store: every cold store in J&K, or only those on KashRoot (bookable).
-  const [findView, setFindView] = useState<'all' | 'kashroot'>('all');
+  const [findView, setFindView] = useState<'all' | 'kashroot'>(want ? 'kashroot' : 'all');
   // "Your store? List it": a directory entry opened in My cold store, ready to list.
   const [claim, setClaim] = useState<{ title: string; district: string; address: string } | null>(null);
   const [mine, setMine] = useState<RentalBooking[]>([]);
@@ -282,7 +291,7 @@ export default function RentalPage() {
           ) : (
             <div className="space-y-4">
               {visible.map((l) => (
-                <StoreCard key={l.id} listing={l} chambers={chambers.filter((c) => c.listing_id === l.id)} free={free} own={l.owner_id === account.id} onBook={(quick) => setBooking(l, quick)} />
+                <StoreCard key={l.id} listing={l} chambers={chambers.filter((c) => c.listing_id === l.id)} free={free} own={l.owner_id === account.id} want={want} onBook={(quick) => setBooking(l, quick)} />
               ))}
             </div>
           )}
@@ -332,6 +341,7 @@ export default function RentalPage() {
         <BookingModal
           listing={booking.listing}
           account={account}
+          want={want?.storage === 'boxes' || want?.storage === null ? want.n : undefined}
           onClose={() => setBooking(null)}
           onBooked={() => {
             setBooking(null);
@@ -368,6 +378,7 @@ function StoreCard({
   chambers,
   free,
   own,
+  want,
   onBook,
 }: {
   listing: RentalListing;
@@ -375,6 +386,8 @@ function StoreCard({
   /** Free today on each chamber floor (kr_cold_free_now); empty before that SQL is run. */
   free: Map<string, number>;
   own: boolean;
+  /** How many the voice assistant was told ("40 bins"), filled in where the store holds that kind. */
+  want?: { n: number; storage: Storage | null } | null;
   onBook: (quick?: { want: number; storage: Storage | null }) => void;
 }) {
   const unit = UNIT_LABEL[l.unit];
@@ -382,9 +395,12 @@ function StoreCard({
   const groups = useMemo(() => groupChambers(chambers), [chambers]);
   const kinds = useMemo(() => [...new Set(chambers.map((c) => c.storage))], [chambers]);
   // What the farmer brings: chosen by tapping when the store holds both bins and crates.
+  // (Chambers can arrive after the card: worked out on each render until they tap or type.)
+  const fits = Boolean(want && (want.storage ? kinds.includes(want.storage) : kinds.length === 1));
   const [tapped, setKind] = useState<Storage | null>(null);
-  const kind = tapped ?? (kinds.length === 1 ? kinds[0] : null);
-  const [count, setCount] = useState('');
+  const kind = tapped ?? (fits && want?.storage ? want.storage : kinds.length === 1 ? kinds[0] : null);
+  const [typed, setCount] = useState<string | null>(null);
+  const count = typed ?? (fits ? String(want!.n) : '');
   const [problem, setProblem] = useState<string | null>(null);
   const word = kind ? UNIT_WORDS[kind].many : anyOf(kinds);
   const known = map && chambers.every((c) => free.has(c.id));
@@ -536,9 +552,9 @@ function StoreCard({
   );
 }
 
-function BookingModal({ listing: l, account, onClose, onBooked }: { listing: RentalListing; account: Account; onClose: () => void; onBooked: () => void }) {
+function BookingModal({ listing: l, account, want, onClose, onBooked }: { listing: RentalListing; account: Account; /** Boxes told to the voice assistant. */ want?: number; onClose: () => void; onBooked: () => void }) {
   const unit = UNIT_LABEL[l.unit];
-  const [form, setForm] = useState({ units: String(l.min_units), duration: l.unit === 'box_month' ? '3' : '1', start: today(), name: account.name, phone: account.phone });
+  const [form, setForm] = useState({ units: String(want && l.unit === 'box_month' && want >= l.min_units ? want : l.min_units), duration: l.unit === 'box_month' ? '3' : '1', start: today(), name: account.name, phone: account.phone });
   const [busy, setBusy] = useState(false);
   const units = Number(form.units) || 0;
   const duration = Number(form.duration) || 0;

@@ -10,7 +10,7 @@
  *
  * Nothing is invented: empty feeds and service errors are shown as such.
  */
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowDownWideNarrow,
@@ -41,6 +41,8 @@ import { Badge, Btn, EmptyState, INPUT, PORTAL_THEMES, Panel, inr } from '@/comp
 import { PostedRates } from '@/components/mandi/PostedRates';
 import { perKg, recentRates } from '@/lib/db/mandiRates';
 import { Tilt3D } from '@/components/three/Tilt3D';
+import { ReadLink } from '@/components/voice/ReadLink';
+import { mandiFromLink } from '@/lib/navIntent';
 import { MANDI_SAMPLE_KEY, mandiName, mandiUrl, narrowMandi, parseMandi, titleCase, type MandiQuery, type MandiRecord } from '@/lib/mandi-shared';
 
 const theme = PORTAL_THEMES.buyer;
@@ -193,6 +195,14 @@ export default function MandiWeatherPage() {
   // Mandi
   const [filters, setFilters] = useState({ state: '', district: '', market: '', commodity: 'Apple' });
   const [applied, setApplied] = useState(filters);
+  // Opened by the voice assistant ("walnut rate in Sopore"): ?crop=&market= fill the search.
+  const fromLink = useCallback((p: URLSearchParams) => {
+    const asked = mandiFromLink(p);
+    if (!asked) return;
+    const next = { state: '', district: '', market: '', commodity: 'Apple', ...asked };
+    setFilters(next);
+    setApplied(next);
+  }, []);
   // Kashmir growers think in boxes: ₹ per box of `boxKg` kg (editable, default 17 kg).
   const [unit, setUnit] = useState<'quintal' | 'kg' | 'box'>('box');
   const [boxKg, setBoxKg] = useState(17);
@@ -287,6 +297,7 @@ export default function MandiWeatherPage() {
           : { label: 'Latest rate posted', value: dayName(posted.latest), trend: daysOld(posted.latest) === 0 ? 'Posted today by Mandi Helpers' : `${daysOld(posted.latest)} day(s) ago` },
       ]}
     >
+      <ReadLink onRead={fromLink} />
       {/* ── Weather ───────────────────────────────────────── */}
       <Panel theme={theme} title="Weather" icon={CloudSun}>
         <div className="flex flex-col gap-3 md:flex-row">
