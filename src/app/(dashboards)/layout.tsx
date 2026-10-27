@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import { useSearchParams, useSelectedLayoutSegment, useRouter } from 'next/navigation';
+import { usePathname, useSearchParams, useSelectedLayoutSegment, useRouter } from 'next/navigation';
 import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
 import { ReactNode, Suspense, useCallback, useEffect, useState } from 'react';
 
@@ -46,6 +46,10 @@ const GUEST_PORTALS = ['tracking'];
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const segment = useSelectedLayoutSegment();
   const router = useRouter();
+  // Portal pages have their own sidebar and top bar (PortalShell); only the
+  // pages outside it — a cold store receipt, booking a visit — keep the site header.
+  const pathname = usePathname();
+  const ownBar = /^\/(rental\/receipt|buyer\/appointments)\//.test(pathname);
 
   const [isMounted, setIsMounted] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -267,7 +271,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   // layout only adds the site chrome around it.
   return (
     <div className="kr-light flex min-h-screen flex-col bg-gradient-to-br from-emerald-50 via-white to-amber-50 text-slate-900">
-      <SiteHeader tone="light" portal={portal} />
+      {ownBar && <SiteHeader tone="light" portal={portal} />}
       {portal && KYC_PORTALS.includes(portal) && (kyc?.rules?.kyc_required ? kycMissing(kyc.rules, kyc.status) : MONEY_PORTALS.includes(portal) && !kycDone && !kyc?.status?.aadhaar_verified_at) && (
         <Suspense fallback={null}>
           <NotOnSafePayment>

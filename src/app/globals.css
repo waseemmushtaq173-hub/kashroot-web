@@ -261,3 +261,17 @@ section[data-react-aria-top-layer][popover] [data-sonner-toast] {
 @keyframes kr-cart-in { from { transform: translateY(6px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 .kr-cart-in { animation: kr-cart-in 0.22s ease-out; }
 @media (prefers-reduced-motion: reduce) { .kr-cart-led, .kr-cart-beam, .kr-cart-in { animation: none; } }
+
+/* ── Portal frame (components/layout/PortalShell) ── */
+
+/* The sidebar as a drawer on smaller screens slides in from the left. */
+@keyframes kr-drawer-in { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+dialog.kr-drawer[open] { animation: kr-drawer-in 0.22s ease-out; }
+@media (prefers-reduced-motion: reduce) { dialog.kr-drawer[open] { animation: none; } }
+
+/* A badge drawn white for the old dark photo hero stays readable on the light title row. */
+[data-kr-title-actions] > span.text-white {
+  color: #334155;
+  background-color: rgb(255 255 255 / 0.9);
+  --tw-ring-color: rgb(15 23 42 / 0.1);
+}

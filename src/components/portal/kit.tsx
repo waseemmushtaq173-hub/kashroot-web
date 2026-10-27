@@ -18,7 +18,9 @@ import Link from 'next/link';
 import type { SceneMood } from '@/components/three/ValleyScene';
 import { Tilt3D } from '@/components/three/Tilt3D';
 import {
+  createContext,
   forwardRef,
+  useContext,
   useEffect,
   useId,
   useRef,
@@ -235,11 +237,20 @@ interface BtnProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   href?: string;
 }
 
+/**
+ * Set by PortalShell around the buttons at the top of a portal page. Those
+ * were drawn "white" for the old dark photo hero; on the light title row they
+ * take the portal's colours instead: the main one solid, any others soft.
+ */
+export const TitleAction = createContext<'main' | 'other' | null>(null);
+
 export const Btn = forwardRef<HTMLButtonElement, BtnProps>(function Btn(
   { theme, variant = 'solid', size = 'md', icon: Icon, href, className = '', children, type = 'button', ...rest },
   ref,
 ) {
-  const cls = `${btnClass(theme, variant, size)} ${className}`;
+  const title = useContext(TitleAction);
+  const look = title && variant === 'white' ? (title === 'main' ? 'solid' : 'soft') : variant;
+  const cls = `${btnClass(theme, look, size)} ${title ? 'min-h-11' : ''} ${className}`;
   const content = (
     <>
       {Icon && <Icon className={size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'} aria-hidden />}
