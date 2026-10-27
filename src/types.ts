@@ -1,11 +1,4 @@
-/**
- * Frontend-side mirrors of the backend contracts. These intentionally duplicate
- * the Prisma enums / DTOs so the mobile+web client stays decoupled from the API
- * package; keep them in sync with:
- *   - PreferredLanguage / TrendIndicator      (prisma/schema.prisma)
- *   - VoiceQueryResponseDto                    (ai-assistant/dto)
- *   - MandiPrice                               (mandi-prices module)
- */
+/** Shared client-side types: the person's preferred language, mandi trend and price shapes. */
 
 export type PreferredLanguage = 'KASHMIRI' | 'URDU' | 'HINDI' | 'ENGLISH';
 

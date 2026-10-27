@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, Mic, MicOff, PhoneOff, RefreshCw, Video, VideoOff } from 'lucide-react';
 
+import { authFetch } from '@/lib/auth-fetch';
 import { supabase } from '@/lib/db/client';
 
 type Phase = 'starting' | 'waiting' | 'connecting' | 'connected' | 'ended' | 'failed' | 'error';
@@ -183,7 +184,7 @@ export function VideoCall({ requestId, me, role, otherName, otherPhone, onClose 
         }
         if (stopped.current) return cleanup();
         if (localRef.current) localRef.current.srcObject = stream.current;
-        const ice = await fetch('/api/turn').then((r) => r.json()).catch(() => null);
+        const ice = await authFetch('/api/turn').then((r) => r.json()).catch(() => null);
         if (Array.isArray(ice?.iceServers)) iceServers.current = ice.iceServers;
         // Only signals from now on count: older ones belong to earlier calls.
         const { data: latest, error: readErr } = await supabase.from('call_signals').select('id').eq('request_id', requestId).order('id', { ascending: false }).limit(1);

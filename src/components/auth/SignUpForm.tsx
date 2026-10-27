@@ -15,14 +15,13 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMutation } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { AlertCircle, ArrowRight, Check, CheckCircle2, Eye, EyeOff, GraduationCap, Leaf, Loader2, ShoppingBag, Store, Truck, type LucideIcon } from 'lucide-react';
 
 import { setAuthTheme, type AuthThemeId } from '@/components/auth/AuthShell';
 import { ContactOtp, type PhoneRoute } from '@/components/auth/ContactOtp';
 import { PORTAL_LOGIN } from '@/components/auth/portalLoginConfig';
 import { authApi, type RegisterDto } from '@/lib/api/auth';
-import { ApiError } from '@/lib/api/client';
 import { loginHref, PORTALS, REGISTER_ROLES, SIGNUP_ROLE, type PortalId, type SignUpRole } from '@/lib/auth/roles';
 import { getKycConfig } from '@/lib/kyc/kyc-service';
 import { weakPassword } from '@/lib/auth/passwordRules';
@@ -151,13 +150,14 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
     register,
     handleSubmit,
     setValue,
-    watch,
+    control,
     formState: { errors },
   } = useForm<RegisterDto & { confirmPassword: string }>({ defaultValues: { role: requested } });
 
-  const emailValue = watch('email', '');
-  const phoneValue = watch('phone', '');
-  const password = watch('password', '');
+  // useWatch (not watch()) so the React Compiler can still optimise this form.
+  const emailValue = useWatch({ control, name: 'email', defaultValue: '' });
+  const phoneValue = useWatch({ control, name: 'phone', defaultValue: '' });
+  const password = useWatch({ control, name: 'password', defaultValue: '' });
 
   const registerMutation = useMutation({
     mutationFn: (dto: RegisterDto) => authApi.register(dto),
@@ -181,18 +181,19 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
     onSuccess: () => setResendIn(60),
   });
 
-  const onSubmit = ({ confirmPassword: _confirm, ...dto }: RegisterDto & { confirmPassword: string }) => {
-    registerMutation.mutate({ ...dto, role: selectedRole, portal: homePortal });
+  const onSubmit = (values: RegisterDto & { confirmPassword: string }) => {
+    // The confirmation is only checked in the form; it is never sent.
+    const dto: Partial<typeof values> = { ...values };
+    delete dto.confirmPassword;
+    registerMutation.mutate({ ...(dto as RegisterDto), role: selectedRole, portal: homePortal });
   };
 
   const errorMsg =
-    registerMutation.error instanceof ApiError
-      ? registerMutation.error.messages[0]
-      : registerMutation.error instanceof Error
-        ? registerMutation.error.message
-        : registerMutation.error
-          ? 'Registration failed. Please try again.'
-          : null;
+    registerMutation.error instanceof Error
+      ? registerMutation.error.message
+      : registerMutation.error
+        ? 'Registration failed. Please try again.'
+        : null;
 
   const input = `block w-full rounded-xl border-0 bg-white px-4 py-3.5 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 transition focus:ring-2 ${look.ring}`;
 

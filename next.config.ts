@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-/** The origin of an env URL, or '' (e.g. the Supabase project, the old API). */
+/** The origin of an env URL, or '' (e.g. the Supabase project). */
 const originOf = (url?: string, ws = false) => {
   try {
     const u = new URL(url ?? '');
@@ -26,7 +26,7 @@ const CSP = [
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://images.unsplash.com https://upload.wikimedia.org ${supabase}`.trim(),
   "font-src 'self' data:",
-  ['connect-src', "'self'", 'https://api.data.gov.in', supabase, originOf(supabase, true), originOf(process.env.NEXT_PUBLIC_API_URL), originOf(process.env.NEXT_PUBLIC_WS_URL), dev ? 'ws: http://localhost:* http://127.0.0.1:*' : ''].filter(Boolean).join(' '),
+  ['connect-src', "'self'", 'https://api.data.gov.in', supabase, originOf(supabase, true), dev ? 'ws: http://localhost:* http://127.0.0.1:*' : ''].filter(Boolean).join(' '),
   "media-src 'self' blob: data:",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
@@ -39,8 +39,11 @@ const CSP = [
 ].join('; ');
 
 const nextConfig: NextConfig = {
-  typescript: {
-    ignoreBuildErrors: true,
+  // This folder is the app. Without this, a package-lock.json in a parent
+  // folder (on a developer's computer) is taken as the root instead.
+  // (`next build` runs from this folder, here and on Vercel.)
+  turbopack: {
+    root: process.cwd(),
   },
   // Styles go inside each page instead of a separate file. On slow village
   // networks (or when a phone holds an old copy of a page) a separate style

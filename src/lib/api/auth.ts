@@ -1,21 +1,9 @@
 /**
- * Auth API — typed wrappers for Module 1 endpoints
- *
- * Endpoint source: kashroot-api/src/modules/auth/
- * DTOs verified against Module 1 source:
- *   RegisterDto       POST /auth/register
- *   LoginDto          POST /auth/login
- *   VerifyOtpDto      POST /auth/verify-otp
- *   ResendOtpDto      POST /auth/otp/resend
- *   MfaSetupResponse  POST /auth/mfa/setup    (REGIONAL_ADMIN, PLATFORM_ADMIN only)
- *   MfaVerifyDto      POST /auth/mfa/verify-setup
- *   RefreshResponse   POST /auth/refresh
- *
- * If any of these shapes change in the backend, update here and the
- * downstream hooks/screens will surface TypeScript errors immediately.
+ * Auth API — sign-up, sign-in and sign-out on Supabase Auth, the portal roles
+ * each account holds (user_metadata.roles), and the session kept on this
+ * browser (tokenStore).
  */
 
-import { api } from './client';
 import { loginHref, portalForRole, type PortalId } from '@/lib/auth/roles';
 import { markPortalSignedIn, portalsOf } from '@/lib/auth/portalAccess';
 import { staffRolesOf } from '@/lib/auth/staffRoles';
@@ -85,11 +73,6 @@ export interface ResendOtpDto {
   phone?: string;
 }
 
-export interface MfaVerifyDto {
-  /** Backend reads this from the body as `totpCode`. */
-  totpCode: string;
-}
-
 // ── Response shapes ───────────────────────────────────────────────────────
 export interface AuthUser {
   id:        string;
@@ -150,19 +133,6 @@ export interface LoginResponse {
 
 export interface OtpVerifyResponse {
   message: string;
-}
-
-export interface MfaSetupResponse {
-  qrCodeDataUrl: string;  // data:image/png;base64,... for QR code display
-  secret:        string;  // TOTP secret (show once, user must save it)
-}
-
-export interface MfaVerifyResponse {
-  message: string;
-}
-
-export interface RefreshResponse {
-  accessToken: string;
 }
 
 // ── API calls ─────────────────────────────────────────────────────────────
@@ -280,9 +250,6 @@ export const authApi = {
     const { error } = await supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: confirmRedirect(role, portal) } });
     if (error) throw new Error(friendlyAuthError(error.message, 'Could not resend the email.'));
   },
-  mfaSetup:      async ()                    => ({ qrCodeDataUrl: '', secret: '' } as MfaSetupResponse),
-  mfaVerify:     async (dto: MfaVerifyDto)   => ({ message: 'MFA verified' } as MfaVerifyResponse),
-  refresh:       async ()                    => ({ accessToken: 'mock_jwt_token' }),
   // Sign out on this device only. (The default, 'global', ended the person's
   // sessions on every phone and computer — they were "logged out" at random.)
   logout:        async ()                    => { tokenStore.removeToken(); await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined); },
