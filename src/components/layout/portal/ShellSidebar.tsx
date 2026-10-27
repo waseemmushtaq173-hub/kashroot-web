@@ -73,9 +73,10 @@ export function SidebarContent(props: SidebarProps) {
           <BrandMark />
         </Link>
         {portalLabel && (
-          <p className={`mt-3 flex w-fit max-w-full items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${theme.soft}`}>
+          <p className={`mt-3 flex w-fit max-w-full items-center gap-2 rounded-2xl px-3 py-1 text-xs font-semibold leading-snug ${theme.soft}`}>
             <ChinarLeaf className="h-3.5 w-3.5 shrink-0" color={theme.leaf} />
-            <span className="truncate">{portalLabel}</span>
+            {/* Long names ("Cold Storage Booking portal") wrap rather than lose their end. */}
+            <span>{portalLabel}</span>
           </p>
         )}
       </div>
