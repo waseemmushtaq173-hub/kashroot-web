@@ -446,6 +446,8 @@ function StoreCard({
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:flex-col sm:items-end">
           {freeAll > 0 ? <Badge tone="green">Space free</Badge> : <Badge tone="red">Full</Badge>}
+          {/* Listed before the owner wizard: no building or chambers measured (no 3D, no walk inside). */}
+          {!l.building && !chambers.some((c) => c.chamber_no !== null) && <Badge tone="amber">Not measured yet</Badge>}
           <p className="text-lg font-bold text-slate-900">
             {map && chambers.some((c) => c.rate !== null) ? <>from {inr(lowest)} <span className="text-xs font-normal text-slate-500">a {kinds.length === 1 ? UNIT_WORDS[kinds[0]].one : 'bin or crate'} a month</span></> : <>{inr(l.rate)} <span className="text-xs font-normal text-slate-500">{map ? `a ${UNIT_WORDS[kinds[0] ?? 'boxes'].one} a month` : unit.per}</span></>}
           </p>
@@ -837,6 +839,18 @@ function OwnerPanel({
                     <span className="text-sm text-slate-600">{mine.some((c) => c.rate !== null) ? `from ${inr(l.rate)} a ${words === 'bins' ? 'bin' : words === 'crates' ? 'crate' : 'bin or crate'} a month` : `${inr(l.rate)} ${unit.per}`}</span>
                   </div>
                   {(l.area || l.district) && <p className="mt-0.5 flex items-center gap-1.5 text-sm text-slate-600"><MapPin className="h-4 w-4" aria-hidden /> {[l.area, l.district, l.state].filter(Boolean).join(', ')}</p>}
+                  {!wizardStore && (
+                    // A store listed before the owner wizard: nothing measured. The one thing to do next, first and big.
+                    <div className="mt-3 rounded-2xl bg-amber-50 p-4 ring-2 ring-amber-300">
+                      <p className="font-semibold text-amber-950">Your store is not measured yet</p>
+                      <p className="mt-1 text-sm text-amber-950">
+                        Farmers see “not measured yet” instead of your chambers, and cannot choose their own places. Enter your building, then each chamber — its size, door, floors, bins or crates and rent. About 5 minutes; your store is drawn and shown in 3D as you type.
+                      </p>
+                      <Btn theme={theme} className="mt-3 min-h-[48px] w-full text-base sm:w-auto" icon={Warehouse} onClick={() => openWizard(l, l.building ? 3 : 2)}>
+                        Set up building & chambers
+                      </Btn>
+                    </div>
+                  )}
                   {groups.length > 0 && (
                     <p className="mt-2 text-sm text-slate-700">
                       {groups.length} chamber{groups.length === 1 ? '' : 's'}: {groups.slice(0, 4).map((g) => `${g.name} (${countText(g.count, g.storage)}${g.floors.length > 1 ? `, ${g.floors.length} floors` : ''})`).join(' · ')}
@@ -858,18 +872,13 @@ function OwnerPanel({
                     <span className="text-sm text-slate-500">of {l.capacity.toLocaleString('en-IN')} {unit.unit}</span>
                   </div>
                   )}
-                  {mapped && !wizardStore && (
-                    <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-950 ring-1 ring-amber-200">
-                      Farmers see this store as one plain room of boxes. Tap “Set up building & chambers” to enter your building and each chamber — its size, floors, and bins or crates — so farmers see your real store.
-                    </p>
-                  )}
                   <div className="mt-3 flex flex-wrap gap-2">
                     {wizardStore && !ready && !l.active && <Btn theme={theme} className="min-h-[44px]" icon={ArrowRight} onClick={() => openWizard(l)}>Finish setting up</Btn>}
                     {mapped && <Btn theme={theme} variant={wizardStore && !ready && !l.active ? 'soft' : 'solid'} className="min-h-[44px]" icon={MapIcon} onClick={() => setMapOf(l)}>Cold store map & 3D</Btn>}
                     <Btn theme={theme} variant="soft" className="min-h-[44px]" icon={Pencil} onClick={() => openWizard(l, 1)}>Change details</Btn>
                     <Btn theme={theme} variant="soft" className="min-h-[44px]" icon={Camera} onClick={() => setPhotosOf(l)}>Photos</Btn>
                     {!wizardStore && <Btn theme={theme} variant="soft" className="min-h-[44px]" icon={IndianRupee} onClick={() => setRentOf(l)}>Change rent</Btn>}
-                    <Btn theme={theme} variant="soft" className="min-h-[44px]" icon={Warehouse} onClick={() => openWizard(l, l.building ? 3 : 2)}>{mapped && !wizardStore ? 'Set up building & chambers' : mapped ? 'Change chambers' : 'Add chambers'}</Btn>
+                    {wizardStore && <Btn theme={theme} variant="soft" className="min-h-[44px]" icon={Warehouse} onClick={() => openWizard(l, l.building ? 3 : 2)}>{mapped ? 'Change chambers' : 'Add chambers'}</Btn>}
                     {(!wizardStore || ready || l.active) && (
                       <Btn theme={theme} variant="ghost" className="min-h-[44px]" disabled={busy} onClick={() => void run(() => setAvailability(l.id, l.available, !l.active), l.active ? 'Hidden from farmers' : 'Farmers can see it again')}>{l.active ? 'Hide' : 'Show to farmers'}</Btn>
                     )}

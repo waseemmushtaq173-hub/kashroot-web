@@ -400,13 +400,21 @@ export function ColdStoreExplorer({
         </p>
       </div>
 
-      {plainRooms && view !== 'photos' && (
+      {plainRooms && view === 'drawing' && (
         <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-950 ring-1 ring-amber-200">
-          The owner has not entered this store’s building, chambers and floors yet, so it is drawn as {groups === 1 ? 'one plain room' : 'plain rooms'} of boxes. Call the owner to ask which chamber and floor your apples will go to, and whether they use bins or crates.
+          This cold store has not been measured yet: the owner has not entered its building, chambers and floors. Below are only the rows and places the owner gave. Call the owner to ask which chamber and floor your apples will go to, and whether they use bins or crates.
         </p>
       )}
       {view === 'photos' && realStore ? (
         <StorePhotosView listingId={listingId} />
+      ) : view !== 'drawing' && plainRooms ? (
+        // Nothing measured: no 3D room is made up. The owner's photos show the store as it is.
+        <div className="rounded-3xl bg-amber-50 p-5 text-amber-950 ring-1 ring-amber-200">
+          <p className="text-base font-semibold">This cold store has not been measured yet</p>
+          <p className="mt-1 text-sm">
+            The 3D view and the walk inside are made only from the owner’s own measurements, and this owner has not entered them yet. Use the Drawing to choose places, {realStore ? 'look at the Photos, ' : ''}or call the owner.
+          </p>
+        </div>
       ) : view !== 'drawing' ? (
         <>
           {waiting ? (

@@ -21,7 +21,7 @@
  * update waits until the person taps "Refresh" on the "New version" message
  * (or closes every KashRoot tab), then deletes the older saved copies.
  */
-const VERSION = '2026-10-26.1';
+const VERSION = '2026-10-28.1';
 const SHELL = `kr-shell-${VERSION}`; // the offline page and its files
 const STATIC = `kr-static-${VERSION}`; // the app's files
 const PAGES = `kr-pages-${VERSION}`; // pages, network first
