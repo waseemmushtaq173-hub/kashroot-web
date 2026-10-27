@@ -17,6 +17,7 @@
  */
 import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
 import { binTexture, cartonTexture, concreteTexture, crateTexture, fanTexture, ghostTexture, gratingTexture, labelCanvas, panelTexture } from '@/components/rental/three/textures';
+import type { Route } from '@/components/rental/walk/route';
 import { buildFixtures } from '@/components/rental/three/fixtures';
 import { midOf, segLength, type Kind, type Rect, type Seg, type StoreScene } from '@/components/rental/three/storeScene';
 import { countText } from '@/lib/coldStore';
@@ -390,6 +391,22 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
         const ly = dm.y + (along ? 0 : shiftBy) - c.inward.y * out;
         box(along ? dw : 0.1, c.doorH, along ? 0.1 : dw, wx(o, lx), c.doorH / 2, wz(o, ly), mats.leaf);
       }
+      // Its name on a sign over the door, flat on the wall outside (as stores paint them): read
+      // from the passage, so a farmer finds "Chamber 2" without counting doors.
+      const signW = Math.min(1.8, Math.max(1.1, dw * 0.9));
+      const can = labelCanvas(c.name, '', true, '#0f3b2e');
+      const signH = (signW * can.height) / can.width;
+      const overDoor = H - c.doorH;
+      if (overDoor > signH * 0.6) {
+        const tex = new T.CanvasTexture(can);
+        tex.colorSpace = T.SRGBColorSpace;
+        const sign = new T.Mesh(new T.PlaneGeometry(signW, signH), new T.MeshBasicMaterial({ map: tex, transparent: true }));
+        const up = c.doorH + Math.min(overDoor / 2, 0.2 + signH / 2);
+        // Just off the wall's outer face, facing out of the chamber (a plane faces +z: turn it).
+        sign.position.set(wx(o, dm.x - c.inward.x * 0.09), up, wz(o, dm.y - c.inward.y * 0.09));
+        sign.rotation.y = Math.atan2(-c.inward.x, c.inward.y);
+        add(sign);
+      }
     }
     // Windows and vents (older measured chambers).
     for (const win of c.windows) {
@@ -413,7 +430,15 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
         tag.position.set(wx(o, at.x + c.inward.x * 0.6), f.z0 + 0.45, wz(o, at.y + c.inward.y * 0.6));
         add(tag);
       }
-      if (f.walkway) slab(f.walkway, f.z0 + 0.012, 0.01, mats.walk);
+      if (f.walkway) {
+        const w = f.walkway;
+        slab(w, f.z0 + 0.012, 0.01, mats.walk);
+        // Yellow lines along both edges of the walkway, as on the passage: keep clear.
+        const t = 0.08;
+        const upright = c.inward.y !== 0;
+        for (const r of upright ? [{ x: w.x, y: w.y, w: t, d: w.d }, { x: w.x + w.w - t, y: w.y, w: t, d: w.d }] : [{ x: w.x, y: w.y, w: w.w, d: t }, { x: w.x, y: w.y + w.d - t, w: w.w, d: t }])
+          slab(r, f.z0 + 0.018, 0.008, mats.stripe);
+      }
       // Row numbers just outside the first stack of each row (Row 1, every fifth, the last).
       const rows = f.row.rows;
       const left = { x: -c.inward.y, y: c.inward.x };
@@ -618,5 +643,104 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
     group.add(tag);
     labels.push(tag);
   }
+
+  // The places being chosen: a green sign over them on each chamber floor.
+  const choice = new Map<string, Cell[]>();
+  for (const cell of cells) if (cell.look === 'selected') put(choice, `${cell.chamber}:${cell.floor}`, cell);
+  for (const [key, list] of choice) {
+    const [ci, fi] = key.split(':').map(Number);
+    const c = scene.chambers[ci];
+    const f = c?.floors[fi];
+    if (!f) continue;
+    const xs = list.map((cell) => place(cell));
+    const mx = (Math.min(...xs.map((r) => r.x)) + Math.max(...xs.map((r) => r.x + r.w))) / 2;
+    const my = (Math.min(...xs.map((r) => r.y)) + Math.max(...xs.map((r) => r.y + r.d))) / 2;
+    const where = `${c.name}${c.floors.length > 1 ? ` · Floor ${f.floor}` : ''} · ${list.length} place${list.length === 1 ? '' : 's'}`;
+    const tag = label(T, 'Your choice', where, 2.6, true, 30, 70, '#047857');
+    tag.position.set(wx(o, mx), f.z0 + f.stackH + 0.9, wz(o, my));
+    group.add(tag);
+    labels.push(tag);
+  }
+
+  // A light rising from each chosen place (green) and each of the farmer's own (violet), with a
+  // marker pointing down at it: seen from across the store and through the gratings of upper
+  // floors. One draw for each colour (instanced), and not lit, so it costs nothing on a phone.
+  const glow = (look: 'selected' | 'mine', color: string) => {
+    const list = cells.filter((cell) => cell.look === look);
+    if (!list.length) return;
+    const column = new T.InstancedMesh(
+      new T.CylinderGeometry(0.5, 0.5, 1, 14, 1, true),
+      new T.MeshBasicMaterial({ color, transparent: true, opacity: 0.22, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide }),
+      list.length,
+    );
+    const marker = new T.InstancedMesh(new T.ConeGeometry(0.28, 0.5, 4), new T.MeshBasicMaterial({ color }), list.length);
+    const down = new T.Matrix4().makeRotationX(Math.PI);
+    list.forEach((cell, i) => {
+      const r = place(cell);
+      const f = scene.chambers[cell.chamber].floors[cell.floor];
+      const x = wx(o, r.x + r.w / 2);
+      const z = wz(o, r.y + r.d / 2);
+      const top = f.z0 + f.stackH;
+      m4.makeScale(Math.min(r.w, r.d) * 0.55, 2.2, Math.min(r.w, r.d) * 0.55).setPosition(x, top + 1.1, z);
+      column.setMatrixAt(i, m4);
+      m4.copy(down).setPosition(x, top + 2.55, z);
+      marker.setMatrixAt(i, m4);
+    });
+    for (const m of [column, marker]) {
+      m.instanceMatrix.needsUpdate = true;
+      m.computeBoundingSphere();
+      m.renderOrder = 4;
+      group.add(m);
+    }
+  };
+  glow('selected', '#10b981');
+  glow('mine', '#8b5cf6');
   return { group, picks, labels };
+}
+
+/**
+ * The way to a farmer's place on the floor (walk/route): arrows every metre
+ * along it, pointing the way, on the floor each part of it is on. Instanced:
+ * one draw however long the way.
+ */
+export function buildRoute(kit: Kit, scene: StoreScene, route: Route, o: Origin): Obj {
+  const { T } = kit;
+  const group = new T.Group();
+  const spots: { x: number; y: number; z: number; angle: number }[] = [];
+  const floorZ = (p: Route['points'][number]) => (p.inside >= 0 ? (scene.chambers[p.inside]?.floors[p.level - 1]?.z0 ?? 0) : 0);
+  for (let i = 1; i < route.points.length; i++) {
+    const a = route.points[i - 1];
+    const b = route.points[i];
+    if (a.level !== b.level) continue; // going up a floor: no arrows in the air
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    const z = floorZ(b);
+    // World angle of the way (building y runs to world −z).
+    const angle = Math.atan2(b.x - a.x, -(b.y - a.y));
+    for (let d = 0.5; d < len - 0.2; d += 1) spots.push({ x: a.x + ((b.x - a.x) * d) / len, y: a.y + ((b.y - a.y) * d) / len, z, angle });
+  }
+  if (!spots.length) return group;
+  // A flat chevron pointing along +z before it is turned; laid on the floor.
+  const shape = new T.Shape();
+  shape.moveTo(0, 0.32);
+  shape.lineTo(0.3, -0.08);
+  shape.lineTo(0.14, -0.08);
+  shape.lineTo(0, 0.12);
+  shape.lineTo(-0.14, -0.08);
+  shape.lineTo(-0.3, -0.08);
+  shape.closePath();
+  const geo = new T.ShapeGeometry(shape);
+  geo.rotateX(-Math.PI / 2); // lie flat: the shape's +y now points to world −z
+  geo.rotateY(Math.PI); // …and to +z, so a turn by `angle` points it along the way
+  const arrows = new T.InstancedMesh(geo, new T.MeshBasicMaterial({ color: '#059669', side: T.DoubleSide }), spots.length);
+  const m4 = new T.Matrix4();
+  const turn = new T.Matrix4();
+  spots.forEach((s, i) => {
+    m4.makeTranslation(wx(o, s.x), s.z + 0.03, wz(o, s.y)).multiply(turn.makeRotationY(s.angle));
+    arrows.setMatrixAt(i, m4);
+  });
+  arrows.instanceMatrix.needsUpdate = true;
+  arrows.computeBoundingSphere();
+  arrows.renderOrder = 5;
+  group.add(arrows);
+  return group;
 }

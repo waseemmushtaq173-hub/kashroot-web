@@ -25,10 +25,13 @@
  * closes. Without WebGL the Drawing is the way.
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { DoorOpen, Footprints, Maximize2, ScanEye, X } from 'lucide-react';
+import { DoorOpen, Footprints, Maximize2, ScanEye, Volume2, X } from 'lucide-react';
 
 import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
-import { buildPlaces, buildShell, disposeGroup, faceWalls, makeKit, sizeLabels, wx, wz, type Cell, type Origin, type Places, type Shell } from '@/components/rental/three/buildStore';
+import { buildPlaces, buildRoute, buildShell, disposeGroup, faceWalls, makeKit, sizeLabels, wx, wz, type Cell, type Origin, type Places, type Shell } from '@/components/rental/three/buildStore';
+import { routeTo, type Route, type RouteLang } from '@/components/rental/walk/route';
+import { speak, stopSpeaking } from '@/lib/client/speech';
+import { rememberedLang } from '@/lib/langDetect';
 import { buildScene, chamberAt, EYE, insideDoor, midOf, sceneText, startPoint, type SceneChamber, type StoreScene } from '@/components/rental/three/storeScene';
 import { drawMiniMap } from '@/components/rental/walk/miniMap';
 import { noInput, usePageZoom, WalkHud, type Press, type Target, type WalkInput, type Where } from '@/components/rental/walk/WalkHud';
@@ -93,6 +96,27 @@ interface Api {
   showWhere: () => void;
   choose: () => void;
   kick: () => void;
+  /** Show the way to the farmer's place on the floor (null: none). */
+  setRoute: (route: Route | null) => void;
+  /** Walk the way from the main door (walking only). False when there is no way to walk. */
+  guide: () => boolean;
+  stopGuide: () => void;
+}
+
+/**
+ * The farmer's place to lead them to: their own bins when looking at their
+ * booking, their choice while booking — the first one in the store's order
+ * (nearest the main door). Null when there is none.
+ */
+function routeFor(scene: StoreScene, cells: Cell[], mode: 'book' | 'owner' | 'view'): Route | null {
+  const look: Look | null = mode === 'view' ? 'mine' : mode === 'book' ? 'selected' : null;
+  if (!look) return null;
+  const theirs = cells.filter((c) => c.look === look);
+  const first = theirs[0];
+  if (!first) return null;
+  const f = scene.chambers[first.chamber]?.floors[first.floor];
+  const directions = f?.plan && f.row.size ? placeDirections(f.row.size, f.plan, first.row, first.col + 1) : '';
+  return routeTo(scene, first, theirs.length - 1, directions);
 }
 
 const TURN = 1.7; // radians a second
@@ -215,12 +239,38 @@ export function ColdStore3D({
     return out;
   }, [scene, cells]);
   const activeIndex = useMemo(() => scene.chambers.findIndex((c) => c.group.floors.some((r) => r.id === active)), [scene, active]);
+  // The way to the farmer's place, and the guided walk along it: the step reached (null: not
+  // guiding), whether they have arrived, and the language the steps are said in.
+  const route = useMemo(() => routeFor(scene, cells, mode), [scene, cells, mode]);
+  const [guideAt, setGuideAt] = useState<number | null>(null);
+  const [guideDone, setGuideDone] = useState(false);
+  const [guideLang, setGuideLang] = useState<RouteLang>('en');
+  const guidePending = useRef(false);
+  const onStep = useCallback((k: number | null, done = false) => {
+    setGuideAt(k);
+    setGuideDone(done);
+  }, []);
 
   // The latest data and callbacks, for the scene (which is set up once).
-  const latest = useRef({ scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName });
+  const latest = useRef({ scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName, route, onStep });
   useEffect(() => {
-    latest.current = { scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName };
-  }, [scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName]);
+    latest.current = { scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName, route, onStep };
+  }, [scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName, route, onStep]);
+  useEffect(() => api.current?.setRoute(route), [route]);
+  // Each step said aloud as the walk reaches it, in the person's language.
+  useEffect(() => {
+    if (guideAt === null || !route) return;
+    const step = route.steps[guideAt];
+    if (step) void speak(step.text[guideLang], guideLang);
+  }, [guideAt, guideLang, route]);
+  // Leaving the walk, or the page: stop talking.
+  useEffect(() => {
+    if (view !== 'walk') {
+      api.current?.stopGuide();
+      stopSpeaking();
+    }
+  }, [view]);
+  useEffect(() => () => stopSpeaking(), []);
   // The places are built again only when the store or what its places are changes (not when the page around it redraws).
   useEffect(() => api.current?.setData(scene, cells, free, mineName), [scene, cells, free, mineName]);
   useEffect(() => api.current?.setActive(activeIndex), [activeIndex]);
@@ -228,6 +278,11 @@ export function ColdStore3D({
   // The small map is drawn into the walk's buttons, which appear once the view is ready.
   useEffect(() => {
     if (view === 'walk' && ready) api.current?.showWhere();
+    // "Show me the way" from outside: the walk starts once the view has switched.
+    if (view === 'walk' && ready && guidePending.current) {
+      guidePending.current = false;
+      api.current?.guide();
+    }
   }, [view, ready]);
   const press = useCallback<Press>((k, on) => {
     input.current[k] = on;
@@ -246,6 +301,9 @@ export function ColdStore3D({
       if (disposed) return;
 
       const phone = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 640;
+      // A low-cost phone (4 GB or less, or 4 cores or fewer): one pixel per screen pixel, no smoothing.
+      const nav = navigator as Navigator & { deviceMemory?: number };
+      const weak = phone && ((nav.deviceMemory ?? 8) <= 4 || (nav.hardwareConcurrency ?? 8) <= 4);
       let renderer: InstanceType<typeof T.WebGLRenderer>;
       try {
         renderer = new T.WebGLRenderer({ antialias: !phone, powerPreference: phone ? 'low-power' : 'default' });
@@ -255,7 +313,7 @@ export function ColdStore3D({
       }
       const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       // Sharp when still. On a slow phone, fewer pixels while something moves (see the loop).
-      const fullRatio = Math.min(window.devicePixelRatio || 1, phone ? 1.5 : 2);
+      const fullRatio = Math.min(window.devicePixelRatio || 1, weak ? 1 : phone ? 1.5 : 2);
       let moveRatio = fullRatio;
       let slowFrames = 0;
       let handHeld = false;
@@ -293,6 +351,13 @@ export function ColdStore3D({
       world3.add(root);
       let shell: Shell | null = null;
       let places: Places | null = null;
+      // The way to the farmer's place (arrows on the floor), and the guided walk along it:
+      // `i` the next point, `said` the last step told.
+      let routeNow: Route | null = null;
+      let routeGroup: InstanceType<typeof T.Object3D> | null = null;
+      let guide: { i: number; said: number } | null = null;
+      // The guided walk's points: the way, with its last part carried on over empty bays up to the place.
+      let guidePts: Route['points'] = [];
       let shown: StoreScene | null = null;
       let origin: Origin = { ox: 0, oy: 0 };
       let walkWorldNow: WalkWorld | null = null;
@@ -435,6 +500,7 @@ export function ColdStore3D({
         if (mapRef.current) drawMiniMap(mapRef.current, s, me, me.heading, me.level, me.inside);
       };
       const standAt = (p: { x: number; y: number }, heading: number) => {
+        pinned = false;
         me.x = p.x;
         me.y = p.y;
         me.level = 1;
@@ -479,6 +545,7 @@ export function ColdStore3D({
         }
         me.level = level;
         me.inside = inside;
+        pinned = false;
         placeWalker();
         tellWhere();
         aim(true);
@@ -527,8 +594,10 @@ export function ColdStore3D({
       };
       let aimed: Cell | null = null;
       let aimAt = 0;
+      // After the guided walk: the ring stays on the farmer's place until they look round or move.
+      let pinned = false;
       const aim = (force = false) => {
-        if (mode3 !== 'walk') return;
+        if (mode3 !== 'walk' || pinned) return;
         const now = performance.now();
         if (!force && now - aimAt < 120) return;
         aimAt = now;
@@ -573,7 +642,10 @@ export function ColdStore3D({
         if (!down || e.pointerId !== down.id) return false;
         const dx = e.clientX - down.x;
         const dy = e.clientY - down.y;
-        if (Math.hypot(dx, dy) > 6) down.moved = true;
+        if (Math.hypot(dx, dy) > 6) {
+          down.moved = true;
+          pinned = false;
+        }
         if (mode3 === 'walk' && down.moved) {
           // Drag the view: like turning your head (the store moves with your finger).
           const k = 3.2 / Math.max(300, cv.clientWidth);
@@ -705,6 +777,11 @@ export function ColdStore3D({
           shell = buildShell(kit, s, origin);
           root.add(shell.group);
         }
+        // A new store (or new measurements): the way is drawn again from its own numbers.
+        if (fresh) {
+          routeNow = latest.current.route;
+          stopGuide();
+        }
         if (places) {
           root.remove(places.group);
           disposeGroup(T, kit, places.group);
@@ -721,6 +798,7 @@ export function ColdStore3D({
         const first = !shown;
         const moved = shown && (shown.bounds.w !== s.bounds.w || shown.bounds.d !== s.bounds.d || shown.chambers.length !== s.chambers.length);
         shown = s;
+        if (fresh) showRoute();
         setActive(latest.current.activeIndex);
         if (first || moved) {
           frame('all', true);
@@ -788,12 +866,136 @@ export function ColdStore3D({
         if (aimed) act(aimed);
       };
 
+      // ── The way to the farmer's place ──
+      const showRoute = () => {
+        if (routeGroup) {
+          root.remove(routeGroup);
+          disposeGroup(T, kit, routeGroup);
+          routeGroup = null;
+        }
+        if (routeNow && shown && shown.chambers[routeNow.chamber]) {
+          routeGroup = buildRoute(kit, shown, routeNow, origin);
+          root.add(routeGroup);
+        }
+        dirty = true;
+        kick();
+      };
+      /** Tell the page the newest step the walk has reached (it is said aloud there). */
+      const announce = (point: number, done = false) => {
+        const r = routeNow;
+        if (!r || !guide) return;
+        let k = -1;
+        r.steps.forEach((s, n) => {
+          if (s.at <= point) k = n;
+        });
+        if (k > guide.said || done) {
+          guide.said = Math.max(guide.said, k);
+          latest.current.onStep(guide.said, done);
+        }
+      };
+      const stopGuide = (tell = true) => {
+        if (!guide) return;
+        guide = null;
+        if (tell) latest.current.onStep(null);
+      };
+      const startGuide = () => {
+        const r = routeNow;
+        if (!r || mode3 !== 'walk' || r.points.length < 2) return false;
+        // From the walkway, on over empty bays (floor, nothing stacked) towards the place: as far as
+        // the walk itself may go, stopping a little short of the place. Never through a stack.
+        pinned = false;
+        guidePts = [...r.points];
+        const end = guidePts[guidePts.length - 1];
+        if (walkWorldNow) {
+          const dx = r.face.x - end.x;
+          const dy = r.face.y - end.y;
+          const d = Math.hypot(dx, dy);
+          let reach = 0;
+          for (let s = 0.2; s < d - 0.9; s += 0.2) {
+            if (!canStand(walkWorldNow, { x: end.x + (dx / d) * s, y: end.y + (dy / d) * s }, end.level, end.inside)) break;
+            reach = s;
+          }
+          if (reach > 0.3) guidePts.push({ x: end.x + (dx / d) * reach, y: end.y + (dy / d) * reach, level: end.level, inside: end.inside });
+        }
+        const [p0, p1] = guidePts;
+        Object.assign(input.current, noInput());
+        standAt(p0, Math.atan2(p1.y - p0.y, p1.x - p0.x));
+        guide = { i: 1, said: -1 };
+        announce(0);
+        kick();
+        return true;
+      };
+      /** One step of the guided walk: towards the next point at walking pace, turning smoothly. */
+      const guideStep = (dt: number): boolean => {
+        const r = routeNow;
+        if (!guide || !r) return false;
+        if (Object.values(input.current).some(Boolean)) {
+          // The person takes over.
+          stopGuide();
+          return false;
+        }
+        const to = guidePts[guide.i];
+        if (!to) {
+          stopGuide();
+          return false;
+        }
+        if (to.level !== me.level || to.inside !== me.inside) {
+          // Up (or down) to this floor, where the walk goes on.
+          me.level = to.level;
+          me.inside = to.inside;
+          guide.i++;
+          announce(guide.i - 1);
+        } else {
+          const dx = to.x - me.x;
+          const dy = to.y - me.y;
+          const d = Math.hypot(dx, dy);
+          if (d > 0.05) {
+            const diff = ((Math.atan2(dy, dx) - me.heading + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+            me.heading += Math.max(-2.4 * dt, Math.min(2.4 * dt, diff));
+          }
+          me.pitch += (-0.12 - me.pitch) * Math.min(1, dt * 3);
+          const v = 1.3 * dt;
+          if (d <= v) {
+            me.x = to.x;
+            me.y = to.y;
+            guide.i++;
+            announce(guide.i - 1);
+          } else {
+            me.x += (dx / d) * v;
+            me.y += (dy / d) * v;
+          }
+        }
+        if (guide && guide.i >= guidePts.length) {
+          // Arrived: face the place, looking at the middle of its stack (the ring rests on it).
+          me.heading = Math.atan2(r.face.y - me.y, r.face.x - me.x);
+          const fl = shown?.chambers[r.chamber]?.floors[r.floor];
+          if (fl) me.pitch = Math.max(-PITCH, Math.min(PITCH, Math.atan2(fl.z0 + fl.stackH / 2 - eyeY(), Math.max(0.5, Math.hypot(r.face.x - me.x, r.face.y - me.y)))));
+          // The ring rests on their place (empty bays in between can be pointed at too: not now).
+          const cell = latest.current.cells.find((c) => c.chamber === r.chamber && c.floor === r.floor && c.place === r.place);
+          if (cell && shown) {
+            placeWalker();
+            aimed = cell;
+            setTarget({ key: `${cell.chamber}:${cell.floor}:${cell.slot}:${cell.look}:${cell.free}`, text: placeText(shown.chambers[cell.chamber], cell), can: choosable(cell), chosen: cell.look === 'selected' });
+            pinned = true;
+          }
+          announce(guidePts.length - 1, true);
+          guide = null;
+        }
+        return true;
+      };
+      const setRoute = (r: Route | null) => {
+        stopGuide();
+        routeNow = r;
+        showRoute();
+      };
+
       // ── The loop: runs only while something moves ──
       const ease = (t: number) => 1 - Math.pow(1 - t, 3);
       let moving = false;
       const step = (dt: number) => {
         const i = input.current;
-        let busy = false;
+        if (pinned && Object.values(i).some(Boolean)) pinned = false;
+        let busy = guideStep(dt);
         const turn = (i.turnL ? 1 : 0) - (i.turnR ? 1 : 0);
         if (turn) {
           me.heading += turn * TURN * dt;
@@ -883,6 +1085,9 @@ export function ColdStore3D({
         goFloor,
         choose,
         kick,
+        setRoute,
+        guide: startGuide,
+        stopGuide: () => stopGuide(false),
         showWhere: () => {
           lastWhere = '';
           if (mode3 === 'walk') tellWhere();
@@ -902,6 +1107,7 @@ export function ColdStore3D({
         controls.dispose();
         if (shell) disposeGroup(T, kit, shell.group);
         if (places) disposeGroup(T, kit, places.group);
+        if (routeGroup) disposeGroup(T, kit, routeGroup);
         kit.dispose();
         renderer.dispose();
         renderer.forceContextLoss();
@@ -922,6 +1128,30 @@ export function ColdStore3D({
   }
 
   const walking = view === 'walk';
+  // "Show me the way": walks from the main door to the farmer's place, saying each step.
+  const showWay = () => {
+    const l = rememberedLang();
+    setGuideLang(l === 'hi' || l === 'ur' ? l : 'en');
+    stopSpeaking();
+    if (walking) api.current?.guide();
+    else {
+      guidePending.current = true;
+      onView?.('walk');
+    }
+  };
+  const stopWay = () => {
+    api.current?.stopGuide();
+    setGuideAt(null);
+    setGuideDone(false);
+    stopSpeaking();
+  };
+  const wayLabel = route ? (mode === 'view' ? `Show me the way to my ${scene.chambers[route.chamber]?.storage ?? 'boxes'}` : 'Show the way to your choice') : '';
+  const WAY_WORDS: Record<RouteLang, { follow: string; here: string; again: string; stop: string }> = {
+    en: { follow: 'Follow the green arrows', here: 'You are there', again: 'Say it again', stop: 'Stop' },
+    hi: { follow: 'हरे तीरों के साथ चलिए', here: 'आप पहुँच गए', again: 'फिर से सुनिए', stop: 'रोकिए' },
+    ur: { follow: 'سبز تیروں کے ساتھ چلیے', here: 'آپ پہنچ گئے', again: 'پھر سے سنیے', stop: 'روکیے' },
+  };
+  const ww = WAY_WORDS[guideLang];
   const chip = (on: boolean) => `inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition ${on ? 'bg-emerald-700 text-white' : 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200 hover:bg-emerald-100'}`;
   const shownInfo = info !== null ? scene.chambers[info] : null;
   const note = scene.problems.length ? (mode === 'owner' ? scene.problems.slice(0, 2).join(' ') : 'As the owner measured them, some chambers do not fit inside the building, so they are drawn outside it.') : '';
@@ -949,6 +1179,11 @@ export function ColdStore3D({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2" role="group" aria-label={walking ? 'Walk to' : 'Look at'}>
+        {route && onView && (
+          <button type="button" onClick={showWay} className={`${chip(true)} bg-emerald-600 shadow-sm hover:bg-emerald-700`}>
+            <Footprints className="h-4 w-4" aria-hidden /> {wayLabel}
+          </button>
+        )}
         {walking ? (
           <button type="button" onClick={() => api.current?.walkTo(null)} className={chip(false)}>
             <DoorOpen className="h-4 w-4" aria-hidden /> Back to the main door
@@ -1001,7 +1236,29 @@ export function ColdStore3D({
         {!big && card}
       </div>
       {big && card}
-      {note && <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-950 ring-1 ring-amber-300">{note}</p>}
+      {route && guideAt !== null && (
+        <section aria-label="The way to your place" className="rounded-2xl bg-emerald-50 p-3 ring-1 ring-emerald-200">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h4 dir={guideLang === 'ur' ? 'rtl' : undefined} className="font-semibold text-emerald-900">{guideDone ? ww.here : ww.follow}</h4>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => void speak(route.steps[guideAt]?.text[guideLang] ?? '', guideLang)} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-emerald-900 ring-1 ring-emerald-200 hover:bg-emerald-100">
+                <Volume2 className="h-4 w-4" aria-hidden /> {ww.again}
+              </button>
+              <button type="button" onClick={stopWay} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100">
+                <X className="h-4 w-4" aria-hidden /> {ww.stop}
+              </button>
+            </div>
+          </div>
+          <ol dir={guideLang === 'ur' ? 'rtl' : undefined} aria-live="polite" className="mt-2 space-y-1 text-sm">
+            {route.steps.map((s, k) => (
+              <li key={k} className={`rounded-lg px-2 py-1 ${k === guideAt ? 'bg-emerald-600 font-semibold text-white' : k < guideAt ? 'text-emerald-800' : 'text-slate-600'}`}>
+                {k + 1}. {s.text[guideLang]}
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+      {note &&<p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-950 ring-1 ring-amber-300">{note}</p>}
       {scene.beside && <p className="text-xs text-slate-600">Chambers set up before the building was measured stand beside it, outside its walls.</p>}
       <p className="text-xs text-slate-500">Sizes, chambers, doors and places are the owner’s. Cooling units, lights and curtains are drawn as in a typical cold store — the Photos tab shows this store as it really is, when the owner has added photos.</p>
       <p className="text-xs text-slate-600">
