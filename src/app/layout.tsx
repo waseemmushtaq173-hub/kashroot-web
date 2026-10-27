@@ -5,6 +5,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { Toaster } from "sonner";
 
+import { PwaRoot } from "@/components/pwa/PwaRoot";
 import { SITE_URL } from "@/lib/site";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -72,6 +73,8 @@ export default function RootLayout({
       <body className="bg-[#07120D] text-[#F5F2EB] antialiased" style={{ fontFamily: `${nastaliq.style.fontFamily}, ${inter.style.fontFamily}` }}>
         <Providers>{children}</Providers>
         <Toaster position="top-center" theme="light" richColors closeButton />
+        {/* Offline-first: service worker, offline banner, "Waiting to send". */}
+        <PwaRoot />
       </body>
     </html>
   );

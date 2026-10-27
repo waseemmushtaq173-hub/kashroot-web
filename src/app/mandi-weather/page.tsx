@@ -39,6 +39,8 @@ import {
 import { PortalShell } from '@/components/layout/PortalShell';
 import { Badge, Btn, EmptyState, INPUT, PORTAL_THEMES, Panel, inr } from '@/components/portal/kit';
 import { PostedRates } from '@/components/mandi/PostedRates';
+import { SavedAt } from '@/components/pwa/SavedAt';
+import { useSavedAt } from '@/components/pwa/savedCopies';
 import { perKg, recentRates } from '@/lib/db/mandiRates';
 import { Tilt3D } from '@/components/three/Tilt3D';
 import { ReadLink } from '@/components/voice/ReadLink';
@@ -158,7 +160,11 @@ export default function MandiWeatherPage() {
       return getJson<Forecast>(`/api/weather?${p}`);
     },
     staleTime: 5 * 60_000,
+    // Asked even with no signal: the service worker answers from the copy saved on this phone.
+    networkMode: 'offlineFirst',
   });
+  // No signal: the forecast saved on this phone, and when it was saved (components/pwa).
+  const weatherSavedAt = useSavedAt('/api/weather', () => void weatherQ.refetch());
 
   // The name just picked from the list: don't look it up again (the list would pop back open
   // over "Use my location").
@@ -221,7 +227,9 @@ export default function MandiWeatherPage() {
       );
     },
     staleTime: 10 * 60_000,
+    networkMode: 'offlineFirst',
   });
+  const mandiSavedAt = useSavedAt('/api/mandi', () => void mandiQ.refetch());
 
   // Agmarknet publishes ₹ per quintal (100 kg).
   const factor = unit === 'kg' ? 0.01 : unit === 'box' ? (boxKg > 0 ? boxKg : 17) / 100 : 1;
@@ -267,7 +275,7 @@ export default function MandiWeatherPage() {
 
   // Rates posted by KashRoot's approved Mandi Helpers: the headline numbers
   // fall back to these while the government feeds block automatic access.
-  const postedQ = useQuery({ queryKey: ['posted-rates'], queryFn: () => recentRates(), staleTime: 5 * 60_000 });
+  const postedQ = useQuery({ queryKey: ['posted-rates'], queryFn: () => recentRates(), staleTime: 5 * 60_000, networkMode: 'offlineFirst' });
   const posted = useMemo(() => {
     const want = applied.commodity.trim().toLowerCase();
     const list = (postedQ.data ?? []).filter((r) => !want || r.commodity.toLowerCase().includes(want) || want.includes(r.commodity.toLowerCase()));
@@ -299,7 +307,7 @@ export default function MandiWeatherPage() {
     >
       <ReadLink onRead={fromLink} />
       {/* ── Weather ───────────────────────────────────────── */}
-      <Panel theme={theme} title="Weather" icon={CloudSun}>
+      <Panel theme={theme} title="Weather" icon={CloudSun} action={<SavedAt at={f ? weatherSavedAt : null} />}>
         <div className="flex flex-col gap-3 md:flex-row">
           <form
             className="relative flex-1"
@@ -417,7 +425,7 @@ export default function MandiWeatherPage() {
 
       {/* ── Mandi ─────────────────────────────────────────── */}
       <div className="mt-6">
-        <Panel theme={theme} title="Mandi prices (Agmarknet)" icon={Thermometer}>
+        <Panel theme={theme} title="Mandi prices (Agmarknet)" icon={Thermometer} action={<SavedAt at={mandiQ.data ? mandiSavedAt : null} />}>
           <form
             className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_1fr_auto]"
             onSubmit={(e) => {

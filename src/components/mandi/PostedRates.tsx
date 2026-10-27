@@ -6,7 +6,9 @@
  * grouped by mandi, latest first. Reporters post from here; anyone signed in
  * can apply to become one (with an ID photo; an admin phones them and
  * approves in Admin → Approvals). Anyone signed in can mark a rate Correct or
- * Wrong; confirmed rates count as the reporter's paid work.
+ * Wrong; confirmed rates count as the reporter's paid work. With no signal
+ * the rates saved on this phone show ("Saved at …"), and a rate posted is
+ * kept and posted when the signal is back (components/pwa).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -14,6 +16,10 @@ import { BadgeCheck, Loader2, Megaphone, PlusCircle, ThumbsDown, ThumbsUp, Trash
 import { toast } from '@/lib/client/toast';
 
 import { Badge, Btn, EmptyState, Field, INPUT, Modal, Panel, type PortalTheme } from '@/components/portal/kit';
+import { isOfflineError, NEEDS_INTERNET, offlineNow, useOnline } from '@/components/pwa/net';
+import { keepRate, OUTBOX_SENT } from '@/components/pwa/outboxSend';
+import { SavedAt } from '@/components/pwa/SavedAt';
+import { useSavedAt } from '@/components/pwa/savedCopies';
 import { RoleApplicationForm } from '@/components/staff/RoleApplicationForm';
 import { AUTH_ROUTES, loginHref } from '@/lib/auth/roles';
 import { myRoleRequest } from '@/lib/db/advisory';
@@ -74,10 +80,18 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
         }
       })
       .catch(() => live && setAccount(null));
+    // A rate kept with no signal has just been posted: show it.
+    const sent = (e: Event) => {
+      if ((e as CustomEvent<{ kind?: string }>).detail?.kind === 'rate') void load();
+    };
+    window.addEventListener(OUTBOX_SENT, sent);
     return () => {
       live = false;
+      window.removeEventListener(OUTBOX_SENT, sent);
     };
   }, [load]);
+  // Rates from the copy saved on this phone (no signal): when they were saved.
+  const savedAt = useSavedAt('/api/supabase/rest/v1/mandi_rates', () => void load());
 
   const canPost = Boolean(account && (account.staff.includes('REPORTER') || account.staff.includes('ADMIN')));
   const wanted = commodity?.trim().toLowerCase() ?? '';
@@ -119,6 +133,7 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
 
   return (
     <Panel theme={theme} title="Today’s rates from the mandis" icon={Megaphone} action={action}>
+      {savedAt && rates?.length ? <SavedAt at={savedAt} className="mb-3" /> : null}
       <p className="mb-4 text-sm text-slate-600">Posted on KashRoot by traders and commission agents at each mandi, approved by KashRoot. Each rate shows who posted it and when. <strong>Confirmed</strong> means another trader, a farmer or KashRoot checked it. Were you at the mandi? Press <em>Correct</em> or <em>Wrong</em>.</p>
       {rates === null ? (
         <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading rates…</p>
@@ -198,6 +213,7 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
 function PostRateModal({ theme, account, commodity, onClose, onPosted }: { theme: PortalTheme; account: Account; commodity?: string; onClose: () => void; onPosted: () => void }) {
   const [f, setF] = useState({ mandi: '', state: 'Jammu and Kashmir', district: account.district ?? '', commodity: commodity?.trim() || 'Apple', variety: '', grade: '', unit: 'box' as RateInput['unit'], box_kg: '', min: '', modal: '', max: '', note: '' });
   const [busy, setBusy] = useState(false);
+  const online = useOnline();
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
 
   const save = async () => {
@@ -206,35 +222,49 @@ function PostRateModal({ theme, account, commodity, onClose, onPosted }: { theme
     if (f.commodity.trim().length < 2) return toast.error('Which crop?');
     if (!(min > 0 && modal > 0 && max > 0)) return toast.error('Write the minimum, modal and maximum price.');
     if (!(min <= modal && modal <= max)) return toast.error('Minimum ≤ modal ≤ maximum, please check the prices.');
+    const rate: RateInput = {
+      reporter_name: account.business || account.name,
+      phone: account.phone || null,
+      state: f.state.trim() || 'Jammu and Kashmir',
+      district: f.district.trim() || null,
+      mandi: f.mandi.trim(),
+      commodity: f.commodity.trim(),
+      variety: f.variety.trim() || null,
+      grade: f.grade.trim() || null,
+      unit: f.unit,
+      box_kg: f.unit === 'box' && Number(f.box_kg) > 0 ? Number(f.box_kg) : null,
+      min_price: min,
+      modal_price: modal,
+      max_price: max,
+      note: f.note.trim() || null,
+    };
+    if (offlineNow()) return keepForLater(rate);
     setBusy(true);
     try {
-      await postRate({
-        reporter_name: account.business || account.name,
-        phone: account.phone || null,
-        state: f.state.trim() || 'Jammu and Kashmir',
-        district: f.district.trim() || null,
-        mandi: f.mandi.trim(),
-        commodity: f.commodity.trim(),
-        variety: f.variety.trim() || null,
-        grade: f.grade.trim() || null,
-        unit: f.unit,
-        box_kg: f.unit === 'box' && Number(f.box_kg) > 0 ? Number(f.box_kg) : null,
-        min_price: min,
-        modal_price: modal,
-        max_price: max,
-        note: f.note.trim() || null,
-      });
+      await postRate(rate);
       toast.success('Rate posted — farmers can see it now');
       onPosted();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not post the rate.');
+      if (isOfflineError(err)) await keepForLater(rate);
+      else toast.error(err instanceof Error ? err.message : 'Could not post the rate.');
     } finally {
       setBusy(false);
     }
   };
 
+  // No signal: kept on this phone (dated today) and posted when the signal is back.
+  const keepForLater = async (rate: RateInput) => {
+    try {
+      await keepRate(account.id, rate);
+      toast.success('You are offline. The rate is saved on this phone, dated today, and is posted when you are back online.', { duration: 8000 });
+      onClose();
+    } catch {
+      toast.error(NEEDS_INTERNET);
+    }
+  };
+
   return (
-    <Modal open wide onClose={onClose} title="Post today’s rate" footer={<><Btn theme={theme} variant="ghost" onClick={onClose}>Cancel</Btn><Btn theme={theme} icon={PlusCircle} disabled={busy} onClick={() => void save()}>{busy ? 'Posting…' : 'Post rate'}</Btn></>}>
+    <Modal open wide onClose={onClose} title="Post today’s rate" footer={<><Btn theme={theme} variant="ghost" onClick={onClose}>Cancel</Btn><Btn theme={theme} icon={PlusCircle} disabled={busy} onClick={() => void save()}>{busy ? 'Posting…' : online ? 'Post rate' : 'Save — post when online'}</Btn></>}>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Mandi"><input list="kr-mandis" className={INPUT} value={f.mandi} onChange={set('mandi')} placeholder="e.g. Sopore" /></Field>
         <Field label="District (optional)"><input className={INPUT} value={f.district} onChange={set('district')} /></Field>

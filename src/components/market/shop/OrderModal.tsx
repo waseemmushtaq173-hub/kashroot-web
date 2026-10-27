@@ -16,6 +16,7 @@ import { ArrowLeft, ShoppingCart } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { Btn, Field, INPUT, Modal, type PortalTheme } from '@/components/portal/kit';
+import { NEEDS_INTERNET, offlineNow } from '@/components/pwa/net';
 import { inr, supabase, type Account } from '@/lib/db/client';
 import { orderAction, placeOrder, type MarketListing, type MarketOrder, type MarketUnit } from '@/lib/db/market';
 import { LISTINGS_CHANGED, UNIT_PLURAL as PLURAL, amountOf } from '@/components/market/shop/useLiveListings';
@@ -65,6 +66,8 @@ export function OrderModal({ listing, account, theme, onClose, onPlaced }: { lis
   const place = async () => {
     const wrong = orderProblem(l, form);
     if (wrong) return setProblem(wrong);
+    // An order is money: never kept to send later.
+    if (offlineNow()) return setProblem(NEEDS_INTERNET);
     setBusy(true);
     try {
       const fresh = await latest(l.id);

@@ -43,7 +43,11 @@ export function dbMessage(error: { message?: string; code?: string } | null | un
   // A new row refused by the "KYC before …" rules — or by an ended session.
   if (/new row violates row-level security/i.test(m)) return REFUSED;
   if (/JWT|not authenticated|permission denied|row-level security/i.test(m)) return 'Please sign in again to do this.';
-  if (/Failed to fetch|NetworkError|network/i.test(m)) return 'No internet connection. Please try again.';
+  if (/Failed to fetch|NetworkError|network/i.test(m)) {
+    return typeof navigator !== 'undefined' && navigator.onLine === false
+      ? 'You are offline — this needs the internet. Try again when you have signal.'
+      : 'Could not reach KashRoot. Check your internet and try again.';
+  }
   if (/violates check constraint/i.test(m)) return 'Some details are not in the right format. Please check and try again.';
   // Messages raised by the kr_* database functions are already in plain words.
   if (error.code === 'P0001') return m;

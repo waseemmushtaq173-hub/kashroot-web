@@ -3,13 +3,16 @@
 /**
  * A farmer's request to the advisory team: a question, a soil-test booking or
  * a video call. Big choices, speak-instead-of-type, a camera photo, and an
- * instant AI first answer while an expert is notified.
+ * instant AI first answer while an expert is notified. With no signal it is
+ * kept on this phone and sent when the signal is back (components/pwa).
  */
 import { useState } from 'react';
 import { Camera, FlaskConical, Loader2, MessageCircle, Send, Video, X } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { Btn, Field, INPUT, PORTAL_THEMES } from '@/components/portal/kit';
+import { isOfflineError, NEEDS_INTERNET, offlineNow, useOnline } from '@/components/pwa/net';
+import { keepQuestion } from '@/components/pwa/outboxSend';
 import { LangPicker, MicButton } from '@/components/voice/VoiceButtons';
 import { compressImage } from '@/lib/client/image';
 import { isRtl, needsDevanagari, type SpeechLang } from '@/lib/client/speech';
@@ -41,6 +44,7 @@ export function AskForm({ account, onSent, initialKind = 'question' }: { account
   const [phone, setPhone] = useState(account.phone);
   const [district, setDistrict] = useState(account.district);
   const [busy, setBusy] = useState(false);
+  const online = useOnline();
 
   const choosePhoto = async (file?: File) => {
     if (!file) return;
@@ -54,19 +58,11 @@ export function AskForm({ account, onSent, initialKind = 'question' }: { account
   const submit = async () => {
     if (message.trim().length < 5) return toast.error('Tell us the problem in a few words — you can tap Speak.');
     if (kind !== 'question' && !/^(\+?91)?[6-9]\d{9}$/.test(phone.replace(/\s/g, ''))) return toast.error('Add your mobile number so the expert can reach you.');
+    const input = { farmer_name: account.name, farmer_phone: phone.replace(/\s/g, ''), district, kind, crop, message: message.trim(), photo, preferred_time: when, lang };
+    if (offlineNow()) return keepForLater(input);
     setBusy(true);
     try {
-      const req = await createRequest({
-        farmer_name: account.name,
-        farmer_phone: phone.replace(/\s/g, ''),
-        district,
-        kind,
-        crop,
-        message: message.trim(),
-        photo,
-        preferred_time: when,
-        lang,
-      });
+      const req = await createRequest(input);
       // Instant first answer from the AI agronomist; the expert still replies.
       try {
         const speakAs = (await needsDevanagari(lang)) ? 'hi' : undefined;
@@ -85,9 +81,22 @@ export function AskForm({ account, onSent, initialKind = 'question' }: { account
       setPhoto(null);
       onSent(req);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not send. Please try again.');
+      if (isOfflineError(err)) await keepForLater(input);
+      else toast.error(err instanceof Error ? err.message : 'Could not send. Please try again.');
     } finally {
       setBusy(false);
+    }
+  };
+
+  // No signal: kept on this phone, sent by itself when the signal is back.
+  const keepForLater = async (input: Parameters<typeof keepQuestion>[1]) => {
+    try {
+      await keepQuestion(account.id, input);
+      toast.success(`You are offline. Your ${kind === 'question' ? 'question' : 'request'} is saved on this phone and goes to the experts when you are back online.`, { duration: 8000 });
+      setMessage('');
+      setPhoto(null);
+    } catch {
+      toast.error(NEEDS_INTERNET);
     }
   };
 
@@ -173,7 +182,7 @@ export function AskForm({ account, onSent, initialKind = 'question' }: { account
       </div>
 
       <Btn theme={theme} type="submit" icon={busy ? Loader2 : Send} disabled={busy} className="py-3 text-base">
-        {busy ? 'Sending…' : kind === 'question' ? 'Send to the experts' : kind === 'soil_test' ? 'Request soil test' : 'Request video call'}
+        {busy ? 'Sending…' : !online ? 'Save — send when online' : kind === 'question' ? 'Send to the experts' : kind === 'soil_test' ? 'Request soil test' : 'Request video call'}
       </Btn>
     </form>
   );

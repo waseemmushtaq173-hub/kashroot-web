@@ -8,6 +8,9 @@
  * listed here is on the one shared Price Comparison, and farm tools and
  * inputs are also in the Kissan Tools shop. Kissan Tools orders (pay first,
  * possibly several products in one order) show as one card per order.
+ * With no signal, a new listing in the Farmer portal is kept as a draft and
+ * saved hidden from buyers when the signal is back (components/pwa); it is
+ * never put on sale offline.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Banknote, Boxes, CheckCircle2, ImageOff, Loader2, Minus, Package, Pencil, Plus, PlusCircle, Trash2 } from 'lucide-react';
@@ -17,6 +20,8 @@ import { OrderCard } from '@/components/market/OrderCard';
 import { ProductForm, productProblem } from '@/components/market/ProductForm';
 import { PayoutForm } from '@/components/payments/PayoutForm';
 import { Badge, Btn, EmptyState, Modal, Panel, type PortalTheme } from '@/components/portal/kit';
+import { isOfflineError, NEEDS_INTERNET, offlineNow, useOnline } from '@/components/pwa/net';
+import { keepListingDraft, OUTBOX_SENT } from '@/components/pwa/outboxSend';
 import { inr, type Account } from '@/lib/db/client';
 import { deleteListing, myListings, saveListing, sellerOrders, updateListing, type ListingInput, type MarketCategory, type MarketListing, type MarketOrder } from '@/lib/db/market';
 import { myPayout, type PayoutAccount } from '@/lib/db/rentals';
@@ -35,6 +40,9 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
   const [busy, setBusy] = useState(false);
   const [opening, setOpening] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The list could not load for want of signal (what was shown stays).
+  const [noSignal, setNoSignal] = useState(false);
+  const online = useOnline();
   // Bumping addRequest (e.g. a "List produce" button outside) opens the form.
   const [seenAdd, setSeenAdd] = useState(0);
   if (addRequest !== seenAdd) {
@@ -48,8 +56,10 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
       setProducts(p);
       setOrders(o);
       setError(null);
+      setNoSignal(false);
       onLoaded?.(p, o);
     } catch (err) {
+      if (isOfflineError(err)) return setNoSignal(true);
       setError(err instanceof Error ? err.message : 'Could not load.');
       setProducts([]);
     }
@@ -66,10 +76,13 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
     const id = window.setInterval(() => void run(), 30000);
     const back = () => void run();
     document.addEventListener('visibilitychange', back);
+    // A draft kept with no signal has just been saved: show it.
+    window.addEventListener(OUTBOX_SENT, back);
     return () => {
       live = false;
       window.clearInterval(id);
       document.removeEventListener('visibilitychange', back);
+      window.removeEventListener(OUTBOX_SENT, back);
     };
   }, [account.id, reload]);
 
@@ -100,18 +113,83 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
     }
   };
 
+  // A new listing in the Farmer portal can wait for signal as a draft; changes and other portals cannot.
+  const draftable = mixed && !editing?.id;
   const save = () => {
     if (!editing) return;
     const problem = productProblem(editing.data, { isNew: !editing.id });
     if (problem) return toast.error(problem);
-    void run(async () => {
-      await saveListing({ ...editing.data, product: editing.data.product.trim(), phone: editing.data.phone.replace(/\s/g, ''), variety: editing.data.variety || null, grade: editing.data.grade || null, details: editing.data.details || null }, editing.id);
-      setEditing(null);
-    }, editing.id ? 'Product updated' : 'Listed — buyers can now compare and order it');
+    const input = { ...editing.data, product: editing.data.product.trim(), phone: editing.data.phone.replace(/\s/g, ''), variety: editing.data.variety || null, grade: editing.data.grade || null, details: editing.data.details || null };
+    if (offlineNow()) return draftable ? void keepDraft(input) : void toast.error(NEEDS_INTERNET);
+    const id = editing.id;
+    void (async () => {
+      setBusy(true);
+      try {
+        await saveListing(input, id);
+        setEditing(null);
+        // The list first, then the message: "Listed" shows when the product is on screen.
+        await reload();
+        toast.success(id ? 'Product updated' : 'Listed — buyers can now compare and order it');
+      } catch (err) {
+        // The signal dropped while sending: a new listing waits as a draft.
+        if (draftable && isOfflineError(err)) await keepDraft(input);
+        else toast.error(err instanceof Error ? err.message : 'Something went wrong.');
+      } finally {
+        setBusy(false);
+      }
+    })();
   };
 
+  // No signal: kept on this phone and saved hidden from buyers when the signal is back.
+  const keepDraft = async (input: ListingInput) => {
+    try {
+      await keepListingDraft(account.id, input);
+      setEditing(null);
+      toast.success('You are offline. Your listing is kept on this phone as a draft. When you are back online it is saved, hidden from buyers, until you put it on sale.', { duration: 9000 });
+    } catch {
+      toast.error(NEEDS_INTERNET);
+    }
+  };
+
+  const editor = editing && (
+    <Modal
+      open
+      wide
+      onClose={() => setEditing(null)}
+      title={editing.id ? 'Edit' : editing.data.category === 'produce' ? 'List your produce' : mixed ? 'Add a farm input' : 'Add a product'}
+      footer={
+        <>
+          {!online && <p className="me-auto max-w-sm self-center text-sm text-amber-900">{draftable ? 'You are offline. Saving keeps this as a draft; it is sent when you are back online and stays hidden from buyers until you put it on sale.' : NEEDS_INTERNET}</p>}
+          <Btn theme={theme} variant="ghost" className="min-h-11" onClick={() => setEditing(null)}>Cancel</Btn>
+          <Btn theme={theme} icon={CheckCircle2} className="min-h-11" disabled={busy} onClick={save}>{!online && draftable ? 'Save draft' : 'Save'}</Btn>
+        </>
+      }
+    >
+      <ProductForm value={editing.data} isNew={!editing.id} onChange={(data) => setEditing({ ...editing, data })} />
+    </Modal>
+  );
+
   if (error) return <p role="alert" className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">{error}</p>;
-  if (products === null) return <p className="flex items-center gap-2 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>;
+  if (products === null) {
+    // No signal before the list ever loaded: a new listing can still be written (kept as a draft).
+    if (noSignal) {
+      return (
+        <>
+          <p role="status" className="rounded-2xl bg-amber-50 p-4 text-amber-950 ring-1 ring-amber-200">
+            You are offline. Your products and orders show when you are back online.{mixed && show === 'products' ? ' You can still write a new listing: it is kept as a draft and sent when you are back online.' : ''}
+          </p>
+          {mixed && show === 'products' && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Btn theme={theme} icon={PlusCircle} className="min-h-11" onClick={() => setEditing({ data: blankProduct(account, 'produce') })}>List produce</Btn>
+              <Btn theme={theme} variant="soft" icon={PlusCircle} className="min-h-11" onClick={() => setEditing({ data: blankProduct(account, 'supplies') })}>Add farm input</Btn>
+            </div>
+          )}
+          {editor}
+        </>
+      );
+    }
+    return <p className="flex items-center gap-2 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>;
+  }
 
   // Orders that need the seller now come first: new ones, payments to check, orders to ship.
   const groups = groupBaskets(orders);
@@ -220,22 +298,7 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
         <PayoutForm theme={theme} payout={payout} onSaved={setPayout} title="Where buyers pay you" intro="Price Comparison buyers pay you here after the goods reach them. Kissan Tools buyers pay you here before you ship. Only a buyer with a live order sees these details." />
       )}
 
-      {editing && (
-        <Modal
-          open
-          wide
-          onClose={() => setEditing(null)}
-          title={editing.id ? 'Edit' : editing.data.category === 'produce' ? 'List your produce' : mixed ? 'Add a farm input' : 'Add a product'}
-          footer={
-            <>
-              <Btn theme={theme} variant="ghost" className="min-h-11" onClick={() => setEditing(null)}>Cancel</Btn>
-              <Btn theme={theme} icon={CheckCircle2} className="min-h-11" disabled={busy} onClick={save}>Save</Btn>
-            </>
-          }
-        >
-          <ProductForm value={editing.data} isNew={!editing.id} onChange={(data) => setEditing({ ...editing, data })} />
-        </Modal>
-      )}
+      {editor}
     </div>
   );
 }
