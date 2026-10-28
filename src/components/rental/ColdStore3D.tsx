@@ -34,8 +34,8 @@ import { speak, stopSpeaking } from '@/lib/client/speech';
 import { rememberedLang } from '@/lib/langDetect';
 import { buildScene, chamberAt, EYE, insideDoor, midOf, sceneText, startPoint, type SceneChamber, type StoreScene } from '@/components/rental/three/storeScene';
 import { drawMiniMap } from '@/components/rental/walk/miniMap';
-import { noInput, usePageZoom, WalkHud, type Press, type Target, type WalkInput, type Where } from '@/components/rental/walk/WalkHud';
-import { canStand, walk, walkWorld, type Walker, type WalkWorld } from '@/components/rental/walk/walker';
+import { noInput, usePageZoom, WalkHud, type Measure, type Press, type Target, type WalkInput, type Where } from '@/components/rental/walk/WalkHud';
+import { aheadOf, canStand, walk, WALK_SPEED, walkWorld, type Walker, type WalkWorld } from '@/components/rental/walk/walker';
 import { placeDirections, showLength } from '@/lib/coldLayout';
 import { countText, nice, unitWord, type Building, type PreviewRows, type Storage } from '@/lib/coldStore';
 import { placeLabel, type ColdChamber } from '@/lib/db/coldMap';
@@ -98,6 +98,9 @@ interface Api {
   kick: () => void;
   /** Show the way to the farmer's place on the floor (null: none). */
   setRoute: (route: Route | null) => void;
+  /** The measure tool on or off; `mark` puts its mark where the visitor stands. */
+  measure: (on: boolean) => void;
+  mark: () => void;
   /** Walk the way from the main door (walking only). False when there is no way to walk. */
   guide: () => boolean;
   stopGuide: () => void;
@@ -225,6 +228,7 @@ export function ColdStore3D({
   const [info, setInfo] = useState<number | null>(null);
   const [where, setWhere] = useState<Where>({ text: 'You are outside the main door.', chamber: -1, level: 1, floors: 1 });
   const [target, setTarget] = useState<Target | null>(null);
+  const [measure, setMeasure] = useState<Measure | null>(null);
   // On a phone the page is shrunk to fit: a taller view and bigger buttons.
   const zoom = usePageZoom();
   const textId = useId();
@@ -479,6 +483,21 @@ export function ColdStore3D({
         return (f?.z0 ?? 0) + EYE;
       };
       let lastWhere = '';
+      // The measure tool: where its mark is, and what was last said (so React hears only of changes).
+      let measuring = false;
+      let mark: { x: number; y: number; level: number; inside: number } | null = null;
+      let lastMeasure = '';
+      const tellMeasure = () => {
+        if (!measuring || !walkWorldNow) return;
+        const ahead = aheadOf(walkWorldNow, me, me.heading);
+        const fromMark = mark ? Math.hypot(me.x - mark.x, me.y - mark.y) : null;
+        const next: Measure = { ahead: ahead ? { d: Math.round(ahead.d * 100) / 100, what: ahead.what } : null, fromMark: fromMark === null ? null : Math.round(fromMark * 100) / 100, floorsApart: mark ? me.level - mark.level : 0 };
+        const key = JSON.stringify(next);
+        if (key !== lastMeasure) {
+          lastMeasure = key;
+          setMeasure(next);
+        }
+      };
       const tellWhere = () => {
         const s = shown;
         if (!s) return;
@@ -498,6 +517,7 @@ export function ColdStore3D({
           setWhere({ text, chamber: ci, level: me.level, floors: c?.floors.length ?? 1 });
         }
         if (mapRef.current) drawMiniMap(mapRef.current, s, me, me.heading, me.level, me.inside);
+        tellMeasure();
       };
       const standAt = (p: { x: number; y: number }, heading: number) => {
         pinned = false;
@@ -663,7 +683,10 @@ export function ColdStore3D({
         const tap = !down.moved && Math.hypot(e.clientX - down.x, e.clientY - down.y) <= 6;
         down = null;
         if (!tap) {
-          if (mode3 === 'walk') aim(true);
+          if (mode3 === 'walk') {
+            aim(true);
+            tellMeasure();
+          }
           // Sharp again after looking round.
           dirty = true;
           kick();
@@ -954,7 +977,7 @@ export function ColdStore3D({
             me.heading += Math.max(-2.4 * dt, Math.min(2.4 * dt, diff));
           }
           me.pitch += (-0.12 - me.pitch) * Math.min(1, dt * 3);
-          const v = 1.3 * dt;
+          const v = WALK_SPEED * dt;
           if (d <= v) {
             me.x = to.x;
             me.y = to.y;
@@ -1010,8 +1033,8 @@ export function ColdStore3D({
         const side = (i.left ? 1 : 0) - (i.right ? 1 : 0);
         if ((go || side) && walkWorldNow) {
           held += dt;
-          // A slow first step, then a brisk walk.
-          const speed = Math.min(4, 1.4 + held * 1.4);
+          // An unhurried walk, as in the real store (a softer first step).
+          const speed = Math.min(WALK_SPEED, 0.6 + held * 2);
           const hx = Math.cos(me.heading);
           const hy = Math.sin(me.heading);
           walk(walkWorldNow, me, (hx * go - hy * side) * speed * dt, (hy * go + hx * side) * speed * dt);
@@ -1091,6 +1114,17 @@ export function ColdStore3D({
         showWhere: () => {
           lastWhere = '';
           if (mode3 === 'walk') tellWhere();
+        },
+        measure: (on) => {
+          measuring = on;
+          mark = null;
+          lastMeasure = '';
+          if (on) tellMeasure();
+          else setMeasure(null);
+        },
+        mark: () => {
+          mark = { x: me.x, y: me.y, level: me.level, inside: me.inside };
+          tellMeasure();
         },
       };
       setData(latest.current.scene, latest.current.cells, latest.current.free, latest.current.mineName);
@@ -1231,7 +1265,20 @@ export function ColdStore3D({
         <p id={textId} data-scene-text className="sr-only">{sceneText(scene)}</p>
         <div ref={tip} aria-live="polite" className="pointer-events-none absolute z-30 max-w-[228px] whitespace-pre-line rounded-xl bg-slate-900/90 px-3 py-2 text-xs font-semibold text-white opacity-0 shadow-lg transition-opacity" />
         {walking && ready && (
-          <WalkHud press={press} where={where} onFloor={(n) => api.current?.goFloor(n)} target={target} onChoose={() => api.current?.choose()} mapRef={mapRef} mode={mode} zoom={zoom} />
+          <WalkHud
+            press={press}
+            where={where}
+            onFloor={(n) => api.current?.goFloor(n)}
+            target={target}
+            onChoose={() => api.current?.choose()}
+            mapRef={mapRef}
+            mode={mode}
+            zoom={zoom}
+            unit={scene.unit}
+            measure={measure}
+            onMeasure={(on) => api.current?.measure(on)}
+            onMark={() => api.current?.mark()}
+          />
         )}
         {!big && card}
       </div>
@@ -1260,7 +1307,7 @@ export function ColdStore3D({
       )}
       {note &&<p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-950 ring-1 ring-amber-300">{note}</p>}
       {scene.beside && <p className="text-xs text-slate-600">Chambers set up before the building was measured stand beside it, outside its walls.</p>}
-      <p className="text-xs text-slate-500">Sizes, chambers, doors and places are the owner’s. Cooling units, lights and curtains are drawn as in a typical cold store — the Photos tab shows this store as it really is, when the owner has added photos.</p>
+      <p className="text-xs text-slate-500">Sizes, chambers, doors and places are the owner’s. Cooling units hang on the wall the owner named (or the one facing the door); how many, and the lights and curtains, are drawn as in a typical cold store — the Photos tab shows this store as it really is, when the owner has added photos.</p>
       <p className="text-xs text-slate-600">
         {walking
           ? `Walk with the arrows (or the keys W A S D, ← →) · drag to look around · ${mode === 'book' ? 'tap a free place in front of you, or aim the ring at it, to choose it.' : mode === 'owner' ? 'tap a stack to see whose it is.' : 'your stacks are tinted violet.'}`

@@ -2,7 +2,8 @@
  * What makes the 3D store look like a working cold store, placed from the
  * owner's measurements:
  *
- *   coolers   evaporator units high on the wall facing each chamber's door,
+ *   coolers   evaporator units high on the wall the owner named (unsaid:
+ *             the wall facing the door),
  *             their fans blowing towards the door, with the refrigerant
  *             pipes (insulated suction line, copper liquid line) running
  *             along that wall under the ceiling;
@@ -121,39 +122,40 @@ export function buildFixtures(kit: Kit, scene: StoreScene, o: Origin): Fixtures 
     const tops = c.floors.map((f, i) => (i + 1 < c.floors.length ? c.floors[i + 1].z0 - 0.1 : H - 0.08));
     for (const top of tops) lightRows(r, top);
 
-    // Evaporators on the wall facing the door, blowing towards it.
-    const alongX = Math.abs(inw.y) > 0.5;
+    // Evaporators on the wall the owner named (unsaid: the one facing the door), blowing into the room.
+    const to = c.coolerTo;
+    const alongX = Math.abs(to.y) > 0.5;
     const wallLen = alongX ? r.w : r.d;
     const n = clamp(Math.round(wallLen / 6), 1, 6);
     const uw = Math.min(2.2, (wallLen / n) * 0.75);
     const uh = 0.7;
     const ud = 0.75;
     const cy = H - 0.3 - uh / 2;
-    const far = alongX ? (inw.y > 0 ? r.y + r.d : r.y) : inw.x > 0 ? r.x + r.w : r.x;
-    // The unit's front (fans) faces back towards the door: -inward in the plan; world z is the plan's y reversed.
-    const nx = -inw.x;
-    const nz = inw.y;
+    const far = alongX ? (to.y > 0 ? r.y + r.d : r.y) : to.x > 0 ? r.x + r.w : r.x;
+    // The unit's front (fans) faces away from its wall: -to in the plan; world z is the plan's y reversed.
+    const nx = -to.x;
+    const nz = to.y;
     const fansEach = Math.max(1, Math.round(uw / 0.75));
     const fr = Math.min(0.27, uh * 0.38);
     for (let i = 0; i < n; i++) {
       const a = (alongX ? r.x : r.y) + (wallLen * (i + 0.5)) / n;
       const off = ud / 2 + 0.1;
-      const px = alongX ? a : far - inw.x * off;
-      const py = alongX ? far - inw.y * off : a;
+      const px = alongX ? a : far - to.x * off;
+      const py = alongX ? far - to.y * off : a;
       box(alongX ? uw : ud, uh, alongX ? ud : uw, X(px), cy, Z(py), mats.cooler);
       // The drip tray under it.
       box(alongX ? uw + 0.1 : ud + 0.1, 0.05, alongX ? ud + 0.1 : uw + 0.1, X(px), cy - uh / 2 - 0.03, Z(py), mats.guard);
       for (let k = 0; k < fansEach; k++) {
         const s = ((k + 0.5) / fansEach - 0.5) * uw;
-        const fx = (alongX ? px + s : px) - inw.x * (ud / 2 + 0.012);
-        const fy = (alongX ? py : py + s) - inw.y * (ud / 2 + 0.012);
+        const fx = (alongX ? px + s : px) - to.x * (ud / 2 + 0.012);
+        const fy = (alongX ? py : py + s) - to.y * (ud / 2 + 0.012);
         fans.push({ x: X(fx), y: cy + 0.03, z: Z(fy), nx, ny: 0, nz, r: fr });
       }
     }
     // The refrigerant lines along that wall, under the ceiling.
     const lineAt = (off: number) => {
-      const px = alongX ? r.x + r.w / 2 : far - inw.x * off;
-      const py = alongX ? far - inw.y * off : r.y + r.d / 2;
+      const px = alongX ? r.x + r.w / 2 : far - to.x * off;
+      const py = alongX ? far - to.y * off : r.y + r.d / 2;
       return { x: X(px), z: Z(py) };
     };
     const suction = lineAt(0.12);

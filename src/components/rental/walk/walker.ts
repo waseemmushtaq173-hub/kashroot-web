@@ -104,3 +104,60 @@ export function walk(world: WalkWorld, w: Walker, dx: number, dy: number): boole
   for (let i = 0; i < n; i++) moved = moveBy(world, w, dx / n, dy / n) || moved;
   return moved;
 }
+
+/** Walking pace, metres a second (an unhurried walk; the guided walk goes at it too). */
+export const WALK_SPEED = 1.2;
+
+/** Where a ray from (o) along unit (dir) first meets a wall line: its distance, or Infinity. */
+function raySeg(o: Vec, dir: Vec, s: Seg): number {
+  const ex = s.x2 - s.x1;
+  const ey = s.y2 - s.y1;
+  const den = dir.x * ey - dir.y * ex;
+  if (Math.abs(den) < 1e-12) return Infinity;
+  const qx = s.x1 - o.x;
+  const qy = s.y1 - o.y;
+  const t = (qx * ey - qy * ex) / den;
+  const u = (qx * dir.y - qy * dir.x) / den;
+  return t >= 0 && u >= -1e-9 && u <= 1 + 1e-9 ? t : Infinity;
+}
+
+/** Where a ray first meets a box on the floor (the slab method): its distance, or Infinity. */
+function rayRect(o: Vec, dir: Vec, r: Rect): number {
+  let lo = -Infinity;
+  let hi = Infinity;
+  for (const [p, d, a, b] of [[o.x, dir.x, r.x, r.x + r.w], [o.y, dir.y, r.y, r.y + r.d]] as const) {
+    if (Math.abs(d) < 1e-12) {
+      if (p < a || p > b) return Infinity;
+      continue;
+    }
+    const t1 = (a - p) / d;
+    const t2 = (b - p) / d;
+    lo = Math.max(lo, Math.min(t1, t2));
+    hi = Math.min(hi, Math.max(t1, t2));
+  }
+  if (hi < Math.max(0, lo)) return Infinity;
+  return Math.max(0, lo);
+}
+
+/**
+ * The measure tool: how far it is from where the visitor stands, straight on
+ * along `heading`, to the first wall or stack on their floor — the same walls
+ * and stacks that stop them walking. Null when nothing is within `max` metres.
+ */
+export function aheadOf(world: WalkWorld, w: Walker, heading: number, max = 80): { d: number; what: 'wall' | 'stack' } | null {
+  const o = { x: w.x, y: w.y };
+  const dir = { x: Math.cos(heading), y: Math.sin(heading) };
+  let best = Infinity;
+  let what: 'wall' | 'stack' = 'wall';
+  const upper = w.level > 1 && w.inside >= 0;
+  for (const s of upper ? world.closed[w.inside] : world.walls) best = Math.min(best, raySeg(o, dir, s));
+  const stacks = upper ? (world.stacks[w.inside][w.level - 1] ?? []) : world.stacks.flatMap((c) => c[0] ?? []);
+  for (const r of stacks) {
+    const d = rayRect(o, dir, r);
+    if (d < best) {
+      best = d;
+      what = 'stack';
+    }
+  }
+  return best <= max ? { d: best, what } : null;
+}

@@ -11,8 +11,9 @@
  */
 import { memo, useCallback, useState, type SVGProps } from 'react';
 
+import { DimLine, ScaleBar } from '@/components/rental/drawingMarks';
 import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
-import { midOf, type SceneChamber, type StoreScene, type Vec } from '@/components/rental/three/storeScene';
+import { midOf, type Rect, type SceneChamber, type StoreScene, type Vec } from '@/components/rental/three/storeScene';
 import { showLength } from '@/lib/coldLayout';
 import { countText, nice, type Storage } from '@/lib/coldStore';
 import type { ColdChamber } from '@/lib/db/coldMap';
@@ -73,9 +74,11 @@ export const StoreTopView = memo(function StoreTopView({
   const lengthOn = md?.wall === 'back' ? 'front' : 'back';
   const widthOn = md?.wall === 'left' ? 'right' : 'left';
   const side = font * 2 + 10;
+  // A row under everything for the scale bar.
+  const scaleRow = font + 18;
   const pad = b
-    ? { l: widthOn === 'left' || md?.wall === 'left' ? side : 10, r: widthOn === 'right' || md?.wall === 'right' ? side : 10, t: side, b: font * 3 + 24 }
-    : { l: 8, r: 10, t: 8, b: font * 2 + 16 };
+    ? { l: widthOn === 'left' || md?.wall === 'left' ? side : 10, r: widthOn === 'right' || md?.wall === 'right' ? side : 10, t: side, b: font * 3 + 24 + scaleRow }
+    : { l: 8, r: 10, t: 8, b: font * 2 + 16 + scaleRow };
   const k = Math.min((W - pad.l - pad.r) / Math.max(1, bx.w), (narrow ? 460 : 560) / Math.max(1, bx.d));
   const left = pad.l + (W - pad.l - pad.r - bx.w * k) / 2;
   const H = Math.ceil(pad.t + bx.d * k + pad.b);
@@ -88,6 +91,22 @@ export const StoreTopView = memo(function StoreTopView({
       {t}
     </text>
   );
+
+  /** The open chamber's walkway: a dimension line across it, a third of the way in from the door (where it fits its words). */
+  const walkwayDim = (c: SceneChamber, w: Rect) => {
+    const across = Math.abs(c.inward.y) > 0.5; // the door in a front / back wall: the walkway runs along y, its width along x
+    const width = across ? w.w : w.d;
+    const words = `Walkway ${showLength(width, u)}`;
+    const size = font - 2;
+    if (width * k < words.length * size * 0.62 + 12) return null;
+    const at = c.inward.x + c.inward.y > 0 ? 1 / 3 : 2 / 3;
+    if (across) {
+      const y = Y(w.y + w.d * at);
+      return <DimLine dim="walkway" x1={X(w.x)} y1={y} x2={X(w.x + w.w)} y2={y} text={words} font={size} color="#92400e" halo="#fef3c7" />;
+    }
+    const x = X(w.x + w.w * at);
+    return <DimLine dim="walkway" x1={x} y1={Y(w.y)} x2={x} y2={Y(w.y + w.d)} text={words} font={size} color="#92400e" halo="#fef3c7" />;
+  };
 
   /** One chamber: its walls, the walkway and places of this floor, its door and its name. */
   const chamber = (c: SceneChamber) => {
@@ -145,6 +164,7 @@ export const StoreTopView = memo(function StoreTopView({
         <title>{label}</title>
         <rect x={X(r.x)} y={Y(r.y + r.d)} width={r.w * k} height={r.d * k} fill={c.fits ? (f ? '#ffffff' : '#f1f5f9') : '#fff1f2'} stroke={c.fits ? (on ? '#0369a1' : '#475569') : '#e11d48'} strokeWidth={on ? 5 : 3} strokeDasharray={c.fits ? undefined : '8 5'} />
         {f?.walkway && <rect x={X(f.walkway.x)} y={Y(f.walkway.y + f.walkway.d)} width={f.walkway.w * k} height={f.walkway.d * k} fill="#fef3c7" />}
+        {on && f?.walkway && walkwayDim(c, f.walkway)}
         {[...paths].map(([fill, d]) => <path key={fill} d={d} fill={fill} stroke={fill === PLACE_LOOK.blocked.mini ? '#cbd5e1' : 'none'} strokeWidth={0.6} />)}
         {c.door && <line {...seg({ x: c.door.x1, y: c.door.y1 }, { x: c.door.x2, y: c.door.y2 })} stroke="#d97706" strokeWidth={6} />}
         {text(cx, top + nameSize * 0.6, name, nameSize, { fontWeight: 800, fill: c.fits ? '#0f172a' : '#9f1239', stroke: '#ffffff', strokeWidth: 4, paintOrder: 'stroke' })}
@@ -164,14 +184,13 @@ export const StoreTopView = memo(function StoreTopView({
           {b ? (
             <>
               <rect x={X(0)} y={Y(b.width)} width={b.length * k} height={b.width * k} fill="#e2e8f0" stroke="#334155" strokeWidth={5} />
-              {text(X(b.length / 2), lengthOn === 'back' ? Y(b.width) - font - 2 : Y(0) + font + 6, `Length ${showLength(b.length, u)}`, font, { fontWeight: 700, fill: '#334155' })}
+              {(() => {
+                const y = lengthOn === 'back' ? Y(b.width) - font - 2 : Y(0) + font + 6;
+                return <DimLine dim="length" x1={X(0)} y1={y} x2={X(b.length)} y2={y} text={`Length ${showLength(b.length, u)}`} font={font} />;
+              })()}
               {(() => {
                 const x = widthOn === 'left' ? X(0) - font - 2 : X(b.length) + font + 2;
-                return (
-                  <text x={x} y={Y(b.width / 2)} textAnchor="middle" dominantBaseline="central" fontSize={font} fontWeight={700} fill="#334155" transform={`rotate(-90 ${x} ${Y(b.width / 2)})`}>
-                    {`Width ${showLength(b.width, u)}`}
-                  </text>
-                );
+                return <DimLine dim="width" x1={x} y1={Y(0)} x2={x} y2={Y(b.width)} text={`Width ${showLength(b.width, u)}`} font={font} />;
               })()}
             </>
           ) : (
@@ -216,7 +235,8 @@ export const StoreTopView = memo(function StoreTopView({
               })()}
             </g>
           )}
-          {b && text(X(b.length / 2), H - font / 2 - 4, 'FRONT (road side)', font - 1, { fontWeight: 800, letterSpacing: 2, fill: '#64748b' })}
+          {b && text(X(b.length / 2), H - scaleRow - font / 2 - 4, 'FRONT (road side)', font - 1, { fontWeight: 800, letterSpacing: 2, fill: '#64748b' })}
+          <ScaleBar x={12} y={H - scaleRow / 2 - 2} k={k} most={(W * 0.3) / k} unit={u} font={font - 1} />
         </svg>
       </div>
       <figcaption className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">

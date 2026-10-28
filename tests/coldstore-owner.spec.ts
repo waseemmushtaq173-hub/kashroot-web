@@ -5,9 +5,25 @@
  * started with KR_TEST_PAGES=1 (the test page); KR_BASE_URL says where.
  * Screenshots: test-results/cold-*.png
  */
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 const PAGE = '/test-pages/cold-store';
+
+/** The drawing's pixels per metre, read off its scale bar ("10 m" drawn N px long). */
+async function pxPerMetre(svg: Locator): Promise<number> {
+  const bar = svg.locator('[data-scale-bar]');
+  await expect(bar).toHaveCount(1);
+  const [text, px] = await Promise.all([bar.getAttribute('data-scale-bar'), bar.getAttribute('data-scale-px')]);
+  const m = Number(text!.split(' ')[0]) * (text!.endsWith('ft') ? 0.3048 : 1);
+  return Number(px) / m;
+}
+
+/** A dimension line agrees with the scale bar: `metres` long on the drawing's own scale (to the centimetre). */
+async function expectDim(svg: Locator, dim: string, metres: number) {
+  const k = await pxPerMetre(svg);
+  const px = Number(await svg.locator(`[data-dim="${dim}"]`).first().getAttribute('data-dim-px'));
+  expect(Math.abs(px / k - metres), `${dim} line drawn ${(px / k).toFixed(3)} m`).toBeLessThanOrEqual(0.01);
+}
 
 async function typeStore(page: Page) {
   // The building (the wizard keeps what is typed on this browser, as for a real owner).
@@ -68,11 +84,18 @@ for (const width of [1280, 390]) {
     // The owner sees exactly what was typed, and what fits by the measurements.
     await expect(page.getByText('480 bins + 9,000 crates')).toBeVisible();
     await expect(page.getByText(/By its size/)).toBeVisible();
+    // The owner's drawing is to scale: its length and width lines measure 40 m and 30 m on its own scale bar.
+    const ownerSvg = page.locator('figure svg').filter({ has: page.locator('[data-scale-bar]') }).first();
+    await expectDim(ownerSvg, 'length', 40);
+    await expectDim(ownerSvg, 'width', 30);
     await page.screenshot({ path: `test-results/cold-owner-${width}.png`, fullPage: true });
 
     // Farmers: the same counts, in the Drawing, the 3D view and the walk inside.
     await page.goto(`${PAGE}?view=farmer`);
     await expect(page.getByText(/2 chambers · holds/)).toContainText('480 bins and 9,000 crates');
+    const farmerSvg = page.locator('figure svg').filter({ has: page.locator('[data-scale-bar]') }).first();
+    await expectDim(farmerSvg, 'length', 40);
+    await expectDim(farmerSvg, 'width', 30);
     await page.screenshot({ path: `test-results/cold-farmer-drawing-${width}.png`, fullPage: true });
     // The crates chamber, its 3 floors and its size as typed.
     await page.getByRole('tab', { name: '3D view' }).click();
@@ -84,6 +107,22 @@ for (const width of [1280, 390]) {
     await page.getByRole('tab', { name: 'Walk inside' }).click();
     await page.getByRole('button', { name: 'Go to Chamber 2' }).click();
     await page.waitForTimeout(1500);
+    // The measure tool: straight ahead to a wall or stack, then from a mark as you walk.
+    await page.getByRole('button', { name: 'Measure', exact: true }).click();
+    await expect(page.locator('[data-measure]')).toContainText(/Ahead: (\d+\.\d\d m to the (wall|stack)|open space)/);
+    await page.getByRole('button', { name: 'Mark here' }).click();
+    await expect(page.locator('[data-measure]')).toContainText('From your mark: 0.00 m');
+    // Hold "Walk forward" down for 1.2 s, as a finger would.
+    const fwd = await page.getByRole('button', { name: 'Walk forward' }).boundingBox();
+    await page.mouse.move(fwd!.x + fwd!.width / 2, fwd!.y + fwd!.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(1200);
+    await page.mouse.up();
+    await expect(page.locator('[data-measure-mark]')).not.toHaveAttribute('data-measure-mark', '0');
+    const walked = Number(await page.locator('[data-measure-mark]').getAttribute('data-measure-mark'));
+    // An unhurried walk: 1.2 m/s at most, so about a metre in 1.2 s and never more than 1.6 m.
+    expect(walked).toBeGreaterThan(0.2);
+    expect(walked).toBeLessThanOrEqual(1.6);
     await page.screenshot({ path: `test-results/cold-farmer-walk-${width}.png` });
 
     const scrollX = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

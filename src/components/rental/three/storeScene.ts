@@ -91,6 +91,8 @@ export interface SceneChamber {
   door: Seg | null;
   doorH: number;
   inward: Vec;
+  /** Towards the wall the cooling units hang on (the owner's choice; unsaid: the wall facing the door). */
+  coolerTo: Vec;
   /** The four walls with the door left open. */
   walls: Seg[];
   windows: { seg: Seg; sill: number; height: number; wall: Wall }[];
@@ -147,6 +149,27 @@ export const EYE = 1.6;
 
 /** Into a room through each wall (the building frame, y to the back). */
 export const INWARD: Record<Wall, Vec> = { front: { x: 0, y: 1 }, back: { x: 0, y: -1 }, left: { x: 1, y: 0 }, right: { x: -1, y: 0 } };
+
+/**
+ * Towards the wall a chamber's coolers hang on. The owner names it from the
+ * door (front = the door wall, left / right as you stand at the door facing in,
+ * back = facing the door); in the plan, along the door wall "from its left
+ * corner" runs (inward.y, -inward.x) — the same way lib/coldStore fromDoor counts.
+ */
+export function coolerToward(doorWall: Wall, wall: Wall | undefined): Vec {
+  const i = INWARD[doorWall];
+  const along = { x: i.y, y: -i.x };
+  switch (wall) {
+    case 'front':
+      return { x: -i.x, y: -i.y };
+    case 'left':
+      return { x: -along.x, y: -along.y };
+    case 'right':
+      return along;
+    default:
+      return i;
+  }
+}
 
 const KIND: Record<Storage, Kind> = { bins: 'bin', crates: 'crate', boxes: 'carton' };
 
@@ -247,6 +270,7 @@ function wizardChamber(g: ChamberGroup, index: number, at: { x: number; y: numbe
     door,
     doorH: o.door?.height ?? Math.min(3, size.height),
     inward: INWARD[doorWall],
+    coolerTo: coolerToward(doorWall, size.cooling?.wall),
     walls: wallsOf(rect, door, doorWall),
     windows: [],
     floors,
@@ -324,6 +348,7 @@ function olderChamber(g: ChamberGroup, index: number, at: Vec, beside: boolean):
     door,
     doorH,
     inward: INWARD.front,
+    coolerTo: INWARD.front,
     walls: wallsOf(rect, door, 'front'),
     windows,
     floors: [floor],

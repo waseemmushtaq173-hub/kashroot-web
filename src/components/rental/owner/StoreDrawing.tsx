@@ -15,6 +15,7 @@
 import { memo, type SVGProps } from 'react';
 import { DoorOpen } from 'lucide-react';
 
+import { DimLine, ScaleBar } from '@/components/rental/drawingMarks';
 import { useWidth } from '@/components/rental/owner/useWidth';
 import { countText, doorLine, fromDoor, passageOf, placeRect, type Building, type ModelChamber, type Sides, type StoreModel, type Wall } from '@/lib/coldStore';
 import { FOOT, type SizeUnit } from '@/lib/coldLayout';
@@ -79,10 +80,14 @@ export const StoreDrawing = memo(function StoreDrawing({ model, selected, onPick
   const off = { door: font + 4, line: 2 * font + 12, dist: 3 * font + 16, size: font + 4 };
   const frontAt = wall === 'front' ? off.dist + font + 8 : lengthOn === 'front' ? off.size + font + 8 : off.size;
   const need = (s: Wall) => (s === wall ? off.dist + font : s === lengthOn || s === widthOn ? off.size + font : 12);
-  const M = { l: need('left'), r: need('right'), t: need('back'), b: frontAt + font / 2 + 10 };
+  // A row under everything for the scale bar.
+  const scaleRow = font + 18;
+  const M = { l: need('left'), r: need('right'), t: need('back'), b: frontAt + font / 2 + 10 + scaleRow };
   const k = Math.min((W - M.l - M.r) / (x1 - x0), 560 / (y1 - y0));
   const left = M.l + (W - M.l - M.r - (x1 - x0) * k) / 2;
   const H = M.t + (y1 - y0) * k + M.b;
+  // The words below the front wall stand above the scale bar's row.
+  const Hw = H - scaleRow;
   const X = (x: number) => left + (x - x0) * k;
   const Y = (y: number) => M.t + (y1 - y) * k; // the front at the bottom
 
@@ -98,7 +103,7 @@ export const StoreDrawing = memo(function StoreDrawing({ model, selected, onPick
     const side = w === 'left' || w === 'right';
     // Kept inside the drawing.
     const half = text.length * size * 0.3 + 4;
-    if (side) c.y = Math.min(H - half, Math.max(half, c.y));
+    if (side) c.y = Math.min(Hw - half, Math.max(half, c.y));
     else c.x = Math.min(W - half, Math.max(half, c.x));
     return (
       <text x={c.x} y={c.y} textAnchor="middle" dominantBaseline="central" fontSize={size} transform={side ? `rotate(-90 ${c.x} ${c.y})` : undefined} {...props}>
@@ -119,8 +124,19 @@ export const StoreDrawing = memo(function StoreDrawing({ model, selected, onPick
           <title>{summary}</title>
           {/* Building */}
           <rect x={X(0)} y={Y(b.width)} width={b.length * k} height={b.width * k} fill="#f1f5f9" stroke="#334155" strokeWidth={5} />
-          {words(lengthOn, b.length / 2, off.size, `Length ${say(b.length, u)}`, font, { fontWeight: 700, fill: '#334155' })}
-          {words(widthOn, b.width / 2, off.size, `Width ${say(b.width, u)}`, font, { fontWeight: 700, fill: '#334155' })}
+          {(() => {
+            const along = (w: Wall, len: number, text: string, dim: string) => {
+              const p = at(w, 0, off.size);
+              const q = at(w, len, off.size);
+              return <DimLine dim={dim} x1={p.x} y1={p.y} x2={q.x} y2={q.y} text={text} font={font} />;
+            };
+            return (
+              <>
+                {along(lengthOn, b.length, `Length ${say(b.length, u)}`, 'length')}
+                {along(widthOn, b.width, `Width ${say(b.width, u)}`, 'width')}
+              </>
+            );
+          })()}
           {words('front', b.length / 2, frontAt, 'FRONT', font, { fontWeight: 800, letterSpacing: 3, fill: '#64748b' })}
           {/* The passage from the main door, and (before any chamber) the side the chambers go on */}
           {(() => {
@@ -231,6 +247,20 @@ export const StoreDrawing = memo(function StoreDrawing({ model, selected, onPick
                   strokeDasharray={spot.fits ? undefined : '8 5'}
                 />
                 {walk && <rect x={sx(walk.x)} y={sy(walk.y + walk.d)} width={walk.w * k} height={walk.d * k} fill="#fef3c7" />}
+                {on && walk && f1 && (() => {
+                  // The open chamber's walkway: its width across it, a third of the way in from the door.
+                  const dw = f1.size.doorWall ?? 'front';
+                  const upright = dw === 'front' || dw === 'back';
+                  const width = upright ? walk.w : walk.d;
+                  const text = `Walkway ${say(width, u)}`;
+                  if (width * k < text.length * (font - 2) * 0.62 + 12) return null;
+                  const t = dw === 'front' || dw === 'left' ? 1 / 3 : 2 / 3;
+                  return upright ? (
+                    <DimLine dim="walkway" x1={sx(walk.x)} y1={sy(walk.y + walk.d * t)} x2={sx(walk.x + walk.w)} y2={sy(walk.y + walk.d * t)} text={text} font={font - 2} color="#92400e" halo="#fef3c7" />
+                  ) : (
+                    <DimLine dim="walkway" x1={sx(walk.x + walk.w * t)} y1={sy(walk.y)} x2={sx(walk.x + walk.w * t)} y2={sy(walk.y + walk.d)} text={text} font={font - 2} color="#92400e" halo="#fef3c7" />
+                  );
+                })()}
                 {stacks && <path d={stacks} fill={STACK[mc.storage].fill} stroke={STACK[mc.storage].stroke} strokeWidth={k > 20 ? 1 : 0.5} />}
                 {door && <line x1={sx(door.x1)} y1={sy(door.y1)} x2={sx(door.x2)} y2={sy(door.y2)} stroke="#d97706" strokeWidth={7} />}
                 <text x={sx(spot.w / 2)} y={top + nameSize * 0.575} textAnchor="middle" dominantBaseline="central" fontSize={nameSize} fontWeight={800} fill={ink} stroke="#ffffff" strokeWidth={5} paintOrder="stroke">
@@ -254,6 +284,7 @@ export const StoreDrawing = memo(function StoreDrawing({ model, selected, onPick
               {words(wall, b.door.from / 2, off.dist, `${say(b.door.from, u)} from the corner`, font - 2, { fill: '#b45309' })}
             </g>
           )}
+          <ScaleBar x={12} y={H - scaleRow / 2 - 2} k={k} most={(W * 0.3) / k} unit={u} font={font - 1} />
         </svg>
       </div>
       <figcaption className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">

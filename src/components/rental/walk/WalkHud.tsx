@@ -11,7 +11,9 @@
  * shrunk: they stay at least 44px under a finger.
  */
 import { useEffect, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
-import { ArrowDown, ArrowUp, Check, ChevronsDown, ChevronsUp, RotateCcw, RotateCw } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, ChevronsDown, ChevronsUp, MapPin, Ruler, RotateCcw, RotateCw } from 'lucide-react';
+
+import { FOOT, type SizeUnit } from '@/lib/coldLayout';
 
 /** How much this phone shrinks the page (1 on a computer, about 2 on a phone; less when pinched in). */
 export function usePageZoom(): number {
@@ -55,6 +57,21 @@ export interface Target {
   /** It can be chosen (booking) or looked at (owner). */
   can: boolean;
   chosen: boolean;
+}
+
+/** The measure tool's reading (metres, to the centimetre). */
+export interface Measure {
+  /** Straight ahead to the first wall or stack on your floor. */
+  ahead: { d: number; what: 'wall' | 'stack' } | null;
+  /** From the mark you set to where you stand (along the floor); null before a mark. */
+  fromMark: number | null;
+  /** Floors between you and the mark (0: the same floor). */
+  floorsApart: number;
+}
+
+/** "3.05 m", or "10.0 ft (3.05 m)" in a store measured in feet. */
+export function measureText(m: number, unit: SizeUnit): string {
+  return unit === 'ft' ? `${(m / FOOT).toFixed(1)} ft (${m.toFixed(2)} m)` : `${m.toFixed(2)} m`;
 }
 
 /** Held down, a button keeps working (walk, turn, look) until it is let go. */
@@ -101,6 +118,10 @@ export function WalkHud({
   mapRef,
   mode,
   zoom = 1,
+  unit = 'm',
+  measure = null,
+  onMeasure,
+  onMark,
 }: {
   press: Press;
   where: Where;
@@ -111,6 +132,11 @@ export function WalkHud({
   mode: 'book' | 'owner' | 'view';
   /** How much the page is shrunk on this phone (usePageZoom). */
   zoom?: number;
+  unit?: SizeUnit;
+  /** The measure tool's reading (null: off). */
+  measure?: Measure | null;
+  onMeasure?: (on: boolean) => void;
+  onMark?: () => void;
 }) {
   const z = Math.min(2.2, Math.max(1, zoom * 0.95));
   const btn = Math.round(52 * z);
@@ -126,23 +152,62 @@ export function WalkHud({
         </p>
       </div>
 
-      {/* Floors of the chamber you are in */}
-      {where.floors > 1 && (
-        <div role="group" aria-label="Go to a floor" className="absolute right-2 top-2 flex flex-col gap-1.5">
-          {Array.from({ length: where.floors }, (_, i) => where.floors - i).map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => onFloor(n)}
-              aria-pressed={where.level === n}
-              style={{ minHeight: Math.round(44 * z), fontSize: Math.round(14 * z) }}
-              className={`pointer-events-auto cursor-pointer rounded-xl px-3 font-bold shadow-lg ring-1 transition ${where.level === n ? 'bg-emerald-700 text-white ring-emerald-800' : 'bg-white/90 text-slate-900 ring-slate-900/15 hover:bg-emerald-50'}`}
-            >
-              {where.level === n ? `Floor ${n} · here` : `Go to floor ${n}`}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Right, at the top: the measure tool (straight ahead, and from your mark), then the floors of the chamber you are in */}
+      <div className="absolute right-2 top-2 flex flex-col items-end gap-1.5">
+        {onMeasure && (
+          <div className="flex flex-col items-end gap-1.5">
+            <div className="flex flex-col items-end gap-1.5">
+              <button
+                type="button"
+                onClick={() => onMeasure(!measure)}
+                aria-pressed={Boolean(measure)}
+                style={{ minHeight: Math.round(44 * z), fontSize: Math.round(13 * z) }}
+                className={`pointer-events-auto inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3 font-bold shadow-lg ring-1 transition ${measure ? 'bg-sky-700 text-white ring-sky-800' : 'bg-white/90 text-slate-900 ring-slate-900/15 hover:bg-sky-50'}`}
+              >
+                <Ruler style={{ width: Math.round(18 * z), height: Math.round(18 * z) }} aria-hidden />
+                {measure ? 'Stop measuring' : 'Measure'}
+              </button>
+              {measure && onMark && (
+                <button
+                  type="button"
+                  onClick={onMark}
+                  style={{ minHeight: Math.round(44 * z), fontSize: Math.round(13 * z) }}
+                  className="pointer-events-auto inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-white/90 px-3 font-bold text-slate-900 shadow-lg ring-1 ring-slate-900/15 transition hover:bg-sky-50"
+                >
+                  <MapPin style={{ width: Math.round(18 * z), height: Math.round(18 * z) }} aria-hidden />
+                  {measure.fromMark === null ? 'Mark here' : 'Mark again'}
+                </button>
+              )}
+            </div>
+            {measure && (
+              <p data-measure role="status" aria-live="polite" className="max-w-[min(15rem,46vw)] rounded-lg bg-sky-950/90 px-3 py-1.5 text-right font-semibold leading-snug text-white shadow-lg" style={{ fontSize: Math.round(12 * Math.min(z, 1.7)) }}>
+                <span data-measure-ahead={measure.ahead?.d ?? ''}>{measure.ahead ? `Ahead: ${measureText(measure.ahead.d, unit)} to the ${measure.ahead.what === 'stack' ? 'stack' : 'wall'}` : 'Ahead: open space'}</span>
+                <br />
+                <span data-measure-mark={measure.fromMark ?? ''}>
+                  {measure.fromMark === null ? 'Tap “Mark here”, then walk: the distance shows here.' : `From your mark: ${measureText(measure.fromMark, unit)}${measure.floorsApart ? ` (${Math.abs(measure.floorsApart)} floor${Math.abs(measure.floorsApart) === 1 ? '' : 's'} ${measure.floorsApart > 0 ? 'up' : 'down'})` : ''}`}
+                </span>
+              </p>
+            )}
+          </div>
+        )}
+
+        {where.floors > 1 && (
+          <div role="group" aria-label="Go to a floor" className="flex flex-col items-end gap-1.5">
+            {Array.from({ length: where.floors }, (_, i) => where.floors - i).map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => onFloor(n)}
+                aria-pressed={where.level === n}
+                style={{ minHeight: Math.round(44 * z), fontSize: Math.round(14 * z) }}
+                className={`pointer-events-auto cursor-pointer rounded-xl px-3 font-bold shadow-lg ring-1 transition ${where.level === n ? 'bg-emerald-700 text-white ring-emerald-800' : 'bg-white/90 text-slate-900 ring-slate-900/15 hover:bg-emerald-50'}`}
+              >
+                {where.level === n ? `Floor ${n} · here` : `Go to floor ${n}`}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* The mark in the middle and the place it rests on */}
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" aria-hidden>
