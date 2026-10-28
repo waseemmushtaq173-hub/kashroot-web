@@ -2,7 +2,8 @@
 import { NextResponse } from 'next/server';
 
 import { emailConfigured, normalise, sendCode, SmsProviderError, smsConfigured, whatsappConfigured, type Channel } from '@/lib/server/otp';
-import { hasSigningSecret, rateLimited } from '@/lib/server/sign';
+import { hashed, sharedLimited } from '@/lib/server/sharedLimit';
+import { hasSigningSecret } from '@/lib/server/sign';
 
 export async function POST(request: Request) {
   const { channel, to } = (await request.json().catch(() => ({}))) as { channel?: Channel; to?: string };
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
     );
   }
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-  if (rateLimited(`otp:${channel}:${target}`, 4, 15 * 60_000) || rateLimited(`otp-ip:${ip}`, 20, 15 * 60_000)) {
+  if ((await sharedLimited(`otp:${channel}:${hashed(target)}`, 4, 15 * 60_000)) || (await sharedLimited(`otp-ip:${hashed(ip)}`, 20, 15 * 60_000))) {
     return NextResponse.json({ error: 'Too many codes requested. Wait a few minutes and try again.' }, { status: 429 });
   }
   try {
@@ -30,12 +31,12 @@ export async function POST(request: Request) {
     if ((err as { code?: string })?.code === 'EAUTH') {
       return NextResponse.json({ error: 'The site’s email sender was refused by Gmail, so this step is optional for now.', unavailable: true }, { status: 502 });
     }
-    // Provider messages (e.g. Fast2SMS "Insufficient balance") say what to fix; they hold no secrets.
-    const reason = err instanceof SmsProviderError ? ` (${err.message})` : '';
+    // The provider's own words (e.g. Fast2SMS "Insufficient balance") are in the server's log above,
+    // not in the answer: they tell strangers about the site's SMS account.
     // A rejected key or empty balance is the site's problem, not the visitor's number.
     const siteSide = err instanceof SmsProviderError && /auth|key|token|permission|template|balance|wallet|recharge|verif|blocked|disabled|payment/i.test(err.message);
     const advice = siteSide ? ' This is a problem with the site’s setup, not your number — you can continue without it for now.' : ' Check the number and try again.';
     const what = channel === 'whatsapp' ? 'The WhatsApp message' : 'The code';
-    return NextResponse.json({ error: phone ? `${what} could not be sent${reason}.${advice}` : 'The email could not be sent. Check the address and try again.', unavailable: siteSide }, { status: 502 });
+    return NextResponse.json({ error: phone ? `${what} could not be sent.${advice}` : 'The email could not be sent. Check the address and try again.', unavailable: siteSide }, { status: 502 });
   }
 }

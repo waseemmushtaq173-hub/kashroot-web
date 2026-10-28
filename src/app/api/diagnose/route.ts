@@ -5,14 +5,17 @@
 import { NextResponse } from 'next/server';
 
 import { diagnosePhoto } from '@/lib/server/agronomist';
-import { asLang, claudeFailure, NOT_CONNECTED, throttled } from '@/lib/server/claude';
+import { aiLimited, asLang, claudeFailure, imageBlock, NOT_CONNECTED, PHOTO_BUDGET_SPENT, photoBudgetSpent } from '@/lib/server/claude';
 
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
-  if (throttled(req, 8)) return NextResponse.json({ error: 'Too many photos at once. Please wait a minute.' }, { status: 429 });
+  if (await aiLimited(req, 'photo', 8, 60)) return NextResponse.json({ error: 'Too many photos at once. Please wait a minute.' }, { status: 429 });
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   if (typeof body?.photo !== 'string') return NextResponse.json({ error: 'Add a photo first.' }, { status: 400 });
+  // A real JPEG / PNG / WebP / GIF only (checked by its bytes), before it counts towards the day's photo checks.
+  if (!imageBlock(body.photo)) return NextResponse.json({ error: 'That photo could not be read. Take a JPEG or PNG photo and try again.' }, { status: 400 });
+  if (await photoBudgetSpent()) return NextResponse.json({ error: PHOTO_BUDGET_SPENT }, { status: 429 });
   try {
     const diagnosis = await diagnosePhoto({
       photo: body.photo,

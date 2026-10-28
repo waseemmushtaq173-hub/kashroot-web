@@ -7,6 +7,8 @@ import 'server-only';
 
 import Anthropic from '@anthropic-ai/sdk';
 
+import { sharedIpLimited, sharedLimited } from '@/lib/server/sharedLimit';
+
 /** Claude Haiku 5.5: the low-cost model, so a small credit covers thousands of farmer questions. */
 export const MODEL = 'claude-haiku-5-5';
 /**
@@ -84,26 +86,45 @@ export const textOf = (content: Anthropic.Beta.BetaContentBlock[]) =>
     .join(' ')
     .trim();
 
-/** A data: URL image → a Claude image block (JPEG, PNG, WebP or GIF, at most ~4.5 MB). */
+/** The first bytes each image type starts with (its "magic number"). */
+const MAGIC: Record<string, (b: Buffer) => boolean> = {
+  'image/jpeg': (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
+  'image/png': (b) => b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
+  'image/webp': (b) => b.subarray(0, 4).toString('latin1') === 'RIFF' && b.subarray(8, 12).toString('latin1') === 'WEBP',
+  'image/gif': (b) => /^GIF8[79]a$/.test(b.subarray(0, 6).toString('latin1')),
+};
+
+/**
+ * A data: URL image → a Claude image block (JPEG, PNG, WebP or GIF, at most
+ * ~4.5 MB). The bytes must really be that kind of picture — a script or a
+ * program renamed image/png is refused, not passed on.
+ */
 export function imageBlock(dataUrl: unknown): Anthropic.Beta.BetaImageBlockParam | null {
   if (typeof dataUrl !== 'string') return null;
   const m = /^data:(image\/(?:jpeg|png|webp|gif));base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl);
-  if (!m || m[2].length > 6_000_000) return null;
+  if (!m || m[2].length > 6_000_000 || m[2].length < 64) return null;
+  if (!MAGIC[m[1]](Buffer.from(m[2].slice(0, 32), 'base64'))) return null;
   return { type: 'image', source: { type: 'base64', media_type: m[1] as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif', data: m[2] } };
 }
 
 /**
- * Very small per-instance throttle for the paid AI routes: at most `limit`
- * calls per IP per minute. Serverless instances don't share it, so it only
- * stops runaway loops, not a determined abuser.
+ * The paid AI routes' limit: at most `perMinute` calls a minute and
+ * `perDay` a day from one network, counted across every server instance
+ * (lib/server/sharedLimit), so the Anthropic credit cannot be drained by
+ * spreading calls out.
  */
-const hits = new Map<string, number[]>();
-export function throttled(req: Request, limit = 12): boolean {
-  const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'unknown';
-  const now = Date.now();
-  const recent = (hits.get(ip) ?? []).filter((t) => now - t < 60_000);
-  recent.push(now);
-  hits.set(ip, recent);
-  if (hits.size > 5000) hits.clear();
-  return recent.length > limit;
+export async function aiLimited(req: Request, name: string, perMinute = 12, perDay = 300): Promise<boolean> {
+  return (await sharedIpLimited(req, `ai-${name}`, perMinute, 60_000)) || (await sharedIpLimited(req, `ai-${name}-day`, perDay, 86_400_000));
 }
+
+/**
+ * The photo checks (Claude Opus, a few rupees each) for the whole site in a
+ * day: at most AI_PHOTO_DAILY_LIMIT (500 when not set). Past it, people are
+ * sent to an expert instead, so a flood cannot run up the bill.
+ */
+export async function photoBudgetSpent(): Promise<boolean> {
+  const cap = Math.max(1, Number(process.env.AI_PHOTO_DAILY_LIMIT) || 500);
+  return sharedLimited('ai-photo-day:all', cap, 86_400_000);
+}
+/** Said when the day's photo checks are used up. */
+export const PHOTO_BUDGET_SPENT = 'Automatic photo checks are used up for today. Press Ask an expert — an agronomist will look at your photo and answer.';

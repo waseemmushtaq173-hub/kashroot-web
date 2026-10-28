@@ -25,7 +25,8 @@ export async function GET(request: Request) {
   }
   const [details, crossings] = await Promise.allSettled([vahan(number), fastag(number)]);
   if (details.status === 'rejected' && crossings.status === 'rejected') {
-    return NextResponse.json({ error: 'The government vehicle service did not respond.', detail: String(details.reason?.message ?? details.reason) }, { status: 502 });
+    console.error('Vehicle lookup failed:', details.reason?.message ?? details.reason);
+    return NextResponse.json({ error: 'The government vehicle service did not respond.' }, { status: 502 });
   }
   return NextResponse.json({
     number,

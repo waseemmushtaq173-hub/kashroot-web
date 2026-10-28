@@ -7,12 +7,12 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
 
-import { claudeClient, MODEL, throttled } from '@/lib/server/claude';
+import { aiLimited, claudeClient, MODEL } from '@/lib/server/claude';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
-  if (throttled(req, 5)) return NextResponse.json({ error: 'Too many checks. Wait a minute.' }, { status: 429 });
+  if (await aiLimited(req, 'check', 5, 30)) return NextResponse.json({ error: 'Too many checks. Wait a minute.' }, { status: 429 });
   const client = claudeClient(30_000);
   if (!client) return NextResponse.json({ ok: false, model: MODEL, problem: 'ANTHROPIC_API_KEY is not set for this deployment.' });
   try {

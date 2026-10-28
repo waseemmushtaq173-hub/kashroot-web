@@ -19,7 +19,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
 
 import { matchAnswer, suggestAnswer, type BankAnswer } from '@/lib/server/answerBank';
-import { asLang, claudeClient, claudeConfigured, claudeFailure, LANGUAGE, MODEL, speechInstruction, splitSpeech, textOf, throttled, type Lang } from '@/lib/server/claude';
+import { asLang, claudeClient, claudeConfigured, claudeFailure, LANGUAGE, MODEL, speechInstruction, splitSpeech, textOf, aiLimited, type Lang } from '@/lib/server/claude';
 import { detectReplyLang } from '@/lib/langDetect';
 import { basicAnswer, needsLiveData, quickIntent, type Here } from '@/lib/server/basicAssistant';
 import { fetchMandiPrices } from '@/lib/server/mandi';
@@ -266,7 +266,7 @@ async function bankReply(b: BankAnswer, lang: Lang, wantDevanagari: boolean, cli
 }
 
 export async function POST(req: Request) {
-  if (throttled(req, 20)) return NextResponse.json({ error: 'Too many questions at once. Please wait a minute.' }, { status: 429 });
+  if (await aiLimited(req, 'assistant', 20, 400)) return NextResponse.json({ error: 'Too many questions at once. Please wait a minute.' }, { status: 429 });
   let body: { query?: string; lang?: string; exact?: boolean; history?: { role: string; text: string }[]; speakAs?: string; page?: string; where?: unknown };
   try {
     body = await req.json();

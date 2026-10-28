@@ -41,9 +41,8 @@ export async function GET(request: Request) {
     const detail = err instanceof Error ? err.message : String(err);
     // Agmarknet now asks for a CAPTCHA and data.gov.in refuses servers: say so plainly.
     const blocked = /CAPTCHA_REQUIRED|captcha/i.test(detail);
-    return NextResponse.json(
-      { error: blocked ? BLOCKED : err instanceof MandiError ? WHY[err.kind] : WHY.upstream, detail, blocked },
-      { status: 502 },
-    );
+    // The technical reason stays in the server's log (and /api/mandi/diagnose for the owner).
+    console.error('Mandi prices failed:', detail);
+    return NextResponse.json({ error: blocked ? BLOCKED : err instanceof MandiError ? WHY[err.kind] : WHY.upstream, blocked }, { status: 502 });
   }
 }

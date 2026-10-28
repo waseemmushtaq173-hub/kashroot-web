@@ -265,17 +265,20 @@ export function storedRoles(): string[] {
   }
 }
 
+/** Cookies earlier versions wrote. Nothing on the server reads them, and a sign-in token in a cookie goes out with every request: cleared. */
+const clearOldCookies = () => {
+  document.cookie = 'auth_token=; path=/; max-age=0; SameSite=Lax';
+  document.cookie = 'user_role=; path=/; max-age=0; SameSite=Lax';
+};
+
 export const tokenStore = {
   getToken: () => (typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null),
   setToken: (token: string, role?: string, roles?: string[]) => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('auth_token', token);
-      document.cookie = `auth_token=${token}; path=/; max-age=86400; SameSite=Lax`;
+      clearOldCookies();
       if (roles) localStorage.setItem('user_roles', JSON.stringify(roles));
-      if (role) {
-        localStorage.setItem('user_role', role);
-        document.cookie = `user_role=${role}; path=/; max-age=86400; SameSite=Lax`;
-      }
+      if (role) localStorage.setItem('user_role', role);
     }
   },
   removeToken: () => {
@@ -283,8 +286,7 @@ export const tokenStore = {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user_role');
       localStorage.removeItem('user_roles');
-      document.cookie = 'auth_token=; path=/; max-age=0; SameSite=Lax';
-      document.cookie = 'user_role=; path=/; max-age=0; SameSite=Lax';
+      clearOldCookies();
     }
   },
 };

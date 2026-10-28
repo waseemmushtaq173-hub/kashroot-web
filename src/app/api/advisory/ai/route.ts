@@ -7,12 +7,12 @@
 import { NextResponse } from 'next/server';
 
 import { adviseFarmer } from '@/lib/server/agronomist';
-import { asLang, claudeFailure, NOT_CONNECTED, throttled } from '@/lib/server/claude';
+import { aiLimited, asLang, claudeFailure, NOT_CONNECTED } from '@/lib/server/claude';
 
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
-  if (throttled(req)) return NextResponse.json({ error: 'Too many questions at once. Please wait a minute.' }, { status: 429 });
+  if (await aiLimited(req, 'advisory', 12, 120)) return NextResponse.json({ error: 'Too many questions at once. Please wait a minute.' }, { status: 429 });
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   const question = typeof body?.question === 'string' ? body.question.trim().slice(0, 2000) : '';
   if (!question) return NextResponse.json({ error: 'Describe the problem first.' }, { status: 400 });

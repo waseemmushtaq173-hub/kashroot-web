@@ -50,9 +50,8 @@ export async function GET(request: Request) {
     // A kept copy (Open-Meteo down) is not held at the edge: the next request tries for a fresh one.
     return NextResponse.json(f, { headers: { 'Cache-Control': f.stale ? 'public, s-maxage=60' : 'public, s-maxage=600, stale-while-revalidate=1200' } });
   } catch (err) {
-    return NextResponse.json(
-      { error: 'The weather service did not respond. Try again in a minute.', detail: err instanceof Error ? err.message : String(err) },
-      { status: 502 },
-    );
+    // The reason stays in the server's log; the person gets plain words.
+    console.error('Weather failed:', err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: 'The weather service did not respond. Try again in a minute.' }, { status: 502 });
   }
 }
