@@ -14,6 +14,8 @@
  * in Devanagari and the Hindi voice reads it (`speech`). Kashmiri has no
  * speech recognition anywhere yet, so listening uses Urdu.
  */
+import { humanPassReady, needHumanPass } from '@/lib/client/humanPass';
+
 export type SpeechLang = 'en' | 'hi' | 'ur' | 'ks';
 
 export const VOICE_CODE: Record<SpeechLang, string> = { en: 'en-IN', hi: 'hi-IN', ur: 'ur-IN', ks: 'ks-IN' };
@@ -83,13 +85,21 @@ let epoch = 0;
 
 /** Is KashRoot's voice set up? Asked once per page. */
 let serverVoice: Promise<boolean> | null = null;
-function serverVoiceOn(): Promise<boolean> {
-  if (typeof window === 'undefined' || typeof Audio === 'undefined') return Promise.resolve(false);
+/**
+ * KashRoot's voice can read now: it is set up, and this browser holds the
+ * "human pass" (lib/client/humanPass). Without the pass the phone's own voice
+ * reads this time, and the check is shown so the next answer has KashRoot's voice.
+ */
+async function serverVoiceOn(): Promise<boolean> {
+  if (typeof window === 'undefined' || typeof Audio === 'undefined') return false;
   serverVoice ??= fetch('/api/speak')
     .then((r) => r.json())
     .then((d: { configured?: boolean }) => Boolean(d.configured))
     .catch(() => false);
-  return serverVoice;
+  if (!(await serverVoice)) return false;
+  if (await humanPassReady()) return true;
+  needHumanPass();
+  return false;
 }
 
 /** The server reads at most this much at once (lib/server/voice VOICE_MAX_CHARS, less a margin). */

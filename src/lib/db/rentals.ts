@@ -11,6 +11,7 @@
  */
 import { asBuilding, type Building, type StoreRow } from '@/lib/coldStore';
 import { dbMessage, SETUP_NEEDED, supabase } from '@/lib/db/client';
+import { readableColumns } from '@/lib/db/phones';
 
 export type RentalKind = 'cold_store' | 'machinery';
 export type RentalUnit = 'box_month' | 'day' | 'hour';
@@ -113,8 +114,9 @@ const asListings = (rows: unknown[] | null): RentalListing[] =>
 
 /** Listings with the wizard's columns, or without them before that SQL is run. */
 async function readListings(query: (cols: string) => PromiseLike<{ data: unknown[] | null; error: { message?: string; code?: string } | null }>, fallback: string): Promise<RentalListing[]> {
-  let { data, error } = await query(LISTING_COLUMNS);
-  if (error && noStoreColumns(error.message)) ({ data, error } = await query(BASE_LISTING_COLUMNS));
+  // Signed out: no phone numbers (the database refuses them; the page says "Sign in to call").
+  let { data, error } = await query(await readableColumns(LISTING_COLUMNS));
+  if (error && noStoreColumns(error.message)) ({ data, error } = await query(await readableColumns(BASE_LISTING_COLUMNS)));
   if (error) fail(error, fallback);
   return asListings(data);
 }

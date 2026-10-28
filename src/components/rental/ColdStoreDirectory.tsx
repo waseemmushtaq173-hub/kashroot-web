@@ -18,6 +18,7 @@ import { toast } from '@/lib/client/toast';
 import { mergeDirectory, SOURCE_LABEL, type DirEntry, type DirSource, type SourceState } from '@/lib/coldDirectory';
 import { asEntry, directoryRows, suggestColdStore, type DirectoryRow } from '@/lib/db/coldDirectory';
 import type { RentalListing } from '@/lib/db/rentals';
+import { SignInToCall } from '@/components/market/SignInToCall';
 
 const theme = PORTAL_THEMES.rental;
 const PAGE = 60;
@@ -209,6 +210,7 @@ export function ColdStoreDirectory({
                         <Store className="h-3.5 w-3.5" aria-hidden /> Your store? List it
                       </button>
                     )}
+                    {e.phone === undefined && <SignInToCall portal="rental" compact />}
                     {e.phone && <a href={`tel:${e.phone}`} className="inline-flex items-center gap-1 font-semibold text-emerald-700"><Phone className="h-3.5 w-3.5" aria-hidden /> Call</a>}
                     {e.lat !== null && e.lon !== null && (
                       <a href={`https://www.google.com/maps/search/?api=1&query=${e.lat},${e.lon}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-semibold text-sky-800">

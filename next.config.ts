@@ -89,6 +89,8 @@ const nextConfig: NextConfig = {
       { source: '/login/seller', destination: '/login/farmer', permanent: false },
       { source: '/login/logistics', destination: '/login/tracking', permanent: false },
       { source: '/register/seller', destination: '/register/farmer', permanent: false },
+      // Agronomists make an Advisory account, then send their certificate in Advisory → "Are you an agronomist?" (Admin → Approvals).
+      { source: '/register/agronomist', destination: '/register/expert', permanent: false },
       { source: '/register/logistics', destination: '/register/tracking', permanent: false },
       { source: '/track', destination: '/tracking/dashboard', permanent: false },
       { source: '/track/:code', destination: '/tracking/dashboard?code=:code', permanent: false },

@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { refusedForPass } from '@/lib/client/humanPass';
 import { needsDevanagari, NO_VOICE_HELP, speak, stopSpeaking, type SpeechLang } from '@/lib/client/speech';
 import { ksText } from '@/lib/kashmiri/phrases';
 import { detectReplyLang, rememberLang } from '@/lib/langDetect';
@@ -109,7 +110,10 @@ export function useAssistant(opts: { page?: string } = {}) {
           // The page they are on (with its open tab), for "help me here".
           body: JSON.stringify({ query: question, lang, exact: how.exact || undefined, speakAs, path: opts.page ?? pageNow(), where: regionSpot(currentRegion()) ?? undefined }),
         });
+        // No "human pass" yet: the check shows in the panel (HumanGate); ask again after it.
+        const needsCheck = await refusedForPass(res);
         const data = (await res.json().catch(() => ({}))) as { reply?: string; error?: string; speech?: string; from?: { kind?: string; name?: string; reviewed?: boolean } };
+        if (needsCheck) data.error = lang === 'hi' ? 'ऊपर “I am human” जाँच पूरी करें, फिर दोबारा पूछें।' : lang === 'ur' || lang === 'ks' ? 'اوپر “I am human” جانچ مکمل کریں، پھر دوبارہ پوچھیں۔' : 'Please complete the “I am human” check above, then ask again.';
         const from = data.from?.kind === 'expert' && data.from.name ? { name: data.from.name, reviewed: Boolean(data.from.reviewed) } : undefined;
         if (data.reply) turn = { role: 'assistant', text: data.reply, lang, speech: data.speech, ...(from ? { from } : {}) };
         else {

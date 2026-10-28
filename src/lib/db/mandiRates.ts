@@ -5,6 +5,7 @@
  * anyone reads them; only reporters (role REPORTER) and admins post.
  */
 import { dbMessage, supabase } from '@/lib/db/client';
+import { readableColumns } from '@/lib/db/phones';
 
 export type RateUnit = 'box' | 'kg' | 'quintal';
 
@@ -40,15 +41,17 @@ export const KNOWN_MANDIS = ['Sopore', 'Parimpora (Srinagar)', 'Shopian', 'Pachh
 export const KNOWN_CROPS = ['Apple', 'Walnut', 'Almond', 'Cherry', 'Pear', 'Plum', 'Apricot', 'Saffron', 'Rice', 'Potato', 'Onion', 'Tomato', 'Vegetables'];
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
+/** Every column of a rate; signed out, the reporter's phone is left out (the database refuses it). */
+const RATE_COLUMNS = 'id, posted_by, reporter_name, phone, state, district, mandi, commodity, variety, grade, unit, box_kg, min_price, modal_price, max_price, rate_date, note, created_at, status, final, confirms, reports, checked_by, checked_at';
 
 /** Each reporter's latest rate per mandi, crop, variety and grade from the last few days. */
 export async function recentRates(days = 4): Promise<MandiRate[]> {
   const since = iso(new Date(Date.now() - days * 86_400_000));
-  const { data, error } = await supabase.from('mandi_rates').select('*').gte('rate_date', since).order('rate_date', { ascending: false }).order('created_at', { ascending: false }).limit(1000);
+  const { data, error } = await supabase.from('mandi_rates').select(await readableColumns(RATE_COLUMNS)).gte('rate_date', since).order('rate_date', { ascending: false }).order('created_at', { ascending: false }).limit(1000);
   if (error) throw new Error(dbMessage(error, 'Could not load the mandi rates.'));
   const seen = new Set<string>();
   // Rates KashRoot found wrong are never shown; the next-latest one is.
-  return ((data ?? []) as MandiRate[]).filter((r) => r.status !== 'wrong').filter((r) => {
+  return ((data ?? []) as unknown as MandiRate[]).filter((r) => r.status !== 'wrong').filter((r) => {
     const k = `${r.posted_by}|${r.mandi}|${r.commodity}|${r.variety ?? ''}|${r.grade ?? ''}`.toLowerCase();
     if (seen.has(k)) return false;
     seen.add(k);

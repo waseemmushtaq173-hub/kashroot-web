@@ -18,6 +18,7 @@ import { sendMessage, type AdvisoryRequest } from '@/lib/db/advisory';
 import { dbMessage, supabase } from '@/lib/db/client';
 import type { ListingInput } from '@/lib/db/market';
 import type { RateInput } from '@/lib/db/mandiRates';
+import { refusedForPass } from '@/lib/client/humanPass';
 
 import { newId, outbox, type OutboxItem } from './idb';
 import { isOfflineError, offlineNow } from './net';
@@ -118,6 +119,7 @@ async function firstAnswer(id: string, row: QuestionRow) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question: row.message, crop: row.crop, photo: row.photo, lang: row.lang, speakAs, kind: row.kind }),
     });
+    await refusedForPass(res);
     const data = (await res.json().catch(() => ({}))) as { reply?: string; speech?: string };
     if (data.reply) await sendMessage(id, 'ai', 'KashRoot AI', data.speech ? `${data.reply}\n@@SPEAK@@\n${data.speech}` : data.reply);
   } catch {

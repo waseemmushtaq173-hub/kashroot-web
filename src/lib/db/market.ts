@@ -12,6 +12,7 @@
  * leaves them out; sellers see both kinds in their order list.
  */
 import { dbMessage, supabase } from '@/lib/db/client';
+import { readableColumns } from '@/lib/db/phones';
 
 export type MarketCategory = 'produce' | 'supplies';
 export type MarketUnit = 'kg' | 'box' | 'quintal' | 'bag' | 'litre' | 'piece';
@@ -110,9 +111,9 @@ const MY_LISTING = 'id, seller_id, seller_name, phone, district, category, subca
 const myPhotos = new Map<string, { at: string; photo: string | null }>();
 
 export async function browseListings(category: MarketCategory): Promise<{ listings: MarketListing[]; verified: Set<string> }> {
-  const { data, error } = await supabase.from('market_listings').select(LISTING).eq('category', category).eq('active', true).gt('quantity', 0).order('updated_at', { ascending: false }).limit(300);
+  const { data, error } = await supabase.from('market_listings').select(await readableColumns(LISTING)).eq('category', category).eq('active', true).gt('quantity', 0).order('updated_at', { ascending: false }).limit(300);
   if (error) fail(error, 'Could not load products.');
-  const listings = (data ?? []) as MarketListing[];
+  const listings = (data ?? []) as unknown as MarketListing[];
   const ids = [...new Set(listings.map((l) => l.seller_id))];
   let verified = new Set<string>();
   if (ids.length) {

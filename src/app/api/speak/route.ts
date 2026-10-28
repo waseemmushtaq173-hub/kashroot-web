@@ -13,6 +13,7 @@ import { NextResponse } from 'next/server';
 
 import { sharedIpLimited, sharedLimited } from '@/lib/server/sharedLimit';
 import { speechAudio, VOICE_MAX_CHARS, voiceConfigured, VoiceError, type VoiceLang } from '@/lib/server/voice';
+import { hasHumanPass, needHuman } from '@/lib/server/humanPass';
 
 export const maxDuration = 20;
 
@@ -33,6 +34,8 @@ export async function GET(req: Request) {
   if (text.length > VOICE_MAX_CHARS) return NextResponse.json({ error: 'Too long to read at once.' }, { status: 413 });
   if (!voiceConfigured()) return NextResponse.json({ error: 'The KashRoot voice is not set up yet.' }, { status: 503 });
 
+  // A new sound costs money: only for a browser that passed the "I am human" check (when it is on).
+  if (!hasHumanPass(req)) return needHuman();
   const id = `${lang}|${text}`;
   let audio = kept.get(id);
   if (!audio) {

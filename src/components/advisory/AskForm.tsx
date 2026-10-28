@@ -19,6 +19,7 @@ import { compressImage } from '@/lib/client/image';
 import { isRtl, needsDevanagari, type SpeechLang } from '@/lib/client/speech';
 import { createRequest, sendMessage, type AdvisoryRequest, type RequestKind } from '@/lib/db/advisory';
 import type { Account } from '@/lib/db/client';
+import { refusedForPass } from '@/lib/client/humanPass';
 
 const theme = PORTAL_THEMES.expert;
 const CROPS = ['Apple', 'Walnut', 'Almond', 'Cherry', 'Pear', 'Saffron', 'Rice', 'Vegetables', 'Other'];
@@ -72,6 +73,7 @@ export function AskForm({ account, onSent, initialKind = 'question' }: { account
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ question: message.trim(), crop, photo, lang, speakAs, kind }),
         });
+        await refusedForPass(res);
         const data = (await res.json().catch(() => ({}))) as { reply?: string; speech?: string };
         if (data.reply) await sendMessage(req.id, 'ai', 'KashRoot AI', data.speech ? `${data.reply}\n@@SPEAK@@\n${data.speech}` : data.reply);
       } catch {

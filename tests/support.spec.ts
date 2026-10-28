@@ -59,6 +59,8 @@ test('the request service checks what it is given', async ({ request }) => {
 });
 
 test('the assistant sends sign-in trouble to Help & support', async ({ request }) => {
+  const human = (await (await request.get('/api/human')).json()) as { on?: boolean };
+  test.skip(Boolean(human.on), 'The "I am human" check is on here: scripts get no answer.');
   const res = await request.post('/api/ai', { data: { query: 'I cannot login, OTP not coming', lang: 'en', exact: true } });
   const body = await res.json();
   expect(body.reply).toContain('Help & support');

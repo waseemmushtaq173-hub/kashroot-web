@@ -7,6 +7,9 @@
 import { expect, test } from '@playwright/test';
 
 const ask = async (request: import('@playwright/test').APIRequestContext, body: Record<string, unknown>) => {
+  // With the "I am human" check on, a script gets no answer at all (tests/security.spec.ts proves that instead).
+  const human = (await (await request.get('/api/human')).json()) as { on?: boolean };
+  test.skip(Boolean(human.on), 'The "I am human" check is on here: scripts are refused, as they should be.');
   const res = await request.post('/api/ai', { data: body });
   expect(res.ok()).toBe(true);
   return (await res.json()) as { reply: string; lang: string; own?: boolean; unknown?: boolean };

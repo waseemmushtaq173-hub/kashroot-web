@@ -37,6 +37,7 @@ import { loadAccount } from '@/lib/db/client';
 import { detectReplyLang, rememberedLang, rememberLang } from '@/lib/langDetect';
 import { actionSentence, openingLine, voiceAction, type VoiceAction } from '@/lib/navIntent';
 import { cropNamed, useRegion, type Crop } from '@/lib/region';
+import { HumanGate } from '@/components/security/HumanGate';
 
 interface Suggestion {
   text: string;
@@ -290,6 +291,8 @@ export function VoiceConcierge({ compact = false, autoListen = false, onNavigate
       </div>
       {lang === 'doi' && <p className="relative mt-2 text-xs text-slate-500">Dogri: no browser can hear or speak Dogri yet, so KashRoot listens and answers in Hindi.</p>}
       <RegionChip district={district} className="relative mt-3" />
+      {/* The "I am human" check, once an hour, when the assistant or its voice needs it. */}
+      <HumanGate className="relative mt-3" />
 
       {configured === false && (
         <p role="alert" className="relative mt-4 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">

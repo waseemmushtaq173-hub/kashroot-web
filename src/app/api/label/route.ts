@@ -6,10 +6,13 @@ import { NextResponse } from 'next/server';
 
 import { readLabel } from '@/lib/server/agronomist';
 import { aiLimited, asLang, claudeFailure, imageBlock, NOT_CONNECTED, PHOTO_BUDGET_SPENT, photoBudgetSpent } from '@/lib/server/claude';
+import { hasHumanPass, needHuman } from '@/lib/server/humanPass';
 
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
+  // Public (no sign-in): people only, by the "I am human" pass when Turnstile is on.
+  if (!hasHumanPass(req)) return needHuman();
   if (await aiLimited(req, 'photo', 8, 60)) return NextResponse.json({ error: 'Too many photos at once. Please wait a minute.' }, { status: 429 });
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   if (typeof body?.photo !== 'string') return NextResponse.json({ error: 'Add a photo of the label first.' }, { status: 400 });

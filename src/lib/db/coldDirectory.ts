@@ -10,6 +10,7 @@
  */
 import { SOURCE_LABEL, type DirEntry } from '@/lib/coldDirectory';
 import { dbMessage, SETUP_NEEDED, supabase } from '@/lib/db/client';
+import { readableColumns } from '@/lib/db/phones';
 
 export interface DirectoryRow {
   id: string;
@@ -42,12 +43,14 @@ const missing = (m?: string) => /cold_store_directory|schema cache|does not exis
  */
 export async function directoryRows(): Promise<DirectoryRow[]> {
   const rows: DirectoryRow[] = [];
-  let cols = COLUMNS;
+  // Signed out: no phone numbers (20261107000000_private_phones.sql).
+  const all = await readableColumns(COLUMNS);
+  let cols = all;
   // Read in pages: the database returns at most 1,000 rows at a time.
   for (let from = 0; from < 20_000; from += 1000) {
     let { data, error } = await supabase.from('cold_store_directory').select(cols).order('district').order('name').range(from, from + 999);
-    if (error && cols === COLUMNS && noStatus(error.message)) {
-      cols = BASE_COLUMNS;
+    if (error && cols === all && noStatus(error.message)) {
+      cols = await readableColumns(BASE_COLUMNS);
       ({ data, error } = await supabase.from('cold_store_directory').select(cols).order('district').order('name').range(from, from + 999));
     }
     if (error) {

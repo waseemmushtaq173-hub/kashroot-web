@@ -34,6 +34,8 @@ import { isRtl, type SpeechLang } from '@/lib/client/speech';
 import { dbMessage, loadAccount, supabase, supabaseConfigured, type Account } from '@/lib/db/client';
 import { registryStats, searchRegistry, type OfficialHit, type OfficialKind, type RegistryStats } from '@/lib/db/registry';
 import { reportBatch } from '@/lib/db/security';
+import { HumanGate } from '@/components/security/HumanGate';
+import { refusedForPass } from '@/lib/client/humanPass';
 
 interface BatchRow {
   batch_code: string;
@@ -555,6 +557,7 @@ function LabelPhoto({ account }: { account: Account | null }) {
       setPhoto(image);
       setBusy(true);
       const res = await fetch('/api/label', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ photo: image, lang }) });
+      await refusedForPass(res);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? 'The label could not be read.');
       const r = data as LabelReading;
@@ -581,6 +584,7 @@ function LabelPhoto({ account }: { account: Account | null }) {
       <div className="flex flex-wrap items-center gap-3">
         <LangPicker value={lang} onChange={setLang} />
       </div>
+      <HumanGate />
       <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50/60 p-6 text-center text-emerald-900 hover:bg-emerald-50">
         {photo ? (
           // eslint-disable-next-line @next/next/no-img-element -- local preview

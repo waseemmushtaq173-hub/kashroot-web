@@ -18,6 +18,8 @@ import { compressImage } from '@/lib/client/image';
 import { isRtl, type SpeechLang } from '@/lib/client/speech';
 import { createRequest, sendMessage } from '@/lib/db/advisory';
 import type { Account } from '@/lib/db/client';
+import { HumanGate } from '@/components/security/HumanGate';
+import { refusedForPass } from '@/lib/client/humanPass';
 
 const theme = PORTAL_THEMES.farmer;
 const CROPS = ['Apple', 'Walnut', 'Almond', 'Cherry', 'Pear', 'Apricot', 'Saffron', 'Vegetables', 'Other'];
@@ -67,6 +69,7 @@ export function PhotoDiagnosis({ account }: { account: Account | null }) {
     setError(null);
     try {
       const res = await authFetch('/api/diagnose', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ photo, crop, notes, lang }) });
+      await refusedForPass(res);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? 'The photo could not be checked.');
       setResult(data as Diagnosis);
@@ -105,6 +108,7 @@ export function PhotoDiagnosis({ account }: { account: Account | null }) {
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
+      <HumanGate className="lg:col-span-2" />
       <div className="space-y-4">
         {photo ? (
           <div className="relative">

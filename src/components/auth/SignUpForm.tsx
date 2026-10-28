@@ -442,10 +442,7 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
         <p className="mt-6 flex items-center gap-2 border-t border-slate-900/5 pt-4 text-sm text-slate-600">
           <GraduationCap className="h-4 w-4 shrink-0" aria-hidden />
           <span>
-            Agronomist?{' '}
-            <Link href="/register/agronomist" className={`font-semibold ${look.text}`}>
-              Apply to answer questions
-            </Link>
+            Agronomist? Create this account first. Then, signed in to Advisory, open <strong className="text-slate-800">Are you an agronomist?</strong> and send a photo of your degree certificate or office ID — the KashRoot team checks it and phones you before approving.
           </span>
         </p>
       )}

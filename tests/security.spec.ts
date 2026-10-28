@@ -60,3 +60,20 @@ test('no secret reaches the browser', async ({ page }) => {
     expect(JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString()).role).not.toBe('service_role');
   }
 });
+
+test('the AI and voice need the "I am human" pass when the check is on', async ({ request }) => {
+  const status = (await (await request.get('/api/human')).json()) as { on: boolean; pass: boolean };
+  expect(Object.keys(status).sort()).toEqual(['on', 'pass']);
+  test.skip(!status.on, 'The check is off on this server (no TURNSTILE_SECRET_KEY).');
+  expect(status.pass).toBe(false);
+  const ask = await request.post('/api/ai', { data: { query: 'how do I sell apples', lang: 'en' } });
+  expect(ask.status()).toBe(403);
+  expect((await ask.json()).needHuman).toBe(true);
+  // A forged pass is not a pass.
+  const forged = await request.post('/api/ai', { data: { query: 'how do I sell apples', lang: 'en' }, headers: { cookie: `kr_human=${Math.floor(Date.now() / 1000) + 3600}.abc.forged` } });
+  expect(forged.status()).toBe(403);
+  expect((await request.get('/api/speak?l=en&t=hello%20there')).status()).toBe(403);
+  expect((await request.post('/api/label', { data: { photo: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD' } })).status()).toBe(403);
+  // A fake Turnstile token gets no pass.
+  expect((await request.post('/api/human', { data: { token: 'fake' } })).status()).toBe(403);
+});

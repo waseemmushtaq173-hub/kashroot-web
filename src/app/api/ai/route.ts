@@ -26,6 +26,7 @@ import { detectReplyLang } from '@/lib/langDetect';
 import { basicAnswer, needsLiveData, type Here } from '@/lib/server/basicAssistant';
 import { bhashiniConfigured, toKashmiri } from '@/lib/server/bhashini';
 import { finishKashmiri } from '@/lib/server/kashmiri';
+import { hasHumanPass, needHuman } from '@/lib/server/humanPass';
 
 export const maxDuration = 30;
 
@@ -76,6 +77,8 @@ async function bankReply(b: BankAnswer, lang: Lang, wantDevanagari: boolean): Pr
 }
 
 export async function POST(req: Request) {
+  // People, not scripts: the "I am human" pass (when Turnstile is on), then the limits.
+  if (!hasHumanPass(req)) return needHuman();
   if (await aiLimited(req, 'assistant', 30, 600)) return NextResponse.json({ error: 'Too many questions at once. Please wait a minute.' }, { status: 429 });
   let body: { query?: string; lang?: string; exact?: boolean; speakAs?: string; path?: string; where?: unknown };
   try {

@@ -23,6 +23,7 @@ import { HELP_TOPICS, TOPIC_LABEL, type SupportTopic } from '@/lib/helpTopics';
 import { isRtl, LANG_LABEL, speak, stopSpeaking, type SpeechLang } from '@/lib/client/speech';
 import { rememberedLang, rememberLang } from '@/lib/langDetect';
 import type { GuideText } from '@/lib/portalGuide';
+import { HumanGate } from '@/components/security/HumanGate';
 
 type Lang = 'en' | 'hi' | 'ur';
 const LANGS: Lang[] = ['en', 'hi', 'ur'];
@@ -191,6 +192,8 @@ export function SupportCenter() {
 
   return (
     <div className="space-y-10 [&_h2]:font-serif">
+      {/* KashRoot's voice needs the "I am human" pass; shown only when asked for. */}
+      <HumanGate />
       {/* Language for the answers (and the voice) */}
       <div role="group" aria-label="Language" className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-semibold text-slate-600">Language:</span>

@@ -12,6 +12,7 @@ import { amountOf, type ShopListing } from '@/components/market/shop/useLiveList
 import { Badge, type PortalTheme } from '@/components/portal/kit';
 import { inr } from '@/lib/db/client';
 import { CartButton } from '@/components/ui/CartButton';
+import { SignInToCall } from '@/components/market/SignInToCall';
 
 export function ProductPhoto({ listing: l, className = 'h-48' }: { listing: Pick<ShopListing, 'photo' | 'product'>; className?: string }) {
   if (l.photo === undefined) return <div aria-hidden className={`${className} w-full animate-pulse bg-slate-100`} />;
@@ -37,7 +38,7 @@ export function ProductCard({ listing: l, verified, own, inCart, onAdd, onOpen }
   onAdd: () => void;
   onOpen: () => void;
 }) {
-  const phone = l.phone.replace(/\D/g, '').slice(-10);
+  const phone = (l.phone ?? '').replace(/\D/g, '').slice(-10);
   return (
     <li className="flex flex-col overflow-hidden rounded-2xl bg-white/90 shadow-sm ring-1 ring-slate-900/5">
       {l.photo ? (
@@ -71,6 +72,8 @@ export function ProductCard({ listing: l, verified, own, inCart, onAdd, onOpen }
               {inCart ? `Add one more (${inCart} in cart)` : 'Add to cart'}
             </CartButton>
           )}
+          {/* Signed out, the number is not sent at all (lib/db/phones). */}
+          {l.phone === undefined && <SignInToCall portal="kissan" />}
           {/^[6-9]\d{9}$/.test(phone) && (
             <a href={`tel:+91${phone}`} aria-label={`Call ${l.seller_name}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200">
               <Phone className="h-4 w-4" aria-hidden />

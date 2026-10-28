@@ -7,6 +7,7 @@ import { Badge, type PortalTheme } from '@/components/portal/kit';
 import { inr } from '@/lib/db/client';
 import { amountOf, isNewToday, type ShopListing } from '@/components/market/shop/useLiveListings';
 import { CartButton } from '@/components/ui/CartButton';
+import { SignInToCall } from '@/components/market/SignInToCall';
 
 export function ListingCard({ listing: l, verified, lowest, own, onOrder }: { listing: ShopListing; verified: boolean; /** Cheapest of the kind being compared. */ lowest: boolean; own: boolean; theme: PortalTheme; onOrder: () => void }) {
   return (
@@ -43,7 +44,12 @@ export function ListingCard({ listing: l, verified, lowest, own, onOrder }: { li
           <p className="text-xs text-slate-500">{amountOf(Number(l.quantity), l.unit)} in stock</p>
         </div>
         <div className="flex gap-2">
-          <a href={`tel:${l.phone}`} aria-label={`Call ${l.seller_name}`} className="grid h-11 w-11 place-items-center rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200"><Phone className="h-4 w-4" aria-hidden /></a>
+          {/* Signed out, the number is not sent at all (lib/db/phones). */}
+          {l.phone === undefined ? (
+            <SignInToCall portal="buyer" />
+          ) : (
+            l.phone && <a href={`tel:${l.phone}`} aria-label={`Call ${l.seller_name}`} className="grid h-11 w-11 place-items-center rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200"><Phone className="h-4 w-4" aria-hidden /></a>
+          )}
           {own ? <Badge tone="violet">Yours</Badge> : <CartButton doneLabel={null} onClick={onOrder}>Order</CartButton>}
         </div>
       </div>

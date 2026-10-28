@@ -61,7 +61,8 @@ language sql stable security definer set search_path = public as $$
     (25, 'Shared rate limits',          '20261103000000_rate_limits.sql',                public.kr_setup_has_function('kr_rate_hit')),
     (26, 'Admin code kept with bcrypt', '20261104000000_admin_code_bcrypt.sql',          public.kr_setup_has_function('kr_code_matches')),
     (27, 'Help & support desk',         '20261105000000_support_desk.sql',               public.kr_setup_has_function('kr_support_open')),
-    (28, 'Security hardening',          '20261106000000_security_hardening.sql',         public.kr_setup_has_function('kr_log_event'))
+    (28, 'Security hardening',          '20261106000000_security_hardening.sql',         public.kr_setup_has_function('kr_log_event')),
+    (29, 'Phones only when signed in',  '20261107000000_private_phones.sql',             public.kr_setup_has_function('kr_hide_from_anon') and not has_column_privilege('anon', 'public.market_listings', 'phone', 'select'))
   ) as s(step, part, file, ok)
   order by s.step
 $$;

@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { dbMessage, supabase } from '@/lib/db/client';
 import type { MarketCategory, MarketListing, MarketUnit } from '@/lib/db/market';
+import { readableColumns } from '@/lib/db/phones';
 
 /** A listing as a shop shows it. `photo` is undefined while it is still coming. */
 export interface ShopListing extends Omit<MarketListing, 'photo'> {
@@ -55,10 +56,11 @@ export function useLiveListings(category: MarketCategory): LiveListings {
     running.current = category;
     const stale = () => current.current !== category;
     try {
-      const { data, error: err } = await supabase.from('market_listings').select(COLUMNS).eq('category', category).eq('active', true).gt('quantity', 0).order('updated_at', { ascending: false }).limit(300);
+      // Signed out: no phone numbers (the database refuses them; the card says "Sign in to call").
+      const { data, error: err } = await supabase.from('market_listings').select(await readableColumns(COLUMNS)).eq('category', category).eq('active', true).gt('quantity', 0).order('updated_at', { ascending: false }).limit(300);
       if (err) throw new Error(dbMessage(err, LOAD_FAILED));
       if (stale()) return;
-      const rows = (data ?? []) as Omit<ShopListing, 'photo'>[];
+      const rows = (data ?? []) as unknown as Omit<ShopListing, 'photo'>[];
       const cache = photos.current;
       const withPhotos = () => rows.map((r) => ({ ...r, photo: cache.get(r.id)?.at === r.updated_at ? cache.get(r.id)?.photo : undefined }));
       setListings(withPhotos());
