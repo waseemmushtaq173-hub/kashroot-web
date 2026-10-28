@@ -32,9 +32,11 @@ export function ColdStoreTestPage() {
   }, []);
   if (!view) return null;
   return (
-    <main className="mx-auto max-w-6xl p-4">
+    <main className="kr-light min-h-screen bg-[#fbf8f1] text-slate-900">
+      <div className="mx-auto max-w-6xl p-4">
       <p className="mb-3 rounded-xl bg-amber-100 px-3 py-2 text-sm font-semibold text-amber-950">Test page — nothing here is saved.</p>
       {view === 'owner' ? <OwnerWizard account={OWNER} listing={null} rows={[]} payout={null} start={step} onClose={() => {}} onChanged={() => {}} onPayout={() => {}} /> : <AsFarmersSee />}
+      </div>
     </main>
   );
 }

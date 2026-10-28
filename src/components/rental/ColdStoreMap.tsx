@@ -318,6 +318,23 @@ export function ColdStoreExplorer({
   mineName?: string;
 }) {
   const [view, setView] = useState<ExplorerView>('drawing');
+  // While the drawing is looked at, the 3D code (and three.js) loads in the background, so the
+  // 3D view opens at once when tapped — not on a phone that asked to save data.
+  useEffect(() => {
+    const nav = navigator as Navigator & { connection?: { saveData?: boolean } };
+    if (nav.connection?.saveData) return;
+    const load = () => {
+      void import('@/components/rental/ColdStore3D');
+      void import('three');
+    };
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(load, { timeout: 4000 });
+      return () => w.cancelIdleCallback?.(id);
+    }
+    const t = window.setTimeout(load, 1500);
+    return () => window.clearTimeout(t);
+  }, []);
   const { building, rate, waiting } = useStoreDetails(
     chambers[0]?.listing_id,
     buildingProp,
