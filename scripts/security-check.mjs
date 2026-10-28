@@ -59,7 +59,8 @@ for (const [path, body, what] of [
   ['/api/label', { photo: `data:image/jpeg;base64,${Buffer.from('MZ\x90\x00 this is a program '.repeat(8)).toString('base64')}` }, 'a program disguised as a JPEG'],
 ]) {
   const r = await post(path, body);
-  check([400, 413, 429, 503].includes(r.status), `${path}: ${what} is refused (400)`, `${r.status} ${r.text.slice(0, 80)}`);
+  // 403: refused before it was read, for want of the "I am human" pass (Turnstile on).
+  check([400, 403, 413, 429, 503].includes(r.status), `${path}: ${what} is refused (400 / 403)`, `${r.status} ${r.text.slice(0, 80)}`);
   check(!/at .*\(|node_modules|stack|ECONN|SQLSTATE|relation "|syntax error at/i.test(r.text), `${path}: ${what} — no internals in the answer`, r.text.slice(0, 120));
 }
 

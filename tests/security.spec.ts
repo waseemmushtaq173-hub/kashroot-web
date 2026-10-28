@@ -72,7 +72,8 @@ test('the AI and voice need the "I am human" pass when the check is on', async (
   // A forged pass is not a pass.
   const forged = await request.post('/api/ai', { data: { query: 'how do I sell apples', lang: 'en' }, headers: { cookie: `kr_human=${Math.floor(Date.now() / 1000) + 3600}.abc.forged` } });
   expect(forged.status()).toBe(403);
-  expect((await request.get('/api/speak?l=en&t=hello%20there')).status()).toBe(403);
+  // 403 without a pass — or 503 when the voice is not set up at all on this server.
+  expect([403, 503]).toContain((await request.get('/api/speak?l=en&t=hello%20there')).status());
   expect((await request.post('/api/label', { data: { photo: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD' } })).status()).toBe(403);
   // A fake Turnstile token gets no pass.
   expect((await request.post('/api/human', { data: { token: 'fake' } })).status()).toBe(403);
