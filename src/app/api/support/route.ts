@@ -14,6 +14,7 @@
  */
 import { NextResponse } from 'next/server';
 
+import { isHuman, NOT_HUMAN } from '@/lib/server/humanCheck';
 import { hashed, sharedIpLimited, sharedLimited } from '@/lib/server/sharedLimit';
 import { supabaseAnonKey, supabaseOrigin } from '@/lib/supabase-config';
 
@@ -70,6 +71,7 @@ export async function POST(req: Request) {
     if (!name) return NextResponse.json({ error: 'Write your name.' }, { status: 400 });
     if (message.length < 5) return NextResponse.json({ error: 'Tell us the problem in a few words.' }, { status: 400 });
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: 'That email does not look right — or leave it empty.' }, { status: 400 });
+    if (!(await isHuman(req, b.human))) return NextResponse.json({ error: NOT_HUMAN }, { status: 403 });
     if ((await sharedIpLimited(req, 'support-open', 5, 3_600_000)) || (await sharedLimited(`support-open:phone:${hashed(phone)}`, 5, 86_400_000))) {
       return NextResponse.json({ error: 'You have sent several requests already. KashRoot will call you — or check your request below with its number.' }, { status: 429 });
     }

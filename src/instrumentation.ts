@@ -37,9 +37,22 @@ export function register() {
   const needed = missing(['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY']);
   if (needed.length) console.warn(`[setup] ${needed.join(', ')} not set: sign-in and every portal are off.`);
   const helpful: Record<string, string> = {
-    KYC_DB_SECRET: 'identity checks are not recorded; shared rate limits and kept copies of outside sources use this server only',
-    ANTHROPIC_API_KEY: 'the assistant answers in basic mode and photo checks are off',
+    KYC_DB_SECRET: 'identity checks are not recorded; shared rate limits, the security log, help requests and kept copies of outside sources use this server only',
+    GOOGLE_TTS_API_KEY: 'answers are read by the phone’s own voice, not KashRoot’s',
+    TURNSTILE_SECRET_KEY: 'the bot check on sign-in, sign-up, codes and help requests is off',
+    ANTHROPIC_API_KEY: 'photo checks and the advisory first note are off (the assistant does not use it)',
     OTP_SECRET: 'one-time codes use a key derived from the provider secrets',
   };
   for (const name of missing(Object.keys(helpful))) console.warn(`[setup] ${name} not set: ${helpful[name]}.`);
+}
+
+/**
+ * Every server error Next.js catches (API routes, pages, server actions):
+ * one line in the log and a row for Admin → Security, without secrets
+ * (lib/server/securityLog). Errors a route catches itself it reports there too.
+ */
+export async function onRequestError(err: unknown, request: { path: string; method: string }, context: { routeType: string }) {
+  if (process.env.NEXT_RUNTIME !== 'nodejs') return;
+  const { serverError } = await import('@/lib/server/securityLog');
+  await serverError(request.path, request.method, context.routeType, err);
 }

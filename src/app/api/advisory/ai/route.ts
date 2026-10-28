@@ -7,11 +7,17 @@
 import { NextResponse } from 'next/server';
 
 import { adviseFarmer } from '@/lib/server/agronomist';
+import { requireUser } from '@/lib/server/auth';
+import { sharedLimited } from '@/lib/server/sharedLimit';
 import { aiLimited, asLang, claudeFailure, NOT_CONNECTED } from '@/lib/server/claude';
 
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
+  // Signed-in only (it follows a request sent from the Advisory portal), and limited per account.
+  const user = await requireUser(req);
+  if (!user) return NextResponse.json({ error: 'Sign in to Advisory to ask.' }, { status: 401 });
+  if (await sharedLimited(`ai-advisory:user:${user.id}`, 40, 86_400_000)) return NextResponse.json({ error: 'Many questions today — an expert will answer yours.' }, { status: 429 });
   if (await aiLimited(req, 'advisory', 12, 120)) return NextResponse.json({ error: 'Too many questions at once. Please wait a minute.' }, { status: 429 });
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   const question = typeof body?.question === 'string' ? body.question.trim().slice(0, 2000) : '';

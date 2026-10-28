@@ -37,6 +37,7 @@ import { ArrowRight, CircleAlert, Eye, EyeOff, Loader2, PlusCircle, UserRound } 
 import { ContactOtp, type PhoneRoute } from '@/components/auth/ContactOtp';
 import { PortalAuthFrame } from '@/components/auth/PortalAuthFrame';
 import { PORTAL_LOGIN } from '@/components/auth/portalLoginConfig';
+import { HumanCheck, humanCheckOn } from '@/components/security/HumanCheck';
 import { authApi, SELF_JOIN_ROLES, tokenStore } from '@/lib/api/auth';
 import { isMember, joinPortal, markPortalSignedIn, portalAccess, PORTAL_SIGNIN_LIMIT_MS, signedInPortals } from '@/lib/auth/portalAccess';
 import { AUTH_ROUTES, loginHref, PORTALS, portalForRole, portalOfPath, safeNextPath, type PortalId } from '@/lib/auth/roles';
@@ -83,6 +84,9 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  // The "I am human" check (off until its keys are set): a fresh token for each try.
+  const [human, setHuman] = useState<string | null>(null);
+  const [humanTry, setHumanTry] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<{ text: string; portal?: PortalId } | null>(null);
@@ -153,7 +157,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
 
   const focusRing = `focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${theme.outline}`;
   const inputClass = `block w-full rounded-xl border-0 bg-white/90 px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 shadow-sm ring-1 ring-inset ring-slate-200 transition focus:outline-none focus:ring-2 ${theme.inputFocus}`;
-  const canSubmit = email.trim() !== '' && password !== '' && !pending;
+  const canSubmit = email.trim() !== '' && password !== '' && !pending && (!humanCheckOn || Boolean(human));
 
   const finish = (session: Session) => {
     markPortalSignedIn(session.userId, portal);
@@ -218,7 +222,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
     setError(null);
     let navigating = false;
     try {
-      const data = await authApi.login({ email: email.trim(), password });
+      const data = await authApi.login({ email: email.trim(), password, captchaToken: human ?? undefined });
       if (!data.accessToken) throw new Error('Sign-in did not return a session. Please try again.');
 
       const accountRole = data.accountRole;
@@ -256,6 +260,8 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
       setError({ text: err instanceof Error && err.message ? err.message : 'Failed to sign in. Please check your connection.' });
     } finally {
       if (!navigating) setPending(false);
+      // Tokens work once.
+      setHumanTry((n) => n + 1);
     }
   };
 
@@ -538,6 +544,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
           </div>
         )}
 
+        <HumanCheck onToken={setHuman} resetKey={humanTry} action="signin" />
         <button
           type="submit"
           disabled={!canSubmit}

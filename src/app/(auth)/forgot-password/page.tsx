@@ -5,6 +5,7 @@ import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, KeyRound, Loader2, Mail, MailCheck } from 'lucide-react';
 
+import { HumanCheck, humanCheckOn } from '@/components/security/HumanCheck';
 import { publicOrigin } from '@/lib/site';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 
@@ -13,6 +14,8 @@ export default function ForgotPasswordPage() {
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [human, setHuman] = useState<string | null>(null);
+  const [humanTry, setHumanTry] = useState(0);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -20,8 +23,10 @@ export default function ForgotPasswordPage() {
     if (!supabaseConfigured) return setError('Password reset is not set up on this site yet.');
     setBusy(true);
     setError(null);
-    const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${publicOrigin()}/reset-password` });
+    const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${publicOrigin()}/reset-password`, ...(human ? { captchaToken: human } : {}) });
     setBusy(false);
+    setHumanTry((n) => n + 1);
+    if (err && /captcha/i.test(err.message)) return setError('Please complete the “I am human” check, then try again.');
     if (err && !/rate limit/i.test(err.message)) return setError(err.message);
     if (err) return setError('Too many requests. Please wait a few minutes and try again.');
     // Same message whether or not the account exists, so emails can't be probed.
@@ -59,7 +64,8 @@ export default function ForgotPasswordPage() {
           </span>
         </label>
         {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800 ring-1 ring-rose-200">{error}</p>}
-        <button type="submit" disabled={busy} className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 px-5 py-3.5 font-semibold text-white shadow-lg shadow-rose-600/30 transition hover:-translate-y-0.5 disabled:opacity-60">
+        <HumanCheck onToken={setHuman} resetKey={humanTry} action="reset" />
+        <button type="submit" disabled={busy || (humanCheckOn && !human)} className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 px-5 py-3.5 font-semibold text-white shadow-lg shadow-rose-600/30 transition hover:-translate-y-0.5 disabled:opacity-60">
           {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} Send reset link
         </button>
       </form>

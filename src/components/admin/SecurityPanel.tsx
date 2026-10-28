@@ -12,6 +12,7 @@ import { toast } from '@/lib/client/toast';
 
 import { AdminTeamPanel } from '@/components/admin/AdminTeamPanel';
 import { SecurityLogPanel } from '@/components/admin/SecurityLogPanel';
+import { TrafficPanel } from '@/components/admin/TrafficPanel';
 import { Btn, Field, INPUT, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { kycRules, lockAdminNow, setAdminCode, setKycRules, type KycRules } from '@/lib/db/security';
 
@@ -113,7 +114,11 @@ export function SecurityPanel() {
           {[
             'Admin portal unlisted, and locked with your code (5 wrong tries → blocked 15 minutes)',
             'Admin locks itself after 15 minutes without use',
-            'Password guessing stopped: 8 wrong passwords → that account’s sign-in paused 15 minutes',
+            'Password guessing stopped: 8 wrong passwords → that account’s sign-in paused 15 minutes (counted across every server)',
+            'Sign-in only with a confirmed email or phone',
+            'Sign-ins, sign-ups, reset emails, refusals and server errors logged (hashed — no emails or addresses kept)',
+            '“I am human” check on sign-in, sign-up, password reset, codes and help requests (when its keys are set)',
+            'Photos must be real JPEG, PNG or WebP images (checked by their bytes)',
             'Every table protected by row-level security in the database',
             'Identity checks recorded only by the KashRoot server',
             'Strict browser rules (CSP): scripts only from KashRoot, data sent only to KashRoot’s services',
@@ -127,6 +132,7 @@ export function SecurityPanel() {
         <Btn theme={theme} variant="danger" className="mt-4" icon={LockKeyhole} onClick={() => void lockAdminNow().then(() => window.location.reload())}>Lock Admin portal now</Btn>
       </Panel>
 
+      <TrafficPanel />
       <SecurityLogPanel />
     </div>
   );

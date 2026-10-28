@@ -1,12 +1,18 @@
-/** POST { channel: 'sms' | 'whatsapp' | 'email', to } → { token } (the code goes only to the phone or inbox). */
+/**
+ * POST { channel: 'sms' | 'whatsapp' | 'email', to, human? } → { token } (the code goes only to the phone or inbox).
+ * Each code costs money: limited per number and per network (shared by all instances), and — when the
+ * "I am human" check is switched on (TURNSTILE_SECRET_KEY) — only for a browser that passed it.
+ */
 import { NextResponse } from 'next/server';
 
 import { emailConfigured, normalise, sendCode, SmsProviderError, smsConfigured, whatsappConfigured, type Channel } from '@/lib/server/otp';
-import { hashed, sharedLimited } from '@/lib/server/sharedLimit';
+import { isHuman, NOT_HUMAN } from '@/lib/server/humanCheck';
+import { securityEvent } from '@/lib/server/securityLog';
+import { hashed, sharedIpLimited, sharedLimited } from '@/lib/server/sharedLimit';
 import { hasSigningSecret } from '@/lib/server/sign';
 
 export async function POST(request: Request) {
-  const { channel, to } = (await request.json().catch(() => ({}))) as { channel?: Channel; to?: string };
+  const { channel, to, human } = (await request.json().catch(() => ({}))) as { channel?: Channel; to?: string; human?: string };
   if (channel !== 'sms' && channel !== 'whatsapp' && channel !== 'email') return NextResponse.json({ error: 'Choose SMS, WhatsApp or email.' }, { status: 400 });
   const phone = channel !== 'email';
   const target = normalise(channel, String(to ?? ''));
@@ -19,10 +25,12 @@ export async function POST(request: Request) {
       { status: 503 },
     );
   }
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-  if ((await sharedLimited(`otp:${channel}:${hashed(target)}`, 4, 15 * 60_000)) || (await sharedLimited(`otp-ip:${hashed(ip)}`, 20, 15 * 60_000))) {
+  if (!(await isHuman(request, human))) return NextResponse.json({ error: NOT_HUMAN }, { status: 403 });
+  if (await sharedLimited(`otp:${channel}:${hashed(target)}`, 4, 15 * 60_000)) {
+    securityEvent('rate_limited', { request, account: target, detail: 'otp-send: 4 codes to one number in 15 min' });
     return NextResponse.json({ error: 'Too many codes requested. Wait a few minutes and try again.' }, { status: 429 });
   }
+  if (await sharedIpLimited(request, 'otp', 20, 15 * 60_000)) return NextResponse.json({ error: 'Too many codes requested. Wait a few minutes and try again.' }, { status: 429 });
   try {
     const { token, via } = await sendCode(channel, target);
     return NextResponse.json({ token, via, to: phone ? `••••••${target.slice(-4)}` : target });

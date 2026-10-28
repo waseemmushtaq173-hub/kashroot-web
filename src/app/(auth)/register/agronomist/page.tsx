@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { AlertCircle, Loader2, UploadCloud, FileText } from 'lucide-react';
+import { HumanCheck, humanCheckOn } from '@/components/security/HumanCheck';
 import { authApi } from '@/lib/api/auth';
 import { loginHref } from '@/lib/auth/roles';
 
@@ -12,6 +13,8 @@ export default function ExpertRegistrationPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [human, setHuman] = useState<string | null>(null);
+  const [humanTry, setHumanTry] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const { register, handleSubmit } = useForm<Record<string, string>>();
@@ -21,7 +24,7 @@ export default function ExpertRegistrationPage() {
     setErrorMsg(null);
     try {
       const { password, ...profile } = data;
-      await authApi.register({ email: data.email, password, fullName: data.fullName, role: 'EXPERT', portal: 'expert' });
+      await authApi.register({ email: data.email, password, fullName: data.fullName, role: 'EXPERT', portal: 'expert', captchaToken: human ?? undefined });
       // Credential review stays in this browser until an advisory API exists.
       // Never keep the password.
       localStorage.setItem('expert_application', JSON.stringify({ ...profile, status: 'PENDING_VERIFICATION' }));
@@ -35,6 +38,7 @@ export default function ExpertRegistrationPage() {
       setErrorMsg(e instanceof Error && e.message ? e.message : 'Registration failed');
     } finally {
       setLoading(false);
+      setHumanTry((n) => n + 1);
     }
   };
 
@@ -135,7 +139,8 @@ export default function ExpertRegistrationPage() {
           <input type="file" className="hidden" />
         </div>
 
-        <button type="submit" disabled={loading} className="kr-btn-primary w-full flex justify-center items-center mt-6">
+        <HumanCheck onToken={setHuman} resetKey={humanTry} action="signup" />
+        <button type="submit" disabled={loading || (humanCheckOn && !human)} className="kr-btn-primary w-full flex justify-center items-center mt-6">
           {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Submit Application'}
         </button>
 

@@ -1,15 +1,22 @@
 /**
  * POST /api/diagnose — what a leaf, fruit or bark photo most likely shows.
  * Body: { photo: data: URL (JPEG/PNG/WebP), crop?, notes?, lang? } → Diagnosis
+ * Signed-in only (Farmer portal → Orchard Health): each check costs money, so
+ * it is limited per account and per network, and by the day's budget.
  */
 import { NextResponse } from 'next/server';
 
 import { diagnosePhoto } from '@/lib/server/agronomist';
+import { requireUser } from '@/lib/server/auth';
+import { sharedLimited } from '@/lib/server/sharedLimit';
 import { aiLimited, asLang, claudeFailure, imageBlock, NOT_CONNECTED, PHOTO_BUDGET_SPENT, photoBudgetSpent } from '@/lib/server/claude';
 
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
+  const user = await requireUser(req);
+  if (!user) return NextResponse.json({ error: 'Sign in to the Farmer portal to check a photo.' }, { status: 401 });
+  if (await sharedLimited(`ai-photo:user:${user.id}`, 30, 86_400_000)) return NextResponse.json({ error: 'You have checked many photos today. Press Ask an expert — an agronomist will look at it.' }, { status: 429 });
   if (await aiLimited(req, 'photo', 8, 60)) return NextResponse.json({ error: 'Too many photos at once. Please wait a minute.' }, { status: 429 });
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   if (typeof body?.photo !== 'string') return NextResponse.json({ error: 'Add a photo first.' }, { status: 400 });

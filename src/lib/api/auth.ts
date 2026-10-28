@@ -24,6 +24,7 @@ function friendlyAuthError(message: string | undefined, fallback: string): strin
   if (message?.startsWith('[setup] ')) return message.slice(8);
   const m = (message ?? '').toLowerCase();
   if (m.includes('invalid api key') || m.includes('no api key')) return 'The sign-in key saved for this site is wrong. In Supabase open Project Settings → API Keys, copy the anon (publishable) key, put it in Vercel as NEXT_PUBLIC_SUPABASE_ANON_KEY and redeploy.';
+  if (m.includes('captcha')) return 'Please complete the “I am human” check, then try again.';
   if (m.includes('email not confirmed')) return 'Your email is not confirmed yet. Open the confirmation link we emailed you (check Spam/Promotions too), then sign in.';
   if (m.includes('invalid login credentials')) return 'Wrong email or password. If you have not created an account yet, use Create an account.';
   if (m.includes('already registered') || m.includes('already been registered')) return 'An account with this email already exists. Sign in instead, or use Forgot password.';
@@ -55,11 +56,14 @@ export interface RegisterDto {
   phone?:   string;
   /** The portal the person signed up from; the confirmation link returns there. */
   portal?:  PortalId;
+  /** The "I am human" token (components/security/HumanCheck), checked by Supabase when its CAPTCHA is on. */
+  captchaToken?: string;
 }
 
 export interface LoginDto {
   email:    string;
   password: string;
+  captchaToken?: string;
 }
 
 export interface VerifyOtpDto {
@@ -152,6 +156,7 @@ export const authApi = {
         // The confirmation link opens this site's sign-in for the chosen portal
         // (without it Supabase uses its "Site URL", often still localhost).
         emailRedirectTo: confirmRedirect(dto.role, dto.portal),
+        ...(dto.captchaToken ? { captchaToken: dto.captchaToken } : {}),
         data: {
           full_name: dto.fullName,
           role: dto.role,
@@ -205,10 +210,19 @@ export const authApi = {
     const { data, error } = await supabase.auth.signInWithPassword({
       email: dto.email,
       password: dto.password,
+      ...(dto.captchaToken ? { options: { captchaToken: dto.captchaToken } } : {}),
     });
 
     if (error) {
       throw new Error(friendlyAuthError(error.message, 'Invalid email or password'));
+    }
+
+    // Only a confirmed email (or phone) signs in. Supabase's "Confirm email" refuses the others
+    // itself; this holds even if that setting is ever switched off. (Accounts made while it was
+    // off were confirmed by Supabase automatically, so none is locked out.)
+    if (data.user && !data.user.email_confirmed_at && !data.user.phone_confirmed_at) {
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
+      throw new Error(friendlyAuthError('email not confirmed', ''));
     }
 
     // The role recorded at sign-up wins; kr_mock_role stays as the fallback
@@ -271,11 +285,18 @@ const clearOldCookies = () => {
   document.cookie = 'user_role=; path=/; max-age=0; SameSite=Lax';
 };
 
+/**
+ * The portals' "signed in here" marker and roles. The access token itself is
+ * NOT copied here (Supabase keeps the session; lib/auth-fetch reads it from
+ * there): one copy fewer for a script to find, and never a stale one.
+ */
+const SIGNED_IN = 'signed-in';
 export const tokenStore = {
+  /** True-ish when this device signed in through a portal (not the token). */
   getToken: () => (typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null),
-  setToken: (token: string, role?: string, roles?: string[]) => {
+  setToken: (_token: string, role?: string, roles?: string[]) => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('auth_token', token);
+      localStorage.setItem('auth_token', SIGNED_IN);
       clearOldCookies();
       if (roles) localStorage.setItem('user_roles', JSON.stringify(roles));
       if (role) localStorage.setItem('user_role', role);

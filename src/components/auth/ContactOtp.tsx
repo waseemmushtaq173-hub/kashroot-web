@@ -9,6 +9,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { CheckCircle2, Loader2, Mail, Send, ShieldCheck, Smartphone } from 'lucide-react';
 
+import { HumanCheck, humanCheckOn } from '@/components/security/HumanCheck';
 import { OtpBoxes, OtpCard } from '@/components/ui/OtpBoxes';
 
 /** Full class strings for the panel's accent colour. */
@@ -67,6 +68,9 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
   const [busy, setBusy] = useState<'send' | 'verify' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [wait, setWait] = useState(0);
+  // The "I am human" check (off until its keys are set): codes cost money, so bots get none. A fresh token for each send.
+  const [human, setHuman] = useState<string | null>(null);
+  const [humanTry, setHumanTry] = useState(0);
 
   useEffect(() => {
     if (wait <= 0) return;
@@ -87,7 +91,8 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
     setBusy('send');
     setError(null);
     try {
-      const res = await fetch('/api/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel, to: value }) });
+      const res = await fetch('/api/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel, to: value, human }) });
+      setHumanTry((n) => n + 1);
       const data = await res.json().catch(() => ({}));
       if (!res.ok && (data.unavailable || data.configured === false)) onUnavailable?.();
       if (!res.ok) throw new Error(data.error ?? 'Could not send the OTP.');
@@ -106,12 +111,12 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
   // Send once on open (the ref keeps React's double effect run from sending twice).
   const autoSent = useRef(false);
   useEffect(() => {
-    if (!autoSend || autoSent.current || !valid) return;
+    if (!autoSend || autoSent.current || !valid || (humanCheckOn && !human)) return;
     autoSent.current = true;
     void send();
-    // Runs once on open; `send` reads the current value itself.
+    // Runs once on open (after the human check, when it is on); `send` reads the current value itself.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoSend, valid]);
+  }, [autoSend, valid, human]);
 
   const verify = async () => {
     if (!token || code.length !== 6) return;
@@ -155,6 +160,7 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
 
       {!verified && (
         <div className="mt-3 space-y-2.5">
+          <HumanCheck onToken={setHuman} resetKey={humanTry} action="otp" />
           <div className="flex gap-2">
             <label htmlFor={id} className="sr-only">{fieldLabel}</label>
             <span className="relative flex-1">
@@ -179,7 +185,7 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
             </span>
             {/* Once a code is sent, "Resend OTP" lives on the code card. */}
             {!token && (
-              <button type="button" onClick={() => void send()} disabled={busy !== null || !valid || wait > 0} className={`${BUTTON} ${accent.button}`}>
+              <button type="button" onClick={() => void send()} disabled={busy !== null || !valid || wait > 0 || (humanCheckOn && !human)} className={`${BUTTON} ${accent.button}`}>
                 {busy === 'send' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
                 {wait > 0 ? `Resend ${wait}s` : 'Send OTP'}
               </button>

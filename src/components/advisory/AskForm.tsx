@@ -8,6 +8,7 @@
  */
 import { useState } from 'react';
 import { Camera, FlaskConical, Loader2, MessageCircle, Send, Video, X } from 'lucide-react';
+import { authFetch } from '@/lib/auth-fetch';
 import { toast } from '@/lib/client/toast';
 
 import { Btn, Field, INPUT, PORTAL_THEMES } from '@/components/portal/kit';
@@ -66,7 +67,7 @@ export function AskForm({ account, onSent, initialKind = 'question' }: { account
       // Instant first answer from the AI agronomist; the expert still replies.
       try {
         const speakAs = (await needsDevanagari(lang)) ? 'hi' : undefined;
-        const res = await fetch('/api/advisory/ai', {
+        const res = await authFetch('/api/advisory/ai', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ question: message.trim(), crop, photo, lang, speakAs, kind }),

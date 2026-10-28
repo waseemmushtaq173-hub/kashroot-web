@@ -11,6 +11,7 @@
  * is signed in on this phone, with the database's own rules (row-level
  * security) checking it as for any other request.
  */
+import { authFetch } from '@/lib/auth-fetch';
 import { toast } from '@/lib/client/toast';
 import { needsDevanagari } from '@/lib/client/speech';
 import { sendMessage, type AdvisoryRequest } from '@/lib/db/advisory';
@@ -112,7 +113,7 @@ function judge(item: OutboxItem, error: DbError, status: number): Outcome {
 async function firstAnswer(id: string, row: QuestionRow) {
   try {
     const speakAs = (await needsDevanagari(row.lang)) ? 'hi' : undefined;
-    const res = await fetch('/api/advisory/ai', {
+    const res = await authFetch('/api/advisory/ai', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question: row.message, crop: row.crop, photo: row.photo, lang: row.lang, speakAs, kind: row.kind }),

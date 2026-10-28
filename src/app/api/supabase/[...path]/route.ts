@@ -9,6 +9,11 @@
  *     one network) in 15 minutes, sign-in is paused for 15 minutes;
  *   - mass sign-ups and reset-email floods from one network;
  *   - request floods on the data API.
+ * The sign-in, sign-up and email counts are shared by every server instance
+ * (lib/server/sharedLimit), so spreading the guesses over instances does not
+ * help. Every sign-in (right or wrong), sign-up, reset email and pause is
+ * logged (lib/server/securityLog) — hashed, never the email or password.
+ * Supabase keeps its own limits behind this, for anyone calling it directly.
  * Limits are generous because many farmers share one mobile-network address.
  */
 const FIFTEEN_MIN = 15 * 60_000;
@@ -24,7 +29,9 @@ function account(body: ArrayBuffer | undefined): string {
     return '';
   }
 }
-import { clientIp, clearHits, countHit, rateLimited, recentCount } from '@/lib/server/sign';
+import { securityEvent } from '@/lib/server/securityLog';
+import { hashed, sharedClear, sharedCount, sharedLimited, sharedRecord } from '@/lib/server/sharedLimit';
+import { clientIp, rateLimited } from '@/lib/server/sign';
 import { supabaseOrigin } from '@/lib/supabase-config';
 
 export const dynamic = 'force-dynamic';
@@ -37,10 +44,12 @@ const PASS_RESPONSE = ['content-type', 'content-range', 'x-supabase-api-version'
 const problem = (status: number, msg: string) => Response.json({ msg: `[setup] ${msg}`, message: `[setup] ${msg}` }, { status });
 
 async function proxy(request: Request, { params }: { params: Promise<{ path: string[] }> }) {
+  // Only Supabase's sign-in and data APIs, and no path tricks ("..", encoded slashes).
+  const parts = (await params).path;
+  const path = parts.join('/');
+  if (!ALLOWED.test(path) || parts.some((p) => p === '..' || p === '.' || /[\\/%]/.test(p))) return Response.json({ msg: 'Not found' }, { status: 404 });
   const origin = supabaseOrigin(process.env.NEXT_PUBLIC_SUPABASE_URL);
   if (!origin) return problem(503, 'Sign-in is not set up on this site yet: add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel and redeploy.');
-  const path = (await params).path.join('/');
-  if (!ALLOWED.test(path)) return Response.json({ msg: 'Not found' }, { status: 404 });
 
   const headers = new Headers();
   for (const name of PASS_REQUEST) {
@@ -49,19 +58,29 @@ async function proxy(request: Request, { params }: { params: Promise<{ path: str
   }
   const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
   const body = hasBody ? await request.arrayBuffer() : undefined;
-  const ip = clientIp(request);
+  const ip = hashed(clientIp(request));
   const query = new URL(request.url).searchParams;
   const passwordSignIn = path === 'auth/v1/token' && query.get('grant_type') === 'password';
   const who = passwordSignIn || /^auth\/v1\/(recover|otp|resend)$/.test(path) ? account(body) : '';
 
+  const whoKey = who ? hashed(who) : '';
+
   if (passwordSignIn) {
-    if ((who && recentCount(`pw-fail:${who}`, FIFTEEN_MIN) >= 8) || recentCount(`pw-fail-ip:${ip}`, FIFTEEN_MIN) >= 40) {
+    const [mine, network] = await Promise.all([whoKey ? sharedCount(`pw-fail:${whoKey}`, FIFTEEN_MIN) : 0, sharedCount(`pw-fail-ip:${ip}`, FIFTEEN_MIN)]);
+    if (mine >= 8 || network >= 40) {
+      securityEvent('signin_paused', { request, account: who, path, status: 429, detail: mine >= 8 ? 'account: 8 wrong passwords in 15 min' : 'network: 40 wrong passwords in 15 min' });
       return paused('Too many wrong passwords. For safety, sign-in is paused for 15 minutes. Use “Forgot password” if you do not remember it.');
     }
   } else if (path === 'auth/v1/signup') {
-    if (rateLimited(`signup-ip:${ip}`, 30, 60 * 60_000)) return paused('Too many new accounts from this network. Please try again in an hour.');
+    if (await sharedLimited(`signup-ip:${ip}`, 30, 60 * 60_000)) {
+      securityEvent('signup_paused', { request, path, status: 429, detail: '30 new accounts from one network in an hour' });
+      return paused('Too many new accounts from this network. Please try again in an hour.');
+    }
   } else if (who) {
-    if (rateLimited(`mail:${who}`, 4, FIFTEEN_MIN) || rateLimited(`mail-ip:${ip}`, 20, FIFTEEN_MIN)) return paused('Too many emails or codes requested. Please wait 15 minutes.');
+    if ((await sharedLimited(`mail:${whoKey}`, 4, FIFTEEN_MIN)) || (await sharedLimited(`mail-ip:${ip}`, 20, FIFTEEN_MIN))) {
+      securityEvent('email_paused', { request, account: who, path, status: 429, detail: 'too many emails or codes in 15 min' });
+      return paused('Too many emails or codes requested. Please wait 15 minutes.');
+    }
   } else if (path.startsWith('rest/')) {
     if (rateLimited(`rest-ip:${ip}`, 1200, 60_000)) return Response.json({ message: 'Too many requests. Please wait a minute.' }, { status: 429, headers: { 'retry-after': '60' } });
   }
@@ -102,9 +121,19 @@ async function proxy(request: Request, { params }: { params: Promise<{ path: str
 
   if (passwordSignIn) {
     if (upstream.status === 400 || upstream.status === 401) {
-      if (who) countHit(`pw-fail:${who}`);
-      countHit(`pw-fail-ip:${ip}`);
-    } else if (upstream.ok && who) clearHits(`pw-fail:${who}`);
+      await Promise.all([whoKey ? sharedRecord(`pw-fail:${whoKey}`, FIFTEEN_MIN) : null, sharedRecord(`pw-fail-ip:${ip}`, FIFTEEN_MIN)]);
+      securityEvent('signin_fail', { request, account: who, path, status: upstream.status });
+    } else if (upstream.ok) {
+      if (whoKey) await sharedClear(`pw-fail:${whoKey}`);
+      securityEvent('signin_ok', { request, account: who, path, status: upstream.status });
+    }
+  } else if (path === 'auth/v1/signup' && upstream.ok) {
+    securityEvent('signup', { request, path, status: upstream.status });
+  } else if (path === 'auth/v1/recover' && upstream.ok) {
+    securityEvent('reset_email', { request, account: who, path, status: upstream.status });
+  } else if (upstream.status === 401 || upstream.status === 403) {
+    // A data request refused (no permission, or an expired / forged token): worth seeing when it comes in waves.
+    if (path.startsWith('rest/')) securityEvent('forbidden', { request, path: path.split('?')[0].slice(0, 120), status: upstream.status });
   }
 
   const out = new Headers();

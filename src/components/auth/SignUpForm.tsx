@@ -25,6 +25,7 @@ import { authApi, type RegisterDto } from '@/lib/api/auth';
 import { loginHref, PORTALS, REGISTER_ROLES, SIGNUP_ROLE, type PortalId, type SignUpRole } from '@/lib/auth/roles';
 import { getKycConfig } from '@/lib/kyc/kyc-service';
 import { weakPassword } from '@/lib/auth/passwordRules';
+import { HumanCheck, humanCheckOn } from '@/components/security/HumanCheck';
 
 type RegisterRole = SignUpRole;
 
@@ -159,8 +160,12 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
   const phoneValue = useWatch({ control, name: 'phone', defaultValue: '' });
   const password = useWatch({ control, name: 'password', defaultValue: '' });
 
+  // The "I am human" check (off until its keys are set): a fresh token for each try.
+  const [human, setHuman] = useState<string | null>(null);
+  const [humanTry, setHumanTry] = useState(0);
   const registerMutation = useMutation({
     mutationFn: (dto: RegisterDto) => authApi.register(dto),
+    onSettled: () => setHumanTry((n) => n + 1),
     onSuccess: (result) => {
       setSuccess(true);
       setJoinedExisting(Boolean(result.joinedExisting));
@@ -185,7 +190,7 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
     // The confirmation is only checked in the form; it is never sent.
     const dto: Partial<typeof values> = { ...values };
     delete dto.confirmPassword;
-    registerMutation.mutate({ ...(dto as RegisterDto), role: selectedRole, portal: homePortal });
+    registerMutation.mutate({ ...(dto as RegisterDto), role: selectedRole, portal: homePortal, captchaToken: human ?? undefined });
   };
 
   const errorMsg =
@@ -421,9 +426,10 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
           </span>
         </label>
 
+        <HumanCheck onToken={setHuman} resetKey={humanTry} action="signup" />
         <button
           type="submit"
-          disabled={!isFormValid || registerMutation.isPending}
+          disabled={!isFormValid || registerMutation.isPending || (humanCheckOn && !human)}
           className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-4 text-base font-semibold shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 ${look.button}`}
         >
           {registerMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : null}

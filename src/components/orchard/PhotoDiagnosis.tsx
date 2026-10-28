@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, Camera, CheckCircle2, Loader2, Send, Stethoscope, X } from 'lucide-react';
+import { authFetch } from '@/lib/auth-fetch';
 import { toast } from '@/lib/client/toast';
 
 import { Badge, Btn, INPUT, PORTAL_THEMES } from '@/components/portal/kit';
@@ -65,7 +66,7 @@ export function PhotoDiagnosis({ account }: { account: Account | null }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch('/api/diagnose', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ photo, crop, notes, lang }) });
+      const res = await authFetch('/api/diagnose', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ photo, crop, notes, lang }) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? 'The photo could not be checked.');
       setResult(data as Diagnosis);

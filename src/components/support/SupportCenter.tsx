@@ -16,6 +16,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { CheckCircle2, ChevronDown, LifeBuoy, Loader2, MessageSquare, Search, Send, Square, Volume2 } from 'lucide-react';
 
+import { HumanCheck, humanCheckOn } from '@/components/security/HumanCheck';
 import { authFetch } from '@/lib/auth-fetch';
 import { supabase } from '@/lib/supabase';
 import { HELP_TOPICS, TOPIC_LABEL, type SupportTopic } from '@/lib/helpTopics';
@@ -94,6 +95,8 @@ export function SupportCenter() {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [human, setHuman] = useState<string | null>(null);
+  const [humanTry, setHumanTry] = useState(0);
 
   // Check my request
   const [check, setCheck] = useState({ code: '', phone: '' });
@@ -152,8 +155,9 @@ export function SupportCenter() {
   const send = async () => {
     setFormError(null);
     setSending(true);
-    const { ok, data } = await post({ action: 'open', ...form, lang, portal: null });
+    const { ok, data } = await post({ action: 'open', ...form, lang, portal: null, human });
     setSending(false);
+    setHumanTry((n) => n + 1);
     if (!ok || typeof data.code !== 'string') return setFormError(String(data.error ?? 'Could not send. Please try again.'));
     setSent(data.code);
     setCheck({ code: data.code, phone: form.phone });
@@ -303,7 +307,10 @@ export function SupportCenter() {
               <textarea className={`${input} min-h-32 py-3`} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} required minLength={5} maxLength={2000} />
             </label>
             {formError && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-rose-900 ring-1 ring-rose-200 sm:col-span-2">{formError}</p>}
-            <button type="submit" disabled={sending} className={`${button} bg-emerald-700 text-white hover:bg-emerald-800 sm:col-span-2 sm:justify-self-start`}>
+            <div className="sm:col-span-2">
+              <HumanCheck onToken={setHuman} resetKey={humanTry} action="support" />
+            </div>
+            <button type="submit" disabled={sending || (humanCheckOn && !human)} className={`${button} bg-emerald-700 text-white hover:bg-emerald-800 sm:col-span-2 sm:justify-self-start`}>
               {sending ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <Send className="h-5 w-5" aria-hidden />} Send to KashRoot
             </button>
           </form>

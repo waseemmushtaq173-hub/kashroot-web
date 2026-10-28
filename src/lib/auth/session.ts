@@ -121,15 +121,12 @@ function endIdleDevice(): Promise<boolean> {
 }
 
 let listening = false;
-/** Keep the portals' copy of the token in step with Supabase (refreshes, sign-out elsewhere). */
+/** Signed out anywhere (or the session ended): the portals' marker goes too. */
 function listen() {
   if (listening || typeof window === 'undefined') return;
   listening = true;
-  supabase.auth.onAuthStateChange((event, session) => {
+  supabase.auth.onAuthStateChange((event) => {
     if (event === 'SIGNED_OUT') tokenStore.removeToken();
-    else if (session && (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') && read('auth_token')) {
-      write('auth_token', session.access_token);
-    }
   });
   const onActive = () => {
     if (document.visibilityState === 'visible') touchActivity();

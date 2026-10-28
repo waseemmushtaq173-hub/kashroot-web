@@ -64,7 +64,8 @@ select fn, who, detail from sweep where outcome = 'ANSWERED' order by fn, who;
 select fn, who, detail from sweep where outcome = 'refused' order by fn, who;
 
 -- PASS / FAIL: only these may answer a stranger (public lookups, a status flag, or functions that
--- answer "no" / nothing for someone else's id). Anything else answering is a failure.
+-- answer "no" / nothing for someone else's id; the server-secret functions answer "no" / 0 and do
+-- nothing without the secret — 40_rate_limits and 70_security_hardening prove it). Anything else answering is a failure.
 do $$
 declare bad text;
 begin
@@ -72,7 +73,7 @@ begin
    where outcome = 'ANSWERED' and fn not in (
      'kr_admin_lock_now', 'kr_admin_status', 'kr_admin_unlocked', 'kr_answer_match', 'kr_cache_get', 'kr_cache_put',
      'kr_can_see_request', 'kr_check_batch', 'kr_cold_free_now', 'kr_cold_map', 'kr_driver_view', 'kr_has_role',
-     'kr_is_admin_account', 'kr_kyc_ok', 'kr_kyc_rules', 'kr_order_driver_view', 'kr_payment_details', 'kr_rate_hit',
+     'kr_is_admin_account', 'kr_kyc_ok', 'kr_kyc_rules', 'kr_log_event', 'kr_order_driver_view', 'kr_payment_details', 'kr_rate_clear', 'kr_rate_hit', 'kr_rate_peek',
      'kr_registry_search', 'kr_registry_stats', 'kr_suggest_answer', 'kr_track', 'kr_verified_sellers');
   if bad is not null then raise exception 'FAIL: these functions answered a stranger: %', bad; end if;
   raise notice 'PASS: every other function refused anon and a signed-in stranger';
