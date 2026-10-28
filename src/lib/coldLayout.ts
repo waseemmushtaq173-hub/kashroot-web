@@ -107,6 +107,38 @@ export interface ChamberSize {
   stackHigh?: number;
   /** Owner wizard: where the chamber stands, when the owner said — metres from the building's left wall and front wall to its front-left corner. */
   spot?: { x: number; y: number };
+  /**
+   * Owner wizard: each floor's clear height as the owner measured it — floor
+   * (or grating) to the grating above, or to the ceiling — lowest first, in
+   * metres. Unset: the chamber's height shared evenly between its floors.
+   */
+  floorHeights?: number[];
+  /** Owner wizard, optional: the chamber's cooling as the owner described it (the 3D view puts the coolers on `wall`). */
+  cooling?: CoolingInfo;
+}
+
+export interface CoolingInfo {
+  /** The wall the cooling units hang on (from the door: front is the door wall). */
+  wall?: Wall;
+  kind?: 'ammonia' | 'freon';
+  /** A controlled-atmosphere (CA) chamber. */
+  ca?: boolean;
+  /** As the owner writes it, e.g. "0 to 2 °C". */
+  temperature?: string;
+  /** Relative humidity, %. */
+  humidity?: number;
+}
+
+/** A floor's clear height and how far above the ground it starts (metres), from the owner's heights or the height shared evenly. */
+export function floorSpan(s: Pick<ChamberSize, 'height' | 'floors' | 'floor' | 'floorHeights'>): { h: number; z0: number } {
+  const floors = s.floors ?? 1;
+  const floor = s.floor ?? 1;
+  const own = s.floorHeights;
+  if (own && own.length === floors && own.every((h) => Number.isFinite(h) && h > 0)) {
+    return { h: own[floor - 1], z0: own.slice(0, floor - 1).reduce((a, b) => a + b, 0) };
+  }
+  const h = s.height / floors;
+  return { h, z0: (floor - 1) * h };
 }
 
 /** How long a wall is: front and back walls are the breadth, left and right the length. */
@@ -408,7 +440,7 @@ function planCounted(s: ChamberSize): ChamberPlan {
     else if (!ok(door.width, 0.3, W * (1 + ROOM_SLACK)) || !ok(door.at, 0, W) || door.at + door.width > W * (1 + ROOM_SLACK)) problems.push('The door does not fit in its wall — check how far it is from the left corner and how wide it is.');
     else if (!ok(door.height, 0.5, s.height * (1 + ROOM_SLACK))) problems.push('The door must be lower than the chamber.');
   }
-  const floorH = s.height / floors;
+  const { h: floorH, z0: floorZ } = floorSpan(s);
   const empty: ChamberPlan = {
     rows: 0, cols: 0, aisleAfter: null, aisleX: null, doorX: [0, 0], doorH: 0, doorSet: false, windows: [], placeW: s.place.w, placeD: s.place.l,
     colX: [], rowZ: [], perLayer: 1, layers: 0, boxesPerPlace: 0, fits: 0, stackHeight: 0, problems, notes, unused: [], crowded: false, floorH: 0, floorZ: 0, stackOf: s.stackOf,
@@ -522,7 +554,7 @@ function planCounted(s: ChamberSize): ChamberPlan {
     unused,
     crowded,
     floorH: round(floorH),
-    floorZ: round((floor - 1) * floorH),
+    floorZ: round(floorZ),
     stackOf: s.stackOf,
   };
 }

@@ -49,7 +49,7 @@ export const ChamberSide = memo(function ChamberSide({ chamber: mc }: { chamber:
   const svgH = M.t + h + M.b;
   const door = s.door;
   const unitH = s.box.h;
-  const label = `${mc.name} from the side: ${say(H, u)} high, ${mc.floors.length} floor${mc.floors.length === 1 ? '' : 's'} of ${say(floorH, u)}. ${mc.floors.map((f) => floorText(mc, f)).join('. ')}.`;
+  const label = `${mc.name} from the side: ${say(H, u)} high, ${mc.floors.length} floor${mc.floors.length === 1 ? '' : 's'} (${mc.floors.map((f) => say(f.plan.floorH || floorH, u)).join(', ')}). ${mc.floors.map((f) => floorText(mc, f)).join('. ')}.`;
 
   return (
     <figure ref={ref} className="space-y-1">
@@ -58,7 +58,9 @@ export const ChamberSide = memo(function ChamberSide({ chamber: mc }: { chamber:
           <title>{label}</title>
           <rect x={X(0)} y={Y(H)} width={Wd * k} height={h} fill="#f8fafc" stroke="#334155" strokeWidth={4} />
           {mc.floors.map((f) => {
-            const z0 = (f.floor - 1) * floorH;
+            // Each floor at its own height (the owner's clear heights, else the height shared evenly).
+            const z0 = f.plan.floorZ ?? (f.floor - 1) * floorH;
+            const fh = f.plan.floorH || floorH;
             const unused = new Set(f.plan.unused ?? []);
             // The front row of stacks (row 1, by the door); where row 1 has a gap, the row behind shows.
             const cols = Array.from({ length: f.plan.cols }, (_, c) => c).filter((c) => !unused.has(`1${String.fromCharCode(65 + c)}`) || f.plan.rows > 1);
@@ -70,7 +72,7 @@ export const ChamberSide = memo(function ChamberSide({ chamber: mc }: { chamber:
                 {cols.map((c) =>
                   // A very tall stack is one block (too many to draw one by one).
                   f.stack > 60 ? (
-                    <rect key={c} x={X(f.plan.colX[c])} y={Y(z0) - Math.min(f.stack * bh, floorH * k)} width={Math.max(1, pw)} height={Math.min(f.stack * bh, floorH * k)} fill={LOOK[mc.storage].fill} stroke={LOOK[mc.storage].stroke} strokeWidth={0.8} />
+                    <rect key={c} x={X(f.plan.colX[c])} y={Y(z0) - Math.min(f.stack * bh, fh * k)} width={Math.max(1, pw)} height={Math.min(f.stack * bh, fh * k)} fill={LOOK[mc.storage].fill} stroke={LOOK[mc.storage].stroke} strokeWidth={0.8} />
                   ) : (
                     Array.from({ length: f.stack }, (_, i) => (
                       <rect key={`${c}-${i}`} x={X(f.plan.colX[c])} y={Y(z0) - (i + 1) * bh} width={Math.max(1, pw)} height={Math.max(1, bh - (bh > 4 ? 1 : 0))} fill={LOOK[mc.storage].fill} stroke={LOOK[mc.storage].stroke} strokeWidth={bh > 4 ? 0.8 : 0} />
@@ -78,16 +80,16 @@ export const ChamberSide = memo(function ChamberSide({ chamber: mc }: { chamber:
                   ),
                 )}
                 {narrow ? (
-                  <text x={X(0) + 8} y={Y(z0 + floorH) + 8 + font} fontSize={font} fontWeight={800} fill="#0f172a" stroke="#ffffff" strokeWidth={4} paintOrder="stroke">
+                  <text x={X(0) + 8} y={Y(z0 + fh) + 8 + font} fontSize={font} fontWeight={800} fill="#0f172a" stroke="#ffffff" strokeWidth={4} paintOrder="stroke">
                     {`${mc.floors.length > 1 ? `Floor ${f.floor}` : 'One floor'} · ${countText(f.count, mc.storage)}`}
                     <tspan x={X(0) + 8} dy={font + 3} fontSize={font - 2} fontWeight={600} fill="#334155">{`${f.places.toLocaleString('en-IN')} stacks × ${f.stack} high`}</tspan>
                   </text>
                 ) : (
                   <>
-                    <text x={X(Wd) + 12} y={Y(z0 + floorH / 2) - 6} fontSize={font} fontWeight={800} fill="#0f172a">
+                    <text x={X(Wd) + 12} y={Y(z0 + fh / 2) - 6} fontSize={font} fontWeight={800} fill="#0f172a">
                       {mc.floors.length > 1 ? `Floor ${f.floor}` : 'One floor'}
                     </text>
-                    <text x={X(Wd) + 12} y={Y(z0 + floorH / 2) + 14} fontSize={font - 2} fill="#334155">
+                    <text x={X(Wd) + 12} y={Y(z0 + fh / 2) + 14} fontSize={font - 2} fill="#334155">
                       {`${countText(f.count, mc.storage)} · ${f.places.toLocaleString('en-IN')} × ${f.stack} high`}
                     </text>
                   </>
@@ -106,7 +108,7 @@ export const ChamberSide = memo(function ChamberSide({ chamber: mc }: { chamber:
           </text>
         </svg>
       </div>
-      <figcaption className="text-xs text-slate-600">From the door: the front row of stacks on each floor. Each floor is {say(floorH, u)} high.</figcaption>
+      <figcaption className="text-xs text-slate-600">From the door: the front row of stacks on each floor. {mc.floors.length > 1 ? `Floors: ${mc.floors.map((f) => say(f.plan.floorH || floorH, u)).join(', ')} high, lowest first.` : `The floor is ${say(H, u)} high.`}</figcaption>
     </figure>
   );
 });

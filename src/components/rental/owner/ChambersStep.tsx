@@ -10,7 +10,7 @@
  * rows that will be saved, redrawn as the owner types.
  */
 import { useState } from 'react';
-import { Box as BoxIcon, CheckCircle2, CircleAlert, Copy, DoorOpen, Layers, Map as MapIcon, Plus, Ruler, Trash2, TriangleAlert } from 'lucide-react';
+import { Box as BoxIcon, CheckCircle2, CircleAlert, Copy, DoorOpen, Layers, Map as MapIcon, Plus, Ruler, Snowflake, Trash2, TriangleAlert } from 'lucide-react';
 
 import { Btn, PORTAL_THEMES } from '@/components/portal/kit';
 import { ChamberSide, floorText } from '@/components/rental/owner/ChamberSide';
@@ -18,7 +18,7 @@ import { Counter, Problems, StoragePicker, WallPicker } from '@/components/renta
 import { Preview3D } from '@/components/rental/owner/Preview3D';
 import { StoreDrawing } from '@/components/rental/owner/StoreDrawing';
 import { KitBox, type Kit } from '@/components/rental/owner/StoreSteps';
-import { blankChamber, copyChamber, countText, nextNumber, nice, PACKING, readNumber, UNIT_WORDS, type ChamberDraft } from '@/lib/coldStore';
+import { blankChamber, copyChamber, countText, DEFAULT_AISLE, nextNumber, nice, PACKING, readNumber, typed, UNIT_WORDS, type ChamberDraft } from '@/lib/coldStore';
 import type { ColdChamber } from '@/lib/db/coldMap';
 
 const theme = PORTAL_THEMES.rental;
@@ -181,11 +181,15 @@ function ChamberEditor({
   const u = kit.draft.unit;
   const W = UNIT_WORDS[c.storage];
   const k = c.key;
+  const P = PACKING[c.storage];
   const count = readNumber(c.count);
-  const kg = readNumber(c.kg);
+  const kg = readNumber(c.kg) ?? P.defaultKg;
   const calc = count && kg && Number.isFinite(count) && Number.isFinite(kg) ? Math.round(count * kg) / 1000 : null;
-  const most = done?.floors[0]?.fits;
+  const most = done?.floors.length ? Math.min(...done.floors.map((f) => f.fits)) : undefined;
   const name = `Chamber ${c.no || '?'}`;
+  /** A default in the owner's unit, as shown in an empty box. */
+  const def = (m: number) => typed(m, u);
+  const floors = Math.max(1, Math.min(10, Math.floor(Number(c.floors)) || 1));
   return (
     <section aria-label={name} className="space-y-5 rounded-3xl bg-white/90 p-4 ring-1 ring-slate-900/10 sm:p-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -195,7 +199,7 @@ function ChamberEditor({
       <StoragePicker name={`${k}.storage`} value={c.storage} onChange={(v) => kit.set(`${k}.storage`, v)} />
       <div className="grid gap-5 sm:grid-cols-2">
         <KitBox kit={kit} field={`${k}.count`} label={`How many ${W.many} does it hold?`} number whole />
-        <KitBox kit={kit} field={`${k}.kg`} label={`Kg of apples in one ${W.one}`} number hint="A wooden apple bin usually holds about 200–400 kg; a plastic crate about 20 kg." />
+        <KitBox kit={kit} field={`${k}.kg`} label={`Kg of apples in one ${W.one}`} number placeholder={String(P.defaultKg)} hint={`Empty: ${P.defaultKg} kg (the usual). A wooden apple bin holds about 200–400 kg; a plastic crate about 20 kg.`} />
       </div>
       <KitBox
         kit={kit}
@@ -237,6 +241,32 @@ function ChamberEditor({
         </div>
       </fieldset>
 
+      {floors > 1 && <FloorHeights kit={kit} c={c} floors={floors} />}
+
+      <fieldset className="space-y-4 rounded-2xl bg-sky-50/70 p-4 ring-1 ring-sky-200">
+        <legend className="sr-only">One {W.one} and how you stack</legend>
+        <p className="flex items-center gap-2 text-base font-semibold text-sky-950"><BoxIcon className="h-5 w-5" aria-hidden /> One {W.one} and how you stack</p>
+        <p className="text-sm text-sky-950">Empty boxes use the usual sizes shown in them. Change any to match your store.</p>
+        <div className="grid gap-5 sm:grid-cols-3">
+          <KitBox kit={kit} field={`${k}.unitL`} label={`${W.title.slice(0, -1)} length (${u})`} number placeholder={def(P.size.l)} />
+          <KitBox kit={kit} field={`${k}.unitW`} label={`${W.title.slice(0, -1)} width (${u})`} number placeholder={def(P.size.w)} />
+          <KitBox kit={kit} field={`${k}.unitH`} label={`${W.title.slice(0, -1)} height (${u})`} number placeholder={def(P.size.h)} hint="With the gap above it in a stack." />
+        </div>
+        <KitBox kit={kit} field={`${k}.stackHigh`} label={`How many ${W.many} high in one stack?`} number whole placeholder={most ? String(most) : undefined} hint={most ? `Empty: as high as fits under each floor’s ceiling — up to ${most}.` : 'Empty: as high as fits.'} />
+        <div className="grid gap-5 sm:grid-cols-3">
+          <KitBox kit={kit} field={`${k}.aisle`} label={`Main aisle width (${u})`} number placeholder={def(DEFAULT_AISLE)} hint="The forklift aisle in from the door. 0: no aisle." />
+          <KitBox kit={kit} field={`${k}.stackGap`} label={`Gap between stacks (${u})`} number placeholder={def(P.gap)} />
+          <KitBox kit={kit} field={`${k}.wallGap`} label={`Gap at the walls (${u})`} number placeholder={def(P.wallGap)} />
+        </div>
+      </fieldset>
+
+      {done && done.fitsByMeasure > 0 && (
+        <p className="rounded-2xl bg-white p-4 text-sm text-slate-800 ring-1 ring-slate-900/10" aria-live="polite">
+          <strong className="text-slate-900">By its size</strong>, {name} fits about <strong>{countText(done.fitsByMeasure, c.storage)}</strong> = <strong>{nice(Math.round(done.tonnesByMeasure * 10) / 10)} tonnes</strong> ({floors > 1 ? `${floors} floors, ` : ''}aisle and gaps kept clear).
+          {done.count > 0 && done.count > done.fitsByMeasure ? <span className="text-amber-800"> You wrote {countText(done.count, c.storage)} — more than fit. Check the count or the size.</span> : null}
+        </p>
+      )}
+
       <KitBox kit={kit} field={`${k}.rate`} label={`Rent for one ${W.one} for one month (₹)`} number hint={`Farmers pay this for each ${W.one} they keep here, each month.`} />
 
       {done && done.floors.length > 0 && (
@@ -251,15 +281,29 @@ function ChamberEditor({
       <Problems issues={[...kit.issuesOf(`${k}.fit`), ...kit.issuesOf(`${k}.spot`)]} onFix={kit.fix} />
 
       <details className="group rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-900/5">
-        <summary className="min-h-[44px] cursor-pointer list-none py-2 text-sm font-semibold text-slate-800">More details (optional) — how high you stack, where the chamber stands</summary>
+        <summary className="min-h-[44px] cursor-pointer list-none py-2 text-sm font-semibold text-slate-800">More details (optional) — where the chamber stands, its cooling</summary>
         <div className="mt-3 space-y-5">
-          <KitBox kit={kit} field={`${k}.stackHigh`} label={`How many ${W.many} high do you stack? (optional)`} number whole hint={most ? `Leave it empty and KashRoot stacks as high as fits under each floor’s ceiling: up to ${most} ${W.many}.` : 'Leave it empty: as high as fits.'} />
           <p className="text-sm text-slate-700">Where {name} stands inside the building (leave empty and it is drawn in order along the back wall):</p>
           <div className="grid gap-5 sm:grid-cols-2">
             <KitBox kit={kit} field={`${k}.spotX`} label={`From the building’s left wall (${u})`} number />
             <KitBox kit={kit} field={`${k}.spotY`} label={`From the building’s front wall (${u})`} number />
           </div>
-          <p className="text-xs text-slate-600">{c.storage === 'bins' ? `A bin stands about ${u === 'ft' ? '4 × 4 ft' : '1.2 × 1.2 m'} and adds ${u === 'ft' ? '2.5 ft' : `${PACKING.bins.size.h} m`} to a stack.` : `A crate stands about ${u === 'ft' ? '2 × 1.3 ft' : '0.6 × 0.4 m'} and adds ${u === 'ft' ? '1 ft' : `${PACKING.crates.size.h} m`} to a stack.`}</p>
+          <p className="flex items-center gap-2 pt-2 text-sm font-semibold text-slate-900"><Snowflake className="h-4 w-4 text-sky-700" aria-hidden /> Cooling (optional — shown to farmers when you fill it in)</p>
+          <Pick
+            label="Which wall are the cooling units on?"
+            name={`${k}.coolerWall`}
+            value={c.coolerWall}
+            options={[['', 'Facing the door'], ['front', 'Door wall'], ['left', 'Left wall'], ['right', 'Right wall'], ['back', 'Back wall']]}
+            onChange={(v) => kit.set(`${k}.coolerWall`, v)}
+          />
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Pick label="Cooling gas" name={`${k}.coolant`} value={c.coolant} options={[['', 'Not said'], ['ammonia', 'Ammonia'], ['freon', 'Freon']]} onChange={(v) => kit.set(`${k}.coolant`, v)} />
+            <Pick label="Controlled atmosphere (CA)?" name={`${k}.ca`} value={c.ca} options={[['', 'Not said'], ['yes', 'Yes, CA'], ['no', 'No']]} onChange={(v) => kit.set(`${k}.ca`, v)} />
+          </div>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <KitBox kit={kit} field={`${k}.temperature`} label="Temperature kept" maxLength={30} placeholder="e.g. 0 to 2 °C" />
+            <KitBox kit={kit} field={`${k}.humidity`} label="Humidity (%)" number placeholder="e.g. 92" />
+          </div>
         </div>
       </details>
 
@@ -275,5 +319,63 @@ function ChamberEditor({
         <Btn theme={theme} variant="danger" className="min-h-[48px]" icon={Trash2} onClick={onRemove}>Remove {name}</Btn>
       </div>
     </section>
+  );
+}
+
+/**
+ * Each floor's clear height, lowest first — floor (or grating) to the grating
+ * above, or to the ceiling. Kept as one list ("12, 10, 10"); all empty: the
+ * chamber's height shared evenly, shown in each box.
+ */
+function FloorHeights({ kit, c, floors }: { kit: Kit; c: ChamberDraft; floors: number }) {
+  const u = kit.draft.unit;
+  const field = `${c.key}.floorHeights`;
+  const parts = c.floorHeights.split(/[,;]+|\s+/).filter(Boolean);
+  const values = Array.from({ length: floors }, (_, i) => parts[i] ?? '');
+  const H = readNumber(c.height);
+  const even = H && !Number.isNaN(H) ? typed((H * (u === 'ft' ? 0.3048 : 1)) / floors, u) : '';
+  const put = (i: number, v: string) => {
+    const next = values.map((x, j) => (j === i ? v.trim() : x));
+    // All empty: back to sharing the height evenly. Otherwise every floor needs its number (the model says which is missing).
+    kit.set(field, next.every((x) => !x) ? '' : next.map((x) => x || '?').join(', '));
+  };
+  return (
+    <fieldset data-field={field} className="space-y-3 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-900/5">
+      <legend className="sr-only">Height of each floor</legend>
+      <p className="flex items-center gap-2 text-base font-semibold text-slate-900"><Layers className="h-5 w-5 text-emerald-700" aria-hidden /> Height of each floor ({u})</p>
+      <p className="text-sm text-slate-700">Measure from the floor (or grating) up to the grating above — or to the ceiling for the top floor. Leave them all empty to share the chamber’s height evenly{even ? ` (${even} ${u} each)` : ''}.</p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        {values.map((v, i) => (
+          <label key={i} className="block">
+            <span className="block text-sm font-semibold text-slate-800">Floor {i + 1}</span>
+            <input
+              className="mt-1.5 block min-h-[48px] w-full rounded-xl border-0 bg-white px-3 text-base text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500"
+              inputMode="decimal"
+              value={v === '?' ? '' : v}
+              placeholder={even || undefined}
+              onChange={(e) => put(i, e.target.value.replace(/[^\d.]/g, ''))}
+              onBlur={() => kit.touch(field)}
+            />
+          </label>
+        ))}
+      </div>
+      <Problems issues={kit.issuesOf(field)} onFix={kit.fix} />
+    </fieldset>
+  );
+}
+
+/** A choice of a few, as big buttons (44 px or more). */
+function Pick<V extends string>({ label, name, value, options, onChange }: { label: string; name: string; value: V; options: [V, string][]; onChange: (v: V) => void }) {
+  return (
+    <div data-field={name} role="radiogroup" aria-label={label}>
+      <p className="text-sm font-semibold text-slate-800">{label}</p>
+      <div className="mt-1.5 flex flex-wrap gap-2">
+        {options.map(([v, text]) => (
+          <button key={v || 'none'} type="button" role="radio" aria-checked={value === v} onClick={() => onChange(v)} className={`min-h-[44px] cursor-pointer rounded-xl px-3 text-sm font-semibold ring-2 transition ${value === v ? 'bg-emerald-700 text-white ring-emerald-700' : 'bg-white text-slate-800 ring-slate-200 hover:ring-emerald-300'}`}>
+            {text}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
