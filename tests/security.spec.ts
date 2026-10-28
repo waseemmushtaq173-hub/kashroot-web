@@ -50,7 +50,9 @@ test('no secret reaches the browser', async ({ page }) => {
   });
   await page.goto('/');
   await page.goto('/login/farmer');
-  await page.waitForLoadState('networkidle');
+  // Not "network idle": the "I am human" check keeps a connection to Cloudflare open.
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(3000);
   const all = bodies.join('\n');
   expect(all).not.toMatch(/sk-ant-[A-Za-z0-9_-]{10}|sb_secret_[A-Za-z0-9]{10}|SUPABASE_SERVICE_ROLE|KYC_DB_SECRET\s*[:=]\s*["'][^"']+|TURNSTILE_SECRET_KEY\s*[:=]\s*["'][^"']+/);
   // Any Supabase JWT in the page is the public anon key, never a service-role one.

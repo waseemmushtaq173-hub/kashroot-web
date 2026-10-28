@@ -71,6 +71,9 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
   // The "I am human" check (off until its keys are set): codes cost money, so bots get none. A fresh token for each send.
   const [human, setHuman] = useState<string | null>(null);
   const [humanTry, setHumanTry] = useState(0);
+  // The check shows only once a code is asked for (one box on the page, not one per field), then the code goes by itself.
+  const [checkShown, setCheckShown] = useState(autoSend);
+  const [waitingHuman, setWaitingHuman] = useState(false);
 
   useEffect(() => {
     if (wait <= 0) return;
@@ -87,11 +90,11 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
   const fieldLabel = label ?? (sms ? 'Mobile number' : 'Email address');
   const valid = sms ? /^(?:\+?91|0)?[6-9]\d{9}$/.test(value.replace(/[\s-]/g, '')) : /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
 
-  const send = async () => {
+  const send = async (humanToken: string | null = human) => {
     setBusy('send');
     setError(null);
     try {
-      const res = await fetch('/api/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel, to: value, human }) });
+      const res = await fetch('/api/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel, to: value, human: humanToken }) });
       setHumanTry((n) => n + 1);
       const data = await res.json().catch(() => ({}));
       if (!res.ok && (data.unavailable || data.configured === false)) onUnavailable?.();
@@ -117,6 +120,24 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
     // Runs once on open (after the human check, when it is on); `send` reads the current value itself.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoSend, valid, human]);
+
+  /** Send now, or — with the human check on and no token yet — show the check and send once it passes. */
+  const askToSend = () => {
+    if (humanCheckOn && !human) {
+      setCheckShown(true);
+      setWaitingHuman(true);
+      return;
+    }
+    void send();
+  };
+  /** A token from the check: kept, and — when a send was waiting for it — the code goes now. */
+  const onHuman = (t: string | null) => {
+    setHuman(t);
+    if (t && waitingHuman) {
+      setWaitingHuman(false);
+      void send(t);
+    }
+  };
 
   const verify = async () => {
     if (!token || code.length !== 6) return;
@@ -160,7 +181,7 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
 
       {!verified && (
         <div className="mt-3 space-y-2.5">
-          <HumanCheck onToken={setHuman} resetKey={humanTry} action="otp" />
+          {checkShown && <HumanCheck onToken={onHuman} resetKey={humanTry} action="otp" />}
           <div className="flex gap-2">
             <label htmlFor={id} className="sr-only">{fieldLabel}</label>
             <span className="relative flex-1">
@@ -185,8 +206,8 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
             </span>
             {/* Once a code is sent, "Resend OTP" lives on the code card. */}
             {!token && (
-              <button type="button" onClick={() => void send()} disabled={busy !== null || !valid || wait > 0 || (humanCheckOn && !human)} className={`${BUTTON} ${accent.button}`}>
-                {busy === 'send' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
+              <button type="button" onClick={askToSend} disabled={busy !== null || !valid || wait > 0 || waitingHuman} className={`${BUTTON} ${accent.button}`}>
+                {busy === 'send' || waitingHuman ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
                 {wait > 0 ? `Resend ${wait}s` : 'Send OTP'}
               </button>
             )}
@@ -194,7 +215,7 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
 
           {token ? (
             <OtpCard
-              onResend={() => void send()}
+              onResend={askToSend}
               resendIn={wait}
               resending={busy === 'send'}
             >
