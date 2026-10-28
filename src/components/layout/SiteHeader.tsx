@@ -8,7 +8,7 @@ import { BrandMark } from '@/components/brand/Shikara';
 import { MyDetailsPanel } from '@/components/portal/MyDetailsPanel';
 import { MY_DETAILS } from '@/components/portal/myDetailsConfig';
 import { FloatingVoice } from '@/components/voice/FloatingVoice';
-import { loginHref, PORTALS, PUBLIC_PORTAL_IDS, type PortalId } from '@/lib/auth/roles';
+import { loginHref, MARKET_PLACES, PORTALS, PUBLIC_PORTAL_IDS, type PortalId } from '@/lib/auth/roles';
 import { useSecretAdminTap, useShowAdmin } from '@/lib/client/adminDevice';
 import { signOutOfPortal, useMyPortal, useSignedIn } from '@/lib/auth/session';
 import { SOCIAL_LINKS } from '@/lib/site';
@@ -276,18 +276,7 @@ export function SiteHeader({
           </Link>
         </div>
 
-        <div className="hidden items-center gap-1 md:flex">
-          <Link href="/compare-prices?category=produce" className={navLink}>
-            Produce
-          </Link>
-          <Link href="/compare-prices?category=supplies" className={navLink}>
-            Supplies
-          </Link>
-          <Link href="/compare-prices" className={navLink}>
-            Compare
-          </Link>
-        </div>
-
+        {/* Produce, supplies and Price Comparison live in their portals and the Portals menu, not here. */}
         <div className="flex items-center gap-2">
           {light && showRoleSignIn && !hideSignIn && (
             <Link href={myPortal ? PORTALS[myPortal].home : '/login'} className={`${navLink} hidden md:inline-flex`}>
@@ -340,15 +329,12 @@ export function SiteFooter({ tone = 'dark', portal }: { tone?: SiteTone; portal?
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-caption">
           {!portal && (
             <>
-              <Link href="/compare-prices?category=produce" className={footLink}>
-                Produce marketplace
-              </Link>
-              <Link href="/compare-prices?category=supplies" className={footLink}>
-                Horticulture supplies
-              </Link>
-              <Link href="/farmer/dashboard" className={footLink}>
-                For farmers
-              </Link>
+              {/* Each to its portal's own tab (signed out: that portal's sign-in first, then back here). */}
+              {[MARKET_PLACES.buyProduce, MARKET_PLACES.sellProduce, MARKET_PLACES.farmSupplies].map((m) => (
+                <Link key={m.href} href={m.href} className={`${footLink} inline-flex min-h-11 items-center`}>
+                  {m.label}
+                </Link>
+              ))}
             </>
           )}
           {SOCIAL_LINKS.map((s) => (

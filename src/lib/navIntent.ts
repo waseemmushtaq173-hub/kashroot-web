@@ -15,6 +15,7 @@
  * neither: it is answered. The …FromLink helpers read the filled-in values
  * back on those pages. Safe on the server and in the browser.
  */
+import { MARKET_PLACES } from '@/lib/auth/roles';
 import type { ListingInput } from '@/lib/db/market';
 import { ksText } from '@/lib/kashmiri/phrases';
 import { cropIn, cropNamed, hasName, type Crop } from '@/lib/region';
@@ -295,11 +296,12 @@ const amountText = (q: Quantity): Text => {
 };
 const same = (s: string): Text => ({ en: s, hi: s, ur: s });
 
-const PAGE: Record<'mandi' | 'track' | 'compare' | 'buyer' | 'sell' | 'cold' | 'consignment' | 'escrow', Text> = {
+const PAGE: Record<'mandi' | 'track' | 'compare' | 'buyer' | 'supplies' | 'sell' | 'cold' | 'consignment' | 'escrow', Text> = {
   mandi: { en: 'mandi rates & weather', hi: 'मंडी भाव और मौसम', ur: 'منڈی بھاؤ اور موسم' },
   track: { en: 'Tracking', hi: 'ट्रैकिंग', ur: 'ٹریکنگ' },
   compare: { en: 'Price Comparison (cheapest first)', hi: 'भाव तुलना (सबसे सस्ता पहले)', ur: 'قیمتوں کا موازنہ (سب سے سستا پہلے)' },
   buyer: { en: 'Buy apples & produce (Buyer portal)', hi: 'Buy apples & produce (ख़रीदार पोर्टल)', ur: 'Buy apples & produce (خریدار پورٹل)' },
+  supplies: { en: 'the Shop (Kissan Tools)', hi: 'Shop (किसान टूल्स)', ur: 'Shop (کسان ٹولز)' },
   sell: { en: 'List produce (Farmer portal)', hi: 'List produce (किसान पोर्टल)', ur: 'List produce (کسان پورٹل)' },
   cold: { en: 'Cold Storage booking', hi: 'कोल्ड स्टोरेज बुकिंग', ur: 'کولڈ اسٹوریج بکنگ' },
   consignment: { en: 'New consignment (Tracking portal)', hi: 'New consignment (ट्रैकिंग पोर्टल)', ur: 'New consignment (ٹریکنگ پورٹل)' },
@@ -417,12 +419,13 @@ export function voiceAction(text: string): VoiceAction | null {
     })();
     if (what) {
       const produce = Boolean(crop);
-      // Produce is bought in the Buyer portal's shop; "cheapest" anything, and farm inputs, on Price Comparison.
+      // Produce is bought in the Buyer portal's shop, farm supplies in the Kissan Tools shop; "cheapest" anything on Price Comparison.
       const buyer = produce && !cheap;
+      const shop = !produce && !cheap;
       return {
         kind: 'shop',
-        href: buyer ? link('/buyer/dashboard?tab=shop', { q: what.q }) : link('/compare-prices', { category: produce ? 'produce' : 'supplies', q: what.q }),
-        page: buyer ? PAGE.buyer : PAGE.compare,
+        href: buyer ? link(MARKET_PLACES.buyProduce.href, { q: what.q }) : shop ? MARKET_PLACES.farmSupplies.href : link('/compare-prices', { category: produce ? 'produce' : 'supplies', q: what.q }),
+        page: buyer ? PAGE.buyer : shop ? PAGE.supplies : PAGE.compare,
         fields: [{ field: FIELD.search, value: what.value }],
       };
     }

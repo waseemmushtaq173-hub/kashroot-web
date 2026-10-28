@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+import { MARKET_PLACES } from "./src/lib/auth/roles";
+
 /** The origin of an env URL, or '' (e.g. the Supabase project). */
 const originOf = (url?: string, ws = false) => {
   try {
@@ -91,8 +93,8 @@ const nextConfig: NextConfig = {
       { source: '/track/:code', destination: '/tracking/dashboard?code=:code', permanent: false },
       { source: '/farmer/listings/new', destination: '/farmer/dashboard?tab=lots&add=1', permanent: false },
       { source: '/farmer/listings/:id/edit', destination: '/farmer/dashboard?tab=lots', permanent: false },
-      { source: '/buyer/discover', destination: '/compare-prices?category=produce', permanent: false },
-      { source: '/buyer/checkout/:id', destination: '/compare-prices?category=produce', permanent: false },
+      { source: '/buyer/discover', destination: MARKET_PLACES.buyProduce.href, permanent: false },
+      { source: '/buyer/checkout/:id', destination: MARKET_PLACES.buyProduce.href, permanent: false },
       // The fertiliser tester is public now (no sign-in): one page for everyone.
       { source: '/farmer/tester', destination: '/supplies/tester', permanent: true },
       // Old demonstration pages that showed made-up people, prices and records.
@@ -102,7 +104,7 @@ const nextConfig: NextConfig = {
         ['/admin/trust-safety', '/admin/dashboard'],
         ['/buyer-desk', '/buyer/dashboard'],
         ['/cold-store', '/rental/dashboard'],
-        ['/consumer', '/compare-prices?category=produce'],
+        ['/consumer', MARKET_PLACES.buyProduce.href],
         ['/cooperative-hub', '/farmer/dashboard'],
         ['/expert-desk', '/expert'],
         ['/learn', '/expert'],
@@ -114,11 +116,11 @@ const nextConfig: NextConfig = {
         ['/saathi', '/'],
         ['/sustainability', '/'],
         ['/schemes', '/farmer/dashboard'],
-        ['/supplier-marketplace', '/compare-prices?category=supplies'],
-        ['/supplies', '/compare-prices?category=supplies'],
-        ['/supplies/hardware', '/compare-prices?category=supplies'],
-        ['/supplies/hardware/compare', '/compare-prices?category=supplies'],
-        ['/waste-market', '/compare-prices?category=produce'],
+        ['/supplier-marketplace', MARKET_PLACES.farmSupplies.href],
+        ['/supplies', MARKET_PLACES.farmSupplies.href],
+        ['/supplies/hardware', MARKET_PLACES.farmSupplies.href],
+        ['/supplies/hardware/compare', MARKET_PLACES.farmSupplies.href],
+        ['/waste-market', MARKET_PLACES.buyProduce.href],
         ['/services', '/rental/dashboard'],
         ['/services/:id', '/rental/dashboard'],
         ['/traceability', '/tracking/dashboard'],

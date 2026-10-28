@@ -97,6 +97,19 @@ export function loginHref(portal: PortalId, next?: string): string {
   return next ? `/login/${portal}?next=${encodeURIComponent(next)}` : `/login/${portal}`;
 }
 
+/** A tab of a portal's dashboard (each dashboard opens the tab in ?tab=). Signed out, the portal's sign-in comes first and returns here. */
+export const portalTab = (portal: PortalId, tab: string) => `${PORTALS[portal].home}?tab=${tab}`;
+
+/**
+ * Where produce and farm supplies are bought and sold, by portal — used by the
+ * footer, the old produce / supplies links, the voice actions and the assistant.
+ */
+export const MARKET_PLACES = {
+  buyProduce: { href: portalTab('buyer', 'shop'), label: 'Buy produce', where: 'Buyer portal → Buy apples & produce' },
+  sellProduce: { href: portalTab('farmer', 'lots'), label: 'Sell your harvest', where: 'Farmer portal → What I sell' },
+  farmSupplies: { href: portalTab('kissan', 'shop'), label: 'Farm supplies', where: 'Kissan Tools → Shop' },
+} as const;
+
 /** Roles a person can pick when creating an account. */
 export const REGISTER_ROLES: { role: AccountRole; portal: PortalId; label: string }[] = [
   { role: 'FARMER', portal: 'farmer', label: 'Farmer' },

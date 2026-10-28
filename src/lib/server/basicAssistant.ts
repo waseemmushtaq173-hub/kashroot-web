@@ -128,9 +128,9 @@ const HELP: { keys: string[]; text: Text }[] = [
   {
     keys: ['buy', 'order', 'kharid', 'खरीद', 'ख़रीद', 'ऑर्डर', 'خرید', 'آرڈر', 'ہیون'],
     text: {
-      en: 'To buy apples or other produce, open the Buyer portal and press Buy apples & produce. For farm inputs, open Price Comparison. Press Order. You pay nothing now; when the goods reach you, press I received the goods in My orders and pay the seller from your UPI app.',
-      hi: 'सेब या दूसरी फ़सल ख़रीदने के लिए Buyer portal खोलें और "Buy apples & produce" दबाएँ। खाद-दवा के लिए Price Comparison खोलें। Order दबाएँ। अभी कुछ नहीं देना है; सामान पहुँचने पर My orders में "I received the goods" दबाएँ और अपने UPI ऐप से विक्रेता को भुगतान करें।',
-      ur: 'سیب یا دوسری فصل خریدنے کے لیے Buyer portal کھولیں اور "Buy apples & produce" دبائیں۔ کھاد دوائی کے لیے Price Comparison کھولیں۔ Order دبائیں۔ ابھی کچھ نہیں دینا ہے؛ سامان پہنچنے پر My orders میں "I received the goods" دبائیں اور اپنے UPI ایپ سے بیچنے والے کو ادائیگی کریں۔',
+      en: 'To buy apples or other produce, open the Buyer portal and press Buy apples & produce. For farm supplies — tools, sprays, fertiliser, packaging — open Kissan Tools and its Shop. Press Order. To compare prices first, open Price Comparison from the home page. You pay nothing now; when the goods reach you, press I received the goods in My orders and pay the seller from your UPI app.',
+      hi: 'सेब या दूसरी फ़सल ख़रीदने के लिए Buyer portal खोलें और "Buy apples & produce" दबाएँ। औज़ार, दवा, खाद और पैकिंग के लिए Kissan Tools खोलें और उसकी Shop में जाएँ। Order दबाएँ। पहले भाव मिलाने हों तो होम पेज से Price Comparison खोलें। अभी कुछ नहीं देना है; सामान पहुँचने पर My orders में "I received the goods" दबाएँ और अपने UPI ऐप से विक्रेता को भुगतान करें।',
+      ur: 'سیب یا دوسری فصل خریدنے کے لیے Buyer portal کھولیں اور "Buy apples & produce" دبائیں۔ اوزار، دوائی، کھاد اور پیکنگ کے لیے Kissan Tools کھولیں اور اس کی Shop میں جائیں۔ Order دبائیں۔ پہلے قیمتیں ملانی ہوں تو ہوم پیج سے Price Comparison کھولیں۔ ابھی کچھ نہیں دینا ہے؛ سامان پہنچنے پر My orders میں "I received the goods" دبائیں اور اپنے UPI ایپ سے بیچنے والے کو ادائیگی کریں۔',
     },
   },
   {

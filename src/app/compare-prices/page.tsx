@@ -16,6 +16,7 @@
  */
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { LogIn, LogOut, Search, ShieldCheck, ShoppingCart, Store, UserRound } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
@@ -31,6 +32,7 @@ import { Btn, EmptyState, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { ListProductsButton, PriceComparisonHeader } from '@/components/price-comparison/PriceComparisonHeader';
 import { SignInModal, type SignInReason } from '@/components/price-comparison/SignInModal';
 import { portalsOf, signedInPortals } from '@/lib/auth/portalAccess';
+import { MARKET_PLACES } from '@/lib/auth/roles';
 import { signOutCompletely } from '@/lib/auth/session';
 import { OPEN_KYC } from '@/lib/client/identityCheck';
 import { loadAccount, supabase, type Account } from '@/lib/db/client';
@@ -70,6 +72,10 @@ function ComparePrices() {
   const [account, setAccount] = useState<Account | null | undefined>(undefined);
   const [tab, setTab] = useState<Tab>(params.get('tab') === 'orders' ? 'orders' : params.get('tab') === 'sell' ? 'sell' : 'compare');
   const [category, setCategory] = useState<MarketCategory>(params.get('category') === 'produce' ? 'produce' : 'supplies');
+  // Came by an older "Produce" / "Supplies" link (the site's top bar had them): say where each now lives.
+  const asked = params.get('category');
+  // (Not when a search came with it: that is a comparison asked for, e.g. by voice — "cheapest urea".)
+  const cameFor = (asked === 'produce' || asked === 'supplies') && !params.get('q') ? asked : null;
   const [ordering, setOrdering] = useState<ShopListing | null>(null);
   const [signIn, setSignIn] = useState<SignInReason | null>(null);
   const [orders, setOrders] = useState<MarketOrder[]>([]);
@@ -144,6 +150,7 @@ function ComparePrices() {
 
   return (
     <ToolShell tool="priceComparison" header={<PriceComparisonHeader actions={<ListProductsButton onClick={sell} />} />}>
+      {cameFor && <WhereToGo cameFor={cameFor} />}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div role="tablist" aria-label="Price Comparison" className="inline-flex flex-wrap gap-1 rounded-2xl bg-white/80 p-1 shadow-sm ring-1 ring-slate-900/5">
           {([
@@ -275,5 +282,27 @@ function SignInPrompt({ text, loading, onSignIn }: { text: string; loading: bool
       </div>
       <p className="mt-3 text-sm text-slate-600">No account yet? Press Sign in, then “Create an account”.</p>
     </div>
+  );
+}
+
+/**
+ * For someone who came by an older Produce / Supplies link: buying, selling and
+ * farm supplies each have their own portal now. Price Comparison stays below.
+ */
+function WhereToGo({ cameFor }: { cameFor: 'produce' | 'supplies' }) {
+  const choices = cameFor === 'produce' ? [MARKET_PLACES.buyProduce, MARKET_PLACES.sellProduce, MARKET_PLACES.farmSupplies] : [MARKET_PLACES.farmSupplies, MARKET_PLACES.buyProduce, MARKET_PLACES.sellProduce];
+  return (
+    <nav aria-label="Where to buy and sell" className="mb-5 rounded-2xl bg-white/90 p-4 shadow-sm ring-1 ring-slate-900/5">
+      <p className="text-sm font-semibold text-slate-900">{cameFor === 'produce' ? 'Buying or selling produce? Each has its own place now:' : 'Farm supplies have their own shop now:'}</p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        {choices.map((m, i) => (
+          <Link key={m.href} href={m.href} className={`flex min-h-12 flex-col justify-center rounded-xl px-4 py-2 no-underline ring-1 transition hover:no-underline ${i === 0 ? 'bg-emerald-700 text-white ring-emerald-700 hover:bg-emerald-800' : 'bg-white text-slate-900 ring-slate-200 hover:ring-emerald-300'}`}>
+            <span className="text-base font-semibold">{m.label}</span>
+            <span className={`text-xs ${i === 0 ? 'text-emerald-100' : 'text-slate-600'}`}>{m.where}</span>
+          </Link>
+        ))}
+      </div>
+      <p className="mt-2 text-xs text-slate-600">Or compare prices below, cheapest first.</p>
+    </nav>
   );
 }
