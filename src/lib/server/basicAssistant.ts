@@ -121,6 +121,15 @@ const HELP: { keys: string[]; text: Text }[] = [
     },
   },
   {
+    // Signing in, and any problem with the site: Help & support (works without signing in).
+    keys: ['login', 'log in', 'sign in', 'signin', 'otp', 'password', 'locked', 'support', 'complaint', 'लॉगिन', 'साइन इन', 'पासवर्ड', 'शिकायत', 'लॉग इन', 'لاگ ان', 'سائن ان', 'پاس ورڈ', 'شکایت'],
+    text: {
+      en: 'For trouble signing in — the code does not come, a forgotten password, a locked sign-in — or any other problem, open Help & support: the link is at the bottom of every page and in every portal’s menu, and on the sign-in page under Trouble signing in. It has the steps to read or listen to, and Ask KashRoot sends your problem to a person from KashRoot, who replies or calls you. You do not need to be signed in.',
+      hi: 'साइन इन में दिक़्क़त — कोड न आना, पासवर्ड भूलना, साइन-इन बंद होना — या कोई और परेशानी हो तो Help & support खोलें: इसका लिंक हर पेज के नीचे, हर पोर्टल के मेन्यू में, और साइन-इन पेज पर Trouble signing in के नीचे है। वहाँ पढ़ने या सुनने के लिए तरीक़े हैं, और Ask KashRoot से आपकी बात KashRoot की टीम के किसी व्यक्ति तक पहुँचती है, जो जवाब देगा या फ़ोन करेगा। साइन इन ज़रूरी नहीं।',
+      ur: 'سائن اِن میں مسئلہ — کوڈ نہ آنا، پاس ورڈ بھولنا، سائن اِن بند ہونا — یا کوئی اور پریشانی ہو تو Help & support کھولیں: اس کا لنک ہر پیج کے نیچے، ہر پورٹل کے مینیو میں، اور سائن اِن پیج پر Trouble signing in کے نیچے ہے۔ وہاں پڑھنے یا سننے کے لیے طریقے ہیں، اور Ask KashRoot سے آپ کی بات KashRoot کی ٹیم کے کسی شخص تک پہنچتی ہے، جو جواب دے گا یا فون کرے گا۔ سائن اِن ضروری نہیں۔',
+    },
+  },
+  {
     keys: ['cold storage', 'cold store', 'storage', 'godown', 'ca store', 'कोल्ड', 'स्टोर', 'भंडार', 'گودام', 'کولڈ', 'سٹور', 'اسٹور', 'اسٹوریج'],
     text: {
       en: 'Open Cold Storage Booking. Find a store with free space and press Choose your place: you see the whole store, every chamber, on a floor plan or in 3D. Tap the free places you want, or type how many boxes you have and press Choose places for me. Pay the owner from your UPI app within 24 hours and type the payment number. The owner then confirms your space.',

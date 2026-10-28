@@ -21,9 +21,9 @@ interface PortalGuide {
 }
 
 const DETAILS: GuideText = {
-  en: 'At the top you also have My details (your name, phone and language), Home, and Sign out.',
-  hi: 'ऊपर My details (आपका नाम, फ़ोन और भाषा), Home और Sign out भी हैं।',
-  ur: 'اوپر My details (آپ کا نام، فون اور زبان)، Home اور Sign out بھی ہیں۔',
+  en: 'In the menu you also have My details (your name, phone and language), Help & support (for any problem, also signing in), Home, and Sign out.',
+  hi: 'मेन्यू में My details (आपका नाम, फ़ोन और भाषा), Help & support (किसी भी दिक़्क़त के लिए, साइन-इन भी), Home और Sign out भी हैं।',
+  ur: 'مینیو میں My details (آپ کا نام، فون اور زبان)، Help & support (کسی بھی مسئلے کے لیے، سائن اِن بھی)، Home اور Sign out بھی ہیں۔',
 };
 
 const GUIDE: Partial<Record<PortalId, PortalGuide>> = {
@@ -177,9 +177,9 @@ const GUIDE: Partial<Record<PortalId, PortalGuide>> = {
   },
   admin: {
     start: {
-      en: 'This is the Admin portal for KashRoot staff: Approvals, Accounts, Problems, Cold stores, Official lists, Platform numbers, Security and Setup check.',
-      hi: 'यह KashRoot स्टाफ़ का Admin portal है: Approvals, Accounts, Problems, Cold stores, Official lists, Platform numbers, Security और Setup check।',
-      ur: 'یہ KashRoot اسٹاف کا Admin portal ہے: Approvals، Accounts، Problems، Cold stores، Official lists، Platform numbers، Security اور Setup check۔',
+      en: 'This is the Admin portal for KashRoot staff: Approvals, Accounts, Problems, Help desk (customers’ help requests — reply or call them), Cold stores, Official lists, Platform numbers, Security and Setup check.',
+      hi: 'यह KashRoot स्टाफ़ का Admin portal है: Approvals, Accounts, Problems, Help desk (ग्राहकों के मदद के अनुरोध), Cold stores, Official lists, Platform numbers, Security और Setup check।',
+      ur: 'یہ KashRoot اسٹاف کا Admin portal ہے: Approvals، Accounts، Problems، Help desk (گاہکوں کی مدد کی درخواستیں)، Cold stores، Official lists، Platform numbers، Security اور Setup check۔',
     },
   },
 };

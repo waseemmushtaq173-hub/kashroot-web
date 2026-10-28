@@ -421,6 +421,12 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
             Sign out and use another account
           </button>
         </p>
+        <p className="mt-2 text-sm text-slate-600">
+          The code does not come?{' '}
+          <Link href="/support?topic=login" className={`inline-flex min-h-11 items-center rounded font-semibold ${theme.link} ${focusRing}`}>
+            Get help
+          </Link>
+        </p>
       </PortalAuthFrame>
     );
   }
@@ -556,6 +562,12 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
           Wrong portal?{' '}
           <Link href="/login" className={`rounded font-semibold text-slate-800 underline-offset-4 hover:underline ${focusRing}`}>
             Choose another sign-in
+          </Link>
+        </p>
+        <p>
+          Trouble signing in?{' '}
+          <Link href="/support?topic=login" className={`inline-flex min-h-11 items-center rounded font-semibold ${theme.link} ${focusRing}`}>
+            Get help
           </Link>
         </p>
       </div>

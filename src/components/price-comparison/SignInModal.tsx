@@ -102,6 +102,7 @@ export function SignInModal({ reason, onClose, onSignedIn }: { reason: SignInRea
           <Btn theme={theme} type="submit" icon={LogIn} className="min-h-12 w-full text-base" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</Btn>
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
             <Link href={AUTH_ROUTES.forgotPassword} className="inline-flex min-h-11 items-center font-semibold text-sky-800">Forgot password?</Link>
+            <Link href="/support?topic=login" className="inline-flex min-h-11 items-center font-semibold text-sky-800">Trouble signing in?</Link>
             <button type="button" onClick={() => { setStep('create'); setError(null); }} className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 font-semibold text-sky-800">
               <UserPlus className="h-4 w-4" aria-hidden /> Create an account
             </button>

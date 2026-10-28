@@ -22,13 +22,14 @@
  * and every query above is limited to admins in the database itself.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BarChart3, DatabaseZap, GraduationCap, ListChecks, LockKeyhole, PackageX, Snowflake, Users, Wallet } from 'lucide-react';
+import { BarChart3, DatabaseZap, GraduationCap, LifeBuoy, ListChecks, LockKeyhole, PackageX, Snowflake, Users, Wallet } from 'lucide-react';
 
 import { AccountsPanel } from '@/components/admin/AccountsPanel';
 import { AdminLock } from '@/components/admin/AdminLock';
 import { ApprovalsPanel } from '@/components/admin/ApprovalsPanel';
 import { ColdDirectoryPanel } from '@/components/admin/ColdDirectoryPanel';
 import { ContributorsPanel } from '@/components/admin/ContributorsPanel';
+import { HelpDeskPanel } from '@/components/admin/HelpDeskPanel';
 import { PlatformNumbers, loadAdminStats } from '@/components/admin/PlatformNumbers';
 import { RegistryPanel } from '@/components/admin/RegistryPanel';
 import { ReportedOrders, loadReportedOrders } from '@/components/admin/ReportedOrders';
@@ -37,7 +38,7 @@ import { SetupCheckPanel } from '@/components/admin/SetupCheckPanel';
 import { PortalShell } from '@/components/layout/PortalShell';
 import { supabase } from '@/lib/db/client';
 
-type Tab = 'approvals' | 'accounts' | 'problems' | 'contributors' | 'coldstores' | 'registry' | 'numbers' | 'security' | 'setup';
+type Tab = 'approvals' | 'accounts' | 'problems' | 'help' | 'contributors' | 'coldstores' | 'registry' | 'numbers' | 'security' | 'setup';
 
 interface Counts {
   waiting: number;
@@ -120,6 +121,7 @@ function AdminConsole() {
         { id: 'approvals', label: 'Approvals', icon: GraduationCap, count: counts?.waiting || undefined },
         { id: 'accounts', label: 'Accounts', icon: Users, count: counts?.accounts || undefined },
         { id: 'problems', label: 'Problems', icon: PackageX, count: counts?.problems || undefined },
+        { id: 'help', label: 'Help desk', icon: LifeBuoy },
         { id: 'contributors', label: 'Contributors', icon: Wallet },
         { id: 'coldstores', label: 'Cold stores', icon: Snowflake },
         { id: 'registry', label: 'Official lists', icon: ListChecks },
@@ -133,6 +135,7 @@ function AdminConsole() {
       {tab === 'approvals' && <ApprovalsPanel />}
       {tab === 'accounts' && <AccountsPanel onRefreshed={load} />}
       {tab === 'problems' && <ReportedOrders />}
+      {tab === 'help' && <HelpDeskPanel />}
       {tab === 'contributors' && <ContributorsPanel />}
       {tab === 'coldstores' && <ColdDirectoryPanel />}
       {tab === 'registry' && <RegistryPanel />}

@@ -118,7 +118,7 @@ export function SidebarContent(props: SidebarProps) {
           )}
           <li>
             <MenuLink href="/support" icon={LifeBuoy} onNavigate={onNavigate} outline={theme.outline} size={size}>
-              Help
+              Help &amp; support
             </MenuLink>
           </li>
           <li>

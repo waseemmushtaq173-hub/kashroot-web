@@ -337,6 +337,10 @@ export function SiteFooter({ tone = 'dark', portal }: { tone?: SiteTone; portal?
               ))}
             </>
           )}
+          {/* Everyone, signed in or not: sign-in trouble or anything else. */}
+          <Link href="/support" className={`${footLink} inline-flex min-h-11 items-center font-semibold`}>
+            Help &amp; support
+          </Link>
           {SOCIAL_LINKS.map((s) => (
             <a key={s.href} href={s.href} target="_blank" rel="noopener noreferrer me" className={footLink}>
               {s.label}
