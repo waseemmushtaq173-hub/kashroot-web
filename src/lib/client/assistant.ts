@@ -36,6 +36,14 @@ const sorryFor = (lang: SpeechLang): { text: string; speech?: string } =>
 
 const offlineFor = (lang: SpeechLang) => (lang === 'ks' ? ksText('assistant.offline') : 'No internet connection. Please check your mobile data and try again.');
 
+/** Where the person is: the path, with the portal tab that is open (PortalShell marks it). */
+function pageNow(): string {
+  const tab = document.querySelector('[data-portal-tab]')?.getAttribute('data-portal-tab');
+  const url = new URL(window.location.href);
+  if (tab) url.searchParams.set('tab', tab);
+  return `${url.pathname}${url.search}`;
+}
+
 export function useAssistant(opts: { page?: string } = {}) {
   const router = useRouter();
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -89,7 +97,6 @@ export function useAssistant(opts: { page?: string } = {}) {
         router.push(nav.href);
         return;
       }
-      const history = turns.filter((t) => !t.error).slice(-6).map(({ role, text: t }) => ({ role, text: t }));
       setTurns((all) => [...all, { role: 'user', text: question, lang }]);
       setThinking(true);
       let turn: Turn;
@@ -99,11 +106,10 @@ export function useAssistant(opts: { page?: string } = {}) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           // "My area" for the weather: the phone's location, the district, or the chosen state (lib/region).
-          body: JSON.stringify({ query: question, lang, exact: how.exact || undefined, history, speakAs, page: opts.page, where: regionSpot(currentRegion()) ?? undefined }),
+          // The page they are on (with its open tab), for "help me here".
+          body: JSON.stringify({ query: question, lang, exact: how.exact || undefined, speakAs, path: opts.page ?? pageNow(), where: regionSpot(currentRegion()) ?? undefined }),
         });
-        const data = (await res.json().catch(() => ({}))) as { reply?: string; error?: string; speech?: string; aiError?: string; from?: { kind?: string; name?: string; reviewed?: boolean } };
-        // The AI failed and basic mode answered: say why, for the site owner.
-        if (data.aiError) setNotice(`Basic answer — the full AI did not answer. ${data.aiError}`);
+        const data = (await res.json().catch(() => ({}))) as { reply?: string; error?: string; speech?: string; from?: { kind?: string; name?: string; reviewed?: boolean } };
         const from = data.from?.kind === 'expert' && data.from.name ? { name: data.from.name, reviewed: Boolean(data.from.reviewed) } : undefined;
         if (data.reply) turn = { role: 'assistant', text: data.reply, lang, speech: data.speech, ...(from ? { from } : {}) };
         else {
@@ -119,7 +125,7 @@ export function useAssistant(opts: { page?: string } = {}) {
       // Errors are spoken too, in the person's language.
       void say(turn.error ? { ...sorryFor(lang), lang } : turn);
     },
-    [opts.page, router, say, thinking, turns],
+    [opts.page, router, say, thinking],
   );
 
   return { turns, ask, thinking, speaking, say, stop, notice, setNotice, configured };

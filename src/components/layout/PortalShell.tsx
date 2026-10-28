@@ -38,6 +38,7 @@ import { StatCards } from '@/components/layout/portal/StatCards';
 import { shellLook } from '@/components/layout/portal/look';
 import { useShellUser } from '@/components/layout/portal/useShellUser';
 import { MyDetailsPanel } from '@/components/portal/MyDetailsPanel';
+import { FloatingVoice } from '@/components/voice/FloatingVoice';
 import { MY_DETAILS } from '@/components/portal/myDetailsConfig';
 import { FOCUS, TitleAction, resolveTheme } from '@/components/portal/kit';
 import { loginHref, PORTALS, portalOfPath } from '@/lib/auth/roles';
@@ -253,6 +254,8 @@ export function PortalShell({
       <div
         ref={panelRef}
         id={panelId}
+        // The open section, for the assistant's "Guide me on this page" (components/voice/PageGuide).
+        data-portal-tab={activeTab}
         role={tabs.length > 0 ? 'tabpanel' : undefined}
         aria-label={tabs.length > 0 ? activeLabel ?? title : undefined}
         tabIndex={tabs.length > 0 ? -1 : undefined}
@@ -334,6 +337,8 @@ export function PortalShell({
           </main>
         </div>
       </div>
+      {/* The assistant, in every portal: a guide to this page, read aloud, and answers to questions. */}
+      <FloatingVoice />
 
       {drawer && (
         <SidebarDrawer onClose={() => setDrawer(false)} label={`${portalLabel ?? title} menu`}>

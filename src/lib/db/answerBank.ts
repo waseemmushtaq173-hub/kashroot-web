@@ -6,6 +6,7 @@
  * approve or discard (20261102000000_assistant_answers.sql). Who wrote an
  * answer is set by the database from the signed-in expert.
  */
+import { NOT_ANSWERED } from '@/lib/notAnswered';
 import { dbMessage, supabase } from '@/lib/db/client';
 
 export type AnswerLang = 'en' | 'hi' | 'ur' | 'ks';
@@ -91,7 +92,8 @@ export async function removeAnswer(id: string): Promise<void> {
 
 /** The expert's checked version of an AI answer goes into the bank; the suggestion is closed. */
 export async function approveSuggestion(s: Suggestion, input: AnswerInput): Promise<void> {
-  await addAnswer(input, 'ai_reviewed');
+  // A question the assistant could not answer: the expert wrote the answer themselves.
+  await addAnswer(input, s.reply === NOT_ANSWERED ? 'expert' : 'ai_reviewed');
   const { error } = await supabase.from('assistant_suggestions').update({ status: 'approved' }).eq('id', s.id);
   if (error) fail(error, 'The answer was saved, but the suggestion could not be closed. Discard it.');
 }

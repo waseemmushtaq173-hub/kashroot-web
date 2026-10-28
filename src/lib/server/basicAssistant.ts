@@ -18,12 +18,15 @@ import { istDate, perKilo, postedRates, type PostedRate } from '@/lib/server/pos
 import { forecast, geocode, type Forecast } from '@/lib/server/weather';
 import { dryHours, sprayDayOver } from '@/lib/sprayWindow';
 import { hasWord as has, norm } from '@/lib/textMatch';
+import { guideFor } from '@/lib/portalGuide';
 
 type Text = { en: string; hi: string; ur: string };
 export interface BasicAnswer {
   reply: string;
   /** Devanagari copy of an Urdu/Kashmiri reply, for a Hindi voice. */
   speech?: string;
+  /** False: the question was not understood — the reply says so, and it goes to the experts. */
+  known?: boolean;
 }
 /**
  * Where the person is, sent by the page (lib/region): the phone's position, the
@@ -180,6 +183,16 @@ const INTRO: Text = {
   en: 'I can tell you mandi prices (say: apple price in Sopore), the weather and when to spray (say: weather in Shopian), and how to use KashRoot — selling, buying, cold storage, tracking, experts and checking fertilisers with KashRoot TrueScan. For a crop problem, press Ask an expert to reach an agronomist.',
   hi: 'मैं मंडी भाव बता सकता हूँ (बोलें: सोपोर में सेब का भाव), मौसम और स्प्रे का सही समय (बोलें: शोपियां का मौसम), और KashRoot इस्तेमाल करने का तरीक़ा — बेचना, ख़रीदना, कोल्ड स्टोर, ट्रैकिंग, विशेषज्ञ और खाद की जाँच। फ़सल की बीमारी के लिए "Ask an expert" दबाएँ।',
   ur: 'میں منڈی بھاؤ بتا سکتا ہوں (بولیں: سوپور میں سیب کا بھاؤ)، موسم اور اسپرے کا صحیح وقت (بولیں: شوپیان کا موسم)، اور KashRoot استعمال کرنے کا طریقہ — بیچنا، خریدنا، کولڈ اسٹور، ٹریکنگ، ماہر اور کھاد کی جانچ۔ فصل کی بیماری کے لیے "Ask an expert" دبائیں۔',
+};
+
+/** "Help me here", "what do I do on this page": the guide to the page the person is on. */
+const HELP_HERE = ['help', 'guide', 'this page', 'what do i do', 'what to do', 'what is this', 'here', 'madad', 'samjhao', 'batao', 'मदद', 'सहायता', 'यहाँ', 'यहां', 'इस पेज', 'क्या करूँ', 'क्या करूं', 'समझाओ', 'مدد', 'یہاں', 'اس پیج', 'کیا کروں', 'سمجھاؤ', 'مدتھ', 'یتہِ'];
+
+/** Said when the question is not one KashRoot can answer itself: honestly, and it goes to the experts. */
+const DONT_KNOW: Text = {
+  en: 'I don’t have an answer to that yet. I have passed your question to KashRoot’s experts, and once they answer it I will know it too. For your own crop or orchard, press Ask an expert in Advisory and an agronomist will answer you.',
+  hi: 'इसका जवाब अभी मेरे पास नहीं है। मैंने आपका सवाल KashRoot के विशेषज्ञों को भेज दिया है; उनके जवाब देने पर मुझे भी पता होगा। अपनी फ़सल या बाग़ के लिए Advisory में Ask an expert दबाएँ, विशेषज्ञ आपको जवाब देंगे।',
+  ur: 'اس کا جواب ابھی میرے پاس نہیں ہے۔ میں نے آپ کا سوال KashRoot کے ماہروں کو بھیج دیا ہے؛ ان کے جواب دینے پر مجھے بھی پتہ ہوگا۔ اپنی فصل یا باغ کے لیے Advisory میں Ask an expert دبائیں، ماہر آپ کو جواب دیں گے۔',
 };
 
 // ── answer building ──
@@ -472,8 +485,15 @@ export function quickIntent(query: string): boolean {
   return true;
 }
 
-export async function basicAnswer(query: string, lang: Lang, deps: BasicDeps = defaultDeps, here?: Here): Promise<BasicAnswer> {
+/**
+ * KashRoot's own answer: live prices and weather, how to use KashRoot, the
+ * guide to the page the person is on (`page`: its path, e.g.
+ * "/farmer/dashboard?tab=orders"), or — when it is none of these — an honest
+ * "I don't know yet" (`known: false`).
+ */
+export async function basicAnswer(query: string, lang: Lang, deps: BasicDeps = defaultDeps, here?: Here, page?: string): Promise<BasicAnswer> {
   const q = ` ${norm(query)} `;
+  const guide = page ? guideFor(page) : null;
   const crop = COMMODITIES.find((c) => has(q, c.keys));
   const place = PLACES.find((p) => has(q, p.keys));
   const sprayAsked = has(q, SPRAY);
@@ -491,6 +511,9 @@ export async function basicAnswer(query: string, lang: Lang, deps: BasicDeps = d
   }
   const help = HELP.find((h) => has(q, h.keys));
   if (help) return answer(lang, (l) => pick(help.text, l));
-  if (has(q, GREET)) return answer(lang, (l) => ({ en: 'Hello! ', hi: 'नमस्ते! ', ur: 'خوش آمدید! ' })[l] + pick(INTRO, l));
-  return answer(lang, (l) => pick(INTRO, l));
+  if (guide && has(q, HELP_HERE)) return answer(lang, (l) => pick(guide, l));
+  if (has(q, GREET)) return answer(lang, (l) => ({ en: 'Hello! ', hi: 'नमस्ते! ', ur: 'خوش آمدید! ' })[l] + pick(guide ?? INTRO, l));
+  // A word or two of help with no page to guide on: what the assistant can do.
+  if (has(q, HELP_HERE) && query.trim().split(/\s+/).length <= 4) return answer(lang, (l) => pick(INTRO, l));
+  return { ...answer(lang, (l) => `${pick(DONT_KNOW, l)} ${pick(INTRO, l)}`), known: false };
 }

@@ -1,9 +1,13 @@
 'use client';
 
 /**
- * Speaking answers aloud and listening by voice, with the browser's Web
- * Speech API — shared by the voice assistant, advisory replies, photo
- * diagnosis and the portal guide.
+ * Speaking answers aloud and listening by voice — shared by the voice
+ * assistant, advisory replies, photo diagnosis and the portal guide.
+ *
+ * Answers are read by KashRoot's own voice (app/api/speak: made on the
+ * server, the same clear Hindi, Urdu or Indian-English voice on every phone).
+ * Only when that is not set up or cannot be reached does the browser's own
+ * voice (Web Speech API) read instead. Listening uses the browser.
  *
  * Kashmiri and Urdu voices are rare on phones. When the device has no voice
  * for the language but has a Hindi one, the server also returns the answer
@@ -55,6 +59,8 @@ export function loadVoices(): Promise<SpeechSynthesisVoice[]> {
 /** True when the answer should also come back in Devanagari for a Hindi voice. */
 export async function needsDevanagari(lang: SpeechLang): Promise<boolean> {
   if (lang !== 'ur' && lang !== 'ks') return false;
+  // KashRoot's voice reads Urdu (and Kashmiri) from their own script.
+  if (await serverVoiceOn()) return false;
   const voices = await loadVoices();
   return !bestVoice(voices, VOICE_CODE[lang]) && Boolean(bestVoice(voices, 'hi-IN'));
 }
@@ -73,15 +79,103 @@ export type SpeakResult = 'spoken' | 'no-voice' | 'unsupported';
  * phone's voices does not start after something newer replaced it. */
 let epoch = 0;
 
+/* ── KashRoot's own voice (app/api/speak) ── */
+
+/** Is KashRoot's voice set up? Asked once per page. */
+let serverVoice: Promise<boolean> | null = null;
+function serverVoiceOn(): Promise<boolean> {
+  if (typeof window === 'undefined' || typeof Audio === 'undefined') return Promise.resolve(false);
+  serverVoice ??= fetch('/api/speak')
+    .then((r) => r.json())
+    .then((d: { configured?: boolean }) => Boolean(d.configured))
+    .catch(() => false);
+  return serverVoice;
+}
+
+/** The server reads at most this much at once (lib/server/voice VOICE_MAX_CHARS, less a margin). */
+const SERVER_PART = 380;
+let playing: HTMLAudioElement | null = null;
+
+/** Sentences gathered into parts the server reads in one go: fewer pauses, fewer requests. */
+function serverParts(text: string): string[] {
+  const out: string[] = [];
+  for (const s of chunks(text)) {
+    const last = out.at(-1);
+    if (last && last.length + s.length + 1 <= SERVER_PART) out[out.length - 1] = `${last} ${s}`;
+    else out.push(s.slice(0, SERVER_PART));
+  }
+  return out;
+}
+
+/**
+ * Read `text` with KashRoot's voice, part after part (the next part loads
+ * while one plays). Resolves true once the first part is playing, false when
+ * it could not start (then the browser's voice reads instead).
+ */
+function speakWithServer(text: string, lang: SpeechLang, mine: number, onEnd?: () => void): Promise<boolean> {
+  const parts = serverParts(text);
+  const src = (p: string) => `/api/speak?l=${lang}&t=${encodeURIComponent(p)}`;
+  return new Promise((started) => {
+    let first = true;
+    const play = (i: number, audio: HTMLAudioElement) => {
+      if (mine !== epoch) return;
+      playing = audio;
+      const next = i + 1 < parts.length ? new Audio(src(parts[i + 1])) : null;
+      next?.load();
+      const done = () => {
+        if (mine !== epoch) return;
+        if (next) play(i + 1, next);
+        else {
+          playing = null;
+          onEnd?.();
+        }
+      };
+      audio.onended = done;
+      audio.onerror = () => {
+        if (first) {
+          first = false;
+          started(false);
+        } else done();
+      };
+      audio
+        .play()
+        .then(() => {
+          if (first) {
+            first = false;
+            started(true);
+          }
+        })
+        .catch(() => {
+          if (first) {
+            first = false;
+            started(false);
+          } else done();
+        });
+    };
+    if (!parts.length) {
+      started(false);
+      return;
+    }
+    play(0, new Audio(src(parts[0])));
+  });
+}
+
 /**
  * Reads `text` aloud in `lang`. `speech` is the Devanagari copy for a Hindi
  * voice when the device has no Urdu/Kashmiri voice. Calls `onEnd` when done.
  */
 export async function speak(text: string, lang: SpeechLang, speech?: string, onEnd?: () => void): Promise<SpeakResult> {
+  stopSpeaking();
+  const mine = epoch;
+  // KashRoot's own voice first: the same on every phone (Urdu and Kashmiri read from their own script).
+  if (await serverVoiceOn()) {
+    if (mine !== epoch) return 'spoken';
+    if (await speakWithServer(text, lang, mine, onEnd)) return 'spoken';
+    if (mine !== epoch) return 'spoken';
+  }
   const synth = typeof window !== 'undefined' ? window.speechSynthesis : undefined;
   if (!synth) return 'unsupported';
   synth.cancel();
-  const mine = ++epoch;
   const voices = await loadVoices();
   if (mine !== epoch) {
     onEnd?.();
@@ -123,6 +217,12 @@ export async function speak(text: string, lang: SpeechLang, speech?: string, onE
 
 export const stopSpeaking = () => {
   epoch++;
+  if (playing) {
+    playing.onended = null;
+    playing.onerror = null;
+    playing.pause();
+    playing = null;
+  }
   if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
 };
 

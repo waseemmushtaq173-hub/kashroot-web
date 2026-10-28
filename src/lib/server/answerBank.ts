@@ -3,9 +3,11 @@
  * answers written or approved by KashRoot's experts, asked first so most
  * questions are answered at once, without the AI, and in an expert's words.
  *   matchAnswer    the best approved answer for a question (kr_answer_match)
- *   suggestAnswer  an AI answer, queued for an expert to approve or discard
- *                  (kr_suggest_answer, needs KYC_DB_SECRET); no account is
- *                  sent with it. Written after the reply has gone (after()).
+ *   suggestAnswer  a question the assistant could not answer (NOT_ANSWERED),
+ *                  queued for an expert to write the answer — or an older
+ *                  AI answer to approve or discard (kr_suggest_answer, needs
+ *                  KYC_DB_SECRET); no account is sent with it. Written after
+ *                  the reply has gone (after()).
  * Before that SQL is run, matchAnswer finds nothing and suggestAnswer does
  * nothing: the assistant works as before. Server-only.
  */
@@ -14,6 +16,7 @@ import 'server-only';
 import { after } from 'next/server';
 
 import type { Lang } from '@/lib/server/claude';
+export { NOT_ANSWERED } from '@/lib/notAnswered';
 import { supabaseAnonKey, supabaseOrigin } from '@/lib/supabase-config';
 
 export interface BankAnswer {
@@ -58,7 +61,7 @@ export async function matchAnswer(query: string, lang: Lang): Promise<BankAnswer
   };
 }
 
-/** Queue an AI answer for an expert to check (after the reply is sent). Never throws. */
+/** Queue a question (and its reply, or NOT_ANSWERED) for an expert (after the reply is sent). Never throws. */
 export function suggestAnswer(lang: Lang, question: string, reply: string): void {
   const secret = process.env.KYC_DB_SECRET?.trim();
   if (!secret) return;

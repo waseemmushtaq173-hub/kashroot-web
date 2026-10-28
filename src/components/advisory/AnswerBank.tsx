@@ -12,6 +12,7 @@
  * expert …"), so an answer here is said in the expert's name.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { NOT_ANSWERED } from '@/lib/notAnswered';
 import { BookCheck, Check, EyeOff, Eye, Inbox, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 
 import { Badge, Btn, EmptyState, Field, INPUT, Panel, type PortalTheme } from '@/components/portal/kit';
@@ -160,7 +161,7 @@ export function AnswerBank({ theme }: { theme: PortalTheme }) {
 
       <Panel theme={theme} title={`Waiting for review${waiting.length ? ` (${waiting.length})` : ''}`} icon={Inbox}>
         {waiting.length === 0 ? (
-          <EmptyState theme={theme} icon={Inbox} title="Nothing to review" text="When the AI answers a new question, it appears here for an expert to check. Most-asked first." />
+          <EmptyState theme={theme} icon={Inbox} title="Nothing to review" text="When the assistant cannot answer a question, it appears here for an expert to answer. Most-asked first." />
         ) : (
           <ul className="space-y-3">
             {waiting.map((s) => (
@@ -174,25 +175,29 @@ export function AnswerBank({ theme }: { theme: PortalTheme }) {
                   <div className="mt-3">
                     <AnswerForm
                       theme={theme}
-                      initial={{ lang: s.lang, questions: [s.question], answer: s.reply, topic: null }}
-                      saveLabel="Approve into the bank"
+                      initial={{ lang: s.lang, questions: [s.question], answer: s.reply === NOT_ANSWERED ? '' : s.reply, topic: null }}
+                      saveLabel={s.reply === NOT_ANSWERED ? 'Save into the bank' : 'Approve into the bank'}
                       onCancel={() => setReviewing(null)}
                       onSave={async (input) => {
                         await approveSuggestion(s, input);
                         setReviewing(null);
-                        toast.success('Approved. The assistant now answers this from the bank.');
+                        toast.success('Saved. The assistant now answers this from the bank.');
                         await load();
                       }}
                     />
                   </div>
                 ) : (
                   <>
-                    <p dir={rtl(s.lang)} className="mt-2 whitespace-pre-line rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
-                      <span className="block text-xs font-semibold text-slate-500">The AI answered:</span>
-                      {s.reply}
-                    </p>
+                    {s.reply === NOT_ANSWERED ? (
+                      <p className="mt-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">The assistant did not know the answer. Write it, and the assistant answers it from now on.</p>
+                    ) : (
+                      <p dir={rtl(s.lang)} className="mt-2 whitespace-pre-line rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
+                        <span className="block text-xs font-semibold text-slate-500">Suggested answer:</span>
+                        {s.reply}
+                      </p>
+                    )}
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <Btn theme={theme} icon={Pencil} className="min-h-11" onClick={() => setReviewing(s.id)}>Check and approve</Btn>
+                      <Btn theme={theme} icon={Pencil} className="min-h-11" onClick={() => setReviewing(s.id)}>{s.reply === NOT_ANSWERED ? 'Write the answer' : 'Check and approve'}</Btn>
                       <Btn theme={theme} variant="ghost" icon={Trash2} className="min-h-11" onClick={() => void act(() => discardSuggestion(s.id), 'Discarded.')}>
                         Discard
                       </Btn>
