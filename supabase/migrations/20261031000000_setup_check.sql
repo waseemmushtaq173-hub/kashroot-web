@@ -58,7 +58,8 @@ language sql stable security definer set search_path = public as $$
     (22, 'Setup check',                 '20261031000000_setup_check.sql',                public.kr_setup_has_function('kr_setup_status')),
     (23, 'Last good copy of sources',   '20261101000000_source_cache.sql',               public.kr_setup_has_function('kr_cache_get')),
     (24, 'Assistant answer bank',       '20261102000000_assistant_answers.sql',          public.kr_setup_has_function('kr_answer_match')),
-    (25, 'Shared rate limits',          '20261103000000_rate_limits.sql',                public.kr_setup_has_function('kr_rate_hit'))
+    (25, 'Shared rate limits',          '20261103000000_rate_limits.sql',                public.kr_setup_has_function('kr_rate_hit')),
+    (26, 'Admin code kept with bcrypt', '20261104000000_admin_code_bcrypt.sql',          public.kr_setup_has_function('kr_code_matches'))
   ) as s(step, part, file, ok)
   order by s.step
 $$;
