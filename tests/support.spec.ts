@@ -38,12 +38,21 @@ for (const width of [1280, 390]) {
       expect(scrollX).toBeLessThanOrEqual(0);
     });
 
-    test('a request can be sent without signing in (or it says plainly why not)', async ({ page }) => {
+    test('a request can be sent without signing in (or it says plainly why not)', async ({ page, request }) => {
       await page.goto('/support');
       await page.getByLabel('Your name').fill('Test Person');
       await page.getByLabel(/Mobile number \(we call you back/).fill('9876543210');
       await page.getByLabel(/The problem, in your words/).fill('The code does not come when I sign in');
-      await page.getByRole('button', { name: 'Send to KashRoot' }).click();
+      const send = page.getByRole('button', { name: 'Send to KashRoot' });
+      const human = (await (await request.get('/api/human')).json()) as { on?: boolean };
+      if (human.on) {
+        // The "I am human" check is on: it shows with the form, and a script (no pass) cannot send.
+        await expect(page.locator('#ask-kashroot [data-human-check]')).toBeAttached();
+        await expect.poll(() => page.frames().some((f) => f.url().includes('challenges.cloudflare.com')), { timeout: 20_000 }).toBe(true);
+        await expect(send).toBeDisabled();
+        return;
+      }
+      await send.click();
       // With the server secret set: a request number. Without it: the honest message with the email.
       await expect(page.locator('[data-support-code], #ask-kashroot [role="alert"]').first()).toBeVisible({ timeout: 15_000 });
       const code = page.locator('[data-support-code]');
