@@ -68,14 +68,16 @@ async function store(kind: SecurityKind, ip: string | null, actor: string | null
  * hashed here. A flood is logged in full on the server, but at most 30 rows a
  * minute per kind and network reach the database.
  */
-export function securityEvent(kind: SecurityKind, opts: { request?: Request; account?: string; path?: string; status?: number; detail?: string; site?: string } = {}): void {
+export function securityEvent(kind: SecurityKind, opts: { request?: Request; account?: string; path?: string; status?: number; detail?: string; site?: string; code?: string } = {}): void {
   try {
     const ip = opts.request ? hashed(`ip|${clientIp(opts.request)}`) : null;
     const actor = opts.account ? hashed(`who|${opts.account}`) : null;
     const path = opts.path ?? (opts.request ? new URL(opts.request.url).pathname.slice(0, 120) : null);
     // `site`: a site address (letters, digits, dots and dashes only) kept whole — scrub() would hide a long deployment address as "[secret]".
     const site = opts.site ? opts.site.toLowerCase().replace(/[^a-z0-9.-]/g, '').slice(0, 80) : '';
-    const detail = opts.detail || site ? `${opts.detail ? scrub(opts.detail) : ''}${site ? ` on ${site}` : ''}`.trim().slice(0, 300) : null;
+    // `code`: an error code (Cloudflare's 600010, 110200…) kept whole — scrub() hides 6+ digits as "[number]".
+    const code = opts.code ? opts.code.replace(/[^\w :.-]/g, '').slice(0, 60) : '';
+    const detail = opts.detail || site || code ? `${code ? `${code} ` : ''}${opts.detail ? scrub(opts.detail) : ''}${site ? ` on ${site}` : ''}`.trim().slice(0, 300) : null;
     console.warn(JSON.stringify({ 'kr-security': kind, ip, actor, path, status: opts.status ?? null, detail, at: new Date().toISOString() }));
     if (rateLimited(`log:${kind}:${ip}`, 30, 60_000)) return;
     const write = () => store(kind, ip, actor, path, opts.status ?? null, detail);

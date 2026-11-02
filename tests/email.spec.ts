@@ -102,8 +102,14 @@ test.describe('the email endpoints', () => {
     const res = await request.get('/api/email');
     expect(res.ok()).toBe(true);
     const body = await res.json();
-    expect(Object.keys(body).sort()).toEqual(['configured', 'from', 'inbox']);
-    expect(JSON.stringify(body)).not.toMatch(/pass|secret/i);
+    expect(Object.keys(body).sort()).toEqual(['configured', 'from', 'inbox', 'settings']);
+    // Which settings exist, as true/false (and the port, and which pair is used) — never a value.
+    for (const [name, v] of Object.entries(body.settings as Record<string, unknown>)) {
+      if (name === 'port') expect(typeof v).toBe('number');
+      else if (name === 'using') expect(['SMTP_*', 'GMAIL_*', 'none']).toContain(v);
+      else expect(typeof v, name).toBe('boolean');
+    }
+    expect(JSON.stringify(body)).not.toMatch(/secret/i);
   });
 
   test('the test email is for admins only', async ({ request }) => {

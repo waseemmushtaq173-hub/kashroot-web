@@ -7,10 +7,14 @@
  * checks, refused data requests and server errors — with, for each kind, how
  * many networks it came from and the busiest one (a hash, never an address).
  * Many wrong passwords or refusals from one network is a guessing attack or a
- * bot. Read-only.
+ * bot. Events from the admin's own network are counted apart ("yours"), so
+ * testing does not look like an attack; "Count from now" counts only what
+ * happens after a fix. "I am human" failures are grouped by code, each with
+ * what it means, and email failures show the mail server's own reply.
+ * Read-only.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Activity } from 'lucide-react';
+import { Activity, Timer } from 'lucide-react';
 
 import { RefreshBtn } from '@/components/admin/RefreshBtn';
 import { Badge, PORTAL_THEMES, Panel } from '@/components/portal/kit';
@@ -30,6 +34,37 @@ const KIND: Record<string, { label: string; warn?: boolean }> = {
   bot_check_failed: { label: 'Failed the “I am human” check', warn: true },
   forbidden: { label: 'Data requests refused (no permission)', warn: true },
   api_error: { label: 'Server errors', warn: true },
+  email_sent: { label: 'Emails sent' },
+  email_failed: { label: 'Emails that failed', warn: true },
+};
+
+/** What each security-check code means (Cloudflare's codes, KashRoot's own, Supabase's reasons). */
+const CODE_MEANING: [RegExp, string][] = [
+  [/^1102/, 'this site address is not allowed by the Cloudflare widget'],
+  [/^1101/, 'the site key is wrong or not for this widget'],
+  [/^1105|^1106/, 'this browser is too old or unsupported'],
+  [/^2005/, 'the Cloudflare frame was blocked (browser setting or extension)'],
+  [/^3000[0-2]/, 'the browser could not finish the check (often a VPN, ad-block or Shields)'],
+  [/^3000/, 'the check timed out or got stuck in the browser'],
+  [/^6000/, 'Cloudflare did not trust this browser and could not finish'],
+  [/^script-blocked/, 'Cloudflare’s script could not load (Brave Shields, ad-block or no network)'],
+  [/^no-answer/, 'no answer from Cloudflare within 8 s'],
+  [/^reset-failed/, 'the check could not restart (the form had been closed)'],
+  [/^unsupported/, 'this browser cannot run the check'],
+  [/invalid-input-response/, 'a token Cloudflare did not accept: fake, or from a different widget than the secret (KashRoot’s own tests send fake ones)'],
+  [/timeout-or-duplicate/, 'a token used twice or too old'],
+  [/invalid-input-secret/, 'the secret itself is wrong'],
+  [/no token/, 'a request came with no token at all'],
+  [/another address/, 'a real token made on a different site'],
+];
+const meaning = (code: string) => CODE_MEANING.find(([re]) => re.test(code))?.[1] ?? '';
+const SINCE_KEY = 'kr_security_since';
+const readSince = () => {
+  try {
+    return localStorage.getItem(SINCE_KEY);
+  } catch {
+    return null;
+  }
 };
 
 interface Row {
@@ -52,27 +87,42 @@ interface Event {
 export function TrafficPanel() {
   const [rows, setRows] = useState<Row[] | null | undefined>(undefined);
   const [recent, setRecent] = useState<Event[]>([]);
-  // Security-check failures in the last 24 hours, by Cloudflare's or Supabase's code (no personal data).
-  const [botCodes, setBotCodes] = useState<[string, number][]>([]);
+  // Security-check failures by code (no personal data), and how many of each kind came from the admin's own network.
+  const [botCodes, setBotCodes] = useState<{ code: string; all: number; yours: number }[]>([]);
+  const [kinds, setKinds] = useState<{ kind: string; all: number; yours: number }[]>([]);
+  const [mailErrors, setMailErrors] = useState<{ at: string; detail: string }[]>([]);
+  // "Count from now": only what happened after this moment (kept in this browser).
+  const [since, setSince] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const [sum, ev, bot] = await Promise.all([
       supabase.rpc('kr_security_summary', { p_hours: 24 }),
       supabase.from('security_events').select('id, at, kind, ip_hash, path, status, detail').neq('kind', 'signin_ok').order('at', { ascending: false }).limit(40),
-      supabase.from('security_events').select('detail').eq('kind', 'bot_check_failed').gte('at', new Date(Date.now() - 86_400_000).toISOString()).limit(1000),
+      supabase.from('security_events').select('at, kind, ip_hash, detail').neq('kind', 'signin_ok').gte('at', readSince() ?? new Date(Date.now() - 86_400_000).toISOString()).order('at', { ascending: false }).limit(2000),
     ]);
+    const mine = ((await fetch('/api/security/me', { cache: 'no-store' }).then((r) => r.json()).catch(() => ({}))) as { net?: string }).net ?? '';
+    setSince(readSince());
     setRows(sum.error ? null : ((sum.data ?? []) as Row[]));
     setRecent(ev.error ? [] : ((ev.data ?? []) as Event[]));
-    const counts = new Map<string, number>();
-    for (const r of (bot.data ?? []) as { detail: string | null }[]) {
+    const events = (bot.data ?? []) as { at: string; kind: string; ip_hash: string | null; detail: string | null }[];
+    const byKind = new Map<string, { all: number; yours: number }>();
+    const byCode = new Map<string, { all: number; yours: number }>();
+    for (const e of events) {
+      const yours = Boolean(mine) && e.ip_hash === mine;
+      const k = byKind.get(e.kind) ?? { all: 0, yours: 0 };
+      byKind.set(e.kind, { all: k.all + 1, yours: k.yours + (yours ? 1 : 0) });
+      if (e.kind !== 'bot_check_failed') continue;
       // "browser: 110200 (signin) on kashroot-x.vercel.app" → "110200 on kashroot-x.vercel.app";
       // "browser: supabase-invalid-input-response (auth)" → that reason; server-side ones as they are.
-      const d = (r.detail ?? 'unknown').replace(/^browser:\s*/, '');
+      const d = (e.detail ?? 'unknown').replace(/^browser:\s*/, '');
       const host = d.match(/ on ([a-z0-9.-]+)$/)?.[1];
       const code = `${d.replace(/ on [a-z0-9.-]+$/, '').replace(/\s*\(.*\)$/, '')}${host ? ` on ${host}` : ''}`;
-      counts.set(code, (counts.get(code) ?? 0) + 1);
+      const c = byCode.get(code) ?? { all: 0, yours: 0 };
+      byCode.set(code, { all: c.all + 1, yours: c.yours + (yours ? 1 : 0) });
     }
-    setBotCodes([...counts].sort((a, b) => b[1] - a[1]));
+    setKinds([...byKind].map(([kind, v]) => ({ kind, ...v })).sort((x, y) => y.all - x.all));
+    setBotCodes([...byCode].map(([code, v]) => ({ code, ...v })).sort((x, y) => y.all - x.all));
+    setMailErrors(events.filter((e) => e.kind === 'email_failed').slice(0, 5).map((e) => ({ at: e.at, detail: e.detail ?? '' })));
   }, []);
   useEffect(() => {
     let live = true;
@@ -124,17 +174,76 @@ export function TrafficPanel() {
           </table>
         </div>
       )}
+      <div className="mt-4 flex flex-wrap items-center gap-2" data-count-from>
+        <button
+          type="button"
+          onClick={() => {
+            try {
+              localStorage.setItem(SINCE_KEY, new Date().toISOString());
+            } catch {
+              /* storage blocked */
+            }
+            void load();
+          }}
+          className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-white px-3 text-sm font-semibold text-slate-800 ring-1 ring-slate-300 hover:bg-slate-50"
+        >
+          <Timer className="h-4 w-4" aria-hidden /> Count from now
+        </button>
+        {since && (
+          <button
+            type="button"
+            onClick={() => {
+              try {
+                localStorage.removeItem(SINCE_KEY);
+              } catch {
+                /* storage blocked */
+              }
+              void load();
+            }}
+            className="inline-flex min-h-11 cursor-pointer items-center rounded-xl px-3 text-sm font-semibold text-slate-700 underline"
+          >
+            Back to the last 24 hours
+          </button>
+        )}
+        <span className="text-xs text-slate-500">
+          {since ? `Counting since ${new Date(since).toLocaleString('en-IN')} (this browser)` : 'The counts below: the last 24 hours'} · “yours” = from the network you are on now
+        </span>
+      </div>
+      {kinds.length > 0 && (
+        <ul className="mt-2 flex flex-wrap gap-2 text-xs" data-kind-counts>
+          {kinds.map((k) => (
+            <li key={k.kind} className="rounded-full bg-slate-50 px-2.5 py-1 text-slate-800 ring-1 ring-slate-200">
+              {KIND[k.kind]?.label ?? k.kind}: <strong>{k.all}</strong>
+              {k.yours > 0 && <span className="text-slate-500"> ({k.yours} yours)</span>}
+            </li>
+          ))}
+        </ul>
+      )}
       {botCodes.length > 0 && (
         <div className="mt-4" data-bot-codes>
           <p className="text-sm font-semibold text-slate-800">“I am human” check failures, by code</p>
-          <ul className="mt-1 flex flex-wrap gap-2 text-xs">
-            {botCodes.map(([code, n]) => (
-              <li key={code} className="rounded-full bg-amber-50 px-2.5 py-1 font-mono text-amber-900 ring-1 ring-amber-200">
-                {code}: {n}
+          <ul className="mt-1 space-y-1 text-xs">
+            {botCodes.map((c) => (
+              <li key={c.code} className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-amber-950 ring-1 ring-amber-200">
+                <span className="font-mono font-semibold">{c.code}</span>: {c.all}
+                {c.yours > 0 && <span> ({c.yours} yours)</span>}
+                {meaning(c.code) && <span className="text-amber-900/80"> — {meaning(c.code)}</span>}
               </li>
             ))}
           </ul>
-          <p className="mt-1 text-xs text-slate-500">600xxx/300xxx: Cloudflare could not finish in the browser; 110xxx: an address Cloudflare does not allow (the address is shown); supabase-…: Supabase refused a token (invalid-input-response = its secret is from another widget; timeout-or-duplicate = used twice or too old). Test it any time at /status.</p>
+          <p className="mt-1 text-xs text-slate-500">Test the whole check any time at /status → Test the security check.</p>
+        </div>
+      )}
+      {mailErrors.length > 0 && (
+        <div className="mt-4" data-mail-errors>
+          <p className="text-sm font-semibold text-slate-800">Why emails failed (the mail server’s own reply)</p>
+          <ul className="mt-1 space-y-1 text-xs">
+            {mailErrors.map((m, i) => (
+              <li key={i} className="rounded-lg bg-rose-50 px-2.5 py-1.5 text-rose-950 ring-1 ring-rose-200">
+                {new Date(m.at).toLocaleString('en-IN')} · {m.detail}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
       {recent.length > 0 && (

@@ -28,54 +28,89 @@ interface Smtp {
   port: number;
   user: string;
   pass: string;
+  /** Which Vercel settings these came from (shown, never their values). */
+  from: 'SMTP_*' | 'GMAIL_*';
 }
 
-/** The SMTP settings, or null when they are not all there. */
+/**
+ * The SMTP settings, or null when they are not all there. Each pair is used
+ * whole — SMTP_USER with SMTP_PASS, or else GMAIL_USER with
+ * GMAIL_APP_PASSWORD — never one account's address with another's password
+ * (Gmail refuses that with 535).
+ */
 function smtp(): Smtp | null {
-  const user = process.env.SMTP_USER?.trim() || process.env.GMAIL_USER?.trim();
-  const pass = (process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD || '').replace(/\s/g, '');
-  if (!user || !pass) return null;
+  const host = process.env.SMTP_HOST?.trim() || 'smtp.gmail.com';
   const port = Number(process.env.SMTP_PORT) || 465;
-  return { host: process.env.SMTP_HOST?.trim() || 'smtp.gmail.com', port, user, pass };
+  const pass = (v: string | undefined) => (v ?? '').replace(/\s/g, '');
+  if (process.env.SMTP_USER?.trim() && pass(process.env.SMTP_PASS)) return { host, port, user: process.env.SMTP_USER.trim(), pass: pass(process.env.SMTP_PASS), from: 'SMTP_*' };
+  if (process.env.GMAIL_USER?.trim() && pass(process.env.GMAIL_APP_PASSWORD)) return { host: 'smtp.gmail.com', port: 465, user: process.env.GMAIL_USER.trim(), pass: pass(process.env.GMAIL_APP_PASSWORD), from: 'GMAIL_*' };
+  return null;
+}
+
+/** Which settings are there (true/false only) and what the password looks like — never a value. */
+export function mailSettings(): Record<string, boolean | number | string> {
+  const has = (n: string) => Boolean(process.env[n]?.trim());
+  const p = (process.env.SMTP_PASS ?? '').replace(/\s/g, '');
+  return {
+    SMTP_HOST: has('SMTP_HOST'),
+    SMTP_PORT: has('SMTP_PORT'),
+    SMTP_USER: has('SMTP_USER'),
+    SMTP_PASS: Boolean(p),
+    // A Gmail app password is 16 letters (Google shows it in 4 groups of 4).
+    SMTP_PASS_looks_like_app_password: /^[a-z]{16}$/i.test(p),
+    SUPPORT_EMAIL: has('SUPPORT_EMAIL'),
+    port: Number(process.env.SMTP_PORT) || 465,
+    using: smtp()?.from ?? 'none',
+  };
 }
 
 /** Whether emails can be sent, and from which address (no secret). */
-export function mailStatus(): { configured: boolean; from: string | null; inbox: string } {
+export function mailStatus(): { configured: boolean; from: string | null; inbox: string; settings: Record<string, boolean | number | string> } {
   const s = smtp();
-  return { configured: Boolean(s), from: s?.user ?? null, inbox: supportInbox() };
+  return { configured: Boolean(s), from: s?.user ?? null, inbox: supportInbox(), settings: mailSettings() };
 }
 
-/** What went wrong, in words safe to show and log (never the server's own message). */
-function failureKind(err: unknown): string {
-  const e = err as { code?: string; responseCode?: number };
-  if (e?.code === 'EAUTH' || e?.responseCode === 535) return 'login refused (check SMTP_USER and the app password)';
-  if (e?.code === 'ECONNECTION' || e?.code === 'ESOCKET' || e?.code === 'EDNS') return 'could not reach the mail server';
-  if (e?.code === 'ETIMEDOUT') return 'the mail server took too long';
-  if (e?.responseCode && e.responseCode >= 400 && e.responseCode < 500) return `mail server busy (${e.responseCode}), will retry`;
-  if (e?.responseCode) return `mail server refused (${e.responseCode})`;
-  return 'sending failed';
+/**
+ * What went wrong: the error's code and the mail server's own reply (e.g.
+ * "EAUTH 535 5.7.8 Username and Password not accepted"), one line, at most
+ * 160 characters — it never holds the password or the email.
+ */
+function failureOf(err: unknown, port: number): string {
+  const e = err as { code?: string; responseCode?: number; response?: string; message?: string };
+  const reply = String(e?.response ?? e?.message ?? '')
+    .split(/\r?\n/)[0]
+    .replace(/https?:\/\/\S+/g, '')
+    .trim();
+  const hint =
+    e?.code === 'EAUTH' || e?.responseCode === 535
+      ? ' — Gmail refused the login: SMTP_PASS must be a 16-letter App Password of SMTP_USER’s account, with 2-Step Verification on'
+      : e?.code === 'ETIMEDOUT' || e?.code === 'ECONNECTION' || e?.code === 'ESOCKET'
+        ? ' — could not reach the mail server'
+        : '';
+  return `port ${port}: ${[e?.code, e?.responseCode].filter(Boolean).join(' ')} ${reply}`.replace(/\s+/g, ' ').trim().slice(0, 160) + hint;
 }
+const unreachable = (err: unknown) => ['ETIMEDOUT', 'ECONNECTION', 'ESOCKET', 'EDNS', 'ECONNREFUSED'].includes(String((err as { code?: string })?.code));
 
-let transport: { key: string; send: (m: Record<string, unknown>) => Promise<unknown> } | null = null;
-
-/** Send one email now. Never throws. */
+/** Send one email now; tried on port 587 (STARTTLS) when 465 cannot be reached. Never throws. */
 export async function sendLetter(l: Letter): Promise<{ ok: true } | { ok: false; reason: string }> {
   const s = smtp();
   if (!s) return { ok: false, reason: 'email is not set up (SMTP_USER and SMTP_PASS in Vercel)' };
-  try {
-    const key = `${s.host}|${s.port}|${s.user}`;
-    if (transport?.key !== key) {
-      const nodemailer = (await import('nodemailer')).default;
-      const t = nodemailer.createTransport({ host: s.host, port: s.port, secure: s.port === 465, auth: { user: s.user, pass: s.pass }, connectionTimeout: 10_000, greetingTimeout: 10_000, socketTimeout: 15_000 });
-      transport = { key, send: (m) => t.sendMail(m) };
+  const nodemailer = (await import('nodemailer')).default;
+  const { text, html } = render(l);
+  const message = { from: `KashRoot <${s.user}>`, to: l.to, replyTo: l.replyTo ?? supportInbox(), subject: l.subject, text, html };
+  const ports = s.port === 465 ? [465, 587] : [s.port];
+  let reason = '';
+  for (const port of ports) {
+    try {
+      const t = nodemailer.createTransport({ host: s.host, port, secure: port === 465, requireTLS: port !== 465, auth: { user: s.user, pass: s.pass }, connectionTimeout: 8_000, greetingTimeout: 8_000, socketTimeout: 12_000 });
+      await t.sendMail(message);
+      return { ok: true };
+    } catch (err) {
+      reason = failureOf(err, port);
+      if (!unreachable(err)) break; // a refusal is the same on any port
     }
-    const { text, html } = render(l);
-    await transport.send({ from: `KashRoot <${s.user}>`, to: l.to, replyTo: l.replyTo ?? supportInbox(), subject: l.subject, text, html });
-    return { ok: true };
-  } catch (err) {
-    transport = null;
-    return { ok: false, reason: failureKind(err) };
   }
+  return { ok: false, reason };
 }
 
 // ── The queue ──

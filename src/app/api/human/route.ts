@@ -31,7 +31,7 @@ export async function POST(request: Request) {
   if (typeof body?.report === 'string') {
     const code = body.report.replace(/[^\w-]/g, '').slice(0, 40);
     const action = String(body.action ?? '').replace(/[^\w-]/g, '').slice(0, 20);
-    securityEvent('bot_check_failed', { request, detail: `browser: ${code}${action ? ` (${action})` : ''}`, site: String(body.host ?? '') });
+    securityEvent('bot_check_failed', { request, code: `browser: ${code}`, detail: action ? `(${action})` : undefined, site: String(body.host ?? '') });
     return NextResponse.json({ ok: true });
   }
   if (!humanPassOn()) return NextResponse.json({ ok: true });
