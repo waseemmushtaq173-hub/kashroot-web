@@ -1,8 +1,10 @@
 /**
- * The public top bar has no Produce / Supplies / Compare links; each former
- * link now opens its portal's tab (signed out: that portal's sign-in, which
- * returns to the tab); the old /compare-prices?category= links still open, with
- * a clear choice; /compare-prices is still Price Comparison.
+ * The public top bar has no Produce / Supplies / Compare links, and has Help &
+ * support (on phones too, 44 px or more; also in every portal's top bar). The
+ * footer holds only the brand, © and the social pages. Each portal tab those
+ * links used to open is still reached (signed out: that portal's sign-in,
+ * which returns to the tab); the old /compare-prices?category= links still
+ * open, with a clear choice; /compare-prices is still Price Comparison.
  * KR_BASE_URL says where the site runs. Screenshots: test-results/header-*.png
  */
 import { expect, test } from '@playwright/test';
@@ -27,14 +29,33 @@ for (const width of [1280, 390]) {
       expect(scrollX).toBeLessThanOrEqual(0);
     });
 
-    test('footer links open each portal’s tab, through its own sign-in when signed out', async ({ page }) => {
+    test('Help & support is in the top bar, 44 px or more, and opens Help & support', async ({ page }) => {
+      for (const path of ['/', '/login/buyer', '/tracking/dashboard']) {
+        await page.goto(path);
+        const help = page.getByRole('link', { name: 'Help & support' }).first();
+        await expect(help).toBeVisible();
+        expect((await help.boundingBox())!.height, `${path}: 44 px or taller`).toBeGreaterThanOrEqual(44);
+      }
+      await page.goto('/');
+      await page.locator('header').first().screenshot({ path: `test-results/header-help-${width}.png` });
+      await page.getByRole('link', { name: 'Help & support' }).first().click();
+      await page.waitForURL((u) => u.pathname === '/support');
+    });
+
+    test('the footer holds only the brand, © and the social pages', async ({ page }) => {
+      await page.goto('/');
+      const footer = page.locator('footer').last();
+      const names = (await footer.getByRole('link').allInnerTexts()).map((t) => t.trim()).filter(Boolean);
+      expect(names.filter((n) => !/^KashRoot$/i.test(n)).sort()).toEqual(['Facebook', 'Instagram', 'LinkedIn']);
+      await expect(footer).toContainText('© ');
+      await expect(footer).not.toContainText('@');
+      for (const name of ['Instagram', 'Facebook', 'LinkedIn']) expect((await footer.getByRole('link', { name }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      await footer.screenshot({ path: `test-results/footer-${width}.png` });
+    });
+
+    test('the portal tabs the old footer links opened still open, through their own sign-in', async ({ page }) => {
       for (const p of PORTAL_TABS) {
-        await page.goto('/');
-        const link = page.locator('footer').getByRole('link', { name: p.label, exact: true });
-        await expect(link).toHaveAttribute('href', p.href);
-        const box = await link.boundingBox();
-        expect(box!.height, `${p.label} is 44 px or taller`).toBeGreaterThanOrEqual(44);
-        await link.click();
+        await page.goto(p.href);
         // Signed out: that portal's own sign-in, carrying the very tab to come back to.
         await page.waitForURL((u) => u.pathname === p.login, { timeout: 30_000 });
         expect(new URL(page.url()).searchParams.get('next')).toBe(p.href);

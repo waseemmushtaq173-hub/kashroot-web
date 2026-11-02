@@ -11,9 +11,9 @@ for (const width of [1280, 390]) {
   test.describe(`${width} px`, () => {
     test.use({ viewport: { width, height: 900 } });
 
-    test('the footer and every sign-in lead to help', async ({ page }) => {
+    test('the top bar and every sign-in lead to help', async ({ page }) => {
       await page.goto('/');
-      await expect(page.locator('footer').getByRole('link', { name: 'Help & support' })).toHaveAttribute('href', '/support');
+      await expect(page.getByRole('link', { name: 'Help & support' }).first()).toHaveAttribute('href', '/support');
       await page.goto('/login/farmer');
       const help = page.getByRole('link', { name: 'Get help' });
       await expect(help).toHaveAttribute('href', '/support?topic=login');
@@ -74,4 +74,32 @@ test('the assistant sends sign-in trouble to Help & support', async ({ request }
   const res = await request.post('/api/ai', { data: { query: 'I cannot login, OTP not coming', lang: 'en', exact: true } });
   const body = await res.json();
   expect(body.reply).toContain('Help & support');
+});
+
+test('Help & support holds the official contacts: an "Email us" button and the warning', async ({ page }) => {
+  await page.goto('/support');
+  const official = page.locator('#official');
+  await expect(official.getByRole('heading', { name: 'Official contacts' })).toBeVisible();
+  const emailUs = official.getByRole('link', { name: 'Email us' });
+  await expect(emailUs).toHaveAttribute('href', /^mailto:kashrootsupport@gmail\.com\?subject=/);
+  expect((await emailUs.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await expect(official).toContainText('never asks for your password, OTP, UPI PIN or card number');
+  // Check my request takes the mobile number or the email.
+  await expect(page.getByLabel('Mobile number or email you gave')).toBeVisible();
+  await official.screenshot({ path: 'test-results/support-official.png' });
+});
+
+test('the old /official address opens the official contacts in Help & support', async ({ page }) => {
+  await page.goto('/official');
+  await page.waitForURL((u) => u.pathname === '/support');
+  await expect(page.locator('#official')).toBeVisible();
+});
+
+test('a request is looked up by its number with the mobile OR the email, and guessing is limited', async ({ request }) => {
+  // A malformed contact is refused before any lookup.
+  const bad = await request.post('/api/support', { data: { action: 'status', code: 'H-12345678', contact: 'not a contact' } });
+  expect([400, 503]).toContain(bad.status());
+  // An email is accepted as a contact (no request here: 404, or 503 when requests are off on this copy).
+  const byEmail = await request.post('/api/support', { data: { action: 'status', code: 'H-00000000', contact: 'nobody@example.invalid' } });
+  expect([404, 429, 503]).toContain(byEmail.status());
 });

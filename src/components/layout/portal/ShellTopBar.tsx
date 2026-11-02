@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { LogIn, LogOut, Menu } from 'lucide-react';
 
 import { Emblem } from '@/components/brand/Emblem';
+import { HelpButton } from '@/components/layout/HelpButton';
 import { FOCUS, type PortalTheme } from '@/components/portal/kit';
 import { ShellSearch, type SearchItem } from '@/components/layout/portal/ShellSearch';
 import { initialsOf, type ShellLook } from '@/components/layout/portal/look';
@@ -76,6 +77,7 @@ export function ShellTopBar({
         <ShellSearch getItems={searchItems} theme={theme} example={searchExample} />
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
+          <HelpButton size="lg" />
           {signedIn === false && signInHref && (
             <Link
               href={signInHref}

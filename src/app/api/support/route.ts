@@ -1,23 +1,31 @@
 /**
- * Help & Support requests (20261105000000_support_desk.sql), for anyone —
- * also someone who cannot sign in.
+ * Help & Support requests (20261105000000_support_desk.sql,
+ * 20261109000000_support_tracking.sql), for anyone — also someone who cannot sign in.
  *
  * POST /api/support
  *   { action: 'open', name, phone, email?, topic, portal?, lang?, message } → { code }
- *   { action: 'status', code, phone }  → { request } (404: no request with that code and phone)
- *   { action: 'add', code, phone, body } → { ok }
+ *   { action: 'status', code, contact }  → { request } (404: no request with that code and contact)
+ *   { action: 'add', code, contact, body } → { ok }
+ *   { action: 'feedback', code, contact, solved } → { ok }   "This solved my problem" / "Still need help"
+ * `contact` is the mobile number or the email the request was sent with
+ * (`phone` is still read, for older pages).
  *
  * Only this server can open or read requests (KYC_DB_SECRET); a signed-in
  * person's bearer token is passed on, so their request is linked to their
  * account. Limits per person, so the desk cannot be flooded. Without the
  * secret it says honestly that requests are not switched on, with the email.
- * A new request is emailed to the support inbox at once (lib/server/mail).
+ * A new request is emailed to the support inbox (and "We got your request" to
+ * the person, when they gave an email) before the answer goes back — up to
+ * 8 s; anything slower or failed stays queued and is tried again
+ * (lib/server/mail). Guessing request numbers is stopped: after 5 wrong
+ * contacts for one number in an hour, that number is not looked up again
+ * for the hour.
  */
 import { after, NextResponse } from 'next/server';
 
 import { isHuman, NOT_HUMAN } from '@/lib/server/humanCheck';
 import { flushOutbox } from '@/lib/server/mail';
-import { hashed, sharedIpLimited, sharedLimited } from '@/lib/server/sharedLimit';
+import { hashed, sharedCount, sharedIpLimited, sharedLimited, sharedRecord } from '@/lib/server/sharedLimit';
 import { supabaseAnonKey, supabaseOrigin } from '@/lib/supabase-config';
 import { SUPPORT_EMAIL } from '@/lib/supportEmail';
 
@@ -62,10 +70,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
   }
   if (!secret) return NextResponse.json({ error: NOT_ON }, { status: 503 });
-  const phone = mobileOf(b.phone);
-  if (!phone) return NextResponse.json({ error: 'Write your 10-digit mobile number.' }, { status: 400 });
 
   if (b.action === 'open') {
+    const phone = mobileOf(b.phone);
+    if (!phone) return NextResponse.json({ error: 'Write your 10-digit mobile number.' }, { status: 400 });
     const name = clean(b.name, 80);
     const message = clean(b.message, 2000);
     const topic = TOPICS.includes(String(b.topic)) ? String(b.topic) : 'other';
@@ -85,28 +93,49 @@ export async function POST(req: Request) {
     // An expired sign-in should never stop someone asking for help: open it without the account.
     if (!r.ok && bearer) r = await rpc('kr_support_open', args);
     if (!r.ok || typeof r.body !== 'string') return NextResponse.json({ error: BUSY }, { status: 502 });
-    // The database queued the email to the support inbox; send it after this answer.
-    after(() => flushOutbox(5));
+    // The database queued the email to the support inbox (and the acknowledgement): send them now,
+    // before answering — a serverless function may stop once it has answered. Slower than 8 s: finish
+    // after the answer if Vercel lets it; the queue retries either way.
+    const sending = flushOutbox(5).catch(() => ({ sent: 0, failed: 0 }));
+    await Promise.race([sending, new Promise((done) => setTimeout(done, 8_000))]);
+    after(() => sending);
     return NextResponse.json({ code: r.body });
   }
 
   const code = clean(b.code, 20).toUpperCase();
   if (!/^H-[0-9A-F]{8}$/.test(code)) return NextResponse.json({ error: 'The request number looks like H-3F9A2C1B.' }, { status: 400 });
+  // The mobile number or the email the request was sent with.
+  const rawContact = clean(b.contact ?? b.phone, 120);
+  const contact = (rawContact.includes('@') ? null : mobileOf(rawContact)) ?? (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawContact) ? rawContact.toLowerCase() : null);
+  if (!contact) return NextResponse.json({ error: 'Write the 10-digit mobile number or the email you gave.' }, { status: 400 });
   if (await sharedIpLimited(req, 'support-check', 20)) return NextResponse.json({ error: 'Too many tries. Please wait a minute.' }, { status: 429 });
+  const missKey = `support-miss:${code}`;
+  if ((await sharedCount(missKey, 3_600_000)) >= 5) return NextResponse.json({ error: 'Too many wrong tries for this request number. Please wait an hour, or ask again.' }, { status: 429 });
+  const notFound = async () => {
+    await sharedRecord(missKey, 3_600_000);
+    return NextResponse.json({ error: 'No request with that number and mobile number or email.' }, { status: 404 });
+  };
 
   if (b.action === 'status') {
-    const r = await rpc('kr_support_status', { p_secret: secret, p_code: code, p_phone: phone });
+    const r = await rpc('kr_support_status', { p_secret: secret, p_code: code, p_phone: contact });
     if (!r.ok) return NextResponse.json({ error: BUSY }, { status: 502 });
-    if (!r.body) return NextResponse.json({ error: 'No request with that number and mobile number.' }, { status: 404 });
+    if (!r.body) return notFound();
     return NextResponse.json({ request: r.body }, { headers: { 'cache-control': 'no-store' } });
+  }
+  if (b.action === 'feedback') {
+    if (typeof b.solved !== 'boolean') return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
+    const r = await rpc('kr_support_feedback', { p_secret: secret, p_code: code, p_contact: contact, p_solved: b.solved });
+    if (!r.ok) return NextResponse.json({ error: BUSY }, { status: 502 });
+    if (r.body !== true) return notFound();
+    return NextResponse.json({ ok: true });
   }
   if (b.action === 'add') {
     const body = clean(b.body, 2000);
     if (!body) return NextResponse.json({ error: 'Write your note.' }, { status: 400 });
     if (await sharedIpLimited(req, 'support-add', 10, 3_600_000)) return NextResponse.json({ error: 'Too many notes. Please wait a while.' }, { status: 429 });
-    const r = await rpc('kr_support_add', { p_secret: secret, p_code: code, p_phone: phone, p_body: body });
+    const r = await rpc('kr_support_add', { p_secret: secret, p_code: code, p_phone: contact, p_body: body });
     if (!r.ok) return NextResponse.json({ error: BUSY }, { status: 502 });
-    if (r.body !== true) return NextResponse.json({ error: 'No request with that number and mobile number.' }, { status: 404 });
+    if (r.body !== true) return notFound();
     return NextResponse.json({ ok: true });
   }
   return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });

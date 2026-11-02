@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 
 import { InfoPage } from '@/components/layout/InfoPage';
-import { NEVER_ASKS, SUPPORT_EMAIL, supportMailto } from '@/lib/supportEmail';
+import { NEVER_ASKS } from '@/lib/supportEmail';
 
 export const metadata: Metadata = { title: 'Terms & Conditions' };
 
@@ -37,8 +37,7 @@ export default function TermsPage() {
       <section>
         <h2>6. Contact</h2>
         <p>
-          Email <a className="font-semibold text-emerald-800 underline" href={supportMailto()}>{SUPPORT_EMAIL}</a>, or use <Link className="font-semibold text-emerald-800 underline" href="/support">Help &amp; support</Link>. {NEVER_ASKS}{' '}
-          <Link className="font-semibold text-emerald-800 underline" href="/official">KashRoot’s official contacts</Link>.
+          Use <Link className="font-semibold text-emerald-800 underline" href="/support">Help &amp; support</Link> — at the top of every page — to ask KashRoot, follow your request, or find KashRoot’s official contacts. {NEVER_ASKS}
         </p>
       </section>
     </InfoPage>

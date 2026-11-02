@@ -18,12 +18,14 @@ export interface Letter {
 
 export interface Queued {
   id: number;
-  kind: 'help_new' | 'help_reply' | 'payout_changed' | 'password_changed' | 'email_changed' | 'phone_changed' | 'new_signin';
+  kind: 'help_new' | 'help_ack' | 'help_reply' | 'help_resolved' | 'payout_changed' | 'password_changed' | 'email_changed' | 'phone_changed' | 'new_signin';
   ref: string | null;
   detail: string | null;
   created_at: string;
   to: string | null;
   help: { name: string; phone: string; email: string | null; topic: string; portal: string | null; lang: string; message: string; signed_in: boolean } | null;
+  /** help_reply: KashRoot's latest reply, word for word. */
+  reply?: string | null;
 }
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -59,7 +61,7 @@ export function redactForEmail(text: string): string {
 
 const TOPIC: Record<string, string> = { login: 'Signing in', payment: 'Payment', order: 'An order', cold_storage: 'Cold storage', selling: 'Selling', other: 'Something else' };
 
-const NOTICE: Record<Exclude<Queued['kind'], 'help_new' | 'help_reply'>, [string, (detail: string | null) => string]> = {
+const NOTICE: Record<Exclude<Queued['kind'], 'help_new' | 'help_ack' | 'help_reply' | 'help_resolved'>, [string, (detail: string | null) => string]> = {
   payout_changed: ['Your KashRoot payout details were changed', () => 'The UPI ID or bank account where people pay you was saved or changed on KashRoot.'],
   password_changed: ['Your KashRoot password was changed', () => 'The password of your KashRoot account was changed.'],
   email_changed: ['A change of your KashRoot email was asked for', () => 'Someone signed in to your KashRoot account asked to change its email address. It changes only after the link sent to the new address is opened.'],
@@ -67,17 +69,22 @@ const NOTICE: Record<Exclude<Queued['kind'], 'help_new' | 'help_reply'>, [string
   new_signin: ['New sign-in to your KashRoot account', (d) => `Your KashRoot account was signed in to on a new device${d ? `: ${d}` : ''}.`],
 };
 
+const indiaTime = (iso: string) => new Date(iso).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
+
 /** The email for one queued item; null when it has nowhere to go. `site` is the site's address, `inbox` the support inbox. */
 export function letterFor(q: Queued, site: string, inbox: string): Letter | null {
+  const check = { label: 'Check my request', href: `${site}/support?code=${encodeURIComponent(q.ref ?? '')}#check-title` };
+  const about = q.help ? (TOPIC[q.help.topic] ?? q.help.topic) : '';
   if (q.kind === 'help_new') {
     const h = q.help;
     if (!h) return null;
     return {
       to: inbox,
       replyTo: h.email ?? undefined,
-      subject: `New help request ${q.ref} — ${TOPIC[h.topic] ?? h.topic}`,
+      subject: `KashRoot help request ${q.ref} — ${TOPIC[h.topic] ?? h.topic}`,
       lines: [
         `A new help request: ${q.ref}`,
+        `Received: ${indiaTime(q.created_at)} (India time)`,
         '',
         `Name: ${h.name}`,
         `Mobile (call back): ${h.phone}`,
@@ -93,20 +100,39 @@ export function letterFor(q: Queued, site: string, inbox: string): Letter | null
     };
   }
   if (!q.to) return null;
+  if (q.kind === 'help_ack') {
+    return {
+      to: q.to,
+      subject: `We got your request ${q.ref}`,
+      lines: [
+        `Thank you — KashRoot got your help request ${q.ref}${about ? ` (${about})` : ''}.`,
+        'A person from KashRoot’s team will reply, or call you on the mobile number you gave.',
+        'You can see where it stands any time: open Help & support → Check my request, with this number and your mobile number or this email address.',
+      ],
+      action: check,
+    };
+  }
   if (q.kind === 'help_reply') {
     return {
       to: q.to,
       subject: `Your KashRoot request ${q.ref} has a reply`,
-      lines: [`KashRoot has replied to your help request ${q.ref}.`, 'Open Help & support and check your request with its number and your mobile number to read the reply.'],
-      action: { label: 'Read the reply', href: `${site}/support?code=${encodeURIComponent(q.ref ?? '')}#check-title` },
+      lines: [`KashRoot replied to your help request ${q.ref}:`, '', q.reply?.trim() || '(Open your request to read the reply.)', '', 'To answer, or to say whether this solved your problem, open your request:'],
+      action: check,
+    };
+  }
+  if (q.kind === 'help_resolved') {
+    return {
+      to: q.to,
+      subject: `Your KashRoot request ${q.ref} is resolved`,
+      lines: [`KashRoot marked your help request ${q.ref}${about ? ` (${about})` : ''} as resolved.`, 'If you still need help, open your request and tap “Still need help” — it opens again.'],
+      action: check,
     };
   }
   const [subject, line] = NOTICE[q.kind];
-  const when = new Date(q.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
   return {
     to: q.to,
     subject,
-    lines: [line(q.detail), `When: ${when} (India time).`, '', 'If this was you, there is nothing to do.', `If it was not you: change your password now (Forgot password on the sign-in page), then tell KashRoot at ${inbox}.`],
+    lines: [line(q.detail), `When: ${indiaTime(q.created_at)} (India time).`, '', 'If this was you, there is nothing to do.', `If it was not you: change your password now (Forgot password on the sign-in page), then tell KashRoot through Help & support: ${site}/support`],
     action: { label: 'Change my password', href: `${site}/forgot-password` },
   };
 }

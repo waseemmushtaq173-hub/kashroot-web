@@ -8,11 +8,11 @@ import { BrandMark } from '@/components/brand/Shikara';
 import { MyDetailsPanel } from '@/components/portal/MyDetailsPanel';
 import { MY_DETAILS } from '@/components/portal/myDetailsConfig';
 import { FloatingVoice } from '@/components/voice/FloatingVoice';
-import { loginHref, MARKET_PLACES, PORTALS, PUBLIC_PORTAL_IDS, type PortalId } from '@/lib/auth/roles';
+import { loginHref, PORTALS, PUBLIC_PORTAL_IDS, type PortalId } from '@/lib/auth/roles';
 import { useSecretAdminTap, useShowAdmin } from '@/lib/client/adminDevice';
 import { signOutOfPortal, useMyPortal, useSignedIn } from '@/lib/auth/session';
 import { SOCIAL_LINKS } from '@/lib/site';
-import { SUPPORT_EMAIL, supportMailto } from '@/lib/supportEmail';
+import { HelpButton } from '@/components/layout/HelpButton';
 
 /**
  * `dark` (default) is the original look for the dark dashboards. `light` is for
@@ -279,6 +279,7 @@ export function SiteHeader({
 
         {/* Produce, supplies and Price Comparison live in their portals and the Portals menu, not here. */}
         <div className="flex items-center gap-2">
+          <HelpButton />
           {light && showRoleSignIn && !hideSignIn && (
             <Link href={myPortal ? PORTALS[myPortal].home : '/login'} className={`${navLink} hidden md:inline-flex`}>
               {myPortal ? `My ${PORTALS[myPortal].label} portal` : 'Sign in'}
@@ -296,13 +297,12 @@ export function SiteHeader({
 }
 
 /**
- * Public site footer. Mirrors the header's information architecture so the two
- * verticals are reachable from the bottom of every public page as well.
- * Inside a portal (`portal` set) it keeps only the brand and social links: the
- * common tools (Price Comparison and the rest) live on the home page and the
- * main site header, not inside portals.
+ * Site footer, the same everywhere: the brand, © and KashRoot's social pages
+ * only. Help & support is in every top bar; the portals (buying, selling,
+ * supplies) are in the Portals menu, and their old addresses send people to
+ * the right portal tab. (`portal` is still accepted from older callers.)
  */
-export function SiteFooter({ tone = 'dark', portal }: { tone?: SiteTone; portal?: PortalId | null }) {
+export function SiteFooter({ tone = 'dark' }: { tone?: SiteTone; portal?: PortalId | null }) {
   const light = tone === 'light';
   const footLink = light
     ? 'text-slate-600 no-underline transition-colors hover:text-slate-900 hover:no-underline'
@@ -327,30 +327,10 @@ export function SiteFooter({ tone = 'dark', portal }: { tone?: SiteTone; portal?
             &copy; {new Date().getFullYear()} KashRoot
           </p>
         </div>
+        {/* Only the social pages: help is in every top bar (Help & support), the portals in the Portals menu. */}
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-caption">
-          {!portal && (
-            <>
-              {/* Each to its portal's own tab (signed out: that portal's sign-in first, then back here). */}
-              {[MARKET_PLACES.buyProduce, MARKET_PLACES.sellProduce, MARKET_PLACES.farmSupplies].map((m) => (
-                <Link key={m.href} href={m.href} className={`${footLink} inline-flex min-h-11 items-center`}>
-                  {m.label}
-                </Link>
-              ))}
-            </>
-          )}
-          {/* Everyone, signed in or not: sign-in trouble or anything else. */}
-          <Link href="/support" className={`${footLink} inline-flex min-h-11 items-center font-semibold`}>
-            Help &amp; support
-          </Link>
-          {/* The one official address: what KashRoot's emails come from, and where to write. */}
-          <a href={supportMailto()} className={`${footLink} inline-flex min-h-11 items-center`}>
-            {SUPPORT_EMAIL}
-          </a>
-          <Link href="/official" className={`${footLink} inline-flex min-h-11 items-center`}>
-            Official contacts
-          </Link>
           {SOCIAL_LINKS.map((s) => (
-            <a key={s.href} href={s.href} target="_blank" rel="noopener noreferrer me" className={footLink}>
+            <a key={s.href} href={s.href} target="_blank" rel="noopener noreferrer me" className={`${footLink} inline-flex min-h-11 items-center`}>
               {s.label}
             </a>
           ))}
@@ -393,6 +373,7 @@ function PortalHeader({ portal }: { portal: PortalId }) {
               <UserRound className="h-4 w-4" aria-hidden /> <span>My details</span>
             </button>
           )}
+          <HelpButton />
           <Link href="/" className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 no-underline transition hover:bg-white hover:text-slate-900 hover:no-underline">
             <Home className="h-4 w-4" aria-hidden /> Home
           </Link>

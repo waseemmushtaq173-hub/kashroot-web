@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 
 import { InfoPage } from '@/components/layout/InfoPage';
-import { NEVER_ASKS, SUPPORT_EMAIL, supportMailto } from '@/lib/supportEmail';
+import { NEVER_ASKS } from '@/lib/supportEmail';
 
 export const metadata: Metadata = { title: 'Privacy Policy' };
 
@@ -28,13 +28,12 @@ export default function PrivacyPage() {
       </section>
       <section>
         <h2>Your choices</h2>
-        <p>You can ask for a copy of your data, or for it to be deleted, at any time — email {SUPPORT_EMAIL} from the address on your account — subject to records we must keep by law.</p>
+        <p>You can ask for a copy of your data, or for it to be deleted, at any time through Help &amp; support (from the email or mobile number on your account), subject to records we must keep by law.</p>
       </section>
       <section>
         <h2>Contact</h2>
         <p>
-          Email <a className="font-semibold text-emerald-800 underline" href={supportMailto()}>{SUPPORT_EMAIL}</a>, or use <Link className="font-semibold text-emerald-800 underline" href="/support">Help &amp; support</Link>. {NEVER_ASKS}{' '}
-          <Link className="font-semibold text-emerald-800 underline" href="/official">KashRoot’s official contacts</Link>.
+          Use <Link className="font-semibold text-emerald-800 underline" href="/support">Help &amp; support</Link> — at the top of every page — to ask KashRoot, follow your request, or find KashRoot’s official contacts. {NEVER_ASKS}
         </p>
       </section>
     </InfoPage>

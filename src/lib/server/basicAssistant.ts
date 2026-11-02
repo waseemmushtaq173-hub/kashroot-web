@@ -19,7 +19,6 @@ import { forecast, geocode, type Forecast } from '@/lib/server/weather';
 import { dryHours, sprayDayOver } from '@/lib/sprayWindow';
 import { hasWord as has, norm } from '@/lib/textMatch';
 import { guideFor } from '@/lib/portalGuide';
-import { SUPPORT_EMAIL } from '@/lib/supportEmail';
 
 type Text = { en: string; hi: string; ur: string };
 export interface BasicAnswer {
@@ -125,9 +124,9 @@ const HELP: { keys: string[]; text: Text }[] = [
     // Signing in, and any problem with the site: Help & support (works without signing in).
     keys: ['login', 'log in', 'sign in', 'signin', 'otp', 'password', 'locked', 'support', 'complaint', 'लॉगिन', 'साइन इन', 'पासवर्ड', 'शिकायत', 'लॉग इन', 'لاگ ان', 'سائن ان', 'پاس ورڈ', 'شکایت'],
     text: {
-      en: `For trouble signing in — the code does not come, a forgotten password, a locked sign-in — or any other problem, open Help & support: the link is at the bottom of every page and in every portal’s menu, and on the sign-in page under Trouble signing in. It has the steps to read or listen to, and Ask KashRoot sends your problem to a person from KashRoot, who replies or calls you. You do not need to be signed in. You can also email ${SUPPORT_EMAIL}. KashRoot never asks for your password, OTP or UPI PIN.`,
-      hi: `साइन इन में दिक़्क़त — कोड न आना, पासवर्ड भूलना, साइन-इन बंद होना — या कोई और परेशानी हो तो Help & support खोलें: इसका लिंक हर पेज के नीचे, हर पोर्टल के मेन्यू में, और साइन-इन पेज पर Trouble signing in के नीचे है। वहाँ पढ़ने या सुनने के लिए तरीक़े हैं, और Ask KashRoot से आपकी बात KashRoot की टीम के किसी व्यक्ति तक पहुँचती है, जो जवाब देगा या फ़ोन करेगा। साइन इन ज़रूरी नहीं। आप ${SUPPORT_EMAIL} पर ईमेल भी कर सकते हैं। KashRoot कभी आपका पासवर्ड, OTP या UPI PIN नहीं माँगता।`,
-      ur: `سائن اِن میں مسئلہ — کوڈ نہ آنا، پاس ورڈ بھولنا، سائن اِن بند ہونا — یا کوئی اور پریشانی ہو تو Help & support کھولیں: اس کا لنک ہر پیج کے نیچے، ہر پورٹل کے مینیو میں، اور سائن اِن پیج پر Trouble signing in کے نیچے ہے۔ وہاں پڑھنے یا سننے کے لیے طریقے ہیں، اور Ask KashRoot سے آپ کی بات KashRoot کی ٹیم کے کسی شخص تک پہنچتی ہے، جو جواب دے گا یا فون کرے گا۔ سائن اِن ضروری نہیں۔ آپ ${SUPPORT_EMAIL} پر ای میل بھی کر سکتے ہیں۔ KashRoot کبھی آپ کا پاس ورڈ، OTP یا UPI PIN نہیں مانگتا۔`,
+      en: `For trouble signing in — the code does not come, a forgotten password, a locked sign-in — or any other problem, open Help & support: the link is at the bottom of every page and in every portal’s menu, and on the sign-in page under Trouble signing in. It has the steps to read or listen to, and Ask KashRoot sends your problem to a person from KashRoot, who replies or calls you. You do not need to be signed in. KashRoot never asks for your password, OTP or UPI PIN.`,
+      hi: `साइन इन में दिक़्क़त — कोड न आना, पासवर्ड भूलना, साइन-इन बंद होना — या कोई और परेशानी हो तो Help & support खोलें: इसका लिंक हर पेज के नीचे, हर पोर्टल के मेन्यू में, और साइन-इन पेज पर Trouble signing in के नीचे है। वहाँ पढ़ने या सुनने के लिए तरीक़े हैं, और Ask KashRoot से आपकी बात KashRoot की टीम के किसी व्यक्ति तक पहुँचती है, जो जवाब देगा या फ़ोन करेगा। साइन इन ज़रूरी नहीं। KashRoot कभी आपका पासवर्ड, OTP या UPI PIN नहीं माँगता।`,
+      ur: `سائن اِن میں مسئلہ — کوڈ نہ آنا، پاس ورڈ بھولنا، سائن اِن بند ہونا — یا کوئی اور پریشانی ہو تو Help & support کھولیں: اس کا لنک ہر پیج کے نیچے، ہر پورٹل کے مینیو میں، اور سائن اِن پیج پر Trouble signing in کے نیچے ہے۔ وہاں پڑھنے یا سننے کے لیے طریقے ہیں، اور Ask KashRoot سے آپ کی بات KashRoot کی ٹیم کے کسی شخص تک پہنچتی ہے، جو جواب دے گا یا فون کرے گا۔ سائن اِن ضروری نہیں۔ KashRoot کبھی آپ کا پاس ورڈ، OTP یا UPI PIN نہیں مانگتا۔`,
     },
   },
   {

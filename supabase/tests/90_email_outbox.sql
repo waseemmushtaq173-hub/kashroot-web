@@ -31,7 +31,8 @@ reset role;
 insert into t select 'replies: one email, to the address given', count(*) = 1 and min(to_email) = 'guest@test.in' from public.email_outbox where kind = 'help_reply';
 -- A customer's own note queues nothing.
 select public.kr_support_add(:'s', :'code_g', '9123456780', 'Still nothing') as added \gset
-insert into t select 'a customer note queues nothing more', count(*) = 3 from public.email_outbox;
+-- (3 = 2 help_new + 1 reply; 1 more: the acknowledgement to the guest who gave an email, 20261109000000_support_tracking.sql.)
+insert into t select 'a customer note queues nothing more', count(*) = 4 from public.email_outbox;
 
 -- Payout details: saving queues a notice; saving the same again does not; a change does.
 set local role authenticated;
@@ -78,7 +79,7 @@ reset role;
 -- The server queues a sign-in notice; it then takes everything due, with addresses.
 insert into t values ('server queues a notice', public.kr_email_enqueue(:'s', 'new_signin', '00000000-0000-0000-0000-0000000000f1', 'Chrome on Android'));
 create temp table c as select jsonb_array_elements(public.kr_email_claim(:'s', 20)) as e;
-insert into t select 'all six due are taken', count(*) = 6 from c;
+insert into t select 'all seven due are taken', count(*) = 7 from c;
 insert into t select 'help_new carries the request, no address', bool_and(e->'to' = 'null'::jsonb and e->'help'->>'phone' is not null) from c where e->>'kind' = 'help_new';
 insert into t select 'account notices go to the account email', bool_and(e->>'to' = 'farmer@test.in') from c where e->>'kind' in ('payout_changed', 'new_signin');
 insert into t select 'taken ones are held', jsonb_array_length(public.kr_email_claim(:'s', 20)) = 0;

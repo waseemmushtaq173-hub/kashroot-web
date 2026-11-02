@@ -42,7 +42,6 @@ import { RotateCcw, ShieldAlert, ShieldCheck } from 'lucide-react';
 
 import { SITE_URL } from '@/lib/site';
 
-import { SUPPORT_EMAIL } from '@/lib/supportEmail';
 
 export const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || '';
 /** Is the check switched on? */
@@ -85,7 +84,7 @@ export function checkMode(): { mode: CheckMode; why: string } {
 export const testKeyHere = () => checkMode().mode === 'test';
 
 /** The real site without its site key: sign-in cannot pass Supabase's CAPTCHA. */
-const UNAVAILABLE = `Sign-in is temporarily unavailable — please contact ${SUPPORT_EMAIL}.`;
+const UNAVAILABLE = 'Sign-in is temporarily unavailable — please tell KashRoot through Help & support (at the top of the page).';
 
 interface Turnstile {
   render: (el: HTMLElement, opts: Record<string, unknown>) => string;

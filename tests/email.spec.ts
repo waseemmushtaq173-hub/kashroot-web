@@ -15,9 +15,10 @@ const SITE = 'https://kashroot-web.vercel.app';
 const INBOX = 'kashrootsupport@gmail.com';
 const base: Omit<Queued, 'kind'> = { id: 1, ref: null, detail: null, created_at: '2026-11-02T10:00:00Z', to: null, help: null };
 
-test('the official address is kashrootsupport@gmail.com', () => {
+test('the official address is kashrootsupport@gmail.com, and the warning does not spread it', () => {
   expect(SUPPORT_EMAIL).toBe('kashrootsupport@gmail.com');
   expect(NEVER_ASKS).toContain('never asks for your password, OTP, UPI PIN or card number');
+  expect(NEVER_ASKS).not.toContain('@');
 });
 
 test('a customer’s words lose passwords, codes and long numbers, nothing else', () => {
@@ -39,21 +40,35 @@ test('a new help request goes to the support inbox, with the Help desk link and 
   )!;
   expect(l.to).toBe(INBOX);
   expect(l.replyTo).toBe('ali@test.in');
-  expect(l.subject).toBe('New help request H-3F9A2C1B — Signing in');
+  expect(l.subject).toBe('KashRoot help request H-3F9A2C1B — Signing in');
   const { text, html } = render(l);
   expect(text).toContain('9876543210');
   expect(text).not.toContain('123456');
   expect(text).not.toContain('1234 5678 9012');
   expect(text).toContain(`${SITE}/admin/dashboard?tab=help`);
+  expect(text).toContain('Received: 2 Nov 2026');
   expect(html).toContain(NEVER_ASKS.replace(/'/g, '&#39;'));
 });
 
-test('a reply email is a link to read it, not the reply itself', () => {
-  const l = letterFor({ ...base, kind: 'help_reply', ref: 'H-3F9A2C1B', to: 'ali@test.in' }, SITE, INBOX)!;
+test('a reply email carries the reply and a link to answer or settle it', () => {
+  const l = letterFor({ ...base, kind: 'help_reply', ref: 'H-3F9A2C1B', to: 'ali@test.in', reply: 'Please try again now.' }, SITE, INBOX)!;
   expect(l.to).toBe('ali@test.in');
   expect(l.subject).toBe('Your KashRoot request H-3F9A2C1B has a reply');
+  expect(render(l).text).toContain('Please try again now.');
   expect(l.action!.href).toBe(`${SITE}/support?code=H-3F9A2C1B#check-title`);
   expect(l.replyTo).toBeUndefined(); // the sender sets Reply-To: the support inbox
+});
+
+test('the person hears "we got it" and "resolved"', () => {
+  const help = { name: 'Ali', phone: '9876543210', email: 'ali@test.in', topic: 'payment', portal: null, lang: 'en', message: 'x', signed_in: false };
+  const ack = letterFor({ ...base, kind: 'help_ack', ref: 'H-3F9A2C1B', to: 'ali@test.in', help }, SITE, INBOX)!;
+  expect(ack.subject).toBe('We got your request H-3F9A2C1B');
+  expect(render(ack).text).toContain('(Payment)');
+  const done = letterFor({ ...base, kind: 'help_resolved', ref: 'H-3F9A2C1B', to: 'ali@test.in', help }, SITE, INBOX)!;
+  expect(done.subject).toBe('Your KashRoot request H-3F9A2C1B is resolved');
+  expect(render(done).text).toContain('Still need help');
+  // KashRoot's address is only in Help & support (and the Reply-To): never written in an email's words.
+  for (const l of [ack, done]) expect(render(l).text).not.toContain(INBOX);
 });
 
 test('security notices go to the account, say what changed and what to do', () => {
@@ -62,7 +77,8 @@ test('security notices go to the account, say what changed and what to do', () =
     expect(l.to).toBe('farmer@test.in');
     const { text } = render(l);
     expect(text).toContain('If it was not you');
-    expect(text).toContain(INBOX);
+    expect(text).toContain(`${SITE}/support`);
+    expect(text).not.toContain(INBOX);
     expect(text).toContain('2 Nov 2026');
   }
   expect(render(letterFor({ ...base, kind: 'new_signin', to: 'f@test.in', detail: 'Chrome on Android, Srinagar' }, SITE, INBOX)!).text).toContain('new device: Chrome on Android, Srinagar');
