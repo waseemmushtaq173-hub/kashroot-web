@@ -11,6 +11,7 @@ import { ArrowLeft, Check } from 'lucide-react';
 
 import { PORTAL_LOGIN } from '@/components/auth/portalLoginConfig';
 import { Emblem, Wordmark } from '@/components/brand/Emblem';
+import { HelpButton } from '@/components/layout/HelpButton';
 import { ValleyScene } from '@/components/three/ValleyScene';
 import type { PortalId } from '@/lib/auth/roles';
 import { brandSerif } from '@/lib/fonts';
@@ -36,9 +37,13 @@ export function PortalAuthFrame({ portal, labelledBy, children }: { portal: Port
               <Emblem className="h-9 w-9 drop-shadow-[0_4px_12px_rgba(0,0,0,0.35)]" />
               <Wordmark className={`${brandSerif.className} text-lg text-white`} />
             </Link>
-            <Link href="/" className={`inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-sm font-semibold text-white no-underline ring-1 ring-white/40 backdrop-blur transition hover:bg-white/30 hover:no-underline ${focusRing}`}>
-              <ArrowLeft className="h-4 w-4" aria-hidden /> Back to home
-            </Link>
+            <div className="flex items-center gap-2">
+              {/* Most needed here: someone who cannot sign in. */}
+              <HelpButton />
+              <Link href="/" className={`inline-flex min-h-11 items-center gap-1.5 rounded-full bg-white/20 px-3 text-sm font-semibold text-white no-underline ring-1 ring-white/40 backdrop-blur transition hover:bg-white/30 hover:no-underline ${focusRing}`}>
+                <ArrowLeft className="h-4 w-4" aria-hidden /> <span className="hidden sm:inline">Back to home</span><span className="sm:hidden">Home</span>
+              </Link>
+            </div>
           </div>
           <div className="mt-8 lg:mt-0">
             <span data-depth className={`grid h-14 w-14 place-items-center rounded-2xl ${theme.iconTile}`}>
