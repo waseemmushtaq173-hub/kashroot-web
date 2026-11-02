@@ -1,0 +1,57 @@
+# KashRoot checks on every push and pull request. Fails on high or critical
+# dependency vulnerabilities, a type or lint error, a broken build, a leaked
+# secret anywhere in the history, or a database security test that fails.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Audit, types, lint, build, model tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: npm audit (high and critical fail)
+        run: npm audit --audit-level=high --omit=dev
+      - run: npx tsc --noEmit
+      - run: npx eslint src tests
+      - name: next build
+        run: npx next build
+      - name: Model tests (no browser, no server)
+        run: npx playwright test tests/email.spec.ts tests/coldstore-model.spec.ts
+
+  secrets:
+    name: Secret scan (gitleaks, whole history)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  database:
+    name: Database security tests (RLS, IDOR, functions)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: supabase/tests/run.sh (throwaway Postgres 16 in Docker)
+        run: sh supabase/tests/run.sh

@@ -1,0 +1,13 @@
+#!/bin/sh
+# KashRoot pre-commit: refuse a commit that holds a secret (gitleaks, staged
+# changes only). Turn it on once per clone:  git config core.hooksPath .githooks
+# Needs gitleaks (https://github.com/gitleaks/gitleaks#installing); without it,
+# the commit goes ahead with a warning — CI scans every push anyway.
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --redact --no-banner || {
+    echo "gitleaks found what looks like a secret in this commit. Remove it (and rotate it if it was real)." >&2
+    exit 1
+  }
+else
+  echo "pre-commit: gitleaks is not installed, so this commit was not scanned for secrets (CI will scan it)." >&2
+fi
