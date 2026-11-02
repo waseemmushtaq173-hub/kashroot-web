@@ -105,3 +105,12 @@ test('a request is looked up by its number with the mobile OR the email, and gue
   const byEmail = await request.post('/api/support', { data: { action: 'status', code: 'H-00000000', contact: 'nobody@example.invalid' } });
   expect([404, 429, 503]).toContain(byEmail.status());
 });
+
+test('two-step sign-in has a page for everyone, in four languages', async ({ page }) => {
+  await page.goto('/account/two-step');
+  await expect(page.getByRole('heading', { name: 'Two-step sign-in' }).first()).toBeVisible();
+  for (const lang of ['en', 'hi', 'ur', 'ks']) await expect(page.locator(`[lang="${lang}"]`).first()).toBeVisible();
+  // Signed out: asked to sign in first, never shown a setup.
+  await expect(page.getByRole('link', { name: 'Sign in' }).first()).toBeVisible();
+  await expect(page.locator('[data-two-step="setup"]')).toHaveCount(0);
+});

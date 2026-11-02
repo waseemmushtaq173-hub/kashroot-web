@@ -109,7 +109,7 @@ No site is 100% safe — the costs of what is left are at the end.
 | --- | --- | --- |
 | S: password guessing / credential stuffing | Shared database limits: 8 wrong per account or 40 per network in 15 min → 15-min pause; Supabase's own limits; Turnstile with Supabase CAPTCHA | Growing delays and a lock **with an email notice**; admin alert on spikes |
 | S: bots making accounts | 30 sign-ups per network per hour; Turnstile; email confirmation (Supabase setting) | Honeypot field and minimum fill time; optional disposable-email block |
-| S: stolen password | New-device sign-in email; refresh-token reuse detection (Supabase) | **MFA (TOTP)** for admins and money roles; "sign out other devices" |
+| S: stolen password | New-device sign-in email; refresh-token reuse detection (Supabase); **two-step sign-in (authenticator app, TOTP)**: required for admins, optional for everyone (`/account/two-step`) | Required for business owners handling money (with the Business Owner consoles); "sign out other devices" |
 | S: leaked passwords | 8+ characters, strength hint | Have I Been Pwned range check (k-anonymity) at sign-up and change (Supabase's own check is Pro-only) |
 | T: reset link reused / hijacked | Supabase links expire and work once; redirects only to the real site | — |
 | I: is this email registered? | Reset says the same either way | Same for sign-up (Supabase answers an existing email without error when confirmation is on) — verify |
@@ -121,7 +121,7 @@ No site is 100% safe — the costs of what is left are at the end.
 | --- | --- | --- |
 | S: calling an API as someone else | Bearer token checked by Supabase; server functions need `KYC_DB_SECRET` | — |
 | T/E: changing other people's rows | RLS on every table; IDOR sweep test (`supabase/tests/20_idor_every_table.sql`) | Re-run on every new table (CI) |
-| E: admin functions without MFA | `kr_has_role('ADMIN')` in the database; admin access code (bcrypt) | Admin and money functions also require **AAL2** (MFA) in the database |
+| E: admin functions without MFA | `kr_has_role('ADMIN')` needs the admin role, the access code **and a session that passed two-step sign-in (aal2)** — every admin function and admin-only row (`20261111000000_admin_mfa.sql`, test `98_admin_mfa.sql`) | Money functions also require aal2 (with the Business Owner consoles) |
 | T: injection | No SQL from text; PostgREST / plpgsql parameters only; strict input shapes | — |
 | D: floods and cost | Per-network limits on every working route; per-account and site-wide daily caps on AI, voice, photo checks, codes | Request-size limits written down per route; Vercel Firewall rate rule on `/api/*` |
 | S: forged cross-site requests (CSRF) | Tokens are sent as `Authorization` headers, not cookies (a form on another site cannot send them); cookies are SameSite=Lax | Origin check on the few cookie-only routes (`/api/human` pass) |
@@ -138,7 +138,7 @@ No site is 100% safe — the costs of what is left are at the end.
 
 | Threat | Protected now | Missing → fix |
 | --- | --- | --- |
-| S: someone using the admin portal | Admin role in the database; access code; 15-min lock; Admin hidden from the public | **MFA (TOTP) + marked device**; only kashroot08@gmail.com can be Super Admin, set by SQL only |
+| S: someone using the admin portal | Admin role in the database; **two-step sign-in (TOTP) required, checked in the database**; access code; 15-min lock; Admin hidden from the public | Marked device; only kashroot08@gmail.com can be Super Admin, set by SQL only |
 | E: staff doing more than their job | One ADMIN role today | Staff Admin with ticked permissions; Business Owner / Manager / Staff per business (RLS) |
 | S: support changing someone's email or bank details "on request" | No admin tool can (payout rows are the owner's own) | Keep it so, with a test |
 

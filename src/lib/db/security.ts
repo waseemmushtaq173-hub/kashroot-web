@@ -13,7 +13,8 @@ import { dbMessage, supabase } from '@/lib/db/client';
 /** Window event sent when someone finishes the identity check (the portal frame's banner listens). */
 export const KYC_CHANGED = 'kr:kyc-changed';
 
-export type AdminStatus = 'not_admin' | 'no_code' | 'blocked' | 'locked' | 'unlocked';
+/** mfa_setup / mfa_verify: two-step sign-in first (20261111000000_admin_mfa.sql). */
+export type AdminStatus = 'not_admin' | 'mfa_setup' | 'mfa_verify' | 'no_code' | 'blocked' | 'locked' | 'unlocked';
 /** 'missing': the security SQL has not been run; 'offline': the check could not be made. */
 export type AdminCheck = AdminStatus | 'missing' | 'offline';
 
@@ -32,7 +33,7 @@ export async function adminStatus(): Promise<AdminCheck> {
     return missing ? 'missing' : 'offline';
   }
   const s = String(data);
-  return (['not_admin', 'no_code', 'blocked', 'locked', 'unlocked'] as const).includes(s as AdminStatus) ? (s as AdminStatus) : 'offline';
+  return (['not_admin', 'mfa_setup', 'mfa_verify', 'no_code', 'blocked', 'locked', 'unlocked'] as const).includes(s as AdminStatus) ? (s as AdminStatus) : 'offline';
 }
 
 export async function setAdminCode(code: string, oldCode?: string): Promise<void> {

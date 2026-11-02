@@ -8,7 +8,7 @@
  */
 import Link from 'next/link';
 import { useEffect, useRef, type ElementType, type ReactNode } from 'react';
-import { ArrowLeft, Home, LifeBuoy, LogOut, UserRound, X } from 'lucide-react';
+import { ArrowLeft, Home, LifeBuoy, LogOut, ShieldCheck, UserRound, X } from 'lucide-react';
 
 import { BrandMark } from '@/components/brand/Shikara';
 import { ChinarLeaf } from '@/components/brand/ChinarLeaf';
@@ -114,6 +114,14 @@ export function SidebarContent(props: SidebarProps) {
               <button type="button" onClick={onDetails} className={`${ITEM} ${size} ${theme.outline} ${IDLE}`}>
                 <UserRound className="h-5 w-5 shrink-0 text-slate-400" aria-hidden /> My details
               </button>
+            </li>
+          )}
+          {onSignOut && (
+            <li>
+              {/* Optional for farmers and buyers; required for admins (the Admin portal leads them to it). */}
+              <MenuLink href="/account/two-step" icon={ShieldCheck} onNavigate={onNavigate} outline={theme.outline} size={size}>
+                Two-step sign-in
+              </MenuLink>
             </li>
           )}
           <li>

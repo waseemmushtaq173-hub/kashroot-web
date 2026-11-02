@@ -77,7 +77,7 @@ reset role;
 
 -- The admin sees all and replies; F then sees the reply; F's note opens it again.
 set local role authenticated;
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000ad', true);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000ad', true); select set_config('request.jwt.claims', '{"aal":"aal2"}', true); -- the admin passed two-step sign-in
 insert into t select 'admin sees all', count(*) = 2 from public.support_requests;
 select id as rid from public.support_requests where code = :'code_f' \gset
 insert into t values ('admin replies', public.kr_support_reply(:'rid', 'Please use Continue as on the sign-in page.', false));

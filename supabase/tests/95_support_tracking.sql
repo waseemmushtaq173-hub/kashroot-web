@@ -34,7 +34,7 @@ insert into t values ('guest has no email to match', public.kr_support_status(:'
 
 -- Staff: status, a reply, an internal note.
 set local role authenticated;
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000ad', true);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000ad', true); select set_config('request.jwt.claims', '{"aal":"aal2"}', true); -- the admin passed two-step sign-in
 select public.kr_support_set_status((select id from public.support_requests where code = :'code_f'), 'in_progress');
 select public.kr_support_note((select id from public.support_requests where code = :'code_f'), 'Checked: SMS gateway delay');
 select public.kr_support_reply((select id from public.support_requests where code = :'code_f'), 'Please try again now.', false);
@@ -82,7 +82,7 @@ insert into t select 'no resolved email when they solved it', count(*) = 0 from 
 
 -- Resolved by KashRoot: the person gets the email.
 set local role authenticated;
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000ad', true);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000ad', true); select set_config('request.jwt.claims', '{"aal":"aal2"}', true); -- the admin passed two-step sign-in
 select public.kr_support_set_status((select id from public.support_requests where code = :'code_f'), 'open');
 select public.kr_support_set_status((select id from public.support_requests where code = :'code_f'), 'closed');
 reset role;

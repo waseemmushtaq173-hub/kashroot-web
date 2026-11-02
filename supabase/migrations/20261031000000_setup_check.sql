@@ -65,7 +65,8 @@ language sql stable security definer set search_path = public as $$
     (29, 'Phones only when signed in',  '20261107000000_private_phones.sql',             public.kr_setup_has_function('kr_hide_from_anon') and not has_column_privilege('anon', 'public.market_listings', 'phone', 'select')),
     (30, 'Emails from support',         '20261108000000_email_outbox.sql',               public.kr_setup_has_function('kr_email_claim')),
     (31, 'Help requests: follow-up',    '20261109000000_support_tracking.sql',           public.kr_setup_has_function('kr_support_feedback')),
-    (32, 'Sign-in lock notices',        '20261110000000_signin_lockout.sql',             public.kr_setup_has_function('kr_email_enqueue_email'))
+    (32, 'Sign-in lock notices',        '20261110000000_signin_lockout.sql',             public.kr_setup_has_function('kr_email_enqueue_email')),
+    (33, 'Admin two-step sign-in',      '20261111000000_admin_mfa.sql',                  public.kr_setup_has_function('kr_has_mfa'))
   ) as s(step, part, file, ok)
   order by s.step
 $$;

@@ -9,11 +9,12 @@
  * or the check cannot be made, the console stays hidden.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { KeyRound, Loader2, LockKeyhole, RefreshCw, ShieldAlert } from 'lucide-react';
+import { KeyRound, Loader2, LockKeyhole, RefreshCw, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { PortalShell } from '@/components/layout/PortalShell';
 import { Btn, Field, INPUT, PORTAL_THEMES, Panel } from '@/components/portal/kit';
+import { TwoStepSetup, TwoStepVerify } from '@/components/security/TwoStep';
 import { adminStatus, lockAdminNow, setAdminCode, unlockAdmin, type AdminCheck } from '@/lib/db/security';
 
 const theme = PORTAL_THEMES.admin ?? PORTAL_THEMES.expert;
@@ -107,7 +108,11 @@ export function AdminLock({ children }: { children: ReactNode }) {
   return (
     <PortalShell title="Admin portal" description="Restricted. Enter your admin access code to continue." eyebrow="Locked" theme="admin">
       <div className="mx-auto max-w-md">
-        <Panel theme={theme} title={status === 'no_code' ? 'Create your admin code' : 'Enter your admin code'} icon={status === 'no_code' ? KeyRound : LockKeyhole}>
+        <Panel
+          theme={theme}
+          title={status === 'mfa_setup' ? 'Set up two-step sign-in' : status === 'mfa_verify' ? 'Two-step sign-in' : status === 'no_code' ? 'Create your admin code' : 'Enter your admin code'}
+          icon={status === 'mfa_setup' || status === 'mfa_verify' ? ShieldCheck : status === 'no_code' ? KeyRound : LockKeyhole}
+        >
           {status === undefined ? (
             <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Checking…</p>
           ) : status === 'not_admin' ? (
@@ -123,6 +128,14 @@ export function AdminLock({ children }: { children: ReactNode }) {
               <p className="flex items-start gap-2 text-rose-800"><ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> Could not check the admin lock — the portal stays closed. Check your internet and try again.</p>
               <Btn theme={theme} variant="soft" icon={RefreshCw} onClick={() => { setStatus(undefined); void check(); }}>Try again</Btn>
             </div>
+          ) : status === 'mfa_setup' ? (
+            // Required for admins: the database treats an admin session without it as no admin.
+            <div className="space-y-3">
+              <p className="text-sm text-slate-700">Admins sign in with a password <strong>and</strong> a code from an authenticator app on their phone. Set it up once — it takes a minute.</p>
+              <TwoStepSetup name="KashRoot admin" onDone={() => { setStatus(undefined); void check(); }} />
+            </div>
+          ) : status === 'mfa_verify' ? (
+            <TwoStepVerify onDone={() => { setStatus(undefined); void check(); }} />
           ) : status === 'blocked' ? (
             <p className="flex items-start gap-2 text-sm text-rose-800"><ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> Too many wrong codes. The Admin portal is blocked for 15 minutes.</p>
           ) : (

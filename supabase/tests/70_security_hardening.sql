@@ -38,7 +38,7 @@ do $$ begin
   insert into t values ('a user gets no summary', false);
 exception when others then insert into t values ('a user gets no summary', true);
 end $$;
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000ad', true);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000ad', true); select set_config('request.jwt.claims', '{"aal":"aal2"}', true); -- the admin passed two-step sign-in
 insert into t select 'the admin reads them', count(*) = 1 from public.security_events;
 insert into t select 'the admin summary', events = 1 and top_network = 'iphash' from public.kr_security_summary(24) where kind = 'signin_fail';
 reset role;

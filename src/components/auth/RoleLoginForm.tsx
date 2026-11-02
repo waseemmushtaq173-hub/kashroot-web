@@ -35,6 +35,7 @@ import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { ArrowRight, CircleAlert, Eye, EyeOff, Loader2, PlusCircle, UserRound } from 'lucide-react';
 
 import { ContactOtp, type PhoneRoute } from '@/components/auth/ContactOtp';
+import { TwoStepVerify, twoStepState } from '@/components/security/TwoStep';
 import { PortalAuthFrame } from '@/components/auth/PortalAuthFrame';
 import { PORTAL_LOGIN } from '@/components/auth/portalLoginConfig';
 import { CHECKING_HUMAN, HumanCheckError, useHumanCheck } from '@/components/security/HumanCheck';
@@ -94,6 +95,8 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   const [error, setError] = useState<{ text: string; portal?: PortalId } | null>(null);
   // Second step: a one-time code to the account's mobile (SMS + WhatsApp) or email.
   const [step, setStep] = useState<OtpStep | null>(null);
+  // Accounts with an authenticator app: its 6-digit code, instead of an emailed / SMS code.
+  const [twoStepFor, setTwoStepFor] = useState<Session | null>(null);
   const [codesDown, setCodesDown] = useState(false);
   // Signed in with an account that has no account in this portal yet: offer to create it.
   const [join, setJoin] = useState<{ session: Session; has: PortalId[] } | null>(null);
@@ -283,6 +286,12 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
 
   /** One-time code to the account's mobile or email; returns true when it went straight in. */
   const startCodeStep = async (session: Session): Promise<boolean> => {
+    // Two-step sign-in set up (components/security/TwoStep): the authenticator app is the stronger check.
+    const two = await twoStepState().catch(() => ({ hasFactor: false, passed: false }));
+    if (two.hasFactor && !two.passed) {
+      setTwoStepFor(session);
+      return false;
+    }
     const config = await getKycConfig();
     const phone = (session.phone ?? '').replace(/\D/g, '').slice(-10);
     const phoneRoutes: PhoneRoute[] = [...(config.sms ? (['sms'] as const) : []), ...(config.whatsapp ? (['whatsapp'] as const) : [])];
@@ -398,6 +407,20 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
         <button type="button" onClick={() => void cancelStep()} className={`mt-3 w-full cursor-pointer rounded-xl px-5 py-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 ${focusRing}`}>
           Not now
         </button>
+      </PortalAuthFrame>
+    );
+  }
+
+  if (twoStepFor) {
+    return (
+      <PortalAuthFrame portal={portal} labelledBy={ids.heading}>
+        <h2 id={ids.heading} className="text-2xl font-semibold tracking-tight text-slate-900">
+          Two-step sign-in
+        </h2>
+        <p className="mt-1 text-sm text-slate-600">Your account is protected with an authenticator app.</p>
+        <div className="mt-6">
+          <TwoStepVerify onDone={() => finish(twoStepFor)} />
+        </div>
       </PortalAuthFrame>
     );
   }

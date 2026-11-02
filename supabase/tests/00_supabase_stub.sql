@@ -15,6 +15,7 @@ create table auth.refresh_tokens (
   id bigserial primary key, user_id varchar(255), session_id uuid,
   created_at timestamptz default now(), updated_at timestamptz default now()
 );
+create table auth.mfa_factors (id uuid primary key default gen_random_uuid(), user_id uuid, factor_type text default 'totp', status text default 'unverified');
 create function auth.uid() returns uuid language sql stable as $$
   select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
 $$;

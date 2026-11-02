@@ -5,8 +5,8 @@ insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000ad
 insert into public.staff_roles (user_id, role) values ('00000000-0000-0000-0000-0000000000ad', 'ADMIN') on conflict do nothing;
 -- An admin who set "Saffron#2026" before this change (the old way).
 insert into public.admin_lock (user_id, salt, code_hash) values ('00000000-0000-0000-0000-0000000000ad', 'oldsalt', public.kr_hash_code('oldsalt', 'Saffron#2026'));
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000ad', true);
-select set_config('request.jwt.claims', '{"session_id":"11111111-1111-1111-1111-111111111111"}', true);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000ad', true); select set_config('request.jwt.claims', '{"aal":"aal2"}', true); -- the admin passed two-step sign-in
+select set_config('request.jwt.claims', '{"session_id":"11111111-1111-1111-1111-111111111111","aal":"aal2"}', true);
 set local role authenticated;
 select public.kr_admin_unlock('wrong-code') as wrong \gset
 select public.kr_admin_unlock('Saffron#2026') as first \gset

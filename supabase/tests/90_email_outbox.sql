@@ -23,7 +23,7 @@ insert into t select 'a request queues help_new', count(*) = 2 from public.email
 
 -- KashRoot replies twice to the guest (one email), once to the one without an email (none).
 set local role authenticated;
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000ad', true);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000ad', true); select set_config('request.jwt.claims', '{"aal":"aal2"}', true); -- the admin passed two-step sign-in
 select public.kr_support_reply((select id from public.support_requests where code = :'code_g'), 'Try again now', false);
 select public.kr_support_reply((select id from public.support_requests where code = :'code_g'), 'And check spam', false);
 select public.kr_support_reply((select id from public.support_requests where code = :'code_q'), 'Sent again', false);
@@ -101,7 +101,7 @@ insert into t select 'over the daily allowance: nothing taken', jsonb_array_leng
 
 -- Admins see the counts.
 set local role authenticated;
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000ad', true);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000ad', true); select set_config('request.jwt.claims', '{"aal":"aal2"}', true); -- the admin passed two-step sign-in
 insert into t select 'admin sees the counts', (public.kr_email_status() ->> 'sent_24h')::int = 450;
 reset role;
 
