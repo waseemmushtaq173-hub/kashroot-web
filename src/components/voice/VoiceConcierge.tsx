@@ -434,7 +434,7 @@ export function VoiceConcierge({ compact = false, autoListen = false, onNavigate
             </button>
           </form>
           {ks && keys && <KashmiriKeys className="mt-2" target={inputRef} value={draft} onChange={setDraft} />}
-          {notice && <p role="status" className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-amber-200">{notice}</p>}
+          {notice && <p role="status" className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700 ring-1 ring-slate-200">{notice}</p>}
           <p className="mt-2 text-xs text-slate-500">Prices: Agmarknet (Govt. of India). Weather: Open-Meteo. Crop advice is general — check doses with an agronomist.</p>
         </div>
       </div>

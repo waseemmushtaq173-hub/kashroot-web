@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Mic, Square, Volume2 } from 'lucide-react';
 
-import { isRtl, LANG_LABEL, listen, NO_VOICE_HELP, recognitionAvailable, speak, stopSpeaking, type SpeechLang } from '@/lib/client/speech';
+import { isRtl, LANG_LABEL, listen, recognitionAvailable, speak, stopSpeaking, voiceHint, type SpeechLang } from '@/lib/client/speech';
 
 export function SpeakButton({ text, lang, speech, label = 'Listen', className = '', autoPlay = false }: { text: string; lang: SpeechLang; speech?: string; label?: string; className?: string; autoPlay?: boolean }) {
   const [speaking, setSpeaking] = useState(false);
@@ -26,7 +26,8 @@ export function SpeakButton({ text, lang, speech, label = 'Listen', className = 
     const result = await speak(text, lang, speech, () => setSpeaking(false));
     if (result !== 'spoken') {
       setSpeaking(false);
-      setNote(result === 'no-voice' ? NO_VOICE_HELP[lang] : 'This browser cannot read text aloud.');
+      // The text is on screen either way: at most a quiet hint, never an error.
+      setNote(voiceHint(result, lang));
     }
   };
 

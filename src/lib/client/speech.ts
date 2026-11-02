@@ -236,6 +236,22 @@ export const stopSpeaking = () => {
   if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
 };
 
+/**
+ * A quiet hint, once per visit, when this phone has no voice for the language:
+ * the answer is always shown as text, so it is never an error. Null when the
+ * hint was given already (or reading aloud is not possible at all).
+ */
+export function voiceHint(result: SpeakResult, lang: SpeechLang): string | null {
+  if (result !== 'no-voice' || typeof window === 'undefined') return null;
+  try {
+    if (sessionStorage.getItem('kr_voice_hint')) return null;
+    sessionStorage.setItem('kr_voice_hint', '1');
+  } catch {
+    /* storage blocked: the hint may show again */
+  }
+  return NO_VOICE_HELP[lang];
+}
+
 export const NO_VOICE_HELP: Record<SpeechLang, string> = {
   en: 'This device has no voice to read the answer aloud.',
   hi: 'No Hindi voice is installed on this device, so the answer is shown as text. Add Hindi in your phone’s text-to-speech settings (Google Text-to-speech on Android) to hear it.',

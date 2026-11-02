@@ -6,7 +6,7 @@
  * still being set up", this says which file is missing and how to run it.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, DatabaseZap, XCircle } from 'lucide-react';
+import { CheckCircle2, DatabaseZap, Info, XCircle } from 'lucide-react';
 
 import { RefreshBtn } from '@/components/admin/RefreshBtn';
 import { PORTAL_THEMES, Panel } from '@/components/portal/kit';
@@ -80,6 +80,47 @@ export function SetupCheckPanel() {
           </ol>
         </div>
       )}
+      <OptionalServices />
     </Panel>
+  );
+}
+
+/**
+ * Services outside the database, read from the server (no secrets returned):
+ * what is on, and what is an optional upgrade — never shown as a failure.
+ */
+function OptionalServices() {
+  const [state, setState] = useState<{ voice: boolean; human: boolean; server: boolean } | null>(null);
+  useEffect(() => {
+    let live = true;
+    const get = (url: string) => fetch(url, { cache: 'no-store' }).then((r) => r.json()).catch(() => ({}));
+    void Promise.all([get('/api/speak'), get('/api/human'), get('/api/kyc/config')]).then(([speak, human, kyc]) => {
+      if (live) setState({ voice: Boolean(speak.configured), human: Boolean(human.on), server: Boolean(kyc.recording) });
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+  if (!state) return null;
+  const rows: { name: string; on: boolean; onText: string; offText: string; optional?: boolean }[] = [
+    { name: 'Server secret (KYC_DB_SECRET)', on: state.server, onText: 'set — identity checks, shared limits, the security log and help requests work', offText: 'not set — add it in Vercel (see SECURITY.md)' },
+    { name: '“I am human” check (Turnstile)', on: state.human, onText: 'on', offText: 'off — optional; set the Turnstile keys in Vercel and Supabase', optional: true },
+    { name: 'Voice', on: state.voice, onText: 'KashRoot voice (Google neural voices)', offText: 'browser voice (optional upgrade) — answers are read by the phone’s own voice; adding GOOGLE_TTS_API_KEY in Vercel switches to KashRoot’s voice', optional: true },
+  ];
+  return (
+    <div className="mt-4">
+      <p className="mb-2 text-sm font-semibold text-slate-800">Services outside the database</p>
+      <ul className="divide-y divide-slate-200 rounded-xl text-sm ring-1 ring-slate-200" data-optional-services>
+        {rows.map((r) => (
+          <li key={r.name} className="grid grid-cols-[1.5rem_1fr] items-start gap-2 px-3 py-2">
+            {r.on ? <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600" aria-label="On" /> : r.optional ? <Info className="mt-0.5 h-4 w-4 text-sky-700" aria-label="Optional" /> : <XCircle className="mt-0.5 h-4 w-4 text-amber-700" aria-label="Missing" />}
+            <span>
+              <span className="font-semibold text-slate-900">{r.name}</span>
+              <span className="text-slate-600"> — {r.on ? r.onText : r.offText}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

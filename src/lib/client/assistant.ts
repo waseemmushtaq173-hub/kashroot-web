@@ -9,7 +9,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { refusedForPass } from '@/lib/client/humanPass';
-import { needsDevanagari, NO_VOICE_HELP, speak, stopSpeaking, type SpeechLang } from '@/lib/client/speech';
+import { needsDevanagari, speak, stopSpeaking, voiceHint, type SpeechLang } from '@/lib/client/speech';
 import { ksText } from '@/lib/kashmiri/phrases';
 import { detectReplyLang, rememberLang } from '@/lib/langDetect';
 import { navigationFor } from '@/lib/navIntent';
@@ -71,7 +71,9 @@ export function useAssistant(opts: { page?: string } = {}) {
     const result = await speak(turn.text, turn.lang, turn.speech, () => setSpeaking(false));
     if (result !== 'spoken') {
       setSpeaking(false);
-      setNotice(result === 'no-voice' ? NO_VOICE_HELP[turn.lang] : 'This browser cannot read answers aloud.');
+      // The answer is on screen either way: at most a quiet hint, never an error.
+      const hint = voiceHint(result, turn.lang);
+      if (hint) setNotice(hint);
     }
   }, []);
 
