@@ -14,6 +14,8 @@
  * help. Every sign-in (right or wrong), sign-up, reset email and pause is
  * logged (lib/server/securityLog) — hashed, never the email or password.
  * Supabase keeps its own limits behind this, for anyone calling it directly.
+ * A sign-in on a new device and a changed password, email or phone send the
+ * account an email notice (lib/server/accountNotices).
  * Limits are generous because many farmers share one mobile-network address.
  */
 const FIFTEEN_MIN = 15 * 60_000;
@@ -29,6 +31,7 @@ function account(body: ArrayBuffer | undefined): string {
     return '';
   }
 }
+import { afterPasswordSignIn, afterUserChange } from '@/lib/server/accountNotices';
 import { securityEvent } from '@/lib/server/securityLog';
 import { hashed, sharedClear, sharedCount, sharedLimited, sharedRecord } from '@/lib/server/sharedLimit';
 import { clientIp, rateLimited } from '@/lib/server/sign';
@@ -142,6 +145,15 @@ async function proxy(request: Request, { params }: { params: Promise<{ path: str
     if (value) out.set(name, value);
   }
   out.set('cache-control', 'no-store');
+  // Security notices need the account the answer names: read it, then pass it on unchanged.
+  if (upstream.ok && (passwordSignIn || (path === 'auth/v1/user' && request.method === 'PUT'))) {
+    const text = await upstream.text();
+    if (passwordSignIn) {
+      const remember = afterPasswordSignIn(request, text);
+      if (remember) out.append('set-cookie', remember);
+    } else afterUserChange(body, text);
+    return new Response(text, { status: upstream.status, headers: out });
+  }
   return new Response(upstream.status === 204 ? null : upstream.body, { status: upstream.status, headers: out });
 }
 

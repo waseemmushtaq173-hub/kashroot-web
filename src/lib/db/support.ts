@@ -4,6 +4,7 @@
  * Admin → Help desk: every help request (20261105000000_support_desk.sql;
  * admins read all through RLS) and KashRoot's replies (kr_support_reply).
  */
+import { sendQueuedEmails } from '@/lib/client/mailQueue';
 import { dbMessage, isSetupMissing, SETUP_NEEDED, supabase } from '@/lib/db/client';
 import type { SupportTopic } from '@/lib/helpTopics';
 
@@ -52,4 +53,6 @@ export async function deskRequests(show: 'waiting' | 'all'): Promise<DeskRequest
 export async function replyToRequest(id: string, body: string, close: boolean): Promise<void> {
   const { error } = await supabase.rpc('kr_support_reply', { p_id: id, p_body: body, p_close: close });
   if (error) throw new Error(dbMessage(error, 'Could not send the reply.'));
+  // The reply queued an email to the customer (when they gave one): send it now.
+  if (body.trim()) sendQueuedEmails();
 }

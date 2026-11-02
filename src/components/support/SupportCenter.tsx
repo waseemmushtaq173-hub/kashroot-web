@@ -13,6 +13,7 @@
  * Requests go through app/api/support.
  */
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { CheckCircle2, ChevronDown, LifeBuoy, Loader2, MessageSquare, Search, Send, Square, Volume2 } from 'lucide-react';
 
@@ -22,6 +23,7 @@ import { supabase } from '@/lib/supabase';
 import { HELP_TOPICS, TOPIC_LABEL, type SupportTopic } from '@/lib/helpTopics';
 import { isRtl, LANG_LABEL, speak, stopSpeaking, type SpeechLang } from '@/lib/client/speech';
 import { rememberedLang, rememberLang } from '@/lib/langDetect';
+import { SUPPORT_EMAIL, supportMailto } from '@/lib/supportEmail';
 import type { GuideText } from '@/lib/portalGuide';
 import { HumanGate } from '@/components/security/HumanGate';
 
@@ -100,7 +102,11 @@ export function SupportCenter() {
   const [humanTry, setHumanTry] = useState(0);
 
   // Check my request
-  const [check, setCheck] = useState({ code: '', phone: '' });
+  // From the "your request has a reply" email: the number is filled in.
+  const [check, setCheck] = useState(() => {
+    const code = (params.get('code') ?? '').trim().toUpperCase();
+    return { code: /^H-[0-9A-F]{8}$/.test(code) ? code : '', phone: '' };
+  });
   const [found, setFound] = useState<Request | null>(null);
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
@@ -386,7 +392,12 @@ export function SupportCenter() {
       )}
 
       <p className="text-slate-700">
-        You can also email <a className="font-semibold text-emerald-800 underline" href="mailto:support@kashroot.com">support@kashroot.com</a>. KashRoot never asks for your password, your OTP or your UPI PIN — do not share them with anyone.
+        You can also email{' '}
+        <a className="inline-flex min-h-11 items-center font-semibold text-emerald-800 underline" href={supportMailto()}>
+          {SUPPORT_EMAIL}
+        </a>
+        . KashRoot never asks for your password, OTP, UPI PIN or card number — not by call, SMS, WhatsApp or email — so do not share them with anyone. KashRoot’s emails, sign-in emails too, come only from {SUPPORT_EMAIL}.{' '}
+        <Link className="inline-flex min-h-11 items-center font-semibold text-emerald-800 underline" href="/official">KashRoot’s official contacts</Link>
       </p>
     </div>
   );

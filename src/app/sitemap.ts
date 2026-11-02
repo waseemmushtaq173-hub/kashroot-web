@@ -14,6 +14,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     page('/escrow', 0.7),
     page('/supplies/tester', 0.6),
     page('/support', 0.4, 'monthly'),
+    page('/official', 0.4, 'monthly'),
     page('/terms', 0.2, 'monthly'),
     page('/privacy', 0.2, 'monthly'),
     ...PUBLIC_PORTAL_IDS.map((p) => page(`/login/${p}`, 0.5, 'monthly')),

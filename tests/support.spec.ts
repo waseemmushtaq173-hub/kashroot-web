@@ -57,7 +57,7 @@ for (const width of [1280, 390]) {
       await expect(page.locator('[data-support-code], #ask-kashroot [role="alert"]').first()).toBeVisible({ timeout: 15_000 });
       const code = page.locator('[data-support-code]');
       if (await code.count()) await expect(code).toHaveText(/^H-[0-9A-F]{8}$/);
-      else await expect(page.locator('#ask-kashroot [role="alert"]')).toContainText('support@kashroot.com');
+      else await expect(page.locator('#ask-kashroot [role="alert"]')).toContainText('kashrootsupport@gmail.com');
     });
   });
 }

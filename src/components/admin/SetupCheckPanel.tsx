@@ -6,10 +6,11 @@
  * still being set up", this says which file is missing and how to run it.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, DatabaseZap, Info, XCircle } from 'lucide-react';
+import { CheckCircle2, DatabaseZap, Info, Loader2, Mail, XCircle } from 'lucide-react';
 
 import { RefreshBtn } from '@/components/admin/RefreshBtn';
 import { PORTAL_THEMES, Panel } from '@/components/portal/kit';
+import { authFetch } from '@/lib/auth-fetch';
 import { setupStatus, type SetupStep } from '@/lib/db/setup';
 
 const theme = PORTAL_THEMES.admin ?? PORTAL_THEMES.expert;
@@ -90,12 +91,12 @@ export function SetupCheckPanel() {
  * what is on, and what is an optional upgrade — never shown as a failure.
  */
 function OptionalServices() {
-  const [state, setState] = useState<{ voice: boolean; human: boolean; server: boolean } | null>(null);
+  const [state, setState] = useState<{ voice: boolean; human: boolean; server: boolean; mail: boolean; mailFrom: string | null; inbox: string } | null>(null);
   useEffect(() => {
     let live = true;
     const get = (url: string) => fetch(url, { cache: 'no-store' }).then((r) => r.json()).catch(() => ({}));
-    void Promise.all([get('/api/speak'), get('/api/human'), get('/api/kyc/config')]).then(([speak, human, kyc]) => {
-      if (live) setState({ voice: Boolean(speak.configured), human: Boolean(human.on), server: Boolean(kyc.recording) });
+    void Promise.all([get('/api/speak'), get('/api/human'), get('/api/kyc/config'), get('/api/email')]).then(([speak, human, kyc, mail]) => {
+      if (live) setState({ voice: Boolean(speak.configured), human: Boolean(human.on), server: Boolean(kyc.recording), mail: Boolean(mail.configured), mailFrom: mail.from ?? null, inbox: String(mail.inbox ?? '') });
     });
     return () => {
       live = false;
@@ -105,6 +106,7 @@ function OptionalServices() {
   const rows: { name: string; on: boolean; onText: string; offText: string; optional?: boolean }[] = [
     { name: 'Server secret (KYC_DB_SECRET)', on: state.server, onText: 'set — identity checks, shared limits, the security log and help requests work', offText: 'not set — add it in Vercel (see SECURITY.md)' },
     { name: '“I am human” check (Turnstile)', on: state.human, onText: 'on', offText: 'off — optional; set the Turnstile keys in Vercel and Supabase', optional: true },
+    { name: 'Support email', on: state.mail, onText: `set — emails are sent from ${state.mailFrom}; help requests go to ${state.inbox}`, offText: 'not set — the site works, but sends no emails: add SMTP_HOST, SMTP_PORT, SMTP_USER and SMTP_PASS in Vercel and redeploy' },
     { name: 'Voice', on: state.voice, onText: 'KashRoot voice (Google neural voices)', offText: 'browser voice (optional upgrade) — answers are read by the phone’s own voice; adding GOOGLE_TTS_API_KEY in Vercel switches to KashRoot’s voice', optional: true },
   ];
   return (
@@ -121,6 +123,39 @@ function OptionalServices() {
           </li>
         ))}
       </ul>
+      <TestEmail />
+    </div>
+  );
+}
+
+/** "Send test email": a real email to the support inbox now, and whether it went (never the password). */
+function TestEmail() {
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const send = async () => {
+    setBusy(true);
+    setResult(null);
+    try {
+      const res = await authFetch('/api/email', { method: 'POST', body: JSON.stringify({ action: 'test' }) });
+      const body = (await res.json().catch(() => ({}))) as { sent?: boolean; to?: string; reason?: string; error?: string; queue?: { waiting?: number; failed_24h?: number; sent_24h?: number } };
+      const q = body.queue ? ` Queue: ${body.queue.sent_24h ?? 0} sent in 24 hours, ${body.queue.waiting ?? 0} waiting, ${body.queue.failed_24h ?? 0} given up.` : '';
+      setResult(body.sent ? { ok: true, text: `Sent to ${body.to}. Check that inbox (and its spam folder).${q}` } : { ok: false, text: `Not sent: ${body.reason ?? body.error ?? 'the server did not answer'}.${q}` });
+    } catch {
+      setResult({ ok: false, text: 'Not sent: the server did not answer.' });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-3">
+      <button type="button" onClick={() => void send()} disabled={busy} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-800 px-4 text-sm font-semibold text-white hover:bg-emerald-900 disabled:opacity-60">
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Mail className="h-4 w-4" aria-hidden />} Send test email
+      </button>
+      {result && (
+        <p role="status" className={`text-sm ${result.ok ? 'text-emerald-800' : 'text-amber-800'}`} data-test-email={result.ok ? 'sent' : 'failed'}>
+          {result.text}
+        </p>
+      )}
     </div>
   );
 }

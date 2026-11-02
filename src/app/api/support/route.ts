@@ -11,19 +11,22 @@
  * person's bearer token is passed on, so their request is linked to their
  * account. Limits per person, so the desk cannot be flooded. Without the
  * secret it says honestly that requests are not switched on, with the email.
+ * A new request is emailed to the support inbox at once (lib/server/mail).
  */
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 
 import { isHuman, NOT_HUMAN } from '@/lib/server/humanCheck';
+import { flushOutbox } from '@/lib/server/mail';
 import { hashed, sharedIpLimited, sharedLimited } from '@/lib/server/sharedLimit';
 import { supabaseAnonKey, supabaseOrigin } from '@/lib/supabase-config';
+import { SUPPORT_EMAIL } from '@/lib/supportEmail';
 
 export const maxDuration = 20;
 
 const TOPICS = ['login', 'payment', 'order', 'cold_storage', 'selling', 'other'];
 const LANGS = ['en', 'hi', 'ur', 'ks'];
-const NOT_ON = 'Help requests are not switched on yet. Please email support@kashroot.com — say your name, mobile number and the problem.';
-const BUSY = 'KashRoot could not take your request just now. Please try again in a minute, or email support@kashroot.com.';
+const NOT_ON = `Help requests are not switched on yet. Please email ${SUPPORT_EMAIL} — say your name, mobile number and the problem.`;
+const BUSY = `KashRoot could not take your request just now. Please try again in a minute, or email ${SUPPORT_EMAIL}.`;
 
 /** A 10-digit Indian mobile number, from "+91 98765 43210" and the like; null when it is not one. */
 function mobileOf(raw: unknown): string | null {
@@ -82,6 +85,8 @@ export async function POST(req: Request) {
     // An expired sign-in should never stop someone asking for help: open it without the account.
     if (!r.ok && bearer) r = await rpc('kr_support_open', args);
     if (!r.ok || typeof r.body !== 'string') return NextResponse.json({ error: BUSY }, { status: 502 });
+    // The database queued the email to the support inbox; send it after this answer.
+    after(() => flushOutbox(5));
     return NextResponse.json({ code: r.body });
   }
 

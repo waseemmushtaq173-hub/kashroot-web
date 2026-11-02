@@ -64,6 +64,25 @@ no IP address, email, phone, password or token is logged. Admin → Security →
 "Sign-ins and traffic" shows the last 24 hours and flags a kind driven by one
 network. Admin actions are in the separate `security_log`. Kept 30 days.
 
+## Emails
+
+* Every KashRoot email comes from **kashrootsupport@gmail.com** (Vercel
+  `SMTP_*`; Supabase → Authentication → SMTP Settings for sign-in emails), and
+  says on every page and in every email that KashRoot never asks for a
+  password, OTP, UPI PIN or card number. `/official` lists the only official
+  addresses.
+* Sent from the server only (`lib/server/mail`), queued first in
+  `email_outbox` (`20261108000000_email_outbox.sql`): a new help request (to
+  the support inbox), a Help desk reply (to the customer, a link only, not the
+  reply), payout details saved or changed, password / email / phone changed,
+  and a sign-in on a new device (to the account). Failed sends are retried (5
+  tries); at most 450 a day for the whole site (Gmail allows about 500). Sent
+  or failed is logged (`email_sent`, `email_failed`) without content.
+* Emails never carry a password, code, Aadhaar or bank number; a customer's
+  words are emailed with anything after "password", "OTP", "PIN" or "code",
+  and long numbers, hidden.
+* Admin → Setup check → *Send test email* proves it works.
+
 ## Secrets
 
 * Only `NEXT_PUBLIC_*` values reach browsers, and only public ones are used
@@ -121,5 +140,5 @@ in `TURNSTILE_SECRET_KEY` (and in Supabase CAPTCHA, above).
 
 ## Reporting a problem
 
-Email support@kashroot.com with "Security" in the subject. Please do not test
+Email kashrootsupport@gmail.com with "Security" in the subject. Please do not test
 against real users' accounts or data.

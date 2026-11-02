@@ -12,6 +12,7 @@ import { loginHref, MARKET_PLACES, PORTALS, PUBLIC_PORTAL_IDS, type PortalId } f
 import { useSecretAdminTap, useShowAdmin } from '@/lib/client/adminDevice';
 import { signOutOfPortal, useMyPortal, useSignedIn } from '@/lib/auth/session';
 import { SOCIAL_LINKS } from '@/lib/site';
+import { SUPPORT_EMAIL, supportMailto } from '@/lib/supportEmail';
 
 /**
  * `dark` (default) is the original look for the dark dashboards. `light` is for
@@ -340,6 +341,13 @@ export function SiteFooter({ tone = 'dark', portal }: { tone?: SiteTone; portal?
           {/* Everyone, signed in or not: sign-in trouble or anything else. */}
           <Link href="/support" className={`${footLink} inline-flex min-h-11 items-center font-semibold`}>
             Help &amp; support
+          </Link>
+          {/* The one official address: what KashRoot's emails come from, and where to write. */}
+          <a href={supportMailto()} className={`${footLink} inline-flex min-h-11 items-center`}>
+            {SUPPORT_EMAIL}
+          </a>
+          <Link href="/official" className={`${footLink} inline-flex min-h-11 items-center`}>
+            Official contacts
           </Link>
           {SOCIAL_LINKS.map((s) => (
             <a key={s.href} href={s.href} target="_blank" rel="noopener noreferrer me" className={footLink}>

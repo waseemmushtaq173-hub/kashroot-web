@@ -1,6 +1,8 @@
+import Link from 'next/link';
 import type { Metadata } from 'next';
 
 import { InfoPage } from '@/components/layout/InfoPage';
+import { NEVER_ASKS, SUPPORT_EMAIL, supportMailto } from '@/lib/supportEmail';
 
 export const metadata: Metadata = { title: 'Terms & Conditions' };
 
@@ -26,11 +28,18 @@ export default function TermsPage() {
       </section>
       <section>
         <h2>4. Prohibited use</h2>
-        <p>No counterfeit agro-inputs, misbranded produce, fake reviews, or or false payment references.</p>
+        <p>No counterfeit agro-inputs, misbranded produce, fake reviews or false payment references.</p>
       </section>
       <section>
         <h2>5. Changes</h2>
         <p>We may update these terms; continued use after an update means you accept the new version.</p>
+      </section>
+      <section>
+        <h2>6. Contact</h2>
+        <p>
+          Email <a className="font-semibold text-emerald-800 underline" href={supportMailto()}>{SUPPORT_EMAIL}</a>, or use <Link className="font-semibold text-emerald-800 underline" href="/support">Help &amp; support</Link>. {NEVER_ASKS}{' '}
+          <Link className="font-semibold text-emerald-800 underline" href="/official">KashRoot’s official contacts</Link>.
+        </p>
       </section>
     </InfoPage>
   );

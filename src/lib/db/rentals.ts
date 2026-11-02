@@ -9,6 +9,7 @@
  * and area, and the building's size and main door
  * (supabase/migrations/20261025000000_cold_store_details.sql, lib/coldStore).
  */
+import { sendQueuedEmails } from '@/lib/client/mailQueue';
 import { asBuilding, type Building, type StoreRow } from '@/lib/coldStore';
 import { dbMessage, SETUP_NEEDED, supabase } from '@/lib/db/client';
 import { readableColumns } from '@/lib/db/phones';
@@ -357,6 +358,8 @@ export async function savePayout(input: PayoutAccount): Promise<void> {
   };
   const { error } = await supabase.from('payout_accounts').upsert(row, { onConflict: 'user_id' });
   if (error) fail(error, 'Could not save your payment details.');
+  // The change queued a notice to the account's email: send it now.
+  sendQueuedEmails();
 }
 
 /** upi://pay link that opens PhonePe, Google Pay, Paytm or BHIM with the amount filled in. */
