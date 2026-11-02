@@ -143,18 +143,28 @@ export async function queueNotice(kind: 'password_changed' | 'email_changed' | '
  * Send what is due in the queue (at most `limit` now). Safe to call any time,
  * from anywhere: it only sends what the database queued. Returns counts.
  */
-export async function flushOutbox(limit = 10): Promise<{ sent: number; failed: number }> {
-  if (!smtp()) return { sent: 0, failed: 0 }; // Kept queued until email is set up.
+/**
+ * A failure's short code, safe to show anyone: "EAUTH 535", "ETIMEDOUT",
+ * "no-address" — never the mail server's words, an address or content.
+ */
+const shortCode = (reason: string) => reason.match(/^port \d+: ((?:E[A-Z]+ ?)?(?:\d{3})?)/)?.[1]?.trim() || (reason.startsWith('no address') ? 'no-address' : reason.startsWith('email is not set up') ? 'not-set-up' : 'other');
+
+export async function flushOutbox(limit = 10): Promise<{ sent: number; failed: number; codes: string[] }> {
+  if (!smtp()) return { sent: 0, failed: 0, codes: [] }; // Kept queued until email is set up.
   const due = (await rpc('kr_email_claim', { p_limit: limit })) as Queued[] | null;
   let sent = 0;
   let failed = 0;
+  const codes: string[] = [];
   for (const q of Array.isArray(due) ? due : []) {
     const letter = letterFor(q, SITE_URL, supportInbox());
     const result = letter ? await sendLetter(letter) : ({ ok: false, reason: 'no address to send to' } as const);
     await rpc('kr_email_done', { p_id: q.id, p_ok: result.ok, p_error: result.ok ? null : result.reason });
     if (result.ok) sent++;
-    else failed++;
+    else {
+      failed++;
+      codes.push(`${q.kind}: ${shortCode(result.reason)}`);
+    }
     securityEvent(result.ok ? 'email_sent' : 'email_failed', { path: '/email', detail: result.ok ? q.kind : `${q.kind}: ${result.reason}` });
   }
-  return { sent, failed };
+  return { sent, failed, codes };
 }

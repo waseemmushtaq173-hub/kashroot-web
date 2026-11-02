@@ -121,6 +121,11 @@ test.describe('the email endpoints', () => {
   test('anyone may flush the queue; the answer is counts only', async ({ request }) => {
     const res = await request.post('/api/email/flush');
     expect([200, 429]).toContain(res.status());
-    if (res.ok()) expect(Object.keys(await res.json()).sort()).toEqual(['failed', 'sent']);
+    if (res.ok()) {
+      const body = await res.json();
+      expect(Object.keys(body).sort()).toEqual(['codes', 'failed', 'sent']);
+      // Short codes only: no mail-server sentences, no addresses.
+      for (const c of body.codes as string[]) expect(c).toMatch(/^[a-z_]+: [A-Za-z0-9 -]+$/);
+    }
   });
 });

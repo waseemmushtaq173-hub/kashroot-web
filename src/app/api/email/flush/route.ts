@@ -1,7 +1,8 @@
 /**
  * Send the emails the database queued (lib/server/mail flushOutbox).
  *
- * GET|POST /api/email/flush → { sent, failed }
+ * GET|POST /api/email/flush → { sent, failed, codes } — codes: each failure's
+ *   short code ("help_new: EAUTH 535", "new_signin: no-address"), nothing more.
  *
  * Anyone may ask: it only sends what was already queued, to the addresses the
  * database holds — it takes no address or text. Asked right after a Help desk
