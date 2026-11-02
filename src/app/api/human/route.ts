@@ -2,10 +2,17 @@
  * The human pass (lib/server/humanPass).
  * GET  /api/human            → { on, pass }  (is the check on; does this browser hold a pass)
  * POST /api/human { token }  → { ok } and the kr_human cookie, when the Turnstile token is real.
+ * POST /api/human { diagnose, otherAddress } → Cloudflare's verdict on that
+ *      fresh token with this server's secret (the /status test; the token is
+ *      used up and never shown). 10 a minute.
+ * POST /api/human { report, action } → { ok }: the security check could not
+ *      finish in a browser (components/security/HumanCheck) — its error code
+ *      is logged for Admin → Security, nothing personal.
  */
 import { NextResponse } from 'next/server';
 
-import { isHuman } from '@/lib/server/humanCheck';
+import { securityEvent } from '@/lib/server/securityLog';
+import { diagnoseToken, isHuman } from '@/lib/server/humanCheck';
 import { hasHumanPass, humanPassCookie, humanPassOn } from '@/lib/server/humanPass';
 import { sharedIpLimited } from '@/lib/server/sharedLimit';
 
@@ -15,7 +22,17 @@ export function GET(request: Request) {
 
 export async function POST(request: Request) {
   if (await sharedIpLimited(request, 'human-pass', 20)) return NextResponse.json({ error: 'Too many tries. Please wait a minute.' }, { status: 429 });
-  const body = (await request.json().catch(() => null)) as { token?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { token?: unknown; report?: unknown; action?: unknown; diagnose?: unknown; otherAddress?: unknown } | null;
+  if (typeof body?.diagnose === 'string' && body.diagnose) {
+    if (await sharedIpLimited(request, 'human-diagnose', 10)) return NextResponse.json({ error: 'Too many tries. Please wait a minute.' }, { status: 429 });
+    return NextResponse.json(await diagnoseToken(request, body.diagnose, body.otherAddress === true), { headers: { 'cache-control': 'no-store' } });
+  }
+  if (typeof body?.report === 'string') {
+    const code = body.report.replace(/[^\w-]/g, '').slice(0, 40);
+    const action = String(body.action ?? '').replace(/[^\w-]/g, '').slice(0, 20);
+    securityEvent('bot_check_failed', { request, detail: `browser: ${code}${action ? ` (${action})` : ''}` });
+    return NextResponse.json({ ok: true });
+  }
   if (!humanPassOn()) return NextResponse.json({ ok: true });
   if (!(await isHuman(request, body?.token))) return NextResponse.json({ error: 'The check did not pass. Please try again.' }, { status: 403 });
   return NextResponse.json({ ok: true }, { headers: { 'set-cookie': humanPassCookie(request), 'cache-control': 'no-store' } });

@@ -10,7 +10,7 @@ import { CheckCircle2, DatabaseZap, Info, Loader2, Mail, XCircle } from 'lucide-
 
 import { RefreshBtn } from '@/components/admin/RefreshBtn';
 import { PORTAL_THEMES, Panel } from '@/components/portal/kit';
-import { humanCheckOn } from '@/components/security/HumanCheck';
+import { checkMode, humanCheckOn, useHumanCheck } from '@/components/security/HumanCheck';
 import { authFetch } from '@/lib/auth-fetch';
 import { setupStatus, type SetupStep } from '@/lib/db/setup';
 
@@ -135,6 +135,39 @@ function OptionalServices() {
         ))}
       </ul>
       <TestEmail />
+      <BotCheckTiming />
+    </div>
+  );
+}
+
+/** "Bot check: token received in X s" — a real check in this browser, timed (the token is never sent anywhere). */
+function BotCheckTiming() {
+  const human = useHumanCheck('setup');
+  const { token } = human;
+  const [state, setState] = useState<{ text: string; ok: boolean } | null>(null);
+  useEffect(() => {
+    let live = true;
+    const started = performance.now();
+    void token()
+      .then((t) => {
+        if (!live) return;
+        const secs = Math.round((performance.now() - started) / 100) / 10;
+        const { mode, why } = checkMode();
+        setState(
+          t
+            ? { ok: mode === 'real', text: `Bot check: token received in ${secs} s — ${mode === 'real' ? 'real key' : 'Cloudflare test key'} (${why}). Whether Supabase and Vercel accept it: /status → Test the security check.` }
+            : { ok: false, text: 'Bot check: off — no site key in this deployment. Keep Supabase CAPTCHA OFF, or add NEXT_PUBLIC_TURNSTILE_SITE_KEY in Vercel (tick Production) and redeploy.' },
+        );
+      })
+      .catch((e: Error) => live && setState({ ok: false, text: `Bot check: no token — ${e.message}` }));
+    return () => {
+      live = false;
+    };
+  }, [token]);
+  return (
+    <div className="mt-3 text-sm" data-bot-check-timing>
+      {human.element}
+      <p className={state ? (state.ok ? 'text-emerald-800' : 'text-amber-800') : 'text-slate-600'}>{state?.text ?? 'Bot check: waiting for a token…'}</p>
     </div>
   );
 }

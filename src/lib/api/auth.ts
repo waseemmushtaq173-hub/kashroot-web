@@ -4,7 +4,7 @@
  * browser (tokenStore).
  */
 
-import { humanRefusedText } from '@/components/security/HumanCheck';
+import { humanRefusedText, reportRefusal } from '@/components/security/HumanCheck';
 import { loginHref, portalForRole, type PortalId } from '@/lib/auth/roles';
 import { markPortalSignedIn, portalsOf } from '@/lib/auth/portalAccess';
 import { staffRolesOf } from '@/lib/auth/staffRoles';
@@ -25,7 +25,10 @@ function friendlyAuthError(message: string | undefined, fallback: string): strin
   if (message?.startsWith('[setup] ')) return message.slice(8);
   const m = (message ?? '').toLowerCase();
   if (m.includes('invalid api key') || m.includes('no api key')) return 'The sign-in key saved for this site is wrong. In Supabase open Project Settings → API Keys, copy the anon (publishable) key, put it in Vercel as NEXT_PUBLIC_SUPABASE_ANON_KEY and redeploy.';
-  if (m.includes('captcha')) return humanRefusedText();
+  if (m.includes('captcha')) {
+    reportRefusal(message ?? '', 'auth');
+    return humanRefusedText();
+  }
   if (m.includes('email not confirmed')) return 'Your email is not confirmed yet. Open the confirmation link we emailed you (check Spam/Promotions too), then sign in.';
   if (m.includes('invalid login credentials')) return 'Wrong email or password. If you have not created an account yet, use Create an account.';
   if (m.includes('already registered') || m.includes('already been registered')) return 'An account with this email already exists. Sign in instead, or use Forgot password.';
@@ -266,9 +269,9 @@ export const authApi = {
     return addRoleToSession(role);
   },
   /** Sends the sign-up confirmation email again. */
-  resendSignupEmail: async (email: string, role: RegisterDto['role'], portal?: PortalId) => {
+  resendSignupEmail: async (email: string, role: RegisterDto['role'], portal?: PortalId, captchaToken?: string) => {
     if (!supabaseConfigured) throw new Error(NOT_SET_UP);
-    const { error } = await supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: confirmRedirect(role, portal) } });
+    const { error } = await supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: confirmRedirect(role, portal), ...(captchaToken ? { captchaToken } : {}) } });
     if (error) throw new Error(friendlyAuthError(error.message, 'Could not resend the email.'));
   },
   // Sign out on this device only. (The default, 'global', ended the person's

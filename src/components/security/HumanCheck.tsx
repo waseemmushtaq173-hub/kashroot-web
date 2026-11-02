@@ -1,44 +1,95 @@
 'use client';
 
 /**
- * "Are you a person?" — Cloudflare Turnstile, to keep bots and scripts from
- * signing in by the thousand, making accounts, sending codes or flooding the
- * help desk. The token it gives is checked by Supabase (sign-in, sign-up,
- * password reset — CAPTCHA switched on in Supabase with the same keys) or by
- * KashRoot's server (lib/server/humanCheck). Each token works once: forms
- * change `resetKey` after using one, and an expired one is refreshed.
+ * "Are you a person?" — Cloudflare Turnstile, fetched quietly in the
+ * background, so sign-in works with Supabase's CAPTCHA on and nobody has to
+ * do anything unless Cloudflare really needs a tap.
  *
- * Always visible while it is on, so a form never says "complete the check"
- * with no check in sight: Cloudflare's box shows "Verifying…" then
- * "Success!", or asks for a tick. When it cannot load (Brave Shields, an ad
- * blocker, no network) or fails, it says so in words, with a Retry button.
+ *   const human = useHumanCheck('signin');
+ *   …{human.element}…                      // where a tap box would appear
+ *   const captchaToken = await human.token(); // undefined when the check is off
+ *   …send it… then human.used();             // tokens work once: a fresh one is fetched
  *
- * Off — renders nothing, and forms work as before — until
- * NEXT_PUBLIC_TURNSTILE_SITE_KEY is set (with TURNSTILE_SECRET_KEY on the
- * server). The widget is registered for the live address only, so anywhere
- * else (Vercel preview copies, this computer) Cloudflare's always-passing
- * test key is used: the form works, but a Supabase with CAPTCHA on refuses
- * its token (testKeyHere()).
+ * The widget (appearance "interaction-only") starts as the page opens and
+ * keeps a fresh token ready: a used or expired token is replaced, and one is
+ * renewed before Cloudflare's 5-minute limit. token() reads it from the
+ * widget itself at submit time (turnstile.getResponse) and waits up to 8 s
+ * for it (the form shows "Checking you're human…"); if Cloudflare asks for a
+ * tap, a small panel says so and the wait lasts until the tap. An error code
+ * (110xxx, 300xxx, 600xxx…) or no answer within 8 s is retried 3 times
+ * (2, 5 and 10 s apart) and logged on the server (the code only); then
+ * Cloudflare's box stays on screen to tap, with a plain message and a Retry
+ * button. Our own retries replace Cloudflare's ("retry: never"), so a failure
+ * is never retried twice over. Submit buttons never wait on the check: they
+ * stay pressable and say what is happening.
+ *
+ * Which key (checkMode()):
+ *   - the real site: the address is kashroot-web.vercel.app, the site's own
+ *     address (NEXT_PUBLIC_SITE_URL), or one listed in NEXT_PUBLIC_SITE_HOSTS
+ *     (comma-separated, for custom domains) — or Vercel says this is the
+ *     production deployment (NEXT_PUBLIC_VERCEL_ENV, the browser's copy of
+ *     VERCEL_ENV). It always uses NEXT_PUBLIC_TURNSTILE_SITE_KEY, never the
+ *     test key; if that key is missing from the build, sign-in says it is
+ *     unavailable and Admin → Setup check says why.
+ *   - anywhere else (Vercel preview copies, this computer): Cloudflare's
+ *     always-passing test key; Supabase with CAPTCHA on refuses its tokens,
+ *     and the form says this is a test copy.
+ *   - no site key and not the real site: no check at all.
+ * The choice and its reason are written to the browser console once.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, RotateCcw, ShieldAlert } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { RotateCcw, ShieldAlert, ShieldCheck } from 'lucide-react';
 
 import { SITE_URL } from '@/lib/site';
 
-export const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || '';
-/** Is the check switched on (forms wait for its token)? */
-export const humanCheckOn = Boolean(TURNSTILE_SITE_KEY);
-/** Cloudflare's test site key: always passes, on any address. */
-const TEST_SITE_KEY = '1x00000000000000000000AA';
+import { SUPPORT_EMAIL } from '@/lib/supportEmail';
 
-/** True on an address the real widget is not registered for (a preview copy, localhost). */
-export function testKeyHere(): boolean {
-  if (typeof window === 'undefined') return false;
-  return window.location.host !== new URL(SITE_URL).host;
+export const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || '';
+/** Is the check switched on? */
+export const humanCheckOn = Boolean(TURNSTILE_SITE_KEY);
+/** Cloudflare's test site key: always passes, on any address. Never used on the real site. */
+export const TEST_SITE_KEY = '1x00000000000000000000AA';
+const WAIT_MS = 8_000;
+/** Seconds between the automatic tries after a failure. */
+const BACKOFF_MS = [2_000, 5_000, 10_000];
+/** Tokens last 300 s; a fresh one is fetched before that. */
+const RENEW_MS = 240_000;
+
+/** The real site's addresses: the live one, the site's own, and any custom domains listed. */
+export const REAL_HOSTS = [
+  'kashroot-web.vercel.app',
+  new URL(SITE_URL).host,
+  ...(process.env.NEXT_PUBLIC_SITE_HOSTS ?? '').split(','),
+]
+  .map((h) => h.trim().toLowerCase())
+  .filter((h, i, all) => h && all.indexOf(h) === i);
+
+export type CheckMode = 'real' | 'test' | 'missing' | 'off';
+let told = false;
+/** Which key this page uses, and why (see above). */
+export function checkMode(): { mode: CheckMode; why: string } {
+  if (typeof window === 'undefined') return { mode: humanCheckOn ? 'real' : 'off', why: 'server render' };
+  const host = window.location.host.toLowerCase();
+  const vercelEnv = process.env.NEXT_PUBLIC_VERCEL_ENV ?? '';
+  const realSite = REAL_HOSTS.includes(host) || vercelEnv === 'production';
+  const why = REAL_HOSTS.includes(host) ? `${host} is the real site` : vercelEnv === 'production' ? 'Vercel says this is the production deployment' : `${host} is not the real site (${REAL_HOSTS.join(', ')}; Vercel: ${vercelEnv || 'not on Vercel'})`;
+  const mode: CheckMode = realSite ? (humanCheckOn ? 'real' : 'missing') : humanCheckOn ? 'test' : 'off';
+  if (!told) {
+    told = true;
+    console.info(`[KashRoot] security check: ${mode === 'real' ? 'real key' : mode === 'test' ? 'Cloudflare test key' : mode === 'missing' ? 'REAL KEY MISSING from this build' : 'off'} — ${why}.`);
+  }
+  return { mode, why };
 }
+
+/** True on a test copy (a preview, this computer), which uses Cloudflare's test key. */
+export const testKeyHere = () => checkMode().mode === 'test';
+
+/** The real site without its site key: sign-in cannot pass Supabase's CAPTCHA. */
+const UNAVAILABLE = `Sign-in is temporarily unavailable — please contact ${SUPPORT_EMAIL}.`;
 
 interface Turnstile {
   render: (el: HTMLElement, opts: Record<string, unknown>) => string;
+  getResponse: (id: string) => string | undefined;
   reset: (id: string) => void;
   remove: (id: string) => void;
 }
@@ -50,12 +101,12 @@ declare global {
 
 const SCRIPT = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 let loading: Promise<Turnstile | null> | null = null;
-/** Cloudflare's script, once; null when it is blocked or does not arrive within 15 s. */
+/** Cloudflare's script, once for the page; null when it is blocked or does not arrive in time. */
 function loadTurnstile(): Promise<Turnstile | null> {
   if (window.turnstile) return Promise.resolve(window.turnstile);
   loading ??= new Promise((resolve) => {
     const give = (t: Turnstile | null) => {
-      if (!t) loading = null; // a later Retry tries again
+      if (!t) loading = null; // the next try loads it again
       resolve(t);
     };
     document.querySelectorAll(`script[src="${SCRIPT}"]`).forEach((old) => old.remove());
@@ -64,110 +115,253 @@ function loadTurnstile(): Promise<Turnstile | null> {
     s.async = true;
     s.onload = () => give(window.turnstile ?? null);
     s.onerror = () => give(null);
-    window.setTimeout(() => give(window.turnstile ?? null), 15_000);
+    window.setTimeout(() => give(window.turnstile ?? null), WAIT_MS);
     document.head.appendChild(s);
   });
   return loading;
 }
 
-type State = 'loading' | 'shown' | 'passed' | 'blocked' | 'failed';
+/** The reason, in words, for a check that could not finish. */
+function problemText(code: string): string {
+  if (code.startsWith('1102')) return 'The security check is not allowed on this address. Please open https://kashroot-web.vercel.app and try again.';
+  if (code === 'unsupported') return 'This browser is too old for the security check. Please open KashRoot in Chrome.';
+  if (code === 'script-blocked') return 'The security check couldn’t load — tap Retry, or turn off Brave Shields / ad-block for kashroot-web.vercel.app, or open it in Chrome.';
+  return 'Couldn’t confirm you’re human. Tap the box, or turn off VPN / ad-block / Brave Shields for this site, or try another browser — then tap Retry.';
+}
+
+/** Cloudflare's box in the person's language, where it has one. */
+function widgetLanguage(): string {
+  try {
+    const l = localStorage.getItem('kr_lang') ?? document.documentElement.lang ?? '';
+    return l.startsWith('hi') ? 'hi' : l.startsWith('ur') ? 'ur' : 'auto';
+  } catch {
+    return 'auto';
+  }
+}
+
+/** The failure, logged on the server for Admin → Security (the code only). */
+function report(code: string, action: string) {
+  void fetch('/api/human', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ report: code.slice(0, 40), action }), keepalive: true }).catch(() => undefined);
+}
+
+type Status = 'working' | 'ready' | 'interactive' | 'failed';
+
+/** token() could not get a token; the check already shows why, with Retry — forms need not repeat it. */
+export class HumanCheckError extends Error {}
+interface Waiter {
+  resolve: (token: string) => void;
+  reject: (err: Error) => void;
+}
+
+export interface HumanCheck {
+  /** Where Cloudflare's tap box (when needed) and any problem show. */
+  element: ReactNode;
+  /** A fresh token: waits up to 8 s (longer while a tap is asked for). Undefined when the check is off. Throws with the reason when it cannot get one. */
+  token: () => Promise<string | undefined>;
+  /** The token was sent: fetch a fresh one (tokens work once). */
+  used: () => void;
+  /** token() is waiting: the button says "Checking you're human…". */
+  waiting: boolean;
+  /** Seconds the first token took (Admin → Setup check). */
+  took: number | null;
+}
 
 /**
- * The check itself. `onToken` gets a fresh token (or null when it expired or
- * failed). Change `resetKey` after a token was used: tokens work once.
+ * One widget for one form. `lazy`: start only when token() is first asked
+ * (for forms shown several times on a page, e.g. a code for the mobile and
+ * one for the email).
  */
-export function HumanCheck({ onToken, resetKey = 0, action }: { onToken: (token: string | null) => void; resetKey?: number; action?: string }) {
+export function useHumanCheck(action: string, { lazy = false }: { lazy?: boolean } = {}): HumanCheck {
   const box = useRef<HTMLDivElement>(null);
-  const id = useRef<string | null>(null);
-  const tokenTo = useRef(onToken);
-  const [state, setState] = useState<State>('loading');
-  const [code, setCode] = useState<string | null>(null);
-  const [attempt, setAttempt] = useState(0);
-  useEffect(() => {
-    tokenTo.current = onToken;
-  }, [onToken]);
+  const widget = useRef<string | null>(null);
+  const current = useRef<string | null>(null);
+  const waiters = useRef<Waiter[]>([]);
+  const interactive = useRef(false);
+  const failure = useRef<string | null>(null);
+  const renew = useRef<() => void>(() => undefined);
+  const [started, setStarted] = useState(!lazy);
+  const [status, setStatus] = useState<Status>('working');
+  const [problem, setProblem] = useState<string | null>(null);
+  const [waiting, setWaiting] = useState(false);
+  const [took, setTook] = useState<number | null>(null);
+  const [round, setRound] = useState(0);
 
   useEffect(() => {
-    if (!humanCheckOn) return;
+    if (!started) return;
+    const { mode } = checkMode();
+    if (mode === 'missing') {
+      failure.current = UNAVAILABLE;
+      // The address is only known in the browser, so this cannot be decided while rendering.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setProblem(UNAVAILABLE);
+      setStatus('failed');
+      return;
+    }
+    if (mode === 'off') return;
     let gone = false;
-    void loadTurnstile().then((t) => {
-      if (gone || !box.current) return;
-      if (!t) {
-        setState('blocked');
+    let tries = 0;
+    let timers: number[] = [];
+    const later = (fn: () => void, ms: number) => timers.push(window.setTimeout(fn, ms));
+    const clear = () => {
+      timers.forEach((t) => window.clearTimeout(t));
+      timers = [];
+    };
+    const begun = performance.now();
+
+    const fail = (code: string) => {
+      if (gone) return;
+      clear();
+      current.current = null;
+      report(code, action);
+      if (tries < BACKOFF_MS.length) {
+        later(again, BACKOFF_MS[tries]);
+        tries += 1;
         return;
       }
-      setState('shown');
-      id.current = t.render(box.current, {
-        sitekey: testKeyHere() ? TEST_SITE_KEY : TURNSTILE_SITE_KEY,
+      const text = problemText(code);
+      failure.current = text;
+      setProblem(text);
+      setStatus('failed');
+      waiters.current.splice(0).forEach((w) => w.reject(new HumanCheckError(text)));
+    };
+    // No token and no tap asked for within 8 s: counts as a failure (e.g. Shields blocking Cloudflare's frame).
+    const watch = () => later(() => !current.current && !interactive.current && fail('no-answer'), WAIT_MS);
+    const again = () => {
+      if (gone) return;
+      if (widget.current && window.turnstile) {
+        try {
+          window.turnstile.reset(widget.current);
+        } catch {
+          return void fail('reset-failed');
+        }
+        watch();
+      } else void start();
+    };
+    renew.current = () => {
+      if (gone || !widget.current || !window.turnstile) return;
+      clear();
+      current.current = null;
+      try {
+        window.turnstile.reset(widget.current);
+      } catch {
+        return; // the form (and its widget) is gone
+      }
+      watch();
+    };
+
+    const start = async () => {
+      const t = await loadTurnstile();
+      if (gone) return;
+      if (!t || !box.current) return fail('script-blocked');
+      widget.current = t.render(box.current, {
+        sitekey: mode === 'test' ? TEST_SITE_KEY : TURNSTILE_SITE_KEY,
         action,
-        appearance: 'always',
+        appearance: 'interaction-only',
         size: 'flexible',
-        retry: 'auto',
+        language: widgetLanguage(),
+        retry: 'never', // retried here (2, 5, 10 s), counted and logged — never twice over
         'refresh-expired': 'auto',
         'refresh-timeout': 'auto',
         callback: (token: string) => {
-          setState('passed');
-          setCode(null);
-          tokenTo.current(token);
+          if (gone) return;
+          clear();
+          current.current = token;
+          interactive.current = false;
+          failure.current = null;
+          tries = 0;
+          setProblem(null);
+          setStatus('ready');
+          setTook((s) => s ?? Math.round((performance.now() - begun) / 100) / 10);
+          waiters.current.splice(0).forEach((w) => w.resolve(token));
+          later(() => renew.current(), RENEW_MS);
         },
         'expired-callback': () => {
-          setState('shown');
-          tokenTo.current(null);
+          current.current = null;
+          watch();
         },
-        'timeout-callback': () => tokenTo.current(null),
-        'error-callback': (errorCode: string) => {
-          setState('failed');
-          setCode(String(errorCode ?? ''));
-          tokenTo.current(null);
-          return true; // handled here: shown in words below
+        'timeout-callback': () => {
+          current.current = null;
+          interactive.current = false;
+          watch();
+        },
+        'before-interactive-callback': () => {
+          interactive.current = true;
+          clear();
+          setStatus('interactive');
+        },
+        'after-interactive-callback': () => {
+          interactive.current = false;
+          setStatus('working');
+        },
+        'unsupported-callback': () => fail('unsupported'),
+        'error-callback': (code: unknown) => {
+          fail(String(code ?? 'error'));
+          return true; // handled here
         },
       });
-    });
+      watch();
+    };
+    void start();
+
     return () => {
       gone = true;
-      if (id.current) window.turnstile?.remove(id.current);
-      id.current = null;
+      clear();
+      try {
+        if (widget.current) window.turnstile?.remove(widget.current);
+      } catch {
+        /* already gone with the page */
+      }
+      widget.current = null;
+      current.current = null;
     };
-  }, [action, attempt]);
+  }, [action, started, round]);
 
-  // A used token: ask for a fresh one.
-  useEffect(() => {
-    if (resetKey && id.current) {
-      tokenTo.current(null);
-      setState('shown');
-      window.turnstile?.reset(id.current);
-    }
-  }, [resetKey]);
-
-  const retry = useCallback(() => {
-    tokenTo.current(null);
-    setCode(null);
-    if (id.current && window.turnstile) {
-      setState('shown');
-      window.turnstile.reset(id.current);
-    } else {
-      setState('loading');
-      setAttempt((n) => n + 1);
+  const token = useCallback(async (): Promise<string | undefined> => {
+    if (checkMode().mode === 'off') return undefined;
+    // The widget's own answer now, when it has one (never a copy from an older render).
+    const live = widget.current ? window.turnstile?.getResponse(widget.current) : undefined;
+    if (live) return live;
+    if (current.current) return current.current;
+    if (failure.current) throw new HumanCheckError(failure.current);
+    setStarted(true);
+    setWaiting(true);
+    try {
+      return await new Promise<string>((resolve, reject) => {
+        const w: Waiter = { resolve, reject };
+        waiters.current.push(w);
+        const wait = () =>
+          window.setTimeout(() => {
+            if (!waiters.current.includes(w)) return;
+            if (interactive.current) return void wait(); // a tap is asked for: wait for it
+            waiters.current = waiters.current.filter((x) => x !== w);
+            reject(failure.current ? new HumanCheckError(failure.current) : new Error(problemText('no-answer')));
+          }, WAIT_MS);
+        wait();
+      });
+    } finally {
+      setWaiting(false);
     }
   }, []);
 
-  if (!humanCheckOn) return null;
-  const problem =
-    state === 'blocked'
-      ? 'The “I am human” check couldn’t load. Turn off Shields or ad-block for this site, or try Chrome — then press Retry.'
-      : state === 'failed'
-        ? code?.startsWith('1102')
-          ? 'The “I am human” check is not allowed on this address. Use the official KashRoot website, then press Retry.'
-          : `The “I am human” check could not finish${code ? ` (error ${code})` : ''}. Check your connection, then press Retry.`
-        : null;
-  return (
-    <div className="w-full" data-human-check={state}>
-      <div ref={box} className={state === 'blocked' ? 'hidden' : 'min-h-[65px] w-full'} />
-      {state === 'loading' && (
-        <p className="-mt-[65px] flex min-h-[65px] items-center gap-2 text-sm text-slate-600" role="status">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading the “I am human” check…
+  const used = useCallback(() => renew.current(), []);
+
+  const retry = useCallback(() => {
+    failure.current = null;
+    current.current = null;
+    setProblem(null);
+    setStatus('working');
+    setRound((n) => n + 1);
+  }, []);
+
+  const element = (humanCheckOn || problem) ? (
+    <div className="w-full" data-human-check={started ? status : 'idle'}>
+      {status === 'interactive' && (
+        <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden /> One quick check: tap the box below to show you’re human.
         </p>
       )}
+      {/* Cloudflare draws here; it stays empty unless a tap is needed. Never display:none — it must be able to render. */}
+      <div ref={box} className="w-full" />
       {problem && (
         <div role="alert" className="mt-2 flex flex-wrap items-center gap-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-amber-200">
           <ShieldAlert className="h-5 w-5 shrink-0" aria-hidden />
@@ -178,11 +372,27 @@ export function HumanCheck({ onToken, resetKey = 0, action }: { onToken: (token:
         </div>
       )}
     </div>
-  );
+  ) : null;
+
+  return { element, token, used, waiting, took };
 }
 
-/** What to say when a token was refused (by Supabase or KashRoot's server) — the check is on screen, refreshed. */
+/** The words on a submit button while token() waits. */
+export const CHECKING_HUMAN = 'Checking you’re human…';
+
+/**
+ * Supabase refused a token: its reason (e.g. "captcha protection: request
+ * disallowed (timeout-or-duplicate)") is logged for Admin → Security as
+ * "browser: supabase-timeout-or-duplicate" — the reason only, never the token.
+ */
+export function reportRefusal(message: string, action: string): void {
+  if (typeof window === 'undefined') return;
+  const reason = message.match(/\(([\w-]+)\)/)?.[1] ?? 'captcha';
+  report(`supabase-${reason}`, action);
+}
+
+/** What to say when a token was refused (by Supabase or KashRoot's server) — a fresh one is being fetched. */
 export function humanRefusedText(): string {
-  if (testKeyHere()) return `Signing in is switched off on this test copy of the site by the “I am human” check. Please use ${SITE_URL}.`;
-  return 'The “I am human” check was not accepted — it may have run out. It has been refreshed: wait for its tick, then try again.';
+  if (testKeyHere()) return `Signing in is switched off on this test copy of the site by the security check. Please use ${SITE_URL}.`;
+  return 'The security check was not accepted — it may have run out. A fresh one is ready: please try again.';
 }

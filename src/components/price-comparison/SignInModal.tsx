@@ -15,7 +15,7 @@ import { useId, useState, type FormEvent } from 'react';
 import { ArrowLeft, Eye, EyeOff, LogIn, ShoppingCart, Store, UserPlus } from 'lucide-react';
 
 import { Btn, INPUT, Modal, PORTAL_THEMES } from '@/components/portal/kit';
-import { HumanCheck, humanCheckOn } from '@/components/security/HumanCheck';
+import { CHECKING_HUMAN, HumanCheckError, useHumanCheck } from '@/components/security/HumanCheck';
 import { authApi } from '@/lib/api/auth';
 import { AUTH_ROUTES } from '@/lib/auth/roles';
 import { rememberedPerson } from '@/lib/auth/session';
@@ -41,8 +41,7 @@ export function SignInModal({ reason, onClose, onSignedIn }: { reason: SignInRea
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [human, setHuman] = useState<string | null>(null);
-  const [humanTry, setHumanTry] = useState(0);
+  const human = useHumanCheck('signin');
 
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -52,16 +51,19 @@ export function SignInModal({ reason, onClose, onSignedIn }: { reason: SignInRea
     if (!password) return setError('Write your password.');
     setBusy(true);
     setError(null);
+    let sent = false;
     try {
-      await authApi.login({ email: address, password, captchaToken: human ?? undefined });
+      const captchaToken = await human.token();
+      sent = true;
+      await authApi.login({ email: address, password, captchaToken });
       const account = await loadAccount();
       if (!account) throw new Error('You are signed in, but your account could not be read. Please try again.');
       onSignedIn(account);
     } catch (err) {
-      setError(err instanceof Error && err.message ? err.message : 'Could not sign in. Check your internet and try again.');
+      if (!(err instanceof HumanCheckError)) setError(err instanceof Error && err.message ? err.message : 'Could not sign in. Check your internet and try again.');
     } finally {
       setBusy(false);
-      setHumanTry((n) => n + 1);
+      if (sent) human.used();
     }
   };
 
@@ -103,8 +105,8 @@ export function SignInModal({ reason, onClose, onSignedIn }: { reason: SignInRea
             </div>
           </div>
           {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm font-medium text-rose-800 ring-1 ring-rose-200">{error}</p>}
-          <HumanCheck onToken={setHuman} resetKey={humanTry} action="signin" />
-          <Btn theme={theme} type="submit" icon={LogIn} className="min-h-12 w-full text-base" disabled={busy || (humanCheckOn && !human)}>{busy ? 'Signing in…' : 'Sign in'}</Btn>
+          {human.element}
+          <Btn theme={theme} type="submit" icon={LogIn} className="min-h-12 w-full text-base" disabled={busy}>{human.waiting ? CHECKING_HUMAN : busy ? 'Signing in…' : 'Sign in'}</Btn>
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
             <Link href={AUTH_ROUTES.forgotPassword} className="inline-flex min-h-11 items-center font-semibold text-sky-800">Forgot password?</Link>
             <Link href="/support?topic=login" className="inline-flex min-h-11 items-center font-semibold text-sky-800">Trouble signing in?</Link>

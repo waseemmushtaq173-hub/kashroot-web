@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { SiteHeader, SiteFooter } from "@/components/layout/SiteHeader";
+import { SecurityCheckTest } from "@/components/security/SecurityCheckTest";
 import { Activity, CheckCircle, AlertTriangle, XCircle, RefreshCw } from "lucide-react";
 
 interface Health {
@@ -92,6 +93,7 @@ export default function StatusPage() {
             </div>
           </div>
         )}
+        <SecurityCheckTest />
       </main>
       <SiteFooter />
     </div>

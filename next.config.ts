@@ -34,6 +34,7 @@ const CSP = [
   "worker-src 'self' blob:",
   "manifest-src 'self'",
   "frame-src 'self' https://challenges.cloudflare.com",
+  "child-src 'self' blob: https://challenges.cloudflare.com",
   "frame-ancestors 'none'",
   "object-src 'none'",
   "base-uri 'self'",

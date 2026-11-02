@@ -11,7 +11,9 @@
  *   - Public mandi rates and weather show the saved copy at once and are
  *     refreshed behind it (stale-while-revalidate). Each copy keeps the time
  *     it was saved, and the page is told, so it can say "Saved at 10:42".
- *   - Nothing else is kept: not sign-in, the identity check (KYC), one-time
+ *   - Nothing else is kept: not the sign-in, sign-up, password and help pages
+ *     (each must run today's security check, never an old saved copy), the
+ *     identity check (KYC), one-time
  *     codes, payments, signed-in data, nor anything sent (POST, PUT,
  *     DELETE…). Sending with no signal answers "You are offline — this
  *     needs the internet" (a question, a rate or a listing draft is kept by
@@ -19,9 +21,13 @@
  *
  * A new version: change VERSION. The first install takes over at once; an
  * update waits until the person taps "Refresh" on the "New version" message
- * (or closes every KashRoot tab), then deletes the older saved copies.
+ * (or closes every KashRoot tab), then deletes the older saved copies —
+ * unless it is URGENT (a fix people must get at once): then it takes over
+ * straight away.
  */
-const VERSION = '2026-10-28.1';
+const VERSION = '2026-11-03.1';
+/** This version fixes sign-in: older ones kept the sign-in pages with a broken security check. */
+const URGENT = true;
 const SHELL = `kr-shell-${VERSION}`; // the offline page and its files
 const STATIC = `kr-static-${VERSION}`; // the app's files
 const PAGES = `kr-pages-${VERSION}`; // pages, network first
@@ -40,7 +46,7 @@ const NEEDS_INTERNET = 'You are offline — this needs the internet. Try again w
 const NOT_SAVED = 'You are offline, and this was not saved on this phone yet. Open it once with internet to keep a copy.';
 
 /** Pages never kept: money, the identity check, admin, codes and secret links (driver / delivery). */
-const NEVER_KEEP_PAGE = /^\/(api|kyc|escrow|admin|deliver|drive|verify-otp|mfa-setup|reset-password|forgot-password)(\/|$)/;
+const NEVER_KEEP_PAGE = /^\/(api|kyc|escrow|admin|deliver|drive|verify-otp|mfa-setup|reset-password|forgot-password|login|register|support)(\/|$)/;
 /** Pages saved for offline use as soon as KashRoot is installed (with their files). */
 const WARM_PAGES = ['/', '/mandi-weather'];
 
@@ -134,8 +140,8 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
       await savePage('/offline', SHELL, true).catch(() => undefined);
-      // The first install takes over at once; an update waits for "Refresh".
-      if (!self.registration.active) await self.skipWaiting();
+      // The first install takes over at once; an update waits for "Refresh" (an URGENT one does not).
+      if (!self.registration.active || URGENT) await self.skipWaiting();
     })(),
   );
 });

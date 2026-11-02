@@ -46,10 +46,11 @@ for (const width of [1280, 390]) {
       const send = page.getByRole('button', { name: 'Send to KashRoot' });
       const human = (await (await request.get('/api/human')).json()) as { on?: boolean };
       if (human.on) {
-        // The "I am human" check is on: it shows with the form, and a script (no pass) cannot send.
+        // The security check is on: it runs with the form in the background, and Send is never held back by it.
+        // (No request is sent here: on the live site that would reach the real help desk.)
         await expect(page.locator('#ask-kashroot [data-human-check]')).toBeAttached();
         await expect.poll(() => page.frames().some((f) => f.url().includes('challenges.cloudflare.com')), { timeout: 20_000 }).toBe(true);
-        await expect(send).toBeDisabled();
+        await expect(send).toBeEnabled();
         return;
       }
       await send.click();

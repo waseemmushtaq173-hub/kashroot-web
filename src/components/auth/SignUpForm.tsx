@@ -11,7 +11,7 @@
  * otherwise Supabase's confirmation email verifies the address and the mobile
  * number is optional.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMutation } from '@tanstack/react-query';
@@ -25,7 +25,7 @@ import { authApi, type RegisterDto } from '@/lib/api/auth';
 import { loginHref, PORTALS, REGISTER_ROLES, SIGNUP_ROLE, type PortalId, type SignUpRole } from '@/lib/auth/roles';
 import { getKycConfig } from '@/lib/kyc/kyc-service';
 import { weakPassword } from '@/lib/auth/passwordRules';
-import { HumanCheck, humanCheckOn } from '@/components/security/HumanCheck';
+import { CHECKING_HUMAN, HumanCheckError, useHumanCheck } from '@/components/security/HumanCheck';
 
 type RegisterRole = SignUpRole;
 
@@ -160,33 +160,22 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
   const phoneValue = useWatch({ control, name: 'phone', defaultValue: '' });
   const password = useWatch({ control, name: 'password', defaultValue: '' });
 
-  // The "I am human" check (off until its keys are set): a fresh token for each try.
-  const [human, setHuman] = useState<string | null>(null);
-  const [humanTry, setHumanTry] = useState(0);
-  // The email already has an account: adding this portal signs in, which needs a second token.
-  // Each fresh token is announced; nextCaptchaToken() resets the check and waits for the next one.
-  const takeToken = useCallback((token: string | null) => {
-    setHuman(token);
-    if (token) window.dispatchEvent(new CustomEvent<string>('kr-signup-token', { detail: token }));
-  }, []);
-  const nextCaptchaToken = useCallback(
-    () =>
-      new Promise<string | undefined>((resolve) => {
-        const done = (token: string | undefined) => {
-          window.removeEventListener('kr-signup-token', heard);
-          window.clearTimeout(timer);
-          resolve(token);
-        };
-        const heard = (e: Event) => done((e as CustomEvent<string>).detail);
-        const timer = window.setTimeout(() => done(undefined), 60_000);
-        window.addEventListener('kr-signup-token', heard);
-        setHumanTry((n) => n + 1);
-      }),
-    [],
-  );
+  // The security check (off until its keys are set): a token fetched in the background, a fresh one for each try.
+  const human = useHumanCheck('signup');
+  // "Resend email" on the success screen (the form, and its check, are gone by then).
+  const resendHuman = useHumanCheck('resend', { lazy: true });
   const registerMutation = useMutation({
-    mutationFn: (dto: RegisterDto) => authApi.register(dto),
-    onSettled: () => setHumanTry((n) => n + 1),
+    mutationFn: async (dto: RegisterDto) =>
+      authApi.register({
+        ...dto,
+        captchaToken: await human.token(),
+        // The email already has an account: adding this portal signs in, which needs a second token.
+        nextCaptchaToken: async () => {
+          human.used();
+          return human.token();
+        },
+      }),
+    onSettled: () => human.used(),
     onSuccess: (result) => {
       setSuccess(true);
       setJoinedExisting(Boolean(result.joinedExisting));
@@ -203,7 +192,8 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
     return () => window.clearTimeout(t);
   }, [resendIn]);
   const resend = useMutation({
-    mutationFn: () => authApi.resendSignupEmail(String(emailValue ?? '').trim(), selectedRole, homePortal),
+    mutationFn: async () => authApi.resendSignupEmail(String(emailValue ?? '').trim(), selectedRole, homePortal, await resendHuman.token()),
+    onSettled: () => resendHuman.used(),
     onSuccess: () => setResendIn(60),
   });
 
@@ -211,11 +201,13 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
     // The confirmation is only checked in the form; it is never sent.
     const dto: Partial<typeof values> = { ...values };
     delete dto.confirmPassword;
-    registerMutation.mutate({ ...(dto as RegisterDto), role: selectedRole, portal: homePortal, captchaToken: human ?? undefined, nextCaptchaToken });
+    registerMutation.mutate({ ...(dto as RegisterDto), role: selectedRole, portal: homePortal });
   };
 
   const errorMsg =
-    registerMutation.error instanceof Error
+    registerMutation.error instanceof HumanCheckError
+      ? null // the security check shows its own reason, with Retry
+      : registerMutation.error instanceof Error
       ? registerMutation.error.message
       : registerMutation.error
         ? 'Registration failed. Please try again.'
@@ -251,9 +243,10 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
                 className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white px-5 py-3 font-semibold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {resend.isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
-                {resendIn > 0 ? `Resend in ${resendIn}s` : 'Resend email'}
+                {resendHuman.waiting ? CHECKING_HUMAN : resendIn > 0 ? `Resend in ${resendIn}s` : 'Resend email'}
               </button>
             </div>
+            <div className="mx-auto mt-3 max-w-sm">{resendHuman.element}</div>
             {resend.isSuccess && resendIn > 0 && <p className="mt-3 text-sm text-emerald-700">Sent again — it can take a minute to arrive.</p>}
             {resend.error && <p role="alert" className="mt-3 text-sm text-rose-700">{(resend.error as Error).message}</p>}
           </>
@@ -447,14 +440,14 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
           </span>
         </label>
 
-        <HumanCheck onToken={takeToken} resetKey={humanTry} action="signup" />
+        {human.element}
         <button
           type="submit"
-          disabled={!isFormValid || registerMutation.isPending || (humanCheckOn && !human)}
+          disabled={!isFormValid || registerMutation.isPending}
           className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-4 text-base font-semibold shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 ${look.button}`}
         >
           {registerMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : null}
-          {registerMutation.isPending ? 'Creating account…' : 'Create account'}
+          {human.waiting ? CHECKING_HUMAN : registerMutation.isPending ? 'Creating account…' : 'Create account'}
           {!registerMutation.isPending && <ArrowRight className="h-5 w-5" aria-hidden />}
         </button>
       </form>

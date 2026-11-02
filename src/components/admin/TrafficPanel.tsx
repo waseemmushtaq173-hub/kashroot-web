@@ -52,14 +52,24 @@ interface Event {
 export function TrafficPanel() {
   const [rows, setRows] = useState<Row[] | null | undefined>(undefined);
   const [recent, setRecent] = useState<Event[]>([]);
+  // Security-check failures in the last 24 hours, by Cloudflare's or Supabase's code (no personal data).
+  const [botCodes, setBotCodes] = useState<[string, number][]>([]);
 
   const load = useCallback(async () => {
-    const [sum, ev] = await Promise.all([
+    const [sum, ev, bot] = await Promise.all([
       supabase.rpc('kr_security_summary', { p_hours: 24 }),
       supabase.from('security_events').select('id, at, kind, ip_hash, path, status, detail').neq('kind', 'signin_ok').order('at', { ascending: false }).limit(40),
+      supabase.from('security_events').select('detail').eq('kind', 'bot_check_failed').gte('at', new Date(Date.now() - 86_400_000).toISOString()).limit(1000),
     ]);
     setRows(sum.error ? null : ((sum.data ?? []) as Row[]));
     setRecent(ev.error ? [] : ((ev.data ?? []) as Event[]));
+    const counts = new Map<string, number>();
+    for (const r of (bot.data ?? []) as { detail: string | null }[]) {
+      // "browser: 600010 (signin)" → "600010"; "browser: supabase-invalid-input-response (auth)" → that reason.
+      const code = (r.detail ?? 'unknown').replace(/^browser:\s*/, '').replace(/\s*\(.*\)$/, '');
+      counts.set(code, (counts.get(code) ?? 0) + 1);
+    }
+    setBotCodes([...counts].sort((a, b) => b[1] - a[1]));
   }, []);
   useEffect(() => {
     let live = true;
@@ -109,6 +119,19 @@ export function TrafficPanel() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+      {botCodes.length > 0 && (
+        <div className="mt-4" data-bot-codes>
+          <p className="text-sm font-semibold text-slate-800">“I am human” check failures, by code</p>
+          <ul className="mt-1 flex flex-wrap gap-2 text-xs">
+            {botCodes.map(([code, n]) => (
+              <li key={code} className="rounded-full bg-amber-50 px-2.5 py-1 font-mono text-amber-900 ring-1 ring-amber-200">
+                {code}: {n}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 text-xs text-slate-500">600xxx/300xxx: Cloudflare could not finish in the browser; 110xxx: wrong address or key; supabase-…: Supabase refused a token (invalid-input-response = its secret is from another widget; timeout-or-duplicate = used twice or too old). Test it any time at /status.</p>
         </div>
       )}
       {recent.length > 0 && (
