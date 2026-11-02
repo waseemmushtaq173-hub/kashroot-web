@@ -93,6 +93,96 @@ network. Admin actions are in the separate `security_log`. Kept 30 days.
   `.env*` files are git-ignored; none has ever been committed.
 * If a key is ever exposed: rotate it at its provider first, then update Vercel.
 
+## Threat model (STRIDE)
+
+What could go wrong, area by area: **S**poofing (pretending to be someone),
+**T**ampering (changing what is not yours), **R**epudiation (denying what you
+did), **I**nformation disclosure (seeing what is not yours), **D**enial of
+service / cost abuse, **E**levation of privilege (doing what your role may
+not). For each: what protects KashRoot now, and what is missing. Missing
+items are the plan; each is built and tested before it is ticked here.
+No site is 100% safe — the costs of what is left are at the end.
+
+### Sign-in, sign-up, password reset, codes
+
+| Threat | Protected now | Missing → fix |
+| --- | --- | --- |
+| S: password guessing / credential stuffing | Shared database limits: 8 wrong per account or 40 per network in 15 min → 15-min pause; Supabase's own limits; Turnstile with Supabase CAPTCHA | Growing delays and a lock **with an email notice**; admin alert on spikes |
+| S: bots making accounts | 30 sign-ups per network per hour; Turnstile; email confirmation (Supabase setting) | Honeypot field and minimum fill time; optional disposable-email block |
+| S: stolen password | New-device sign-in email; refresh-token reuse detection (Supabase) | **MFA (TOTP)** for admins and money roles; "sign out other devices" |
+| S: leaked passwords | 8+ characters, strength hint | Have I Been Pwned range check (k-anonymity) at sign-up and change (Supabase's own check is Pro-only) |
+| T: reset link reused / hijacked | Supabase links expire and work once; redirects only to the real site | — |
+| I: is this email registered? | Reset says the same either way | Same for sign-up (Supabase answers an existing email without error when confirmation is on) — verify |
+| D: email / code floods | 4 emails per address, 20 per network per 15 min; codes cost money so they need Turnstile | — |
+
+### Every API route and database function (RPC)
+
+| Threat | Protected now | Missing → fix |
+| --- | --- | --- |
+| S: calling an API as someone else | Bearer token checked by Supabase; server functions need `KYC_DB_SECRET` | — |
+| T/E: changing other people's rows | RLS on every table; IDOR sweep test (`supabase/tests/20_idor_every_table.sql`) | Re-run on every new table (CI) |
+| E: admin functions without MFA | `kr_has_role('ADMIN')` in the database; admin access code (bcrypt) | Admin and money functions also require **AAL2** (MFA) in the database |
+| T: injection | No SQL from text; PostgREST / plpgsql parameters only; strict input shapes | — |
+| D: floods and cost | Per-network limits on every working route; per-account and site-wide daily caps on AI, voice, photo checks, codes | Request-size limits written down per route; Vercel Firewall rate rule on `/api/*` |
+| S: forged cross-site requests (CSRF) | Tokens are sent as `Authorization` headers, not cookies (a form on another site cannot send them); cookies are SameSite=Lax | Origin check on the few cookie-only routes (`/api/human` pass) |
+
+### Database, storage and photos
+
+| Threat | Protected now | Missing → fix |
+| --- | --- | --- |
+| I: reading others' data | RLS; phones hidden from signed-out visitors; no service-role key on the site | — |
+| T: a disguised file as a "photo" | First bytes must be JPEG / PNG / WebP (API and `kr_image_ok`); no SVG; size caps | **Strip EXIF location** from photos before storing |
+| R: "I never changed that" | Admin actions in `security_log`; security events (hashed) | An **append-only audit log** (who, what, when, before/after) nobody can edit — with the Super Admin work |
+
+### Admin and Super Admin
+
+| Threat | Protected now | Missing → fix |
+| --- | --- | --- |
+| S: someone using the admin portal | Admin role in the database; access code; 15-min lock; Admin hidden from the public | **MFA (TOTP) + marked device**; only kashroot08@gmail.com can be Super Admin, set by SQL only |
+| E: staff doing more than their job | One ADMIN role today | Staff Admin with ticked permissions; Business Owner / Manager / Staff per business (RLS) |
+| S: support changing someone's email or bank details "on request" | No admin tool can (payout rows are the owner's own) | Keep it so, with a test |
+
+### Payments and bank details (KashRoot never holds money)
+
+| Threat | Protected now | Missing → fix |
+| --- | --- | --- |
+| T/S: changing someone's UPI / bank details | Only the owner (RLS); KYC first; email notice on every change | Password + MFA re-check; 24-hour hold before payouts use new details; warning to payers |
+| I: account numbers seen | Receipts keep only the last 4 digits | — |
+
+### AI, voice and other outside services
+
+| Threat | Protected now | Missing → fix |
+| --- | --- | --- |
+| D: cost abuse | "I am human" pass; per-account and site-wide daily caps | Admin alert when a cap is reached |
+| E: the assistant doing things for you | It answers and navigates; it takes no actions | Any future action needs a confirm tap and re-authentication; never by voice alone |
+| SSRF: the server fetching a URL someone gave | Outside calls go to fixed hosts only (Supabase, Cloudflare, Agmarknet, Open-Meteo, mail) | A test that no route takes a URL from a request |
+
+### Web attacks in the browser
+
+| Threat | Protected now | Missing → fix |
+| --- | --- | --- |
+| XSS | React escaping; the only raw HTML is a fixed JSON-LD block; CSP (scripts from KashRoot and Cloudflare only) | Attack test with script payloads in every text field |
+| Clickjacking | `frame-ancestors 'none'`, `X-Frame-Options: DENY` | — |
+| Open redirects | `next=` only same-site paths (`safeNextPath`) | Attack test |
+| Path tricks on the Supabase proxy | Only `auth/v1` and `rest/v1`; no `..` or encoded slashes | Attack test |
+| Fake copies of the site | One address (src/proxy.ts); Turnstile only on the real address; `/support` → Official contacts | — |
+
+### Build, dependencies and secrets
+
+| Threat | Protected now | Missing → fix |
+| --- | --- | --- |
+| T: a bad package update | `package-lock.json` committed | **Dependabot**; CI with `npm audit`, tsc, eslint, build; remove unused packages |
+| I: a secret in code or history | Secrets only in Vercel; the server refuses to start with a secret in `NEXT_PUBLIC_*`; GitHub secret scanning (setting) | **gitleaks** in CI and a pre-commit hook; a key-rotation guide |
+
+### What is left, and what it would cost
+
+| Risk | Needs | Cost (approx.) |
+| --- | --- | --- |
+| Leaked-password check inside Supabase | Supabase Pro (until then, our own HIBP check) | US$25 a month |
+| Large automated attacks on `/api/*` | Vercel Pro (more Firewall rules, Attack Challenge, longer logs) | US$20 a month per member |
+| Sending more than ~500 emails a day, or from @kashroot.in | A sending service (Resend, Brevo) and a domain with SPF / DKIM / DMARC | Domain ~₹800 a year; free tiers start at 3,000 emails a month |
+| Database backups older than 7 days, point-in-time restore | Supabase Pro (+ PITR add-on) | from US$25 a month |
+
 ## Settings outside the code — set these
 
 **Supabase → Authentication**
