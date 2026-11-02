@@ -34,4 +34,4 @@ export async function isHuman(request: Request, token: unknown): Promise<boolean
   }
 }
 
-export const NOT_HUMAN = 'Please complete the “I am human” check above, then try again.';
+export const NOT_HUMAN = 'The “I am human” check was not accepted — it may have run out. Wait for its tick, then try again.';

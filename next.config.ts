@@ -29,7 +29,7 @@ const CSP = [
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://images.unsplash.com https://upload.wikimedia.org ${supabase}`.trim(),
   "font-src 'self' data:",
-  ['connect-src', "'self'", 'https://api.data.gov.in', supabase, originOf(supabase, true), dev ? 'ws: http://localhost:* http://127.0.0.1:*' : ''].filter(Boolean).join(' '),
+  ['connect-src', "'self'", 'https://api.data.gov.in', 'https://challenges.cloudflare.com', supabase, originOf(supabase, true), dev ? 'ws: http://localhost:* http://127.0.0.1:*' : ''].filter(Boolean).join(' '),
   "media-src 'self' blob: data:",
   "worker-src 'self' blob:",
   "manifest-src 'self'",

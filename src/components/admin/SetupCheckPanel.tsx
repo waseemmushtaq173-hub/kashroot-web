@@ -10,6 +10,7 @@ import { CheckCircle2, DatabaseZap, Info, Loader2, Mail, XCircle } from 'lucide-
 
 import { RefreshBtn } from '@/components/admin/RefreshBtn';
 import { PORTAL_THEMES, Panel } from '@/components/portal/kit';
+import { humanCheckOn } from '@/components/security/HumanCheck';
 import { authFetch } from '@/lib/auth-fetch';
 import { setupStatus, type SetupStep } from '@/lib/db/setup';
 
@@ -105,7 +106,17 @@ function OptionalServices() {
   if (!state) return null;
   const rows: { name: string; on: boolean; onText: string; offText: string; optional?: boolean }[] = [
     { name: 'Server secret (KYC_DB_SECRET)', on: state.server, onText: 'set — identity checks, shared limits, the security log and help requests work', offText: 'not set — add it in Vercel (see SECURITY.md)' },
-    { name: '“I am human” check (Turnstile)', on: state.human, onText: 'on', offText: 'off — optional; set the Turnstile keys in Vercel and Supabase', optional: true },
+    // The site key is built into the pages (NEXT_PUBLIC_, at deploy time); the secret is read by the server now.
+    state.human === humanCheckOn
+      ? { name: '“I am human” check (Turnstile)', on: state.human, onText: 'on — both keys set; Supabase CAPTCHA may be on', offText: 'off — optional. While it is off, Supabase CAPTCHA must stay OFF too, or nobody can sign in', optional: true }
+      : {
+          name: '“I am human” check (Turnstile)',
+          on: false,
+          onText: '',
+          offText: state.human
+            ? 'half set up — TURNSTILE_SECRET_KEY is set, but NEXT_PUBLIC_TURNSTILE_SITE_KEY is not in this deployment, so forms show no check. Keep Supabase CAPTCHA OFF; add the site key in Vercel and redeploy'
+            : 'half set up — the site key is in the pages, but TURNSTILE_SECRET_KEY is missing on the server, so codes, help requests and the assistant are not checked. Add it in Vercel and redeploy',
+        },
     { name: 'Support email', on: state.mail, onText: `set — emails are sent from ${state.mailFrom}; help requests go to ${state.inbox}`, offText: 'not set — the site works, but sends no emails: add SMTP_HOST, SMTP_PORT, SMTP_USER and SMTP_PASS in Vercel and redeploy' },
     { name: 'Voice', on: state.voice, onText: 'KashRoot voice (Google neural voices)', offText: 'browser voice (optional upgrade) — answers are read by the phone’s own voice; adding GOOGLE_TTS_API_KEY in Vercel switches to KashRoot’s voice', optional: true },
   ];

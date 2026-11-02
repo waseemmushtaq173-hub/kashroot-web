@@ -5,7 +5,7 @@ import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, KeyRound, Loader2, Mail, MailCheck } from 'lucide-react';
 
-import { HumanCheck, humanCheckOn } from '@/components/security/HumanCheck';
+import { HumanCheck, humanCheckOn, humanRefusedText } from '@/components/security/HumanCheck';
 import { publicOrigin } from '@/lib/site';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 
@@ -26,7 +26,7 @@ export default function ForgotPasswordPage() {
     const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${publicOrigin()}/reset-password`, ...(human ? { captchaToken: human } : {}) });
     setBusy(false);
     setHumanTry((n) => n + 1);
-    if (err && /captcha/i.test(err.message)) return setError('Please complete the “I am human” check, then try again.');
+    if (err && /captcha/i.test(err.message)) return setError(humanRefusedText());
     if (err && !/rate limit/i.test(err.message)) return setError(err.message);
     if (err) return setError('Too many requests. Please wait a few minutes and try again.');
     // Same message whether or not the account exists, so emails can't be probed.

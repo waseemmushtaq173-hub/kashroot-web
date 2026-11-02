@@ -4,6 +4,7 @@
  * browser (tokenStore).
  */
 
+import { humanRefusedText } from '@/components/security/HumanCheck';
 import { loginHref, portalForRole, type PortalId } from '@/lib/auth/roles';
 import { markPortalSignedIn, portalsOf } from '@/lib/auth/portalAccess';
 import { staffRolesOf } from '@/lib/auth/staffRoles';
@@ -24,7 +25,7 @@ function friendlyAuthError(message: string | undefined, fallback: string): strin
   if (message?.startsWith('[setup] ')) return message.slice(8);
   const m = (message ?? '').toLowerCase();
   if (m.includes('invalid api key') || m.includes('no api key')) return 'The sign-in key saved for this site is wrong. In Supabase open Project Settings → API Keys, copy the anon (publishable) key, put it in Vercel as NEXT_PUBLIC_SUPABASE_ANON_KEY and redeploy.';
-  if (m.includes('captcha')) return 'Please complete the “I am human” check, then try again.';
+  if (m.includes('captcha')) return humanRefusedText();
   if (m.includes('email not confirmed')) return 'Your email is not confirmed yet. Open the confirmation link we emailed you (check Spam/Promotions too), then sign in.';
   if (m.includes('invalid login credentials')) return 'Wrong email or password. If you have not created an account yet, use Create an account.';
   if (m.includes('already registered') || m.includes('already been registered')) return 'An account with this email already exists. Sign in instead, or use Forgot password.';
@@ -58,6 +59,11 @@ export interface RegisterDto {
   portal?:  PortalId;
   /** The "I am human" token (components/security/HumanCheck), checked by Supabase when its CAPTCHA is on. */
   captchaToken?: string;
+  /**
+   * A second, fresh token, when the email already has an account and this
+   * portal is added to it by signing in (tokens work once: sign-up used the first).
+   */
+  nextCaptchaToken?: () => Promise<string | undefined>;
 }
 
 export interface LoginDto {
@@ -173,7 +179,8 @@ export const authApi = {
     // KashRoot account: with the right password, this portal is added to it.
     const exists = (error && /already (been )?registered|already exists/i.test(error.message)) || (!error && data.user && data.user.identities?.length === 0);
     if (exists) {
-      const joined = await supabase.auth.signInWithPassword({ email: dto.email, password: dto.password });
+      const captchaToken = dto.captchaToken ? await dto.nextCaptchaToken?.() : undefined;
+      const joined = await supabase.auth.signInWithPassword({ email: dto.email, password: dto.password, ...(captchaToken ? { options: { captchaToken } } : {}) });
       if (joined.error) {
         const m = joined.error.message.toLowerCase();
         if (m.includes('email not confirmed')) throw new Error(friendlyAuthError(joined.error.message, ''));

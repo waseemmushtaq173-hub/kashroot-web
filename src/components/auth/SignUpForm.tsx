@@ -11,7 +11,7 @@
  * otherwise Supabase's confirmation email verifies the address and the mobile
  * number is optional.
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMutation } from '@tanstack/react-query';
@@ -163,6 +163,27 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
   // The "I am human" check (off until its keys are set): a fresh token for each try.
   const [human, setHuman] = useState<string | null>(null);
   const [humanTry, setHumanTry] = useState(0);
+  // The email already has an account: adding this portal signs in, which needs a second token.
+  // Each fresh token is announced; nextCaptchaToken() resets the check and waits for the next one.
+  const takeToken = useCallback((token: string | null) => {
+    setHuman(token);
+    if (token) window.dispatchEvent(new CustomEvent<string>('kr-signup-token', { detail: token }));
+  }, []);
+  const nextCaptchaToken = useCallback(
+    () =>
+      new Promise<string | undefined>((resolve) => {
+        const done = (token: string | undefined) => {
+          window.removeEventListener('kr-signup-token', heard);
+          window.clearTimeout(timer);
+          resolve(token);
+        };
+        const heard = (e: Event) => done((e as CustomEvent<string>).detail);
+        const timer = window.setTimeout(() => done(undefined), 60_000);
+        window.addEventListener('kr-signup-token', heard);
+        setHumanTry((n) => n + 1);
+      }),
+    [],
+  );
   const registerMutation = useMutation({
     mutationFn: (dto: RegisterDto) => authApi.register(dto),
     onSettled: () => setHumanTry((n) => n + 1),
@@ -190,7 +211,7 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
     // The confirmation is only checked in the form; it is never sent.
     const dto: Partial<typeof values> = { ...values };
     delete dto.confirmPassword;
-    registerMutation.mutate({ ...(dto as RegisterDto), role: selectedRole, portal: homePortal, captchaToken: human ?? undefined });
+    registerMutation.mutate({ ...(dto as RegisterDto), role: selectedRole, portal: homePortal, captchaToken: human ?? undefined, nextCaptchaToken });
   };
 
   const errorMsg =
@@ -426,7 +447,7 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
           </span>
         </label>
 
-        <HumanCheck onToken={setHuman} resetKey={humanTry} action="signup" />
+        <HumanCheck onToken={takeToken} resetKey={humanTry} action="signup" />
         <button
           type="submit"
           disabled={!isFormValid || registerMutation.isPending || (humanCheckOn && !human)}
