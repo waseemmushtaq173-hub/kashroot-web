@@ -327,8 +327,9 @@ export function SiteFooter({ tone = 'dark' }: { tone?: SiteTone; portal?: Portal
             &copy; {new Date().getFullYear()} KashRoot
           </p>
         </div>
-        {/* Only the social pages: help is in every top bar (Help & support), the portals in the Portals menu. */}
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-caption">
+        {/* Only the social pages: help is in every top bar (Help & support), the portals in the Portals menu.
+            Room on the right, so the floating voice button never covers the last link. */}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pr-20 text-caption">
           {SOCIAL_LINKS.map((s) => (
             <a key={s.href} href={s.href} target="_blank" rel="noopener noreferrer me" className={`${footLink} inline-flex min-h-11 items-center`}>
               {s.label}

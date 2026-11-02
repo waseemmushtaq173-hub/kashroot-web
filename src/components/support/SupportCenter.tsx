@@ -482,8 +482,8 @@ export function SupportCenter() {
           <ShieldCheck className="h-6 w-6 text-emerald-700" aria-hidden /> Official contacts
         </h2>
         <p className="mt-3 rounded-2xl bg-amber-50 p-4 font-semibold text-amber-950 ring-1 ring-amber-200">{NEVER_ASKS}</p>
-        <ul className="mt-4 list-none space-y-3 !pl-0 text-slate-800">
-          <li>
+        <ul className="mt-4 space-y-3 !pl-0 text-slate-800 [list-style:none]">
+          <li className="[list-style:none]">
             <span className="font-semibold">Website:</span> {new URL(SITE_URL).host} — sign in only on this address.
           </li>
           <li className="flex flex-wrap items-center gap-3">
