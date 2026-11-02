@@ -30,6 +30,7 @@ import { Children, Fragment, isValidElement, useEffect, useId, useRef, useState,
 
 import { SiteFooter, SiteHeader } from '@/components/layout/SiteHeader';
 import { KashmirBackdrop } from '@/components/layout/portal/KashmirBackdrop';
+import { RegionBackdrop, RegionCredit } from '@/components/layout/portal/RegionBackdrop';
 import type { SearchItem } from '@/components/layout/portal/ShellSearch';
 import { SidebarContent, SidebarDrawer } from '@/components/layout/portal/ShellSidebar';
 import { ShellTabs } from '@/components/layout/portal/ShellTabs';
@@ -43,6 +44,8 @@ import { MY_DETAILS } from '@/components/portal/myDetailsConfig';
 import { FOCUS, TitleAction, resolveTheme } from '@/components/portal/kit';
 import { loginHref, PORTALS, portalOfPath } from '@/lib/auth/roles';
 import { signOutOfPortal } from '@/lib/auth/session';
+import { useRegion } from '@/lib/region';
+import { skinFor } from '@/lib/regionSkins';
 
 export interface KPI {
   label: string;
@@ -120,6 +123,7 @@ export function PortalShell({
   children,
 }: PortalShellProps) {
   const theme = resolveTheme(themeId);
+  const skin = skinFor(useRegion().region?.state);
   const look = shellLook(themeId);
   const router = useRouter();
   const pathname = usePathname() ?? '';
@@ -308,7 +312,7 @@ export function PortalShell({
 
   return (
     <div data-kr-shell="portal" className={`kr-light relative isolate min-h-screen text-slate-900 ${theme.canvas}`}>
-      <KashmirBackdrop ink={look.ink} leaf={theme.leaf} />
+      <KashmirBackdrop ink={look.ink} leaf={theme.leaf} valley={skin.valley} />
       <div className="lg:flex">
         <aside
           aria-label={portalLabel ?? title}
@@ -317,7 +321,9 @@ export function PortalShell({
           {sidebar(`${ids}-side`)}
         </aside>
 
-        <div className="min-w-0 flex-1">
+        <div className="relative min-w-0 flex-1">
+          {/* The person's region: its photograph behind the page title (lib/regionSkins). */}
+          <RegionBackdrop />
           <ShellTopBar
             theme={theme}
             look={look}
@@ -335,6 +341,7 @@ export function PortalShell({
           <main id="main-content" className="mx-auto max-w-7xl px-4 pb-16 pt-6 sm:px-6 sm:pt-8 xl:px-8">
             {page}
           </main>
+          <RegionCredit skin={skin} />
         </div>
       </div>
       {/* The assistant, in every portal: a guide to this page, read aloud, and answers to questions. */}

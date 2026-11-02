@@ -50,7 +50,8 @@ function ShikaraArt({ ink, canopy, className }: { ink: string; canopy: string; c
   );
 }
 
-export function KashmirBackdrop({ ink, leaf }: { ink: string; leaf: string }) {
+/** `valley`: the ridge and the shikara too (Kashmir); elsewhere only the chinar leaves, KashRoot's own mark. */
+export function KashmirBackdrop({ ink, leaf, valley = true }: { ink: string; leaf: string; valley?: boolean }) {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 select-none overflow-clip print:hidden">
       <div className="sticky top-0 h-svh w-full">
@@ -71,7 +72,8 @@ export function KashmirBackdrop({ ink, leaf }: { ink: string; leaf: string }) {
           ))}
         </svg>
 
-        {/* Pir Panjal far off, the Zabarwan ridge, and Dal Lake at its foot */}
+        {/* Pir Panjal far off, the Zabarwan ridge, and Dal Lake at its foot — Kashmir only */}
+        {valley && (
         <div className="absolute inset-x-0 bottom-0 h-[clamp(170px,34vh,340px)]">
           <svg className="absolute inset-0 h-full w-full" viewBox="0 0 1600 340" preserveAspectRatio="none">
             <path d={FAR_RANGE} fill={ink} fillOpacity="0.035" />
@@ -87,6 +89,7 @@ export function KashmirBackdrop({ ink, leaf }: { ink: string; leaf: string }) {
           <ShikaraArt ink={ink} canopy={leaf} className="absolute bottom-[2%] left-[54%] w-[clamp(150px,16vw,260px)]" />
           <ShikaraArt ink={ink} canopy={leaf} className="absolute bottom-[13%] left-[16%] w-[clamp(64px,6vw,104px)] opacity-60" />
         </div>
+        )}
       </div>
     </div>
   );
