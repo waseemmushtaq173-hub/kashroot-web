@@ -65,8 +65,11 @@ export function TrafficPanel() {
     setRecent(ev.error ? [] : ((ev.data ?? []) as Event[]));
     const counts = new Map<string, number>();
     for (const r of (bot.data ?? []) as { detail: string | null }[]) {
-      // "browser: 600010 (signin)" → "600010"; "browser: supabase-invalid-input-response (auth)" → that reason.
-      const code = (r.detail ?? 'unknown').replace(/^browser:\s*/, '').replace(/\s*\(.*\)$/, '');
+      // "browser: 110200 (signin) on kashroot-x.vercel.app" → "110200 on kashroot-x.vercel.app";
+      // "browser: supabase-invalid-input-response (auth)" → that reason; server-side ones as they are.
+      const d = (r.detail ?? 'unknown').replace(/^browser:\s*/, '');
+      const host = d.match(/ on ([a-z0-9.-]+)$/)?.[1];
+      const code = `${d.replace(/ on [a-z0-9.-]+$/, '').replace(/\s*\(.*\)$/, '')}${host ? ` on ${host}` : ''}`;
       counts.set(code, (counts.get(code) ?? 0) + 1);
     }
     setBotCodes([...counts].sort((a, b) => b[1] - a[1]));
@@ -131,7 +134,7 @@ export function TrafficPanel() {
               </li>
             ))}
           </ul>
-          <p className="mt-1 text-xs text-slate-500">600xxx/300xxx: Cloudflare could not finish in the browser; 110xxx: wrong address or key; supabase-…: Supabase refused a token (invalid-input-response = its secret is from another widget; timeout-or-duplicate = used twice or too old). Test it any time at /status.</p>
+          <p className="mt-1 text-xs text-slate-500">600xxx/300xxx: Cloudflare could not finish in the browser; 110xxx: an address Cloudflare does not allow (the address is shown); supabase-…: Supabase refused a token (invalid-input-response = its secret is from another widget; timeout-or-duplicate = used twice or too old). Test it any time at /status.</p>
         </div>
       )}
       {recent.length > 0 && (

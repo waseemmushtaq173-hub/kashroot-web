@@ -5,9 +5,10 @@
  * POST /api/human { diagnose, otherAddress } → Cloudflare's verdict on that
  *      fresh token with this server's secret (the /status test; the token is
  *      used up and never shown). 10 a minute.
- * POST /api/human { report, action } → { ok }: the security check could not
- *      finish in a browser (components/security/HumanCheck) — its error code
- *      is logged for Admin → Security, nothing personal.
+ * POST /api/human { report, action, host } → { ok }: the security check could
+ *      not finish in a browser (components/security/HumanCheck) — its error
+ *      code and the site address it happened on are logged for Admin →
+ *      Security, nothing personal.
  */
 import { NextResponse } from 'next/server';
 
@@ -22,7 +23,7 @@ export function GET(request: Request) {
 
 export async function POST(request: Request) {
   if (await sharedIpLimited(request, 'human-pass', 20)) return NextResponse.json({ error: 'Too many tries. Please wait a minute.' }, { status: 429 });
-  const body = (await request.json().catch(() => null)) as { token?: unknown; report?: unknown; action?: unknown; diagnose?: unknown; otherAddress?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { token?: unknown; report?: unknown; action?: unknown; host?: unknown; diagnose?: unknown; otherAddress?: unknown } | null;
   if (typeof body?.diagnose === 'string' && body.diagnose) {
     if (await sharedIpLimited(request, 'human-diagnose', 10)) return NextResponse.json({ error: 'Too many tries. Please wait a minute.' }, { status: 429 });
     return NextResponse.json(await diagnoseToken(request, body.diagnose, body.otherAddress === true), { headers: { 'cache-control': 'no-store' } });
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
   if (typeof body?.report === 'string') {
     const code = body.report.replace(/[^\w-]/g, '').slice(0, 40);
     const action = String(body.action ?? '').replace(/[^\w-]/g, '').slice(0, 20);
-    securityEvent('bot_check_failed', { request, detail: `browser: ${code}${action ? ` (${action})` : ''}` });
+    securityEvent('bot_check_failed', { request, detail: `browser: ${code}${action ? ` (${action})` : ''}`, site: String(body.host ?? '') });
     return NextResponse.json({ ok: true });
   }
   if (!humanPassOn()) return NextResponse.json({ ok: true });

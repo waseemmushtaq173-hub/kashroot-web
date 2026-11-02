@@ -6,6 +6,7 @@ import { Providers } from "./providers";
 import { Toaster } from "sonner";
 
 import { PwaRoot } from "@/components/pwa/PwaRoot";
+import { TestCopyBanner } from "@/components/security/TestCopyBanner";
 import { SITE_URL } from "@/lib/site";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -71,6 +72,7 @@ export default function RootLayout({
     <html lang="en-IN" className={nastaliq.variable}>
       {/* Nastaliq first: it covers only the Arabic script, so Latin text stays in Inter. */}
       <body className="bg-[#07120D] text-[#F5F2EB] antialiased" style={{ fontFamily: `${nastaliq.style.fontFamily}, ${inter.style.fontFamily}` }}>
+        <TestCopyBanner />
         <Providers>{children}</Providers>
         <Toaster position="top-center" theme="light" richColors closeButton />
         {/* Offline-first: service worker, offline banner, "Waiting to send". */}

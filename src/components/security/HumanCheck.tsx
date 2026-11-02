@@ -138,9 +138,10 @@ function widgetLanguage(): string {
   }
 }
 
-/** The failure, logged on the server for Admin → Security (the code only). */
+/** The failure, logged on the server for Admin → Security: the code and the site address it happened on (nothing personal). */
 function report(code: string, action: string) {
-  void fetch('/api/human', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ report: code.slice(0, 40), action }), keepalive: true }).catch(() => undefined);
+  const host = typeof window === 'undefined' ? '' : window.location.hostname;
+  void fetch('/api/human', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ report: code.slice(0, 40), action, host }), keepalive: true }).catch(() => undefined);
 }
 
 type Status = 'working' | 'ready' | 'interactive' | 'failed';
