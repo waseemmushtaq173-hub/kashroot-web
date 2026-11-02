@@ -17,6 +17,7 @@ import { useSearchParams } from 'next/navigation';
 import { CheckCircle2, ChevronDown, LifeBuoy, Loader2, Mail, MessageSquare, Search, Send, ShieldCheck, Square, Volume2 } from 'lucide-react';
 
 import { CHECKING_HUMAN, HumanCheckError, useHumanCheck } from '@/components/security/HumanCheck';
+import { GUARD_TEXT, useFormGuard } from '@/lib/client/formGuard';
 import { authFetch } from '@/lib/auth-fetch';
 import { supabase } from '@/lib/supabase';
 import { HELP_TOPICS, TOPIC_LABEL, type SupportTopic } from '@/lib/helpTopics';
@@ -154,6 +155,8 @@ export function SupportCenter() {
   const [sent, setSent] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const human = useHumanCheck('support');
+  // Bot traps (checked again on the server): a hidden field, and at least 3 s to write the request.
+  const guard = useFormGuard(3000, 'support');
 
   // Check my request
   // From the "your request has a reply" email: the number is filled in.
@@ -220,6 +223,8 @@ export function SupportCenter() {
 
   const send = async () => {
     setFormError(null);
+    const guarded = guard.check();
+    if (guarded !== 'ok') return setFormError(GUARD_TEXT[guarded]);
     setSending(true);
     let token: string | undefined;
     try {
@@ -228,7 +233,7 @@ export function SupportCenter() {
       setSending(false);
       return setFormError(problem instanceof HumanCheckError ? null : (problem as Error).message);
     }
-    const { ok, data } = await post({ action: 'open', ...form, lang, portal: null, human: token });
+    const { ok, data } = await post({ action: 'open', ...form, lang, portal: null, human: token, trap: guard.trapValue(), ms: guard.elapsed() });
     setSending(false);
     human.used();
     if (!ok || typeof data.code !== 'string') return setFormError(String(data.error ?? 'Could not send. Please try again.'));
@@ -372,6 +377,7 @@ export function SupportCenter() {
               void send();
             }}
           >
+            {guard.trap}
             <label className="grid gap-1.5 text-sm font-semibold text-slate-800">
               Your name
               <input className={input} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoComplete="name" required maxLength={80} />

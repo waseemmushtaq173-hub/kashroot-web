@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft, KeyRound, Loader2, Mail, MailCheck } from 'lucide-react';
 
 import { CHECKING_HUMAN, HumanCheckError, humanRefusedText, reportRefusal, useHumanCheck } from '@/components/security/HumanCheck';
+import { GUARD_TEXT, useFormGuard } from '@/lib/client/formGuard';
 import { publicOrigin } from '@/lib/site';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 
@@ -15,11 +16,14 @@ export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const human = useHumanCheck('reset');
+  const guard = useFormGuard(1500, 'reset');
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) return setError('Enter the email you registered with.');
     if (!supabaseConfigured) return setError('Password reset is not set up on this site yet.');
+    const guarded = guard.check();
+    if (guarded !== 'ok') return setError(GUARD_TEXT[guarded]);
     setBusy(true);
     setError(null);
     let captchaToken: string | undefined;
@@ -65,6 +69,7 @@ export default function ForgotPasswordPage() {
       <h1 className="mt-5 text-3xl font-semibold tracking-tight text-slate-900">Forgot your password?</h1>
       <p className="mt-2 text-slate-600">Enter your email and we’ll send you a link to set a new one.</p>
       <form onSubmit={submit} noValidate className="mt-6 space-y-4">
+        {guard.trap}
         <label htmlFor="fp-email" className="block text-sm font-semibold text-slate-800">
           Email address
           <span className="relative mt-1.5 block">

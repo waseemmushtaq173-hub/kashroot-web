@@ -43,6 +43,8 @@ for (const width of [1280, 390]) {
       await page.getByLabel('Your name').fill('Test Person');
       await page.getByLabel(/Mobile number \(we call you back/).fill('9876543210');
       await page.getByLabel(/The problem, in your words/).fill('The code does not come when I sign in');
+      // A person takes a few seconds to write (lib/client/formGuard: under 3 s counts as a bot).
+      await page.waitForTimeout(3_100);
       const send = page.getByRole('button', { name: 'Send to KashRoot' });
       const human = (await (await request.get('/api/human')).json()) as { on?: boolean };
       if (human.on) {

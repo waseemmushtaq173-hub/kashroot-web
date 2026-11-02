@@ -5,8 +5,10 @@
  * why — wrong address, paused project — in words the sign-in form shows.
  *
  * It also guards against attacks before they reach Supabase:
- *   - password guessing: after 8 wrong passwords for one account (or 40 from
- *     one network) in 15 minutes, sign-in is paused for 15 minutes;
+ *   - password guessing (lib/server/signinGuard): a growing wait after the
+ *     3rd wrong password, a 15-minute pause after 8 in 15 minutes (or 40 from
+ *     one network), a 1-hour lock after 15 in a day — with an email to the
+ *     account when it is paused or locked;
  *   - mass sign-ups and reset-email floods from one network;
  *   - request floods on the data API.
  * The sign-in, sign-up and email counts are shared by every server instance
@@ -19,7 +21,7 @@
  * Limits are generous because many farmers share one mobile-network address.
  */
 const FIFTEEN_MIN = 15 * 60_000;
-const paused = (msg: string) => Response.json({ msg: `[setup] ${msg}`, message: `[setup] ${msg}`, error: 'too_many_requests' }, { status: 429, headers: { 'retry-after': '900' } });
+const paused = (msg: string, retryAfter = 900) => Response.json({ msg: `[setup] ${msg}`, message: `[setup] ${msg}`, error: 'too_many_requests' }, { status: 429, headers: { 'retry-after': String(retryAfter) } });
 
 /** The email or phone in a sign-in / reset request, lower-cased. */
 function account(body: ArrayBuffer | undefined): string {
@@ -32,8 +34,9 @@ function account(body: ArrayBuffer | undefined): string {
   }
 }
 import { afterPasswordSignIn, afterUserChange } from '@/lib/server/accountNotices';
+import { recordWrongPassword, rightPassword, signinBlock } from '@/lib/server/signinGuard';
 import { securityEvent } from '@/lib/server/securityLog';
-import { hashed, sharedClear, sharedCount, sharedLimited, sharedRecord } from '@/lib/server/sharedLimit';
+import { hashed, sharedLimited } from '@/lib/server/sharedLimit';
 import { clientIp, rateLimited } from '@/lib/server/sign';
 import { supabaseOrigin } from '@/lib/supabase-config';
 
@@ -69,11 +72,8 @@ async function proxy(request: Request, { params }: { params: Promise<{ path: str
   const whoKey = who ? hashed(who) : '';
 
   if (passwordSignIn) {
-    const [mine, network] = await Promise.all([whoKey ? sharedCount(`pw-fail:${whoKey}`, FIFTEEN_MIN) : 0, sharedCount(`pw-fail-ip:${ip}`, FIFTEEN_MIN)]);
-    if (mine >= 8 || network >= 40) {
-      securityEvent('signin_paused', { request, account: who, path, status: 429, detail: mine >= 8 ? 'account: 8 wrong passwords in 15 min' : 'network: 40 wrong passwords in 15 min' });
-      return paused('Too many wrong passwords. For safety, sign-in is paused for 15 minutes. Use “Forgot password” if you do not remember it.');
-    }
+    const block = await signinBlock(request, who, whoKey, ip);
+    if (block) return paused(block.message, block.retryAfter);
   } else if (path === 'auth/v1/signup') {
     if (await sharedLimited(`signup-ip:${ip}`, 30, 60 * 60_000)) {
       securityEvent('signup_paused', { request, path, status: 429, detail: '30 new accounts from one network in an hour' });
@@ -122,12 +122,23 @@ async function proxy(request: Request, { params }: { params: Promise<{ path: str
     return Response.json({ msg: 'The sign-in service is busy. Trying again shortly.', message: 'The sign-in service is busy.' }, { status: 503, headers: { 'retry-after': '30', 'cache-control': 'no-store' } });
   }
 
+  // A refused sign-in: read Supabase's reason — only a wrong password counts towards the lock.
+  let refusedText: string | null = null;
+  if (passwordSignIn && (upstream.status === 400 || upstream.status === 401)) {
+    refusedText = await upstream.text();
+    const code = (() => {
+      try {
+        return String((JSON.parse(refusedText) as { error_code?: string }).error_code ?? '');
+      } catch {
+        return '';
+      }
+    })();
+    if (code === 'captcha_failed') securityEvent('bot_check_failed', { request, path, status: upstream.status, code: 'supabase-captcha_failed' });
+    else await recordWrongPassword(request, who, whoKey, ip);
+  }
   if (passwordSignIn) {
-    if (upstream.status === 400 || upstream.status === 401) {
-      await Promise.all([whoKey ? sharedRecord(`pw-fail:${whoKey}`, FIFTEEN_MIN) : null, sharedRecord(`pw-fail-ip:${ip}`, FIFTEEN_MIN)]);
-      securityEvent('signin_fail', { request, account: who, path, status: upstream.status });
-    } else if (upstream.ok) {
-      if (whoKey) await sharedClear(`pw-fail:${whoKey}`);
+    if (upstream.ok) {
+      await rightPassword(whoKey);
       securityEvent('signin_ok', { request, account: who, path, status: upstream.status });
     }
   } else if (path === 'auth/v1/signup' && upstream.ok) {
@@ -145,6 +156,7 @@ async function proxy(request: Request, { params }: { params: Promise<{ path: str
     if (value) out.set(name, value);
   }
   out.set('cache-control', 'no-store');
+  if (refusedText !== null) return new Response(refusedText, { status: upstream.status, headers: out });
   // Security notices need the account the answer names: read it, then pass it on unchanged.
   if (upstream.ok && (passwordSignIn || (path === 'auth/v1/user' && request.method === 'PUT'))) {
     const text = await upstream.text();

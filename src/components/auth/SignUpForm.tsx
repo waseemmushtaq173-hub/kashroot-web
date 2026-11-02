@@ -26,6 +26,7 @@ import { loginHref, PORTALS, REGISTER_ROLES, SIGNUP_ROLE, type PortalId, type Si
 import { getKycConfig } from '@/lib/kyc/kyc-service';
 import { weakPassword } from '@/lib/auth/passwordRules';
 import { CHECKING_HUMAN, HumanCheckError, useHumanCheck } from '@/components/security/HumanCheck';
+import { GUARD_TEXT, useFormGuard } from '@/lib/client/formGuard';
 
 type RegisterRole = SignUpRole;
 
@@ -162,6 +163,9 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
 
   // The security check (off until its keys are set): a token fetched in the background, a fresh one for each try.
   const human = useHumanCheck('signup');
+  // Bot traps: a hidden field, and at least 3 s to fill in the form.
+  const guard = useFormGuard(3000, 'signup');
+  const [guardError, setGuardError] = useState<string | null>(null);
   // "Resend email" on the success screen (the form, and its check, are gone by then).
   const resendHuman = useHumanCheck('resend', { lazy: true });
   const registerMutation = useMutation({
@@ -198,20 +202,23 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
   });
 
   const onSubmit = (values: RegisterDto & { confirmPassword: string }) => {
+    const guarded = guard.check();
+    setGuardError(guarded === 'ok' ? null : GUARD_TEXT[guarded]);
+    if (guarded !== 'ok') return;
     // The confirmation is only checked in the form; it is never sent.
     const dto: Partial<typeof values> = { ...values };
     delete dto.confirmPassword;
     registerMutation.mutate({ ...(dto as RegisterDto), role: selectedRole, portal: homePortal });
   };
 
-  const errorMsg =
-    registerMutation.error instanceof HumanCheckError
+  const errorMsg = guardError ??
+    (registerMutation.error instanceof HumanCheckError
       ? null // the security check shows its own reason, with Retry
       : registerMutation.error instanceof Error
       ? registerMutation.error.message
       : registerMutation.error
         ? 'Registration failed. Please try again.'
-        : null;
+        : null);
 
   const input = `block w-full rounded-xl border-0 bg-white px-4 py-3.5 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 transition focus:ring-2 ${look.ring}`;
 
@@ -307,6 +314,7 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
       )}
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-6 space-y-5">
+        {guard.trap}
         {!portal && (
         <fieldset>
           <legend className="mb-2 text-sm font-semibold text-slate-800">I am a</legend>

@@ -18,7 +18,7 @@ export interface Letter {
 
 export interface Queued {
   id: number;
-  kind: 'help_new' | 'help_ack' | 'help_reply' | 'help_resolved' | 'payout_changed' | 'password_changed' | 'email_changed' | 'phone_changed' | 'new_signin';
+  kind: 'help_new' | 'help_ack' | 'help_reply' | 'help_resolved' | 'payout_changed' | 'password_changed' | 'email_changed' | 'phone_changed' | 'new_signin' | 'signin_locked';
   ref: string | null;
   detail: string | null;
   created_at: string;
@@ -67,6 +67,7 @@ const NOTICE: Record<Exclude<Queued['kind'], 'help_new' | 'help_ack' | 'help_rep
   email_changed: ['A change of your KashRoot email was asked for', () => 'Someone signed in to your KashRoot account asked to change its email address. It changes only after the link sent to the new address is opened.'],
   phone_changed: ['Your KashRoot phone number was changed', () => 'The phone number of your KashRoot account was changed.'],
   new_signin: ['New sign-in to your KashRoot account', (d) => `Your KashRoot account was signed in to on a new device${d ? `: ${d}` : ''}.`],
+  signin_locked: ['Sign-in to your KashRoot account was paused', (d) => `A wrong password was typed for your KashRoot account many times, so signing in is paused for ${d || 'a while'}. Your account and data are safe.`],
 };
 
 const indiaTime = (iso: string) => new Date(iso).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });

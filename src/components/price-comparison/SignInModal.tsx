@@ -16,6 +16,7 @@ import { ArrowLeft, Eye, EyeOff, LogIn, ShoppingCart, Store, UserPlus } from 'lu
 
 import { Btn, INPUT, Modal, PORTAL_THEMES } from '@/components/portal/kit';
 import { CHECKING_HUMAN, HumanCheckError, useHumanCheck } from '@/components/security/HumanCheck';
+import { GUARD_TEXT, useFormGuard } from '@/lib/client/formGuard';
 import { authApi } from '@/lib/api/auth';
 import { AUTH_ROUTES } from '@/lib/auth/roles';
 import { rememberedPerson } from '@/lib/auth/session';
@@ -42,6 +43,7 @@ export function SignInModal({ reason, onClose, onSignedIn }: { reason: SignInRea
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const human = useHumanCheck('signin');
+  const guard = useFormGuard(800, 'signin');
 
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -49,6 +51,8 @@ export function SignInModal({ reason, onClose, onSignedIn }: { reason: SignInRea
     if (!address) return setError('Write the email address of your KashRoot account.');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) return setError('This email address is not complete. Write it like name@gmail.com.');
     if (!password) return setError('Write your password.');
+    const guarded = guard.check();
+    if (guarded !== 'ok') return setError(GUARD_TEXT[guarded]);
     setBusy(true);
     setError(null);
     let sent = false;
@@ -90,6 +94,7 @@ export function SignInModal({ reason, onClose, onSignedIn }: { reason: SignInRea
     <Modal open onClose={onClose} title={step === 'create' ? 'Create an account' : TITLE[reason]}>
       {step === 'signin' ? (
         <form className="grid gap-4" onSubmit={(e) => void submit(e)} noValidate>
+          {guard.trap}
           <p className="text-sm text-slate-600">Use the email and password of your KashRoot account. You stay on Price Comparison.</p>
           <label htmlFor={ids.email} className="block text-sm font-medium text-slate-800">
             Email address

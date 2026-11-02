@@ -139,6 +139,11 @@ export async function queueNotice(kind: 'password_changed' | 'email_changed' | '
   await rpc('kr_email_enqueue', { p_kind: kind, p_user: userId, p_detail: detail ?? null });
 }
 
+/** Sign-in was paused or locked for wrong passwords: tell the account with that email (nothing happens when there is none). */
+export async function queueLockNotice(email: string, pause: string): Promise<void> {
+  await rpc('kr_email_enqueue_email', { p_kind: 'signin_locked', p_email: email, p_detail: pause });
+}
+
 /**
  * Send what is due in the queue (at most `limit` now). Safe to call any time,
  * from anywhere: it only sends what the database queued. Returns counts.

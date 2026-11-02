@@ -38,6 +38,7 @@ import { ContactOtp, type PhoneRoute } from '@/components/auth/ContactOtp';
 import { PortalAuthFrame } from '@/components/auth/PortalAuthFrame';
 import { PORTAL_LOGIN } from '@/components/auth/portalLoginConfig';
 import { CHECKING_HUMAN, HumanCheckError, useHumanCheck } from '@/components/security/HumanCheck';
+import { GUARD_TEXT, useFormGuard } from '@/lib/client/formGuard';
 import { authApi, SELF_JOIN_ROLES, tokenStore } from '@/lib/api/auth';
 import { isMember, joinPortal, markPortalSignedIn, portalAccess, PORTAL_SIGNIN_LIMIT_MS, signedInPortals } from '@/lib/auth/portalAccess';
 import { AUTH_ROUTES, loginHref, PORTALS, portalForRole, portalOfPath, safeNextPath, type PortalId } from '@/lib/auth/roles';
@@ -86,6 +87,8 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   const [password, setPassword] = useState('');
   // The security check (off until its keys are set): a token fetched in the background, a fresh one for each try.
   const human = useHumanCheck('signin');
+  // Bot traps: a hidden field, and at least 0.8 s before pressing (a password manager fills at once).
+  const guard = useFormGuard(800, 'signin');
   const [showPassword, setShowPassword] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<{ text: string; portal?: PortalId } | null>(null);
@@ -220,6 +223,11 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
     if (!canSubmit) return;
     if (email.trim() === '' || password === '') {
       setError({ text: 'Enter your email address and password.' });
+      return;
+    }
+    const guarded = guard.check();
+    if (guarded !== 'ok') {
+      setError({ text: GUARD_TEXT[guarded] });
       return;
     }
     setPending(true);
@@ -489,6 +497,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
       )}
 
       <form onSubmit={handleSubmit} noValidate className={`mt-6 space-y-5 ${checking ? 'hidden' : ''}`}>
+        {guard.trap}
         <div>
           <label htmlFor={ids.email} className="block text-sm font-medium text-slate-800">
             Email address
