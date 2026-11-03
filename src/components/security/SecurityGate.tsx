@@ -10,95 +10,166 @@
  * (/api/gate), which checks it with Cloudflare and gives this browser the
  * kr_gate cookie for 30 minutes — the Supabase proxy refuses sign-in,
  * sign-up, reset and code emails without it. The form then gets its OWN
- * fresh token for Supabase: `onPass` is where it starts its check.
+ * fresh token for Supabase in the background: `onPass` is where it starts.
  *
- * Already passed in this browser (cookie still valid) or the check is off:
- * the form shows at once. Failures retry by themselves (components/security/
- * HumanCheck), then explain the reason with a Retry button — never a dead
- * page. When it passes, the first field gets the focus.
+ * Fast and never stuck: Cloudflare's box starts as the page opens, alongside
+ * the "already passed?" question, and the token is sent the moment Cloudflare
+ * says "Success!" (useHumanCheck's onToken) — nothing waits on a timer that
+ * may have given up. While Cloudflare waits for a tap, only its own line
+ * shows ("One quick check…"): no error, no Retry, nothing timed out. KashRoot's
+ * answer is awaited at most 8 s; a refusal shows "Security check failed:
+ * <reason>" with Retry, and so does 8 s with no answer at all. Already passed
+ * in this browser (cookie still valid) or the check is off: the form shows at
+ * once. When it passes, the first field gets the focus, and the console says
+ * how long the gate took (never the token).
  */
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { preconnect } from 'react-dom';
 import { Hand, Loader2, RotateCcw, ShieldCheck } from 'lucide-react';
 
-import { HumanCheckError, useHumanCheck } from '@/components/security/HumanCheck';
+import { useHumanCheck, type HumanCheck } from '@/components/security/HumanCheck';
 import { rememberedLang } from '@/lib/langDetect';
 
 /** "Checking you're human…" in the person's language (Kashmiri readers get the Urdu wording). */
 const TEXT = {
-  en: { title: 'Checking you’re human…', why: 'One moment — this keeps bots and fake accounts out of KashRoot.', tap: 'Tap to confirm you’re human', dir: undefined },
-  hi: { title: 'जाँच हो रही है कि आप इंसान हैं…', why: 'बस एक पल — इससे बॉट और नकली खाते KashRoot से दूर रहते हैं।', tap: 'पुष्टि करने के लिए टैप करें कि आप इंसान हैं', dir: undefined },
-  ur: { title: 'تصدیق ہو رہی ہے کہ آپ انسان ہیں…', why: 'بس ایک لمحہ — اس سے بوٹ اور جعلی اکاؤنٹ KashRoot سے دور رہتے ہیں۔', tap: 'تصدیق کے لیے ٹیپ کریں کہ آپ انسان ہیں', dir: 'rtl' as const },
+  en: { title: 'Checking you’re human…', why: 'One moment — this keeps bots and fake accounts out of KashRoot.', tap: 'Tap to confirm you’re human', slow: 'This is taking longer than usual.', dir: undefined },
+  hi: { title: 'जाँच हो रही है कि आप इंसान हैं…', why: 'बस एक पल — इससे बॉट और नकली खाते KashRoot से दूर रहते हैं।', tap: 'पुष्टि करने के लिए टैप करें कि आप इंसान हैं', slow: 'इसमें सामान्य से अधिक समय लग रहा है।', dir: undefined },
+  ur: { title: 'تصدیق ہو رہی ہے کہ آپ انسان ہیں…', why: 'بس ایک لمحہ — اس سے بوٹ اور جعلی اکاؤنٹ KashRoot سے دور رہتے ہیں۔', tap: 'تصدیق کے لیے ٹیپ کریں کہ آپ انسان ہیں', slow: 'اس میں معمول سے زیادہ وقت لگ رہا ہے۔', dir: 'rtl' as const },
 };
 
-type State = 'asking' | 'gate' | 'passed';
+/** KashRoot's answer to a token: at most this long. */
+const ANSWER_MS = 8_000;
+/** No token and no tap asked for after this long: offer Retry. */
+const STALL_MS = 8_000;
+
+type State = 'asking' | 'gate' | 'sending' | 'passed';
 
 export function SecurityGate({ place, onPass, children }: { place: string; onPass?: () => void; children: ReactNode }) {
+  preconnect('https://challenges.cloudflare.com');
   const [state, setState] = useState<State>('asking');
   const [error, setError] = useState<string | null>(null);
+  const [stalled, setStalled] = useState(false);
   const [round, setRound] = useState(0);
+  const [awaitingTap, setAwaitingTap] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const passedOnce = useRef(false);
-  const human = useHumanCheck(`gate-${place}`, { lazy: true, visible: true });
-  const { token, used, wasTapped } = human;
-  // The Super Admin's switch: everyone presses "Tap to confirm" too.
-  const [tapNeeded, setTapNeeded] = useState(false);
-  const confirmed = useRef<(() => void) | null>(null);
-  const [awaitingTap, setAwaitingTap] = useState(false);
+  // Read inside callbacks (never while rendering).
+  const now = useRef<State>('asking');
+  const pending = useRef<string | null>(null);
+  const hold = useRef(false); // after a refusal: wait for Retry rather than resend on its own
+  const tapNeeded = useRef(false);
+  const confirmed = useRef(false);
+  const human = useRef<HumanCheck | null>(null);
+  const opened = useRef(0);
+  const tokenAt = useRef(0);
   const [lang] = useState<'en' | 'hi' | 'ur'>(() => {
     const l = rememberedLang();
     return l === 'hi' ? 'hi' : l === 'ur' || l === 'ks' ? 'ur' : 'en';
   });
   const t = TEXT[lang];
 
-  // Already passed in this browser in the last 30 minutes, or the check is off: straight to the form.
+  const go = useCallback((s: State) => {
+    now.current = s;
+    setState(s);
+  }, []);
+
+  const send = useCallback(
+    async (tok: string) => {
+      go('sending');
+      setError(null);
+      setStalled(false);
+      const sent = performance.now();
+      try {
+        const res = await fetch('/api/gate', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ token: tok, place, tapped: human.current?.wasTapped() ?? false, confirmed: tapNeeded.current }),
+          signal: AbortSignal.timeout(ANSWER_MS),
+        });
+        human.current?.used();
+        if (res.ok) {
+          const s = (ms: number) => (ms / 1000).toFixed(1);
+          console.info(`[KashRoot] security gate passed: form open ${s(performance.now() - opened.current)} s after the page (Cloudflare ${s(tokenAt.current - opened.current)} s, KashRoot's check ${s(performance.now() - sent)} s).`);
+          return go('passed');
+        }
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        hold.current = true;
+        setError(body.error ?? `Security check failed: KashRoot answered ${res.status}. Tap Retry.`);
+      } catch (e) {
+        human.current?.used();
+        hold.current = true;
+        setError(e instanceof DOMException && e.name === 'TimeoutError' ? 'Security check failed: KashRoot’s server did not answer within 8 seconds. Tap Retry.' : 'Security check failed: no connection to KashRoot. Check your internet, then tap Retry.');
+      }
+      go('gate');
+    },
+    [go, place],
+  );
+
+  /** Send the token we hold, when the gate is open for it (and, with the switch on, after the person's own tap). */
+  const trySend = useCallback(() => {
+    if (now.current !== 'gate' || !pending.current || hold.current) return;
+    if (tapNeeded.current && !confirmed.current) return setAwaitingTap(true);
+    const tok = pending.current;
+    pending.current = null;
+    void send(tok);
+  }, [send]);
+
+  const onToken = useCallback(
+    (tok: string) => {
+      pending.current = tok;
+      tokenAt.current = performance.now();
+      setStalled(false);
+      trySend();
+    },
+    [trySend],
+  );
+  const check = useHumanCheck(`gate-${place}`, { visible: true, onToken });
   useEffect(() => {
+    human.current = check;
+  });
+
+  // Already passed in this browser in the last 30 minutes, or the check is off: straight to the form.
+  // (Cloudflare's box is already working meanwhile.)
+  useEffect(() => {
+    opened.current = performance.now();
     let live = true;
-    void fetch('/api/gate', { cache: 'no-store' })
+    void fetch('/api/gate', { cache: 'no-store', signal: AbortSignal.timeout(5_000) })
       .then((r) => r.json())
       .then((g: { on?: boolean; passed?: boolean; tap?: boolean }) => {
         if (!live) return;
-        setTapNeeded(Boolean(g.tap));
-        setState(g.passed || g.on === false ? 'passed' : 'gate');
+        tapNeeded.current = Boolean(g.tap);
+        go(g.passed || g.on === false ? 'passed' : 'gate');
+        trySend();
       })
-      .catch(() => live && setState('gate'));
-    return () => {
-      live = false;
-    };
-  }, []);
-
-  // The gate: a token, checked by KashRoot's server, which sets the gate cookie.
-  useEffect(() => {
-    if (state !== 'gate') return;
-    let live = true;
-    void (async () => {
-      try {
-        const tok = await token();
-        if (tapNeeded) {
-          // The switch is on: wait for the person's own tap before the token is sent.
-          setAwaitingTap(true);
-          await new Promise<void>((done) => {
-            confirmed.current = done;
-          });
-          if (!live) return;
-          setAwaitingTap(false);
-        }
-        const res = await fetch('/api/gate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token: tok, place, tapped: wasTapped(), confirmed: tapNeeded }) });
-        used();
+      .catch(() => {
         if (!live) return;
-        if (res.ok) return setState('passed');
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
-        setError(body.error ?? 'The security check was not accepted. Please tap Retry.');
-      } catch (e) {
-        // The check shows its own reason and Retry; other failures say so here.
-        if (live && !(e instanceof HumanCheckError)) setError(e instanceof Error ? e.message : 'The security check could not finish. Please tap Retry.');
-      }
-    })();
+        go('gate');
+        trySend();
+      });
     return () => {
       live = false;
     };
-  }, [state, place, round, token, used, wasTapped, tapNeeded]);
+  }, [go, trySend]);
 
-  // Passed: the form starts its own check, and the first field gets the focus.
+  // No token and no tap asked for after 8 s: offer Retry (never a spinner for ever). Not while Cloudflare waits for a tap.
+  const waitingForTap = check.status === 'interactive';
+  useEffect(() => {
+    if (state !== 'gate' || waitingForTap || error) return;
+    const timer = window.setTimeout(() => !pending.current && setStalled(true), STALL_MS);
+    return () => window.clearTimeout(timer);
+  }, [state, waitingForTap, error, round]);
+
+  const retry = () => {
+    setError(null);
+    setStalled(false);
+    hold.current = false;
+    setRound((n) => n + 1);
+    // A fresh token is usually ready already (the last one was used up); otherwise start Cloudflare's box again.
+    if (pending.current) trySend();
+    else check.retry();
+  };
+
+  // Passed: the form starts its own check in the background, and the first field gets the focus.
   useEffect(() => {
     if (state !== 'passed' || passedOnce.current) return;
     passedOnce.current = true;
@@ -107,35 +178,34 @@ export function SecurityGate({ place, onPass, children }: { place: string; onPas
   }, [state, onPass]);
 
   if (state === 'passed') return <div ref={box}>{children}</div>;
+  // While Cloudflare waits for a tap, only its own line shows: no error, no Retry.
+  const problem = waitingForTap ? null : error ?? (stalled && check.status !== 'failed' ? t.slow : null);
   return (
     <div className="mt-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200" data-security-gate={state} role="status" aria-live="polite">
       <p dir={t.dir} className="flex items-center gap-2 text-base font-semibold text-slate-900">
-        {error ? <ShieldCheck className="h-5 w-5 shrink-0 text-amber-700" aria-hidden /> : <Loader2 className="h-5 w-5 shrink-0 animate-spin text-emerald-700" aria-hidden />}
+        {problem || waitingForTap ? <ShieldCheck className="h-5 w-5 shrink-0 text-amber-700" aria-hidden /> : <Loader2 className="h-5 w-5 shrink-0 animate-spin text-emerald-700" aria-hidden />}
         {t.title}
       </p>
       <p dir={t.dir} className="mt-1 text-sm text-slate-600">{t.why}</p>
-      <div className="mt-3">{human.element}</div>
+      <div className="mt-3">{check.element}</div>
       {awaitingTap && (
         <button
           type="button"
-          onClick={() => confirmed.current?.()}
+          onClick={() => {
+            confirmed.current = true;
+            setAwaitingTap(false);
+            trySend();
+          }}
           className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 font-semibold text-white hover:bg-emerald-800"
           data-gate-confirm
         >
           <Hand className="h-5 w-5" aria-hidden /> <span dir={t.dir}>{t.tap}</span>
         </button>
       )}
-      {error && (
-        <div role="alert" className="mt-3 flex flex-wrap items-center gap-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-amber-200">
-          <span className="min-w-0 flex-1">{error}</span>
-          <button
-            type="button"
-            onClick={() => {
-              setError(null);
-              setRound((n) => n + 1);
-            }}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-white px-3 font-semibold ring-1 ring-amber-300 hover:bg-amber-100"
-          >
+      {problem && (
+        <div role="alert" className="mt-3 flex flex-wrap items-center gap-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-amber-200" data-gate-problem>
+          <span className="min-w-0 flex-1" dir={error ? undefined : t.dir}>{problem}</span>
+          <button type="button" onClick={retry} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-white px-3 font-semibold ring-1 ring-amber-300 hover:bg-amber-100">
             <RotateCcw className="h-4 w-4" aria-hidden /> Retry
           </button>
         </div>

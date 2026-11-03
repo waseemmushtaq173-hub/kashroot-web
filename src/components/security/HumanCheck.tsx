@@ -125,7 +125,10 @@ function problemText(code: string): string {
   if (code.startsWith('1102')) return 'The security check is not allowed on this address. Please open https://kashroot-web.vercel.app and try again.';
   if (code === 'unsupported') return 'This browser is too old for the security check. Please open KashRoot in Chrome.';
   if (code === 'script-blocked') return 'The security check couldn’t load — tap Retry, or turn off Brave Shields / ad-block for kashroot-web.vercel.app, or open it in Chrome.';
-  return 'Couldn’t confirm you’re human. Tap the box, or turn off VPN / ad-block / Brave Shields for this site, or try another browser — then tap Retry.';
+  if (code.startsWith('300')) return `The security check failed in this browser (code ${code}). Tap Retry, or try another browser.`;
+  if (code.startsWith('600')) return `Cloudflare couldn’t confirm you’re human (code ${code}). Turn off VPN / ad-block / Brave Shields for this site, then tap Retry.`;
+  if (code === 'no-answer') return 'Couldn’t confirm you’re human. Tap the box, or turn off VPN / ad-block / Brave Shields for this site, or try another browser — then tap Retry.';
+  return `Couldn’t confirm you’re human (code ${code.slice(0, 20)}). Tap Retry, or try another browser.`;
 }
 
 /** Cloudflare's box in the person's language, where it has one. */
@@ -168,6 +171,10 @@ export interface HumanCheck {
   took: number | null;
   /** Did Cloudflare ask for a tap before this token (as the browser saw it)? */
   wasTapped: () => boolean;
+  /** 'interactive': Cloudflare is waiting for the person's tap — nothing is timed out meanwhile. */
+  status: 'working' | 'ready' | 'interactive' | 'failed';
+  /** Start again from a fresh widget (the gate's Retry). */
+  retry: () => void;
 }
 
 /**
@@ -175,7 +182,10 @@ export interface HumanCheck {
  * (for forms shown several times on a page, e.g. a code for the mobile and
  * one for the email).
  */
-export function useHumanCheck(action: string, { lazy = false, visible = false }: { lazy?: boolean; visible?: boolean } = {}): HumanCheck {
+export function useHumanCheck(
+  action: string,
+  { lazy = false, visible = false, onToken }: { lazy?: boolean; visible?: boolean; onToken?: (token: string) => void } = {},
+): HumanCheck {
   const box = useRef<HTMLDivElement>(null);
   const widget = useRef<string | null>(null);
   const current = useRef<string | null>(null);
@@ -191,6 +201,11 @@ export function useHumanCheck(action: string, { lazy = false, visible = false }:
   const [waiting, setWaiting] = useState(false);
   const [took, setTook] = useState<number | null>(null);
   const [round, setRound] = useState(0);
+  // Told of every fresh token at once (the security gate sends it the moment Cloudflare says "Success!").
+  const tokenListener = useRef(onToken);
+  useEffect(() => {
+    tokenListener.current = onToken;
+  }, [onToken]);
 
   useEffect(() => {
     if (!started) return;
@@ -219,7 +234,9 @@ export function useHumanCheck(action: string, { lazy = false, visible = false }:
       clear();
       current.current = null;
       report(code, action);
-      if (tries < BACKOFF_MS.length) {
+      const afterTap = interactive.current || tapped.current;
+      interactive.current = false;
+      if (tries < BACKOFF_MS.length && !afterTap) {
         later(again, BACKOFF_MS[tries]);
         tries += 1;
         return;
@@ -236,7 +253,8 @@ export function useHumanCheck(action: string, { lazy = false, visible = false }:
       waiters.current.splice(0).forEach((w) => w.reject(new HumanCheckError(text)));
     };
     // No token and no tap asked for within 8 s: counts as a failure (e.g. Shields blocking Cloudflare's frame).
-    const watch = () => later(() => !current.current && !interactive.current && fail('no-answer'), WAIT_MS);
+    // (The gate's visible box gets longer — it offers Retry itself after 8 s, without stopping Cloudflare mid-check.)
+    const watch = () => later(() => !current.current && !interactive.current && fail('no-answer'), visible ? 20_000 : WAIT_MS);
     const again = () => {
       if (gone) return;
       if (widget.current && window.turnstile) {
@@ -286,6 +304,7 @@ export function useHumanCheck(action: string, { lazy = false, visible = false }:
           setStatus('ready');
           setTook((s) => s ?? Math.round((performance.now() - begun) / 100) / 10);
           waiters.current.splice(0).forEach((w) => w.resolve(token));
+          tokenListener.current?.(token);
           later(() => renew.current(), RENEW_MS);
         },
         'expired-callback': () => {
@@ -298,9 +317,12 @@ export function useHumanCheck(action: string, { lazy = false, visible = false }:
           watch();
         },
         'before-interactive-callback': () => {
+          // Waiting for the person: no error, no Retry, nothing timed out meanwhile.
           tapped.current = true;
           interactive.current = true;
           clear();
+          failure.current = null;
+          setProblem(null);
           setStatus('interactive');
         },
         'after-interactive-callback': () => {
@@ -364,6 +386,8 @@ export function useHumanCheck(action: string, { lazy = false, visible = false }:
   const retry = useCallback(() => {
     failure.current = null;
     current.current = null;
+    interactive.current = false;
+    tapped.current = false;
     setProblem(null);
     setStatus('working');
     setRound((n) => n + 1);
@@ -390,7 +414,7 @@ export function useHumanCheck(action: string, { lazy = false, visible = false }:
     </div>
   ) : null;
 
-  return { element, token, used, start, waiting, took, wasTapped };
+  return { element, token, used, start, waiting, took, wasTapped, status, retry };
 }
 
 /** The words on a submit button while token() waits. */

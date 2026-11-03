@@ -97,4 +97,17 @@ export async function checkGateToken(request: Request, token: unknown, action: s
   }
 }
 
+/** A gate refusal in plain words, by Cloudflare's code or ours (checkGateToken). */
+export function gateReasonText(reason: string): string {
+  if (reason.includes('timeout-or-duplicate')) return 'the check ran out or was already used. Tap Retry for a fresh one.';
+  if (reason.includes('invalid-input-response')) return 'the check’s answer was not valid. Tap Retry.';
+  if (/(missing|invalid)-input-secret/.test(reason)) return 'KashRoot’s security key is set up wrongly. Please tell KashRoot through Help & support.';
+  if (reason === 'another-address') return 'the check was made on another web address. Please open https://kashroot-web.vercel.app and try again.';
+  if (reason === 'wrong-action') return 'the check was made for another page. Tap Retry.';
+  if (reason === 'cloudflare-no-answer') return 'Cloudflare did not answer within 5 seconds. Tap Retry.';
+  if (reason === 'no-token') return 'no answer came from the check. Tap Retry.';
+  if (reason.includes('internal-error')) return 'Cloudflare had a problem. Tap Retry.';
+  return `Cloudflare refused it (${reason.slice(0, 40)}). Tap Retry.`;
+}
+
 export const NOT_HUMAN = 'The security check was not accepted — it may have run out. A fresh one is ready: please try again.';
