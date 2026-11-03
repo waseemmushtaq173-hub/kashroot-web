@@ -23,6 +23,7 @@
  */
 import { after, NextResponse } from 'next/server';
 
+import { gateOn, passedGate } from '@/lib/server/gate';
 import { isHuman, NOT_HUMAN } from '@/lib/server/humanCheck';
 import { securityEvent } from '@/lib/server/securityLog';
 import { flushOutbox } from '@/lib/server/mail';
@@ -83,6 +84,11 @@ export async function POST(req: Request) {
     if (!name) return NextResponse.json({ error: 'Write your name.' }, { status: 400 });
     if (message.length < 5) return NextResponse.json({ error: 'Tell us the problem in a few words.' }, { status: 400 });
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: 'That email does not look right — or leave it empty.' }, { status: 400 });
+    // The security gate first (lib/server/gate).
+    if (gateOn() && !passedGate(req)) {
+      securityEvent('bot_check_failed', { request: req, code: 'gate: missing', detail: '(support)' });
+      return NextResponse.json({ error: 'For your safety the security check runs first. Please reload the page and wait for it to finish.' }, { status: 403 });
+    }
     // Bot traps (lib/client/formGuard): the hidden field must be empty, and a person needs a few seconds to write.
     if (typeof b.trap === 'string' && b.trap) {
       securityEvent('bot_check_failed', { request: req, code: 'honeypot', detail: '(support, server)' });

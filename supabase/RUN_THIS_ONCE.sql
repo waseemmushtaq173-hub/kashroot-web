@@ -4067,7 +4067,8 @@ language sql stable security definer set search_path = public as $$
     (30, 'Emails from support',         '20261108000000_email_outbox.sql',               public.kr_setup_has_function('kr_email_claim')),
     (31, 'Help requests: follow-up',    '20261109000000_support_tracking.sql',           public.kr_setup_has_function('kr_support_feedback')),
     (32, 'Sign-in lock notices',        '20261110000000_signin_lockout.sql',             public.kr_setup_has_function('kr_email_enqueue_email')),
-    (33, 'Admin two-step sign-in',      '20261111000000_admin_mfa.sql',                  public.kr_setup_has_function('kr_has_mfa'))
+    (33, 'Admin two-step sign-in',      '20261111000000_admin_mfa.sql',                  public.kr_setup_has_function('kr_has_mfa')),
+    (34, 'Security gate',               '20261112000000_security_gate.sql',              exists (select 1 from pg_constraint c where c.conname = 'security_events_kind_check' and pg_get_constraintdef(c.oid) like '%gate_passed%'))
   ) as s(step, part, file, ok)
   order by s.step
 $$;
@@ -5280,6 +5281,21 @@ begin
   on conflict (session_id) do update set user_id = excluded.user_id, expires_at = excluded.expires_at;
   return 'unlocked';
 end $$;
+
+notify pgrst, 'reload schema';
+
+-- ════════ 20261112000000_security_gate.sql ════════
+-- KashRoot: the security gate (lib/server/gate, components/security/SecurityGate) —
+-- every sign-in, sign-up, reset and help form shows only after the "I am human"
+-- check. Each pass is logged as "gate_passed" (with where), so Admin → Security
+-- counts passes and failures per portal. Nothing else changes in the database.
+-- Run after 20261111000000_admin_mfa.sql. Safe to run again.
+
+alter table public.security_events drop constraint if exists security_events_kind_check;
+alter table public.security_events add constraint security_events_kind_check check (kind in (
+  'signin_ok', 'signin_fail', 'signin_paused', 'signup', 'signup_paused', 'reset_email', 'email_paused',
+  'rate_limited', 'api_error', 'bot_check_failed', 'forbidden', 'email_sent', 'email_failed', 'gate_passed'));
+
 
 notify pgrst, 'reload schema';
 

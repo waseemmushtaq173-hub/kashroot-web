@@ -17,6 +17,7 @@ import { ArrowLeft, Eye, EyeOff, LogIn, ShoppingCart, Store, UserPlus } from 'lu
 import { Btn, INPUT, Modal, PORTAL_THEMES } from '@/components/portal/kit';
 import { CHECKING_HUMAN, HumanCheckError, useHumanCheck } from '@/components/security/HumanCheck';
 import { GUARD_TEXT, useFormGuard } from '@/lib/client/formGuard';
+import { SecurityGate } from '@/components/security/SecurityGate';
 import { authApi } from '@/lib/api/auth';
 import { AUTH_ROUTES } from '@/lib/auth/roles';
 import { rememberedPerson } from '@/lib/auth/session';
@@ -42,7 +43,7 @@ export function SignInModal({ reason, onClose, onSignedIn }: { reason: SignInRea
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const human = useHumanCheck('signin');
+  const human = useHumanCheck('signin', { lazy: true });
   const guard = useFormGuard(800, 'signin');
 
   const submit = async (e: FormEvent<HTMLFormElement>) => {
@@ -93,33 +94,35 @@ export function SignInModal({ reason, onClose, onSignedIn }: { reason: SignInRea
   return (
     <Modal open onClose={onClose} title={step === 'create' ? 'Create an account' : TITLE[reason]}>
       {step === 'signin' ? (
-        <form className="grid gap-4" onSubmit={(e) => void submit(e)} noValidate>
-          {guard.trap}
-          <p className="text-sm text-slate-600">Use the email and password of your KashRoot account. You stay on Price Comparison.</p>
-          <label htmlFor={ids.email} className="block text-sm font-medium text-slate-800">
-            Email address
-            <input id={ids.email} type="email" inputMode="email" autoComplete="email" className={`${INPUT} mt-1.5 min-h-11 text-base`} value={email} onChange={(e) => { setEmail(e.target.value); setError(null); }} />
-          </label>
-          <div>
-            <label htmlFor={ids.password} className="block text-sm font-medium text-slate-800">Password</label>
-            <div className="relative mt-1.5">
-              <input id={ids.password} type={showPassword ? 'text' : 'password'} autoComplete="current-password" className={`${INPUT} min-h-11 pr-12 text-base`} value={password} onChange={(e) => { setPassword(e.target.value); setError(null); }} />
-              <button type="button" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? 'Hide password' : 'Show password'} className="absolute right-0 top-0 grid h-11 w-11 cursor-pointer place-items-center rounded-r-xl text-slate-500 hover:text-slate-900">
-                {showPassword ? <EyeOff className="h-5 w-5" aria-hidden /> : <Eye className="h-5 w-5" aria-hidden />}
+        <SecurityGate place="signin" onPass={human.start}>
+          <form className="grid gap-4" onSubmit={(e) => void submit(e)} noValidate>
+            {guard.trap}
+            <p className="text-sm text-slate-600">Use the email and password of your KashRoot account. You stay on Price Comparison.</p>
+            <label htmlFor={ids.email} className="block text-sm font-medium text-slate-800">
+              Email address
+              <input id={ids.email} type="email" inputMode="email" autoComplete="email" className={`${INPUT} mt-1.5 min-h-11 text-base`} value={email} onChange={(e) => { setEmail(e.target.value); setError(null); }} />
+            </label>
+            <div>
+              <label htmlFor={ids.password} className="block text-sm font-medium text-slate-800">Password</label>
+              <div className="relative mt-1.5">
+                <input id={ids.password} type={showPassword ? 'text' : 'password'} autoComplete="current-password" className={`${INPUT} min-h-11 pr-12 text-base`} value={password} onChange={(e) => { setPassword(e.target.value); setError(null); }} />
+                <button type="button" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? 'Hide password' : 'Show password'} className="absolute right-0 top-0 grid h-11 w-11 cursor-pointer place-items-center rounded-r-xl text-slate-500 hover:text-slate-900">
+                  {showPassword ? <EyeOff className="h-5 w-5" aria-hidden /> : <Eye className="h-5 w-5" aria-hidden />}
+                </button>
+              </div>
+            </div>
+            {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm font-medium text-rose-800 ring-1 ring-rose-200">{error}</p>}
+            {human.element}
+            <Btn theme={theme} type="submit" icon={LogIn} className="min-h-12 w-full text-base" disabled={busy}>{human.waiting ? CHECKING_HUMAN : busy ? 'Signing in…' : 'Sign in'}</Btn>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <Link href={AUTH_ROUTES.forgotPassword} className="inline-flex min-h-11 items-center font-semibold text-sky-800">Forgot password?</Link>
+              <Link href="/support?topic=login" className="inline-flex min-h-11 items-center font-semibold text-sky-800">Trouble signing in?</Link>
+              <button type="button" onClick={() => { setStep('create'); setError(null); }} className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 font-semibold text-sky-800">
+                <UserPlus className="h-4 w-4" aria-hidden /> Create an account
               </button>
             </div>
-          </div>
-          {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm font-medium text-rose-800 ring-1 ring-rose-200">{error}</p>}
-          {human.element}
-          <Btn theme={theme} type="submit" icon={LogIn} className="min-h-12 w-full text-base" disabled={busy}>{human.waiting ? CHECKING_HUMAN : busy ? 'Signing in…' : 'Sign in'}</Btn>
-          <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-            <Link href={AUTH_ROUTES.forgotPassword} className="inline-flex min-h-11 items-center font-semibold text-sky-800">Forgot password?</Link>
-            <Link href="/support?topic=login" className="inline-flex min-h-11 items-center font-semibold text-sky-800">Trouble signing in?</Link>
-            <button type="button" onClick={() => { setStep('create'); setError(null); }} className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 font-semibold text-sky-800">
-              <UserPlus className="h-4 w-4" aria-hidden /> Create an account
-            </button>
-          </div>
-        </form>
+          </form>
+        </SecurityGate>
       ) : (
         <div className="grid gap-3">
           <p className="text-sm text-slate-700">What do you want to do on KashRoot?</p>

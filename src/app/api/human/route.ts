@@ -12,6 +12,7 @@
  */
 import { NextResponse } from 'next/server';
 
+import { noteBotFailure } from '@/lib/server/botAlert';
 import { securityEvent } from '@/lib/server/securityLog';
 import { diagnoseToken, isHuman } from '@/lib/server/humanCheck';
 import { hasHumanPass, humanPassCookie, humanPassOn } from '@/lib/server/humanPass';
@@ -32,6 +33,7 @@ export async function POST(request: Request) {
     const code = body.report.replace(/[^\w-]/g, '').slice(0, 40);
     const action = String(body.action ?? '').replace(/[^\w-]/g, '').slice(0, 20);
     securityEvent('bot_check_failed', { request, code: `browser: ${code}`, detail: action ? `(${action})` : undefined, site: String(body.host ?? '') });
+    noteBotFailure(request);
     return NextResponse.json({ ok: true });
   }
   if (!humanPassOn()) return NextResponse.json({ ok: true });

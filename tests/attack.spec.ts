@@ -45,18 +45,19 @@ test.describe('the attack suite', () => {
     for (let i = 0; i < 5; i++) {
       const res = await signIn(request, apikey, email);
       answers.push(res.status());
-      if (CAPTCHA_ON) expect(await res.text()).toContain('captcha');
     }
-    // CAPTCHA on: every guess is stopped before the password is even looked at. Off: after the 3rd wrong one, a wait (429).
-    if (CAPTCHA_ON) expect(answers.every((s) => s === 400)).toBe(true);
-    else expect(answers).toContain(429);
+    // A script never passed the security gate: every guess is refused before Supabase even sees it
+    // (with the gate off: by CAPTCHA, or after the 3rd wrong one by a wait, 429).
+    expect(answers.every((s) => s >= 400)).toBe(true);
+    if (!CAPTCHA_ON) expect(answers.some((s) => s === 403 || s === 429)).toBe(true);
   });
 
   test('a fake CAPTCHA token is refused (KashRoot’s server and Supabase)', async ({ page, request }) => {
     expect((await request.post('/api/human', { data: { token: 'XXXX.fake' } })).status()).toBe(403);
     if (!CAPTCHA_ON) return;
     const res = await signIn(request, await anonKey(page), madeUp(), { gotrue_meta_security: { captcha_token: 'XXXX.fake' } });
-    expect(await res.text()).toContain('invalid-input-response');
+    expect(res.status()).toBeGreaterThanOrEqual(400);
+    expect(await res.text()).toMatch(/security check runs first|invalid-input-response/);
   });
 
   test('a signed-out visitor reads no private table (IDOR through the data API)', async ({ page, request }) => {
@@ -115,6 +116,18 @@ test.describe('the attack suite', () => {
       const res = await request.get(path);
       expect(res.status(), path).toBeGreaterThanOrEqual(400);
     }
+  });
+
+  test('the security gate: no cookie, a fake gate token or a forged cookie gets nothing', async ({ request }) => {
+    // No gate passed in this "browser": the proxy refuses sign-up and reset emails too.
+    expect((await request.get('/api/gate')).ok()).toBe(true);
+    expect(((await (await request.get('/api/gate')).json()) as { passed: boolean }).passed).toBe(false);
+    expect((await request.post('/api/gate', { data: { token: 'XXXX.fake', place: 'buyer' } })).status()).toBe(403);
+    expect((await request.post('/api/gate', { data: { token: 'XXXX.fake', place: '../admin' } })).status()).toBe(400);
+    const forged = await request.get('/api/gate', { headers: { cookie: `kr_gate=buyer.${Math.floor(Date.now() / 1000) + 600}.AAAAAAAAAAAAAAAA.forged` } });
+    expect(((await forged.json()) as { passed: boolean }).passed).toBe(false);
+    const help = await request.post('/api/support', { data: { action: 'open', name: 'x', phone: '9876543210', message: 'gate test', ms: 5000 } });
+    expect(help.status()).toBeGreaterThanOrEqual(400);
   });
 
   test('a burst of request-number guesses is stopped (rate limit)', async ({ request }) => {

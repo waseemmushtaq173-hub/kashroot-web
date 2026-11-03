@@ -7,6 +7,7 @@ import { ArrowLeft, KeyRound, Loader2, Mail, MailCheck } from 'lucide-react';
 
 import { CHECKING_HUMAN, HumanCheckError, humanRefusedText, reportRefusal, useHumanCheck } from '@/components/security/HumanCheck';
 import { GUARD_TEXT, useFormGuard } from '@/lib/client/formGuard';
+import { SecurityGate } from '@/components/security/SecurityGate';
 import { publicOrigin } from '@/lib/site';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 
@@ -15,7 +16,7 @@ export default function ForgotPasswordPage() {
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const human = useHumanCheck('reset');
+  const human = useHumanCheck('reset', { lazy: true });
   const guard = useFormGuard(1500, 'reset');
 
   const submit = async (e: FormEvent) => {
@@ -68,21 +69,23 @@ export default function ForgotPasswordPage() {
       </span>
       <h1 className="mt-5 text-3xl font-semibold tracking-tight text-slate-900">Forgot your password?</h1>
       <p className="mt-2 text-slate-600">Enter your email and we’ll send you a link to set a new one.</p>
-      <form onSubmit={submit} noValidate className="mt-6 space-y-4">
-        {guard.trap}
-        <label htmlFor="fp-email" className="block text-sm font-semibold text-slate-800">
-          Email address
-          <span className="relative mt-1.5 block">
-            <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
-            <input id="fp-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="block w-full rounded-xl border-0 bg-white py-3.5 pl-10 pr-4 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-rose-500" />
-          </span>
-        </label>
-        {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800 ring-1 ring-rose-200">{error}</p>}
-        {human.element}
-        <button type="submit" disabled={busy} className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 px-5 py-3.5 font-semibold text-white shadow-lg shadow-rose-600/30 transition hover:-translate-y-0.5 disabled:opacity-60">
-          {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} {human.waiting ? CHECKING_HUMAN : 'Send reset link'}
-        </button>
-      </form>
+      <SecurityGate place="reset" onPass={human.start}>
+        <form onSubmit={submit} noValidate className="mt-6 space-y-4">
+          {guard.trap}
+          <label htmlFor="fp-email" className="block text-sm font-semibold text-slate-800">
+            Email address
+            <span className="relative mt-1.5 block">
+              <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
+              <input id="fp-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="block w-full rounded-xl border-0 bg-white py-3.5 pl-10 pr-4 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-rose-500" />
+            </span>
+          </label>
+          {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800 ring-1 ring-rose-200">{error}</p>}
+          {human.element}
+          <button type="submit" disabled={busy} className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 px-5 py-3.5 font-semibold text-white shadow-lg shadow-rose-600/30 transition hover:-translate-y-0.5 disabled:opacity-60">
+            {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} {human.waiting ? CHECKING_HUMAN : 'Send reset link'}
+          </button>
+        </form>
+      </SecurityGate>
       <Link href="/login" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:underline">
         <ArrowLeft className="h-4 w-4" aria-hidden /> Back to sign in
       </Link>

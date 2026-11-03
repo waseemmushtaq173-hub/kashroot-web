@@ -77,4 +77,24 @@ export async function diagnoseToken(request: Request, token: string, otherAddres
   }
 }
 
+/**
+ * The security gate's token (lib/server/gate): real, made on KashRoot's own
+ * address, and for this very gate (its action, e.g. "gate-buyer"). Cloudflare
+ * not answering fails closed here — the gate's Retry tries again.
+ */
+export async function checkGateToken(request: Request, token: unknown, action: string): Promise<{ ok: boolean; reason: string }> {
+  const secret = process.env.TURNSTILE_SECRET_KEY?.trim();
+  if (!secret) return { ok: true, reason: 'off' };
+  if (typeof token !== 'string' || !token || token.length > 2048) return { ok: false, reason: 'no-token' };
+  try {
+    const data = await siteverify(secret, token, clientIp(request));
+    if (!data?.success) return { ok: false, reason: (data?.['error-codes'] ?? ['no-answer']).join(',') || 'refused' };
+    if (!testSecret(secret) && !realHosts().includes(String(data.hostname ?? '').toLowerCase())) return { ok: false, reason: 'another-address' };
+    if (!testSecret(secret) && data.action !== action) return { ok: false, reason: 'wrong-action' };
+    return { ok: true, reason: 'passed' };
+  } catch {
+    return { ok: false, reason: 'cloudflare-no-answer' };
+  }
+}
+
 export const NOT_HUMAN = 'The security check was not accepted — it may have run out. A fresh one is ready: please try again.';

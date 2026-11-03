@@ -36,6 +36,7 @@ import { ArrowRight, CircleAlert, Eye, EyeOff, Loader2, PlusCircle, UserRound } 
 
 import { ContactOtp, type PhoneRoute } from '@/components/auth/ContactOtp';
 import { TwoStepVerify, twoStepState } from '@/components/security/TwoStep';
+import { SecurityGate } from '@/components/security/SecurityGate';
 import { PortalAuthFrame } from '@/components/auth/PortalAuthFrame';
 import { PORTAL_LOGIN } from '@/components/auth/portalLoginConfig';
 import { CHECKING_HUMAN, HumanCheckError, useHumanCheck } from '@/components/security/HumanCheck';
@@ -87,7 +88,8 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   // The security check (off until its keys are set): a token fetched in the background, a fresh one for each try.
-  const human = useHumanCheck('signin');
+  // Started once the security gate has passed: Supabase gets this fresh token, never the gate's.
+  const human = useHumanCheck(`signin-${portal}`, { lazy: true });
   // Bot traps: a hidden field, and at least 0.8 s before pressing (a password manager fills at once).
   const guard = useFormGuard(800, 'signin');
   const [showPassword, setShowPassword] = useState(false);
@@ -519,82 +521,84 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
         </p>
       )}
 
-      <form onSubmit={handleSubmit} noValidate className={`mt-6 space-y-5 ${checking ? 'hidden' : ''}`}>
-        {guard.trap}
-        <div>
-          <label htmlFor={ids.email} className="block text-sm font-medium text-slate-800">
-            Email address
-          </label>
-          <input
-            ref={emailRef}
-            id={ids.email}
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="username"
-            autoCapitalize="none"
-            spellCheck={false}
-            placeholder="you@example.com"
-            className={`mt-1.5 ${inputClass}`}
-          />
-        </div>
-
-        <div>
-          <div className="flex items-center justify-between">
-            <label htmlFor={ids.password} className="block text-sm font-medium text-slate-800">
-              Password
+      <SecurityGate place={portal} onPass={human.start}>
+        <form onSubmit={handleSubmit} noValidate className={`mt-6 space-y-5 ${checking ? 'hidden' : ''}`}>
+          {guard.trap}
+          <div>
+            <label htmlFor={ids.email} className="block text-sm font-medium text-slate-800">
+              Email address
             </label>
-            <Link href={AUTH_ROUTES.forgotPassword} className={`rounded text-sm font-medium ${theme.link} ${focusRing}`}>
-              Forgot password?
-            </Link>
-          </div>
-          <div className="relative mt-1.5">
             <input
-              ref={passwordRef}
-              id={ids.password}
-              type={showPassword ? 'text' : 'password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              className={`${inputClass} pr-12`}
+              ref={emailRef}
+              id={ids.email}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
+              placeholder="you@example.com"
+              className={`mt-1.5 ${inputClass}`}
             />
-            <button
-              type="button"
-              onClick={() => setShowPassword((s) => !s)}
-              aria-label={showPassword ? 'Hide password' : 'Show password'}
-              aria-pressed={showPassword}
-              className={`absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 cursor-pointer place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 ${focusRing}`}
-            >
-              {showPassword ? <EyeOff className="h-5 w-5" aria-hidden /> : <Eye className="h-5 w-5" aria-hidden />}
-            </button>
           </div>
-        </div>
 
-        {error && (
-          <div role="alert" className="flex items-start gap-3 rounded-xl bg-rose-50 p-3 text-sm text-rose-800 ring-1 ring-rose-200">
-            <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-            <p className="flex-1">
-              {error.text}{' '}
-              {error.portal && (
-                <Link href={loginHref(error.portal)} className="font-semibold underline underline-offset-2">
-                  Go to the {PORTALS[error.portal].label} sign-in
-                </Link>
-              )}
-            </p>
+          <div>
+            <div className="flex items-center justify-between">
+              <label htmlFor={ids.password} className="block text-sm font-medium text-slate-800">
+                Password
+              </label>
+              <Link href={AUTH_ROUTES.forgotPassword} className={`rounded text-sm font-medium ${theme.link} ${focusRing}`}>
+                Forgot password?
+              </Link>
+            </div>
+            <div className="relative mt-1.5">
+              <input
+                ref={passwordRef}
+                id={ids.password}
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                className={`${inputClass} pr-12`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-pressed={showPassword}
+                className={`absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 cursor-pointer place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 ${focusRing}`}
+              >
+                {showPassword ? <EyeOff className="h-5 w-5" aria-hidden /> : <Eye className="h-5 w-5" aria-hidden />}
+              </button>
+            </div>
           </div>
-        )}
 
-        {human.element}
-        <button
-          type="submit"
-          disabled={!canSubmit}
-          className={`inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-sm font-semibold shadow-lg transition disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none ${theme.button} ${focusRing}`}
-        >
-          {pending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-          {human.waiting ? CHECKING_HUMAN : pending ? 'Signing in…' : `Sign in to ${info.label}`}
-          {!pending && <ArrowRight className="h-4 w-4" aria-hidden />}
-        </button>
-      </form>
+          {error && (
+            <div role="alert" className="flex items-start gap-3 rounded-xl bg-rose-50 p-3 text-sm text-rose-800 ring-1 ring-rose-200">
+              <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              <p className="flex-1">
+                {error.text}{' '}
+                {error.portal && (
+                  <Link href={loginHref(error.portal)} className="font-semibold underline underline-offset-2">
+                    Go to the {PORTALS[error.portal].label} sign-in
+                  </Link>
+                )}
+              </p>
+            </div>
+          )}
+
+          {human.element}
+          <button
+            type="submit"
+            disabled={!canSubmit}
+            className={`inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-sm font-semibold shadow-lg transition disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none ${theme.button} ${focusRing}`}
+          >
+            {pending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+            {human.waiting ? CHECKING_HUMAN : pending ? 'Signing in…' : `Sign in to ${info.label}`}
+            {!pending && <ArrowRight className="h-4 w-4" aria-hidden />}
+          </button>
+        </form>
+      </SecurityGate>
 
       <div className="mt-6 space-y-3 text-sm text-slate-600">
         {portal !== 'admin' && (

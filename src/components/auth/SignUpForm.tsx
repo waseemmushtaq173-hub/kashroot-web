@@ -27,6 +27,7 @@ import { getKycConfig } from '@/lib/kyc/kyc-service';
 import { weakPassword } from '@/lib/auth/passwordRules';
 import { CHECKING_HUMAN, HumanCheckError, useHumanCheck } from '@/components/security/HumanCheck';
 import { GUARD_TEXT, useFormGuard } from '@/lib/client/formGuard';
+import { SecurityGate } from '@/components/security/SecurityGate';
 
 type RegisterRole = SignUpRole;
 
@@ -162,7 +163,7 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
   const password = useWatch({ control, name: 'password', defaultValue: '' });
 
   // The security check (off until its keys are set): a token fetched in the background, a fresh one for each try.
-  const human = useHumanCheck('signup');
+  const human = useHumanCheck('signup', { lazy: true });
   // Bot traps: a hidden field, and at least 3 s to fill in the form.
   const guard = useFormGuard(3000, 'signup');
   const [guardError, setGuardError] = useState<string | null>(null);
@@ -313,152 +314,154 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-6 space-y-5">
-        {guard.trap}
-        {!portal && (
-        <fieldset>
-          <legend className="mb-2 text-sm font-semibold text-slate-800">I am a</legend>
-          <div className="grid grid-cols-2 gap-3">
-            {REGISTER_ROLES.map(({ role, label }) => {
-              const r = role as RegisterRole;
-              const s = ROLE_STYLE[r];
-              const Icon = s.icon;
-              const on = selectedRole === r;
-              return (
-                <button
-                  type="button"
-                  key={r}
-                  aria-pressed={on}
-                  onClick={() => {
-                    setSelectedRole(r);
-                    setValue('role', r);
-                  }}
-                  className={`relative flex cursor-pointer items-center gap-3 rounded-2xl p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md ${on ? `${s.selected} shadow-md` : 'bg-white ring-1 ring-slate-200'}`}
-                >
-                  <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br text-white shadow-lg ${s.tile}`}>
-                    <Icon className="h-5 w-5" aria-hidden />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block font-semibold text-slate-900">{label}</span>
-                    <span className="block truncate text-xs text-slate-500">{s.hint}</span>
-                  </span>
-                  {on && (
-                    <span className="absolute right-2 top-2 grid h-5 w-5 place-items-center rounded-full bg-white shadow">
-                      <Check className={`h-3.5 w-3.5 ${s.text}`} aria-hidden />
+      <SecurityGate place="register" onPass={human.start}>
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-6 space-y-5">
+          {guard.trap}
+          {!portal && (
+          <fieldset>
+            <legend className="mb-2 text-sm font-semibold text-slate-800">I am a</legend>
+            <div className="grid grid-cols-2 gap-3">
+              {REGISTER_ROLES.map(({ role, label }) => {
+                const r = role as RegisterRole;
+                const s = ROLE_STYLE[r];
+                const Icon = s.icon;
+                const on = selectedRole === r;
+                return (
+                  <button
+                    type="button"
+                    key={r}
+                    aria-pressed={on}
+                    onClick={() => {
+                      setSelectedRole(r);
+                      setValue('role', r);
+                    }}
+                    className={`relative flex cursor-pointer items-center gap-3 rounded-2xl p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md ${on ? `${s.selected} shadow-md` : 'bg-white ring-1 ring-slate-200'}`}
+                  >
+                    <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br text-white shadow-lg ${s.tile}`}>
+                      <Icon className="h-5 w-5" aria-hidden />
                     </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </fieldset>
-        )}
+                    <span className="min-w-0">
+                      <span className="block font-semibold text-slate-900">{label}</span>
+                      <span className="block truncate text-xs text-slate-500">{s.hint}</span>
+                    </span>
+                    {on && (
+                      <span className="absolute right-2 top-2 grid h-5 w-5 place-items-center rounded-full bg-white shadow">
+                        <Check className={`h-3.5 w-3.5 ${s.text}`} aria-hidden />
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+          )}
 
-        <div>
-          <label htmlFor="fullName" className="mb-1.5 block text-sm font-semibold text-slate-800">Full name</label>
-          <input
-            id="fullName"
-            type="text"
-            autoComplete="name"
-            placeholder="As on your Aadhaar"
-            className={input}
-            {...register('fullName', { required: 'Full name is required', minLength: { value: 2, message: 'Name must be at least 2 characters' } })}
-          />
-          {errors.fullName && <p className="mt-1 text-xs text-rose-600">{errors.fullName.message}</p>}
-        </div>
-
-        <div className="space-y-3">
-          <ContactOtp
-            channel="email"
-            label="Email address"
-            accent={otpAccent}
-            required={contactConfig ? emailRequired : undefined}
-            onUnavailable={() => setEmailDown(true)}
-            value={emailValue ?? ''}
-            onChange={(v) => {
-              setValue('email', v);
-              setIsEmailVerified(false);
-            }}
-            verified={isEmailVerified}
-            onVerified={() => setIsEmailVerified(true)}
-            onReset={() => setIsEmailVerified(false)}
-          />
-          <ContactOtp
-            channel="sms"
-            label="Mobile number"
-            accent={otpAccent}
-            required={contactConfig ? smsRequired : undefined}
-            routes={phoneRoutes.length ? phoneRoutes : undefined}
-            onUnavailable={() => setPhoneDown(true)}
-            value={phoneValue ?? ''}
-            onChange={(v) => {
-              setValue('phone', v);
-              setIsPhoneVerified(false);
-            }}
-            verified={isPhoneVerified}
-            onVerified={() => setIsPhoneVerified(true)}
-            onReset={() => setIsPhoneVerified(false)}
-          />
-          {!phoneOk && !smsRequired && <p className="text-xs text-rose-600">Enter a valid 10-digit Indian mobile number, or leave it empty.</p>}
-        </div>
-
-        <div className="grid gap-5 sm:grid-cols-2">
           <div>
-            <label htmlFor="reg-password" className="mb-1.5 block text-sm font-semibold text-slate-800">Password</label>
-            <span className="relative block">
+            <label htmlFor="fullName" className="mb-1.5 block text-sm font-semibold text-slate-800">Full name</label>
+            <input
+              id="fullName"
+              type="text"
+              autoComplete="name"
+              placeholder="As on your Aadhaar"
+              className={input}
+              {...register('fullName', { required: 'Full name is required', minLength: { value: 2, message: 'Name must be at least 2 characters' } })}
+            />
+            {errors.fullName && <p className="mt-1 text-xs text-rose-600">{errors.fullName.message}</p>}
+          </div>
+
+          <div className="space-y-3">
+            <ContactOtp
+              channel="email"
+              label="Email address"
+              accent={otpAccent}
+              required={contactConfig ? emailRequired : undefined}
+              onUnavailable={() => setEmailDown(true)}
+              value={emailValue ?? ''}
+              onChange={(v) => {
+                setValue('email', v);
+                setIsEmailVerified(false);
+              }}
+              verified={isEmailVerified}
+              onVerified={() => setIsEmailVerified(true)}
+              onReset={() => setIsEmailVerified(false)}
+            />
+            <ContactOtp
+              channel="sms"
+              label="Mobile number"
+              accent={otpAccent}
+              required={contactConfig ? smsRequired : undefined}
+              routes={phoneRoutes.length ? phoneRoutes : undefined}
+              onUnavailable={() => setPhoneDown(true)}
+              value={phoneValue ?? ''}
+              onChange={(v) => {
+                setValue('phone', v);
+                setIsPhoneVerified(false);
+              }}
+              verified={isPhoneVerified}
+              onVerified={() => setIsPhoneVerified(true)}
+              onReset={() => setIsPhoneVerified(false)}
+            />
+            {!phoneOk && !smsRequired && <p className="text-xs text-rose-600">Enter a valid 10-digit Indian mobile number, or leave it empty.</p>}
+          </div>
+
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div>
+              <label htmlFor="reg-password" className="mb-1.5 block text-sm font-semibold text-slate-800">Password</label>
+              <span className="relative block">
+                <input
+                  id="reg-password"
+                  type={showPw ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  className={`${input} pr-11`}
+                  {...register('password', {
+                    required: 'Password is required',
+                    minLength: { value: 8, message: 'At least 8 characters' },
+                    pattern: { value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, message: 'Use upper- and lowercase letters and a number' },
+                    validate: (pw, values) => weakPassword(pw, String((values as { email?: string }).email ?? '')) ?? true,
+                  })}
+                />
+                <button type="button" onClick={() => setShowPw((v) => !v)} aria-label={showPw ? 'Hide password' : 'Show password'} className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 cursor-pointer place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                  {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </span>
+              {errors.password ? (
+                <p className="mt-1 text-xs text-rose-600">{errors.password.message}</p>
+              ) : password && weakPassword(password, emailValue) ? (
+                <p className="mt-1 text-xs text-amber-700">{weakPassword(password, emailValue)}</p>
+              ) : null}
+            </div>
+            <div>
+              <label htmlFor="confirm-password" className="mb-1.5 block text-sm font-semibold text-slate-800">Confirm password</label>
               <input
-                id="reg-password"
+                id="confirm-password"
                 type={showPw ? 'text' : 'password'}
                 autoComplete="new-password"
-                className={`${input} pr-11`}
-                {...register('password', {
-                  required: 'Password is required',
-                  minLength: { value: 8, message: 'At least 8 characters' },
-                  pattern: { value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, message: 'Use upper- and lowercase letters and a number' },
-                  validate: (pw, values) => weakPassword(pw, String((values as { email?: string }).email ?? '')) ?? true,
-                })}
+                className={input}
+                {...register('confirmPassword', { required: 'Please confirm your password', validate: (v) => v === password || 'Passwords do not match' })}
               />
-              <button type="button" onClick={() => setShowPw((v) => !v)} aria-label={showPw ? 'Hide password' : 'Show password'} className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 cursor-pointer place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700">
-                {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
+              {errors.confirmPassword && <p className="mt-1 text-xs text-rose-600">{errors.confirmPassword.message}</p>}
+            </div>
+          </div>
+
+          <label htmlFor="terms" className="flex items-start gap-2.5 text-sm text-slate-700">
+            <input id="terms" type="checkbox" checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-600" />
+            <span>
+              I agree to the <Link href="/terms" className={`font-semibold hover:underline ${look.text}`}>Terms</Link> and <Link href="/privacy" className={`font-semibold hover:underline ${look.text}`}>Privacy Policy</Link>
             </span>
-            {errors.password ? (
-              <p className="mt-1 text-xs text-rose-600">{errors.password.message}</p>
-            ) : password && weakPassword(password, emailValue) ? (
-              <p className="mt-1 text-xs text-amber-700">{weakPassword(password, emailValue)}</p>
-            ) : null}
-          </div>
-          <div>
-            <label htmlFor="confirm-password" className="mb-1.5 block text-sm font-semibold text-slate-800">Confirm password</label>
-            <input
-              id="confirm-password"
-              type={showPw ? 'text' : 'password'}
-              autoComplete="new-password"
-              className={input}
-              {...register('confirmPassword', { required: 'Please confirm your password', validate: (v) => v === password || 'Passwords do not match' })}
-            />
-            {errors.confirmPassword && <p className="mt-1 text-xs text-rose-600">{errors.confirmPassword.message}</p>}
-          </div>
-        </div>
+          </label>
 
-        <label htmlFor="terms" className="flex items-start gap-2.5 text-sm text-slate-700">
-          <input id="terms" type="checkbox" checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-600" />
-          <span>
-            I agree to the <Link href="/terms" className={`font-semibold hover:underline ${look.text}`}>Terms</Link> and <Link href="/privacy" className={`font-semibold hover:underline ${look.text}`}>Privacy Policy</Link>
-          </span>
-        </label>
-
-        {human.element}
-        <button
-          type="submit"
-          disabled={!isFormValid || registerMutation.isPending}
-          className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-4 text-base font-semibold shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 ${look.button}`}
-        >
-          {registerMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : null}
-          {human.waiting ? CHECKING_HUMAN : registerMutation.isPending ? 'Creating account…' : 'Create account'}
-          {!registerMutation.isPending && <ArrowRight className="h-5 w-5" aria-hidden />}
-        </button>
-      </form>
+          {human.element}
+          <button
+            type="submit"
+            disabled={!isFormValid || registerMutation.isPending}
+            className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-4 text-base font-semibold shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 ${look.button}`}
+          >
+            {registerMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : null}
+            {human.waiting ? CHECKING_HUMAN : registerMutation.isPending ? 'Creating account…' : 'Create account'}
+            {!registerMutation.isPending && <ArrowRight className="h-5 w-5" aria-hidden />}
+          </button>
+        </form>
+      </SecurityGate>
 
       {portal === 'expert' && (
         <p className="mt-6 flex items-center gap-2 border-t border-slate-900/5 pt-4 text-sm text-slate-600">

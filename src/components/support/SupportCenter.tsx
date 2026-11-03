@@ -18,6 +18,7 @@ import { CheckCircle2, ChevronDown, LifeBuoy, Loader2, Mail, MessageSquare, Sear
 
 import { CHECKING_HUMAN, HumanCheckError, useHumanCheck } from '@/components/security/HumanCheck';
 import { GUARD_TEXT, useFormGuard } from '@/lib/client/formGuard';
+import { SecurityGate } from '@/components/security/SecurityGate';
 import { authFetch } from '@/lib/auth-fetch';
 import { supabase } from '@/lib/supabase';
 import { HELP_TOPICS, TOPIC_LABEL, type SupportTopic } from '@/lib/helpTopics';
@@ -154,7 +155,7 @@ export function SupportCenter() {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const human = useHumanCheck('support');
+  const human = useHumanCheck('support', { lazy: true });
   // Bot traps (checked again on the server): a hidden field, and at least 3 s to write the request.
   const guard = useFormGuard(3000, 'support');
 
@@ -370,46 +371,48 @@ export function SupportCenter() {
             </div>
           </div>
         ) : (
-          <form
-            className="mt-4 grid gap-4 sm:grid-cols-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void send();
-            }}
-          >
-            {guard.trap}
-            <label className="grid gap-1.5 text-sm font-semibold text-slate-800">
-              Your name
-              <input className={input} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoComplete="name" required maxLength={80} />
-            </label>
-            <label className="grid gap-1.5 text-sm font-semibold text-slate-800">
-              Mobile number (we call you back on it)
-              <input className={input} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} inputMode="tel" autoComplete="tel" required maxLength={16} />
-            </label>
-            <label className="grid gap-1.5 text-sm font-semibold text-slate-800">
-              Email (optional)
-              <input className={input} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} autoComplete="email" maxLength={120} />
-            </label>
-            <label className="grid gap-1.5 text-sm font-semibold text-slate-800">
-              What is it about?
-              <select className={input} value={form.topic} onChange={(e) => setForm({ ...form, topic: e.target.value as SupportTopic })}>
-                {(Object.keys(TOPIC_LABEL) as SupportTopic[]).map((t) => (
-                  <option key={t} value={t}>{TOPIC_LABEL[t]}</option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1.5 text-sm font-semibold text-slate-800 sm:col-span-2">
-              The problem, in your words (any language)
-              <textarea className={`${input} min-h-32 py-3`} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} required minLength={5} maxLength={2000} />
-            </label>
-            {formError && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-rose-900 ring-1 ring-rose-200 sm:col-span-2">{formError}</p>}
-            <div className="sm:col-span-2">
-              {human.element}
-            </div>
-            <button type="submit" disabled={sending} className={`${button} bg-emerald-700 text-white hover:bg-emerald-800 sm:col-span-2 sm:justify-self-start`}>
-              {sending ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <Send className="h-5 w-5" aria-hidden />} {human.waiting ? CHECKING_HUMAN : 'Send to KashRoot'}
-            </button>
-          </form>
+          <SecurityGate place="support" onPass={human.start}>
+            <form
+              className="mt-4 grid gap-4 sm:grid-cols-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void send();
+              }}
+            >
+              {guard.trap}
+              <label className="grid gap-1.5 text-sm font-semibold text-slate-800">
+                Your name
+                <input className={input} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoComplete="name" required maxLength={80} />
+              </label>
+              <label className="grid gap-1.5 text-sm font-semibold text-slate-800">
+                Mobile number (we call you back on it)
+                <input className={input} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} inputMode="tel" autoComplete="tel" required maxLength={16} />
+              </label>
+              <label className="grid gap-1.5 text-sm font-semibold text-slate-800">
+                Email (optional)
+                <input className={input} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} autoComplete="email" maxLength={120} />
+              </label>
+              <label className="grid gap-1.5 text-sm font-semibold text-slate-800">
+                What is it about?
+                <select className={input} value={form.topic} onChange={(e) => setForm({ ...form, topic: e.target.value as SupportTopic })}>
+                  {(Object.keys(TOPIC_LABEL) as SupportTopic[]).map((t) => (
+                    <option key={t} value={t}>{TOPIC_LABEL[t]}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-1.5 text-sm font-semibold text-slate-800 sm:col-span-2">
+                The problem, in your words (any language)
+                <textarea className={`${input} min-h-32 py-3`} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} required minLength={5} maxLength={2000} />
+              </label>
+              {formError && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-rose-900 ring-1 ring-rose-200 sm:col-span-2">{formError}</p>}
+              <div className="sm:col-span-2">
+                {human.element}
+              </div>
+              <button type="submit" disabled={sending} className={`${button} bg-emerald-700 text-white hover:bg-emerald-800 sm:col-span-2 sm:justify-self-start`}>
+                {sending ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <Send className="h-5 w-5" aria-hidden />} {human.waiting ? CHECKING_HUMAN : 'Send to KashRoot'}
+              </button>
+            </form>
+          </SecurityGate>
         )}
       </section>
 

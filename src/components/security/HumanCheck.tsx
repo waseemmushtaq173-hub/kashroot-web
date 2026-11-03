@@ -160,6 +160,8 @@ export interface HumanCheck {
   token: () => Promise<string | undefined>;
   /** The token was sent: fetch a fresh one (tokens work once). */
   used: () => void;
+  /** Start now (a `lazy` check: e.g. a form's own check, once the security gate has passed). */
+  start: () => void;
   /** token() is waiting: the button says "Checking you're human…". */
   waiting: boolean;
   /** Seconds the first token took (Admin → Setup check). */
@@ -216,6 +218,11 @@ export function useHumanCheck(action: string, { lazy = false }: { lazy?: boolean
       if (tries < BACKOFF_MS.length) {
         later(again, BACKOFF_MS[tries]);
         tries += 1;
+        return;
+      }
+      // An address Cloudflare does not allow: the same page on the real site (never on a test copy).
+      if (code.startsWith('1102') && checkMode().mode === 'real' && !REAL_HOSTS.includes(window.location.host.toLowerCase())) {
+        window.location.replace(`${SITE_URL}${window.location.pathname}${window.location.search}`);
         return;
       }
       const text = problemText(code);
@@ -344,6 +351,7 @@ export function useHumanCheck(action: string, { lazy = false }: { lazy?: boolean
   }, []);
 
   const used = useCallback(() => renew.current(), []);
+  const start = useCallback(() => setStarted(true), []);
 
   const retry = useCallback(() => {
     failure.current = null;
@@ -374,7 +382,7 @@ export function useHumanCheck(action: string, { lazy = false }: { lazy?: boolean
     </div>
   ) : null;
 
-  return { element, token, used, waiting, took };
+  return { element, token, used, start, waiting, took };
 }
 
 /** The words on a submit button while token() waits. */

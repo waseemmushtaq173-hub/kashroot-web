@@ -34,6 +34,7 @@ function account(body: ArrayBuffer | undefined): string {
   }
 }
 import { afterPasswordSignIn, afterUserChange } from '@/lib/server/accountNotices';
+import { gateOn, passedGate } from '@/lib/server/gate';
 import { recordWrongPassword, rightPassword, signinBlock } from '@/lib/server/signinGuard';
 import { securityEvent } from '@/lib/server/securityLog';
 import { hashed, sharedLimited } from '@/lib/server/sharedLimit';
@@ -70,6 +71,13 @@ async function proxy(request: Request, { params }: { params: Promise<{ path: str
   const who = passwordSignIn || /^auth\/v1\/(recover|otp|resend)$/.test(path) ? account(body) : '';
 
   const whoKey = who ? hashed(who) : '';
+
+  // The security gate first (lib/server/gate): signing in, signing up, password-reset and code emails
+  // only from a browser that passed the "I am human" gate in the last 30 minutes.
+  if ((passwordSignIn || /^auth\/v1\/(signup|recover|otp|resend)$/.test(path)) && gateOn() && !passedGate(request)) {
+    securityEvent('bot_check_failed', { request, code: 'gate: missing', detail: `(${path})` });
+    return problem(403, 'For your safety the security check runs first. Please reload the page and wait for it to finish.');
+  }
 
   if (passwordSignIn) {
     const block = await signinBlock(request, who, whoKey, ip);

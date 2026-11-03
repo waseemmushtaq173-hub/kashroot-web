@@ -31,7 +31,8 @@ export type SecurityKind =
   | 'bot_check_failed'
   | 'forbidden'
   | 'email_sent'
-  | 'email_failed';
+  | 'email_failed'
+  | 'gate_passed';
 
 /** Long digit runs, emails, bearer tokens, JWTs and key-like strings out of a message. */
 export function scrub(text: string): string {

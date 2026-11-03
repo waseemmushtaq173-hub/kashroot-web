@@ -36,6 +36,7 @@ const KIND: Record<string, { label: string; warn?: boolean }> = {
   api_error: { label: 'Server errors', warn: true },
   email_sent: { label: 'Emails sent' },
   email_failed: { label: 'Emails that failed', warn: true },
+  gate_passed: { label: 'Security gate passed' },
 };
 
 /** What each security-check code means (Cloudflare's codes, KashRoot's own, Supabase's reasons). */
@@ -47,6 +48,11 @@ const CODE_MEANING: [RegExp, string][] = [
   [/^3000[0-2]/, 'the browser could not finish the check (often a VPN, ad-block or Shields)'],
   [/^3000/, 'the check timed out or got stuck in the browser'],
   [/^6000/, 'Cloudflare did not trust this browser and could not finish'],
+  [/^gate: missing/, 'a sign-in, sign-up, reset or help request sent without passing the security gate first (a script, or a very old page)'],
+  [/^gate: wrong-action/, 'a token made for a different form'],
+  [/^gate: /, 'the security gate refused the token (the code after "gate:" says why)'],
+  [/^honeypot/, 'a bot filled in the hidden field'],
+  [/^too-fast/, 'a form sent faster than a person can type'],
   [/^script-blocked/, 'Cloudflare’s script could not load (Brave Shields, ad-block or no network)'],
   [/^no-answer/, 'no answer from Cloudflare within 8 s'],
   [/^reset-failed/, 'the check could not restart (the form had been closed)'],
@@ -91,6 +97,8 @@ export function TrafficPanel() {
   const [botCodes, setBotCodes] = useState<{ code: string; all: number; yours: number }[]>([]);
   const [kinds, setKinds] = useState<{ kind: string; all: number; yours: number }[]>([]);
   const [mailErrors, setMailErrors] = useState<{ at: string; detail: string }[]>([]);
+  // The security gate, per portal: passed, refused (and how many of each were yours).
+  const [gates, setGates] = useState<{ place: string; passed: number; failed: number; yours: number }[]>([]);
   // "Count from now": only what happened after this moment (kept in this browser).
   const [since, setSince] = useState<string | null>(null);
 
@@ -107,8 +115,15 @@ export function TrafficPanel() {
     const events = (bot.data ?? []) as { at: string; kind: string; ip_hash: string | null; detail: string | null }[];
     const byKind = new Map<string, { all: number; yours: number }>();
     const byCode = new Map<string, { all: number; yours: number }>();
+    const byGate = new Map<string, { passed: number; failed: number; yours: number }>();
     for (const e of events) {
       const yours = Boolean(mine) && e.ip_hash === mine;
+      // "gate_passed": detail is the place; a refused gate: "gate: <reason> (gate-<place>)".
+      const gatePlace = e.kind === 'gate_passed' ? (e.detail ?? '').trim() : (e.detail ?? '').match(/^gate: .*\(gate-([a-z]+)\)/)?.[1];
+      if (gatePlace) {
+        const g = byGate.get(gatePlace) ?? { passed: 0, failed: 0, yours: 0 };
+        byGate.set(gatePlace, { passed: g.passed + (e.kind === 'gate_passed' ? 1 : 0), failed: g.failed + (e.kind === 'gate_passed' ? 0 : 1), yours: g.yours + (yours ? 1 : 0) });
+      }
       const k = byKind.get(e.kind) ?? { all: 0, yours: 0 };
       byKind.set(e.kind, { all: k.all + 1, yours: k.yours + (yours ? 1 : 0) });
       if (e.kind !== 'bot_check_failed') continue;
@@ -120,6 +135,7 @@ export function TrafficPanel() {
       const c = byCode.get(code) ?? { all: 0, yours: 0 };
       byCode.set(code, { all: c.all + 1, yours: c.yours + (yours ? 1 : 0) });
     }
+    setGates([...byGate].map(([place, v]) => ({ place, ...v })).sort((x, y) => y.passed + y.failed - (x.passed + x.failed)));
     setKinds([...byKind].map(([kind, v]) => ({ kind, ...v })).sort((x, y) => y.all - x.all));
     setBotCodes([...byCode].map(([code, v]) => ({ code, ...v })).sort((x, y) => y.all - x.all));
     setMailErrors(events.filter((e) => e.kind === 'email_failed').slice(0, 5).map((e) => ({ at: e.at, detail: e.detail ?? '' })));
@@ -218,6 +234,19 @@ export function TrafficPanel() {
             </li>
           ))}
         </ul>
+      )}
+      {gates.length > 0 && (
+        <div className="mt-4" data-gate-counts>
+          <p className="text-sm font-semibold text-slate-800">Security gate, per portal</p>
+          <ul className="mt-1 flex flex-wrap gap-2 text-xs">
+            {gates.map((g) => (
+              <li key={g.place} className="rounded-full bg-slate-50 px-2.5 py-1 text-slate-800 ring-1 ring-slate-200">
+                <strong>{g.place}</strong>: {g.passed} passed{g.failed > 0 && <span className="text-amber-800"> · {g.failed} refused</span>}
+                {g.yours > 0 && <span className="text-slate-500"> ({g.yours} yours)</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       {botCodes.length > 0 && (
         <div className="mt-4" data-bot-codes>

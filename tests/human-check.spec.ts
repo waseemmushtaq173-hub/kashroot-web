@@ -33,16 +33,24 @@ for (const width of [1280, 390]) {
     test.use({ viewport: { width, height: 900 } });
 
     for (const { path, button } of FORMS) {
-      test(`${path}: the check runs in the background; the button is never held back by it`, async ({ page }) => {
+      test(`${path}: the security gate first, then the form, with its own fresh check`, async ({ page }) => {
         test.skip(!(await checkIsOn(page)), 'The check is off on this server.');
         await page.goto(path);
-        await expect(page.locator('[data-human-check]:not([data-human-check="idle"])').first()).toBeAttached();
+        // The gate shows first; the form is not there yet.
+        await expect(page.locator('[data-security-gate]')).toBeVisible();
         await expect.poll(() => cloudflareFrames(page).length, { timeout: 30_000 }).toBeGreaterThan(0);
-        // Pressable while Cloudflare works (sign-up waits for its own fields, not for the check).
-        if (!path.startsWith('/register')) await expect(page.getByRole('button', { name: button }).first()).toBeEnabled();
         await expect(page.getByText(/complete the .I am human. check/i)).toHaveCount(0);
-        // Locally (test key) a token arrives by itself; on the live site Cloudflare may ask an automated browser to tap.
-        if (!LIVE) await expect(page.locator('[data-human-check]:not([data-human-check="idle"])').first()).toHaveAttribute('data-human-check', 'ready', { timeout: 30_000 });
+        await page.screenshot({ path: `test-results/gate${path.replace(/\//g, '-')}-${width}.png` });
+        // Locally (test key) the gate passes by itself; on the live site Cloudflare may ask an automated browser to tap.
+        if (LIVE) return;
+        await expect(page.locator('[data-security-gate]')).toHaveCount(0, { timeout: 30_000 });
+        const submit = page.getByRole('button', { name: button }).first();
+        await expect(submit).toBeVisible();
+        if (!path.startsWith('/register')) await expect(submit).toBeEnabled();
+        // The form's own check then fetches a separate token for Supabase.
+        await expect(page.locator('[data-human-check="ready"]').first()).toBeAttached({ timeout: 30_000 });
+        // The first field has the focus.
+        expect(await page.evaluate(() => document.activeElement?.tagName)).toMatch(/INPUT|TEXTAREA|SELECT/);
         await page.screenshot({ path: `test-results/human-check${path.replace(/\//g, '-')}-${width}.png` });
       });
     }
@@ -58,11 +66,9 @@ for (const width of [1280, 390]) {
       await expect(alert).toContainText('Brave Shields / ad-block');
       const retry = alert.getByRole('button', { name: 'Retry' });
       expect((await retry.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-      // Signing in now says why instead of doing nothing.
-      await page.getByLabel('Email address').fill('someone@example.com');
-      await page.getByLabel('Password', { exact: true }).fill('not-a-real-pass-1');
-      await page.getByRole('button', { name: /Sign in to Buyer/ }).click();
-      await expect(page.getByRole('alert').filter({ hasText: 'couldn’t load' }).first()).toBeVisible();
+      // The gate stays, with the reason — the form never shows without it, and nothing is dead.
+      await expect(page.locator('[data-security-gate]')).toBeVisible();
+      await expect(page.getByRole('button', { name: /Sign in to Buyer/ })).toHaveCount(0);
       await page.screenshot({ path: `test-results/human-check-blocked-${width}.png` });
       // Unblocked again, Retry brings the check back.
       await page.unroute('https://challenges.cloudflare.com/**');
@@ -118,8 +124,11 @@ test('with Supabase CAPTCHA on, a sign-in with no token or a fake token is refus
   await expect.poll(() => apikey, { timeout: 20_000 }).not.toBe('');
   const tryWith = (body: Record<string, unknown>) =>
     page.request.post('/api/supabase/auth/v1/token?grant_type=password', { headers: { apikey }, data: { email: 'nobody-kr-probe@example.invalid', password: 'not-a-real-pass-1', ...body } });
+  // Without the security gate the request never reaches Supabase; either way, refused.
   const none = await tryWith({});
-  expect(await none.text()).toContain('no captcha_token found');
+  expect(none.status()).toBeGreaterThanOrEqual(400);
+  expect(await none.text()).toMatch(/security check runs first|no captcha_token found/);
   const fake = await tryWith({ gotrue_meta_security: { captcha_token: 'fake' } });
-  expect(await fake.text()).toContain('invalid-input-response');
+  expect(fake.status()).toBeGreaterThanOrEqual(400);
+  expect(await fake.text()).toMatch(/security check runs first|invalid-input-response/);
 });
