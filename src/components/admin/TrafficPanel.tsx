@@ -17,7 +17,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Activity, Timer } from 'lucide-react';
 
 import { RefreshBtn } from '@/components/admin/RefreshBtn';
-import { Badge, PORTAL_THEMES, Panel } from '@/components/portal/kit';
+import { Badge, PORTAL_THEMES, Panel, Skeleton } from '@/components/portal/kit';
 import { supabase } from '@/lib/db/client';
 
 const theme = PORTAL_THEMES.admin ?? PORTAL_THEMES.expert;
@@ -179,7 +179,7 @@ export function TrafficPanel() {
   return (
     <Panel theme={theme} title="Sign-ins and traffic (last 24 hours)" icon={Activity} className="lg:col-span-2" action={<RefreshBtn onRefresh={load} />}>
       {rows === undefined ? (
-        <p className="text-sm text-slate-600">Loading…</p>
+        <Skeleton label="Loading the visits…" />
       ) : rows === null ? (
         <p className="text-sm text-amber-900">Not available yet: run supabase/RUN_THIS_ONCE.sql (Setup check, “Security hardening”), and set KYC_DB_SECRET in Vercel so the server can write the log.</p>
       ) : rows.length === 0 ? (

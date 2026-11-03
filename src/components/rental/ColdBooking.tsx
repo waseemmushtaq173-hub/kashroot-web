@@ -21,7 +21,7 @@ import { toast } from '@/lib/client/toast';
 
 import { ColdStoreExplorer, type Look } from '@/components/rental/ColdStoreMap';
 import { PayOwner } from '@/components/rental/receipt/PayOwner';
-import { Btn, Field, INPUT, Modal, PORTAL_THEMES } from '@/components/portal/kit';
+import { Btn, Field, INPUT, Modal, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
 import { inr, type Account } from '@/lib/db/client';
 import { layersText, placeDirections, planOf, showLength } from '@/lib/coldLayout';
 import { cleanMobile, countText, mobileProblem, UNIT_WORDS, unitsText, type Storage } from '@/lib/coldStore';
@@ -407,7 +407,7 @@ export function ColdBooking({
             </p>
           </div>
           {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800 ring-1 ring-rose-200">{error}</p>}
-          {!taken && !error && <p className="text-sm text-slate-500">Loading the cold store…</p>}
+          {!taken && !error && <Skeleton label="Loading the cold store…" rows={1} height="h-24" />}
           {taken && (
             <ColdStoreExplorer
               chambers={chambers}

@@ -10,7 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { History } from 'lucide-react';
 
 import { RefreshBtn } from '@/components/admin/RefreshBtn';
-import { PORTAL_THEMES, Panel } from '@/components/portal/kit';
+import { PORTAL_THEMES, Panel, Skeleton } from '@/components/portal/kit';
 import { supabase } from '@/lib/db/client';
 
 const theme = PORTAL_THEMES.admin ?? PORTAL_THEMES.expert;
@@ -46,7 +46,7 @@ export function SecurityLogPanel() {
   return (
     <Panel theme={theme} title="Security log" icon={History} className="lg:col-span-2" action={<RefreshBtn onRefresh={load} />}>
       {rows === undefined ? (
-        <p className="text-sm text-slate-600">Loading…</p>
+        <Skeleton label="Loading the security log…" />
       ) : rows === null ? (
         <p className="text-sm text-amber-900">Run the security log SQL file (20261017000000_security_log.sql) in Supabase first.</p>
       ) : rows.length === 0 ? (

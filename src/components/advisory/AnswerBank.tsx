@@ -15,7 +15,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { NOT_ANSWERED } from '@/lib/notAnswered';
 import { BookCheck, Check, EyeOff, Eye, Inbox, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 
-import { Badge, Btn, EmptyState, Field, INPUT, Panel, type PortalTheme } from '@/components/portal/kit';
+import { Badge, Btn, EmptyState, Field, INPUT, Panel, type PortalTheme, Skeleton } from '@/components/portal/kit';
 import { toast } from '@/lib/client/toast';
 import {
   addAnswer,
@@ -151,7 +151,7 @@ export function AnswerBank({ theme }: { theme: PortalTheme }) {
   };
 
   if (error) return <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-amber-200">{error}</p>;
-  if (!answers || !waiting) return <p className="text-sm text-slate-600">Loading the answer bank…</p>;
+  if (!answers || !waiting) return <Skeleton label="Loading the answer bank…" />;
 
   return (
     <div className="space-y-6">

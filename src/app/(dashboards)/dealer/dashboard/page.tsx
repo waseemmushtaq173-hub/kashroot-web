@@ -35,7 +35,7 @@ import { toast } from '@/lib/client/toast';
 import { PortalShell } from '@/components/layout/PortalShell';
 import { SellerDesk } from '@/components/market/SellerDesk';
 import { PayoutForm } from '@/components/payments/PayoutForm';
-import { Badge, Btn, EmptyState, Field, INPUT, Modal, PORTAL_THEMES, Panel, Tile } from '@/components/portal/kit';
+import { Badge, Btn, EmptyState, Field, INPUT, Modal, PORTAL_THEMES, Panel, Tile, Skeleton } from '@/components/portal/kit';
 import { myRoleRequest, requestStaffRole } from '@/lib/db/advisory';
 import type { ListingInput } from '@/lib/db/market';
 import { dbMessage, loadAccount, type Account } from '@/lib/db/client';
@@ -342,7 +342,7 @@ export default function DealerDashboardPage() {
           {account ? (
             <SellerDesk account={account} theme={theme} show="sell" category="supplies" addRequest={sell.n} addDraft={sell.draft} />
           ) : (
-            <p className="text-sm text-slate-600">Loading your account…</p>
+            <Skeleton label="Loading your account…" rows={2} />
           )}
         </div>
       )}

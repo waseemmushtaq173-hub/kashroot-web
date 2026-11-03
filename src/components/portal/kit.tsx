@@ -170,8 +170,9 @@ export const Btn = forwardRef<HTMLButtonElement, BtnProps>(function Btn(
 
 // ── Surfaces ────────────────────────────────────────────────────────────────
 
+// Every card: frosted ivory-white with a saffron-gold hairline.
 export const GLASS_CARD =
-  'rounded-3xl bg-white/75 backdrop-blur-xl ring-1 ring-slate-900/5 shadow-[0_8px_30px_rgba(15,23,42,0.06)]';
+  'rounded-3xl bg-white/75 backdrop-blur-xl ring-1 ring-[#E8A317]/25 shadow-[0_8px_30px_rgba(15,23,42,0.06)]';
 
 export function Panel({
   title,
@@ -230,7 +231,7 @@ export function Tile({
   onClick?: () => void;
   badge?: string;
 }) {
-  const cls = `group relative flex h-full flex-col items-start gap-3 rounded-2xl bg-white/80 p-4 [transform-style:preserve-3d] text-left no-underline ring-1 ring-slate-900/5 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:bg-white hover:no-underline hover:shadow-md motion-reduce:hover:translate-y-0 ${FOCUS} ${theme.outline}`;
+  const cls = `group relative flex h-full flex-col items-start gap-3 rounded-2xl bg-white/80 p-4 [transform-style:preserve-3d] text-left no-underline ring-1 ring-[#E8A317]/25 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:ring-[#E8A317]/50 hover:bg-white hover:no-underline hover:shadow-md motion-reduce:hover:translate-y-0 ${FOCUS} ${theme.outline}`;
   const body = (
     <>
       <span data-depth className={`grid h-11 w-11 place-items-center rounded-xl ${theme.tile}`}>
@@ -296,6 +297,22 @@ export function EmptyState({
       <h3 className="mt-3 font-sans text-lg font-semibold text-slate-900">{title}</h3>
       <p className="mt-1 max-w-md text-sm text-slate-600">{text}</p>
       {action && <div className="mt-5">{action}</div>}
+    </div>
+  );
+}
+
+/**
+ * While a portal waits for its data: grey rows in the shape of the list to come, so nothing jumps
+ * when it arrives, with what is loading said in words (and to screen readers). Still for people
+ * who turned motion off.
+ */
+export function Skeleton({ label, rows = 3, height = 'h-14' }: { label: string; rows?: number; height?: 'h-10' | 'h-14' | 'h-24' }) {
+  return (
+    <div role="status" aria-live="polite" className="space-y-2" data-skeleton>
+      <p className="text-xs font-medium text-slate-500">{label}</p>
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} aria-hidden className={`${height} animate-pulse rounded-2xl bg-gradient-to-r from-slate-200/70 via-[#FBF8F0] to-slate-200/70 ring-1 ring-[#E8A317]/15 motion-reduce:animate-none`} />
+      ))}
     </div>
   );
 }

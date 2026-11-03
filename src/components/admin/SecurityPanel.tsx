@@ -12,7 +12,7 @@ import { toast } from '@/lib/client/toast';
 
 import { SecurityLogPanel } from '@/components/admin/SecurityLogPanel';
 import { TrafficPanel } from '@/components/admin/TrafficPanel';
-import { Btn, Field, INPUT, PORTAL_THEMES, Panel } from '@/components/portal/kit';
+import { Btn, Field, INPUT, PORTAL_THEMES, Panel, Skeleton } from '@/components/portal/kit';
 import { kycRules, lockAdminNow, setAdminCode, setKycRules, type KycRules } from '@/lib/db/security';
 
 const theme = PORTAL_THEMES.admin ?? PORTAL_THEMES.expert;
@@ -77,7 +77,7 @@ export function SecurityPanel() {
     <div className="grid gap-6 lg:grid-cols-2">
       <Panel theme={theme} title="Identity checks (KYC) before money" icon={IdCard} className="lg:col-span-2">
         {rules === undefined ? (
-          <p className="text-sm text-slate-600">Loading…</p>
+          <Skeleton label="Loading security…" />
         ) : rules === null ? (
           <p className="text-sm text-amber-900">Run the security SQL file (20261014000000_trust_and_security.sql) in Supabase first.</p>
         ) : (

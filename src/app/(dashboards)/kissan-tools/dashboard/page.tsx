@@ -19,7 +19,7 @@ import { toast } from '@/lib/client/toast';
 import { PortalShell } from '@/components/layout/PortalShell';
 import { OrderCard } from '@/components/market/OrderCard';
 import { amountOf, useLiveListings, type ShopListing } from '@/components/market/shop/useLiveListings';
-import { Btn, EmptyState, INPUT, PORTAL_THEMES, Panel } from '@/components/portal/kit';
+import { Btn, EmptyState, INPUT, PORTAL_THEMES, Panel, Skeleton } from '@/components/portal/kit';
 import { Checkout } from '@/components/shop/Checkout';
 import { PhotoViewer } from '@/components/shop/PhotoViewer';
 import { ProductCard, ProductPhoto } from '@/components/shop/ProductCard';
@@ -290,7 +290,7 @@ export default function KissanToolsDashboardPage() {
           {account === null ? (
             <p role="alert" className="rounded-2xl bg-amber-50 p-4 text-amber-900 ring-1 ring-amber-200">Sign in again to see your orders.</p>
           ) : orders === null ? (
-            <p className="flex items-center gap-2 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading your orders…</p>
+            <Skeleton label="Loading your orders…" height="h-24" />
           ) : baskets.length === 0 ? (
             <EmptyState theme={theme} icon={Package} title="No orders yet" text="Find farm tools and inputs in the Shop, add them to the cart and order. You pay the seller after they accept." action={<Btn theme={theme} className="min-h-11" onClick={() => setTab('shop')}>Go to the shop</Btn>} />
           ) : (

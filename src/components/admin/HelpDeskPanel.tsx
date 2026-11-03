@@ -13,7 +13,7 @@ import { CheckCircle2, LifeBuoy, Lock, Phone, Search, Send } from 'lucide-react'
 import { toast } from 'sonner';
 
 import { RefreshBtn } from '@/components/admin/RefreshBtn';
-import { Badge, Btn, EmptyState, PORTAL_THEMES, Panel } from '@/components/portal/kit';
+import { Badge, Btn, EmptyState, PORTAL_THEMES, Panel, Skeleton } from '@/components/portal/kit';
 import { addInternalNote, deskRequests, replyToRequest, setRequestStatus, type DeskRequest, type SupportStatus } from '@/lib/db/support';
 import { TOPIC_LABEL } from '@/lib/helpTopics';
 
@@ -175,7 +175,7 @@ export function HelpDeskPanel() {
       {error ? (
         <p role="alert" className="text-sm text-rose-800">{error}</p>
       ) : rows === null ? (
-        <p className="text-sm text-slate-600">Loading…</p>
+        <Skeleton label="Loading the help requests…" />
       ) : rows.length === 0 ? (
         <EmptyState theme={theme} icon={LifeBuoy} title={show === 'waiting' ? 'Nobody is waiting' : 'No help requests yet'} text="Requests sent from Help & support appear here." />
       ) : (
