@@ -99,7 +99,7 @@ export function TrafficPanel() {
   const [kinds, setKinds] = useState<{ kind: string; all: number; yours: number }[]>([]);
   const [mailErrors, setMailErrors] = useState<{ at: string; detail: string }[]>([]);
   // The security gate, per portal: passed, refused (and how many of each were yours).
-  const [gates, setGates] = useState<{ place: string; passed: number; failed: number; yours: number }[]>([]);
+  const [gates, setGates] = useState<{ place: string; silent: number; tapped: number; button: number; failed: number; yours: number }[]>([]);
   // "Count from now": only what happened after this moment (kept in this browser).
   const [since, setSince] = useState<string | null>(null);
 
@@ -116,14 +116,22 @@ export function TrafficPanel() {
     const events = (bot.data ?? []) as { at: string; kind: string; ip_hash: string | null; detail: string | null }[];
     const byKind = new Map<string, { all: number; yours: number }>();
     const byCode = new Map<string, { all: number; yours: number }>();
-    const byGate = new Map<string, { passed: number; failed: number; yours: number }>();
+    const byGate = new Map<string, { silent: number; tapped: number; button: number; failed: number; yours: number }>();
     for (const e of events) {
       const yours = Boolean(mine) && e.ip_hash === mine;
-      // "gate_passed": detail is the place; a refused gate: "gate: <reason> (gate-<place>)".
-      const gatePlace = e.kind === 'gate_passed' ? (e.detail ?? '').trim() : (e.detail ?? '').match(/^gate: .*\(gate-([a-z]+)\)/)?.[1];
+      // "gate_passed": "<place> (silent | after a tap | after the confirm button)"; a refused gate: "gate: <reason> (gate-<place>)".
+      const passed = e.kind === 'gate_passed';
+      const gatePlace = passed ? (e.detail ?? '').trim().split(/\s/)[0] : (e.detail ?? '').match(/^gate: .*\(gate-([a-z]+)\)/)?.[1];
       if (gatePlace) {
-        const g = byGate.get(gatePlace) ?? { passed: 0, failed: 0, yours: 0 };
-        byGate.set(gatePlace, { passed: g.passed + (e.kind === 'gate_passed' ? 1 : 0), failed: g.failed + (e.kind === 'gate_passed' ? 0 : 1), yours: g.yours + (yours ? 1 : 0) });
+        const how = (e.detail ?? '').match(/\((silent|after a tap|after the confirm button)\)/)?.[1] ?? 'silent';
+        const g = byGate.get(gatePlace) ?? { silent: 0, tapped: 0, button: 0, failed: 0, yours: 0 };
+        byGate.set(gatePlace, {
+          silent: g.silent + (passed && how === 'silent' ? 1 : 0),
+          tapped: g.tapped + (passed && how === 'after a tap' ? 1 : 0),
+          button: g.button + (passed && how === 'after the confirm button' ? 1 : 0),
+          failed: g.failed + (passed ? 0 : 1),
+          yours: g.yours + (yours ? 1 : 0),
+        });
       }
       const k = byKind.get(e.kind) ?? { all: 0, yours: 0 };
       byKind.set(e.kind, { all: k.all + 1, yours: k.yours + (yours ? 1 : 0) });
@@ -136,7 +144,7 @@ export function TrafficPanel() {
       const c = byCode.get(code) ?? { all: 0, yours: 0 };
       byCode.set(code, { all: c.all + 1, yours: c.yours + (yours ? 1 : 0) });
     }
-    setGates([...byGate].map(([place, v]) => ({ place, ...v })).sort((x, y) => y.passed + y.failed - (x.passed + x.failed)));
+    setGates([...byGate].map(([place, v]) => ({ place, ...v })).sort((x, y) => y.silent + y.tapped + y.button + y.failed - (x.silent + x.tapped + x.button + x.failed)));
     setKinds([...byKind].map(([kind, v]) => ({ kind, ...v })).sort((x, y) => y.all - x.all));
     setBotCodes([...byCode].map(([code, v]) => ({ code, ...v })).sort((x, y) => y.all - x.all));
     setMailErrors(events.filter((e) => e.kind === 'email_failed').slice(0, 5).map((e) => ({ at: e.at, detail: e.detail ?? '' })));
@@ -242,11 +250,13 @@ export function TrafficPanel() {
           <ul className="mt-1 flex flex-wrap gap-2 text-xs">
             {gates.map((g) => (
               <li key={g.place} className="rounded-full bg-slate-50 px-2.5 py-1 text-slate-800 ring-1 ring-slate-200">
-                <strong>{g.place}</strong>: {g.passed} passed{g.failed > 0 && <span className="text-amber-800"> · {g.failed} refused</span>}
+                <strong>{g.place}</strong>: {g.silent} passed silently · {g.tapped} after a tap{g.button > 0 && <> · {g.button} after the confirm button</>}
+                {g.failed > 0 && <span className="text-amber-800"> · {g.failed} refused</span>}
                 {g.yours > 0 && <span className="text-slate-500"> ({g.yours} yours)</span>}
               </li>
             ))}
           </ul>
+          <p className="mt-1 text-xs text-slate-500">“Silent” and “after a tap” are as the person’s browser saw Cloudflare; the token itself is always checked with Cloudflare on the server.</p>
         </div>
       )}
       {botCodes.length > 0 && (

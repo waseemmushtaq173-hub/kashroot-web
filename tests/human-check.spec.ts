@@ -132,3 +132,17 @@ test('with Supabase CAPTCHA on, a sign-in with no token or a fake token is refus
   expect(fake.status()).toBeGreaterThanOrEqual(400);
   expect(await fake.text()).toMatch(/security check runs first|invalid-input-response/);
 });
+
+test('a default automated browser is held at the gate on the live site', async ({ page }) => {
+  test.skip(!LIVE, 'Only on the live site (locally Cloudflare’s test key lets everyone through).');
+  test.setTimeout(90_000);
+  await page.goto('/login/buyer');
+  // Cloudflare's box is shown (appearance "always")…
+  await expect.poll(() => cloudflareFrames(page).length, { timeout: 30_000 }).toBeGreaterThan(0);
+  await page.waitForTimeout(25_000);
+  // …and an automated browser is not let through: the gate stays, the form never appears.
+  await expect(page.locator('[data-security-gate]')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Sign in to Buyer/ })).toHaveCount(0);
+  await expect(page.getByLabel('Email address')).toHaveCount(0);
+  await page.screenshot({ path: 'test-results/gate-holds-automation.png' });
+});

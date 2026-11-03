@@ -73,7 +73,7 @@ begin
    where outcome = 'ANSWERED' and fn not in (
      'kr_admin_lock_now', 'kr_admin_status', 'kr_admin_unlocked', 'kr_answer_match', 'kr_cache_get', 'kr_cache_put',
      'kr_can_see_request', 'kr_check_batch', 'kr_cold_free_now', 'kr_cold_map', 'kr_driver_view', 'kr_has_role',
-     'kr_is_admin_account', 'kr_is_super_admin', 'kr_kyc_ok', 'kr_kyc_rules', 'kr_log_event', 'kr_order_driver_view', 'kr_payment_details', 'kr_rate_clear', 'kr_rate_hit', 'kr_rate_peek',
+     'kr_gate_settings', 'kr_is_admin_account', 'kr_is_super_admin', 'kr_kyc_ok', 'kr_kyc_rules', 'kr_log_event', 'kr_order_driver_view', 'kr_payment_details', 'kr_rate_clear', 'kr_rate_hit', 'kr_rate_peek',
      'kr_registry_search', 'kr_registry_stats', 'kr_suggest_answer', 'kr_track', 'kr_verified_sellers');
   if bad is not null then raise exception 'FAIL: these functions answered a stranger: %', bad; end if;
   raise notice 'PASS: every other function refused anon and a signed-in stranger';

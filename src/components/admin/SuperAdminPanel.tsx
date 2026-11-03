@@ -10,7 +10,7 @@
  * can change or delete.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Ban, Crown, Download, RotateCcw, ScrollText, Search, ShieldCheck, ShieldOff } from 'lucide-react';
+import { Ban, Crown, Download, Hand, RotateCcw, ScrollText, Search, Settings, ShieldCheck, ShieldOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { RefreshBtn } from '@/components/admin/RefreshBtn';
@@ -82,6 +82,8 @@ export function SuperAdminPanel() {
   const [search, setSearch] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // "Ask everyone to tap the box" (20261114000000_gate_tap.sql).
+  const [tap, setTap] = useState<boolean | null>(null);
 
   const load = useCallback(async (q = '') => {
     const [o, p, a] = await Promise.all([
@@ -93,6 +95,8 @@ export function SuperAdminPanel() {
     setOverview((o.data as Record<string, number> | null) ?? null);
     setPeople(((p.data ?? []) as Person[]).map((x) => ({ ...x, portals: Array.isArray(x.portals) ? x.portals : [] })));
     setAudit((a.data ?? []) as AuditRow[]);
+    const gate = (await fetch('/api/gate', { cache: 'no-store' }).then((r) => r.json()).catch(() => ({}))) as { tap?: boolean };
+    setTap(Boolean(gate.tap));
   }, []);
   useEffect(() => {
     let live = true;
@@ -152,6 +156,31 @@ export function SuperAdminPanel() {
             ))}
           </ul>
         )}
+      </Panel>
+
+      <Panel theme={theme} title="Settings" icon={Settings}>
+        <div className="flex flex-wrap items-start justify-between gap-3" data-gate-tap-setting>
+          <div className="min-w-0 flex-1 text-sm text-slate-700">
+            <p className="font-semibold text-slate-900">Ask everyone to tap the box</p>
+            <p className="mt-1">
+              <strong>Off (recommended):</strong> Cloudflare checks every sign-in, sign-up, reset and help form, and asks for a tap only when it is unsure — most people pass in a second or two. People always see its box go “Verifying…” → “Success!”.
+            </p>
+            <p className="mt-1">
+              <strong>On:</strong> everyone also presses “Tap to confirm you’re human”. People notice it, but it is not a stronger proof — Cloudflare’s check, verified on KashRoot’s server, is the proof either way — and it costs a moment and a tap for farmers on small screens, slow phones and patchy data.
+            </p>
+          </div>
+          <Btn
+            theme={theme}
+            variant={tap ? 'solid' : 'ghost'}
+            icon={Hand}
+            className="min-h-11"
+            disabled={tap === null || busy === 'tap'}
+            aria-pressed={Boolean(tap)}
+            onClick={() => void act('tap', async () => supabase.rpc('kr_super_set_gate_tap', { p_on: !tap }), tap ? 'Off: Cloudflare decides when to ask for a tap.' : 'On: everyone taps to confirm.')}
+          >
+            {tap ? 'On — tap to switch off' : 'Off — tap to switch on'}
+          </Btn>
+        </div>
       </Panel>
 
       <Panel theme={theme} title="People" icon={Search}>

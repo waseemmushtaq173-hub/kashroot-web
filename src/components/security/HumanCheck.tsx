@@ -166,6 +166,8 @@ export interface HumanCheck {
   waiting: boolean;
   /** Seconds the first token took (Admin → Setup check). */
   took: number | null;
+  /** Did Cloudflare ask for a tap before this token (as the browser saw it)? */
+  wasTapped: () => boolean;
 }
 
 /**
@@ -173,12 +175,14 @@ export interface HumanCheck {
  * (for forms shown several times on a page, e.g. a code for the mobile and
  * one for the email).
  */
-export function useHumanCheck(action: string, { lazy = false }: { lazy?: boolean } = {}): HumanCheck {
+export function useHumanCheck(action: string, { lazy = false, visible = false }: { lazy?: boolean; visible?: boolean } = {}): HumanCheck {
   const box = useRef<HTMLDivElement>(null);
   const widget = useRef<string | null>(null);
   const current = useRef<string | null>(null);
   const waiters = useRef<Waiter[]>([]);
   const interactive = useRef(false);
+  /** Cloudflare asked this person to tap (an interactive check) before the current token. */
+  const tapped = useRef(false);
   const failure = useRef<string | null>(null);
   const renew = useRef<() => void>(() => undefined);
   const [started, setStarted] = useState(!lazy);
@@ -248,6 +252,7 @@ export function useHumanCheck(action: string, { lazy = false }: { lazy?: boolean
       if (gone || !widget.current || !window.turnstile) return;
       clear();
       current.current = null;
+      tapped.current = false;
       try {
         window.turnstile.reset(widget.current);
       } catch {
@@ -263,7 +268,8 @@ export function useHumanCheck(action: string, { lazy = false }: { lazy?: boolean
       widget.current = t.render(box.current, {
         sitekey: mode === 'test' ? TEST_SITE_KEY : TURNSTILE_SITE_KEY,
         action,
-        appearance: 'interaction-only',
+        // The security gate shows Cloudflare's box ("Verifying…" → "Success!"); a form's own check stays invisible.
+        appearance: visible ? 'always' : 'interaction-only',
         size: 'flexible',
         language: widgetLanguage(),
         retry: 'never', // retried here (2, 5, 10 s), counted and logged — never twice over
@@ -292,6 +298,7 @@ export function useHumanCheck(action: string, { lazy = false }: { lazy?: boolean
           watch();
         },
         'before-interactive-callback': () => {
+          tapped.current = true;
           interactive.current = true;
           clear();
           setStatus('interactive');
@@ -321,7 +328,7 @@ export function useHumanCheck(action: string, { lazy = false }: { lazy?: boolean
       widget.current = null;
       current.current = null;
     };
-  }, [action, started, round]);
+  }, [action, started, round, visible]);
 
   const token = useCallback(async (): Promise<string | undefined> => {
     if (checkMode().mode === 'off') return undefined;
@@ -352,6 +359,7 @@ export function useHumanCheck(action: string, { lazy = false }: { lazy?: boolean
 
   const used = useCallback(() => renew.current(), []);
   const start = useCallback(() => setStarted(true), []);
+  const wasTapped = useCallback(() => tapped.current, []);
 
   const retry = useCallback(() => {
     failure.current = null;
@@ -382,7 +390,7 @@ export function useHumanCheck(action: string, { lazy = false }: { lazy?: boolean
     </div>
   ) : null;
 
-  return { element, token, used, start, waiting, took };
+  return { element, token, used, start, waiting, took, wasTapped };
 }
 
 /** The words on a submit button while token() waits. */
