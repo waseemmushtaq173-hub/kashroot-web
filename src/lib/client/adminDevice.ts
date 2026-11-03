@@ -1,41 +1,42 @@
 'use client';
 
 /**
- * The Admin card and menu item are hidden from the public. They show only on
- * a phone or computer that belongs to an admin: one where an admin account is
- * signed in, or one that has opened the staff QR / the Admin sign-in page
- * (remembered on that device). Showing the card unlocks nothing — the Admin
- * portal still needs an admin account and that admin's own code.
+ * The Admin card and menu item show ONLY to the Super Admin and KashRoot team
+ * members with something ticked (20261117000000_kashroot_team.sql,
+ * kr_team_member) — asked of the database for the account signed in now,
+ * never remembered in the browser. Dealers, businesses, farmers and buyers
+ * never see them, whoever used the phone before. Showing them unlocks
+ * nothing: the Admin pages need the team pass, two-step sign-in and the
+ * admin code, and the database checks every section again.
  */
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { loadAccount } from '@/lib/db/client';
+import { supabase } from '@/lib/supabase';
 
-const KEY = 'kr_admin_device';
+/** Before this, opening the Admin sign-in once showed the card on that device for every account; that note is removed. */
+const OLD_KEY = 'kr_admin_device';
 
-export function rememberAdminDevice() {
+let asked: { user: string; answer: Promise<boolean> } | null = null;
+
+async function isTeamMember(): Promise<boolean> {
   try {
-    localStorage.setItem(KEY, '1');
+    localStorage.removeItem(OLD_KEY);
   } catch {
-    /* private mode: the card just stays hidden */
+    /* storage blocked */
   }
-}
-
-let checked: Promise<boolean> | null = null;
-
-async function isAdminDevice(): Promise<boolean> {
-  try {
-    if (localStorage.getItem(KEY) === '1') return true;
-  } catch {
-    return false;
+  const { data } = await supabase.auth.getSession();
+  const user = data.session?.user.id;
+  if (!user) return false;
+  if (asked?.user !== user) {
+    asked = {
+      user,
+      answer: Promise.resolve(supabase.rpc('kr_team_member'))
+        .then((r) => r.data === true)
+        .catch(() => false),
+    };
   }
-  checked ??= loadAccount()
-    .then((a) => Boolean(a?.staff.includes('ADMIN')))
-    .catch(() => false);
-  const admin = await checked;
-  if (admin) rememberAdminDevice();
-  return admin;
+  return asked.answer;
 }
 
 export function useShowAdmin(): boolean {
@@ -43,28 +44,28 @@ export function useShowAdmin(): boolean {
   useEffect(() => {
     let live = true;
     const run = async () => {
-      const yes = await isAdminDevice();
+      const yes = await isTeamMember();
       if (live) setShow(yes);
     };
     void run();
+    // Signing in or out on this page: ask again for the new account.
+    const { data } = supabase.auth.onAuthStateChange(() => {
+      asked = null;
+      void run();
+    });
     return () => {
       live = false;
+      data.subscription.unsubscribe();
     };
   }, []);
   return show;
 }
 
-/** Marks this device when the Admin sign-in page is opened (e.g. from the staff QR). */
-export function RememberAdminDevice() {
-  useEffect(() => rememberAdminDevice(), []);
-  return null;
-}
-
 /**
  * The owner's private way in on a new laptop or phone: tap the KashRoot logo
- * in the top bar 5 times within 3 seconds. It opens the Admin sign-in, and
- * from then on that device shows the Admin card. Nobody else is told about
- * it, and it still needs an admin account and the admin code.
+ * in the top bar 5 times within 3 seconds. It only opens the Admin sign-in;
+ * nothing is shown or remembered, and everything after it still needs a
+ * KashRoot team account, two-step sign-in and the admin code.
  */
 export function useSecretAdminTap() {
   const taps = useRef<number[]>([]);
@@ -75,7 +76,6 @@ export function useSecretAdminTap() {
     if (taps.current.length >= 5) {
       e.preventDefault();
       taps.current = [];
-      rememberAdminDevice();
       router.push('/login/admin');
     }
   };

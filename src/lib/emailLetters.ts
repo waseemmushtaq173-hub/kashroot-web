@@ -18,7 +18,7 @@ export interface Letter {
 
 export interface Queued {
   id: number;
-  kind: 'help_new' | 'help_ack' | 'help_reply' | 'help_resolved' | 'payout_changed' | 'password_changed' | 'email_changed' | 'phone_changed' | 'new_signin' | 'signin_locked';
+  kind: 'help_new' | 'help_ack' | 'help_reply' | 'help_resolved' | 'payout_changed' | 'password_changed' | 'email_changed' | 'phone_changed' | 'new_signin' | 'signin_locked' | 'team_changed';
   ref: string | null;
   detail: string | null;
   created_at: string;
@@ -61,7 +61,7 @@ export function redactForEmail(text: string): string {
 
 const TOPIC: Record<string, string> = { login: 'Signing in', payment: 'Payment', order: 'An order', cold_storage: 'Cold storage', selling: 'Selling', other: 'Something else' };
 
-const NOTICE: Record<Exclude<Queued['kind'], 'help_new' | 'help_ack' | 'help_reply' | 'help_resolved'>, [string, (detail: string | null) => string]> = {
+const NOTICE: Record<Exclude<Queued['kind'], 'help_new' | 'help_ack' | 'help_reply' | 'help_resolved' | 'team_changed'>, [string, (detail: string | null) => string]> = {
   payout_changed: ['Your KashRoot payout details were changed', () => 'The UPI ID or bank account where people pay you was saved or changed on KashRoot.'],
   password_changed: ['Your KashRoot password was changed', () => 'The password of your KashRoot account was changed.'],
   email_changed: ['A change of your KashRoot email was asked for', () => 'Someone signed in to your KashRoot account asked to change its email address. It changes only after the link sent to the new address is opened.'],
@@ -76,6 +76,20 @@ const indiaTime = (iso: string) => new Date(iso).toLocaleString('en-IN', { timeZ
 export function letterFor(q: Queued, site: string, inbox: string): Letter | null {
   const check = { label: 'Check my request', href: `${site}/support?code=${encodeURIComponent(q.ref ?? '')}#check-title` };
   const about = q.help ? (TOPIC[q.help.topic] ?? q.help.topic) : '';
+  // The KashRoot team changed (20261117000000_kashroot_team.sql): to the support inbox, every time.
+  if (q.kind === 'team_changed') {
+    return {
+      to: inbox,
+      subject: 'KashRoot team changed',
+      lines: [
+        `A change to who can open KashRoot Admin: ${q.detail ?? '(see the audit log)'}`,
+        `When: ${indiaTime(q.created_at)} (India time)`,
+        '',
+        'If you did not make this change, open Super Admin → Team at once and remove anyone you do not know.',
+      ],
+      action: { label: 'Open Super Admin → Team', href: `${site}/admin/dashboard` },
+    };
+  }
   if (q.kind === 'help_new') {
     const h = q.help;
     if (!h) return null;

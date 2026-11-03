@@ -10,7 +10,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, CircleAlert, IdCard, KeyRound, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
-import { AdminTeamPanel } from '@/components/admin/AdminTeamPanel';
 import { SecurityLogPanel } from '@/components/admin/SecurityLogPanel';
 import { TrafficPanel } from '@/components/admin/TrafficPanel';
 import { Btn, Field, INPUT, PORTAL_THEMES, Panel } from '@/components/portal/kit';
@@ -76,7 +75,6 @@ export function SecurityPanel() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <AdminTeamPanel />
       <Panel theme={theme} title="Identity checks (KYC) before money" icon={IdCard} className="lg:col-span-2">
         {rules === undefined ? (
           <p className="text-sm text-slate-600">Loading…</p>

@@ -62,7 +62,7 @@ test.describe('the attack suite', () => {
 
   test('a signed-out visitor reads no private table (IDOR through the data API)', async ({ page, request }) => {
     const apikey = await anonKey(page);
-    for (const table of ['payout_accounts', 'support_requests', 'support_messages', 'email_outbox', 'security_events', 'security_log', 'rate_buckets', 'kr_settings', 'staff_roles', 'identity_checks', 'market_orders', 'rental_bookings', 'cold_slot_bookings', 'call_signals', 'advisory_messages', 'admin_unlocks', 'organisations', 'org_members', 'org_invites', 'org_payout_accounts']) {
+    for (const table of ['payout_accounts', 'support_requests', 'support_messages', 'email_outbox', 'security_events', 'security_log', 'rate_buckets', 'kr_settings', 'staff_roles', 'identity_checks', 'market_orders', 'rental_bookings', 'cold_slot_bookings', 'call_signals', 'advisory_messages', 'admin_unlocks', 'organisations', 'org_members', 'org_invites', 'org_payout_accounts', 'team_sections', 'audit_log']) {
       const res = await request.get(`/api/supabase/rest/v1/${table}?select=*&limit=1`, { headers: { apikey } });
       const body = await res.text();
       // Refused outright, or an empty list — never a row.
@@ -82,6 +82,15 @@ test.describe('the attack suite', () => {
       ['kr_super_suspend_org', { p_org: '00000000-0000-0000-0000-000000000000', p_reason: 'test', p_suspend: true }],
       ['kr_org_set_payout', { p_org: '00000000-0000-0000-0000-000000000000', p_name: 'x', p_upi: 'x@bank', p_account: null, p_ifsc: null, p_bank: null }],
       ['kr_org_payout', { p_org: '00000000-0000-0000-0000-000000000000' }],
+      // The KashRoot team: who sees what, and changing it (20261117000000_kashroot_team.sql).
+      ['kr_team_sections', {}],
+      ['kr_team_member', {}],
+      ['kr_super_team', {}],
+      ['kr_super_team_add', { p_email: 'someone@example.invalid' }],
+      ['kr_super_team_set', { p_user: '00000000-0000-0000-0000-000000000000', p_sections: ['help'] }],
+      ['kr_super_team_remove', { p_user: '00000000-0000-0000-0000-000000000000' }],
+      ['kr_add_admin', { p_email: 'someone@example.invalid' }],
+      ['kr_grant_role', { p_user: '00000000-0000-0000-0000-000000000000', p_role: 'ADMIN' }],
     ] as const) {
       for (const authorization of [undefined, 'Bearer not-a-real-token']) {
         const res = await request.post(`/api/supabase/rest/v1/rpc/${fn}`, { headers: { apikey, ...(authorization ? { authorization } : {}) }, data: args });

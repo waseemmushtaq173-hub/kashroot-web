@@ -25,7 +25,7 @@
  * unless it is URGENT (a fix people must get at once): then it takes over
  * straight away.
  */
-const VERSION = '2026-11-04.1';
+const VERSION = '2026-11-17.1';
 /** This version fixes sign-in: older ones kept the sign-in pages with a broken security check. */
 const URGENT = true;
 const SHELL = `kr-shell-${VERSION}`; // the offline page and its files
@@ -46,7 +46,7 @@ const NEEDS_INTERNET = 'You are offline — this needs the internet. Try again w
 const NOT_SAVED = 'You are offline, and this was not saved on this phone yet. Open it once with internet to keep a copy.';
 
 /** Pages never kept: money, the identity check, admin, codes and secret links (driver / delivery). */
-const NEVER_KEEP_PAGE = /^\/(api|kyc|escrow|admin|deliver|drive|verify-otp|mfa-setup|reset-password|forgot-password|login|register|support|account)(\/|$)/;
+const NEVER_KEEP_PAGE = /^\/(api|kyc|escrow|admin|team|deliver|drive|verify-otp|mfa-setup|reset-password|forgot-password|login|register|support|account)(\/|$)/;
 /** Pages saved for offline use as soon as KashRoot is installed (with their files). */
 const WARM_PAGES = ['/', '/mandi-weather'];
 

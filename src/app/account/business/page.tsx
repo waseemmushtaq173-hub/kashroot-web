@@ -322,16 +322,16 @@ function BusinessView({ org, busy, act }: { org: Org & { role: Role }; busy: str
 
       {lead && !suspended && (
         <section data-business-invite>
-          <h3 className="flex items-center gap-2 font-semibold"><UserPlus className="h-5 w-5 text-emerald-700" aria-hidden /> Invite someone</h3>
+          <h3 className="flex items-center gap-2 font-semibold"><UserPlus className="h-5 w-5 text-emerald-700" aria-hidden /> Give access to this business</h3>
           <p className="text-sm text-slate-600">
-            They sign in to KashRoot with this email or phone and open <strong>My business</strong> to join. The invitation lasts 7 days.
+            This gives access to <strong>{org.name}</strong>&apos;s console only — never to KashRoot Admin. They sign in to KashRoot with this email or phone and open <strong>My business</strong> to join. The invitation lasts 7 days.
             {org.role === 'manager' && ' As a manager you can invite staff.'}
           </p>
           <form
             className="grid gap-3 sm:grid-cols-[1fr_auto_auto]"
             onSubmit={(e) => {
               e.preventDefault();
-              void run('invite', () => supabase.rpc('kr_org_invite', { p_org: org.id, p_contact: contact.trim(), p_role: inviteRole }), `Invitation made for ${contact.trim()}. Tell them to open My business after signing in.`).then(() => setContact(''));
+              void run('invite', () => supabase.rpc('kr_org_invite', { p_org: org.id, p_contact: contact.trim(), p_role: inviteRole }), `Access to ${org.name} offered to ${contact.trim()}. Tell them to open My business after signing in.`).then(() => setContact(''));
             }}
           >
             <label className="block">
@@ -346,7 +346,7 @@ function BusinessView({ org, busy, act }: { org: Org & { role: Role }; busy: str
               </select>
             </label>
             <button type="submit" className={BUTTON} disabled={busy !== null || contact.trim().length < 5}>
-              {busy === 'invite' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <UserPlus className="h-4 w-4" aria-hidden />} Invite
+              {busy === 'invite' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <UserPlus className="h-4 w-4" aria-hidden />} Give access
             </button>
           </form>
           {invites.length > 0 && (

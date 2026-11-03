@@ -142,10 +142,10 @@ grant execute on function public.kr_support_note(uuid, text) to authenticated;
 
 -- ── Emails ──
 alter table public.email_outbox drop constraint if exists email_outbox_kind_check;
--- The one complete list (the same in every migration that sets it, newest: 20261110000000_signin_lockout.sql),
+-- The one complete list (the same in every migration that sets it, newest: 20261117000000_kashroot_team.sql),
 -- so RUN_THIS_ONCE.sql can be run again on a database that already holds every kind.
 alter table public.email_outbox add constraint email_outbox_kind_check check (kind in (
-  'help_new', 'help_ack', 'help_reply', 'help_resolved', 'payout_changed', 'password_changed', 'email_changed', 'phone_changed', 'new_signin', 'signin_locked'));
+  'help_new', 'help_ack', 'help_reply', 'help_resolved', 'payout_changed', 'password_changed', 'email_changed', 'phone_changed', 'new_signin', 'signin_locked', 'team_changed'));
 
 -- A new request: to the support inbox, and "We got your request" to the person when they gave an email.
 create or replace function public.kr_email_on_help() returns trigger

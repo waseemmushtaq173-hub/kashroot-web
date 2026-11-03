@@ -50,6 +50,8 @@ export async function unlockAdmin(code: string): Promise<string> {
 
 export async function lockAdminNow(): Promise<void> {
   await supabase.rpc('kr_admin_lock_now');
+  // The Admin pages close too (lib/server/teamPass).
+  await fetch('/api/team/session', { method: 'DELETE' }).catch(() => undefined);
 }
 
 export interface KycRules {
@@ -100,31 +102,3 @@ export async function reportBatch(code: string, note: string, phone?: string): P
   if (error) fail(error, 'Could not send the report.');
 }
 
-export interface AdminMember {
-  user_id: string;
-  email: string;
-  full_name: string;
-  granted_at: string;
-  has_code: boolean;
-  is_me: boolean;
-  is_owner: boolean;
-}
-
-/** The admin team; null when the admin-team SQL has not been run yet. */
-export async function adminTeam(): Promise<AdminMember[] | null> {
-  const { data, error } = await supabase.rpc('kr_admin_team');
-  if (error) return null;
-  return (data ?? []) as AdminMember[];
-}
-
-/** Owner only: give Admin access to an existing account by its email. */
-export async function addAdmin(email: string): Promise<void> {
-  const { error } = await supabase.rpc('kr_add_admin', { p_email: email });
-  if (error) fail(error, 'Could not add this admin.');
-}
-
-/** Owner only: take Admin access away (their admin code is deleted too). */
-export async function removeAdmin(userId: string): Promise<void> {
-  const { error } = await supabase.rpc('kr_revoke_role', { p_user: userId, p_role: 'ADMIN' });
-  if (error) fail(error, 'Could not remove this admin.');
-}

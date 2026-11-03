@@ -7,6 +7,8 @@ insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000ad', 'admin@test.in')
 on conflict do nothing;
 insert into public.staff_roles (user_id, role) values ('00000000-0000-0000-0000-0000000000ad', 'ADMIN') on conflict do nothing;
+-- A KashRoot team member with the security section ticked (20261117000000_kashroot_team.sql).
+insert into public.team_sections (user_id, section) values ('00000000-0000-0000-0000-0000000000ad', 'security') on conflict do nothing;
 select public.kr_kyc_secret() is not null as made \gset
 select kyc_secret as s from public.kr_settings where id = 1 \gset
 create temp table t (step text, ok boolean);

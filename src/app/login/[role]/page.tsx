@@ -11,7 +11,6 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
 import { RoleLoginForm } from '@/components/auth/RoleLoginForm';
-import { RememberAdminDevice } from '@/lib/client/adminDevice';
 import { isPortalId, PORTAL_IDS, PORTALS } from '@/lib/auth/roles';
 
 interface LoginPageProps {
@@ -40,8 +39,6 @@ export default async function RoleLoginPage({ params, searchParams }: LoginPageP
   const query = await searchParams;
   return (
     <>
-      {/* Opening the Admin sign-in (the staff QR) shows the Admin card on this device from now on. */}
-      {role === 'admin' && <RememberAdminDevice />}
       <RoleLoginForm portal={role} next={first(query.next) ?? first(query.returnTo)} verified={first(query.verified) === '1'} />
     </>
   );

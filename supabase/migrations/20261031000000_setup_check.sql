@@ -71,7 +71,8 @@ language sql stable security definer set search_path = public as $$
     (35, 'Super Admin and audit log',   '20261113000000_super_admin.sql',                public.kr_setup_has_function('kr_super_overview')),
     (36, 'Gate: ask everyone to tap',   '20261114000000_gate_tap.sql',                   public.kr_setup_has_function('kr_gate_settings')),
     (37, 'Business Owner consoles',     '20261115000000_business_consoles.sql',          public.kr_setup_has_function('kr_org_create')),
-    (38, 'Businesses run cold stores',  '20261116000000_business_listings.sql',         public.kr_setup_has_function('kr_org_attach_listing'))
+    (38, 'Businesses run cold stores',  '20261116000000_business_listings.sql',         public.kr_setup_has_function('kr_org_attach_listing')),
+    (39, 'KashRoot team access',        '20261117000000_kashroot_team.sql',               public.kr_setup_has_function('kr_team_can'))
   ) as s(step, part, file, ok)
   order by s.step
 $$;
