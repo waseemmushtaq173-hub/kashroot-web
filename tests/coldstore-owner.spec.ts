@@ -104,6 +104,15 @@ for (const width of [1280, 390]) {
     await expect(page.getByText('9 m high').first()).toBeVisible();
     await page.waitForTimeout(1500);
     await page.screenshot({ path: `test-results/cold-farmer-3d-${width}.png` });
+    // Only the places with room, then one floor at a time.
+    await page.getByRole('button', { name: /^Free places/ }).click();
+    await expect(page.getByText(/Showing only the places with room: [\d,]+ places, room for [\d,]+ bins and [\d,]+ crates\./)).toBeVisible();
+    await page.getByRole('button', { name: 'Floor 2', exact: true }).click();
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: `test-results/cold-farmer-3d-free-floor2-${width}.png` });
+    await page.getByRole('button', { name: 'Every floor' }).click();
+    await page.getByRole('button', { name: 'All places' }).click();
+    await expect(page.getByText(/Showing only/)).toHaveCount(0);
     await page.getByRole('tab', { name: 'Walk inside' }).click();
     await page.getByRole('button', { name: 'Go to Chamber 2' }).click();
     await page.waitForTimeout(1500);

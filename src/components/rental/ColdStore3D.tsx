@@ -25,13 +25,13 @@
  * closes. Without WebGL the Drawing is the way.
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { DoorOpen, Footprints, Maximize2, ScanEye, Volume2, X } from 'lucide-react';
+import { DoorOpen, Footprints, Layers, Maximize2, ScanEye, Volume2, X } from 'lucide-react';
 
 import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
 import { buildPlaces, buildRoute, buildShell, disposeGroup, faceWalls, makeKit, sizeLabels, wx, wz, type Cell, type Origin, type Places, type Shell } from '@/components/rental/three/buildStore';
 import { routeTo, type Route, type RouteLang } from '@/components/rental/walk/route';
 import { speak, stopSpeaking } from '@/lib/client/speech';
-import { rememberedLang } from '@/lib/langDetect';
+import { rememberedLang, rememberLang } from '@/lib/langDetect';
 import { buildScene, chamberAt, EYE, insideDoor, midOf, sceneText, startPoint, type SceneChamber, type StoreScene } from '@/components/rental/three/storeScene';
 import { drawMiniMap } from '@/components/rental/walk/miniMap';
 import { noInput, usePageZoom, WalkHud, type Measure, type Press, type Target, type WalkInput, type Where } from '@/components/rental/walk/WalkHud';
@@ -185,6 +185,20 @@ function InfoCard({ c, free, rate, unit, onClose, onWalk, zoom }: { c: SceneCham
   );
 }
 const UNIT_ONE: Record<Storage, string> = { bins: 'bin', crates: 'crate', boxes: 'box' };
+const UNIT_MANY: Record<Storage, string> = { bins: 'bins', crates: 'crates', boxes: 'boxes' };
+
+/** What is shown from outside: every place, only those with room, or only the person's own. */
+type Focus = 'all' | 'free' | 'mine';
+/** A place someone can still put bins on (or has just chosen). */
+const isFree = (c: Cell) => c.free > 0 && (c.look === 'free' || c.look === 'part' || c.look === 'selected');
+
+/** The guided walk's languages; each is said aloud in its own voice (lib/client/speech). */
+const GUIDE_LANGS: [RouteLang, string][] = [
+  ['ks', 'کٲشُر'],
+  ['ur', 'اردو'],
+  ['hi', 'हिन्दी'],
+  ['en', 'English'],
+];
 
 export function ColdStore3D({
   chambers,
@@ -243,6 +257,38 @@ export function ColdStore3D({
     return out;
   }, [scene, cells]);
   const activeIndex = useMemo(() => scene.chambers.findIndex((c) => c.group.floors.some((r) => r.id === active)), [scene, active]);
+  // From outside, the person can show only the places with room, only their own, and one floor at a
+  // time (the upper floors hide the lower ones). Walking always shows everything, as it stands.
+  const [focus, setFocus] = useState<Focus>('all');
+  const [floorShown, setFloorShown] = useState<number | null>(null);
+  const floorsMost = useMemo(() => Math.max(1, ...scene.chambers.map((c) => c.floors.length)), [scene]);
+  const mineLook: Look | null = mode === 'view' ? 'mine' : mode === 'book' ? 'selected' : null;
+  const shownCells = useMemo(
+    () =>
+      view === 'walk'
+        ? cells
+        : cells.filter(
+            (c) =>
+              (focus === 'all' || (focus === 'free' ? isFree(c) : c.look === mineLook)) &&
+              (floorShown === null || scene.chambers[c.chamber]?.floors[c.floor]?.floor === floorShown),
+          ),
+    [cells, focus, floorShown, view, mineLook, scene],
+  );
+  const counts = useMemo(() => {
+    // Room by kind: a store can hold bins in one chamber and crates in another.
+    const room = new Map<Storage, number>();
+    let freePlaces = 0;
+    let mine = 0;
+    for (const c of cells) {
+      if (isFree(c)) {
+        freePlaces++;
+        const st = scene.chambers[c.chamber]?.storage ?? 'bins';
+        room.set(st, (room.get(st) ?? 0) + c.free);
+      }
+      if (mineLook && c.look === mineLook) mine++;
+    }
+    return { room, freePlaces, mine };
+  }, [cells, mineLook, scene]);
   // The way to the farmer's place, and the guided walk along it: the step reached (null: not
   // guiding), whether they have arrived, and the language the steps are said in.
   const route = useMemo(() => routeFor(scene, cells, mode), [scene, cells, mode]);
@@ -276,7 +322,7 @@ export function ColdStore3D({
   }, [view]);
   useEffect(() => () => stopSpeaking(), []);
   // The places are built again only when the store or what its places are changes (not when the page around it redraws).
-  useEffect(() => api.current?.setData(scene, cells, free, mineName), [scene, cells, free, mineName]);
+  useEffect(() => api.current?.setData(scene, shownCells, free, mineName), [scene, shownCells, free, mineName]);
   useEffect(() => api.current?.setActive(activeIndex), [activeIndex]);
   useEffect(() => api.current?.setView(view), [view]);
   // The small map is drawn into the walk's buttons, which appear once the view is ready.
@@ -1165,7 +1211,7 @@ export function ColdStore3D({
   // "Show me the way": walks from the main door to the farmer's place, saying each step.
   const showWay = () => {
     const l = rememberedLang();
-    setGuideLang(l === 'hi' || l === 'ur' ? l : 'en');
+    setGuideLang(l === 'hi' || l === 'ur' || l === 'ks' ? l : 'en');
     stopSpeaking();
     if (walking) api.current?.guide();
     else {
@@ -1184,7 +1230,37 @@ export function ColdStore3D({
     en: { follow: 'Follow the green arrows', here: 'You are there', again: 'Say it again', stop: 'Stop' },
     hi: { follow: 'हरे तीरों के साथ चलिए', here: 'आप पहुँच गए', again: 'फिर से सुनिए', stop: 'रोकिए' },
     ur: { follow: 'سبز تیروں کے ساتھ چلیے', here: 'آپ پہنچ گئے', again: 'پھر سے سنیے', stop: 'روکیے' },
+    ks: { follow: 'سبز تیرن پَتہٕ پَتہٕ پَکِو', here: 'توٚہۍ واتیوٗ', again: 'بیٚیہِ بوزِو', stop: 'رۄکِو' },
   };
+  const rtl = guideLang === 'ur' || guideLang === 'ks' ? 'rtl' : undefined;
+  // The steps said again in another language (and remembered for next time).
+  const sayIn = (l: RouteLang) => {
+    setGuideLang(l);
+    rememberLang(l);
+  };
+  // "My bins" when the store holds one kind; "My places" when it holds bins and crates.
+  const kinds = new Set(scene.chambers.map((c) => c.storage));
+  const unitMany = kinds.size === 1 ? UNIT_MANY[[...kinds][0]] : 'places';
+  const roomText = [...counts.room].map(([st, n]) => countText(n, st)).join(' and ');
+  const show = (f: Focus) => {
+    setFocus(f);
+    if (f === 'mine') {
+      const first = cells.find((c) => c.look === mineLook);
+      if (first) api.current?.frame(first.chamber);
+    }
+  };
+  const showing =
+    focus === 'free'
+      ? counts.freePlaces
+        ? `Showing only the places with room: ${counts.freePlaces.toLocaleString('en-IN')} place${counts.freePlaces === 1 ? '' : 's'}, room for ${roomText}.`
+        : 'No place has room for these months.'
+      : focus === 'mine'
+        ? counts.mine
+          ? `Showing only ${mode === 'view' ? `your ${unitMany}` : 'your choice'}: ${counts.mine.toLocaleString('en-IN')} place${counts.mine === 1 ? '' : 's'}.`
+          : mode === 'view'
+            ? 'You have nothing here yet.'
+            : 'You have not chosen a place yet.'
+        : '';
   const ww = WAY_WORDS[guideLang];
   const chip = (on: boolean) => `inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition ${on ? 'bg-emerald-700 text-white' : 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200 hover:bg-emerald-100'}`;
   const shownInfo = info !== null ? scene.chambers[info] : null;
@@ -1255,6 +1331,45 @@ export function ColdStore3D({
           </button>
         ))}
       </div>
+      {!walking && (mode !== 'owner' || floorsMost > 1) && (
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Show">
+          {mode !== 'owner' && (
+            <>
+              <button type="button" aria-pressed={focus === 'all'} onClick={() => show('all')} className={chip(focus === 'all')}>
+                All places
+              </button>
+              <button type="button" aria-pressed={focus === 'free'} onClick={() => show('free')} className={chip(focus === 'free')}>
+                Free places{counts.freePlaces ? ` (${counts.freePlaces.toLocaleString('en-IN')})` : ''}
+              </button>
+              {mineLook && (
+                <button type="button" aria-pressed={focus === 'mine'} onClick={() => show('mine')} className={chip(focus === 'mine')}>
+                  {mode === 'view' ? `My ${unitMany}` : 'My choice'}
+                  {counts.mine ? ` (${counts.mine.toLocaleString('en-IN')})` : ''}
+                </button>
+              )}
+            </>
+          )}
+          {floorsMost > 1 && (
+            <span className="inline-flex flex-wrap items-center gap-1.5">
+              <Layers className="h-4 w-4 text-slate-500" aria-hidden />
+              <span className="sr-only">Floor</span>
+              <button type="button" aria-pressed={floorShown === null} onClick={() => setFloorShown(null)} className={chip(floorShown === null)}>
+                Every floor
+              </button>
+              {Array.from({ length: floorsMost }, (_, i) => i + 1).map((n) => (
+                <button key={n} type="button" aria-pressed={floorShown === n} onClick={() => setFloorShown(n)} className={chip(floorShown === n)}>
+                  Floor {n}
+                </button>
+              ))}
+            </span>
+          )}
+        </div>
+      )}
+      {!walking && showing && (
+        <p aria-live="polite" className="text-sm font-semibold text-slate-700">
+          {showing}
+        </p>
+      )}
       <div
         ref={host}
         tabIndex={walking ? 0 : -1}
@@ -1286,7 +1401,7 @@ export function ColdStore3D({
       {route && guideAt !== null && (
         <section aria-label="The way to your place" className="rounded-2xl bg-emerald-50 p-3 ring-1 ring-emerald-200">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h4 dir={guideLang === 'ur' ? 'rtl' : undefined} className="font-semibold text-emerald-900">{guideDone ? ww.here : ww.follow}</h4>
+            <h4 dir={rtl} className="font-semibold text-emerald-900">{guideDone ? ww.here : ww.follow}</h4>
             <div className="flex gap-2">
               <button type="button" onClick={() => void speak(route.steps[guideAt]?.text[guideLang] ?? '', guideLang)} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-emerald-900 ring-1 ring-emerald-200 hover:bg-emerald-100">
                 <Volume2 className="h-4 w-4" aria-hidden /> {ww.again}
@@ -1296,7 +1411,14 @@ export function ColdStore3D({
               </button>
             </div>
           </div>
-          <ol dir={guideLang === 'ur' ? 'rtl' : undefined} aria-live="polite" className="mt-2 space-y-1 text-sm">
+          <div role="radiogroup" aria-label="Language of the steps" className="mt-2 flex flex-wrap gap-1.5">
+            {GUIDE_LANGS.map(([l, name]) => (
+              <button key={l} type="button" role="radio" aria-checked={guideLang === l} onClick={() => sayIn(l)} className={`min-h-[44px] cursor-pointer rounded-xl px-3 text-sm font-semibold ring-1 ${guideLang === l ? 'bg-emerald-700 text-white ring-emerald-700' : 'bg-white text-emerald-900 ring-emerald-200 hover:bg-emerald-100'}`}>
+                {name}
+              </button>
+            ))}
+          </div>
+          <ol dir={rtl} aria-live="polite" className="mt-2 space-y-1 text-sm">
             {route.steps.map((s, k) => (
               <li key={k} className={`rounded-lg px-2 py-1 ${k === guideAt ? 'bg-emerald-600 font-semibold text-white' : k < guideAt ? 'text-emerald-800' : 'text-slate-600'}`}>
                 {k + 1}. {s.text[guideLang]}

@@ -20,7 +20,8 @@ export interface RoutePoint extends Vec {
   inside: number;
 }
 
-export type RouteLang = 'en' | 'hi' | 'ur';
+/** Kashmiri (ks) is written in its own script, like lib/kashmiri/phrases. */
+export type RouteLang = 'en' | 'hi' | 'ur' | 'ks';
 export interface RouteStep {
   /** Said when the walk reaches this point. */
   at: number;
@@ -39,9 +40,9 @@ export interface Route {
 }
 
 const UNITS: Record<Storage, Record<RouteLang, string>> = {
-  bins: { en: 'bins', hi: 'बिन', ur: 'بِن' },
-  crates: { en: 'crates', hi: 'क्रेट', ur: 'کریٹ' },
-  boxes: { en: 'boxes', hi: 'पेटियाँ', ur: 'پیٹیاں' },
+  bins: { en: 'bins', hi: 'बिन', ur: 'بِن', ks: 'بِن' },
+  crates: { en: 'crates', hi: 'क्रेट', ur: 'کریٹ', ks: 'کریٹ' },
+  boxes: { en: 'boxes', hi: 'पेटियाँ', ur: 'پیٹیاں', ks: 'پیٹۍ' },
 };
 
 const centre = (r: Rect): Vec => ({ x: r.x + r.w / 2, y: r.y + r.d / 2 });
@@ -64,9 +65,9 @@ function sideOf(dir: Vec, from: Vec, to: Vec): 'left' | 'right' | 'ahead' {
   return s > 0 ? 'right' : 'left';
 }
 const SIDE: Record<'left' | 'right' | 'ahead', Record<RouteLang, string>> = {
-  left: { en: 'on your left', hi: 'आपके बाएँ', ur: 'آپ کے بائیں' },
-  right: { en: 'on your right', hi: 'आपके दाएँ', ur: 'آپ کے دائیں' },
-  ahead: { en: 'in front of you', hi: 'आपके सामने', ur: 'آپ کے سامنے' },
+  left: { en: 'on your left', hi: 'आपके बाएँ', ur: 'آپ کے بائیں', ks: 'تُہٕنٛدِس کھوٚوُرِس طرفہٕ' },
+  right: { en: 'on your right', hi: 'आपके दाएँ', ur: 'آپ کے دائیں', ks: 'تُہٕنٛدِس دَچھِنِس طرفہٕ' },
+  ahead: { en: 'in front of you', hi: 'आपके सामने', ur: 'آپ کے سامنے', ks: 'تُہٕنٛدِس بُتھِس کُن' },
 };
 
 /**
@@ -97,10 +98,10 @@ export function routeTo(scene: StoreScene, at: { chamber: number; floor: number;
   const first = push(ground(start.at));
   const md = scene.mainDoor;
   if (md) {
-    say(first, { en: 'Start at the main door and go in.', hi: 'मुख्य दरवाज़े से अंदर जाइए।', ur: 'مین دروازے سے اندر جائیے۔' });
+    say(first, { en: 'Start at the main door and go in.', hi: 'मुख्य दरवाज़े से अंदर जाइए।', ur: 'مین دروازے سے اندر جائیے۔', ks: 'مین دروازٕ پیٹھٕ گٔژھِو اَندر۔' });
     push(ground({ x: md.mid.x + md.inward.x * 1.2, y: md.mid.y + md.inward.y * 1.2 }));
   } else {
-    say(first, { en: 'Start at the front of the corridor.', hi: 'गलियारे के आगे से शुरू कीजिए।', ur: 'راہداری کے سامنے سے شروع کیجیے۔' });
+    say(first, { en: 'Start at the front of the corridor.', hi: 'गलियारे के आगे से शुरू कीजिए।', ur: 'راہداری کے سامنے سے شروع کیجیے۔', ks: 'راہداری ہٕندِ بُتھہِ پیٹھٕ کٔرِو شروٗع۔' });
   }
   // Along the passage to the level of the chamber's door, then to the door.
   if (scene.passage && md) {
@@ -112,18 +113,19 @@ export function routeTo(scene: StoreScene, at: { chamber: number; floor: number;
       en: `Walk along the passage. ${c.name} is ${SIDE[side].en}.`,
       hi: `रास्ते पर आगे चलिए। ${c.name} ${SIDE[side].hi} है।`,
       ur: `راستے پر آگے چلیے۔ ${c.name} ${SIDE[side].ur} ہے۔`,
+      ks: `وَتہِ پیٹھ پَکِو برونٛہہ۔ ${c.name} چھُ ${SIDE[side].ks}۔`,
     });
   }
   push(ground(outside));
   const inDoor = push(ground(insideDoor(c, 0.9)));
-  say(inDoor, { en: `Go in through the door of ${c.name}.`, hi: `${c.name} के दरवाज़े से अंदर जाइए।`, ur: `${c.name} کے دروازے سے اندر جائیے۔` });
+  say(inDoor, { en: `Go in through the door of ${c.name}.`, hi: `${c.name} के दरवाज़े से अंदर जाइए।`, ur: `${c.name} کے دروازے سے اندر جائیے۔`, ks: `${c.name} کِس دروازس منٛزٕ گٔژھِو اَندر۔` });
   let level = 1;
   let inside = -1;
   if (f.floor > 1) {
     level = f.floor;
     inside = c.index;
     const up = push({ ...insideDoor(c, 0.9), level, inside });
-    say(up, { en: `Go up to floor ${f.floor}.`, hi: `मंज़िल ${f.floor} पर ऊपर जाइए।`, ur: `منزل ${f.floor} پر اوپر جائیے۔` });
+    say(up, { en: `Go up to floor ${f.floor}.`, hi: `मंज़िल ${f.floor} पर ऊपर जाइए।`, ur: `منزل ${f.floor} پر اوپر جائیے۔`, ks: `منزل ${f.floor} پیٹھ گٔژھِو ہیٚور۔` });
   }
   // Along the walkway to the place's row. Without a walkway, along the clear floor inside the
   // door (never stacked) until in line with the place, facing down its line: never through stacks.
@@ -143,6 +145,7 @@ export function routeTo(scene: StoreScene, at: { chamber: number; floor: number;
     en: `Your ${u.en} are ${ahead ? 'straight ahead of you' : 'here'}: Row ${p.row}, stack ${stack}${directions ? ` (${directions})` : ''}.${others ? ' Your other places glow too.' : ''}`,
     hi: `आपके ${u.hi} ${ahead ? 'आपके ठीक सामने' : 'यहाँ'} हैं: पंक्ति ${p.row}, स्टैक ${stack}।${others ? ' आपकी बाक़ी जगहें भी चमक रही हैं।' : ''}`,
     ur: `آپ کے ${u.ur} ${ahead ? 'آپ کے بالکل سامنے' : 'یہاں'} ہیں: قطار ${p.row}، اسٹیک ${stack}۔${others ? ' آپ کی باقی جگہیں بھی چمک رہی ہیں۔' : ''}`,
+    ks: `تُہٕنٛدۍ ${u.ks} چھِ ${ahead ? 'تُہٕنٛدِس بِلکُل بُتھِس کُن' : 'یتیٚن'}: قطار ${p.row}، اسٹیک ${stack}۔${others ? ' تُہٕنٛزٕ باقی جایہِ تہِ چھےٚ چمکان۔' : ''}`,
   });
   return { points, steps, chamber: c.index, floor: at.floor, place: at.place, face: pc };
 }

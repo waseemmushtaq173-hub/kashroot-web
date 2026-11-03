@@ -7,6 +7,7 @@
 import { expect, test } from '@playwright/test';
 
 import { buildScene, type StoreScene } from '@/components/rental/three/storeScene';
+import { routeTo } from '@/components/rental/walk/route';
 import { planOf } from '@/lib/coldLayout';
 import { blankChamber, blankStore, draftFromSaved, previewChambers, storeModel, type ChamberDraft, type StoreDraft } from '@/lib/coldStore';
 
@@ -160,4 +161,26 @@ test('a draft kept on a phone before the new boxes still opens', () => {
   const m = storeModel(old);
   expect(m.issues.filter((i) => i.level === 'error')).toHaveLength(0);
   expect(m.totals.bins).toBe(480);
+});
+
+test('the way to a place on an upper floor is said in Kashmiri, Urdu, Hindi and English', () => {
+  const { scene } = built(sample());
+  const crates = scene.chambers.findIndex((c) => c.storage === 'crates');
+  const floor = scene.chambers[crates].floors.findIndex((f) => f.floor === 2);
+  const place = scene.chambers[crates].floors[floor].places.findIndex((p) => !p.blocked);
+  const route = routeTo(scene, { chamber: crates, floor, place })!;
+  expect(route).toBeTruthy();
+  expect(route.steps.length).toBeGreaterThanOrEqual(4);
+  for (const step of route.steps) {
+    for (const l of ['en', 'hi', 'ur', 'ks'] as const) expect(step.text[l], `${l}: ${step.text.en}`).toBeTruthy();
+    expect(step.text.ks).toMatch(/[\u0600-\u06FF]/);
+    expect(step.text.hi).toMatch(/[\u0900-\u097F]/);
+  }
+  // Up to floor 2, and the place's own row and stack, in every language.
+  expect(route.steps.some((s) => s.text.ks.includes('منزل 2'))).toBe(true);
+  const last = route.steps[route.steps.length - 1].text;
+  const p = scene.chambers[crates].floors[floor].places[place];
+  for (const l of ['en', 'hi', 'ur', 'ks'] as const) expect(last[l]).toContain(String(p.row));
+  // Every point of the way stands in the store, ending on the place's floor.
+  expect(route.points[route.points.length - 1].level).toBe(2);
 });
