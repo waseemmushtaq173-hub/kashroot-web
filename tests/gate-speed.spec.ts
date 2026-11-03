@@ -60,3 +60,25 @@ test('KashRoot’s gate answers within 5 s, and a refusal says why', async ({ re
   expect(refused.status()).toBe(403);
   expect(((await refused.json()) as { error: string }).error).toMatch(/^Security check failed: .+/);
 });
+
+test('after 2 failures a simpler way is offered, with help for this browser', async ({ page }) => {
+  test.skip(LIVE, 'Blocks Cloudflare in this browser; run where the test key is used.');
+  test.setTimeout(240_000);
+  await page.route('https://challenges.cloudflare.com/**', (route) => route.abort('blockedbyclient'));
+  await page.goto('/login/kissan');
+  const alert = page.locator('[data-human-check="failed"] [role="alert"]');
+  await expect(alert).toBeVisible({ timeout: 90_000 });
+  // The spinner has stopped beside the failure.
+  await expect(page.locator('[data-security-gate] .animate-spin')).toHaveCount(0);
+  await expect(page.locator('[data-check-simple]')).toHaveCount(0);
+  await alert.getByRole('button', { name: 'Retry' }).click();
+  await expect(alert).toBeVisible({ timeout: 90_000 });
+  const simple = page.locator('[data-check-simple]');
+  await expect(simple).toBeVisible();
+  expect((await simple.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await page.screenshot({ path: 'test-results/gate-speed-simpler-way.png' });
+  // Unblocked, the simpler way draws Cloudflare's box again.
+  await page.unroute('https://challenges.cloudflare.com/**');
+  await simple.click();
+  await expect.poll(() => page.frames().filter((f) => f.url().includes('challenges.cloudflare.com')).length, { timeout: 30_000 }).toBeGreaterThan(0);
+});
