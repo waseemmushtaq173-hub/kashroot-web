@@ -12,10 +12,15 @@ import { expect, test } from '@playwright/test';
 
 const LIVE = /^https:/.test(process.env.KR_BASE_URL ?? '');
 const PORTALS = ['kissan', 'buyer', 'farmer', 'rental', 'admin'];
+// One at a time: several browsers loading Cloudflare at once on one machine would time the machine, not the gate.
+test.describe.configure({ mode: 'serial' });
 
 for (const portal of PORTALS) {
   test(`/login/${portal}: the gate opens the form within 5 s`, async ({ page }) => {
     test.skip(LIVE, 'Live, Cloudflare asks an automated browser to tap; this runs where the test key passes by itself.');
+    // The server's very first page load (compiling, a cold start) is not the gate's time.
+    await page.request.get(`/login/${portal}`);
+    await page.request.get('/api/gate');
     const begun = Date.now();
     await page.goto(`/login/${portal}`);
     await expect(page.locator('[data-security-gate]')).toHaveCount(0, { timeout: 5_000 });
