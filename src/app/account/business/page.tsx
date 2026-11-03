@@ -8,10 +8,14 @@
  * UPI details: the owner only, after two-step sign-in, and every owner gets an
  * email when they change. The database checks all of it again — this page
  * only shows what each person may do. A business KashRoot suspended shows why.
+ * Stores (20261116000000_business_listings.sql): someone who listed a cold store
+ * or machine and owns the business puts it in; then the whole team sees its
+ * bookings and confirms, declines or completes them, and farmers pay the
+ * business's details. Changing the store itself stays with whoever listed it.
  */
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Building2, Check, Landmark, Loader2, Mail, Plus, Trash2, UserPlus } from 'lucide-react';
+import { Building2, CalendarCheck, Check, Landmark, Loader2, Mail, Plus, ReceiptText, Snowflake, Trash2, UserPlus, X } from 'lucide-react';
 
 import { InfoPage } from '@/components/layout/InfoPage';
 import { TwoStepVerify, twoStepState } from '@/components/security/TwoStep';
@@ -37,6 +41,29 @@ interface Invite {
   contact?: string;
   role: Role;
   expires_at: string;
+}
+interface Store {
+  id: string;
+  title: string;
+  kind: string;
+  district: string;
+  active: boolean;
+  org_id: string | null;
+  owner_id: string;
+}
+interface Booking {
+  id: string;
+  listing_id: string;
+  renter_name: string;
+  renter_phone: string;
+  units: number;
+  duration: number;
+  start_date: string;
+  amount: number;
+  payment_ref: string | null;
+  status: string;
+  handled_by: string | null;
+  created_at: string;
 }
 interface Payout {
   account_name: string | null;
@@ -330,6 +357,8 @@ function BusinessView({ org, busy, act }: { org: Org & { role: Role }; busy: str
         </section>
       )}
 
+      <StoresSection org={org} members={members} suspended={suspended} busy={busy} act={act} />
+
       <PayoutSection org={org} payout={payout} suspended={suspended} busy={busy} run={run} />
     </>
   );
@@ -402,5 +431,157 @@ function PayoutSection({ org, payout, suspended, busy, run }: { org: Org & { rol
         </form>
       )}
     </section>
+  );
+}
+
+const STATUS: Record<string, string> = {
+  requested: 'waiting for payment',
+  paid: 'paid — check and confirm',
+  confirmed: 'confirmed',
+  rejected: 'declined',
+  cancelled: 'cancelled by the farmer',
+  completed: 'completed',
+};
+
+function StoresSection({ org, members, suspended, busy, act }: { org: Org & { role: Role }; members: Member[]; suspended: boolean; busy: string | null; act: Act }) {
+  const [stores, setStores] = useState<Store[]>([]);
+  const [mineOutside, setMineOutside] = useState<Store[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [me, setMe] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const { data } = await supabase.auth.getSession();
+    const uid = data.session?.user.id ?? null;
+    setMe(uid);
+    const cols = 'id, title, kind, district, active, org_id, owner_id';
+    const [inOrg, outside] = await Promise.all([
+      supabase.from('rental_listings').select(cols).eq('org_id', org.id).order('created_at'),
+      // The owner's own stores not in any business yet, to put in this one.
+      org.role === 'owner' && uid ? supabase.from('rental_listings').select(cols).eq('owner_id', uid).is('org_id', null).order('created_at') : Promise.resolve({ data: [] }),
+    ]);
+    const list = (inOrg.data ?? []) as Store[];
+    setStores(list);
+    setMineOutside((outside.data ?? []) as Store[]);
+    if (list.length) {
+      const b = await supabase
+        .from('rental_bookings')
+        .select('id, listing_id, renter_name, renter_phone, units, duration, start_date, amount, payment_ref, status, handled_by, created_at')
+        .in('listing_id', list.map((x) => x.id))
+        .order('created_at', { ascending: false })
+        .limit(60);
+      setBookings((b.data ?? []) as Booking[]);
+    } else setBookings([]);
+  }, [org.id, org.role]);
+  useEffect(() => {
+    let live = true;
+    const run = async () => {
+      if (live) await load();
+    };
+    void run();
+    return () => {
+      live = false;
+    };
+  }, [load]);
+
+  const run: Act = async (key, work, done) => {
+    await act(key, work, done);
+    await load();
+  };
+  const who = (id: string | null) => (id ? (members.find((m) => m.user_id === id)?.label ?? 'someone no longer in the business') : null);
+  const title = (id: string) => stores.find((x) => x.id === id)?.title ?? '';
+  const decline = (b: Booking) => {
+    const note = window.prompt('Decline — a short reason for the farmer (optional):');
+    if (note !== null) void run(b.id, () => supabase.rpc('kr_booking_action', { p_booking: b.id, p_action: 'reject', p_note: note.trim() || null }), 'Declined.');
+  };
+
+  return (
+    <>
+      <section data-business-stores>
+        <h3 className="flex items-center gap-2 font-semibold"><Snowflake className="h-5 w-5 text-emerald-700" aria-hidden /> Cold stores and machines</h3>
+        {stores.length === 0 && <p className="text-sm">None in this business yet.{org.role === 'owner' ? ' Put in a store you listed (below).' : ' The owner puts them in.'}</p>}
+        <ul className="!list-none space-y-2 !pl-0">
+          {stores.map((x) => (
+            <li key={x.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white p-3 ring-1 ring-slate-200">
+              <span>{x.title} · {x.district}{!x.active && ' · hidden from farmers'}</span>
+              {x.owner_id === me && !suspended && (
+                <button
+                  type="button"
+                  className={GHOST}
+                  disabled={busy !== null}
+                  onClick={() => window.confirm(`Take ${x.title} out of ${org.name}? Your team will stop seeing its bookings, and farmers will pay your own details.`) && void run(x.id, () => supabase.rpc('kr_org_attach_listing', { p_listing: x.id, p_org: null }), 'Taken out of the business.')}
+                >
+                  Take out
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+        {mineOutside.length > 0 && !suspended && (
+          <>
+            <p className="mt-2 text-sm text-slate-600">Your stores and machines not in a business. Put one in: your team sees and handles its bookings, and farmers pay this business&apos;s bank / UPI details (when set). Only you change the store itself.</p>
+            <ul className="!list-none space-y-2 !pl-0">
+              {mineOutside.map((x) => (
+                <li key={x.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+                  <span>{x.title} · {x.district}</span>
+                  <button type="button" className={BUTTON} disabled={busy !== null} onClick={() => void run(x.id, () => supabase.rpc('kr_org_attach_listing', { p_listing: x.id, p_org: org.id }), `${x.title} is now in ${org.name}.`)}>
+                    <Plus className="h-4 w-4" aria-hidden /> Put in {org.name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
+
+      {stores.length > 0 && (
+        <section data-business-bookings>
+          <h3 className="flex items-center gap-2 font-semibold"><CalendarCheck className="h-5 w-5 text-emerald-700" aria-hidden /> Bookings</h3>
+          <p className="text-sm text-slate-600">Confirm only after the money has reached the business&apos;s account — check the reference number in your bank or UPI app. KashRoot never holds money.</p>
+          {bookings.length === 0 && <p className="text-sm">No bookings yet.</p>}
+          <ul className="!list-none space-y-2 !pl-0">
+            {bookings.map((b) => (
+              <li key={b.id} className="rounded-xl bg-white p-3 text-sm ring-1 ring-slate-200">
+                <p className="font-semibold">{title(b.listing_id)} · {b.renter_name} · <a className="underline" href={`tel:${b.renter_phone}`}>{b.renter_phone}</a></p>
+                <p className="text-slate-700">
+                  {b.units} · {b.duration} {b.duration === 1 ? 'month' : 'months'} from {day(b.start_date)} · ₹{Number(b.amount).toLocaleString('en-IN')} · <strong>{STATUS[b.status] ?? b.status}</strong>
+                  {b.payment_ref && <> · reference {b.payment_ref}</>}
+                  {who(b.handled_by) && <> · by {who(b.handled_by)}</>}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {!suspended && (b.status === 'requested' || b.status === 'paid') && (
+                    <>
+                      <button
+                        type="button"
+                        className={BUTTON}
+                        disabled={busy !== null}
+                        onClick={() => window.confirm(b.status === 'paid' ? `Confirm? First check reference ${b.payment_ref} reached the account.` : 'Confirm without a payment reference yet?') && void run(b.id, () => supabase.rpc('kr_booking_action', { p_booking: b.id, p_action: 'confirm' }), 'Confirmed. The farmer sees it.')}
+                      >
+                        <Check className="h-4 w-4" aria-hidden /> Confirm
+                      </button>
+                      <button type="button" className={`${GHOST} text-rose-800`} disabled={busy !== null} onClick={() => decline(b)}>
+                        <X className="h-4 w-4" aria-hidden /> Decline
+                      </button>
+                    </>
+                  )}
+                  {!suspended && b.status === 'confirmed' && (
+                    <button
+                      type="button"
+                      className={GHOST}
+                      disabled={busy !== null}
+                      onClick={() => window.confirm('Mark completed? The space becomes free again.') && void run(b.id, () => supabase.rpc('kr_booking_action', { p_booking: b.id, p_action: 'complete' }), 'Completed.')}
+                    >
+                      <Check className="h-4 w-4" aria-hidden /> Completed
+                    </button>
+                  )}
+                  {(b.status === 'paid' || b.status === 'confirmed' || b.status === 'completed') && (
+                    <Link className={GHOST} href={`/rental/receipt/${b.id}`}><ReceiptText className="h-4 w-4" aria-hidden /> Receipt</Link>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </>
   );
 }

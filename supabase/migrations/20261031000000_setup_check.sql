@@ -70,7 +70,8 @@ language sql stable security definer set search_path = public as $$
     (34, 'Security gate',               '20261112000000_security_gate.sql',              exists (select 1 from pg_constraint c where c.conname = 'security_events_kind_check' and pg_get_constraintdef(c.oid) like '%gate_passed%')),
     (35, 'Super Admin and audit log',   '20261113000000_super_admin.sql',                public.kr_setup_has_function('kr_super_overview')),
     (36, 'Gate: ask everyone to tap',   '20261114000000_gate_tap.sql',                   public.kr_setup_has_function('kr_gate_settings')),
-    (37, 'Business Owner consoles',     '20261115000000_business_consoles.sql',          public.kr_setup_has_function('kr_org_create'))
+    (37, 'Business Owner consoles',     '20261115000000_business_consoles.sql',          public.kr_setup_has_function('kr_org_create')),
+    (38, 'Businesses run cold stores',  '20261116000000_business_listings.sql',         public.kr_setup_has_function('kr_org_attach_listing'))
   ) as s(step, part, file, ok)
   order by s.step
 $$;
