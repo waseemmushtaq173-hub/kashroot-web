@@ -31,12 +31,16 @@ test('a forged or expired team pass opens nothing', async ({ request }) => {
 });
 
 test('the team pass is given only when the database confirms the team', async ({ request }) => {
+  // headers() leaves Set-Cookie out; headersArray() has it.
+  const cookies = (r: { headersArray: () => { name: string; value: string }[] }) =>
+    r.headersArray().filter((h) => h.name.toLowerCase() === 'set-cookie').map((h) => h.value).join(' | ');
   const none = await request.post('/api/team/session');
   expect(none.status()).toBe(401);
-  expect(none.headers()['set-cookie'] ?? '').toContain('kr_team=;');
+  expect(cookies(none)).toContain('kr_team=;');
   const fake = await request.post('/api/team/session', { headers: { authorization: 'Bearer not-a-real-token' } });
-  expect([403, 429]).toContain(fake.status());
-  expect(fake.headers()['set-cookie'] ?? '').not.toMatch(/kr_team=[^;]/);
+  // Live: refused by the database (403). A local copy without Supabase settings: not available (503).
+  expect(/^https:/.test(process.env.KR_BASE_URL ?? '') ? [403, 429] : [403, 429, 503]).toContain(fake.status());
+  expect(cookies(fake)).not.toMatch(/kr_team=[^;]/);
 });
 
 test('opening the Admin sign-in does not show Admin to anyone on this device', async ({ page }) => {
