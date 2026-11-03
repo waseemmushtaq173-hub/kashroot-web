@@ -126,3 +126,10 @@ test('two-step sign-in has a page for everyone, in four languages', async ({ pag
   await expect(page.getByRole('link', { name: 'Sign in' }).first()).toBeVisible();
   await expect(page.locator('[data-two-step="setup"]')).toHaveCount(0);
 });
+
+test('My business: signed out, asked to sign in first and shown nothing of any business', async ({ page }) => {
+  await page.goto('/account/business');
+  await expect(page.getByRole('heading', { name: 'My business' }).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Sign in' }).first()).toBeVisible();
+  await expect(page.locator('[data-business-view], [data-business-new], [data-business-payout]')).toHaveCount(0);
+});

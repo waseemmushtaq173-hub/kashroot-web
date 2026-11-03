@@ -7,10 +7,12 @@
  * never an Aadhaar number —, last sign-in, suspension), suspend / re-enable
  * with a reason the account owner sees, give / take Admin, an export (CSV,
  * made here; the export itself is recorded), and the audit log, which nobody
- * can change or delete.
+ * can change or delete. Businesses (20261115000000_business_consoles.sql):
+ * every one, its owners and size, suspend / re-enable with a reason its
+ * people see.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Ban, Crown, Download, Hand, RotateCcw, ScrollText, Search, Settings, ShieldCheck, ShieldOff } from 'lucide-react';
+import { Ban, Building2, Crown, Download, Hand, RotateCcw, ScrollText, Search, Settings, ShieldCheck, ShieldOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { RefreshBtn } from '@/components/admin/RefreshBtn';
@@ -33,6 +35,17 @@ interface Person {
   identity: string | null;
   suspended: boolean;
   suspended_reason: string | null;
+}
+interface Business {
+  id: string;
+  name: string;
+  kind: string;
+  created_at: string;
+  members: number;
+  owners: string[];
+  suspended: boolean;
+  suspended_reason: string | null;
+  has_payout: boolean;
 }
 interface AuditRow {
   id: number;
@@ -79,6 +92,7 @@ export function SuperAdminPanel() {
   const [overview, setOverview] = useState<Record<string, number> | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
   const [audit, setAudit] = useState<AuditRow[]>([]);
+  const [businesses, setBusinesses] = useState<Business[] | null>(null);
   const [search, setSearch] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -86,15 +100,18 @@ export function SuperAdminPanel() {
   const [tap, setTap] = useState<boolean | null>(null);
 
   const load = useCallback(async (q = '') => {
-    const [o, p, a] = await Promise.all([
+    const [o, p, a, b] = await Promise.all([
       supabase.rpc('kr_super_overview'),
       supabase.rpc('kr_super_people', { p_search: q, p_limit: 200 }),
       supabase.from('audit_log').select('id, at, actor_email, action, target, before, after, reason').order('at', { ascending: false }).limit(100),
+      supabase.rpc('kr_super_orgs'),
     ]);
     setError(o.error ? 'Not available: run supabase/RUN_THIS_ONCE.sql (Setup check row 35), set yourself as Super Admin by SQL, then sign in again.' : null);
     setOverview((o.data as Record<string, number> | null) ?? null);
     setPeople(((p.data ?? []) as Person[]).map((x) => ({ ...x, portals: Array.isArray(x.portals) ? x.portals : [] })));
     setAudit((a.data ?? []) as AuditRow[]);
+    // null: the businesses migration is not run yet (Setup check row 37).
+    setBusinesses(b.error ? null : ((b.data ?? []) as Business[]));
     const gate = (await fetch('/api/gate', { cache: 'no-store' }).then((r) => r.json()).catch(() => ({}))) as { tap?: boolean };
     setTap(Boolean(gate.tap));
   }, []);
@@ -130,6 +147,13 @@ export function SuperAdminPanel() {
   const setAdmin = (p: Person, admin: boolean) => {
     if (!window.confirm(admin ? `Give Admin to ${p.email}? They will need two-step sign-in and an access code.` : `Take Admin from ${p.email}?`)) return;
     void act(p.id, async () => supabase.rpc('kr_super_set_admin', { p_user: p.id, p_admin: admin, p_reason: null }), admin ? 'Admin given.' : 'Admin taken away.');
+  };
+  const suspendBusiness = (b: Business, on: boolean) => {
+    const reason = on
+      ? window.prompt(`Suspend the business “${b.name}”? Write the reason — its people see it. Nothing in it can change until you re-enable it.`)
+      : (window.prompt(`Re-enable “${b.name}”? A note for the audit log (optional).`) ?? '');
+    if (on && (!reason || reason.trim().length < 3)) return;
+    void act(b.id, async () => supabase.rpc('kr_super_suspend_org', { p_org: b.id, p_reason: (reason ?? '').trim(), p_suspend: on }), on ? 'Business suspended.' : 'Business re-enabled.');
   };
   const exportCsv = async () => {
     const file = new Blob([csv(people)], { type: 'text/csv;charset=utf-8' });
@@ -229,6 +253,37 @@ export function SuperAdminPanel() {
             </li>
           ))}
         </ul>
+      </Panel>
+
+      <Panel theme={theme} title="Businesses" icon={Building2}>
+        {businesses === null ? (
+          <p className="text-sm text-amber-900">Not available yet: run supabase/RUN_THIS_ONCE.sql (Setup check row 37).</p>
+        ) : (
+          <ul className="space-y-2" data-super-businesses>
+            {businesses.length === 0 && <li className="text-sm text-slate-500">No businesses yet.</li>}
+            {businesses.map((b) => (
+              <li key={b.id} className="rounded-xl bg-white p-3 text-sm ring-1 ring-slate-200">
+                <div className="flex flex-wrap items-center gap-2">
+                  <strong className="text-slate-900">{b.name}</strong>
+                  <Badge tone="slate">{b.kind.replace('_', ' ')}</Badge>
+                  {b.has_payout ? <Badge tone="green">bank / UPI set</Badge> : <Badge tone="slate">no bank / UPI</Badge>}
+                  {b.suspended && <Badge tone="red">suspended</Badge>}
+                </div>
+                <p className="mt-1 break-all text-xs text-slate-600">
+                  {b.members} {b.members === 1 ? 'person' : 'people'} · owner {b.owners.join(', ') || '—'} · since {when(b.created_at)}
+                  {b.suspended_reason && <> · reason: {b.suspended_reason}</>}
+                </p>
+                <div className="mt-2">
+                  {b.suspended ? (
+                    <Btn theme={theme} variant="ghost" icon={RotateCcw} className="min-h-11" disabled={busy === b.id} onClick={() => suspendBusiness(b, false)}>Re-enable</Btn>
+                  ) : (
+                    <Btn theme={theme} variant="ghost" icon={Ban} className="min-h-11 text-rose-800" disabled={busy === b.id} onClick={() => suspendBusiness(b, true)}>Suspend</Btn>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </Panel>
 
       <Panel theme={theme} title="Audit log (nobody can change or delete it)" icon={ScrollText}>

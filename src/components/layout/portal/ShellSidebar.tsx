@@ -8,7 +8,7 @@
  */
 import Link from 'next/link';
 import { useEffect, useRef, type ElementType, type ReactNode } from 'react';
-import { ArrowLeft, Home, LifeBuoy, LogOut, ShieldCheck, UserRound, X } from 'lucide-react';
+import { ArrowLeft, Building2, Home, LifeBuoy, LogOut, ShieldCheck, UserRound, X } from 'lucide-react';
 
 import { BrandMark } from '@/components/brand/Shikara';
 import { ChinarLeaf } from '@/components/brand/ChinarLeaf';
@@ -121,6 +121,14 @@ export function SidebarContent(props: SidebarProps) {
               {/* Optional for farmers and buyers; required for admins (the Admin portal leads them to it). */}
               <MenuLink href="/account/two-step" icon={ShieldCheck} onNavigate={onNavigate} outline={theme.outline} size={size}>
                 Two-step sign-in
+              </MenuLink>
+            </li>
+          )}
+          {onSignOut && (
+            <li>
+              {/* Cold stores, dealers and shops run by more than one person: owner, managers, staff. */}
+              <MenuLink href="/account/business" icon={Building2} onNavigate={onNavigate} outline={theme.outline} size={size}>
+                My business
               </MenuLink>
             </li>
           )}

@@ -69,7 +69,8 @@ language sql stable security definer set search_path = public as $$
     (33, 'Admin two-step sign-in',      '20261111000000_admin_mfa.sql',                  public.kr_setup_has_function('kr_has_mfa')),
     (34, 'Security gate',               '20261112000000_security_gate.sql',              exists (select 1 from pg_constraint c where c.conname = 'security_events_kind_check' and pg_get_constraintdef(c.oid) like '%gate_passed%')),
     (35, 'Super Admin and audit log',   '20261113000000_super_admin.sql',                public.kr_setup_has_function('kr_super_overview')),
-    (36, 'Gate: ask everyone to tap',   '20261114000000_gate_tap.sql',                   public.kr_setup_has_function('kr_gate_settings'))
+    (36, 'Gate: ask everyone to tap',   '20261114000000_gate_tap.sql',                   public.kr_setup_has_function('kr_gate_settings')),
+    (37, 'Business Owner consoles',     '20261115000000_business_consoles.sql',          public.kr_setup_has_function('kr_org_create'))
   ) as s(step, part, file, ok)
   order by s.step
 $$;
