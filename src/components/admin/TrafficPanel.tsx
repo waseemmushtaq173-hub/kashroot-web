@@ -41,6 +41,7 @@ const KIND: Record<string, { label: string; warn?: boolean }> = {
 
 /** What each security-check code means (Cloudflare's codes, KashRoot's own, Supabase's reasons). */
 const CODE_MEANING: [RegExp, string][] = [
+  [/\[number\]/, 'an older record, saved before codes were kept whole — press “Count from now” to see only new events'],
   [/^1102/, 'this site address is not allowed by the Cloudflare widget'],
   [/^1101/, 'the site key is wrong or not for this widget'],
   [/^1105|^1106/, 'this browser is too old or unsupported'],

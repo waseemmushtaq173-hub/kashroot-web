@@ -22,7 +22,7 @@
  * and every query above is limited to admins in the database itself.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BarChart3, DatabaseZap, GraduationCap, LifeBuoy, ListChecks, LockKeyhole, PackageX, Snowflake, Users, Wallet } from 'lucide-react';
+import { BarChart3, Crown, DatabaseZap, GraduationCap, LifeBuoy, ListChecks, LockKeyhole, PackageX, Snowflake, Users, Wallet } from 'lucide-react';
 
 import { AccountsPanel } from '@/components/admin/AccountsPanel';
 import { AdminLock } from '@/components/admin/AdminLock';
@@ -35,10 +35,11 @@ import { RegistryPanel } from '@/components/admin/RegistryPanel';
 import { ReportedOrders, loadReportedOrders } from '@/components/admin/ReportedOrders';
 import { SecurityPanel } from '@/components/admin/SecurityPanel';
 import { SetupCheckPanel } from '@/components/admin/SetupCheckPanel';
+import { isSuperAdmin, SuperAdminPanel } from '@/components/admin/SuperAdminPanel';
 import { PortalShell } from '@/components/layout/PortalShell';
 import { supabase } from '@/lib/db/client';
 
-type Tab = 'approvals' | 'accounts' | 'problems' | 'help' | 'contributors' | 'coldstores' | 'registry' | 'numbers' | 'security' | 'setup';
+type Tab = 'super' | 'approvals' | 'accounts' | 'problems' | 'help' | 'contributors' | 'coldstores' | 'registry' | 'numbers' | 'security' | 'setup';
 
 interface Counts {
   waiting: number;
@@ -60,6 +61,14 @@ export default function AdminConsolePage() {
 
 function AdminConsole() {
   const [tab, setTab] = useState<Tab>('approvals');
+  const [superAdmin, setSuperAdmin] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void isSuperAdmin().then((yes) => live && setSuperAdmin(yes));
+    return () => {
+      live = false;
+    };
+  }, []);
   // Becomes true once the admin picks a tab, so loading never switches it.
   const opened = useRef(false);
   const [counts, setCounts] = useState<Counts | null>(null);
@@ -118,6 +127,8 @@ function AdminConsole() {
         },
       ]}
       tabs={[
+        // The one Super Admin only (the database checks it again for every call).
+        ...(superAdmin ? [{ id: 'super', label: 'Super Admin', icon: Crown }] : []),
         { id: 'approvals', label: 'Approvals', icon: GraduationCap, count: counts?.waiting || undefined },
         { id: 'accounts', label: 'Accounts', icon: Users, count: counts?.accounts || undefined },
         { id: 'problems', label: 'Problems', icon: PackageX, count: counts?.problems || undefined },
@@ -132,6 +143,7 @@ function AdminConsole() {
       activeTab={tab}
       onTabChange={(id) => show(id as Tab)}
     >
+      {tab === 'super' && superAdmin && <SuperAdminPanel />}
       {tab === 'approvals' && <ApprovalsPanel />}
       {tab === 'accounts' && <AccountsPanel onRefreshed={load} />}
       {tab === 'problems' && <ReportedOrders />}
