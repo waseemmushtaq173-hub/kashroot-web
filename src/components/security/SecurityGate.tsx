@@ -183,7 +183,7 @@ export function SecurityGate({ place, onPass, children }: { place: string; onPas
   return (
     <div className="mt-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200" data-security-gate={state} role="status" aria-live="polite">
       <p dir={t.dir} className="flex items-center gap-2 text-base font-semibold text-slate-900">
-        {problem || waitingForTap ? <ShieldCheck className="h-5 w-5 shrink-0 text-amber-700" aria-hidden /> : <Loader2 className="h-5 w-5 shrink-0 animate-spin text-emerald-700" aria-hidden />}
+        {problem || waitingForTap || check.status === 'failed' ? <ShieldCheck className="h-5 w-5 shrink-0 text-amber-700" aria-hidden /> : <Loader2 className="h-5 w-5 shrink-0 animate-spin text-emerald-700" aria-hidden />}
         {t.title}
       </p>
       <p dir={t.dir} className="mt-1 text-sm text-slate-600">{t.why}</p>
