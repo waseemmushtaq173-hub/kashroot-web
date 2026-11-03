@@ -4947,9 +4947,11 @@ grant execute on function public.kr_email_status() to authenticated;
 
 -- ── The security log takes the email outcomes too ──
 alter table public.security_events drop constraint if exists security_events_kind_check;
+-- The one complete list (the same in every migration that sets it, newest: 20261112000000_security_gate.sql),
+-- so RUN_THIS_ONCE.sql can be run again on a database that already holds every kind.
 alter table public.security_events add constraint security_events_kind_check check (kind in (
   'signin_ok', 'signin_fail', 'signin_paused', 'signup', 'signup_paused', 'reset_email', 'email_paused',
-  'rate_limited', 'api_error', 'bot_check_failed', 'forbidden', 'email_sent', 'email_failed'));
+  'rate_limited', 'api_error', 'bot_check_failed', 'forbidden', 'email_sent', 'email_failed', 'gate_passed'));
 
 notify pgrst, 'reload schema';
 
@@ -5098,8 +5100,10 @@ grant execute on function public.kr_support_note(uuid, text) to authenticated;
 
 -- ── Emails ──
 alter table public.email_outbox drop constraint if exists email_outbox_kind_check;
+-- The one complete list (the same in every migration that sets it, newest: 20261110000000_signin_lockout.sql),
+-- so RUN_THIS_ONCE.sql can be run again on a database that already holds every kind.
 alter table public.email_outbox add constraint email_outbox_kind_check check (kind in (
-  'help_new', 'help_ack', 'help_reply', 'help_resolved', 'payout_changed', 'password_changed', 'email_changed', 'phone_changed', 'new_signin'));
+  'help_new', 'help_ack', 'help_reply', 'help_resolved', 'payout_changed', 'password_changed', 'email_changed', 'phone_changed', 'new_signin', 'signin_locked'));
 
 -- A new request: to the support inbox, and "We got your request" to the person when they gave an email.
 create or replace function public.kr_email_on_help() returns trigger

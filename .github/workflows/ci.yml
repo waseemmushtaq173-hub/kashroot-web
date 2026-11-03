@@ -53,5 +53,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: supabase/tests/run.sh (throwaway Postgres 16 in Docker)
+      - name: RUN_THIS_ONCE.sql holds every migration; re-set checks are identical
+        run: node scripts/check-sql.mjs
+      - name: supabase/tests/run.sh (throwaway Postgres 16; RUN_THIS_ONCE.sql loaded twice, the second time over every kind of row)
         run: sh supabase/tests/run.sh

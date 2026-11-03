@@ -13,6 +13,11 @@ sleep 2
 docker exec "$name" psql -U postgres -q -f /t/00_supabase_stub.sql >/dev/null
 docker exec -e PGOPTIONS="-c client_min_messages=warning" "$name" psql -U postgres -q -v ON_ERROR_STOP=1 -f /s/RUN_THIS_ONCE.sql >/dev/null
 echo "RUN_THIS_ONCE.sql: loaded"
+# Run it again on a database that already holds every kind/status the checks allow (05_every_kind.sql):
+# an older migration replaying a shorter list would fail here (ERROR 23514). In one transaction, rolled
+# back, so the tests below start from the same clean database.
+docker exec -e PGOPTIONS="-c client_min_messages=warning" "$name" sh -c "{ echo 'begin;'; cat /t/05_every_kind.sql /s/RUN_THIS_ONCE.sql; echo 'rollback;'; } | psql -U postgres -q -v ON_ERROR_STOP=1" >/dev/null
+echo "RUN_THIS_ONCE.sql: loaded again over every kind of row — re-runnable"
 failed=0
 for f in "$here"/[1-9]*.sql; do
   t=$(basename "$f")

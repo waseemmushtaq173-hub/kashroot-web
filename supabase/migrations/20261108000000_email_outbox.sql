@@ -171,8 +171,10 @@ grant execute on function public.kr_email_status() to authenticated;
 
 -- ── The security log takes the email outcomes too ──
 alter table public.security_events drop constraint if exists security_events_kind_check;
+-- The one complete list (the same in every migration that sets it, newest: 20261112000000_security_gate.sql),
+-- so RUN_THIS_ONCE.sql can be run again on a database that already holds every kind.
 alter table public.security_events add constraint security_events_kind_check check (kind in (
   'signin_ok', 'signin_fail', 'signin_paused', 'signup', 'signup_paused', 'reset_email', 'email_paused',
-  'rate_limited', 'api_error', 'bot_check_failed', 'forbidden', 'email_sent', 'email_failed'));
+  'rate_limited', 'api_error', 'bot_check_failed', 'forbidden', 'email_sent', 'email_failed', 'gate_passed'));
 
 notify pgrst, 'reload schema';
