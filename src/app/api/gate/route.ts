@@ -17,6 +17,7 @@
 import { NextResponse } from 'next/server';
 
 import { noteBotFailure } from '@/lib/server/botAlert';
+import { checkContext } from '@/lib/server/browserFamily';
 import { gateCookie, GATE_PLACES, gateOn, passedGate } from '@/lib/server/gate';
 import { checkGateToken, gateReasonText } from '@/lib/server/humanCheck';
 import { securityEvent } from '@/lib/server/securityLog';
@@ -52,7 +53,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const begun = Date.now();
-  const body = (await request.json().catch(() => null)) as { token?: unknown; place?: unknown; tapped?: unknown; confirmed?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { token?: unknown; place?: unknown; tapped?: unknown; confirmed?: unknown; brave?: unknown; retries?: unknown } | null;
   const place = String(body?.place ?? '');
   if (!GATE_PLACES.test(place)) return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
   if (!hasSigningSecret()) return NextResponse.json({ ok: true, off: true });
@@ -67,11 +68,11 @@ export async function POST(request: Request) {
   console.info(JSON.stringify({ 'kr-gate': place, ok: result.ok && !limited, reason: limited ? 'rate-limited' : result.reason, limitMs, verifyMs, totalMs: Date.now() - begun }));
   if (limited) return NextResponse.json({ error: 'Security check failed: too many tries from this network. Please wait a minute, then tap Retry.' }, { status: 429, headers: timing });
   if (!result.ok) {
-    securityEvent('bot_check_failed', { request, code: `gate: ${result.reason}`, detail: `(gate-${place})` });
+    securityEvent('bot_check_failed', { request, code: `gate: ${result.reason}`, detail: `(gate-${place})${checkContext(request, body)}` });
     noteBotFailure(request);
     return NextResponse.json({ error: `Security check failed: ${gateReasonText(result.reason)}`, reason: result.reason }, { status: 403, headers: timing });
   }
   const how = body?.confirmed === true ? '(after the confirm button)' : body?.tapped === true ? '(after a tap)' : '(silent)';
-  securityEvent('gate_passed', { request, code: place, detail: how });
+  securityEvent('gate_passed', { request, code: place, detail: `${how}${checkContext(request, body)}` });
   return NextResponse.json({ ok: true }, { headers: { ...timing, 'set-cookie': gateCookie(request, place) } });
 }

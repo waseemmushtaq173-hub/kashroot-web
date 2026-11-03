@@ -100,6 +100,8 @@ export function TrafficPanel() {
   const [mailErrors, setMailErrors] = useState<{ at: string; detail: string }[]>([]);
   // The security gate, per portal: passed, refused (and how many of each were yours).
   const [gates, setGates] = useState<{ place: string; silent: number; tapped: number; button: number; failed: number; yours: number }[]>([]);
+  // The check, by browser family and system ("Chrome on Android", no personal data): passed, failed on the first try, failed after Retry, and 600010s.
+  const [browsers, setBrowsers] = useState<{ family: string; passed: number; firstFail: number; retryFail: number; c600010: number }[]>([]);
   // "Count from now": only what happened after this moment (kept in this browser).
   const [since, setSince] = useState<string | null>(null);
 
@@ -117,8 +119,21 @@ export function TrafficPanel() {
     const byKind = new Map<string, { all: number; yours: number }>();
     const byCode = new Map<string, { all: number; yours: number }>();
     const byGate = new Map<string, { silent: number; tapped: number; button: number; failed: number; yours: number }>();
+    const byBrowser = new Map<string, { passed: number; firstFail: number; retryFail: number; c600010: number }>();
     for (const e of events) {
       const yours = Boolean(mine) && e.ip_hash === mine;
+      // " · Chrome on Android · first try" (lib/server/browserFamily), on gate passes and check failures since it was added.
+      const ctx = (e.detail ?? '').match(/ · (.+?) · (first try|after Retry)/);
+      if (ctx && (e.kind === 'gate_passed' || e.kind === 'bot_check_failed')) {
+        const b = byBrowser.get(ctx[1]) ?? { passed: 0, firstFail: 0, retryFail: 0, c600010: 0 };
+        const failed = e.kind === 'bot_check_failed';
+        byBrowser.set(ctx[1], {
+          passed: b.passed + (failed ? 0 : 1),
+          firstFail: b.firstFail + (failed && ctx[2] === 'first try' ? 1 : 0),
+          retryFail: b.retryFail + (failed && ctx[2] === 'after Retry' ? 1 : 0),
+          c600010: b.c600010 + (failed && /\b600010\b/.test(e.detail ?? '') ? 1 : 0),
+        });
+      }
       // "gate_passed": "<place> (silent | after a tap | after the confirm button)"; a refused gate: "gate: <reason> (gate-<place>)".
       const passed = e.kind === 'gate_passed';
       const gatePlace = passed ? (e.detail ?? '').trim().split(/\s/)[0] : (e.detail ?? '').match(/^gate: .*\(gate-([a-z]+)\)/)?.[1];
@@ -138,13 +153,14 @@ export function TrafficPanel() {
       if (e.kind !== 'bot_check_failed') continue;
       // "browser: 110200 (signin) on kashroot-x.vercel.app" → "110200 on kashroot-x.vercel.app";
       // "browser: supabase-invalid-input-response (auth)" → that reason; server-side ones as they are.
-      const d = (e.detail ?? 'unknown').replace(/^browser:\s*/, '');
+      const d = (e.detail ?? 'unknown').replace(/^browser:\s*/, '').replace(/ · .+? · (first try|after Retry)/, '');
       const host = d.match(/ on ([a-z0-9.-]+)$/)?.[1];
       const code = `${d.replace(/ on [a-z0-9.-]+$/, '').replace(/\s*\(.*\)$/, '')}${host ? ` on ${host}` : ''}`;
       const c = byCode.get(code) ?? { all: 0, yours: 0 };
       byCode.set(code, { all: c.all + 1, yours: c.yours + (yours ? 1 : 0) });
     }
     setGates([...byGate].map(([place, v]) => ({ place, ...v })).sort((x, y) => y.silent + y.tapped + y.button + y.failed - (x.silent + x.tapped + x.button + x.failed)));
+    setBrowsers([...byBrowser].map(([family, v]) => ({ family, ...v })).sort((x, y) => y.firstFail + y.retryFail - (x.firstFail + x.retryFail) || y.passed - x.passed));
     setKinds([...byKind].map(([kind, v]) => ({ kind, ...v })).sort((x, y) => y.all - x.all));
     setBotCodes([...byCode].map(([code, v]) => ({ code, ...v })).sort((x, y) => y.all - x.all));
     setMailErrors(events.filter((e) => e.kind === 'email_failed').slice(0, 5).map((e) => ({ at: e.at, detail: e.detail ?? '' })));
@@ -257,6 +273,38 @@ export function TrafficPanel() {
             ))}
           </ul>
           <p className="mt-1 text-xs text-slate-500">“Silent” and “after a tap” are as the person’s browser saw Cloudflare; the token itself is always checked with Cloudflare on the server.</p>
+        </div>
+      )}
+      {browsers.length > 0 && (
+        <div className="mt-4" data-check-browsers>
+          <p className="text-sm font-semibold text-slate-800">“I am human” check, by browser</p>
+          <div className="overflow-x-auto">
+            <table className="mt-1 w-full text-left text-xs">
+              <thead className="uppercase text-slate-500">
+                <tr>
+                  <th className="py-1.5 pr-3">Browser</th>
+                  <th className="py-1.5 pr-3">Gate passed</th>
+                  <th className="py-1.5 pr-3">Failed, first try</th>
+                  <th className="py-1.5 pr-3">Failed after Retry</th>
+                  <th className="py-1.5">Of those, 600010</th>
+                </tr>
+              </thead>
+              <tbody>
+                {browsers.map((b) => (
+                  <tr key={b.family} className="border-t border-slate-100">
+                    <td className="py-1.5 pr-3 font-semibold text-slate-900">{b.family}</td>
+                    <td className="py-1.5 pr-3">{b.passed}</td>
+                    <td className={`py-1.5 pr-3 ${b.firstFail ? 'text-amber-800' : ''}`}>{b.firstFail}</td>
+                    <td className={`py-1.5 pr-3 ${b.retryFail ? 'text-amber-800' : ''}`}>{b.retryFail}</td>
+                    <td className="py-1.5">{b.c600010}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            Failures are failure reports: one person can send several (each automatic try reports its code). Browser family and system only — no address, version or anything personal. Brave is told apart by the page itself.
+          </p>
         </div>
       )}
       {botCodes.length > 0 && (

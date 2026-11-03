@@ -120,31 +120,53 @@ function loadTurnstile(): Promise<Turnstile | null> {
   return loading;
 }
 
+/** How many times the person pressed Retry on this page (Admin → Security counts first tries and retries apart). */
+let userRetries = 0;
+export const noteRetry = () => {
+  userRetries += 1;
+};
+export const retriesSoFar = () => userRetries;
+
+/** Brave looks exactly like Chrome to the server; only the page can tell. */
+export const isBrave = () => typeof navigator !== 'undefined' && 'brave' in navigator;
+
+/** Advice for this very browser, after the reason (what most often stops Cloudflare there). */
+export function browserHelp(): string {
+  if (typeof navigator === 'undefined') return '';
+  const ua = navigator.userAgent;
+  if (/FBAN|FBAV|Instagram|WhatsApp|Line\/|; wv\)|Snapchat/i.test(ua)) return ' You are in an app’s own browser: tap ⋮ or ··· and choose “Open in Chrome” (or Safari on iPhone).';
+  if (isBrave()) return ' In Brave: tap the lion icon in the address bar and turn Shields off for this site, then Retry.';
+  if (/Firefox|FxiOS/i.test(ua)) return ' In Firefox: tap the shield in the address bar and turn off Enhanced Tracking Protection for this site, then Retry.';
+  if (/iPhone|iPad|iPod/i.test(ua)) return ' On iPhone: turn off content blockers and iCloud Private Relay for this site (aA in the address bar → Website Settings), or open it in Chrome.';
+  return ' An ad-blocker or privacy extension, or a VPN, often causes this: turn it off for this site, or open KashRoot in Chrome.';
+}
+
 /** The reason, in words, for a check that could not finish. */
 function problemText(code: string): string {
   if (code.startsWith('1102')) return 'The security check is not allowed on this address. Please open https://kashroot-web.vercel.app and try again.';
   if (code === 'unsupported') return 'This browser is too old for the security check. Please open KashRoot in Chrome.';
   if (code === 'script-blocked') return 'The security check couldn’t load — tap Retry, or turn off Brave Shields / ad-block for kashroot-web.vercel.app, or open it in Chrome.';
-  if (code.startsWith('300')) return `The security check failed in this browser (code ${code}). Tap Retry, or try another browser.`;
-  if (code.startsWith('600')) return `Cloudflare couldn’t confirm you’re human (code ${code}). Turn off VPN / ad-block / Brave Shields for this site, then tap Retry.`;
-  if (code === 'no-answer') return 'Couldn’t confirm you’re human. Tap the box, or turn off VPN / ad-block / Brave Shields for this site, or try another browser — then tap Retry.';
-  return `Couldn’t confirm you’re human (code ${code.slice(0, 20)}). Tap Retry, or try another browser.`;
+  if (code.startsWith('300')) return `The security check failed in this browser (code ${code}).${browserHelp()}`;
+  if (code.startsWith('600')) return `Cloudflare couldn’t confirm you’re human (code ${code}).${browserHelp()}`;
+  if (code === 'no-answer') return `Couldn’t confirm you’re human — Cloudflare did not answer.${browserHelp()}`;
+  return `Couldn’t confirm you’re human (code ${code.slice(0, 20)}).${browserHelp()}`;
 }
 
 /** Cloudflare's box in the person's language, where it has one. */
-function widgetLanguage(): string {
+function widgetLanguage(fixed = false): string {
+  // `fixed`: the simpler way names the language rather than letting Cloudflare guess.
   try {
     const l = localStorage.getItem('kr_lang') ?? document.documentElement.lang ?? '';
-    return l.startsWith('hi') ? 'hi' : l.startsWith('ur') ? 'ur' : 'auto';
+    return l.startsWith('hi') ? 'hi' : l.startsWith('ur') ? 'ur' : fixed ? 'en' : 'auto';
   } catch {
-    return 'auto';
+    return fixed ? 'en' : 'auto';
   }
 }
 
 /** The failure, logged on the server for Admin → Security: the code and the site address it happened on (nothing personal). */
 function report(code: string, action: string) {
   const host = typeof window === 'undefined' ? '' : window.location.hostname;
-  void fetch('/api/human', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ report: code.slice(0, 40), action, host }), keepalive: true }).catch(() => undefined);
+  void fetch('/api/human', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ report: code.slice(0, 40), action, host, brave: isBrave(), retries: userRetries }), keepalive: true }).catch(() => undefined);
 }
 
 type Status = 'working' | 'ready' | 'interactive' | 'failed';
@@ -201,6 +223,9 @@ export function useHumanCheck(
   const [waiting, setWaiting] = useState(false);
   const [took, setTook] = useState<number | null>(null);
   const [round, setRound] = useState(0);
+  // Checks that ended in failure on this page; after 2, a simpler way is offered.
+  const [failures, setFailures] = useState(0);
+  const [simple, setSimple] = useState(false);
   // Told of every fresh token at once (the security gate sends it the moment Cloudflare says "Success!").
   const tokenListener = useRef(onToken);
   useEffect(() => {
@@ -250,6 +275,7 @@ export function useHumanCheck(
       failure.current = text;
       setProblem(text);
       setStatus('failed');
+      setFailures((n) => n + 1);
       waiters.current.splice(0).forEach((w) => w.reject(new HumanCheckError(text)));
     };
     // No token and no tap asked for within 8 s: counts as a failure (e.g. Shields blocking Cloudflare's frame).
@@ -287,9 +313,10 @@ export function useHumanCheck(
         sitekey: mode === 'test' ? TEST_SITE_KEY : TURNSTILE_SITE_KEY,
         action,
         // The security gate shows Cloudflare's box ("Verifying…" → "Success!"); a form's own check stays invisible.
-        appearance: visible ? 'always' : 'interaction-only',
-        size: 'flexible',
-        language: widgetLanguage(),
+        // The simpler way (offered after 2 failures): always shown, normal size, its language named.
+        appearance: visible || simple ? 'always' : 'interaction-only',
+        size: simple ? 'normal' : 'flexible',
+        language: widgetLanguage(simple),
         retry: 'never', // retried here (2, 5, 10 s), counted and logged — never twice over
         'refresh-expired': 'auto',
         'refresh-timeout': 'auto',
@@ -350,7 +377,7 @@ export function useHumanCheck(
       widget.current = null;
       current.current = null;
     };
-  }, [action, started, round, visible]);
+  }, [action, started, round, visible, simple]);
 
   const token = useCallback(async (): Promise<string | undefined> => {
     if (checkMode().mode === 'off') return undefined;
@@ -383,7 +410,9 @@ export function useHumanCheck(
   const start = useCallback(() => setStarted(true), []);
   const wasTapped = useCallback(() => tapped.current, []);
 
+  // A full fresh start: the old widget is removed and a new one drawn (the effect runs again).
   const retry = useCallback(() => {
+    noteRetry();
     failure.current = null;
     current.current = null;
     interactive.current = false;
@@ -409,6 +438,19 @@ export function useHumanCheck(
           <button type="button" onClick={retry} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-white px-3 font-semibold text-amber-950 ring-1 ring-amber-300 hover:bg-amber-100">
             <RotateCcw className="h-4 w-4" aria-hidden /> Retry
           </button>
+          {failures >= 2 && !simple && (
+            <button
+              type="button"
+              onClick={() => {
+                setSimple(true);
+                retry();
+              }}
+              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-white px-3 font-semibold text-amber-950 ring-1 ring-amber-300 hover:bg-amber-100"
+              data-check-simple
+            >
+              Try the check again in a simpler way
+            </button>
+          )}
         </div>
       )}
     </div>

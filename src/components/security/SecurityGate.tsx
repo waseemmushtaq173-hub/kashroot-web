@@ -27,7 +27,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { preconnect } from 'react-dom';
 import { Hand, Loader2, RotateCcw, ShieldCheck } from 'lucide-react';
 
-import { useHumanCheck, type HumanCheck } from '@/components/security/HumanCheck';
+import { isBrave, noteRetry, retriesSoFar, useHumanCheck, type HumanCheck } from '@/components/security/HumanCheck';
 import { rememberedLang } from '@/lib/langDetect';
 
 /** "Checking you're human…" in the person's language (Kashmiri readers get the Urdu wording). */
@@ -83,7 +83,7 @@ export function SecurityGate({ place, onPass, children }: { place: string; onPas
         const res = await fetch('/api/gate', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ token: tok, place, tapped: human.current?.wasTapped() ?? false, confirmed: tapNeeded.current }),
+          body: JSON.stringify({ token: tok, place, tapped: human.current?.wasTapped() ?? false, confirmed: tapNeeded.current, brave: isBrave(), retries: retriesSoFar() }),
           signal: AbortSignal.timeout(ANSWER_MS),
         });
         human.current?.used();
@@ -165,8 +165,10 @@ export function SecurityGate({ place, onPass, children }: { place: string; onPas
     hold.current = false;
     setRound((n) => n + 1);
     // A fresh token is usually ready already (the last one was used up); otherwise start Cloudflare's box again.
-    if (pending.current) trySend();
-    else check.retry();
+    if (pending.current) {
+      noteRetry();
+      trySend();
+    } else check.retry();
   };
 
   // Passed: the form starts its own check in the background, and the first field gets the focus.
