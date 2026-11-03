@@ -19,9 +19,9 @@ import { Badge, Btn, type PortalTheme } from '@/components/portal/kit';
 import { PayFirstOrder } from '@/components/shop/PayFirstOrder';
 import { ago, inr } from '@/lib/db/client';
 import { ORDER_STATUS, orderAction, type MarketOrder, type OrderAction } from '@/lib/db/market';
-import type { ShopSeller } from '@/lib/db/shop';
+import type { OrgDriver, ShopSeller } from '@/lib/db/shop';
 
-export function OrderCard({ order, as, theme, onChange, lines, seller }: {
+export function OrderCard({ order, as, theme, onChange, lines, seller, drivers }: {
   order: MarketOrder;
   as: 'buyer' | 'seller';
   theme: PortalTheme;
@@ -30,8 +30,10 @@ export function OrderCard({ order, as, theme, onChange, lines, seller }: {
   lines?: MarketOrder[];
   /** Pay-first orders, buyer side: who sells it. */
   seller?: ShopSeller | null;
+  /** Pay-first orders, seller side in My business: the business's drivers to give it to. */
+  drivers?: OrgDriver[];
 }) {
-  if (order.pay_first) return <PayFirstOrder lines={lines?.length ? lines : [order]} as={as} theme={theme} seller={seller} onChange={onChange} />;
+  if (order.pay_first) return <PayFirstOrder lines={lines?.length ? lines : [order]} as={as} theme={theme} seller={seller} onChange={onChange} drivers={drivers} />;
   return <PayAfterDeliveryOrder order={order} as={as} theme={theme} onChange={onChange} />;
 }
 

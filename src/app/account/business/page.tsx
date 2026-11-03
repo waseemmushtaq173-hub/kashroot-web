@@ -12,13 +12,20 @@
  * or machine and owns the business puts it in; then the whole team sees its
  * bookings and confirms, declines or completes them, and farmers pay the
  * business's details. Changing the store itself stays with whoever listed it.
+ * Shop and dealer products (20261118000000_business_orders.sql): the same for
+ * their orders — the team accepts, ships and hands them to one of the
+ * business's drivers, and buyers pay the business's details.
  */
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Building2, CalendarCheck, Check, Landmark, Loader2, Mail, Plus, ReceiptText, Snowflake, Trash2, UserPlus, X } from 'lucide-react';
+import { Building2, CalendarCheck, Check, Landmark, Loader2, Mail, Package, Plus, ReceiptText, ShoppingBag, Snowflake, Trash2, Truck, UserPlus, X } from 'lucide-react';
 
 import { InfoPage } from '@/components/layout/InfoPage';
+import { OrderCard } from '@/components/market/OrderCard';
+import { PORTAL_THEMES } from '@/components/portal/kit';
 import { TwoStepVerify, twoStepState } from '@/components/security/TwoStep';
+import type { MarketOrder } from '@/lib/db/market';
+import { groupBaskets, type OrgDriver } from '@/lib/db/shop';
 import { supabase } from '@/lib/supabase';
 
 type Role = 'owner' | 'manager' | 'staff';
@@ -85,6 +92,7 @@ const kindLabel = (k: string) => KINDS.find((x) => x.value === k)?.label ?? k;
 const INPUT = 'min-h-11 w-full rounded-xl border-0 bg-white px-3 ring-1 ring-slate-300 focus:ring-2 focus:ring-emerald-600';
 const BUTTON = 'inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-700 px-4 font-semibold text-white hover:bg-emerald-800 disabled:opacity-60';
 const GHOST = 'inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold ring-1 ring-slate-300 hover:bg-slate-50 disabled:opacity-60';
+const THEME = PORTAL_THEMES.seller;
 const day = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
 export default function BusinessPage() {
@@ -359,6 +367,8 @@ function BusinessView({ org, busy, act }: { org: Org & { role: Role }; busy: str
 
       <StoresSection org={org} members={members} suspended={suspended} busy={busy} act={act} />
 
+      <ShopSection org={org} members={members} suspended={suspended} busy={busy} act={act} />
+
       <PayoutSection org={org} payout={payout} suspended={suspended} busy={busy} run={run} />
     </>
   );
@@ -582,6 +592,171 @@ function StoresSection({ org, members, suspended, busy, act }: { org: Org & { ro
           </ul>
         </section>
       )}
+    </>
+  );
+}
+
+interface Product {
+  id: string;
+  product: string;
+  variety: string | null;
+  district: string;
+  active: boolean;
+  org_id: string | null;
+  seller_id: string;
+}
+
+/**
+ * Shop and dealer products in the business (20261118000000_business_orders.sql): the seller who owns
+ * the business puts theirs in; then everyone in it sees their orders and does the seller's steps,
+ * and ships with one of the business's drivers (owner and managers keep that list).
+ */
+function ShopSection({ org, members, suspended, busy, act }: { org: Org & { role: Role }; members: Member[]; suspended: boolean; busy: string | null; act: Act }) {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [mineOutside, setMineOutside] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<MarketOrder[]>([]);
+  const [drivers, setDrivers] = useState<OrgDriver[]>([]);
+  const [me, setMe] = useState<string | null>(null);
+  const [driver, setDriver] = useState({ name: '', phone: '', vehicle: '' });
+  const lead = org.role === 'owner' || org.role === 'manager';
+
+  const load = useCallback(async () => {
+    const { data } = await supabase.auth.getSession();
+    const uid = data.session?.user.id ?? null;
+    setMe(uid);
+    const cols = 'id, product, variety, district, active, org_id, seller_id';
+    const [inOrg, outside, o, d] = await Promise.all([
+      supabase.from('market_listings').select(cols).eq('org_id', org.id).order('created_at'),
+      // The owner's own products not in any business yet, to put in this one.
+      org.role === 'owner' && uid ? supabase.from('market_listings').select(cols).eq('seller_id', uid).is('org_id', null).order('created_at') : Promise.resolve({ data: [] }),
+      supabase.from('market_orders').select('*').eq('org_id', org.id).order('created_at', { ascending: false }).limit(100),
+      supabase.from('org_drivers').select('id, name, phone, vehicle').eq('org_id', org.id).order('name'),
+    ]);
+    setProducts((inOrg.data ?? []) as Product[]);
+    setMineOutside((outside.data ?? []) as Product[]);
+    setOrders((o.data ?? []) as MarketOrder[]);
+    setDrivers((d.data ?? []) as OrgDriver[]);
+  }, [org.id, org.role]);
+  useEffect(() => {
+    let live = true;
+    const run = async () => {
+      if (live) await load();
+    };
+    void run();
+    return () => {
+      live = false;
+    };
+  }, [load]);
+
+  const run: Act = async (key, work, done) => {
+    await act(key, work, done);
+    await load();
+  };
+  const who = (id: string | null) => (id ? (members.find((m) => m.user_id === id)?.label ?? 'someone no longer in the business') : null);
+  const name = (p: Product) => `${p.product}${p.variety ? ` · ${p.variety}` : ''}`;
+  const baskets = groupBaskets(orders);
+  if (!products.length && !mineOutside.length && !orders.length && !drivers.length) return null;
+
+  return (
+    <>
+      <section data-business-products>
+        <h3 className="flex items-center gap-2 font-semibold"><Package className="h-5 w-5 text-emerald-700" aria-hidden /> Shop and dealer products</h3>
+        {products.length === 0 && <p className="text-sm">None in this business yet.{org.role === 'owner' ? ' Put in a product you sell (below).' : ' The owner puts them in.'}</p>}
+        <ul className="!list-none space-y-2 !pl-0">
+          {products.map((x) => (
+            <li key={x.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white p-3 ring-1 ring-slate-200">
+              <span>{name(x)} · {x.district}{!x.active && ' · hidden from buyers'}</span>
+              {x.seller_id === me && !suspended && (
+                <button
+                  type="button"
+                  className={GHOST}
+                  disabled={busy !== null}
+                  onClick={() => window.confirm(`Take ${name(x)} out of ${org.name}? Your team will stop seeing its new orders, and buyers will pay your own details.`) && void run(x.id, () => supabase.rpc('kr_org_attach_product', { p_listing: x.id, p_org: null }), 'Taken out of the business.')}
+                >
+                  Take out
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+        {mineOutside.length > 0 && !suspended && (
+          <>
+            <p className="mt-2 text-sm text-slate-600">Your products not in a business. Put one in: your team sees and handles its orders, and buyers pay this business&apos;s bank / UPI details (when set). Only you change the product itself.</p>
+            <ul className="!list-none space-y-2 !pl-0">
+              {mineOutside.map((x) => (
+                <li key={x.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+                  <span>{name(x)} · {x.district}</span>
+                  <button type="button" className={BUTTON} disabled={busy !== null} onClick={() => void run(x.id, () => supabase.rpc('kr_org_attach_product', { p_listing: x.id, p_org: org.id }), `${name(x)} is now in ${org.name}.`)}>
+                    <Plus className="h-4 w-4" aria-hidden /> Put in {org.name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
+
+      {(products.length > 0 || orders.length > 0) && (
+        <section data-business-orders>
+          <h3 className="flex items-center gap-2 font-semibold"><ShoppingBag className="h-5 w-5 text-emerald-700" aria-hidden /> Orders</h3>
+          <p className="text-sm text-slate-600">Press “Money received” only after it has reached the business&apos;s account — check the reference in your bank or UPI app. KashRoot never holds money.</p>
+          {suspended && <p className="text-sm font-semibold text-rose-800">While the business is paused, its team cannot change orders.</p>}
+          {baskets.length === 0 && <p className="text-sm">No orders yet.</p>}
+          <ul className="!list-none space-y-2 !pl-0">
+            {baskets.map((lines) => (
+              <li key={lines[0].basket ?? lines[0].id} className="!list-none">
+                <ul className="!list-none !pl-0">
+                  <OrderCard order={lines[0]} lines={lines} as="seller" theme={THEME} drivers={drivers} onChange={() => void load()} />
+                </ul>
+                {who(lines[0].handled_by ?? null) && <p className="px-4 pt-1 text-xs text-slate-500">Last step by {who(lines[0].handled_by ?? null)}</p>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <section data-business-drivers>
+        <h3 className="flex items-center gap-2 font-semibold"><Truck className="h-5 w-5 text-emerald-700" aria-hidden /> Drivers</h3>
+        <p className="text-sm text-slate-600">Anyone in the business ships an order with one of these drivers: the buyer sees their name and can call them, and the driver gets a link that shows the buyer where the vehicle is.{lead ? '' : ' The owner or a manager keeps this list.'}</p>
+        {drivers.length === 0 && <p className="text-sm">No drivers yet.</p>}
+        <ul className="!list-none space-y-2 !pl-0">
+          {drivers.map((d) => (
+            <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white p-3 ring-1 ring-slate-200">
+              <span>{d.name} · <a className="underline" href={`tel:${d.phone}`}>{d.phone}</a>{d.vehicle && ` · ${d.vehicle}`}</span>
+              {lead && !suspended && (
+                <button type="button" className={`${GHOST} text-rose-800`} disabled={busy !== null} aria-label={`Remove ${d.name}`} onClick={() => window.confirm(`Remove ${d.name} from the drivers?`) && void run(d.id, () => supabase.rpc('kr_org_driver_remove', { p_driver: d.id }), 'Removed.')}>
+                  <Trash2 className="h-4 w-4" aria-hidden /> Remove
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+        {lead && !suspended && (
+          <form
+            className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void run('driver', () => supabase.rpc('kr_org_driver_save', { p_org: org.id, p_name: driver.name.trim(), p_phone: driver.phone.trim(), p_vehicle: driver.vehicle.trim() || null }), `${driver.name.trim()} added.`).then(() => setDriver({ name: '', phone: '', vehicle: '' }));
+            }}
+          >
+            <label className="text-sm">
+              <span className="font-semibold">Driver&apos;s name</span>
+              <input className={INPUT} value={driver.name} onChange={(e) => setDriver({ ...driver, name: e.target.value })} required maxLength={80} autoComplete="off" />
+            </label>
+            <label className="text-sm">
+              <span className="font-semibold">Mobile</span>
+              <input className={INPUT} type="tel" inputMode="numeric" value={driver.phone} onChange={(e) => setDriver({ ...driver, phone: e.target.value })} required placeholder="9876543210" autoComplete="off" />
+            </label>
+            <label className="text-sm">
+              <span className="font-semibold">Vehicle (optional)</span>
+              <input className={`${INPUT} uppercase`} value={driver.vehicle} onChange={(e) => setDriver({ ...driver, vehicle: e.target.value })} maxLength={40} placeholder="JK01 AB 1234" autoComplete="off" />
+            </label>
+            <button type="submit" className={`${BUTTON} self-end`} disabled={busy !== null}>
+              <Plus className="h-4 w-4" aria-hidden /> Add driver
+            </button>
+          </form>
+        )}
+      </section>
     </>
   );
 }

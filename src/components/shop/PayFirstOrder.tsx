@@ -23,7 +23,7 @@ import { ShopPay } from '@/components/shop/ShopPay';
 import { TrackDelivery } from '@/components/shop/TrackDelivery';
 import { ago, inr } from '@/lib/db/client';
 import { orderAction, type MarketOrder, type OrderAction } from '@/lib/db/market';
-import { basketTotal, sellerOfOrder, SHOP_STEPS, shopStatus, shopStep, type ShopSeller } from '@/lib/db/shop';
+import { basketTotal, sellerOfOrder, SHOP_STEPS, shopStatus, shopStep, type OrgDriver, type ShopSeller } from '@/lib/db/shop';
 
 const FINAL = ['cancelled', 'rejected', 'disputed'];
 // What the database writes for "Money not received" when the seller adds no words.
@@ -47,7 +47,7 @@ function Steps({ at }: { at: number }) {
   );
 }
 
-export function PayFirstOrder({ lines, as, theme, seller, onChange }: { lines: MarketOrder[]; as: 'buyer' | 'seller'; theme: PortalTheme; seller?: ShopSeller | null; onChange: () => void }) {
+export function PayFirstOrder({ lines, as, theme, seller, onChange, drivers }: { lines: MarketOrder[]; as: 'buyer' | 'seller'; theme: PortalTheme; seller?: ShopSeller | null; onChange: () => void; /** A business's drivers (My business). */ drivers?: OrgDriver[] }) {
   const [busy, setBusy] = useState(false);
   const o = lines[0];
   const total = basketTotal(lines);
@@ -164,7 +164,7 @@ export function PayFirstOrder({ lines, as, theme, seller, onChange }: { lines: M
       {!buyer && o.status === 'accepted' && o.payment_state === 'paid' && (
         <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-amber-200">The buyer says they paid <strong>{inr(total)}</strong>. Open your bank or UPI app and check the money is there before you press “Money received”.</p>
       )}
-      {!buyer && o.status === 'accepted' && o.payment_state === 'received' && <ShipForm orderId={o.id} theme={theme} onShipped={onChange} />}
+      {!buyer && o.status === 'accepted' && o.payment_state === 'received' && <ShipForm orderId={o.id} theme={theme} onShipped={onChange} drivers={drivers} />}
       {!buyer && o.status === 'shipped' && (
         <>
           <LiveShare orderId={o.id} driverPhone={o.driver_phone} lastAt={o.last_at} theme={theme} />

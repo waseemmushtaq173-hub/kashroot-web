@@ -82,6 +82,9 @@ export interface MarketOrder {
   seller_name?: string | null;
   seller_phone?: string | null;
   seller_district?: string | null;
+  /** A business's order (My business): the business, and who in it did the last step. */
+  org_id?: string | null;
+  handled_by?: string | null;
 }
 
 export const SUBCATEGORIES = ['Packaging', 'Fertiliser', 'Pesticide / fungicide', 'Seeds & saplings', 'Tools & machinery', 'Irrigation', 'Anti-hail net', 'Other'];

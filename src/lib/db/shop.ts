@@ -98,6 +98,20 @@ export async function shipOrder(id: string, p: { vehicle: string; driverName?: s
   if (error) fail(error, 'Could not mark the order shipped.');
 }
 
+/** A business's driver (My business → Drivers; 20261118000000_business_orders.sql). */
+export interface OrgDriver {
+  id: string;
+  name: string;
+  phone: string;
+  vehicle: string | null;
+}
+
+/** Ship with one of the business's drivers: their name, mobile and (unless another is written) vehicle. */
+export async function assignDriver(id: string, driver: string, vehicle?: string, note?: string): Promise<void> {
+  const { error } = await supabase.rpc('kr_order_assign_driver', { p_order: id, p_driver: driver, p_vehicle: vehicle || null, p_note: note || null });
+  if (error) fail(error, 'Could not give the order to the driver.');
+}
+
 /** The vehicle's position from the seller's phone. */
 export async function sendLocation(id: string, lat: number, lon: number, accuracy?: number | null): Promise<void> {
   const { error } = await supabase.rpc('kr_order_location', { p_order: id, p_lat: lat, p_lon: lon, p_accuracy: accuracy ?? null });
