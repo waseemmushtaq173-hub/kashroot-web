@@ -76,7 +76,7 @@ export default function ForgotPasswordPage() {
             Email address
             <span className="relative mt-1.5 block">
               <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
-              <input id="fp-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="block w-full rounded-xl border-0 bg-white py-3.5 pl-10 pr-4 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-rose-500" />
+              <input id="fp-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="block min-h-11 w-full rounded-xl border-0 bg-white py-3.5 pl-10 pr-4 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-rose-500" />
             </span>
           </label>
           {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800 ring-1 ring-rose-200">{error}</p>}
@@ -86,7 +86,7 @@ export default function ForgotPasswordPage() {
           </button>
         </form>
       </SecurityGate>
-      <Link href="/login" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:underline">
+      <Link href="/login" className="mt-5 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-slate-700 hover:underline">
         <ArrowLeft className="h-4 w-4" aria-hidden /> Back to sign in
       </Link>
     </div>

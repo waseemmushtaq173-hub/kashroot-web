@@ -33,7 +33,7 @@ export function PortalAuthFrame({ portal, labelledBy, children }: { portal: Port
           <div aria-hidden className={`absolute inset-0 -z-10 bg-gradient-to-tr ${theme.sceneTint}`} />
 
           <div className="flex items-center justify-between gap-3">
-            <Link href="/" className={`inline-flex items-center gap-2 rounded-xl text-white no-underline hover:no-underline ${focusRing}`}>
+            <Link href="/" className={`inline-flex min-h-11 items-center gap-2 rounded-xl text-white no-underline hover:no-underline ${focusRing}`}>
               <Emblem className="h-9 w-9 drop-shadow-[0_4px_12px_rgba(0,0,0,0.35)]" />
               <Wordmark className={`${brandSerif.className} text-lg text-white`} />
             </Link>

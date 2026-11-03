@@ -221,7 +221,7 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
         ? 'Registration failed. Please try again.'
         : null);
 
-  const input = `block w-full rounded-xl border-0 bg-white px-4 py-3.5 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 transition focus:ring-2 ${look.ring}`;
+  const input = `block min-h-11 w-full rounded-xl border-0 bg-white px-4 py-3.5 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 transition focus:ring-2 ${look.ring}`;
 
   if (success) {
     return (
@@ -412,7 +412,7 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
                   id="reg-password"
                   type={showPw ? 'text' : 'password'}
                   autoComplete="new-password"
-                  className={`${input} pr-11`}
+                  className={`${input} pr-12`}
                   {...register('password', {
                     required: 'Password is required',
                     minLength: { value: 8, message: 'At least 8 characters' },
@@ -420,7 +420,7 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
                     validate: (pw, values) => weakPassword(pw, String((values as { email?: string }).email ?? '')) ?? true,
                   })}
                 />
-                <button type="button" onClick={() => setShowPw((v) => !v)} aria-label={showPw ? 'Hide password' : 'Show password'} className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 cursor-pointer place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                <button type="button" onClick={() => setShowPw((v) => !v)} aria-label={showPw ? 'Hide password' : 'Show password'} className="absolute right-0.5 top-1/2 grid h-11 w-11 -translate-y-1/2 cursor-pointer place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700">
                   {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </span>

@@ -489,7 +489,7 @@ export default function MandiWeatherPage() {
             <span className="ms-auto inline-flex flex-wrap items-center gap-2">
               <span className="inline-flex rounded-xl bg-slate-900/5 p-1" role="group" aria-label="Price unit">
                 {(['box', 'kg', 'quintal'] as const).map((u) => (
-                  <button key={u} type="button" aria-pressed={unit === u} onClick={() => setUnit(u)} className={`cursor-pointer rounded-lg px-3 py-1 text-sm font-semibold ${unit === u ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}`}>
+                  <button key={u} type="button" aria-pressed={unit === u} onClick={() => setUnit(u)} className={`min-h-11 cursor-pointer rounded-lg px-3 py-1 text-sm font-semibold ${unit === u ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}`}>
                     ₹ / {u}
                   </button>
                 ))}
@@ -497,7 +497,7 @@ export default function MandiWeatherPage() {
               {unit === 'box' && (
                 <label className="inline-flex items-center gap-1.5 text-sm text-slate-700">
                   Box
-                  <input type="number" min={1} max={50} value={boxKg} onChange={(e) => setBoxKg(Math.min(50, Math.max(1, Number(e.target.value) || 17)))} className="w-16 rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm" aria-label="Box weight in kg" />
+                  <input type="number" min={1} max={50} value={boxKg} onChange={(e) => setBoxKg(Math.min(50, Math.max(1, Number(e.target.value) || 17)))} className="min-h-11 w-16 rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm" aria-label="Box weight in kg" />
                   kg
                 </label>
               )}
@@ -573,7 +573,7 @@ export default function MandiWeatherPage() {
                       {byState.length > 1 && (
                         <tr className="bg-sky-50/80">
                           <td colSpan={6} className="px-4 py-2">
-                            <button type="button" onClick={() => showState(state)} className="cursor-pointer font-semibold text-sky-900 hover:underline" title={`Show only ${state}`}>
+                            <button type="button" onClick={() => showState(state)} className="inline-flex min-h-11 cursor-pointer items-center font-semibold text-sky-900 hover:underline" title={`Show only ${state}`}>
                               {state}
                             </button>
                             <span className="ms-2 text-xs text-sky-800">{new Set(list.map((r) => r.market)).size} mandis · {list.length} reports</span>

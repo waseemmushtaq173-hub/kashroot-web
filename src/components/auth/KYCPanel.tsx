@@ -143,7 +143,7 @@ const BTN_LINK = `cursor-pointer rounded font-semibold text-emerald-800 underlin
 
 function inputClass(invalid: boolean, readOnly = false): string {
   return [
-    'block w-full rounded-xl border-0 px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 shadow-sm ring-1 ring-inset transition focus:outline-none focus:ring-2',
+    'block min-h-11 w-full rounded-xl border-0 px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 shadow-sm ring-1 ring-inset transition focus:outline-none focus:ring-2',
     invalid ? 'ring-rose-300 focus:ring-rose-500' : 'ring-slate-200 focus:ring-emerald-500',
     readOnly ? 'bg-slate-50 text-slate-600' : 'bg-white/90',
   ].join(' ');

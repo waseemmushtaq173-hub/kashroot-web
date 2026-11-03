@@ -126,8 +126,8 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
   ) : account === null ? (
     <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-semibold">
       <span className="text-slate-600">Mandi Helpers:</span>
-      <Link href={loginHref('trader')} className="text-teal-800 underline">Sign in to post rates</Link>
-      <Link href={AUTH_ROUTES.register('trader')} className="text-teal-800 underline">Become a Mandi Helper</Link>
+      <Link href={loginHref('trader')} className="inline-flex min-h-11 items-center text-teal-800 underline">Sign in to post rates</Link>
+      <Link href={AUTH_ROUTES.register('trader')} className="inline-flex min-h-11 items-center text-teal-800 underline">Become a Mandi Helper</Link>
     </span>
   ) : null;
 

@@ -163,7 +163,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   }, [checking, resume, remembered]);
 
   const focusRing = `focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${theme.outline}`;
-  const inputClass = `block w-full rounded-xl border-0 bg-white/90 px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 shadow-sm ring-1 ring-inset ring-slate-200 transition focus:outline-none focus:ring-2 ${theme.inputFocus}`;
+  const inputClass = `block min-h-11 w-full rounded-xl border-0 bg-white/90 px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 shadow-sm ring-1 ring-inset ring-slate-200 transition focus:outline-none focus:ring-2 ${theme.inputFocus}`;
   // Never greyed out for long: only while signing in. Empty fields get a message instead.
   const canSubmit = !pending;
 
@@ -547,7 +547,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
               <label htmlFor={ids.password} className="block text-sm font-medium text-slate-800">
                 Password
               </label>
-              <Link href={AUTH_ROUTES.forgotPassword} className={`rounded text-sm font-medium ${theme.link} ${focusRing}`}>
+              <Link href={AUTH_ROUTES.forgotPassword} className={`inline-flex min-h-11 items-center rounded text-sm font-medium ${theme.link} ${focusRing}`}>
                 Forgot password?
               </Link>
             </div>
@@ -566,7 +566,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
                 onClick={() => setShowPassword((s) => !s)}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
                 aria-pressed={showPassword}
-                className={`absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 cursor-pointer place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 ${focusRing}`}
+                className={`absolute right-0.5 top-1/2 grid h-11 w-11 -translate-y-1/2 cursor-pointer place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 ${focusRing}`}
               >
                 {showPassword ? <EyeOff className="h-5 w-5" aria-hidden /> : <Eye className="h-5 w-5" aria-hidden />}
               </button>

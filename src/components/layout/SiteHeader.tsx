@@ -113,7 +113,7 @@ function MobileMenu({ showAuth }: { showAuth: boolean }) {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls="mobile-menu"
-        className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-900/10 bg-white/85 px-3 py-2 text-sm font-semibold text-slate-800 backdrop-blur-md transition hover:bg-white"
+        className="flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg border border-slate-900/10 bg-white/85 px-3 py-2 text-sm font-semibold text-slate-800 backdrop-blur-md transition hover:bg-white"
       >
         {open ? <X className="h-4 w-4" aria-hidden /> : <Menu className="h-4 w-4" aria-hidden />}
         Menu
@@ -186,8 +186,8 @@ function PortalMenu({ onOpenPortals, tone }: { onOpenPortals?: () => void; tone:
         aria-haspopup="menu"
         className={
           light
-            ? 'flex items-center gap-1.5 rounded-lg border border-slate-900/10 bg-white/80 px-3 py-2 text-label font-semibold text-slate-800 backdrop-blur-md transition-all hover:bg-white'
-            : 'flex items-center gap-1.5 rounded-lg border border-white/30 bg-white/15 px-3 py-2 text-label font-semibold text-kr-text-primary backdrop-blur-md transition-all hover:border-[#D4AF37] hover:bg-white/25'
+            ? 'flex min-h-11 items-center gap-1.5 rounded-lg border border-slate-900/10 bg-white/80 px-3 py-2 text-label font-semibold text-slate-800 backdrop-blur-md transition-all hover:bg-white'
+            : 'flex min-h-11 items-center gap-1.5 rounded-lg border border-white/30 bg-white/15 px-3 py-2 text-label font-semibold text-kr-text-primary backdrop-blur-md transition-all hover:border-[#D4AF37] hover:bg-white/25'
         }
       >
         <LayoutGrid className="w-4 h-4" />
@@ -251,7 +251,7 @@ export function SiteHeader({
   }
 
   const navLink = light
-    ? 'rounded-lg px-3 py-2 text-label font-medium text-slate-700 no-underline transition-colors hover:bg-white hover:text-slate-900 hover:no-underline'
+    ? 'min-h-11 items-center rounded-lg px-3 py-2 text-label font-medium text-slate-700 no-underline transition-colors hover:bg-white hover:text-slate-900 hover:no-underline'
     : 'rounded-lg px-3 py-2 text-label text-kr-text-secondary transition-colors hover:bg-white/40 hover:text-kr-text-primary';
 
   return (

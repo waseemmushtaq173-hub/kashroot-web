@@ -114,7 +114,7 @@ type BtnVariant = 'solid' | 'soft' | 'ghost' | 'danger' | 'white';
 
 function btnClass(theme: PortalTheme, variant: BtnVariant, size: 'sm' | 'md') {
   const base = `inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl font-semibold no-underline transition hover:no-underline disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS} ${theme.outline}`;
-  const pad = size === 'sm' ? 'px-3 py-1.5 text-xs' : 'px-4 py-2.5 text-sm';
+  const pad = size === 'sm' ? 'min-h-11 px-3 py-1.5 text-xs' : 'min-h-11 px-4 py-2.5 text-sm';
   const look = {
     solid: `${theme.solid} shadow-sm`,
     soft: theme.soft,
@@ -303,7 +303,7 @@ export function EmptyState({
 // ── Forms ───────────────────────────────────────────────────────────────────
 
 export const INPUT =
-  'block w-full rounded-xl border-0 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm ring-1 ring-inset ring-slate-200 transition focus:outline-none focus:ring-2 focus:ring-slate-500';
+  'block min-h-11 w-full rounded-xl border-0 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm ring-1 ring-inset ring-slate-200 transition focus:outline-none focus:ring-2 focus:ring-slate-500';
 
 /** Label wrapping its control, so the association needs no ids. */
 export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {

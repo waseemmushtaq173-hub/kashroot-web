@@ -56,7 +56,7 @@ export default function StatusPage() {
           <button 
             onClick={fetchStatus} 
             aria-label="Check again"
-            className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors"
+            className="grid h-11 w-11 place-items-center rounded-full bg-white/5 transition-colors hover:bg-white/10"
             disabled={loading}
           >
             <RefreshCw className={`w-5 h-5 ${loading ? "animate-spin" : ""}`} />

@@ -128,7 +128,7 @@ export function HeroShowcase({
                 onClick={() => goTo(i)}
                 aria-label={`Show photo ${i + 1} of ${slides.length} (${slide.season})`}
                 aria-current={i === active ? 'true' : undefined}
-                className="grid h-7 cursor-pointer place-items-center px-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-700"
+                className="grid h-11 cursor-pointer place-items-center px-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-700"
               >
                 <span
                   className={`relative block h-1.5 overflow-hidden rounded-full transition-all duration-300 ${
@@ -151,9 +151,12 @@ export function HeroShowcase({
             type="button"
             onClick={() => setPaused((p) => !p)}
             aria-label={paused ? 'Play season slideshow' : 'Pause season slideshow'}
-            className="grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-full bg-white/80 text-slate-700 ring-1 ring-slate-900/10 transition hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-700"
+            className="group grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-700"
           >
-            {paused ? <Play className="h-3.5 w-3.5" aria-hidden /> : <Pause className="h-3.5 w-3.5" aria-hidden />}
+            {/* The round button looks as before; the whole 44 px around it can be tapped. */}
+            <span className="grid h-7 w-7 place-items-center rounded-full bg-white/80 text-slate-700 ring-1 ring-slate-900/10 transition group-hover:bg-white">
+              {paused ? <Play className="h-3.5 w-3.5" aria-hidden /> : <Pause className="h-3.5 w-3.5" aria-hidden />}
+            </span>
           </button>
         </div>
       </div>
