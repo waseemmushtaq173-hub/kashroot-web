@@ -13,7 +13,7 @@ export default function SupportPage() {
       {/* The language and the topic asked for come from this phone and the address: shown in the browser. */}
       <Suspense
         fallback={
-          <p className="flex min-h-40 items-center justify-center gap-2 text-slate-600">
+          <p className="flex min-h-[80vh] items-start justify-center gap-2 pt-10 text-slate-600">
             <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> Opening help…
           </p>
         }

@@ -183,7 +183,8 @@ export function SecurityGate({ place, onPass, children }: { place: string; onPas
   // While Cloudflare waits for a tap, only its own line shows: no error, no Retry.
   const problem = waitingForTap ? null : error ?? (stalled && check.status !== 'failed' ? t.slow : null);
   return (
-    <div className="mt-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200" data-security-gate={state} role="status" aria-live="polite">
+    // Tall enough for Cloudflare's box from the start, so the page does not jump when the box appears.
+    <div className="mt-6 min-h-[13rem] rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 sm:p-5" data-security-gate={state} role="status" aria-live="polite">
       <p dir={t.dir} className="flex items-center gap-2 text-base font-semibold text-slate-900">
         {problem || waitingForTap || check.status === 'failed' ? <ShieldCheck className="h-5 w-5 shrink-0 text-amber-700" aria-hidden /> : <Loader2 className="h-5 w-5 shrink-0 animate-spin text-emerald-700" aria-hidden />}
         {t.title}

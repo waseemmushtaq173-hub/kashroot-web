@@ -16,7 +16,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { CheckCircle2, ChevronDown, LifeBuoy, Loader2, Mail, MessageSquare, Search, Send, ShieldCheck, Square, Volume2 } from 'lucide-react';
 
-import { CHECKING_HUMAN, HumanCheckError, useHumanCheck } from '@/components/security/HumanCheck';
+import { CHECKING_HUMAN, HumanCheckError, humanCheckOn, useHumanCheck } from '@/components/security/HumanCheck';
 import { GUARD_TEXT, useFormGuard } from '@/lib/client/formGuard';
 import { SecurityGate } from '@/components/security/SecurityGate';
 import { authFetch } from '@/lib/auth-fetch';
@@ -28,6 +28,7 @@ import { SITE_URL, SOCIAL_LINKS } from '@/lib/site';
 import { NEVER_ASKS, SUPPORT_EMAIL, supportMailto } from '@/lib/supportEmail';
 import type { GuideText } from '@/lib/portalGuide';
 import { HumanGate } from '@/components/security/HumanGate';
+import { humanPassReady } from '@/lib/client/humanPass';
 
 type Lang = 'en' | 'hi' | 'ur';
 const LANGS: Lang[] = ['en', 'hi', 'ur'];
@@ -148,6 +149,17 @@ export function SupportCenter() {
     return l === 'hi' || l === 'ur' ? l : l === 'ks' ? 'ur' : 'en';
   });
   const [open, setOpen] = useState<string | null>(askedTopic === 'login' ? 'otp' : null);
+  // Whether the "I am human" check shows at the top: asked once (cached) before the page is drawn,
+  // so the help below never jumps down when it appears. null: not known yet.
+  const [gateNeeded, setGateNeeded] = useState<boolean | null>(humanCheckOn ? null : false);
+  useEffect(() => {
+    if (!humanCheckOn) return;
+    let live = true;
+    void humanPassReady().then((ok) => live && setGateNeeded(!ok));
+    return () => {
+      live = false;
+    };
+  }, []);
   const [reading, setReading] = useState<string | null>(null);
 
   // Ask KashRoot
@@ -283,10 +295,18 @@ export function SupportCenter() {
     document.getElementById('ask-kashroot')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  if (gateNeeded === null) {
+    // As tall as the help to come, so the footer does not show and then jump away.
+    return (
+      <p role="status" className="flex min-h-[80vh] items-start justify-center gap-2 pt-10 text-slate-600">
+        <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> Opening help…
+      </p>
+    );
+  }
   return (
     <div className="space-y-10 [&_h2]:font-serif">
       {/* KashRoot's voice needs the "I am human" pass; shown only when asked for. */}
-      <HumanGate />
+      <HumanGate startNeeded={gateNeeded} />
       {/* Language for the answers (and the voice) */}
       <div role="group" aria-label="Language" className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-semibold text-slate-600">Language:</span>

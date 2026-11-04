@@ -13,8 +13,8 @@ import { ShieldCheck } from 'lucide-react';
 import { humanCheckOn, useHumanCheck } from '@/components/security/HumanCheck';
 import { claimHumanPass, humanPassReady } from '@/lib/client/humanPass';
 
-export function HumanGate({ className = '' }: { className?: string }) {
-  const [needed, setNeeded] = useState(false);
+export function HumanGate({ className = '', startNeeded = false }: { className?: string; /** Already known that a pass is needed (the page waited for the answer, so nothing jumps when the check appears). */ startNeeded?: boolean }) {
+  const [needed, setNeeded] = useState(startNeeded);
   const passed = useCallback(() => setNeeded(false), []);
 
   useEffect(() => {

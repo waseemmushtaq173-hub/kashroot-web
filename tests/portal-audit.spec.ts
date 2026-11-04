@@ -4,7 +4,8 @@
  *   - no script error on the page;
  *   - nothing scrolls sideways;
  *   - buttons and links you tap are 44 px tall or more (inline links inside text are left out);
- *   - images have alt text, inputs have a label.
+ *   - images have alt text, inputs have a label;
+ *   - the page does not jump while it loads (layout shift 0.1 or less).
  * Signed-in parts of the portals (dashboards, money steps) are covered by the database tests in
  * supabase/tests (what each account may see and do), since accounts cannot be made here without
  * the Cloudflare check. KR_BASE_URL says where the site runs. Screenshots: test-results/audit-*.png
@@ -22,6 +23,14 @@ for (const width of [390, 1280]) {
       test(`${path} opens cleanly`, async ({ page }) => {
         const errors: string[] = [];
         page.on('pageerror', (e) => errors.push(e.message));
+        // Layout shift (CLS): how much the page jumps while it loads, counted from the first paint.
+        await page.addInitScript(() => {
+          const w = window as unknown as { __cls: number };
+          w.__cls = 0;
+          new PerformanceObserver((list) => {
+            for (const e of list.getEntries() as unknown as { value: number; hadRecentInput: boolean }[]) if (!e.hadRecentInput) w.__cls += e.value;
+          }).observe({ type: 'layout-shift', buffered: true });
+        });
         const res = await page.goto(path, { waitUntil: 'domcontentloaded' });
         expect(res?.status(), 'no server error').toBeLessThan(500);
         await page.waitForLoadState('load');
@@ -55,6 +64,9 @@ for (const width of [390, 1280]) {
         expect(report.small, 'tap targets under 44 px').toEqual([]);
         expect(report.noAlt, 'images without alt text').toEqual([]);
         expect(report.unlabeled, 'inputs without a label').toEqual([]);
+        // Google's "good" line is 0.1.
+        const cls = await page.evaluate(() => (window as unknown as { __cls: number }).__cls);
+        expect(cls, `layout shift ${cls.toFixed(3)}`).toBeLessThanOrEqual(0.1);
       });
     }
   });
