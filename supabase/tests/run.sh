@@ -8,7 +8,8 @@ name=kr-db-security-test
 docker rm -f "$name" >/dev/null 2>&1 || true
 docker run -d --name "$name" -e POSTGRES_PASSWORD=test -v "$here:/t:ro" -v "$here/..:/s:ro" postgres:16 >/dev/null
 trap 'docker rm -f "$name" >/dev/null 2>&1 || true' EXIT
-i=0; until docker exec "$name" pg_isready -U postgres >/dev/null 2>&1; do i=$((i+1)); [ $i -gt 60 ] && echo "Postgres did not start" && exit 1; sleep 1; done
+# Over TCP: while the image sets itself up it runs a temporary server on the socket only, then restarts.
+i=0; until docker exec "$name" pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1; do i=$((i+1)); [ $i -gt 90 ] && echo "Postgres did not start" && exit 1; sleep 1; done
 sleep 2
 docker exec "$name" psql -U postgres -q -f /t/00_supabase_stub.sql >/dev/null
 docker exec -e PGOPTIONS="-c client_min_messages=warning" "$name" psql -U postgres -q -v ON_ERROR_STOP=1 -f /s/RUN_THIS_ONCE.sql >/dev/null
