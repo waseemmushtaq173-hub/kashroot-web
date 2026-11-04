@@ -367,7 +367,13 @@ export default function MandiWeatherPage() {
           </Btn>
         </div>
 
-        {weatherQ.isLoading && <p className="mt-6 flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading forecast…</p>}
+        {!weatherQ.data && !weatherQ.isError && (
+          // About as tall as the forecast that replaces it (phone, tablet, computer), so the page does not jump.
+          <div role="status" className="mt-6">
+            <p className="flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading forecast…</p>
+            <div aria-hidden className="mt-3 h-[60rem] animate-pulse rounded-2xl bg-gradient-to-r from-slate-200/70 via-[#FBF8F0] to-slate-200/70 ring-1 ring-[#E8A317]/15 motion-reduce:animate-none sm:h-[41rem] lg:h-[22rem]" />
+          </div>
+        )}
         {weatherQ.isError && (
           <div className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">
             <TriangleAlert className="h-4 w-4" aria-hidden /> {(weatherQ.error as Error).message}
