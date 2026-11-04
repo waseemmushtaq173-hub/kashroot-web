@@ -145,7 +145,7 @@ export function DriverTrip({ token }: { token: string }) {
           <p className="rounded-2xl bg-slate-50 p-5 text-slate-800 ring-1 ring-slate-200">This order is closed. You do not need to share your location.</p>
         ) : sharing ? (
           <>
-            <div className="rounded-2xl bg-emerald-600 p-6 text-center text-white shadow-lg" role="status">
+            <div className="rounded-2xl bg-emerald-700 p-6 text-center text-white shadow-lg" role="status">
               <MapPin className="mx-auto h-10 w-10 animate-pulse" aria-hidden />
               <p className="mt-2 text-xl font-bold">Sharing your location</p>
               <p className="mt-1 text-emerald-50">{sentAt ? `Last sent ${ago(sentAt)}` : 'Getting GPS…'}</p>

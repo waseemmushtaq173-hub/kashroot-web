@@ -170,7 +170,7 @@ export function LiveShare({ orderId, driverPhone, lastAt, theme }: { orderId: st
       <p className="font-semibold text-slate-900">Show the buyer where the goods are</p>
       {sharing ? (
         <div className="space-y-2">
-          <p className="flex items-center gap-2 rounded-xl bg-emerald-600 p-3 font-semibold text-white">
+          <p className="flex items-center gap-2 rounded-xl bg-emerald-700 p-3 font-semibold text-white">
             <MapPin className="h-5 w-5 animate-pulse" aria-hidden /> Sharing this phone’s location{last ? ` · sent ${ago(last)}` : ' · getting GPS…'}
           </p>
           <p className="text-sm text-slate-700">Keep this page open on the phone that travels with the goods. It sends the location about every 30 seconds, also while you look at other tabs here.</p>
@@ -189,7 +189,7 @@ export function LiveShare({ orderId, driverPhone, lastAt, theme }: { orderId: st
             <p className="break-all rounded-xl bg-white p-2 font-mono text-xs text-slate-800 ring-1 ring-slate-200" data-testid="driver-link">{link}</p>
             <div className="flex flex-wrap gap-2">
               <Btn theme={theme} variant="soft" icon={Copy} className="min-h-11" onClick={() => void copyLink()}>Copy link</Btn>
-              <a href={`https://wa.me/${/^[6-9]\d{9}$/.test(phone) ? `91${phone}` : ''}?text=${encodeURIComponent(message)}`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white no-underline hover:bg-emerald-700 hover:no-underline">
+              <a href={`https://wa.me/${/^[6-9]\d{9}$/.test(phone) ? `91${phone}` : ''}?text=${encodeURIComponent(message)}`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white no-underline hover:bg-emerald-800 hover:no-underline">
                 <MessageCircle className="h-4 w-4" aria-hidden /> Send on WhatsApp
               </a>
               <a href={`sms:${/^[6-9]\d{9}$/.test(phone) ? `+91${phone}` : ''}?body=${encodeURIComponent(message)}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-slate-800 no-underline ring-1 ring-slate-200 hover:bg-slate-50 hover:no-underline">

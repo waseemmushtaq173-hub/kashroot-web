@@ -142,7 +142,7 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
   return (
     <section aria-labelledby={`${id}-title`} className={`rounded-2xl p-4 ring-1 transition ${verified ? 'bg-emerald-50/80 ring-emerald-200' : 'bg-slate-50/80 ring-slate-200'}`}>
       <div className="flex items-start gap-3">
-        <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl shadow-sm ${verified ? 'bg-emerald-600 text-white' : accent.tile}`}>
+        <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl shadow-sm ${verified ? 'bg-emerald-700 text-white' : accent.tile}`}>
           {verified ? <CheckCircle2 className="h-[18px] w-[18px]" aria-hidden /> : <Icon className="h-[18px] w-[18px]" aria-hidden />}
         </span>
         <div className="min-w-0 flex-1">

@@ -1420,7 +1420,7 @@ export function ColdStore3D({
           </div>
           <ol dir={rtl} aria-live="polite" className="mt-2 space-y-1 text-sm">
             {route.steps.map((s, k) => (
-              <li key={k} className={`rounded-lg px-2 py-1 ${k === guideAt ? 'bg-emerald-600 font-semibold text-white' : k < guideAt ? 'text-emerald-800' : 'text-slate-600'}`}>
+              <li key={k} className={`rounded-lg px-2 py-1 ${k === guideAt ? 'bg-emerald-700 font-semibold text-white' : k < guideAt ? 'text-emerald-800' : 'text-slate-600'}`}>
                 {k + 1}. {s.text[guideLang]}
               </li>
             ))}

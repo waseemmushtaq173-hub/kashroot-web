@@ -184,7 +184,7 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
                             <CheckBadge status={r.status} />
                             {account && r.posted_by !== account.id && (
                               <span className="mt-1.5 flex gap-1.5">
-                                <button type="button" aria-pressed={myChecks.get(r.id) === 'correct'} onClick={() => void verify(r, true)} className={`inline-flex cursor-pointer items-center gap-1 rounded-full px-2 py-1 font-semibold ring-1 ${myChecks.get(r.id) === 'correct' ? 'bg-emerald-600 text-white ring-emerald-600' : 'bg-white text-emerald-800 ring-emerald-200 hover:bg-emerald-50'}`}>
+                                <button type="button" aria-pressed={myChecks.get(r.id) === 'correct'} onClick={() => void verify(r, true)} className={`inline-flex cursor-pointer items-center gap-1 rounded-full px-2 py-1 font-semibold ring-1 ${myChecks.get(r.id) === 'correct' ? 'bg-emerald-700 text-white ring-emerald-600' : 'bg-white text-emerald-800 ring-emerald-200 hover:bg-emerald-50'}`}>
                                   <ThumbsUp className="h-3 w-3" aria-hidden /> Correct
                                 </button>
                                 <button type="button" aria-pressed={myChecks.get(r.id) === 'wrong'} onClick={() => setReporting(r)} className={`inline-flex cursor-pointer items-center gap-1 rounded-full px-2 py-1 font-semibold ring-1 ${myChecks.get(r.id) === 'wrong' ? 'bg-rose-600 text-white ring-rose-600' : 'bg-white text-rose-800 ring-rose-200 hover:bg-rose-50'}`}>

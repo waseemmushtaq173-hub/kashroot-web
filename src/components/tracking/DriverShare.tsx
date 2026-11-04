@@ -138,7 +138,7 @@ export function DriverShare({ token }: { token: string }) {
         </p>
       ) : sharing ? (
         <>
-          <div className="rounded-2xl bg-emerald-600 p-6 text-center text-white shadow-lg">
+          <div className="rounded-2xl bg-emerald-700 p-6 text-center text-white shadow-lg">
             <MapPin className="mx-auto h-10 w-10 animate-pulse" aria-hidden />
             <p className="mt-2 text-xl font-bold">Sharing your location</p>
             <p className="mt-1 text-emerald-50">{secs === null ? 'Getting GPS…' : `Last sent ${secs < 60 ? `${secs} s` : `${Math.round(secs / 60)} min`} ago`}</p>
