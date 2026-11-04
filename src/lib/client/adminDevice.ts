@@ -12,6 +12,7 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { teamStatus } from '@/lib/client/teamCheck';
 import { supabase } from '@/lib/supabase';
 
 /** Before this, opening the Admin sign-in once showed the card on that device for every account; that note is removed. */
@@ -31,9 +32,8 @@ async function isTeamMember(): Promise<boolean> {
   if (asked?.user !== user) {
     asked = {
       user,
-      answer: Promise.resolve(supabase.rpc('kr_team_member'))
-        .then((r) => r.data === true)
-        .catch(() => false),
+      // An admin while the database lacks the team update sees the way in too (it explains what to run).
+      answer: teamStatus().then((s) => s === 'member' || s === 'needs-update'),
     };
   }
   return asked.answer;

@@ -34,6 +34,7 @@ import { AdminLock } from '@/components/admin/AdminLock';
 import { ApprovalsPanel } from '@/components/admin/ApprovalsPanel';
 import { ColdDirectoryPanel } from '@/components/admin/ColdDirectoryPanel';
 import { ContributorsPanel } from '@/components/admin/ContributorsPanel';
+import { DatabaseUpdateNeeded } from '@/components/admin/DatabaseUpdateNeeded';
 import { HelpDeskPanel } from '@/components/admin/HelpDeskPanel';
 import { PlatformNumbers, loadAdminStats } from '@/components/admin/PlatformNumbers';
 import { RegistryPanel } from '@/components/admin/RegistryPanel';
@@ -43,6 +44,7 @@ import { SetupCheckPanel } from '@/components/admin/SetupCheckPanel';
 import { BusinessesPanel, GateSettingsPanel, SuperAdminPanel, TeamPanel } from '@/components/admin/SuperAdminPanel';
 import { PortalShell } from '@/components/layout/PortalShell';
 import { authFetch } from '@/lib/auth-fetch';
+import { functionMissing } from '@/lib/client/teamCheck';
 import { supabase } from '@/lib/db/client';
 
 type Tab = 'super' | 'approvals' | 'accounts' | 'problems' | 'help' | 'contributors' | 'coldstores' | 'registry' | 'numbers' | 'security' | 'setup' | 'team' | 'businesses' | 'settings';
@@ -71,9 +73,15 @@ const RENEW_MS = 5 * 60_000;
 function AdminConsole() {
   // What the database lets this person open: ['*'] for the Super Admin, the ticked sections for a team member.
   const [sections, setSections] = useState<string[] | null>(null);
+  // The database without the team update (kr_team_sections missing): say what to run, not "nothing ticked".
+  const [needsUpdate, setNeedsUpdate] = useState(false);
   useEffect(() => {
     let live = true;
-    void supabase.rpc('kr_team_sections').then(({ data }) => live && setSections(Array.isArray(data) ? (data as string[]) : []));
+    void supabase.rpc('kr_team_sections').then(({ data, error }) => {
+      if (!live) return;
+      if (functionMissing(error)) setNeedsUpdate(true);
+      setSections(Array.isArray(data) ? (data as string[]) : []);
+    });
     const renew = window.setInterval(() => {
       void authFetch('/api/team/session', { method: 'POST' }).then((r) => {
         if (r.status === 403 || r.status === 401) window.location.replace('/team/unlock?next=/admin/dashboard');
@@ -85,6 +93,15 @@ function AdminConsole() {
     };
   }, []);
   if (sections === null) return null;
+  if (needsUpdate) {
+    return (
+      <PortalShell title="Governance console" description="" eyebrow="Platform admin" theme="admin">
+        <div className="rounded-3xl bg-white p-6 ring-1 ring-[#E8A317]/30">
+          <DatabaseUpdateNeeded />
+        </div>
+      </PortalShell>
+    );
+  }
   if (sections.length === 0) return <NothingTicked />;
   return <Console sections={sections} />;
 }

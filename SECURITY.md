@@ -142,6 +142,68 @@ No site is 100% safe — the costs of what is left are at the end.
 | E: staff doing more than their job | One ADMIN role today | Staff Admin with ticked permissions; Business Owner / Manager / Staff per business (RLS) |
 | S: support changing someone's email or bank details "on request" | No admin tool can (payout rows are the owner's own) | Keep it so, with a test |
 
+#### The way into Admin (any device, including a new one)
+
+1. Open `/admin` (or `/login/admin`). Without the team pass, `/admin/…` goes to
+   `/team/unlock` (`src/proxy.ts`). Signed out, that page says *Please sign in
+   first* and links to `/login/admin`.
+2. `/login/admin`: the security check, then email and password.
+3. Your authenticator app's 6-digit code (two-step sign-in, TOTP).
+4. The admin access code (AdminLock).
+5. The server asks the database again (`kr_team_sections`) and gives this browser
+   the **team pass**: the `kr_team` cookie (HttpOnly, Secure, 15 minutes,
+   renewed while Admin is open, tied to this browser and account). This is the
+   "marked device". It is given at the end of the steps above; nothing is
+   needed beforehand, so a new browser or cleared cookies only mean doing
+   steps 2–4 again.
+6. Admin opens on the page you asked for (`next`: only `/admin…` or `/team…`
+   pages of this site).
+
+Who sees what: a signed-in account that is not the Super Admin or a team
+member gets *Page not found* at `/team/unlock`. An admin account whose database
+is missing the team update (`kr_team_member` not found) sees *Admin is waiting
+for a database update* with the steps to run. That notice opens nothing.
+
+#### Recovering access
+
+* **Lost the device mark, cleared cookies, new browser or phone:** do the steps
+  above. Password, authenticator code and access code are enough.
+* **"Admin is waiting for a database update" or "Page not found" for the Super
+  Admin:** the database is behind the site. In Supabase → SQL Editor, run all of
+  `supabase/RUN_THIS_ONCE.sql` (safe to run again). Its last line makes
+  kashroot08@gmail.com the Super Admin again.
+* **Forgot the password:** `/forgot-password` (the email link), then the steps above.
+
+#### Emergency: SQL only (the database owner, in the Supabase SQL Editor)
+
+Only someone signed in to the Supabase project can run these. The site, its API
+and every portal account cannot (`kr_set_super_admin` is revoked from them).
+Run one step at a time.
+
+```sql
+-- 1. Make kashroot08@gmail.com the Super Admin again (and an admin, and the owner).
+select public.kr_set_super_admin('kashroot08@gmail.com');
+
+-- 2. Lost the authenticator app: remove its two-step factor. At the next
+--    sign-in, set up a new one at /account/two-step before opening Admin.
+delete from auth.mfa_factors
+ where user_id = (select id from auth.users where lower(email) = 'kashroot08@gmail.com');
+
+-- 3. Forgot the admin access code: remove it. Admin asks for a new one at the next unlock.
+delete from public.admin_lock
+ where user_id = (select id from auth.users where lower(email) = 'kashroot08@gmail.com');
+
+-- 4. Check: should return true for every column.
+select public.kr_setup_has_function('kr_team_member') as team_update,
+       exists (select 1 from public.staff_roles r join auth.users u on u.id = r.user_id
+                where lower(u.email) = 'kashroot08@gmail.com' and r.role = 'ADMIN') as is_admin,
+       (select super_admin_email = 'kashroot08@gmail.com' from public.kr_settings where id = 1) as is_super_admin;
+```
+
+Each step is recorded where the database records it (`audit_log` for step 1).
+Removing the two-step factor or the code makes the account weaker until you set
+them up again, so set them up straight away.
+
 ### Payments and bank details (KashRoot never holds money)
 
 | Threat | Protected now | Missing → fix |
