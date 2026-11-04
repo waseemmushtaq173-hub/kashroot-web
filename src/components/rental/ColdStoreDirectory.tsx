@@ -132,7 +132,7 @@ export function ColdStoreDirectory({
     <section aria-label="All cold stores in Jammu and Kashmir" className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="font-sans text-xl font-semibold text-slate-900">All cold stores in Jammu &amp; Kashmir</h2>
+          <h2 className="font-display text-xl font-semibold text-slate-900">All cold stores in Jammu &amp; Kashmir</h2>
           <p className="text-sm text-slate-600">
             <strong className="text-slate-900">{entries.length.toLocaleString('en-IN')}</strong> cold store{entries.length === 1 ? '' : 's'} found · <strong className="text-emerald-800">{onKashRoot}</strong> on KashRoot, ready to book
           </p>
@@ -191,7 +191,7 @@ export function ColdStoreDirectory({
                 <li key={`${e.listingId ?? e.source}:${e.name}:${e.district ?? ''}:${i}`} className={`flex flex-col rounded-2xl bg-white/85 p-4 shadow-sm ring-1 ${listing ? 'ring-emerald-300' : 'ring-slate-900/5'}`}>
                   <div className="flex items-start justify-between gap-2">
                     <p className="flex items-start gap-1.5 font-semibold text-slate-900">
-                      {listing ? <Snowflake className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden /> : <Warehouse className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" aria-hidden />}
+                      {listing ? <Snowflake className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" aria-hidden /> : <Warehouse className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" aria-hidden />}
                       {e.name}
                     </p>
                     {listing && <Badge tone="violet">On KashRoot</Badge>}

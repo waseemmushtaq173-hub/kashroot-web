@@ -4,8 +4,10 @@
  * The region skin behind a portal page (lib/regionSkins): the person's
  * state's photograph as a soft band at the top of the page, washed with the
  * KashRoot ivory so the words in front stay easy to read, and fading into
- * the page. Loads late and at low priority (phones get the 960 px copy); if
- * it does not load, the drawn backdrop alone shows (KashmirBackdrop). The
+ * the page. It is the first thing painted at the top of a portal page (its
+ * largest paint), so it loads at once and first, as AVIF (WebP where AVIF is
+ * not taken), in the size the screen needs (640 / 1280 / 1920 px wide). If it
+ * does not load, the drawn backdrop alone shows (KashmirBackdrop). The
  * photograph's author and licence are credited at the end of the page
  * (RegionCredit). Decorative: hidden from screen readers.
  */
@@ -22,20 +24,21 @@ export function RegionBackdrop() {
   const base = `/regions/${skin.folder}`;
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 -z-20 h-[clamp(260px,42vh,420px)] select-none overflow-hidden print:hidden" data-region-skin={skin.folder}>
-      {/* eslint-disable-next-line @next/next/no-img-element -- a plain lazy background, sized by srcSet */}
-      <img
-        src={`${base}/hero-960.webp`}
-        srcSet={`${base}/hero-960.webp 960w, ${base}/hero-1920.webp 1920w`}
-        sizes="100vw"
-        alt=""
-        aria-hidden
-        loading="lazy"
-        decoding="async"
-        fetchPriority="low"
-        onError={() => setFailed(skin.folder)}
-        style={{ objectPosition: skin.focus }}
-        className="absolute inset-0 h-full w-full object-cover opacity-[0.32] saturate-[0.85]"
-      />
+      <picture>
+        <source type="image/avif" srcSet={`${base}/hero-640.avif 640w, ${base}/hero-1280.avif 1280w, ${base}/hero-1920.avif 1920w`} sizes="100vw" />
+        <source type="image/webp" srcSet={`${base}/hero-640.webp 640w, ${base}/hero-1280.webp 1280w, ${base}/hero-1920.webp 1920w`} sizes="100vw" />
+        <img
+          src={`${base}/hero-1280.webp`}
+          alt=""
+          aria-hidden
+          loading="eager"
+          decoding="async"
+          fetchPriority="high"
+          onError={() => setFailed(skin.folder)}
+          style={{ objectPosition: skin.focus }}
+          className="absolute inset-0 h-full w-full object-cover opacity-[0.32] saturate-[0.85]"
+        />
+      </picture>
       {/* The KashRoot ivory over it, and a fade into the page below. */}
       <div className="absolute inset-0 bg-gradient-to-b from-[#fbf8f1]/50 via-[#fbf8f1]/70 to-[#fbf8f1]" />
     </div>

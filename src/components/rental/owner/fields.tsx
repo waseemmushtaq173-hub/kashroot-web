@@ -140,7 +140,7 @@ export function WallPicker({ label, value, onChange, name }: { label: string; va
             role="radio"
             aria-checked={value === w}
             onClick={() => onChange(w)}
-            className={`flex min-h-[64px] cursor-pointer items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm font-semibold ring-2 transition ${value === w ? 'bg-emerald-700 text-white ring-emerald-700' : 'bg-white text-slate-800 ring-slate-200 hover:ring-emerald-300'}`}
+            className={`flex min-h-[64px] cursor-pointer items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm font-semibold ring-2 transition ${value === w ? 'bg-chinar text-white ring-chinar' : 'bg-white text-slate-800 ring-slate-200 hover:ring-emerald-300'}`}
           >
             <span className="shrink-0 rounded-lg bg-white p-0.5"><WallIcon wall={w} on={value === w} /></span>
             {WALL_TEXT[w]}
@@ -184,7 +184,7 @@ export function StoragePicker({ value, onChange, name }: { value: Packed; onChan
       aria-checked={value === kind}
       aria-label={title}
       onClick={() => onChange(kind)}
-      className={`flex min-h-[88px] cursor-pointer items-center gap-3 rounded-2xl p-3 text-left ring-2 transition ${value === kind ? 'bg-emerald-700 text-white ring-emerald-700 shadow-md' : 'bg-white text-slate-800 ring-slate-200 hover:ring-emerald-300'}`}
+      className={`flex min-h-[88px] cursor-pointer items-center gap-3 rounded-2xl p-3 text-left ring-2 transition ${value === kind ? 'bg-chinar text-white ring-chinar shadow-md' : 'bg-white text-slate-800 ring-slate-200 hover:ring-emerald-300'}`}
     >
       <span className="shrink-0 rounded-xl bg-white p-1"><StorageIcon kind={kind} /></span>
       <span>

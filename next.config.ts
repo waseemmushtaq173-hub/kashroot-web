@@ -56,6 +56,11 @@ const nextConfig: NextConfig = {
   experimental: {
     inlineCss: true,
   },
+  // Photos (next/image: the home slideshow): AVIF where the browser takes it (about half the
+  // bytes of WebP), else WebP.
+  images: {
+    formats: ['image/avif', 'image/webp'],
+  },
   // Security headers on every response (see CSP above).
   async headers() {
     return [

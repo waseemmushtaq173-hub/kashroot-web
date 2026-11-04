@@ -83,8 +83,8 @@ export function ChambersStep({
             const on = open?.key === c.key;
             const mc = model.chambers.find((x) => x.key === c.key);
             return (
-              <button key={c.key} type="button" role="tab" aria-selected={on} onClick={() => onSelect(c.key)} className={`inline-flex min-h-[48px] cursor-pointer items-center gap-2 rounded-xl px-3.5 text-sm font-semibold ring-2 transition ${on ? 'bg-emerald-700 text-white ring-emerald-700' : 'bg-white text-slate-800 ring-slate-200 hover:ring-emerald-300'}`}>
-                {st === 'ok' ? <CheckCircle2 className={`h-4 w-4 ${on ? 'text-white' : 'text-emerald-600'}`} aria-label="ready" /> : st === 'warn' ? <TriangleAlert className={`h-4 w-4 ${on ? 'text-amber-200' : 'text-amber-600'}`} aria-label="please check" /> : <CircleAlert className={`h-4 w-4 ${on ? 'text-rose-200' : 'text-rose-600'}`} aria-label="needs fixing" />}
+              <button key={c.key} type="button" role="tab" aria-selected={on} onClick={() => onSelect(c.key)} className={`inline-flex min-h-[48px] cursor-pointer items-center gap-2 rounded-xl px-3.5 text-sm font-semibold ring-2 transition ${on ? 'bg-chinar text-white ring-chinar' : 'bg-white text-slate-800 ring-slate-200 hover:ring-emerald-300'}`}>
+                {st === 'ok' ? <CheckCircle2 className={`h-4 w-4 ${on ? 'text-white' : 'text-emerald-700'}`} aria-label="ready" /> : st === 'warn' ? <TriangleAlert className={`h-4 w-4 ${on ? 'text-amber-200' : 'text-amber-600'}`} aria-label="please check" /> : <CircleAlert className={`h-4 w-4 ${on ? 'text-rose-200' : 'text-rose-600'}`} aria-label="needs fixing" />}
                 Chamber {c.no || '?'}
                 {mc?.count ? <span className={`font-normal ${on ? 'text-emerald-100' : 'text-slate-500'}`}>· {countText(mc.count, c.storage)}</span> : null}
               </button>
@@ -97,7 +97,7 @@ export function ChambersStep({
         <Problems issues={kit.issuesOf('chambers')} />
 
         {older.length > 0 && (
-          <div className="space-y-2 rounded-2xl bg-sky-50 p-3 text-sm text-sky-950 ring-1 ring-sky-200">
+          <div className="space-y-2 rounded-2xl bg-ivory p-3 text-sm text-slate-800 ring-1 ring-[#E8A317]/30">
             <p className="font-semibold">Chambers you set up before (kept as they are)</p>
             <p>These were set up before a chamber could have floors, bins or crates, so farmers see each as one plain room of boxes. Add your real chambers below — each with its size, floors and bins or crates — then remove the old ones.</p>
             <ul className="space-y-1.5">
@@ -123,7 +123,7 @@ export function ChambersStep({
 
       <section aria-label="Live drawing of your cold store" className="min-w-0 space-y-3 lg:sticky lg:top-4 lg:self-start">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div role="tablist" aria-label="See your store" className="flex gap-1 rounded-2xl bg-sky-50 p-1 ring-1 ring-sky-200">
+          <div role="tablist" aria-label="See your store" className="flex gap-1 rounded-2xl bg-ivory p-1 ring-1 ring-[#E8A317]/30">
             {([['drawing', 'Drawing', MapIcon], ['3d', '3D view', Layers]] as const).map(([id, label, Icon]) => (
               <button key={id} type="button" role="tab" aria-selected={view === id} onClick={() => setView(id)} className={`inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-xl px-4 text-sm font-semibold transition ${view === id ? 'bg-sky-700 text-white shadow' : 'text-sky-900 hover:bg-sky-100'}`}>
                 <Icon className="h-4 w-4" aria-hidden /> {label}
@@ -193,7 +193,7 @@ function ChamberEditor({
   return (
     <section aria-label={name} className="space-y-5 rounded-3xl bg-white/90 p-4 ring-1 ring-slate-900/10 sm:p-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h3 className="text-lg font-bold text-slate-900">{name}</h3>
+        <h3 className="font-display text-lg font-semibold text-slate-900">{name}</h3>
         <div className="w-36"><KitBox kit={kit} field={`${k}.no`} label="Chamber number" number whole /></div>
       </div>
       <StoragePicker name={`${k}.storage`} value={c.storage} onChange={(v) => kit.set(`${k}.storage`, v)} />
@@ -243,7 +243,7 @@ function ChamberEditor({
 
       {floors > 1 && <FloorHeights kit={kit} c={c} floors={floors} />}
 
-      <fieldset className="space-y-4 rounded-2xl bg-sky-50/70 p-4 ring-1 ring-sky-200">
+      <fieldset className="space-y-4 rounded-2xl bg-ivory/80 p-4 ring-1 ring-[#E8A317]/30">
         <legend className="sr-only">One {W.one} and how you stack</legend>
         <p className="flex items-center gap-2 text-base font-semibold text-sky-950"><BoxIcon className="h-5 w-5" aria-hidden /> One {W.one} and how you stack</p>
         <p className="text-sm text-sky-950">Empty boxes use the usual sizes shown in them. Change any to match your store.</p>
@@ -371,7 +371,7 @@ function Pick<V extends string>({ label, name, value, options, onChange }: { lab
       <p className="text-sm font-semibold text-slate-800">{label}</p>
       <div className="mt-1.5 flex flex-wrap gap-2">
         {options.map(([v, text]) => (
-          <button key={v || 'none'} type="button" role="radio" aria-checked={value === v} onClick={() => onChange(v)} className={`min-h-[44px] cursor-pointer rounded-xl px-3 text-sm font-semibold ring-2 transition ${value === v ? 'bg-emerald-700 text-white ring-emerald-700' : 'bg-white text-slate-800 ring-slate-200 hover:ring-emerald-300'}`}>
+          <button key={v || 'none'} type="button" role="radio" aria-checked={value === v} onClick={() => onChange(v)} className={`min-h-[44px] cursor-pointer rounded-xl px-3 text-sm font-semibold ring-2 transition ${value === v ? 'bg-chinar text-white ring-chinar' : 'bg-white text-slate-800 ring-slate-200 hover:ring-emerald-300'}`}>
             {text}
           </button>
         ))}

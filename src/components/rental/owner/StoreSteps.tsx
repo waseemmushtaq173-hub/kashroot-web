@@ -118,7 +118,7 @@ function SidesPicker({ value, onChange, issues }: { value: Sides | ''; onChange:
             aria-checked={value === s}
             aria-label={SIDE_TEXT[s].title}
             onClick={() => onChange(s)}
-            className={`flex min-h-[124px] cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl p-2 text-center ring-2 transition ${value === s ? 'bg-emerald-700 text-white shadow-md ring-emerald-700' : 'bg-white text-slate-800 ring-slate-200 hover:ring-emerald-300'}`}
+            className={`flex min-h-[124px] cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl p-2 text-center ring-2 transition ${value === s ? 'bg-chinar text-white shadow-md ring-chinar' : 'bg-white text-slate-800 ring-slate-200 hover:ring-emerald-300'}`}
           >
             <span className="rounded-xl bg-white p-0.5"><SidesIcon sides={s} on={value === s} /></span>
             <span className="text-base font-bold leading-tight">{SIDE_TEXT[s].title}</span>

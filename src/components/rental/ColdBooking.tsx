@@ -383,13 +383,13 @@ export function ColdBooking({
           </div>
           <p className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
             <span>Showing which places are free from {niceDate(start)} to {niceDate(lastDay(start, months))}.</span>
-            <button type="button" onClick={() => void load()} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1 rounded-lg px-2 text-sm font-semibold text-sky-800 hover:bg-sky-50"><RefreshCw className="h-4 w-4" aria-hidden /> Refresh</button>
+            <button type="button" onClick={() => void load()} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1 rounded-lg px-2 text-sm font-semibold text-chinar hover:bg-ivory"><RefreshCw className="h-4 w-4" aria-hidden /> Refresh</button>
           </p>
           <div className="flex flex-wrap items-end gap-2 rounded-2xl bg-emerald-50 p-3 ring-1 ring-emerald-200">
             {kinds.length > 1 && (
               <div role="radiogroup" aria-label="What will you bring?" className="flex basis-full gap-2">
                 {kinds.map((k) => (
-                  <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className={`min-h-[48px] flex-1 cursor-pointer rounded-xl px-4 text-base font-semibold ring-2 ${kind === k ? 'bg-emerald-700 text-white ring-emerald-700' : 'bg-white text-emerald-900 ring-emerald-200 hover:ring-emerald-400'}`}>
+                  <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className={`min-h-[48px] flex-1 cursor-pointer rounded-xl px-4 text-base font-semibold ring-2 ${kind === k ? 'bg-chinar text-white ring-chinar' : 'bg-white text-emerald-900 ring-emerald-200 hover:ring-emerald-400'}`}>
                     {UNIT_WORDS[k].title}
                   </button>
                 ))}
@@ -450,7 +450,7 @@ export function ColdBooking({
       ) : step === 'confirm' ? (
         <div className="space-y-4">
           {error && <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">{error}</p>}
-          <div className="rounded-2xl bg-sky-50 p-4 text-sm text-sky-950 ring-1 ring-sky-200">
+          <div className="rounded-2xl bg-ivory p-4 text-sm text-slate-800 ring-1 ring-[#E8A317]/30">
             <p className="font-semibold">{l.title}</p>
             <p className="mt-1 text-base font-bold text-slate-900">{chosenWords}</p>
             <p>From {niceDate(start)} to {niceDate(lastDay(start, months))} ({months} month{months === 1 ? '' : 's'})</p>
@@ -502,7 +502,7 @@ export function ColdBooking({
         </div>
       ) : booked ? (
         <div className="space-y-4 text-center">
-          <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-600" aria-hidden />
+          <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-700" aria-hidden />
           <p className="text-lg font-semibold text-slate-900">Thank you. We told the owner you paid.</p>
           <p className="text-sm text-slate-700">The owner checks the money in their bank or UPI app and confirms. Your receipt {bookingCode(booked.id)} is ready: show it at the cold store when you bring your apples.</p>
           <Btn theme={theme} href={`/rental/receipt/${booked.id}`} icon={ReceiptText} className="min-h-[48px] text-base">See your receipt</Btn>

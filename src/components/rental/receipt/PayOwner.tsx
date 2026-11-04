@@ -189,7 +189,7 @@ export function PayOwner({
         </>
       )}
 
-      <div className="rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-200">
+      <div className="rounded-2xl bg-ivory p-4 ring-1 ring-[#E8A317]/30">
         {paidRef && !paying ? (
           <div className="space-y-2 text-sm text-sky-950">
             <p className="flex items-center gap-2 font-semibold"><CheckCircle2 className="h-5 w-5 text-emerald-700" aria-hidden /> You said you paid. Payment reference: <span className="font-mono">{paidRef}</span></p>

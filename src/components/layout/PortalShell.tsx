@@ -294,6 +294,7 @@ export function PortalShell({
           : undefined
       }
       onSignOut={canSignOut ? () => void signOut() : undefined}
+      pending={Boolean(portal) && signedIn === null}
       onNavigate={() => setDrawer(false)}
       large={large}
     />

@@ -1262,7 +1262,7 @@ export function ColdStore3D({
             : 'You have not chosen a place yet.'
         : '';
   const ww = WAY_WORDS[guideLang];
-  const chip = (on: boolean) => `inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition ${on ? 'bg-emerald-700 text-white' : 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200 hover:bg-emerald-100'}`;
+  const chip = (on: boolean) => `inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition ${on ? 'bg-chinar text-white' : 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200 hover:bg-emerald-100'}`;
   const shownInfo = info !== null ? scene.chambers[info] : null;
   const note = scene.problems.length ? (mode === 'owner' ? scene.problems.slice(0, 2).join(' ') : 'As the owner measured them, some chambers do not fit inside the building, so they are drawn outside it.') : '';
   const big = zoom > 1.3;
@@ -1290,7 +1290,7 @@ export function ColdStore3D({
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2" role="group" aria-label={walking ? 'Walk to' : 'Look at'}>
         {route && onView && (
-          <button type="button" onClick={showWay} className={`${chip(true)} bg-emerald-600 shadow-sm hover:bg-emerald-700`}>
+          <button type="button" onClick={showWay} className={`${chip(true)} shadow-sm hover:bg-chinar-hover`}>
             <Footprints className="h-4 w-4" aria-hidden /> {wayLabel}
           </button>
         )}
@@ -1413,14 +1413,14 @@ export function ColdStore3D({
           </div>
           <div role="radiogroup" aria-label="Language of the steps" className="mt-2 flex flex-wrap gap-1.5">
             {GUIDE_LANGS.map(([l, name]) => (
-              <button key={l} type="button" role="radio" aria-checked={guideLang === l} onClick={() => sayIn(l)} className={`min-h-[44px] cursor-pointer rounded-xl px-3 text-sm font-semibold ring-1 ${guideLang === l ? 'bg-emerald-700 text-white ring-emerald-700' : 'bg-white text-emerald-900 ring-emerald-200 hover:bg-emerald-100'}`}>
+              <button key={l} type="button" role="radio" aria-checked={guideLang === l} onClick={() => sayIn(l)} className={`min-h-[44px] cursor-pointer rounded-xl px-3 text-sm font-semibold ring-1 ${guideLang === l ? 'bg-chinar text-white ring-chinar' : 'bg-white text-emerald-900 ring-emerald-200 hover:bg-emerald-100'}`}>
                 {name}
               </button>
             ))}
           </div>
           <ol dir={rtl} aria-live="polite" className="mt-2 space-y-1 text-sm">
             {route.steps.map((s, k) => (
-              <li key={k} className={`rounded-lg px-2 py-1 ${k === guideAt ? 'bg-emerald-700 font-semibold text-white' : k < guideAt ? 'text-emerald-800' : 'text-slate-600'}`}>
+              <li key={k} className={`rounded-lg px-2 py-1 ${k === guideAt ? 'bg-chinar font-semibold text-white' : k < guideAt ? 'text-emerald-800' : 'text-slate-600'}`}>
                 {k + 1}. {s.text[guideLang]}
               </li>
             ))}

@@ -102,7 +102,8 @@ export function ShellTabs({
             {/* The coloured bar at the sidebar's edge marks the open section. */}
             {active && <span aria-hidden className={`absolute -left-4 top-1/2 h-8 w-1.5 -translate-y-1/2 rounded-r-full ${theme.solid}`} />}
             {Icon && <Icon className={`h-5 w-5 shrink-0 ${active ? '' : 'text-slate-400'}`} aria-hidden />}
-            <span className="min-w-0 flex-1 truncate">{name}</span>
+            {/* A long name wraps onto a second line rather than being cut off ("Bookings to co…"). */}
+            <span className="min-w-0 flex-1 leading-snug [overflow-wrap:anywhere]">{name}</span>
             {badge}
           </button>
         ) : (

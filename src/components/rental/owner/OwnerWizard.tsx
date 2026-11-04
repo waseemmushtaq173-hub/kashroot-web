@@ -272,7 +272,7 @@ export function OwnerWizard({
       <div className="space-y-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-xl font-bold text-slate-900">{title}</h2>
+            <h2 className="font-display text-2xl font-semibold text-slate-900">{title}</h2>
             <p className="text-sm text-slate-600">Step {step} of 5 · {STEPS[step - 1].title}</p>
           </div>
           <Btn theme={theme} variant="ghost" className="min-h-[44px]" icon={X} onClick={onClose}>Close</Btn>
@@ -292,9 +292,9 @@ export function OwnerWizard({
                     disabled={!can || busy}
                     aria-current={n === step ? 'step' : undefined}
                     onClick={() => go(n)}
-                    className={`flex min-h-[44px] w-full flex-col items-center gap-1 rounded-xl px-1 py-1.5 text-[11px] font-semibold leading-tight transition sm:text-xs ${n === step ? 'bg-emerald-700 text-white' : can ? 'cursor-pointer text-emerald-900 hover:bg-emerald-50' : 'cursor-not-allowed text-slate-400'}`}
+                    className={`flex min-h-[44px] w-full flex-col items-center gap-1 rounded-xl px-1 py-1.5 text-[11px] font-semibold leading-tight transition sm:text-xs ${n === step ? 'bg-chinar text-white' : can ? 'cursor-pointer text-emerald-900 hover:bg-emerald-50' : 'cursor-not-allowed text-slate-400'}`}
                   >
-                    <span className={`grid h-6 w-6 place-items-center rounded-full text-xs ${n === step ? 'bg-white text-emerald-800' : n < step || (n === 5 && done.published) ? 'bg-emerald-700 text-white' : 'bg-slate-200 text-slate-700'}`}>{n < step ? '✓' : n}</span>
+                    <span className={`grid h-6 w-6 place-items-center rounded-full text-xs ${n === step ? 'bg-white text-emerald-800' : n < step || (n === 5 && done.published) ? 'bg-chinar text-white' : 'bg-slate-200 text-slate-700'}`}>{n < step ? '✓' : n}</span>
                     <span className="hidden sm:block">{t}</span>
                   </button>
                 </li>
@@ -304,7 +304,7 @@ export function OwnerWizard({
         </nav>
 
         {restored && (
-          <p role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-sky-50 p-3 text-sm text-sky-950 ring-1 ring-sky-200">
+          <p role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-ivory p-3 text-sm text-slate-800 ring-1 ring-[#E8A317]/30">
             We kept what you typed last time on this phone (not saved yet).
             <Btn
               theme={theme}

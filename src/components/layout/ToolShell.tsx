@@ -40,14 +40,15 @@ export function ToolShell({ tool, header, children }: ToolShellProps) {
       />
       <div
         aria-hidden
-        className={`pointer-events-none absolute -right-24 top-1/3 -z-10 h-[24rem] w-[24rem] rounded-full blur-3xl ${theme.glowB}`}
+        className={`pointer-events-none absolute -right-24 top-[22rem] -z-10 h-[24rem] w-[24rem] rounded-full blur-3xl ${theme.glowB}`}
       />
 
       <SiteHeader tone="light" />
 
       {header === undefined ? <ToolHeader tool={tool} /> : header}
 
-      <main id="main-content" className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+      {/* At least a screen tall, and the glow pinned from the top: what loads in never pushes the footer or the glow (no layout shift). */}
+      <main id="main-content" className="mx-auto min-h-[100svh] w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
         {children}
       </main>
 

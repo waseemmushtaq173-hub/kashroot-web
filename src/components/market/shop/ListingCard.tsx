@@ -12,16 +12,18 @@ import { SignInToCall } from '@/components/market/SignInToCall';
 export function ListingCard({ listing: l, verified, lowest, own, onOrder }: { listing: ShopListing; verified: boolean; /** Cheapest of the kind being compared. */ lowest: boolean; own: boolean; theme: PortalTheme; onOrder: () => void }) {
   return (
     <li className="flex flex-col rounded-2xl bg-white/90 p-5 shadow-sm ring-1 ring-slate-900/5">
-      {l.photo === undefined ? (
-        // The photo is still coming: keep its place so nothing jumps.
-        <div aria-hidden className="mb-3 h-36 w-full animate-pulse rounded-xl bg-slate-100" />
-      ) : l.photo ? (
+      {l.photo ? (
         // eslint-disable-next-line @next/next/no-img-element -- seller photo (data URL)
         <img src={l.photo} alt={l.product} className="mb-3 h-36 w-full rounded-xl object-cover" />
       ) : (
-        // No photo from the seller: say so, and keep the cards in line.
-        <div className="mb-3 flex h-36 w-full items-center justify-center gap-1.5 rounded-xl bg-slate-50 text-sm text-slate-500 ring-1 ring-slate-900/5">
-          <ImageOff className="h-4 w-4" aria-hidden /> No photo yet
+        // One box while the photo is coming and when there is none (the same element, so the
+        // browser sees nothing move): a soft pulse, then "No photo yet".
+        <div aria-hidden={l.photo === undefined} className={`mb-3 flex h-36 w-full items-center justify-center gap-1.5 rounded-xl text-sm text-slate-500 ${l.photo === undefined ? 'animate-pulse bg-slate-100' : 'bg-slate-50 ring-1 ring-slate-900/5'}`}>
+          {l.photo === null && (
+            <>
+              <ImageOff className="h-4 w-4" aria-hidden /> No photo yet
+            </>
+          )}
         </div>
       )}
       <div className="flex flex-wrap items-center gap-2">

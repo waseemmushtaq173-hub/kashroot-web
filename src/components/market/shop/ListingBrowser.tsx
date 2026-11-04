@@ -14,11 +14,11 @@
  */
 import { useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Loader2, Package, RefreshCw, Search } from 'lucide-react';
+import { Package, RefreshCw, Search } from 'lucide-react';
 
 import { ListingCard } from '@/components/market/shop/ListingCard';
 import { useLiveListings, type ShopListing } from '@/components/market/shop/useLiveListings';
-import { Btn, EmptyState, INPUT, type PortalTheme } from '@/components/portal/kit';
+import { Btn, EmptyState, INPUT, type PortalTheme, Skeleton } from '@/components/portal/kit';
 import { RegionChip } from '@/components/voice/RegionChip';
 import { PRODUCE, SUBCATEGORIES, type MarketCategory } from '@/lib/db/market';
 import { searchFromLink } from '@/lib/navIntent';
@@ -185,7 +185,7 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
       {error ? (
         <p role="alert" className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">{error}</p>
       ) : listings === null ? (
-        <p className="flex items-center gap-2 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading prices…</p>
+        <Skeleton label="Loading prices…" rows={2} height="h-24" />
       ) : shown.length === 0 ? (
         all.length ? (
           <EmptyState

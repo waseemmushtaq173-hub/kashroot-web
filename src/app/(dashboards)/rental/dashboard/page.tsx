@@ -18,7 +18,7 @@
  * Data: rental_listings, rental_bookings, payout_accounts (shared database).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Apple, ArrowRight, Boxes, CalendarDays, Camera, CheckCircle2, ClipboardCheck, IndianRupee, Landmark, Loader2, Map as MapIcon, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, ReceiptText, Search, Snowflake, Sparkles, Store, Trash2, Warehouse, XCircle } from 'lucide-react';
+import { Apple, ArrowRight, Boxes, CalendarDays, Camera, CheckCircle2, ClipboardCheck, IndianRupee, Landmark, Map as MapIcon, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, ReceiptText, Search, Snowflake, Sparkles, Store, Trash2, Warehouse, XCircle } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { IdentityStatus } from '@/components/auth/IdentityStatus';
@@ -30,7 +30,7 @@ import { OwnerWizard, type Step } from '@/components/rental/owner/OwnerWizard';
 import { StorePhotosEditor } from '@/components/rental/StorePhotos';
 import { PaymentDetails } from '@/components/rental/owner/PaymentStep';
 import { ColdStoreDirectory, useColdDirectory } from '@/components/rental/ColdStoreDirectory';
-import { Badge, Btn, EmptyState, Field, INPUT, Modal, PORTAL_THEMES, Panel } from '@/components/portal/kit';
+import { Badge, Btn, EmptyState, Field, INPUT, Modal, Panel, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
 import { inr, loadAccount, type Account } from '@/lib/db/client';
 import { coldWantFromLink } from '@/lib/navIntent';
 import { countText, groupChambers, nice, UNIT_WORDS, unitsText, type Storage } from '@/lib/coldStore';
@@ -193,7 +193,7 @@ export default function RentalPage() {
     return [counted, byCount ? countText(byCount, 'boxes') : ''].filter(Boolean).join(' and ') || '0';
   };
 
-  if (account === undefined) return <p className="flex items-center gap-2 p-10 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>;
+  if (account === undefined) return <div className="p-6"><Skeleton label="Loading…" /></div>;
 
   return (
     <PortalShell
@@ -250,7 +250,7 @@ export default function RentalPage() {
               ['all', `All cold stores (${directory.entries.length.toLocaleString('en-IN')}${directory.reading ? '…' : ''})`],
               ['kashroot', `Book on KashRoot (${listings.length})`],
             ] as const).map(([id, label]) => (
-              <button key={id} type="button" role="tab" aria-selected={findView === id} onClick={() => setFindView(id)} className={`flex-1 cursor-pointer rounded-xl px-4 py-2.5 text-sm font-semibold transition ${findView === id ? 'bg-emerald-700 text-white shadow' : 'text-emerald-900 hover:bg-emerald-100'}`}>
+              <button key={id} type="button" role="tab" aria-selected={findView === id} onClick={() => setFindView(id)} className={`flex-1 cursor-pointer rounded-xl px-4 py-2.5 text-sm font-semibold transition ${findView === id ? 'bg-chinar text-white shadow' : 'text-emerald-900 hover:bg-emerald-100'}`}>
                 {label}
               </button>
             ))}
@@ -280,7 +280,7 @@ export default function RentalPage() {
             <input className={`${INPUT} pl-9`} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search cold stores on KashRoot: name, village or district" />
           </label>
           {loading && listings.length === 0 ? (
-            <p className="flex items-center gap-2 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>
+            <Skeleton label="Loading…" />
           ) : visible.length === 0 ? (
             <EmptyState
               theme={theme}
@@ -440,7 +440,7 @@ function StoreCard({
     <div className="rounded-2xl bg-white/90 p-4 shadow-sm ring-1 ring-slate-900/5 sm:p-5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h3 className="font-sans text-lg font-semibold text-slate-900">{l.title}</h3>
+          <h3 className="font-display text-lg font-semibold text-slate-900">{l.title}</h3>
           <p className="mt-0.5 flex items-start gap-1.5 text-sm text-slate-600"><MapPin className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> <span>{place}{l.address ? ` · ${l.address}` : ''}</span></p>
           {l.temperature && <p className="flex items-center gap-1.5 text-sm text-slate-600"><Snowflake className="h-4 w-4" aria-hidden /> {l.temperature}</p>}
         </div>
@@ -491,7 +491,7 @@ function StoreCard({
           </table>
           <ul aria-label="What each chamber holds" className="mt-2 space-y-2 sm:hidden">
             {groups.map((g) => (
-              <li key={g.key} className="rounded-xl bg-sky-50 p-3 text-sm text-slate-800 ring-1 ring-sky-200">
+              <li key={g.key} className="rounded-xl bg-ivory p-3 text-sm text-slate-800 ring-1 ring-[#E8A317]/30">
                 <p className="flex justify-between gap-2"><strong className="text-slate-900">{g.name}</strong> <span>{rentOf(g)} a month</span></p>
                 <p>Holds {countText(g.count, g.storage)}{g.unitKg ? ` of ${nice(g.unitKg)} kg` : ''}{tonnes(g) ? ` (${tonnes(g)} tonnes)` : ''} · {g.floors.length} floor{g.floors.length === 1 ? '' : 's'}</p>
                 <p>Free now: <strong className={known && freeIn(g) === 0 ? 'text-rose-700' : 'text-emerald-800'}>{known ? (freeIn(g) ? countText(freeIn(g), g.storage) : `0 ${UNIT_WORDS[g.storage].many} (full)`) : '—'}</strong></p>
@@ -516,7 +516,7 @@ function StoreCard({
                 {kinds.length > 1 && (
                   <div role="radiogroup" aria-label="What will you bring?" className="flex gap-2">
                     {kinds.map((k) => (
-                      <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className={`min-h-[44px] flex-1 cursor-pointer rounded-xl px-3 text-sm font-semibold ring-2 ${kind === k ? 'bg-emerald-700 text-white ring-emerald-700' : 'bg-white text-emerald-900 ring-emerald-200'}`}>
+                      <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className={`min-h-[44px] flex-1 cursor-pointer rounded-xl px-3 text-sm font-semibold ring-2 ${kind === k ? 'bg-chinar text-white ring-chinar' : 'bg-white text-emerald-900 ring-emerald-200'}`}>
                         {UNIT_WORDS[k].title}
                       </button>
                     ))}
@@ -542,7 +542,7 @@ function StoreCard({
           <div className="mt-3">
             <p className="flex justify-between text-sm"><span className="font-semibold text-slate-900">{l.available.toLocaleString('en-IN')} boxes free</span><span className="text-slate-500">of {l.capacity.toLocaleString('en-IN')}</span></p>
             <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100" role="meter" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Free space">
-              <div className="h-full rounded-full bg-emerald-600" style={{ width: `${pct}%` }} />
+              <div className="h-full rounded-full bg-chinar" style={{ width: `${pct}%` }} />
             </div>
           </div>
           {l.details && <p className="mt-2 line-clamp-2 text-sm text-slate-600">{l.details}</p>}
@@ -859,7 +859,7 @@ function OwnerPanel({
                   )}
                   {mapped ? (
                     <p className="mt-3 text-sm text-slate-700">
-                      Free now: <strong className="text-lg tabular-nums text-slate-900"><Boxes className="mr-1 inline h-4 w-4 text-emerald-600" aria-hidden />{l.available.toLocaleString('en-IN')}</strong> of {l.capacity.toLocaleString('en-IN')} {words} — counted from your chambers
+                      Free now: <strong className="text-lg tabular-nums text-slate-900"><Boxes className="mr-1 inline h-4 w-4 text-emerald-700" aria-hidden />{l.available.toLocaleString('en-IN')}</strong> of {l.capacity.toLocaleString('en-IN')} {words} — counted from your chambers
                     </p>
                   ) : wizardStore ? (
                     <p className="mt-3 text-sm text-amber-800">No chambers yet — add them so farmers can book.</p>
@@ -867,7 +867,7 @@ function OwnerPanel({
                   <div className="mt-3 flex flex-wrap items-center gap-3">
                     <span className="text-sm text-slate-700">Free now:</span>
                     <button type="button" aria-label={`${step} fewer free`} disabled={busy} onClick={() => void run(() => setAvailability(l.id, Math.max(0, l.available - step)), 'Vacancy updated')} className="grid h-11 w-11 cursor-pointer place-items-center rounded-lg bg-slate-100 hover:bg-slate-200"><Minus className="h-4 w-4" aria-hidden /></button>
-                    <span className="min-w-[6rem] text-center text-lg font-bold tabular-nums text-slate-900"><Boxes className="mr-1 inline h-4 w-4 text-emerald-600" aria-hidden />{l.available.toLocaleString('en-IN')}</span>
+                    <span className="min-w-[6rem] text-center text-lg font-bold tabular-nums text-slate-900"><Boxes className="mr-1 inline h-4 w-4 text-emerald-700" aria-hidden />{l.available.toLocaleString('en-IN')}</span>
                     <button type="button" aria-label={`${step} more free`} disabled={busy} onClick={() => void run(() => setAvailability(l.id, Math.min(l.capacity, l.available + step)), 'Vacancy updated')} className="grid h-11 w-11 cursor-pointer place-items-center rounded-lg bg-slate-100 hover:bg-slate-200"><Plus className="h-4 w-4" aria-hidden /></button>
                     <span className="text-sm text-slate-500">of {l.capacity.toLocaleString('en-IN')} {unit.unit}</span>
                   </div>
@@ -1036,7 +1036,7 @@ function SideSwitch({ side, waiting, onChange }: { side: Side; waiting: number; 
         role="radio"
         aria-checked={on}
         onClick={() => !on && onChange(id)}
-        className={`flex flex-1 cursor-pointer items-start gap-3 rounded-2xl p-4 text-left ring-2 transition ${on ? 'bg-emerald-700 text-white shadow-lg ring-emerald-700' : 'bg-white/80 text-slate-800 ring-slate-900/10 hover:ring-emerald-300'}`}
+        className={`flex flex-1 cursor-pointer items-start gap-3 rounded-2xl p-4 text-left ring-2 transition ${on ? 'bg-chinar text-white shadow-lg ring-chinar' : 'bg-white/80 text-slate-800 ring-slate-900/10 hover:ring-emerald-300'}`}
       >
         <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${on ? 'bg-white/15' : 'bg-emerald-50 text-emerald-700'}`}>
           <Icon className="h-5 w-5" aria-hidden />

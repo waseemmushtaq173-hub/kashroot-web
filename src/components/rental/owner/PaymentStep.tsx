@@ -9,10 +9,10 @@
  * these, and the money goes straight to the owner — KashRoot never holds it.
  */
 import { useState } from 'react';
-import { Banknote, Landmark, Loader2 } from 'lucide-react';
+import { Banknote, Landmark } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
-import { Btn, Panel, PORTAL_THEMES } from '@/components/portal/kit';
+import { Btn, Panel, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
 import { UpiQr } from '@/components/payments/UpiQr';
 import { Box } from '@/components/rental/owner/fields';
 import { bankOf, blankPayout, IFSC_RE, payoutIssues, type Issue, type PayoutDraft } from '@/lib/coldStore';
@@ -109,7 +109,7 @@ export function PaymentDetails({ payout, onSaved, name }: { payout: PayoutAccoun
   return (
     <Panel theme={theme} title="Where farmers pay you" icon={Banknote}>
       {payout === undefined ? (
-        <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>
+        <Skeleton label="Loading…" rows={2} height="h-10" />
       ) : (
         <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); void save(); }}>
           <PayoutFields value={draft} onChange={setDraft} showAll={tried} />

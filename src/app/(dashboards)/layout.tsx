@@ -293,7 +293,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           </NotOnSafePayment>
         </Suspense>
       )}
-      <div className="flex flex-1 flex-col">
+      {/* At least a screen tall: the footer starts below the fold, so the portal's content arriving never pushes it away (no layout shift). */}
+      <div className="flex min-h-[100svh] flex-1 flex-col">
         {children}
       </div>
       <SiteFooter tone="light" portal={portal} />
