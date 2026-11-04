@@ -45,11 +45,23 @@ for (const width of [1280, 390]) {
     test('the footer holds only the brand, © and the social pages', async ({ page }) => {
       await page.goto('/');
       const footer = page.locator('footer').last();
-      const names = (await footer.getByRole('link').allInnerTexts()).map((t) => t.trim()).filter(Boolean);
-      expect(names.filter((n) => !/^KashRoot$/i.test(n)).sort()).toEqual(['Facebook', 'Instagram', 'LinkedIn']);
+      // Besides the brand, only the three social pages, shown as their logos (components/layout/SocialIcons).
+      const names = await footer.getByRole('link').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label') ?? e.textContent?.trim() ?? ''));
+      expect(names.filter((n) => !/^KashRoot$/i.test(n)).sort()).toEqual(['KashRoot on Facebook', 'KashRoot on Instagram', 'KashRoot on LinkedIn']);
       await expect(footer).toContainText('© ');
       await expect(footer).not.toContainText('@');
-      for (const name of ['Instagram', 'Facebook', 'LinkedIn']) expect((await footer.getByRole('link', { name }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      for (const name of ['Instagram', 'Facebook', 'LinkedIn']) {
+        const link = footer.getByRole('link', { name: `KashRoot on ${name}` });
+        const box = (await link.boundingBox())!;
+        expect(box.height, `${name}: 44 px to tap`).toBeGreaterThanOrEqual(44);
+        expect(box.width, `${name}: 44 px to tap`).toBeGreaterThanOrEqual(44);
+        await expect(link).toHaveAttribute('title', `KashRoot on ${name}`);
+        await expect(link).toHaveAttribute('target', '_blank');
+        await expect(link).toHaveAttribute('rel', 'noopener noreferrer me');
+        await expect(link.locator('svg')).toHaveAttribute('aria-hidden', 'true');
+      }
+      const scrollX = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      expect(scrollX).toBeLessThanOrEqual(0);
       await footer.screenshot({ path: `test-results/footer-${width}.png` });
     });
 

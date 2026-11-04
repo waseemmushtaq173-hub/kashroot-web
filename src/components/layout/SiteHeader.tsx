@@ -11,8 +11,8 @@ import { FloatingVoice } from '@/components/voice/FloatingVoice';
 import { loginHref, PORTALS, PUBLIC_PORTAL_IDS, type PortalId } from '@/lib/auth/roles';
 import { useSecretAdminTap, useShowAdmin } from '@/lib/client/adminDevice';
 import { signOutOfPortal, useMyPortal, useSignedIn } from '@/lib/auth/session';
-import { SOCIAL_LINKS } from '@/lib/site';
 import { HelpButton } from '@/components/layout/HelpButton';
+import { SocialIcons } from '@/components/layout/SocialIcons';
 
 /**
  * `dark` (default) is the original look for the dark dashboards. `light` is for
@@ -304,9 +304,6 @@ export function SiteHeader({
  */
 export function SiteFooter({ tone = 'dark' }: { tone?: SiteTone; portal?: PortalId | null }) {
   const light = tone === 'light';
-  const footLink = light
-    ? 'text-slate-600 no-underline transition-colors hover:text-slate-900 hover:no-underline'
-    : 'text-kr-text-secondary transition-colors hover:text-kr-text-brand';
 
   return (
     <footer
@@ -329,12 +326,8 @@ export function SiteFooter({ tone = 'dark' }: { tone?: SiteTone; portal?: Portal
         </div>
         {/* Only the social pages: help is in every top bar (Help & support), the portals in the Portals menu.
             Room on the right, so the floating voice button never covers the last link. */}
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pr-20 text-caption">
-          {SOCIAL_LINKS.map((s) => (
-            <a key={s.href} href={s.href} target="_blank" rel="noopener noreferrer me" className={`${footLink} inline-flex min-h-11 items-center`}>
-              {s.label}
-            </a>
-          ))}
+        <div className="pr-20">
+          <SocialIcons />
         </div>
       </div>
     </footer>
