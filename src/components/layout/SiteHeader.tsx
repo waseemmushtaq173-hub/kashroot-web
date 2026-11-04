@@ -126,14 +126,14 @@ function MobileMenu({ showAuth }: { showAuth: boolean }) {
         >
           {showAuth && myPortal && (
             <div className="p-1">
-              <Link href={PORTALS[myPortal].home} onClick={close} className="flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-3 py-3 text-sm font-semibold text-white no-underline shadow-sm hover:bg-emerald-800 hover:no-underline">
+              <Link href={PORTALS[myPortal].home} onClick={close} className="flex items-center justify-center gap-2 rounded-xl bg-chinar px-3 py-3 text-sm font-semibold text-white no-underline shadow-sm hover:bg-chinar-hover hover:no-underline">
                 <UserRound className="h-4 w-4" aria-hidden /> Open my {PORTALS[myPortal].label} portal
               </Link>
             </div>
           )}
           {showAuth && !myPortal && (
             <div className="grid grid-cols-2 gap-2 p-1">
-              <Link href="/login" onClick={close} className="flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-3 py-3 text-sm font-semibold text-white no-underline shadow-sm hover:bg-emerald-800 hover:no-underline">
+              <Link href="/login" onClick={close} className="flex items-center justify-center gap-2 rounded-xl bg-chinar px-3 py-3 text-sm font-semibold text-white no-underline shadow-sm hover:bg-chinar-hover hover:no-underline">
                 <LogIn className="h-4 w-4" aria-hidden /> Sign in
               </Link>
               <Link href="/register" onClick={close} className="flex items-center justify-center gap-2 rounded-xl bg-white px-3 py-3 text-sm font-semibold text-slate-900 no-underline ring-1 ring-slate-900/15 hover:bg-slate-50 hover:no-underline">

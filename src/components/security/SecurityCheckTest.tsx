@@ -106,7 +106,7 @@ export function SecurityCheckTest() {
       </h2>
       <p className="mt-2 text-sm text-white/70">If nobody can sign in because of the “I am human” check, this finds out why — in this browser, with fresh checks that are used once and never shown. It makes no account.</p>
       <div className="mt-3 rounded-xl bg-white p-2 empty:hidden">{human.element}</div>
-      <button type="button" onClick={() => void run()} disabled={busy} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-700 px-4 font-semibold text-white hover:bg-emerald-800 disabled:opacity-60">
+      <button type="button" onClick={() => void run()} disabled={busy} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-chinar px-4 font-semibold text-white hover:bg-chinar-hover disabled:opacity-60">
         {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} {busy ? (human.waiting ? 'Checking you’re human…' : 'Testing…') : 'Run the test'}
       </button>
       {error && <p role="alert" className="mt-3 text-sm text-amber-300">{error}</p>}

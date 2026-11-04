@@ -213,7 +213,7 @@ export function PayOwner({
             <p className="text-xs text-slate-600">Your bank or UPI app shows it after you pay. A UPI reference has 12 digits, like 412345678901.</p>
             <input
               id={`ref-${bookingId}`}
-              className="block min-h-[48px] w-full rounded-xl border-0 bg-white px-3 font-mono text-base tracking-wide text-slate-900 ring-1 ring-slate-300 focus:ring-2 focus:ring-emerald-600"
+              className="block min-h-[48px] w-full rounded-xl border-0 bg-white px-3 font-mono text-base tracking-wide text-slate-900 ring-1 ring-slate-300 focus:ring-2 focus:ring-emerald-700"
               inputMode="text"
               autoCapitalize="characters"
               autoComplete="off"

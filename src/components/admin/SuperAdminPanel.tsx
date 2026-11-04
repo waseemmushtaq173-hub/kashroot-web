@@ -27,7 +27,7 @@ import { supabase } from '@/lib/db/client';
 
 const theme = PORTAL_THEMES.admin ?? PORTAL_THEMES.expert;
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—');
-const INPUT = 'min-h-11 w-full rounded-xl border-0 bg-white px-3 text-sm ring-1 ring-slate-300 focus:ring-2 focus:ring-sky-600';
+const INPUT = 'min-h-11 w-full rounded-xl border-0 bg-white px-3 text-sm ring-1 ring-slate-300 focus:ring-2 focus:ring-emerald-700';
 
 interface Person {
   id: string;

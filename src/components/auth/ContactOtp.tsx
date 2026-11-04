@@ -25,8 +25,8 @@ export interface OtpAccent {
 }
 
 const EMERALD: OtpAccent = {
-  button: 'bg-emerald-700 text-white hover:bg-emerald-800',
-  ring: 'focus:ring-emerald-600',
+  button: 'bg-chinar text-white hover:bg-chinar-hover',
+  ring: 'focus:ring-emerald-700',
   text: 'text-emerald-800',
   tile: 'bg-gradient-to-br from-emerald-400 to-green-600 text-white',
 };

@@ -20,8 +20,8 @@ import { KeyRound, Loader2, ShieldCheck, Smartphone } from 'lucide-react';
 
 import { supabase } from '@/lib/supabase';
 
-const INPUT = 'min-h-12 w-full rounded-xl border-0 bg-white px-4 text-center font-mono text-2xl tracking-[0.4em] text-slate-900 ring-1 ring-slate-300 focus:ring-2 focus:ring-emerald-600';
-const BUTTON = 'inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60';
+const INPUT = 'min-h-12 w-full rounded-xl border-0 bg-white px-4 text-center font-mono text-2xl tracking-[0.4em] text-slate-900 ring-1 ring-slate-300 focus:ring-2 focus:ring-emerald-700';
+const BUTTON = 'inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-chinar px-5 font-semibold text-white hover:bg-chinar-hover disabled:cursor-not-allowed disabled:opacity-60';
 
 /** Plain words for Supabase's MFA errors. */
 function said(err: { message?: string } | null | undefined): string {

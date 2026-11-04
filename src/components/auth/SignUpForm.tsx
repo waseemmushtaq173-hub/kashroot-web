@@ -40,7 +40,7 @@ const ROLE_STYLE: Record<RegisterRole, { icon: LucideIcon; label: string; theme:
     tile: 'from-emerald-700 to-[#052E26] shadow-emerald-950/30',
     selected: 'bg-gradient-to-br from-[#FBF8F0] to-emerald-50 ring-2 ring-amber-400',
     button: 'from-emerald-700 to-emerald-900 shadow-emerald-900/30',
-    ring: 'focus:ring-emerald-600',
+    ring: 'focus:ring-emerald-700',
     text: 'text-emerald-800',
   },
   BUYER: {
@@ -51,7 +51,7 @@ const ROLE_STYLE: Record<RegisterRole, { icon: LucideIcon; label: string; theme:
     tile: 'from-emerald-700 to-[#052E26] shadow-emerald-950/30',
     selected: 'bg-gradient-to-br from-[#FBF8F0] to-emerald-50 ring-2 ring-amber-400',
     button: 'from-emerald-700 to-emerald-900 shadow-emerald-900/30',
-    ring: 'focus:ring-emerald-600',
+    ring: 'focus:ring-emerald-700',
     text: 'text-emerald-800',
   },
   SELLER: {
@@ -62,7 +62,7 @@ const ROLE_STYLE: Record<RegisterRole, { icon: LucideIcon; label: string; theme:
     tile: 'from-emerald-700 to-[#052E26] shadow-emerald-950/30',
     selected: 'bg-gradient-to-br from-[#FBF8F0] to-emerald-50 ring-2 ring-amber-400',
     button: 'from-emerald-700 to-emerald-900 shadow-emerald-900/30',
-    ring: 'focus:ring-emerald-600',
+    ring: 'focus:ring-emerald-700',
     text: 'text-emerald-800',
   },
   PROVIDER: {
@@ -73,7 +73,7 @@ const ROLE_STYLE: Record<RegisterRole, { icon: LucideIcon; label: string; theme:
     tile: 'from-emerald-700 to-[#052E26] shadow-emerald-950/30',
     selected: 'bg-gradient-to-br from-[#FBF8F0] to-emerald-50 ring-2 ring-amber-400',
     button: 'from-emerald-700 to-emerald-900 shadow-emerald-900/30',
-    ring: 'focus:ring-emerald-600',
+    ring: 'focus:ring-emerald-700',
     text: 'text-emerald-800',
   },
 };
@@ -444,7 +444,7 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
           </div>
 
           <label htmlFor="terms" className="flex items-start gap-2.5 text-sm text-slate-700">
-            <input id="terms" type="checkbox" checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-600" />
+            <input id="terms" type="checkbox" checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-700" />
             <span>
               I agree to the <Link href="/terms" className={`font-semibold hover:underline ${look.text}`}>Terms</Link> and <Link href="/privacy" className={`font-semibold hover:underline ${look.text}`}>Privacy Policy</Link>
             </span>

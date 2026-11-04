@@ -68,7 +68,7 @@ export function OfflineHelp() {
 
   return (
     <>
-      <a href={from} className="mt-6 inline-flex min-h-12 items-center gap-2 rounded-xl bg-emerald-700 px-6 text-lg font-bold text-white shadow-sm hover:bg-emerald-800">
+      <a href={from} className="mt-6 inline-flex min-h-12 items-center gap-2 rounded-xl bg-chinar px-6 text-lg font-bold text-white shadow-sm hover:bg-chinar-hover">
         <RotateCcw className="h-5 w-5" aria-hidden /> Try again
       </a>
       <h2 className="mt-8 text-lg font-semibold text-slate-900">Saved on this phone</h2>

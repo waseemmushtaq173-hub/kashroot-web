@@ -50,6 +50,11 @@ const config: Config = {
         'pir-panjal-navy': '#0B1F3A',
         'walnut-brown': '#6B4423',
         gold: '#D4AF37',
+        // KashRoot's one look (portal kit, every portal): chinar green for actions and accents, saffron
+        // gold for hairlines, ivory surfaces, copper for the chinar leaf. White text on chinar is 7.7:1.
+        chinar: { DEFAULT: '#065F46', hover: '#064E3B', deep: '#052E26', soft: '#ECFDF5', line: '#A7F3D0' },
+        ivory: { DEFAULT: '#FBF8F0', deep: '#F6F1E3' },
+        copper: '#B4532A',
         saffron: '#E05A3E',
         // Raw palette scales (accessible as bg-kr-primary-500, etc.)
         'kr-primary':   colors.primary,

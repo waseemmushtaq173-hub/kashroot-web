@@ -177,7 +177,7 @@ function InfoCard({ c, free, rate, unit, onClose, onWalk, zoom }: { c: SceneCham
         )}
       </dl>
       {onWalk && (
-        <button type="button" onClick={onWalk} className="mt-2 inline-flex min-h-[44px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-700 px-3 font-semibold text-white hover:bg-emerald-800">
+        <button type="button" onClick={onWalk} className="mt-2 inline-flex min-h-[44px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-chinar px-3 font-semibold text-white hover:bg-chinar-hover">
           <Footprints className="h-4 w-4" aria-hidden /> Walk in here
         </button>
       )}

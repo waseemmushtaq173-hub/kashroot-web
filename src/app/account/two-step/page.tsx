@@ -113,7 +113,7 @@ export default function TwoStepPage() {
           <button
             type="button"
             onClick={() => setMode(factors.length && !passed ? 'verify' : 'add')}
-            className="mt-3 inline-flex min-h-12 items-center gap-2 rounded-xl bg-emerald-700 px-5 font-semibold text-white hover:bg-emerald-800"
+            className="mt-3 inline-flex min-h-12 items-center gap-2 rounded-xl bg-chinar px-5 font-semibold text-white hover:bg-chinar-hover"
           >
             <ShieldCheck className="h-5 w-5" aria-hidden /> {factors.length ? 'Add a backup phone' : 'Turn on two-step sign-in'}
           </button>

@@ -79,7 +79,7 @@ function Settle({ r, onSettle }: { r: Request; onSettle: (solved: boolean) => vo
   return (
     <div className="flex flex-wrap gap-2">
       {r.status === 'answered' && (
-        <button type="button" onClick={() => onSettle(true)} className={`${button} bg-emerald-700 text-white hover:bg-emerald-800`}>
+        <button type="button" onClick={() => onSettle(true)} className={`${button} bg-chinar text-white hover:bg-chinar-hover`}>
           <CheckCircle2 className="h-5 w-5" aria-hidden /> This solved my problem
         </button>
       )}
@@ -111,7 +111,7 @@ function markSeen(codes: string[]) {
 }
 
 const when = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
-const input = 'min-h-12 w-full rounded-xl border-0 bg-white px-4 text-base text-slate-900 ring-1 ring-slate-300 focus:ring-2 focus:ring-emerald-600';
+const input = 'min-h-12 w-full rounded-xl border-0 bg-white px-4 text-base text-slate-900 ring-1 ring-slate-300 focus:ring-2 focus:ring-emerald-700';
 const button = 'inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-2xl px-5 text-base font-bold transition disabled:cursor-not-allowed disabled:opacity-60';
 
 async function post(body: Record<string, unknown>): Promise<{ ok: boolean; data: Record<string, unknown> }> {
@@ -354,7 +354,7 @@ export function SupportCenter() {
                       {pick(t.steps, lang)}
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={() => read(t.id, pick(t.steps, lang))} className={`${button} bg-emerald-700 text-white hover:bg-emerald-800`}>
+                      <button type="button" onClick={() => read(t.id, pick(t.steps, lang))} className={`${button} bg-chinar text-white hover:bg-chinar-hover`}>
                         {reading === t.id ? <Square className="h-5 w-5" aria-hidden /> : <Volume2 className="h-5 w-5" aria-hidden />}
                         {reading === t.id ? 'Stop' : 'Listen'}
                       </button>
@@ -382,7 +382,7 @@ export function SupportCenter() {
             <p data-support-code className="mt-2 font-mono text-3xl font-bold tracking-wider text-slate-900">{sent}</p>
             <p className="mt-2 text-slate-700">Write it down. With it and your mobile number you can check for replies below.</p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <button type="button" onClick={() => read('code', `Your request number is ${sent.split('').join(' ')}`)} className={`${button} bg-emerald-700 text-white hover:bg-emerald-800`}>
+              <button type="button" onClick={() => read('code', `Your request number is ${sent.split('').join(' ')}`)} className={`${button} bg-chinar text-white hover:bg-chinar-hover`}>
                 <Volume2 className="h-5 w-5" aria-hidden /> Read the number aloud
               </button>
               <button type="button" onClick={() => setSent(null)} className={`${button} bg-white text-slate-900 ring-1 ring-slate-300`}>
@@ -428,7 +428,7 @@ export function SupportCenter() {
               <div className="sm:col-span-2">
                 {human.element}
               </div>
-              <button type="submit" disabled={sending} className={`${button} bg-emerald-700 text-white hover:bg-emerald-800 sm:col-span-2 sm:justify-self-start`}>
+              <button type="submit" disabled={sending} className={`${button} bg-chinar text-white hover:bg-chinar-hover sm:col-span-2 sm:justify-self-start`}>
                 {sending ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <Send className="h-5 w-5" aria-hidden />} {human.waiting ? CHECKING_HUMAN : 'Send to KashRoot'}
               </button>
             </form>
@@ -475,7 +475,7 @@ export function SupportCenter() {
                   Add a note
                   <textarea className={`${input} min-h-24 py-3`} value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} />
                 </label>
-                <button type="button" onClick={() => void addNote()} disabled={!note.trim()} className={`${button} justify-self-start bg-emerald-700 text-white hover:bg-emerald-800`}>
+                <button type="button" onClick={() => void addNote()} disabled={!note.trim()} className={`${button} justify-self-start bg-chinar text-white hover:bg-chinar-hover`}>
                   <Send className="h-5 w-5" aria-hidden /> Send note
                 </button>
               </div>
@@ -494,7 +494,7 @@ export function SupportCenter() {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-mono font-bold">{r.code}</span>
                   <span className="text-sm text-slate-600">{TOPIC_LABEL[r.topic]}</span>
-                  {fresh.has(r.code) && <span className="rounded-full bg-emerald-700 px-2.5 py-0.5 text-xs font-bold text-white">New reply</span>}
+                  {fresh.has(r.code) && <span className="rounded-full bg-chinar px-2.5 py-0.5 text-xs font-bold text-white">New reply</span>}
                 </div>
                 <Steps status={r.status} />
                 <Thread r={r} />
@@ -516,7 +516,7 @@ export function SupportCenter() {
             <span className="font-semibold">Website:</span> {new URL(SITE_URL).host} — sign in only on this address.
           </li>
           <li className="flex flex-wrap items-center gap-3">
-            <a href={supportMailto()} className={`${button} bg-emerald-700 text-white no-underline hover:bg-emerald-800 hover:no-underline`} data-email-us>
+            <a href={supportMailto()} className={`${button} bg-chinar text-white no-underline hover:bg-chinar-hover hover:no-underline`} data-email-us>
               <Mail className="h-5 w-5" aria-hidden /> Email us
             </a>
             <span className="text-sm text-slate-600">

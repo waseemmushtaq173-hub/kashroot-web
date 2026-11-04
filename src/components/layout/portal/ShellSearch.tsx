@@ -163,7 +163,7 @@ export function ShellSearch({ getItems, theme, example }: { getItems: () => Sear
               if (query) setResults(findItems(getItems(), query));
             }}
             onBlur={() => setFocused(false)}
-            className="block h-12 w-full rounded-xl border-0 bg-white/90 pl-11 pr-16 text-base text-slate-900 shadow-sm ring-1 ring-inset ring-slate-900/10 transition placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-500 md:h-11 md:text-sm [&::-webkit-search-cancel-button]:hidden"
+            className="block h-12 w-full rounded-xl border-0 bg-white/90 pl-11 pr-16 text-base text-slate-900 shadow-sm ring-1 ring-inset ring-slate-900/10 transition placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-700 md:h-11 md:text-sm [&::-webkit-search-cancel-button]:hidden"
           />
           {query ? (
             <button

@@ -173,7 +173,7 @@ export function QrScanner({ onResult, disabled }: { onResult: (text: string) => 
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
-          <button type="button" disabled={disabled || busy} onClick={startCamera} className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-800 disabled:opacity-50">
+          <button type="button" disabled={disabled || busy} onClick={startCamera} className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-chinar px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-chinar-hover disabled:opacity-50">
             <QrCode className="h-4 w-4" aria-hidden /> Scan Aadhaar QR
           </button>
           {(noCamera || busy) && photoInput('Choose a photo of the QR')}

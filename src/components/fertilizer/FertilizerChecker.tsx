@@ -76,7 +76,7 @@ type Scan =
 /** A registration number read from the label photo, looked up in the official list. */
 type RegCheck = { state: 'idle' } | { state: 'loading' } | { state: 'error'; message: string } | { state: 'done'; no: string; hits: OfficialHit[] | null; stats: RegistryStats | null };
 
-const INPUT = 'block w-full rounded-xl border-0 bg-white px-4 py-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-600';
+const INPUT = 'block w-full rounded-xl border-0 bg-white px-4 py-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-700';
 const ASK = 'Ask the dealer for the registration certificate, or ask your agriculture officer.';
 
 /** "26 Oct 2026" */
@@ -275,7 +275,7 @@ function RegistryForm({ code, setCode, busy, onCheck }: { code: string; setCode:
           {numbers ? 'ABC' : '123'}
         </button>
       </div>
-      <button type="submit" disabled={busy} className="mt-3 inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-700 px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-emerald-800 disabled:opacity-60 sm:w-auto">
+      <button type="submit" disabled={busy} className="mt-3 inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-chinar px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-chinar-hover disabled:opacity-60 sm:w-auto">
         {busy ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <ShieldCheck className="h-5 w-5" aria-hidden />} {busy ? 'Checking…' : 'Check'}
       </button>
     </form>
@@ -344,7 +344,7 @@ function ScanResult({ result, account, onPhoto, onLab }: { result: Scan; account
           <p className="flex items-center gap-2 font-semibold text-slate-900"><ScanLine className="h-5 w-5 shrink-0" aria-hidden /> {typed.text.toUpperCase()} looks like a batch number</p>
           <p className="mt-1">The Government of India publishes no list of batch numbers, so no website — KashRoot included — can confirm a batch number.</p>
           <p className="mt-1">To check the product itself, type its <strong>registration number (CIR-…)</strong> or its <strong>name</strong> from the label, or photograph the label.</p>
-          <button type="button" onClick={onPhoto} className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 font-semibold text-white hover:bg-emerald-800">
+          <button type="button" onClick={onPhoto} className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-chinar px-4 py-2 font-semibold text-white hover:bg-chinar-hover">
             <Camera className="h-4 w-4" aria-hidden /> Check the label photo
           </button>
           {dealer?.state === 'found' && (

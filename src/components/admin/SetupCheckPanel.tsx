@@ -192,7 +192,7 @@ function TestEmail() {
   };
   return (
     <div className="mt-3 flex flex-wrap items-center gap-3">
-      <button type="button" onClick={() => void send()} disabled={busy} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-800 px-4 text-sm font-semibold text-white hover:bg-emerald-900 disabled:opacity-60">
+      <button type="button" onClick={() => void send()} disabled={busy} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-chinar px-4 text-sm font-semibold text-white hover:bg-chinar-hover disabled:opacity-60">
         {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Mail className="h-4 w-4" aria-hidden />} Send test email
       </button>
       {result && (

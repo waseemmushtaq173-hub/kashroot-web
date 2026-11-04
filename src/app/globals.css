@@ -12,6 +12,30 @@
   --kr-orchard-green: #1E7B4F;
   --kr-pir-panjal-navy: #0B1F3A;
   --kr-walnut-brown: #6B4423;
+  /* The one KashRoot look (tailwind: chinar, ivory, copper, saffron-gold). */
+  --kr-chinar: #065F46;
+  --kr-chinar-deep: #052E26;
+  --kr-ivory: #FBF8F0;
+  --kr-copper: #B4532A;
+}
+
+/* Figures line up in every table. */
+table {
+  font-variant-numeric: tabular-nums;
+}
+
+/* A pop-up rises from the bottom as a sheet on narrow screens (portal kit Modal). */
+@keyframes kr-sheet-up { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+dialog.kr-sheet[open] { animation: kr-sheet-up 0.2s ease-out; }
+
+/* People who turned motion off: no movement anywhere. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Safety net: nothing may make a page wider than the phone (a phone then zooms the whole page out). */

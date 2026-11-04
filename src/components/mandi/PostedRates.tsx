@@ -149,7 +149,7 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
               <div key={mandi} className="overflow-x-auto rounded-2xl ring-1 ring-slate-900/5">
                 <p className="bg-emerald-50/80 px-4 py-2 font-semibold text-emerald-950">{mandi} <span className="text-xs font-normal text-emerald-800">{list[0].district ? `${list[0].district}, ` : ''}{list[0].state}</span></p>
                 <table className="w-full min-w-[780px] bg-white/80 text-left text-sm">
-                  <thead className="text-xs uppercase tracking-wider text-slate-500">
+                  <thead className="bg-ivory text-xs font-semibold uppercase tracking-wider text-slate-600">
                     <tr>
                       <th className="px-4 py-2">Crop · variety · grade</th>
                       <th className="px-4 py-2 text-right">Min</th>

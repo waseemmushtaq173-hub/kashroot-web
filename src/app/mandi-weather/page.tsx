@@ -563,7 +563,7 @@ export default function MandiWeatherPage() {
           {rows.length > 0 && (
             <div className="mt-3 overflow-x-auto rounded-2xl ring-1 ring-slate-900/5">
               <table className="w-full min-w-[760px] bg-white/80 text-left text-sm">
-                <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+                <thead className="bg-ivory text-xs font-semibold uppercase tracking-wider text-slate-600">
                   <tr>
                     <th className="px-4 py-3">Market</th>
                     <th className="px-4 py-3">Commodity · variety</th>

@@ -280,7 +280,7 @@ export default function DealerDashboardPage() {
             ) : (
               <div className="relative overflow-x-auto">
                 <table className="w-full min-w-[640px] text-left text-sm">
-                  <thead className="text-xs uppercase tracking-wider text-slate-500">
+                  <thead className="bg-ivory text-xs font-semibold uppercase tracking-wider text-slate-600">
                     <tr><th className="py-2">Product</th><th>Batch</th><th>Expiry</th><th>Stock</th><th>Registry</th><th className="sr-only">Actions</th></tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900/5">

@@ -35,7 +35,7 @@ export function StatCards({ kpis, theme, look }: { kpis: KPI[]; theme: PortalThe
           </>
         );
         const face = `group relative isolate block h-full overflow-hidden rounded-2xl p-5 text-left ${
-          lead ? `${look.feature} shadow-lg` : 'bg-white/85 shadow-[0_8px_30px_rgba(15,23,42,0.06)] ring-1 ring-slate-900/5 backdrop-blur'
+          lead ? `${look.feature} shadow-lg ring-1 ring-amber-300/40` : 'bg-white/85 shadow-[0_8px_30px_rgba(15,23,42,0.06)] ring-1 ring-[#E8A317]/25 backdrop-blur'
         }`;
         return kpi.onClick ? (
           <button

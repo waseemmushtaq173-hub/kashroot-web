@@ -167,7 +167,7 @@ export function ContributorsPanel() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[860px] text-left text-sm">
-              <thead className="text-xs uppercase tracking-wider text-slate-500">
+              <thead className="bg-ivory text-xs font-semibold uppercase tracking-wider text-slate-600">
                 <tr>
                   <th className="px-3 py-2">Person</th>
                   <th className="px-3 py-2 text-right">Accepted</th>

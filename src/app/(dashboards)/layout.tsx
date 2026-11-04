@@ -234,7 +234,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                   type="button"
                   onClick={() => void joinPortal()}
                   disabled={joining}
-                  className="cursor-pointer rounded-xl bg-emerald-700 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-emerald-800 disabled:opacity-60"
+                  className="cursor-pointer rounded-xl bg-chinar px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-chinar-hover disabled:opacity-60"
                 >
                   {joining ? 'Adding…' : `Yes, add the ${requiredRoleMsg} portal`}
                 </button>
@@ -248,7 +248,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                     router.replace(portal ? loginHref(portal, window.location.pathname) : '/login');
                   });
                 }}
-                className={canJoin ? 'cursor-pointer rounded-xl bg-white px-6 py-3 font-semibold text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-50' : 'cursor-pointer rounded-xl bg-emerald-700 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-emerald-800'}
+                className={canJoin ? 'cursor-pointer rounded-xl bg-white px-6 py-3 font-semibold text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-50' : 'cursor-pointer rounded-xl bg-chinar px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-chinar-hover'}
               >
                 {canJoin ? 'Use a different account' : `Open the ${requiredRoleMsg} sign-in`}
               </button>
@@ -285,7 +285,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                       : `Verify your Aadhaar${kyc.rules.pan_required ? ' and PAN' : ''} here before you ${KYC_FOR[portal] ?? KYC_FOR.default} — about a minute, once for every portal. It protects you and the people you deal with.`
                     : 'Verify your identity once so buyers and sellers can trust you — it covers every KashRoot portal.'}
                 </p>
-                <button type="button" onClick={() => setShowKyc(true)} className="cursor-pointer rounded-lg bg-emerald-700 px-3 py-1.5 font-semibold text-white hover:bg-emerald-800">
+                <button type="button" onClick={() => setShowKyc(true)} className="cursor-pointer rounded-lg bg-chinar px-3 py-1.5 font-semibold text-white hover:bg-chinar-hover">
                   Verify now
                 </button>
               </div>

@@ -37,7 +37,7 @@ export function RegionChip({ district, className = '' }: { district?: string | n
       </button>
       <label className="inline-flex items-center">
         <span className="sr-only">Your state</span>
-        <select value={region?.state ?? ''} onChange={(e) => choose(e.target.value)} className="min-h-11 max-w-[14rem] cursor-pointer rounded-xl border-0 bg-white px-3 py-2 text-sm text-slate-800 ring-1 ring-inset ring-slate-900/10 focus:ring-2 focus:ring-emerald-600">
+        <select value={region?.state ?? ''} onChange={(e) => choose(e.target.value)} className="min-h-11 max-w-[14rem] cursor-pointer rounded-xl border-0 bg-white px-3 py-2 text-sm text-slate-800 ring-1 ring-inset ring-slate-900/10 focus:ring-2 focus:ring-emerald-700">
           <option value="">Choose your state</option>
           {STATES.map((s) => (
             <option key={s.name} value={s.name}>{stateLabel(s.name)}</option>

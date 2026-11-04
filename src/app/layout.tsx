@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Fraunces, Inter, Noto_Sans_Devanagari } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -9,7 +9,13 @@ import { PwaRoot } from "@/components/pwa/PwaRoot";
 import { TestCopyBanner } from "@/components/security/TestCopyBanner";
 import { SITE_URL } from "@/lib/site";
 
-const inter = Inter({ subsets: ["latin"] });
+// Inter for text, Fraunces (a display serif) for titles: the font-sans / font-display stacks in
+// styles/design-tokens read these variables.
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", display: "swap" });
+// Hindi: Noto Sans Devanagari, Devanagari letters only (Google's unicode-range), fetched only on
+// pages that show Hindi.
+const devanagari = Noto_Sans_Devanagari({ subsets: ["devanagari"], variable: "--font-devanagari", display: "swap", preload: false });
 // Kashmiri and Urdu: Noto Nastaliq Urdu (SIL Open Font License, see
 // fonts/NotoNastaliqUrdu-OFL.txt) with every Kashmiri vowel letter and mark
 // (ٲ ٳ ۄ ۆ ێ ؠ ٕ ٚ ٛ). Only its Arabic-script part is kept, and unicode-range
@@ -69,12 +75,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en-IN" className={nastaliq.variable}>
-      {/* Nastaliq first: it covers only the Arabic script, so Latin text stays in Inter. */}
-      <body className="bg-[#07120D] text-[#F5F2EB] antialiased" style={{ fontFamily: `${nastaliq.style.fontFamily}, ${inter.style.fontFamily}` }}>
+    <html lang="en-IN" className={`${nastaliq.variable} ${inter.variable} ${fraunces.variable} ${devanagari.variable}`}>
+      {/* font-sans: Nastaliq first (it covers only the Arabic script), then Inter, then Devanagari. */}
+      <body className="bg-[#07120D] font-sans text-[#F5F2EB] antialiased">
         <TestCopyBanner />
         <Providers>{children}</Providers>
-        <Toaster position="top-center" theme="light" richColors closeButton />
+        <Toaster position="top-center" theme="light" richColors closeButton toastOptions={{ classNames: { toast: "!rounded-2xl !shadow-[0_12px_40px_rgba(15,23,42,0.16)] !font-sans", title: "!font-semibold" } }} />
         {/* Offline-first: service worker, offline banner, "Waiting to send". */}
         <PwaRoot />
       </body>

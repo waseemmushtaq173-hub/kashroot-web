@@ -89,7 +89,7 @@ const KINDS: { value: string; label: string }[] = [
   { value: 'helper', label: 'Helper team (picking, packing, transport)' },
 ];
 const kindLabel = (k: string) => KINDS.find((x) => x.value === k)?.label ?? k;
-const INPUT = 'min-h-11 w-full rounded-xl border-0 bg-white px-3 ring-1 ring-slate-300 focus:ring-2 focus:ring-emerald-600';
+const INPUT = 'min-h-11 w-full rounded-xl border-0 bg-white px-3 ring-1 ring-slate-300 focus:ring-2 focus:ring-emerald-700';
 const BUTTON = 'inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-700 px-4 font-semibold text-white hover:bg-emerald-800 disabled:opacity-60';
 const GHOST = 'inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold ring-1 ring-slate-300 hover:bg-slate-50 disabled:opacity-60';
 const THEME = PORTAL_THEMES.seller;

@@ -312,7 +312,7 @@ function ChamberEditor({
         <div className="flex items-end gap-2">
           <label className="block">
             <span className="block text-sm font-semibold text-slate-800">How many more chambers like this?</span>
-            <input className="mt-1.5 block min-h-[48px] w-20 rounded-xl border-0 bg-white px-3 text-center text-base font-bold text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-500" inputMode="numeric" value={more} onChange={(e) => setMore(e.target.value.replace(/\D/g, '').slice(0, 2))} />
+            <input className="mt-1.5 block min-h-[48px] w-20 rounded-xl border-0 bg-white px-3 text-center text-base font-bold text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-700" inputMode="numeric" value={more} onChange={(e) => setMore(e.target.value.replace(/\D/g, '').slice(0, 2))} />
           </label>
           <Btn theme={theme} variant="soft" className="min-h-[48px]" icon={Plus} onClick={onMore}>Add {Math.min(50, Math.max(1, Math.floor(Number(more)) || 1))} more like this</Btn>
         </div>
@@ -349,7 +349,7 @@ function FloorHeights({ kit, c, floors }: { kit: Kit; c: ChamberDraft; floors: n
           <label key={i} className="block">
             <span className="block text-sm font-semibold text-slate-800">Floor {i + 1}</span>
             <input
-              className="mt-1.5 block min-h-[48px] w-full rounded-xl border-0 bg-white px-3 text-base text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500"
+              className="mt-1.5 block min-h-[48px] w-full rounded-xl border-0 bg-white px-3 text-base text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-700"
               inputMode="decimal"
               value={v === '?' ? '' : v}
               placeholder={even || undefined}

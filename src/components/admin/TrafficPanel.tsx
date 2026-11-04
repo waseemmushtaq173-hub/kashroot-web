@@ -187,7 +187,7 @@ export function TrafficPanel() {
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="text-xs uppercase text-slate-500">
+            <thead className="bg-ivory text-xs font-semibold uppercase tracking-wider text-slate-600">
               <tr>
                 <th className="py-2 pr-3">What</th>
                 <th className="py-2 pr-3">How many</th>
@@ -280,7 +280,7 @@ export function TrafficPanel() {
           <p className="text-sm font-semibold text-slate-800">“I am human” check, by browser</p>
           <div className="overflow-x-auto">
             <table className="mt-1 w-full text-left text-xs">
-              <thead className="uppercase text-slate-500">
+              <thead className="bg-ivory text-xs font-semibold uppercase tracking-wider text-slate-600">
                 <tr>
                   <th className="py-1.5 pr-3">Browser</th>
                   <th className="py-1.5 pr-3">Gate passed</th>

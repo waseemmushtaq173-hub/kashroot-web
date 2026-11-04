@@ -138,7 +138,7 @@ export function DriverShare({ token }: { token: string }) {
         </p>
       ) : sharing ? (
         <>
-          <div className="rounded-2xl bg-emerald-700 p-6 text-center text-white shadow-lg">
+          <div className="rounded-2xl bg-chinar p-6 text-center text-white shadow-lg">
             <MapPin className="mx-auto h-10 w-10 animate-pulse" aria-hidden />
             <p className="mt-2 text-xl font-bold">Sharing your location</p>
             <p className="mt-1 text-emerald-50">{secs === null ? 'Getting GPS…' : `Last sent ${secs < 60 ? `${secs} s` : `${Math.round(secs / 60)} min`} ago`}</p>
@@ -166,7 +166,7 @@ export function DriverShare({ token }: { token: string }) {
       {error && <p role="alert" className="rounded-2xl bg-rose-50 p-4 text-rose-900 ring-1 ring-rose-200">{error}</p>}
 
       {!done && (
-        <button type="button" onClick={() => void delivered()} className="mt-auto inline-flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-5 py-4 text-lg font-semibold text-white">
+        <button type="button" onClick={() => void delivered()} className="mt-auto inline-flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-chinar px-5 py-4 text-lg font-semibold text-white">
           <PackageCheck className="h-6 w-6" aria-hidden /> Load delivered · माल पहुँच गया · مال پہنچ گیا
         </button>
       )}

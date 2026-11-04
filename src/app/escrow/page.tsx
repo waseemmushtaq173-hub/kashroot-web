@@ -55,7 +55,7 @@ export default function SafePaymentPage() {
         <Panel theme={theme} title="Verify and pay in your portal" icon={ShieldCheck}>
           <p className="text-sm text-slate-700">The identity check and your payments are in the Escrow payment tab of your portal. Buyers buy produce in their Buyer portal.</p>
           <div className="mt-4 flex flex-wrap gap-3">
-            <Link href="/farmer/dashboard?tab=payouts" className={`${OPEN} bg-emerald-700 text-white hover:bg-emerald-800`}>Farmer: Escrow payment</Link>
+            <Link href="/farmer/dashboard?tab=payouts" className={`${OPEN} bg-chinar text-white hover:bg-chinar-hover`}>Farmer: Escrow payment</Link>
             <Link href="/buyer/dashboard?tab=payment" className={`${OPEN} bg-sky-700 text-white hover:bg-sky-800`}>Buyer: Escrow payment</Link>
             <Link href="/buyer/dashboard?tab=shop" className={`${OPEN} bg-white text-sky-800 ring-1 ring-sky-200 hover:bg-sky-50`}>Buyer: Buy apples & produce</Link>
           </div>

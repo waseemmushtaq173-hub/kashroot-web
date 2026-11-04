@@ -41,7 +41,7 @@ import { useShellUser } from '@/components/layout/portal/useShellUser';
 import { MyDetailsPanel } from '@/components/portal/MyDetailsPanel';
 import { FloatingVoice } from '@/components/voice/FloatingVoice';
 import { MY_DETAILS } from '@/components/portal/myDetailsConfig';
-import { FOCUS, TitleAction, resolveTheme } from '@/components/portal/kit';
+import { FOCUS, PageHeader, TitleAction, resolveTheme } from '@/components/portal/kit';
 import { loginHref, PORTALS, portalOfPath } from '@/lib/auth/roles';
 import { signOutOfPortal } from '@/lib/auth/session';
 import { useRegion } from '@/lib/region';
@@ -205,18 +205,7 @@ export function PortalShell({
 
   const page = (
     <>
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0 max-w-3xl">
-          {eyebrow && <p className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] ${theme.soft}`}>{eyebrow}</p>}
-          <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">{title}</h1>
-          <p className="mt-2 max-w-2xl text-base leading-relaxed text-slate-600">{description}</p>
-        </div>
-        {actions && (
-          <div ref={actionsRef} data-kr-title-actions className="flex shrink-0 flex-wrap gap-2">
-            {titleActions(actions)}
-          </div>
-        )}
-      </div>
+      <PageHeader theme={theme} eyebrow={eyebrow} title={title} description={description} actions={actions ? titleActions(actions) : undefined} actionsRef={actionsRef} />
 
       {switcher && (
         <div ref={switcherRef} className="mt-6">

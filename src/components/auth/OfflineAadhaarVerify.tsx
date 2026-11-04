@@ -43,7 +43,7 @@ export function OfflineAadhaarVerify({ onVerified }: { onVerified: (result: Offl
   return (
     <div className="space-y-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 p-4 ring-1 ring-emerald-200 sm:p-5">
       <div className="flex items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-700 text-white shadow-md">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-chinar text-white shadow-md">
           <ShieldCheck className="h-5 w-5" aria-hidden />
         </span>
         <div>

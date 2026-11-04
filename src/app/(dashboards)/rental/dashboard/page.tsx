@@ -359,7 +359,7 @@ export default function RentalPage() {
 function CallPerson({ role, name, phone }: { role: string; name: string | null; phone: string }) {
   return (
     <a href={`tel:${phone}`} aria-label={`Call the ${role}${name ? `, ${name}` : ''}, ${phone}`} className="flex min-h-[48px] w-full min-w-0 items-center gap-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-slate-800 no-underline ring-1 ring-emerald-200 hover:bg-emerald-100 hover:no-underline sm:w-auto">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-700 text-white"><Phone className="h-4 w-4" aria-hidden /></span>
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-chinar text-white"><Phone className="h-4 w-4" aria-hidden /></span>
       <span className="min-w-0">
         <span className="block text-xs text-slate-600">{role[0].toUpperCase() + role.slice(1)}{name ? `: ${name}` : ''}</span>
         <span className="block font-semibold tabular-nums text-emerald-900">Call {phone}</span>
@@ -464,7 +464,7 @@ function StoreCard({
           <p className="mt-4 flex items-center gap-1.5 text-sm font-semibold text-sky-900"><MapIcon className="h-4 w-4" aria-hidden /> {groups.length} chamber{groups.length === 1 ? '' : 's'} · {known ? `${freeAll.toLocaleString('en-IN')} ${anyOf(kinds)} free today` : `${l.available.toLocaleString('en-IN')} of ${l.capacity.toLocaleString('en-IN')} free`}</p>
           {/* A table on wider screens, a short card per chamber on a phone. */}
           <table aria-label="What each chamber holds" className="mt-2 hidden w-full text-left text-sm sm:table">
-            <thead className="text-xs text-slate-500">
+            <thead className="bg-ivory text-xs font-semibold uppercase tracking-wider text-slate-600">
               <tr className="border-b border-slate-200">
                 <th scope="col" className="py-1.5 pr-2 font-medium">Chamber</th>
                 <th scope="col" className="py-1.5 pr-2 font-medium">Holds</th>

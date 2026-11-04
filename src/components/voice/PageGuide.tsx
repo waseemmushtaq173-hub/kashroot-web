@@ -88,7 +88,7 @@ export function PageGuide({ path }: { path: string }) {
             setSpeaking(false);
           } else read(lang);
         }}
-        className="mt-3 inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-2xl bg-emerald-700 px-5 text-base font-bold text-white shadow-sm hover:bg-emerald-800"
+        className="mt-3 inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-2xl bg-chinar px-5 text-base font-bold text-white shadow-sm hover:bg-chinar-hover"
       >
         {speaking ? <Square className="h-5 w-5" aria-hidden /> : <Volume2 className="h-5 w-5" aria-hidden />}
         {speaking ? STOP[lang] : LISTEN[lang]}

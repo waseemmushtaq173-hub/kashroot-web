@@ -52,7 +52,7 @@ const BRAND: RoleLoginTheme = {
   button: 'bg-emerald-800 text-white shadow-emerald-900/25 hover:bg-emerald-900',
   link: 'text-emerald-800 hover:text-emerald-900 hover:underline underline-offset-4',
   outline: 'focus-visible:outline-emerald-700',
-  inputFocus: 'focus:ring-emerald-600',
+  inputFocus: 'focus:ring-emerald-700',
   sceneTint: 'from-[#052E26]/80 via-emerald-950/35 to-transparent',
 };
 

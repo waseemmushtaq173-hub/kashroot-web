@@ -135,7 +135,7 @@ const RESEND_SECONDS = 30;
 
 const FOCUS = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700';
 
-const BTN_PRIMARY = `inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-700 to-teal-700 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-700/20 transition hover:from-emerald-800 hover:to-teal-800 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none ${FOCUS}`;
+const BTN_PRIMARY = `inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-chinar px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/20 transition hover:bg-chinar-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none ${FOCUS}`;
 
 const BTN_SECONDARY = `inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS}`;
 
@@ -420,7 +420,7 @@ function RoleStep({
               </span>
               <span
                 aria-hidden
-                className="absolute right-3 top-3 hidden h-6 w-6 place-items-center rounded-full bg-emerald-700 text-white shadow peer-checked:grid"
+                className="absolute right-3 top-3 hidden h-6 w-6 place-items-center rounded-full bg-chinar text-white shadow peer-checked:grid"
               >
                 <CheckIcon className="h-3.5 w-3.5" />
               </span>
@@ -757,7 +757,7 @@ function IdentityStep({
             role="status"
             className="flex items-center gap-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 p-4 ring-1 ring-emerald-200"
           >
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-emerald-700 text-white shadow-md shadow-emerald-600/30">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-chinar text-white shadow-md shadow-emerald-600/30">
               <CheckIcon className="h-5 w-5" />
             </span>
             <div className="min-w-0 flex-1">

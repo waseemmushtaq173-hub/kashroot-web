@@ -236,10 +236,12 @@ export const typography = {
    * its *inherited* font rather than to the next family in the list.
    */
   fontFamily: {
-    display: ['var(--font-fraunces, Georgia)', 'Georgia', 'serif'],
-    heading: ['var(--font-fraunces, Georgia)', 'Georgia', 'serif'],
-    // Nastaliq (set in the root layout) covers only Kashmiri/Urdu letters; Latin falls through to the next font.
-    body:    ['var(--font-nastaliq, system-ui)', 'var(--font-inter, system-ui)', 'system-ui', 'sans-serif'],
+    // Fraunces (display serif) for titles. Nastaliq covers only Kashmiri/Urdu letters and Noto Sans
+    // Devanagari only Hindi (each limited by unicode-range in the root layout), so every script finds
+    // its own font and Latin stays in Fraunces/Inter.
+    display: ['var(--font-nastaliq, Georgia)', 'var(--font-fraunces, Georgia)', 'var(--font-devanagari, Georgia)', 'Georgia', 'serif'],
+    heading: ['var(--font-nastaliq, Georgia)', 'var(--font-fraunces, Georgia)', 'var(--font-devanagari, Georgia)', 'Georgia', 'serif'],
+    body:    ['var(--font-nastaliq, system-ui)', 'var(--font-inter, system-ui)', 'var(--font-devanagari, system-ui)', 'system-ui', 'sans-serif'],
     mono:    ['var(--font-jetbrains-mono, Menlo)', 'Menlo', 'monospace'],
   },
   fontSize: {

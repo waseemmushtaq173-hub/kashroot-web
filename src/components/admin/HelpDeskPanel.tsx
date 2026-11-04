@@ -106,7 +106,7 @@ function Request({ r, onDone }: { r: DeskRequest; onDone: () => void }) {
         <div className="space-y-2">
           <label className="grid gap-1 text-sm font-semibold text-slate-800">
             Reply to the customer (plain words — many listen rather than read)
-            <textarea value={reply} onChange={(e) => setReply(e.target.value)} maxLength={2000} className="min-h-24 rounded-xl border-0 p-3 text-sm ring-1 ring-slate-300 focus:ring-2 focus:ring-sky-600" />
+            <textarea value={reply} onChange={(e) => setReply(e.target.value)} maxLength={2000} className="min-h-24 rounded-xl border-0 p-3 text-sm ring-1 ring-slate-300 focus:ring-2 focus:ring-emerald-700" />
           </label>
           <div className="flex flex-wrap gap-2">
             <Btn theme={theme} icon={Send} className="min-h-11" disabled={busy || !reply.trim()} onClick={() => sendReply(false)}>
