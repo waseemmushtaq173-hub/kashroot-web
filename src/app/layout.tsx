@@ -14,8 +14,10 @@ import { SITE_URL } from "@/lib/site";
 // in styles/design-tokens read these variables.
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 // Hindi: Noto Sans Devanagari, Devanagari letters only (Google's unicode-range), fetched only on
-// pages that show Hindi.
-const devanagari = Noto_Sans_Devanagari({ subsets: ["devanagari"], variable: "--font-devanagari", display: "swap", preload: false });
+// pages that show Hindi. "optional": if it is not there at once (a slow first visit), Hindi shows
+// in the phone's own Devanagari font for that page instead of the page being redrawn late; it is
+// cached for the next page.
+const devanagari = Noto_Sans_Devanagari({ subsets: ["devanagari"], variable: "--font-devanagari", display: "optional", preload: false });
 // Kashmiri and Urdu: Noto Nastaliq Urdu (SIL Open Font License, see
 // fonts/NotoNastaliqUrdu-OFL.txt) with every Kashmiri vowel letter and mark
 // (ٲ ٳ ۄ ۆ ێ ؠ ٕ ٚ ٛ). Only its Arabic-script part is kept, and unicode-range

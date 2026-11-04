@@ -239,8 +239,10 @@ export const typography = {
     // Playfair Display (the wordmark's serif) for titles. Nastaliq covers only Kashmiri/Urdu letters and Noto Sans
     // Devanagari only Hindi (each limited by unicode-range in the root layout), so every script finds
     // its own font and Latin stays in Playfair/Inter.
-    display: ['var(--font-nastaliq, Georgia)', 'var(--font-display-serif, Georgia)', 'var(--font-devanagari, Georgia)', 'Georgia', 'serif'],
-    heading: ['var(--font-nastaliq, Georgia)', 'var(--font-display-serif, Georgia)', 'var(--font-devanagari, Georgia)', 'Georgia', 'serif'],
+    // Titles leave Devanagari out: a font in a title's list that arrives late repaints the title,
+    // and that late repaint is the page's largest paint (LCP). Hindi in a title uses the phone's own.
+    display: ['var(--font-nastaliq, Georgia)', 'var(--font-display-serif, Georgia)', 'Georgia', 'serif'],
+    heading: ['var(--font-nastaliq, Georgia)', 'var(--font-display-serif, Georgia)', 'Georgia', 'serif'],
     body:    ['var(--font-nastaliq, system-ui)', 'var(--font-inter, system-ui)', 'var(--font-devanagari, system-ui)', 'system-ui', 'sans-serif'],
     mono:    ['var(--font-jetbrains-mono, Menlo)', 'Menlo', 'monospace'],
   },
