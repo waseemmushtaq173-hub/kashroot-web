@@ -128,7 +128,7 @@ export function HeroShowcase({
                 onClick={() => goTo(i)}
                 aria-label={`Show photo ${i + 1} of ${slides.length} (${slide.season})`}
                 aria-current={i === active ? 'true' : undefined}
-                className="grid h-11 cursor-pointer place-items-center px-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-700"
+                className="grid h-11 min-w-6 cursor-pointer place-items-center px-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-700"
               >
                 <span
                   className={`relative block h-1.5 overflow-hidden rounded-full transition-all duration-300 ${

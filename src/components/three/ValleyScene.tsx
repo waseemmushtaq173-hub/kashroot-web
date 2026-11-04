@@ -125,6 +125,9 @@ export function ValleyScene({ mood = 'autumn', className = '', particleCount = 7
     (async () => {
       const nav = navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string }; deviceMemory?: number };
       if (nav.connection?.saveData || /(^|-)(2g|3g)$/.test(nav.connection?.effectiveType ?? '') || (nav.deviceMemory ?? 8) <= 2) return;
+      // Phones keep the still background underneath: the moving valley costs a cheap phone about a
+      // second of work for decoration only.
+      if (window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 768) return;
       // After the page has loaded, when the browser has nothing else to do.
       await new Promise<void>((resolve) => {
         const ric = (window as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
