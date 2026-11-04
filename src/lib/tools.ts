@@ -53,7 +53,7 @@ export interface Tool {
 export const GLASS = {
   /** Large frosted panel over a photograph or colour field. */
   panel:
-    'bg-white/60 backdrop-blur-xl ring-1 ring-white/70 shadow-[0_8px_40px_rgba(15,23,42,0.10)]',
+    'bg-white/85 backdrop-blur-xl ring-1 ring-white/70 shadow-[0_8px_40px_rgba(15,23,42,0.10)]',
   /** Content card inside a tool — pair with text-slate-900 / text-slate-600. */
   card: 'rounded-3xl bg-white/70 backdrop-blur-xl ring-1 ring-slate-900/5 shadow-[0_8px_30px_rgba(15,23,42,0.06)]',
 } as const;

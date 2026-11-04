@@ -179,7 +179,7 @@ export function ShellSearch({ getItems, theme, example }: { getItems: () => Sear
             </button>
           ) : (
             shortcut && (
-              <kbd className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 rounded-md bg-slate-100 px-1.5 py-0.5 font-sans text-[11px] font-semibold text-slate-500 ring-1 ring-slate-900/10 md:block [@media(pointer:coarse)]:hidden">
+              <kbd className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 rounded-md bg-slate-100 px-1.5 py-0.5 font-sans text-[11px] font-semibold text-slate-600 ring-1 ring-slate-900/10 md:block [@media(pointer:coarse)]:hidden">
                 {shortcut}
               </kbd>
             )

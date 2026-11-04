@@ -309,7 +309,7 @@ export function SiteFooter({ tone = 'dark' }: { tone?: SiteTone; portal?: Portal
     <footer
       className={
         light
-          ? 'border-t border-slate-900/5 bg-white/70 backdrop-blur-xl'
+          ? 'border-t border-slate-900/5 bg-white/85 backdrop-blur-xl'
           : 'border-t border-white/25 bg-kr-bg-surface/70 backdrop-blur-xl supports-[backdrop-filter]:bg-kr-bg-surface/60'
       }
     >
