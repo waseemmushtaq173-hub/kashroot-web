@@ -148,7 +148,7 @@ export function PayFirstOrder({ lines, as, theme, seller, onChange, drivers }: {
         </p>
       )}
       {buyer && unpaid && <ShopPay orderId={o.id} amount={total} note={`KashRoot order ${(o.basket ?? o.id).slice(0, 8)}`} theme={theme} paidRef={o.payment_ref} onPaid={async (ref) => { await orderAction(o.id, 'pay', ref); onChange(); }} />}
-      {buyer && o.status === 'accepted' && o.payment_state === 'paid' && <p className="rounded-xl bg-sky-50 p-3 text-sm text-sky-950 ring-1 ring-sky-200">You paid. The seller is checking that the money reached them. Then they ship your order.</p>}
+      {buyer && o.status === 'accepted' && o.payment_state === 'paid' && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-amber-200">You paid. The seller is checking that the money reached them. Then they ship your order.</p>}
       {buyer && o.status === 'accepted' && o.payment_state === 'received' && <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-950 ring-1 ring-emerald-200">The seller got your money and is packing your order.</p>}
       {buyer && o.status === 'shipped' && <TrackDelivery order={o} />}
       {o.status === 'completed' && <p className="flex items-center gap-2 text-sm font-medium text-emerald-800"><CheckCircle2 className="h-4 w-4" aria-hidden /> {buyer ? 'You received this order.' : 'The buyer received this order.'}{o.delivered_at ? ` ${new Date(o.delivered_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}.` : ''}</p>}

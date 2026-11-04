@@ -73,7 +73,7 @@ export function PayDirect({
   if (details === null) return <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">The owner has not added a UPI ID or bank account yet. Call them to arrange payment.</p>;
 
   return (
-    <div className="space-y-3 rounded-2xl bg-white p-4 ring-1 ring-slate-200">
+    <div className="space-y-3 rounded-2xl bg-white p-4 ring-1 ring-[#E8A317]/25">
       <p className="text-sm text-slate-700">
         Pay <strong className="text-lg text-slate-900">{inr(amount)}</strong> directly to <strong className="text-slate-900">{details.account_name}</strong>. KashRoot does not hold this money.
       </p>

@@ -44,7 +44,7 @@ export function TrackDelivery({ order: o }: { order: MarketOrder }) {
   const vehicleName = o.ship_vehicle ?? 'Vehicle';
 
   return (
-    <div className="space-y-3 rounded-2xl bg-sky-50/60 p-4 ring-1 ring-sky-200">
+    <div className="space-y-3 rounded-2xl bg-ivory/80 p-4 ring-1 ring-[#E8A317]/30">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <p className="flex items-center gap-2 font-semibold text-slate-900">
@@ -70,7 +70,7 @@ export function TrackDelivery({ order: o }: { order: MarketOrder }) {
           {quiet && <p className="text-sm font-medium text-amber-800">No new position for over 15 minutes. The phone may be off or out of network. Call the driver.</p>}
         </div>
         {/^[6-9]\d{9}$/.test(phone) && (
-          <a href={`tel:+91${phone}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-sky-700 px-4 py-2.5 text-sm font-semibold text-white no-underline hover:bg-sky-800 hover:no-underline">
+          <a href={`tel:+91${phone}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-chinar px-4 py-2.5 text-sm font-semibold text-white no-underline hover:bg-chinar-hover hover:no-underline">
             <Phone className="h-4 w-4" aria-hidden /> Call the driver{o.driver_name ? ` (${o.driver_name})` : ''}
           </a>
         )}

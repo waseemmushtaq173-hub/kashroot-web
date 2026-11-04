@@ -157,8 +157,8 @@ export function PhotoDiagnosis({ account }: { account: Account | null }) {
         ) : (
           <div className="space-y-4 rounded-2xl bg-white/85 p-5 ring-1 ring-slate-900/5" dir={rtl}>
             <div className="flex flex-wrap items-center gap-2">
-              {result.healthy ? <CheckCircle2 className="h-5 w-5 text-emerald-600" aria-hidden /> : <AlertTriangle className="h-5 w-5 text-amber-600" aria-hidden />}
-              <h3 className="text-lg font-semibold text-slate-900">{result.likely_problem}</h3>
+              {result.healthy ? <CheckCircle2 className="h-5 w-5 text-emerald-700" aria-hidden /> : <AlertTriangle className="h-5 w-5 text-amber-600" aria-hidden />}
+              <h3 className="font-display text-lg font-semibold text-slate-900">{result.likely_problem}</h3>
               <Badge tone={CONFIDENCE[result.confidence].tone}>{CONFIDENCE[result.confidence].label}</Badge>
             </div>
             <SpeakButton text={result.summary_spoken} speech={result.summary_devanagari || undefined} lang={lang} label="Listen to the answer" autoPlay />

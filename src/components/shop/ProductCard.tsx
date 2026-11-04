@@ -50,7 +50,7 @@ export function ProductCard({ listing: l, verified, own, inCart, onAdd, onOpen }
       )}
       <div className="flex flex-1 flex-col p-4">
         <p className="text-xs font-bold uppercase tracking-wider text-orange-800">{l.subcategory ?? 'Farm input'}</p>
-        <h3 className="mt-0.5 text-lg font-semibold leading-snug text-slate-900">
+        <h3 className="mt-0.5 font-display text-lg font-semibold leading-snug text-slate-900">
           <button type="button" onClick={onOpen} className="inline-flex min-h-11 cursor-pointer items-center text-left hover:underline">{l.product}</button>
         </h3>
         {(l.variety || l.grade) && <p className="text-sm text-slate-600">{[l.variety, l.grade && `Grade ${l.grade}`].filter(Boolean).join(' · ')}</p>}
@@ -59,7 +59,7 @@ export function ProductCard({ listing: l, verified, own, inCart, onAdd, onOpen }
         </p>
         <p className="text-sm text-slate-600">{amountOf(Number(l.quantity), l.unit)} in stock</p>
         <p className="mt-2 flex flex-wrap items-center gap-1.5 text-sm text-slate-700">
-          {verified ? <BadgeCheck className="h-4 w-4 text-emerald-600" aria-hidden /> : <Store className="h-4 w-4 text-slate-400" aria-hidden />}
+          {verified ? <BadgeCheck className="h-4 w-4 text-emerald-700" aria-hidden /> : <Store className="h-4 w-4 text-slate-400" aria-hidden />}
           {l.seller_name}
           {verified && <Badge tone="green">Verified seller</Badge>}
         </p>

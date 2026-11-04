@@ -116,7 +116,7 @@ export function DriverTrip({ token }: { token: string }) {
           {trip.ship_vehicle && <p className="mt-1 text-sm text-slate-600">Vehicle {trip.ship_vehicle}</p>}
         </header>
 
-        <ul className="rounded-2xl bg-white p-4 ring-1 ring-slate-200">
+        <ul className="rounded-2xl bg-white p-4 ring-1 ring-[#E8A317]/25">
           {trip.items.map((it, i) => (
             <li key={i} className="py-1"><strong>{amountOf(Number(it.quantity), it.unit)}</strong> · {it.product}</li>
           ))}

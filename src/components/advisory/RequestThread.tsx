@@ -8,11 +8,11 @@
  * New replies appear by themselves (checked every 8 seconds).
  */
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Loader2, Phone, Send, Sparkles, ThumbsDown, ThumbsUp, UserRound, Video } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Phone, Send, Sparkles, ThumbsDown, ThumbsUp, UserRound, Video } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { VideoCall } from '@/components/advisory/VideoCall';
-import { Badge, Btn, INPUT, PORTAL_THEMES } from '@/components/portal/kit';
+import { Badge, Btn, INPUT, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
 import { MicButton, SpeakButton } from '@/components/voice/VoiceButtons';
 import { isRtl, scriptLang } from '@/lib/client/speech';
 import { getRequest, KIND_LABEL, listMessages, sendMessage, setRequest, STATUS_LABEL, type AdvisoryMessage, type AdvisoryRequest } from '@/lib/db/advisory';
@@ -86,7 +86,7 @@ export function RequestThread({ requestId, account, asExpert, onBack }: { reques
   };
 
   if (loadError) return <p role="alert" className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">{loadError}</p>;
-  if (!req) return <p className="flex items-center gap-2 p-6 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>;
+  if (!req) return <div className="p-6"><Skeleton label="Loading…" /></div>;
 
   const lang = req.lang;
   const callReady = req.kind === 'video_call' && req.status === 'accepted';

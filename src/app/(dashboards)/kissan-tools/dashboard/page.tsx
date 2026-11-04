@@ -223,7 +223,7 @@ export default function KissanToolsDashboardPage() {
                 const wrong = g.lines.map((l) => qtyProblem(l.listing, l.qty)).find(Boolean);
                 return (
                   <section key={g.seller.seller_id} className="rounded-2xl bg-white/85 p-4 ring-1 ring-slate-900/5" aria-label={`From ${g.seller.seller_name}`}>
-                    <h3 className="font-semibold text-slate-900">From {g.seller.seller_name}, {g.seller.district}</h3>
+                    <h3 className="font-display text-lg font-semibold text-slate-900">From {g.seller.seller_name}, {g.seller.district}</h3>
                     <ul className="mt-3 divide-y divide-slate-900/5">
                       {g.lines.map(({ listing: l, qty }) => (
                         <li key={l.id} className="flex flex-wrap items-center gap-3 py-3">

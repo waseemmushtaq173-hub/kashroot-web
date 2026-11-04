@@ -29,10 +29,10 @@ export function ListingCard({ listing: l, verified, lowest, own, onOrder }: { li
         {lowest && <Badge tone="green">Lowest price</Badge>}
         {isNewToday(l) && <Badge tone="amber"><Sparkles className="h-3 w-3" aria-hidden /> New today</Badge>}
       </div>
-      <h3 className="mt-1 text-lg font-semibold text-slate-900">{l.product}</h3>
+      <h3 className="mt-1 font-display text-lg font-semibold text-slate-900">{l.product}</h3>
       {(l.variety || l.grade) && <p className="text-sm text-slate-600">{[l.variety, l.grade && `Grade ${l.grade}`].filter(Boolean).join(' · ')}</p>}
       <p className="mt-2 flex flex-wrap items-center gap-1.5 text-sm text-slate-700">
-        {verified ? <BadgeCheck className="h-4 w-4 text-emerald-600" aria-hidden /> : <Store className="h-4 w-4 text-slate-400" aria-hidden />}
+        {verified ? <BadgeCheck className="h-4 w-4 text-emerald-700" aria-hidden /> : <Store className="h-4 w-4 text-slate-400" aria-hidden />}
         {l.seller_name}
         {verified && <Badge tone="green">Verified seller</Badge>}
       </p>

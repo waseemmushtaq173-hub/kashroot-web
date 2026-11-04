@@ -15,7 +15,7 @@
  */
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Apple, Loader2, PackageCheck, ShieldCheck, ShoppingBag, ShoppingCart } from 'lucide-react';
+import { Apple, PackageCheck, ShieldCheck, ShoppingBag, ShoppingCart } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { PortalShell } from '@/components/layout/PortalShell';
@@ -24,7 +24,7 @@ import { ListingBrowser } from '@/components/market/shop/ListingBrowser';
 import { OrderModal } from '@/components/market/shop/OrderModal';
 import type { ShopListing } from '@/components/market/shop/useLiveListings';
 import { SafePayment } from '@/components/payments/SafePayment';
-import { Btn, EmptyState, PORTAL_THEMES, Panel, Tile } from '@/components/portal/kit';
+import { Btn, EmptyState, Panel, PORTAL_THEMES, Skeleton, Tile } from '@/components/portal/kit';
 import { loadAccount, type Account } from '@/lib/db/client';
 import { buyerOrders, type MarketOrder } from '@/lib/db/market';
 
@@ -132,7 +132,7 @@ function BuyerDashboard() {
           <div className="grid gap-6 lg:grid-cols-3">
             <Panel theme={theme} title="Your open orders" icon={PackageCheck} className="lg:col-span-2">
               {account === undefined || orders === null ? (
-                <p className="flex items-center gap-2 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>
+                <Skeleton label="Loading…" />
               ) : error ? (
                 <p role="alert" className="text-rose-800">{error}</p>
               ) : active.length === 0 ? (
@@ -200,7 +200,7 @@ function BuyerDashboard() {
       {tab === 'orders' && (
         <Panel theme={theme} title="My orders" icon={ShoppingCart}>
           {orders === null ? (
-            <p className="flex items-center gap-2 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>
+            <Skeleton label="Loading…" />
           ) : error ? (
             <p role="alert" className="text-rose-800">{error}</p>
           ) : all.length === 0 ? (

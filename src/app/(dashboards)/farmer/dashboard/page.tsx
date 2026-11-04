@@ -17,6 +17,7 @@
  * risk map and the spray log.
  */
 import { Suspense, useCallback, useEffect, useState } from 'react';
+import { ChinarLeaf } from '@/components/brand/ChinarLeaf';
 import { useSearchParams } from 'next/navigation';
 import {
   Activity,
@@ -39,7 +40,7 @@ import {
 import { PortalShell } from '@/components/layout/PortalShell';
 import { SellerDesk } from '@/components/market/SellerDesk';
 import { SafePayment } from '@/components/payments/SafePayment';
-import { Btn, PORTAL_THEMES, Panel, Tile } from '@/components/portal/kit';
+import { Btn, Panel, PORTAL_THEMES, Skeleton, Tile } from '@/components/portal/kit';
 import { LastUpdated } from '@/components/pwa/SavedAt';
 import { inr, loadAccount, type Account } from '@/lib/db/client';
 import { listingDraftFromLink } from '@/lib/navIntent';
@@ -132,8 +133,9 @@ function FarmerDashboard() {
               <Tile theme={theme} icon={MessageCircleQuestion} label="Ask an expert" hint="Agronomist answers" href="/farmer/ask-expert" />
             </div>
 
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-800 via-emerald-900 to-[#04241D] p-7 text-white shadow-lg ring-1 ring-amber-300/40">
-              <h3 className="font-sans text-2xl font-bold">Ready to harvest?</h3>
+            <div className="relative isolate overflow-hidden rounded-3xl bg-gradient-to-r from-chinar via-chinar-hover to-[#04241D] p-7 text-white shadow-lg ring-1 ring-amber-300/40">
+              <ChinarLeaf className="pointer-events-none absolute -bottom-8 -right-6 -z-10 h-40 w-40 -rotate-12 opacity-20" color="#FDE68A" />
+              <h3 className="font-display text-2xl font-semibold">Ready to harvest?</h3>
               <p className="mt-1 max-w-md text-white/90">
                 List apples, walnuts or saffron with your price. Buyers see it in their Buyer portal right away, order, and pay you directly by UPI once the goods reach them.
               </p>
@@ -184,7 +186,7 @@ function FarmerDashboard() {
 
       {/* Kept mounted so the KPIs above stay current on every tab. */}
       {account === undefined ? (
-        tab !== 'overview' && <p className="flex items-center gap-2 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>
+        tab !== 'overview' && <Skeleton label="Loading…" />
       ) : account === null ? (
         tab !== 'overview' && <p role="alert" className="rounded-2xl bg-amber-50 p-4 text-amber-900 ring-1 ring-amber-200">Sign in again to manage your produce.</p>
       ) : (

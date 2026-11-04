@@ -168,9 +168,9 @@ export default function SeasonPlannerPage() {
                   return (
                     <li key={t}>
                       <label className={`flex cursor-pointer items-start gap-3 rounded-2xl p-4 ring-1 transition ${done ? 'bg-emerald-50 ring-emerald-200' : 'bg-white/70 ring-slate-900/5 hover:bg-orange-50'}`}>
-                        <input type="checkbox" className="mt-0.5 h-5 w-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" checked={done} onChange={() => { toggle(t); if (!done) toast.success('Task done'); }} />
+                        <input type="checkbox" className="mt-0.5 h-5 w-5 rounded border-slate-300 text-chinar focus:ring-emerald-700" checked={done} onChange={() => { toggle(t); if (!done) toast.success('Task done'); }} />
                         <span className={`text-sm ${done ? 'text-emerald-900 line-through decoration-emerald-400' : 'text-slate-800'}`}>{t}</span>
-                        {done && <CheckCircle2 className="ml-auto h-5 w-5 shrink-0 text-emerald-600" aria-hidden />}
+                        {done && <CheckCircle2 className="ml-auto h-5 w-5 shrink-0 text-emerald-700" aria-hidden />}
                       </label>
                     </li>
                   );

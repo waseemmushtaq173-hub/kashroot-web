@@ -165,7 +165,7 @@ export function AnswerBank({ theme }: { theme: PortalTheme }) {
         ) : (
           <ul className="space-y-3">
             {waiting.map((s) => (
-              <li key={s.id} className="rounded-2xl bg-white p-4 ring-1 ring-slate-200">
+              <li key={s.id} className="rounded-2xl bg-white p-4 ring-1 ring-[#E8A317]/25">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone="blue">{LANG_LABEL[s.lang]}</Badge>
                   {s.asked > 1 && <Badge tone="amber">Asked {s.asked} times</Badge>}
@@ -223,7 +223,7 @@ export function AnswerBank({ theme }: { theme: PortalTheme }) {
         }
       >
         {adding && (
-          <div className="mb-5 rounded-2xl bg-white p-4 ring-1 ring-slate-200">
+          <div className="mb-5 rounded-2xl bg-white p-4 ring-1 ring-[#E8A317]/25">
             <AnswerForm
               theme={theme}
               initial={{ lang: 'en', questions: [], answer: '', topic: null }}

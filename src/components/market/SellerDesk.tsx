@@ -19,7 +19,7 @@ import { toast } from '@/lib/client/toast';
 import { OrderCard } from '@/components/market/OrderCard';
 import { ProductForm, productProblem } from '@/components/market/ProductForm';
 import { PayoutForm } from '@/components/payments/PayoutForm';
-import { Badge, Btn, EmptyState, Modal, Panel, type PortalTheme } from '@/components/portal/kit';
+import { Badge, Btn, EmptyState, Modal, Panel, Skeleton, type PortalTheme } from '@/components/portal/kit';
 import { isOfflineError, NEEDS_INTERNET, offlineNow, useOnline } from '@/components/pwa/net';
 import { keepListingDraft, OUTBOX_SENT } from '@/components/pwa/outboxSend';
 import { inr, type Account } from '@/lib/db/client';
@@ -188,7 +188,7 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
         </>
       );
     }
-    return <p className="flex items-center gap-2 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>;
+    return <Skeleton label="Loading…" />;
   }
 
   // Orders that need the seller now come first: new ones, payments to check, orders to ship.

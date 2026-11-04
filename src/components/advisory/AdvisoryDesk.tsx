@@ -15,13 +15,13 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { BookCheck, BookOpen, CheckCircle2, ClipboardList, FlaskConical, GraduationCap, Inbox, Loader2, MessageCircle, ShieldAlert, Stethoscope, Video, Wallet } from 'lucide-react';
+import { BookCheck, BookOpen, CheckCircle2, ClipboardList, FlaskConical, GraduationCap, Inbox, MessageCircle, ShieldAlert, Stethoscope, Video, Wallet } from 'lucide-react';
 
 import { AnswerBank } from '@/components/advisory/AnswerBank';
 import { AskForm } from '@/components/advisory/AskForm';
 import { RequestThread } from '@/components/advisory/RequestThread';
 import { PortalShell } from '@/components/layout/PortalShell';
-import { Badge, Btn, EmptyState, PORTAL_THEMES, Panel } from '@/components/portal/kit';
+import { Badge, Btn, EmptyState, Panel, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
 import { RoleApplicationForm } from '@/components/staff/RoleApplicationForm';
 import { KIND_LABEL, listRequests, myRoleRequest, STATUS_LABEL, type AdvisoryRequest, type RequestKind, type RequestStatus } from '@/lib/db/advisory';
 import { ago, loadAccount, supabaseConfigured, type Account } from '@/lib/db/client';
@@ -107,7 +107,7 @@ export function AdvisoryDesk({ farmerView = false }: { farmerView?: boolean }) {
   const answered = requests.filter((r) => r.status === 'answered' || r.status === 'closed').length;
 
   if (account === undefined) {
-    return <p className="flex items-center gap-2 p-10 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>;
+    return <div className="p-6"><Skeleton label="Loading…" /></div>;
   }
 
   const tabs = isExpert
@@ -230,7 +230,7 @@ function ArticleList({ kind }: { kind: Article['kind'] }) {
       {LIBRARY.filter((a) => a.kind === kind).map((a) => (
         <li key={a.id} className="rounded-2xl bg-white/70 p-4 ring-1 ring-slate-900/5">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-semibold text-slate-900">{a.title}</h3>
+            <h3 className="font-display text-lg font-semibold text-slate-900">{a.title}</h3>
             {a.status && <Badge tone="amber">{a.status}</Badge>}
           </div>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">

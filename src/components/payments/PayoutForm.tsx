@@ -11,11 +11,11 @@
  */
 import { useState } from 'react';
 import Link from 'next/link';
-import { Banknote, Loader2 } from 'lucide-react';
+import { Banknote } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { UpiQr } from '@/components/payments/UpiQr';
-import { Btn, Field, INPUT, Panel, type PortalTheme } from '@/components/portal/kit';
+import { Btn, Field, INPUT, Panel, Skeleton, type PortalTheme } from '@/components/portal/kit';
 import { TwoStepVerify, twoStepState } from '@/components/security/TwoStep';
 import { savePayout, type PayoutAccount } from '@/lib/db/rentals';
 
@@ -56,7 +56,7 @@ export function PayoutForm({ theme, payout, onSaved, intro = 'Only farmers with 
   return (
     <Panel theme={theme} title={title} icon={Banknote}>
       {payout === undefined ? (
-        <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>
+        <Skeleton label="Loading…" rows={2} height="h-10" />
       ) : (
         <form className="grid gap-4" onSubmit={(e) => { e.preventDefault(); void save(); }}>
           <p className="text-sm text-slate-600">{intro}</p>
