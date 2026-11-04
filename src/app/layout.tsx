@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Inter, Noto_Sans_Devanagari } from "next/font/google";
+import { Inter, Noto_Sans_Devanagari } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -7,12 +7,12 @@ import { Toaster } from "sonner";
 
 import { PwaRoot } from "@/components/pwa/PwaRoot";
 import { TestCopyBanner } from "@/components/security/TestCopyBanner";
+import { brandSerif } from "@/lib/fonts";
 import { SITE_URL } from "@/lib/site";
 
-// Inter for text, Fraunces (a display serif) for titles: the font-sans / font-display stacks in
-// styles/design-tokens read these variables.
+// Inter for text; titles use the wordmark's serif (lib/fonts). The font-sans / font-display stacks
+// in styles/design-tokens read these variables.
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", display: "swap" });
 // Hindi: Noto Sans Devanagari, Devanagari letters only (Google's unicode-range), fetched only on
 // pages that show Hindi.
 const devanagari = Noto_Sans_Devanagari({ subsets: ["devanagari"], variable: "--font-devanagari", display: "swap", preload: false });
@@ -75,7 +75,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en-IN" className={`${nastaliq.variable} ${inter.variable} ${fraunces.variable} ${devanagari.variable}`}>
+    <html lang="en-IN" className={`${nastaliq.variable} ${inter.variable} ${brandSerif.variable} ${devanagari.variable}`}>
       {/* font-sans: Nastaliq first (it covers only the Arabic script), then Inter, then Devanagari. */}
       <body className="bg-[#07120D] font-sans text-[#F5F2EB] antialiased">
         <TestCopyBanner />

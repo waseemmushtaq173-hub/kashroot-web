@@ -111,11 +111,14 @@ export function AuthShell({ children }: { children: ReactNode }) {
   return (
     <div className={`kr-light relative isolate min-h-[100svh] overflow-hidden bg-gradient-to-br text-slate-900 transition-colors duration-700 ${theme.canvas}`}>
       <div aria-hidden className={`pointer-events-none absolute -left-32 -top-32 -z-10 h-[30rem] w-[30rem] rounded-full blur-3xl transition-colors duration-700 ${theme.blobA}`} />
-      <div aria-hidden className={`pointer-events-none absolute -bottom-40 -right-24 -z-10 h-[34rem] w-[34rem] rounded-full blur-3xl transition-colors duration-700 ${theme.blobB}`} />
+      {/* Pinned from the top: anchored to the bottom, it moved whenever the form grew. */}
+      <div aria-hidden className={`pointer-events-none absolute -right-24 top-[28rem] -z-10 h-[34rem] w-[34rem] rounded-full blur-3xl transition-colors duration-700 ${theme.blobB}`} />
 
-      <div className="mx-auto grid min-h-[100svh] max-w-7xl gap-6 p-4 sm:p-6 lg:grid-cols-[1.05fr_1fr] lg:gap-10 lg:p-8">
+      {/* Rows and the form held at the top, the story panel a fixed height beside it: when the "I am
+          human" check passes and the form opens below it, nothing above moves. */}
+      <div className="mx-auto grid min-h-[100svh] max-w-7xl content-start gap-6 p-4 sm:p-6 lg:grid-cols-[1.05fr_1fr] lg:gap-10 lg:p-8">
         {/* 3D story panel */}
-        <section className="relative isolate flex min-h-[15rem] flex-col justify-between overflow-hidden rounded-[2rem] p-6 text-white shadow-[0_30px_80px_rgba(15,23,42,0.25)] sm:p-10 lg:min-h-0">
+        <section className="relative isolate flex min-h-[15rem] flex-col justify-between overflow-hidden rounded-[2rem] p-6 text-white shadow-[0_30px_80px_rgba(15,23,42,0.25)] sm:p-10 lg:sticky lg:top-8 lg:h-[calc(100svh-4rem)] lg:min-h-[36rem]">
           <div aria-hidden className="absolute inset-0 -z-20 bg-gradient-to-br from-sky-300 to-amber-200" />
           <ValleyScene key={theme.mood} mood={theme.mood} className="-z-20" />
           <div aria-hidden className={`absolute inset-0 -z-10 bg-gradient-to-t transition-colors duration-700 ${theme.tint}`} />
@@ -127,7 +130,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
 
           <div className="mt-10 lg:mt-0">
             <p className={`text-xs font-semibold uppercase tracking-[0.2em] ${theme.eyebrow}`}>Join the valley marketplace</p>
-            <h1 className="mt-3 max-w-xl text-3xl font-semibold leading-tight tracking-tight drop-shadow-sm [text-wrap:balance] sm:text-5xl">{theme.headline}</h1>
+            <h1 className="font-display mt-3 max-w-xl text-3xl font-semibold leading-tight tracking-tight drop-shadow-sm [text-wrap:balance] sm:text-5xl">{theme.headline}</h1>
             <p className="mt-3 max-w-lg text-base text-white/90 sm:text-lg">{theme.copy}</p>
             <ul className="mt-6 hidden flex-wrap gap-2 sm:flex">
               {FEATURES.map(({ icon: Icon, label }) => (
@@ -140,8 +143,8 @@ export function AuthShell({ children }: { children: ReactNode }) {
         </section>
 
         {/* Form card */}
-        <main id="auth-main" className="flex items-center justify-center">
-          <div className="w-full max-w-lg rounded-[2rem] bg-white/80 p-6 shadow-[0_30px_80px_rgba(15,23,42,0.15)] ring-1 ring-white/80 backdrop-blur-2xl sm:p-10">
+        <main id="auth-main" className="flex items-start justify-center">
+          <div className="w-full max-w-lg rounded-[2rem] bg-white/80 p-6 shadow-[0_30px_80px_rgba(15,23,42,0.15)] ring-1 ring-[#E8A317]/30 backdrop-blur-2xl sm:p-10">
             {children}
           </div>
         </main>

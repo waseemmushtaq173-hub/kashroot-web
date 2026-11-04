@@ -268,7 +268,7 @@ export function KYCPanel({ open, onClose, onComplete, defaultRole }: KYCPanelPro
                 <LockIcon className="h-3.5 w-3.5" />
                 Kashroot verification
               </p>
-              <h2 id={titleId} className="mt-1.5 text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
+              <h2 id={titleId} className="font-display mt-1.5 text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
                 Complete your KYC
               </h2>
             </div>

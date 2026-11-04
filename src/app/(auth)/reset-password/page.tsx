@@ -52,7 +52,7 @@ export default function ResetPasswordPage() {
     return (
       <div className="py-4 text-center">
         <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-600" aria-hidden />
-        <h1 className="mt-4 text-2xl font-semibold tracking-tight text-slate-900">Password updated</h1>
+        <h1 className="font-display mt-4 text-2xl font-semibold tracking-tight text-slate-900">Password updated</h1>
         <p className="mt-2 text-slate-600">Sign in with your new password.</p>
         <Link href="/login" className="mt-6 inline-flex rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-3 font-semibold text-white no-underline shadow-lg hover:no-underline">Choose your sign-in</Link>
       </div>
@@ -62,7 +62,7 @@ export default function ResetPasswordPage() {
   if (ready === 'invalid') {
     return (
       <div className="py-4 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">This link has expired</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-slate-900">This link has expired</h1>
         <p className="mt-2 text-slate-600">Reset links work once and expire after a while. Request a new one.</p>
         <Link href="/forgot-password" className="mt-6 inline-flex rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 px-6 py-3 font-semibold text-white no-underline shadow-lg hover:no-underline">Send a new link</Link>
       </div>
@@ -75,7 +75,7 @@ export default function ResetPasswordPage() {
       <span className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 text-white shadow-lg shadow-emerald-600/30">
         <KeyRound className="h-6 w-6" aria-hidden />
       </span>
-      <h1 className="mt-5 text-3xl font-semibold tracking-tight text-slate-900">Set a new password</h1>
+      <h1 className="font-display mt-5 text-3xl font-semibold tracking-tight text-slate-900">Set a new password</h1>
       {ready === 'checking' ? (
         <p className="mt-4 flex items-center gap-2 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Checking your link…</p>
       ) : (

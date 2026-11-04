@@ -53,7 +53,7 @@ export default function ForgotPasswordPage() {
         <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 text-white shadow-lg shadow-emerald-600/30">
           <MailCheck className="h-8 w-8" aria-hidden />
         </span>
-        <h1 className="mt-5 text-2xl font-semibold tracking-tight text-slate-900">Check your email</h1>
+        <h1 className="font-display mt-5 text-2xl font-semibold tracking-tight text-slate-900">Check your email</h1>
         <p className="mt-2 text-slate-600">If an account exists for <strong className="text-slate-900">{email.trim()}</strong>, a reset link is on its way. Check Spam and Promotions too.</p>
         <Link href="/login" className="mt-6 inline-flex items-center gap-2 font-semibold text-emerald-800 hover:underline">
           <ArrowLeft className="h-4 w-4" aria-hidden /> Back to sign in
@@ -67,7 +67,7 @@ export default function ForgotPasswordPage() {
       <span className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-amber-400 to-rose-500 text-white shadow-lg shadow-rose-500/30">
         <KeyRound className="h-6 w-6" aria-hidden />
       </span>
-      <h1 className="mt-5 text-3xl font-semibold tracking-tight text-slate-900">Forgot your password?</h1>
+      <h1 className="font-display mt-5 text-3xl font-semibold tracking-tight text-slate-900">Forgot your password?</h1>
       <p className="mt-2 text-slate-600">Enter your email and we’ll send you a link to set a new one.</p>
       <SecurityGate place="reset" onPass={human.start}>
         <form onSubmit={submit} noValidate className="mt-6 space-y-4">

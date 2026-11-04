@@ -86,12 +86,12 @@ export default function HomePage() {
         {/* Bottom padding leaves room for the season badge (no more). */}
         <main id="main-content" className="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-6 sm:pt-12 lg:px-8">
           <section className={`max-w-2xl rounded-[2rem] p-6 sm:p-9 ${GLASS.panel}`}>
-            <p className="inline-flex rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-800 ring-1 ring-emerald-200">
+            <p className="inline-flex rounded-full bg-ivory px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-chinar ring-1 ring-[#E8A317]/50">
               KashRoot · The agri-business ecosystem
             </p>
-            <h1 className="mt-5 text-4xl font-semibold tracking-tight text-slate-900 [text-wrap:balance] sm:text-5xl lg:text-6xl">
+            <h1 className="font-display mt-5 text-4xl font-semibold tracking-tight text-slate-900 [text-wrap:balance] sm:text-5xl lg:text-6xl">
               Every harvest,{' '}
-              <span className="bg-gradient-to-r from-emerald-700 to-teal-700 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-chinar to-emerald-700 bg-clip-text text-transparent">
                 traded with trust.
               </span>
             </h1>
@@ -111,7 +111,7 @@ export default function HomePage() {
         </main>
       </HeroShowcase>
 
-      <div className="relative isolate overflow-hidden bg-gradient-to-b from-amber-50 via-white to-emerald-50">
+      <div className="relative isolate overflow-hidden bg-gradient-to-b from-ivory via-white to-emerald-50/70">
         <div aria-hidden className="pointer-events-none absolute inset-0 -z-10" style={LATTICE_BG} />
         <div className="mx-auto max-w-7xl space-y-10 px-4 pb-14 pt-8 sm:px-6 lg:px-8">
           <section aria-label="Voice assistant">
@@ -119,14 +119,14 @@ export default function HomePage() {
           </section>
 
           <section aria-labelledby="fertilizer-heading" className="grid gap-6 lg:grid-cols-[1fr_1.6fr] lg:items-start">
-            <div className="pt-2">
-              <p className="inline-flex rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-800 ring-1 ring-rose-200">Fertilisers and pesticides</p>
-              <h2 id="fertilizer-heading" className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">KashRoot TrueScan — is it genuine?</h2>
+            <div className="pt-2 lg:sticky lg:top-24">
+              <p className="inline-flex rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900 ring-1 ring-amber-300/70">Fertilisers and pesticides</p>
+              <h2 id="fertilizer-heading" className="font-display mt-3 text-3xl font-semibold tracking-tight text-slate-900">KashRoot TrueScan — is it genuine?</h2>
               <p className="mt-3 leading-relaxed text-slate-600">
                 Type the registration number or the name from the label: it is checked against the Government list of registered
                 products. Or photograph the label, or compare a lab report with the official Fertiliser (Control) Order standards.
               </p>
-              <Link href="/supplies/tester" className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-rose-800 no-underline shadow-sm ring-1 ring-rose-200 transition hover:bg-rose-50 hover:no-underline">
+              <Link href="/supplies/tester" className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-chinar no-underline shadow-sm ring-1 ring-[#E8A317]/50 transition hover:bg-ivory hover:no-underline hover:ring-[#E8A317] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">
                 Open TrueScan <ArrowRight className="h-4 w-4" aria-hidden />
               </Link>
             </div>
@@ -139,7 +139,7 @@ export default function HomePage() {
               <ValleyScene mood="autumn" className="-z-20" particleCount={50} />
               <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-r from-slate-950/60 via-slate-900/20 to-transparent" />
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-200">Every portal</p>
-              <h2 id="portals-heading" className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">One valley, every trade</h2>
+              <h2 id="portals-heading" className="font-display mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">One valley, every trade</h2>
               <p className="mt-2 max-w-xl text-white/90">Each portal has its own sign-in. Pick yours.</p>
             </div>
             <PortalGrid />
@@ -173,7 +173,7 @@ function ToolCard({ id }: { id: ToolId }) {
         <span className={`rounded-full px-3 py-1 text-xs font-semibold ${theme.eyebrow}`}>{tool.eyebrow}</span>
       </div>
 
-      <h2 className="relative mt-5 text-xl font-semibold tracking-tight text-slate-900">{tool.title}</h2>
+      <h2 className="relative mt-5 font-display text-2xl font-semibold tracking-tight text-slate-900">{tool.title}</h2>
       <p className="relative mt-2 text-sm leading-relaxed text-slate-600">{tool.description}</p>
 
       <div className="relative mt-auto flex flex-wrap gap-2 pt-6">

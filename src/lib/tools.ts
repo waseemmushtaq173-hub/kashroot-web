@@ -53,20 +53,20 @@ export interface Tool {
 export const GLASS = {
   /** Large frosted panel over a photograph or colour field. */
   panel:
-    'bg-white/85 backdrop-blur-xl ring-1 ring-white/70 shadow-[0_8px_40px_rgba(15,23,42,0.10)]',
+    'bg-white/85 backdrop-blur-xl ring-1 ring-[#E8A317]/25 shadow-[0_8px_40px_rgba(15,23,42,0.10)]',
   /** Content card inside a tool — pair with text-slate-900 / text-slate-600. */
-  card: 'rounded-3xl bg-white/70 backdrop-blur-xl ring-1 ring-slate-900/5 shadow-[0_8px_30px_rgba(15,23,42,0.06)]',
+  card: 'rounded-3xl bg-white/70 backdrop-blur-xl ring-1 ring-[#E8A317]/25 shadow-[0_8px_30px_rgba(15,23,42,0.06)]',
 } as const;
 
 /** The one KashRoot look (as the portals: components/portal/kit BRAND) — chinar green, saffron gold, ivory. */
 const TOOL_BRAND: ToolTheme = {
-  canvas: 'bg-gradient-to-br from-[#FBF8F0] via-[#F6F1E3] to-[#EAF3EE]',
+  canvas: 'bg-gradient-to-br from-ivory via-ivory-deep to-[#EAF3EE]',
   glowA: 'bg-emerald-300/30',
   glowB: 'bg-amber-200/40',
   header: 'bg-gradient-to-r from-[#FBF8F0]/95 via-white/85 to-emerald-50/90 border-b border-amber-200/70',
   eyebrow: 'bg-amber-50 text-amber-900 ring-1 ring-amber-300/70',
-  iconTile: 'bg-gradient-to-br from-emerald-700 to-[#052E26] text-amber-200 shadow-lg shadow-emerald-950/25 ring-1 ring-amber-300/40',
-  primaryButton: 'bg-emerald-800 text-white hover:bg-emerald-900 focus-visible:outline-emerald-700',
+  iconTile: 'bg-gradient-to-br from-emerald-700 to-chinar-deep text-amber-200 shadow-lg shadow-emerald-950/25 ring-1 ring-amber-300/40',
+  primaryButton: 'bg-chinar text-white hover:bg-chinar-hover focus-visible:outline-emerald-700',
   secondaryButton: 'bg-white/85 text-emerald-900 ring-1 ring-amber-300/80 hover:bg-white focus-visible:outline-emerald-700',
 };
 

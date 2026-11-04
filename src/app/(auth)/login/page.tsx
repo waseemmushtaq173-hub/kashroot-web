@@ -28,7 +28,7 @@ export default async function LoginChooserPage({ searchParams }: { searchParams:
 
   return (
     <div className="w-full">
-      <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Choose your portal</h1>
+      <h1 className="font-display text-3xl font-semibold tracking-tight text-slate-900">Choose your portal</h1>
       <p className="mt-2 text-slate-600">Each portal has its own sign-in.</p>
       <ul className="mt-8 grid gap-3 sm:grid-cols-2">
         {PUBLIC_PORTAL_IDS.map((id) => {

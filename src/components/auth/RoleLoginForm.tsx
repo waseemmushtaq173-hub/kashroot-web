@@ -331,7 +331,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
     const hours = Math.round(PORTAL_SIGNIN_LIMIT_MS / 3_600_000);
     return (
       <PortalAuthFrame portal={portal} labelledBy={ids.heading}>
-        <h2 id={ids.heading} className="text-2xl font-semibold tracking-tight text-slate-900">
+        <h2 id={ids.heading} className="font-display text-2xl font-semibold tracking-tight text-slate-900">
           Welcome back
         </h2>
         <p className="mt-1 text-sm text-slate-600">
@@ -385,7 +385,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
     const has = [...new Set(join.has.filter((p) => p !== portal).map((p) => PORTALS[p].label))];
     return (
       <PortalAuthFrame portal={portal} labelledBy={ids.heading}>
-        <h2 id={ids.heading} className="text-2xl font-semibold tracking-tight text-slate-900">
+        <h2 id={ids.heading} className="font-display text-2xl font-semibold tracking-tight text-slate-900">
           Create your {info.label} account
         </h2>
         <p className="mt-2 text-sm text-slate-600">
@@ -416,7 +416,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   if (twoStepFor) {
     return (
       <PortalAuthFrame portal={portal} labelledBy={ids.heading}>
-        <h2 id={ids.heading} className="text-2xl font-semibold tracking-tight text-slate-900">
+        <h2 id={ids.heading} className="font-display text-2xl font-semibold tracking-tight text-slate-900">
           Two-step sign-in
         </h2>
         <p className="mt-1 text-sm text-slate-600">Your account is protected with an authenticator app.</p>
@@ -431,7 +431,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
     const phoneStep = step.channel === 'sms';
     return (
       <PortalAuthFrame portal={portal} labelledBy={ids.heading}>
-        <h2 id={ids.heading} className="text-2xl font-semibold tracking-tight text-slate-900">
+        <h2 id={ids.heading} className="font-display text-2xl font-semibold tracking-tight text-slate-900">
           Verify it’s you
         </h2>
         <p className="mt-1 text-sm text-slate-600">
@@ -480,7 +480,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
 
   return (
     <PortalAuthFrame portal={portal} labelledBy={ids.heading}>
-      <h2 id={ids.heading} className="text-2xl font-semibold tracking-tight text-slate-900">
+      <h2 id={ids.heading} className="font-display text-2xl font-semibold tracking-tight text-slate-900">
         Sign in to the {info.label} portal
       </h2>
       <p className="mt-1 text-sm text-slate-600">

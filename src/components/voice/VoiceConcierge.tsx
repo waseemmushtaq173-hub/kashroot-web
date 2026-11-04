@@ -272,10 +272,10 @@ export function VoiceConcierge({ compact = false, autoListen = false, onNavigate
             <Sparkles className="h-3.5 w-3.5" aria-hidden /> Voice assistant
           </p>
           {compact ? (
-            <h2 id="voice-panel-title" className="mt-2 pe-12 text-xl font-semibold tracking-tight text-slate-900">Speak, KashRoot does the rest</h2>
+            <h2 id="voice-panel-title" className="font-display mt-2 pe-12 text-xl font-semibold tracking-tight text-slate-900">Speak, KashRoot does the rest</h2>
           ) : (
             <>
-              <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">Ask KashRoot anything</h2>
+              <h2 className="font-display mt-3 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">Ask KashRoot anything</h2>
               <p className="mt-1 text-sm text-slate-600">Prices, weather, crop care and how to use KashRoot — speak, and hear the answer in Kashmiri, Urdu, Hindi, Dogri or English. Say what you want done, and KashRoot fills in the form for you.</p>
             </>
           )}

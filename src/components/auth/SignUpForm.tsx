@@ -229,7 +229,7 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
         <span className={`mx-auto grid h-16 w-16 place-items-center rounded-2xl ${look.tile}`}>
           <CheckCircle2 className="h-8 w-8" aria-hidden />
         </span>
-        <h2 className="mt-5 text-2xl font-semibold tracking-tight text-slate-900">{joinedExisting ? `${PORTALS[homePortal].label} account created!` : 'Account created!'}</h2>
+        <h2 className="font-display mt-5 text-2xl font-semibold tracking-tight text-slate-900">{joinedExisting ? `${PORTALS[homePortal].label} account created!` : 'Account created!'}</h2>
         {joinedExisting && (
           <p className="mt-2 text-slate-600">
             You already had a KashRoot account with <strong className="text-slate-900">{emailValue}</strong>. Your {PORTALS[homePortal].label} account is now made with it — sign in to the {PORTALS[homePortal].label} portal with the same email and password. Your {PORTALS[homePortal].label} details are kept separately.
@@ -277,7 +277,7 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
     <div>
       {portal ? (
         <>
-          <h2 id={headingId} className="text-2xl font-semibold tracking-tight text-slate-900">
+          <h2 id={headingId} className="font-display text-2xl font-semibold tracking-tight text-slate-900">
             Create your {PORTALS[portal].label} account
           </h2>
           <p className="mt-1 text-sm text-slate-600">
@@ -295,7 +295,7 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
         </>
       ) : (
         <>
-          <h1 id={headingId} className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+          <h1 id={headingId} className="font-display text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
             Create your <span className={`bg-gradient-to-r bg-clip-text text-transparent ${style.button}`}>account</span>
           </h1>
           <p className="mt-2 text-sm text-slate-600">

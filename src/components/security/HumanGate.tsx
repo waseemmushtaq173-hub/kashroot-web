@@ -60,8 +60,8 @@ function GateCheck({ className, onPassed }: { className: string; onPassed: () =>
   }, [token, used, onPassed, tries]);
   const failed = tries >= 3;
   return (
-    <div className={`rounded-2xl bg-sky-50 p-3 ring-1 ring-sky-200 ${className}`} data-human-gate>
-      <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-sky-950">
+    <div className={`rounded-2xl bg-chinar-soft p-3 ring-1 ring-chinar-line ${className}`} data-human-gate>
+      <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-emerald-950">
         <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden /> One quick check, so KashRoot’s answers and voice serve people, not machines.
       </p>
       {human.element}

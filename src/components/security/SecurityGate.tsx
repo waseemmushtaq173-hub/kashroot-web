@@ -184,7 +184,7 @@ export function SecurityGate({ place, onPass, children }: { place: string; onPas
   const problem = waitingForTap ? null : error ?? (stalled && check.status !== 'failed' ? t.slow : null);
   return (
     // Tall enough for Cloudflare's box from the start, so the page does not jump when the box appears.
-    <div className="mt-6 min-h-[13rem] rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 sm:p-5" data-security-gate={state} role="status" aria-live="polite">
+    <div className="mt-6 min-h-[13rem] rounded-2xl bg-white p-3 shadow-sm ring-1 ring-[#E8A317]/30 sm:p-5" data-security-gate={state} role="status" aria-live="polite">
       <p dir={t.dir} className="flex items-center gap-2 text-base font-semibold text-slate-900">
         {problem || waitingForTap || check.status === 'failed' ? <ShieldCheck className="h-5 w-5 shrink-0 text-amber-700" aria-hidden /> : <Loader2 className="h-5 w-5 shrink-0 animate-spin text-emerald-700" aria-hidden />}
         {t.title}
@@ -199,7 +199,7 @@ export function SecurityGate({ place, onPass, children }: { place: string; onPas
             setAwaitingTap(false);
             trySend();
           }}
-          className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 font-semibold text-white hover:bg-emerald-800"
+          className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-chinar px-5 font-semibold text-white hover:bg-chinar-hover"
           data-gate-confirm
         >
           <Hand className="h-5 w-5" aria-hidden /> <span dir={t.dir}>{t.tap}</span>
