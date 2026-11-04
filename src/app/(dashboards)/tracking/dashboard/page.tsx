@@ -20,7 +20,7 @@ import { CheckCircle2, Clock, Copy, FileText, Loader2, LogIn, MapPinned, Message
 import { toast } from '@/lib/client/toast';
 
 import { PortalShell } from '@/components/layout/PortalShell';
-import { Badge, Btn, EmptyState, Field, INPUT, PORTAL_THEMES, Panel } from '@/components/portal/kit';
+import { Badge, Btn, EmptyState, Field, INPUT, Panel, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
 import { LiveTrack } from '@/components/tracking/LiveTrack';
 import { authFetch } from '@/lib/auth-fetch';
 import { loginHref } from '@/lib/auth/roles';
@@ -163,10 +163,10 @@ function VehicleLookup({ onUseCode }: { onUseCode: () => void }) {
               <EmptyState theme={theme} icon={MapPinned} title="No toll crossings found" text="No FASTag crossings were reported for this vehicle in the last ~72 hours — it may be parked, on roads without tolls, or its tag may be inactive." />
             )}
             {result.crossings && result.crossings.length > 0 && (
-              <ol className="mt-5 space-y-3 border-l-2 border-cyan-200 pl-5">
+              <ol className="mt-5 space-y-3 border-l-2 border-[#E8A317]/40 pl-5">
                 {[...result.crossings].reverse().map((c) => (
                   <li key={c.time + c.plaza} className="relative">
-                    <span aria-hidden className="absolute -left-[27px] top-1 h-4 w-4 rounded-full bg-cyan-600 ring-4 ring-white" />
+                    <span aria-hidden className="absolute -left-[27px] top-1 h-4 w-4 rounded-full bg-chinar ring-4 ring-white" />
                     <p className="text-sm font-semibold text-slate-900">{c.plaza}</p>
                     <p className="flex items-center gap-1 text-xs text-slate-500"><Clock className="h-3.5 w-3.5" aria-hidden /> {c.time} · {ago(c.time)}{c.direction ? ` · ${c.direction}` : ''}</p>
                   </li>
@@ -218,7 +218,7 @@ function SignInFirst({ what, tab, keep = '' }: { what: string; tab: string; /** 
         title="Sign in for this"
         text={`${what} Following a load with its code needs no account.`}
         action={
-          <Link href={loginHref('tracking', `/tracking/dashboard?tab=${tab}${keep}`)} className="inline-flex items-center gap-2 rounded-xl bg-cyan-700 px-4 py-2.5 text-sm font-semibold text-white no-underline hover:bg-cyan-800 hover:no-underline">
+          <Link href={loginHref('tracking', `/tracking/dashboard?tab=${tab}${keep}`)} className="inline-flex items-center gap-2 rounded-xl bg-chinar px-4 py-2.5 text-sm font-semibold text-white no-underline hover:bg-chinar-hover hover:no-underline">
             <LogIn className="h-4 w-4" aria-hidden /> Sign in to Tracking
           </Link>
         }
@@ -296,7 +296,7 @@ function Tracking() {
         </div>
       )}
       {tab === 'mine' && (signedIn === null ? (
-        <p className="flex items-center gap-2 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>
+        <Skeleton label="Loading…" />
       ) : signedIn ? (
         <MyConsignments list={mine} draft={draft} onChange={() => void reload()} onTrack={(c) => { setActive(c); setCode(c); setTab('track'); }} />
       ) : (

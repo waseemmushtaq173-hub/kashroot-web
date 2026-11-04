@@ -19,7 +19,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Check, CheckCircle2, Database, FileUp, Loader2, Map as MapIcon, MessageSquarePlus, Plus, RefreshCw, Search, Trash2, Warehouse } from 'lucide-react';
 
-import { Btn, EmptyState, Field, INPUT, PORTAL_THEMES, Panel } from '@/components/portal/kit';
+import { Btn, EmptyState, Field, INPUT, Panel, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
 import { toast } from '@/lib/client/toast';
 import { NHB_DATABASE_URL, parseColdStoreList, type DirEntry, type ParsedList, type SourceState } from '@/lib/coldDirectory';
 import { addDirectoryEntry, approveSuggestion, directoryRows, importDirectory, removeDirectoryEntry, type DirectoryRow } from '@/lib/db/coldDirectory';
@@ -390,7 +390,7 @@ export function ColdDirectoryPanel() {
           <input className={`${INPUT} pl-9`} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search the directory" />
         </label>
         {rows === null ? (
-          <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>
+          <Skeleton label="Loading…" rows={2} height="h-10" />
         ) : checked.length === 0 ? (
           <EmptyState theme={theme} icon={Warehouse} title="Nothing in the directory yet" text="Read the official list, import a list or add a cold store. Farmers still see the official list live while it can be reached." />
         ) : (

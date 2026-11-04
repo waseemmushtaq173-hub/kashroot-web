@@ -101,7 +101,7 @@ export function LiveTrack({ code }: { code: string }) {
       <div className="flex flex-wrap items-start justify-between gap-3 rounded-2xl bg-white/85 p-4 ring-1 ring-slate-900/5">
         <div>
           <p className="flex flex-wrap items-center gap-2 text-lg font-semibold text-slate-900">
-            <Truck className="h-5 w-5 text-cyan-700" aria-hidden /> {data.origin} → {data.destination}
+            <Truck className="h-5 w-5 text-emerald-700" aria-hidden /> {data.origin} → {data.destination}
             <Badge tone={TONE[data.status]}>{STATUS_LABEL[data.status]}</Badge>
           </p>
           <p className="mt-1 text-sm text-slate-600">
@@ -112,7 +112,7 @@ export function LiveTrack({ code }: { code: string }) {
           </p>
           {data.last_seen && near && data.status !== 'delivered' && (
             <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-slate-900">
-              <MapPinned className="h-4 w-4 text-cyan-700" aria-hidden /> Near {near}
+              <MapPinned className="h-4 w-4 text-emerald-700" aria-hidden /> Near {near}
             </p>
           )}
           {data.last_lat != null && data.last_lng != null && dest && data.status === 'in_transit' && (
@@ -123,7 +123,7 @@ export function LiveTrack({ code }: { code: string }) {
           {stale && <p className="mt-1 text-sm text-amber-800">No update for over 30 minutes — the driver’s phone may be off or out of network.</p>}
         </div>
         {/^[6-9]\d{9}$/.test(phone) && (
-          <a href={`tel:+91${phone}`} className="inline-flex items-center gap-2 rounded-xl bg-cyan-700 px-4 py-2.5 text-sm font-semibold text-white no-underline hover:bg-cyan-800 hover:no-underline">
+          <a href={`tel:+91${phone}`} className="inline-flex items-center gap-2 rounded-xl bg-chinar px-4 py-2.5 text-sm font-semibold text-white no-underline hover:bg-chinar-hover hover:no-underline">
             <Phone className="h-4 w-4" aria-hidden /> Call {data.driver_name ?? 'driver'}
           </a>
         )}
@@ -135,7 +135,7 @@ export function LiveTrack({ code }: { code: string }) {
         </>
       ) : (
         <div className="grid place-items-center rounded-2xl bg-white/70 p-10 text-center text-sm text-slate-600 ring-1 ring-slate-900/5">
-          <MapPinned className="mb-2 h-8 w-8 text-cyan-700" aria-hidden />
+          <MapPinned className="mb-2 h-8 w-8 text-emerald-700" aria-hidden />
           The map appears as soon as the driver taps “Start sharing location”.
         </div>
       )}

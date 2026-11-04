@@ -198,7 +198,7 @@ export function AccountsPanel({ onRefreshed }: { onRefreshed?: () => Promise<unk
                       </p>
                       <p className="mt-0.5 truncate text-slate-600">
                         {r.email}
-                        {r.email_confirmed && <CheckCircle2 className="ml-1 inline h-3.5 w-3.5 text-emerald-600" aria-label="email confirmed" />}
+                        {r.email_confirmed && <CheckCircle2 className="ml-1 inline h-3.5 w-3.5 text-emerald-700" aria-label="email confirmed" />}
                         {r.district ? ` · ${r.district}` : ''}
                         {r.portals.length ? ` · details in: ${r.portals.join(', ')}` : ''}
                       </p>

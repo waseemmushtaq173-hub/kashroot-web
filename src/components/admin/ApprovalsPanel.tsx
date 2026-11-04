@@ -9,10 +9,10 @@
  * which only works for admins (checked in the database).
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Check, Flag, GraduationCap, Loader2, Megaphone, Phone, ShieldCheck, Store, UserX, X, type LucideIcon } from 'lucide-react';
+import { Check, Flag, GraduationCap, Megaphone, Phone, ShieldCheck, Store, UserX, X, type LucideIcon } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
-import { Badge, Btn, EmptyState, Modal, PORTAL_THEMES, Panel } from '@/components/portal/kit';
+import { Badge, Btn, EmptyState, Modal, Panel, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
 import { ago, dbMessage, supabase } from '@/lib/db/client';
 
 const theme = PORTAL_THEMES.admin ?? PORTAL_THEMES.expert;
@@ -104,7 +104,7 @@ export function ApprovalsPanel() {
 
   const pending = requests ?? [];
 
-  if (requests === null) return <p className="flex items-center gap-2 p-6 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>;
+  if (requests === null) return <div className="p-6"><Skeleton label="Loading…" /></div>;
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">

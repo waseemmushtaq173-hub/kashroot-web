@@ -294,7 +294,8 @@ export function PortalShell({
           : undefined
       }
       onSignOut={canSignOut ? () => void signOut() : undefined}
-      pending={Boolean(portal) && signedIn === null}
+      // My details (where the portal has it), Two-step sign-in and My business; Sign out is held below Home.
+      pending={portal && signedIn === null ? (MY_DETAILS[portal] ? 3 : 2) : 0}
       onNavigate={() => setDrawer(false)}
       large={large}
     />
@@ -328,7 +329,7 @@ export function PortalShell({
             searchItems={searchItems}
             searchExample={tabs[1]?.label ?? tabs[0]?.label}
           />
-          <main id="main-content" className="mx-auto max-w-7xl px-4 pb-16 pt-6 sm:px-6 sm:pt-8 xl:px-8">
+          <main id="main-content" className="mx-auto min-h-[100svh] max-w-7xl px-4 pb-16 pt-6 sm:px-6 sm:pt-8 xl:px-8">
             {page}
           </main>
           <RegionCredit skin={skin} />

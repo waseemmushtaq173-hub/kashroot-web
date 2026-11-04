@@ -11,12 +11,12 @@
  *     and "Mark paid" after paying them by UPI or bank.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Check, ExternalLink, GraduationCap, IndianRupee, Loader2, Megaphone, Phone, Users, X } from 'lucide-react';
+import { Check, ExternalLink, GraduationCap, IndianRupee, Megaphone, Phone, Users, X } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { RefreshBtn } from '@/components/admin/RefreshBtn';
 import { UpiQr } from '@/components/payments/UpiQr';
-import { Badge, Btn, EmptyState, Field, INPUT, Modal, PORTAL_THEMES, Panel } from '@/components/portal/kit';
+import { Badge, Btn, EmptyState, Field, INPUT, Modal, Panel, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
 import { ago } from '@/lib/db/client';
 import {
   answersToCheck,
@@ -86,7 +86,7 @@ export function ContributorsPanel() {
     }
   };
 
-  if (!rates || !answers || !pay || !people) return <p className="flex items-center gap-2 p-6 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>;
+  if (!rates || !answers || !pay || !people) return <div className="p-6"><Skeleton label="Loading…" /></div>;
 
   const checksFor = (id: string) => rates.checks.filter((c) => c.rate_id === id);
 
@@ -270,7 +270,7 @@ function MarkPaidModal({ person, onClose, onDone }: { person: Contributor; onClo
       </p>
       {person.upi_id && (
         <div className="mt-4 flex flex-wrap items-center gap-4">
-          <a href={upiLink({ upi: person.upi_id, name: person.name, amount: person.due, note: 'KashRoot contributor pay' })} className="inline-flex items-center gap-2 rounded-xl bg-indigo-700 px-4 py-2.5 text-sm font-semibold text-white no-underline hover:bg-indigo-800 hover:no-underline">
+          <a href={upiLink({ upi: person.upi_id, name: person.name, amount: person.due, note: 'KashRoot contributor pay' })} className="inline-flex items-center gap-2 rounded-xl bg-chinar px-4 py-2.5 text-sm font-semibold text-white no-underline hover:bg-chinar-hover hover:no-underline">
             <IndianRupee className="h-4 w-4" aria-hidden /> Pay {rupees(person.due)} with UPI app
           </a>
           <UpiQr upi={person.upi_id} name={person.name} amount={person.due} note="KashRoot contributor pay" size={140} />

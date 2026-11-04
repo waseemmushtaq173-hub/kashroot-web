@@ -31,7 +31,8 @@ export function StatCards({ kpis, theme, look }: { kpis: KPI[]; theme: PortalThe
               )}
             </span>
             <span className={`mt-3 block break-words text-3xl font-bold leading-tight tracking-tight tabular-nums ${lead ? 'text-white' : 'text-slate-900'}`}>{kpi.value}</span>
-            {kpi.trend && <span className={`mt-2 block text-xs font-medium leading-snug ${lead ? 'text-white/90' : theme.accent}`}>{kpi.trend}</span>}
+            {/* The line's room is kept while its words load, so the cards do not grow later. */}
+            <span className={`mt-2 block min-h-4 text-xs font-medium leading-snug ${lead ? 'text-white/90' : theme.accent}`}>{kpi.trend ?? ''}</span>
           </>
         );
         const face = `group relative isolate block h-full overflow-hidden rounded-2xl p-5 text-left ${

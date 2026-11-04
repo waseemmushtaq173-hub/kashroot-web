@@ -124,7 +124,7 @@ export function SecurityPanel() {
             'Every server endpoint is rate-limited against floods',
             'Security log of admin actions that nobody can edit',
           ].map((t) => (
-            <li key={t} className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden /> {t}</li>
+            <li key={t} className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" aria-hidden /> {t}</li>
           ))}
         </ul>
         <Btn theme={theme} variant="danger" className="mt-4" icon={LockKeyhole} onClick={() => void lockAdminNow().then(() => window.location.reload())}>Lock Admin portal now</Btn>
@@ -153,7 +153,7 @@ function KycSetup({ database, server }: { database: boolean; server: boolean | n
         <ol className="mt-2 space-y-1.5">
           {steps.map((s, i) => (
             <li key={i} className="flex items-start gap-2">
-              {s.done ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-label="Done" /> : <span className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full bg-amber-200 text-[10px] font-bold">{i + 1}</span>}
+              {s.done ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" aria-label="Done" /> : <span className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full bg-amber-200 text-[10px] font-bold">{i + 1}</span>}
               <span className={s.done ? 'text-slate-500 line-through decoration-slate-300' : ''}>{s.text}</span>
             </li>
           ))}

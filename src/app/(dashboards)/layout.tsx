@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 
 import { usePathname, useSearchParams, useSelectedLayoutSegment, useRouter } from 'next/navigation';
 import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
+import { RegionBackdrop } from '@/components/layout/portal/RegionBackdrop';
 import { ReactNode, Suspense, useCallback, useEffect, useState } from 'react';
 
 import { ShieldCheck } from 'lucide-react';
@@ -179,9 +180,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   // A guest who leaves Tracking for another portal waits here for its sign-in.
   if (!isMounted || !isAuthenticated || locked || checkedFor !== segment || (guest && !GUEST_PORTALS.includes(portalForSegment(segment) ?? ''))) {
-    // Prevent flicker and layout shift while checking credentials
+    // Prevent flicker and layout shift while checking credentials. The region photo band is
+    // already drawn here (the same picture the page shows at its top), so the page's largest
+    // paint does not wait for the sign-in check.
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-amber-50">
+      <div className="relative isolate flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-amber-50">
+        <RegionBackdrop />
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-600 border-t-transparent" />
       </div>
     );

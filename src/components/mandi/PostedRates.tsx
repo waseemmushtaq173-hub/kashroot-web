@@ -172,7 +172,7 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
                           <td className="px-4 py-2 text-right font-semibold tabular-nums text-slate-900">{rupees(r.modal_price)}</td>
                           <td className="px-4 py-2 text-right tabular-nums text-slate-600">{rupees(r.max_price)}</td>
                           <td className="px-4 py-2 text-xs text-slate-600">
-                            <span className="font-semibold text-slate-800">{when(r.rate_date)}</span> · <BadgeCheck className="inline h-3.5 w-3.5 text-emerald-600" aria-label="Approved Mandi Helper" /> {r.reporter_name}
+                            <span className="font-semibold text-slate-800">{when(r.rate_date)}</span> · <BadgeCheck className="inline h-3.5 w-3.5 text-emerald-700" aria-label="Approved Mandi Helper" /> {r.reporter_name}
                             {r.note && <span className="block text-slate-500">{r.note}</span>}
                             {account && (r.posted_by === account.id || account.staff.includes('ADMIN')) && (
                               <button type="button" onClick={() => { if (window.confirm('Remove this rate?')) void removeRate(r.id).then(load).catch((e: Error) => toast.error(e.message)); }} className="ms-1 inline-flex cursor-pointer items-center gap-1 text-rose-700 hover:underline">

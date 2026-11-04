@@ -71,7 +71,7 @@ export function SetupCheckPanel() {
           <ol className="divide-y divide-slate-200 rounded-xl text-sm ring-1 ring-slate-200">
             {steps.map((s) => (
               <li key={s.step} className={`grid grid-cols-[1.5rem_1fr] items-start gap-2 px-3 py-2 ${s.done ? '' : 'bg-amber-50'}`}>
-                {s.done ? <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600" aria-label="Done" /> : <XCircle className="mt-0.5 h-4 w-4 text-amber-700" aria-label="Not run" />}
+                {s.done ? <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-700" aria-label="Done" /> : <XCircle className="mt-0.5 h-4 w-4 text-amber-700" aria-label="Not run" />}
                 <span className="min-w-0">
                   <span className={`font-semibold ${s.done ? 'text-slate-900' : 'text-amber-900'}`}>{s.part}</span>
                   <span className="text-slate-600"> — {s.done ? 'done' : 'not run'}</span>
@@ -126,7 +126,7 @@ function OptionalServices() {
       <ul className="divide-y divide-slate-200 rounded-xl text-sm ring-1 ring-slate-200" data-optional-services>
         {rows.map((r) => (
           <li key={r.name} className="grid grid-cols-[1.5rem_1fr] items-start gap-2 px-3 py-2">
-            {r.on ? <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600" aria-label="On" /> : r.optional ? <Info className="mt-0.5 h-4 w-4 text-sky-700" aria-label="Optional" /> : <XCircle className="mt-0.5 h-4 w-4 text-amber-700" aria-label="Missing" />}
+            {r.on ? <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-700" aria-label="On" /> : r.optional ? <Info className="mt-0.5 h-4 w-4 text-sky-700" aria-label="Optional" /> : <XCircle className="mt-0.5 h-4 w-4 text-amber-700" aria-label="Missing" />}
             <span>
               <span className="font-semibold text-slate-900">{r.name}</span>
               <span className="text-slate-600"> — {r.on ? r.onText : r.offText}</span>

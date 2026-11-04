@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, ExternalLink, FileUp, ListChecks, Loader2, Trash2, Upload } from 'lucide-react';
 
-import { Badge, Btn, EmptyState, Field, INPUT, PORTAL_THEMES, Panel } from '@/components/portal/kit';
+import { Badge, Btn, EmptyState, Field, INPUT, Panel, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
 import { toast } from '@/lib/client/toast';
 import { decodeListFile, KIND_LABEL, parseOfficialList, type OfficialKind, type ParsedOfficialList } from '@/lib/fertilizer/officialList';
 import { importRegistry, registryStats, removeRegistryList, type OfficialListInfo, type RegistryStats } from '@/lib/db/registry';
@@ -132,7 +132,7 @@ export function RegistryPanel() {
             <Btn theme={theme} size="sm" variant="soft" className="min-h-11" onClick={() => void load()}>Try again</Btn>
           </div>
         ) : stats === undefined ? (
-          <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>
+          <Skeleton label="Loading…" rows={2} height="h-10" />
         ) : stats === null ? (
           <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-amber-200">The official lists are not set up in the database yet. Open the Setup check tab to see which setup file to run in Supabase.</p>
         ) : stats.lists.length === 0 ? (

@@ -355,7 +355,7 @@ export default function DealerDashboardPage() {
             {licences.map((l) => (
               <li key={l.id} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-start gap-3">
-                  {l.verified ? <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-600" aria-hidden /> : <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-500" aria-hidden />}
+                  {l.verified ? <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-700" aria-hidden /> : <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-500" aria-hidden />}
                   <div>
                     <p className="font-semibold text-slate-900">{l.name}</p>
                     <p className="text-sm text-slate-500">{l.file ? `On file: ${l.file}` : 'Not uploaded'}</p>

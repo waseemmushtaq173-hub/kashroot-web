@@ -45,8 +45,8 @@ export interface SidebarProps {
   onDetails?: () => void;
   /** Shown when signed in to this portal. */
   onSignOut?: () => void;
-  /** Still finding out whether someone is signed in: hold the room of the signed-in links (no jump when they appear). */
-  pending?: boolean;
+  /** Still finding out whether someone is signed in: how many signed-in links to hold room for above Help (no jump when they appear). */
+  pending?: number;
   /** A link was followed (the drawer closes). */
   onNavigate?: () => void;
   /** Bigger rows, for the drawer. */
@@ -63,8 +63,8 @@ function MenuLink({ href, icon: Icon, children, onNavigate, outline, size, curre
 }
 
 export function SidebarContent(props: SidebarProps) {
-  const { theme, look, portalLabel, title, tabs, activeTab, onSelect, idPrefix, panelId, navItems, dashboard, onDetails, onSignOut, onNavigate, pending = false, large = false } = props;
-  const hold = (n: number) => (pending && !onSignOut ? Array.from({ length: n }, (_, i) => <li key={`hold-${i}`} aria-hidden className={size} />) : null);
+  const { theme, look, portalLabel, title, tabs, activeTab, onSelect, idPrefix, panelId, navItems, dashboard, onDetails, onSignOut, onNavigate, pending = 0, large = false } = props;
+  const hold = (n: number) => (pending > 0 && !onSignOut ? Array.from({ length: n }, (_, i) => <li key={`hold-${i}`} aria-hidden className={size} />) : null);
   const size = large ? SIZE.large : SIZE.normal;
   const hasMenu = tabs.length > 0 || navItems.length > 0 || Boolean(dashboard);
 
@@ -112,7 +112,7 @@ export function SidebarContent(props: SidebarProps) {
           General
         </p>
         <ul className="space-y-1">
-          {hold(3)}
+          {hold(pending)}
           {onDetails && (
             <li>
               <button type="button" onClick={onDetails} className={`${ITEM} ${size} ${theme.outline} ${IDLE}`}>

@@ -7,10 +7,10 @@
  * testing with farmers to see what they actually used.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { BarChart3, Loader2 } from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 
 import { RefreshBtn } from '@/components/admin/RefreshBtn';
-import { Panel, PORTAL_THEMES } from '@/components/portal/kit';
+import { Panel, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
 import { PORTALS } from '@/lib/auth/roles';
 import { dbMessage, inr, supabase } from '@/lib/db/client';
 
@@ -75,7 +75,7 @@ export function PlatformNumbers({ onRefreshed }: { onRefreshed?: () => Promise<u
   }, [load]);
 
   if (error) return <p role="alert" className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">{error}</p>;
-  if (!stats) return <p className="flex items-center gap-2 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>;
+  if (!stats) return <Skeleton label="Loading…" />;
 
   const tiles: [string, string, string][] = [
     ['Accounts', String(stats.accounts), `${stats.accounts_7d} new this week`],

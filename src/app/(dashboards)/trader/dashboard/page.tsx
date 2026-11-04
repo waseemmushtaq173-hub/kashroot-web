@@ -9,11 +9,11 @@
  *   rates and how theirs were checked, and open My work & pay.
  */
 import { useEffect, useState } from 'react';
-import { CheckCircle2, ClipboardCheck, Loader2, Megaphone, PhoneCall, Wallet } from 'lucide-react';
+import { CheckCircle2, ClipboardCheck, Megaphone, PhoneCall, Wallet } from 'lucide-react';
 
 import { PortalShell } from '@/components/layout/PortalShell';
 import { PostedRates } from '@/components/mandi/PostedRates';
-import { Btn, PORTAL_THEMES, Panel } from '@/components/portal/kit';
+import { Btn, Panel, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
 import { RoleApplicationForm } from '@/components/staff/RoleApplicationForm';
 import { myRoleRequest } from '@/lib/db/advisory';
 import { loadAccount, type Account } from '@/lib/db/client';
@@ -62,7 +62,7 @@ export default function TraderDashboardPage() {
       actions={approved ? <Btn theme={theme} variant="white" icon={Wallet} href="/contributions">My work &amp; pay</Btn> : undefined}
     >
       {account === undefined ? (
-        <p className="flex items-center gap-2 p-6 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>
+        <div className="p-6"><Skeleton label="Loading…" /></div>
       ) : account === null ? (
         <p role="alert" className="rounded-2xl bg-amber-50 p-4 text-amber-900 ring-1 ring-amber-200">Sign in again to continue.</p>
       ) : (
@@ -71,7 +71,7 @@ export default function TraderDashboardPage() {
             <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
               <Panel theme={theme} title={request === 'pending' ? 'Your application' : 'Become a Mandi Helper'} icon={ClipboardCheck}>
                 {request === undefined ? (
-                  <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>
+                  <Skeleton label="Loading…" rows={2} height="h-10" />
                 ) : request === 'pending' ? (
                   <p className="text-sm text-slate-700">
                     Your application is with KashRoot. We will <strong>phone you</strong> on the number you gave to check your details. Once approved, the <strong>Post today’s rate</strong> button appears here.

@@ -117,16 +117,16 @@ export function DriverShare({ token }: { token: string }) {
     }
   };
 
-  if (view === undefined && !error) return <main className="grid min-h-screen place-items-center"><Loader2 className="h-8 w-8 animate-spin text-cyan-700" aria-label="Loading" /></main>;
+  if (view === undefined && !error) return <main className="grid min-h-screen place-items-center"><Loader2 className="h-8 w-8 animate-spin text-emerald-700" aria-label="Loading" /></main>;
   if (!view) return <main className="grid min-h-screen place-items-center p-6 text-center text-lg text-slate-800">{error ?? 'This driver link is not valid. Ask the transporter for a new one.'}</main>;
 
   const done = status === 'delivered' || status === 'cancelled';
   const secs = lastSent ? Math.max(0, Math.round((now - lastSent) / 1000)) : null;
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col gap-5 bg-gradient-to-b from-cyan-50 to-white p-5 text-slate-900">
+    <main className="mx-auto flex min-h-screen max-w-md flex-col gap-5 bg-gradient-to-b from-ivory to-white p-5 text-slate-900">
       <header>
-        <p className="text-sm font-semibold uppercase tracking-wider text-cyan-800">KashRoot · Driver</p>
+        <p className="text-sm font-semibold uppercase tracking-wider text-chinar">KashRoot · Driver</p>
         <h1 className="mt-1 text-2xl font-bold">{view.origin} → {view.destination}</h1>
         <p className="mt-1 text-slate-700">{view.code}{view.vehicle_no ? ` · ${view.vehicle_no}` : ''}{view.cargo ? ` · ${view.cargo}` : ''}</p>
         <p className="mt-2 inline-block rounded-full bg-white px-3 py-1 text-sm font-semibold ring-1 ring-slate-200">{STATUS_LABEL[(status ?? view.status) as ConsignmentStatus]}</p>
@@ -156,10 +156,10 @@ export function DriverShare({ token }: { token: string }) {
           </button>
         </>
       ) : (
-        <button type="button" onClick={start} className="inline-flex cursor-pointer flex-col items-center justify-center gap-1 rounded-3xl bg-cyan-700 px-6 py-8 text-2xl font-bold text-white shadow-xl hover:bg-cyan-800">
+        <button type="button" onClick={start} className="inline-flex cursor-pointer flex-col items-center justify-center gap-1 rounded-3xl bg-chinar px-6 py-8 text-2xl font-bold text-white shadow-xl hover:bg-chinar-hover">
           <MapPin className="h-10 w-10" aria-hidden />
           Start sharing location
-          <span className="text-base font-normal text-cyan-50">लोकेशन शेयर करें · لوکیشن شیئر کریں</span>
+          <span className="text-base font-normal text-emerald-50">लोकेशन शेयर करें · لوکیشن شیئر کریں</span>
         </button>
       )}
 

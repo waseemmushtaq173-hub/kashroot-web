@@ -7,9 +7,9 @@
  * settle it; the buyer's note and both phone numbers are here.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2, PackageX, Phone } from 'lucide-react';
+import { PackageX, Phone } from 'lucide-react';
 
-import { EmptyState, Panel, PORTAL_THEMES } from '@/components/portal/kit';
+import { EmptyState, Panel, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
 import { ago, dbMessage, inr, supabase } from '@/lib/db/client';
 
 const theme = PORTAL_THEMES.admin ?? PORTAL_THEMES.expert;
@@ -74,7 +74,7 @@ export function ReportedOrders() {
     <Panel theme={theme} title="Orders with a problem" icon={PackageX}>
       <p className="mb-4 text-sm text-slate-600">A buyer or a seller pressed “Report a problem” on these. KashRoot does not hold the money — call both sides and help them settle it.</p>
       {orders === null ? (
-        <p className="flex items-center gap-2 text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…</p>
+        <Skeleton label="Loading…" />
       ) : error ? (
         <p role="alert" className="text-rose-800">{error}</p>
       ) : orders.length === 0 ? (
