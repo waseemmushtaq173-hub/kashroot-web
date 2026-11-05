@@ -78,5 +78,6 @@ test('the AI and voice need the "I am human" pass when the check is on', async (
   expect([403, 503]).toContain((await request.get('/api/speak?l=en&t=hello%20there')).status());
   expect((await request.post('/api/label', { data: { photo: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD' } })).status()).toBe(403);
   // A fake hCaptcha token gets no pass.
-  expect((await request.post('/api/human', { data: { token: 'fake' } })).status()).toBe(403);
+  // (429: refused before checking — this network already tried many times; refused either way.)
+  expect([403, 429]).toContain((await request.post('/api/human', { data: { token: 'fake' } })).status());
 });

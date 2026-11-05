@@ -348,6 +348,10 @@ export async function myPayout(userId: string): Promise<PayoutAccount | null> {
   return data as PayoutAccount | null;
 }
 
+/** Refused because saved payment details can be changed only after two-step sign-in. */
+export const TWO_STEP_FOR_PAYOUT =
+  'Changing payment details that are already saved needs two-step sign-in, so nobody with a stolen password can send your money elsewhere. Open “Two-step sign-in” in the menu, set it up or enter your code, then save again.';
+
 export async function savePayout(input: PayoutAccount): Promise<void> {
   const row = {
     account_name: input.account_name.trim(),
@@ -357,7 +361,16 @@ export async function savePayout(input: PayoutAccount): Promise<void> {
     bank_name: input.bank_name?.trim() || null,
   };
   const { error } = await supabase.from('payout_accounts').upsert(row, { onConflict: 'user_id' });
-  if (error) fail(error, 'Could not save your payment details.');
+  if (error) {
+    // Changing details already saved needs two-step sign-in (20261119000000_payout_two_step.sql): say so,
+    // not "verify your identity" — that check was done when the details were first added.
+    if (/row-level security|permission denied/i.test(error.message ?? '')) {
+      const [{ data: aal }, { data: { user } }] = await Promise.all([supabase.auth.mfa.getAuthenticatorAssuranceLevel(), supabase.auth.getUser()]);
+      const saved = user ? await myPayout(user.id).catch(() => null) : null;
+      if (saved && aal?.currentLevel !== 'aal2') throw new Error(TWO_STEP_FOR_PAYOUT);
+    }
+    fail(error, 'Could not save your payment details.');
+  }
   // The change queued a notice to the account's email: send it now.
   sendQueuedEmails();
 }
