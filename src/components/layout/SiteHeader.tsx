@@ -307,7 +307,7 @@ export function SiteHeader({
 
 /**
  * Site footer, the same everywhere: the brand, the company line (© 2026
- * KashRoot Pvt Ltd · Srinagar, Jammu & Kashmir, India) and KashRoot's social
+ * KashRoot Pvt Ltd) and KashRoot's social
  * pages only. Help & support is in every top bar; the portals (buying, selling,
  * supplies) are in the Portals menu, and their old addresses send people to
  * the right portal tab. (`portal` is still accepted from older callers.)
@@ -331,7 +331,7 @@ export function SiteFooter({ tone = 'dark' }: { tone?: SiteTone; portal?: Portal
         <div className={light ? 'text-slate-900' : ''}>
           <BrandMark size="sm" />
           <p className={`mt-2 text-caption ${light ? 'text-slate-600' : 'text-kr-text-secondary'}`}>
-            &copy; 2026 KashRoot Pvt Ltd · Srinagar, Jammu &amp; Kashmir, India
+            &copy; 2026 KashRoot Pvt Ltd
           </p>
         </div>
         {/* Only the social pages: help is in every top bar (Help & support), the portals in the Portals menu.
