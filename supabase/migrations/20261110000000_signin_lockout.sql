@@ -8,7 +8,7 @@
 
 alter table public.email_outbox drop constraint if exists email_outbox_kind_check;
 alter table public.email_outbox add constraint email_outbox_kind_check check (kind in (
-  'help_new', 'help_ack', 'help_reply', 'help_resolved', 'payout_changed', 'password_changed', 'email_changed', 'phone_changed', 'new_signin', 'signin_locked', 'team_changed'));
+  'help_new', 'help_ack', 'help_reply', 'help_resolved', 'payout_changed', 'password_changed', 'email_changed', 'phone_changed', 'new_signin', 'signin_locked', 'team_changed', 'trip_lost'));
 
 create or replace function public.kr_email_enqueue_email(p_secret text, p_kind text, p_email text, p_detail text) returns boolean
 language plpgsql security definer set search_path = public as $$

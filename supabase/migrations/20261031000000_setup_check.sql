@@ -74,7 +74,8 @@ language sql stable security definer set search_path = public as $$
     (38, 'Businesses run cold stores',  '20261116000000_business_listings.sql',         public.kr_setup_has_function('kr_org_attach_listing')),
     (39, 'KashRoot team access',        '20261117000000_kashroot_team.sql',               public.kr_setup_has_function('kr_team_can')),
     (40, 'Businesses run shop orders',  '20261118000000_business_orders.sql',             public.kr_setup_has_function('kr_order_assign_driver')),
-    (41, 'Two-step to change payouts',  '20261119000000_payout_two_step.sql',             exists (select 1 from pg_policies where tablename = 'payout_accounts' and policyname = 'Two-step before changing payout details'))
+    (41, 'Two-step to change payouts',  '20261119000000_payout_two_step.sql',             exists (select 1 from pg_policies where tablename = 'payout_accounts' and policyname = 'Two-step before changing payout details')),
+    (42, 'Tracking: trips that cannot be stopped', '20261120000000_trip_lock.sql',  public.kr_setup_has_function('kr_driver_start'))
   ) as s(step, part, file, ok)
   order by s.step
 $$;

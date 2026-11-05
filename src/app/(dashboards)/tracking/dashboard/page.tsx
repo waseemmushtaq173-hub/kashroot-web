@@ -16,17 +16,20 @@ import { Suspense, useCallback, useEffect, useState, type FormEvent } from 'reac
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { CheckCircle2, Clock, Copy, FileText, Loader2, LogIn, MapPinned, MessageCircle, PlusCircle, Search, Share2, TriangleAlert, Truck } from 'lucide-react';
+import { CheckCircle2, Clock, Copy, FileText, History, KeyRound, Loader2, LogIn, MapPin, MapPinned, MessageCircle, Navigation, PlusCircle, Search, Share2, TriangleAlert, Truck, XCircle } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { PortalShell } from '@/components/layout/PortalShell';
 import { Badge, Btn, EmptyState, Field, INPUT, Panel, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
 import { LiveTrack } from '@/components/tracking/LiveTrack';
+import { PlaceInput } from '@/components/tracking/PlaceInput';
 import { authFetch } from '@/lib/auth-fetch';
 import { loginHref } from '@/lib/auth/roles';
 import { useSignedIn } from '@/lib/auth/session';
 import { ago as agoIso } from '@/lib/db/client';
-import { createConsignment, driverUrl, myConsignments, setConsignmentStatus, STATUS_LABEL, trackUrl, type Consignment } from '@/lib/db/consignments';
+import { createConsignment, driverUrl, EVENT_LABEL, myConsignments, setConsignmentStatus, STATUS_LABEL, trackUrl, tripEvents, type Consignment, type PlacePoint, type TripEvent } from '@/lib/db/consignments';
+import { googlePoint, googleRoute, roadEstimate } from '@/lib/maps';
+import { sendQueuedEmails } from '@/lib/client/mailQueue';
 import { consignmentDraftFromLink } from '@/lib/navIntent';
 
 const RouteMap = dynamic(() => import('@/components/tracking/RouteMap'), {
@@ -307,17 +310,64 @@ function Tracking() {
   );
 }
 
+/** On a trip with no position for 5 minutes (the database marks it too, and emails the sender). */
+const isLost = (c: Consignment, now: number) =>
+  c.status === 'in_transit' && Boolean(c.trip_started_at) && (Boolean(c.lost_at) || now - Date.parse(c.last_seen ?? c.trip_started_at ?? '') > 5 * 60_000);
+
+function TripHistory({ code }: { code: string }) {
+  const [events, setEvents] = useState<TripEvent[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    tripEvents(code).then((e) => live && setEvents(e), () => live && setEvents([]));
+    return () => {
+      live = false;
+    };
+  }, [code]);
+  if (events === null) return <p className="flex items-center gap-2 text-xs text-slate-500"><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Loading…</p>;
+  if (!events.length) return <p className="text-xs text-slate-500">Nothing yet — it fills in when the driver starts the trip.</p>;
+  return (
+    <ol className="space-y-1.5 text-xs">
+      {events.map((e, i) => (
+        <li key={i} className={`flex flex-wrap gap-x-2 ${e.kind === 'lost' || e.kind === 'gps_off' || e.kind === 'location_blocked' || e.kind === 'page_closed' || e.kind === 'code_locked' ? 'text-rose-800' : 'text-slate-700'}`}>
+          <span className="tabular-nums text-slate-500">{new Date(e.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</span>
+          <span className="font-medium">{EVENT_LABEL[e.kind] ?? e.kind}</span>
+          {e.detail && <span className="text-slate-500">· {e.detail}</span>}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 function MyConsignments({ list, draft, onChange, onTrack }: { list: Consignment[]; draft?: { origin: string; destination: string; cargo: string }; onChange: () => void; onTrack: (code: string) => void }) {
   const [form, setForm] = useState({ origin: draft?.origin ?? '', destination: draft?.destination ?? '', cargo: draft?.cargo ?? '', vehicle_no: '', driver_name: '', driver_phone: '' });
+  const [from, setFrom] = useState<PlacePoint | null>(null);
+  const [to, setTo] = useState<PlacePoint | null>(null);
   const [busy, setBusy] = useState(false);
+  const [history, setHistory] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const moving = list.some((c) => c.status === 'in_transit');
+
+  // While a load is on the way: refresh every 30 s, and ask the server to check for lost trips (and email the sender).
+  useEffect(() => {
+    if (!moving) return;
+    sendQueuedEmails();
+    const id = window.setInterval(() => {
+      setNow(Date.now());
+      onChange();
+      sendQueuedEmails();
+    }, 30_000);
+    return () => window.clearInterval(id);
+  }, [moving, onChange]);
 
   const create = async () => {
     if (form.origin.trim().length < 2 || form.destination.trim().length < 2) return toast.error('Add where the load starts and where it goes.');
     setBusy(true);
     try {
-      const c = await createConsignment({ ...form, origin: form.origin.trim(), destination: form.destination.trim(), driver_phone: form.driver_phone.replace(/\D/g, '').slice(-10) || undefined });
+      const c = await createConsignment({ ...form, origin: form.origin.trim(), destination: form.destination.trim(), driver_phone: form.driver_phone.replace(/\D/g, '').slice(-10) || undefined, from, to });
       toast.success(`Consignment ${c.code} created — send the driver link to the driver`);
       setForm({ origin: '', destination: '', cargo: '', vehicle_no: '', driver_name: '', driver_phone: '' });
+      setFrom(null);
+      setTo(null);
       onChange();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not create.');
@@ -326,69 +376,106 @@ function MyConsignments({ list, draft, onChange, onTrack }: { list: Consignment[
     }
   };
 
-  const copy = async (text: string) => {
+  const copy = async (text: string, what = 'Link copied') => {
     try {
       await navigator.clipboard.writeText(text);
-      toast.success('Link copied');
+      toast.success(what);
     } catch {
-      toast.error('Could not copy — press and hold the link to copy it.');
+      toast.error('Could not copy — press and hold to copy it.');
     }
   };
   const whatsapp = (phone: string | null, text: string) => {
     const digits = (phone ?? '').replace(/\D/g, '').slice(-10);
     window.open(`https://wa.me/${/^[6-9]\d{9}$/.test(digits) ? `91${digits}` : ''}?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
   };
+  const finish = (c: Consignment, status: 'delivered' | 'cancelled') => {
+    if (status === 'cancelled' && !window.confirm(`Cancel ${c.code}? The driver's link stops working.`)) return;
+    void setConsignmentStatus(c.code, status).then(onChange, (e: Error) => toast.error(e.message));
+  };
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
       <Panel theme={theme} title="New consignment" icon={PlusCircle}>
         <form className="grid gap-4" onSubmit={(e) => { e.preventDefault(); void create(); }}>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="From"><input className={INPUT} value={form.origin} onChange={(e) => setForm({ ...form, origin: e.target.value })} placeholder="e.g. Shopian" /></Field>
-            <Field label="To"><input className={INPUT} value={form.destination} onChange={(e) => setForm({ ...form, destination: e.target.value })} placeholder="e.g. Azadpur, Delhi" /></Field>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <PlaceInput label="From" gps value={form.origin} point={from} placeholder="e.g. Shopian" onChange={(text, p) => { setForm((f) => ({ ...f, origin: text })); setFrom(p); }} />
+            <PlaceInput label="To" value={form.destination} point={to} placeholder="e.g. Azadpur, Delhi" onChange={(text, p) => { setForm((f) => ({ ...f, destination: text })); setTo(p); }} />
           </div>
+          {form.origin.trim().length > 1 && form.destination.trim().length > 1 && (
+            <a href={googleRoute({ name: form.origin, ...from }, { name: form.destination, ...to })} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 self-start rounded-xl bg-white px-3 text-sm font-semibold text-emerald-800 no-underline ring-1 ring-emerald-200 hover:bg-emerald-50 hover:no-underline">
+              <Navigation className="h-4 w-4" aria-hidden /> See the route in Google Maps
+              {from && to && <span className="font-normal text-slate-600">· about {roadEstimate(from, to).km} km</span>}
+            </a>
+          )}
           <Field label="Load (optional)"><input className={INPUT} value={form.cargo} onChange={(e) => setForm({ ...form, cargo: e.target.value })} placeholder="e.g. 600 boxes Delicious apple" /></Field>
           <Field label="Truck number (optional)"><input className={`${INPUT} uppercase`} value={form.vehicle_no} onChange={(e) => setForm({ ...form, vehicle_no: e.target.value })} placeholder="e.g. JK22A1234" /></Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Driver’s name"><input className={INPUT} value={form.driver_name} onChange={(e) => setForm({ ...form, driver_name: e.target.value })} /></Field>
-            <Field label="Driver’s mobile"><input type="tel" className={INPUT} value={form.driver_phone} onChange={(e) => setForm({ ...form, driver_phone: e.target.value })} /></Field>
+            <Field label="Driver’s mobile"><input type="tel" inputMode="tel" className={INPUT} value={form.driver_phone} onChange={(e) => setForm({ ...form, driver_phone: e.target.value })} /></Field>
           </div>
           <Btn theme={theme} type="submit" icon={PlusCircle} disabled={busy}>{busy ? 'Creating…' : 'Create and get links'}</Btn>
         </form>
       </Panel>
       <Panel theme={theme} title="Your consignments" icon={Truck}>
         {list.length === 0 ? (
-          <EmptyState theme={theme} icon={Truck} title="None yet" text="Create a consignment, send the driver link to the driver on WhatsApp, and share the tracking link with your buyer or farmer." />
+          <EmptyState theme={theme} icon={Truck} title="None yet" text="Create a consignment, send the driver link to the driver on WhatsApp, and share the tracking link and delivery code with your buyer or farmer." />
         ) : (
           <ul className="space-y-3">
             {list.map((c) => {
-              const driverText = `KashRoot: please open this link on your phone during the trip ${c.origin} → ${c.destination} and tap “Start sharing location”: ${driverUrl(c.driver_token)}`;
-              const buyerText = `Track my load ${c.origin} → ${c.destination} live on KashRoot: ${trackUrl(c.code)}`;
+              const lost = isLost(c, now);
+              const open = c.status !== 'delivered' && c.status !== 'cancelled';
+              const driverText = `KashRoot: please open this link on your phone for the trip ${c.origin} → ${c.destination}, tap “Start trip” and keep the page open until delivery. The receiver gives you a code at the end: ${driverUrl(c.driver_token)}`;
+              const receiverText = `Your load ${c.origin} → ${c.destination} is on KashRoot. Follow it live: ${trackUrl(c.code)}${c.delivery_code ? `\nWhen it arrives, give the driver this delivery code: ${c.delivery_code} (only when the load is with you).` : ''}`;
               return (
-                <li key={c.code} className="rounded-2xl bg-white/85 p-4 ring-1 ring-slate-900/5">
+                <li key={c.code} className={`rounded-2xl bg-white/85 p-4 ring-1 ${lost ? 'ring-2 ring-rose-300' : 'ring-slate-900/5'}`}>
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <p className="font-semibold text-slate-900">{c.origin} → {c.destination}</p>
                       <p className="font-mono text-sm text-slate-700">{c.code}</p>
                       <p className="text-xs text-slate-500">{[c.cargo, c.vehicle_no, c.driver_name].filter(Boolean).join(' · ') || 'No details'}{c.last_seen ? ` · last position ${agoIso(c.last_seen)}` : ''}</p>
                     </div>
-                    <Badge tone={c.status === 'in_transit' ? 'blue' : c.status === 'delivered' ? 'green' : c.status === 'cancelled' ? 'slate' : 'amber'}>{STATUS_LABEL[c.status]}</Badge>
+                    {lost ? <Badge tone="red">Location lost</Badge> : <Badge tone={c.status === 'in_transit' ? 'blue' : c.status === 'delivered' ? 'green' : c.status === 'cancelled' ? 'slate' : 'amber'}>{STATUS_LABEL[c.status]}</Badge>}
                   </div>
+                  {lost && (
+                    <p role="alert" className="mt-2 flex items-start gap-2 rounded-xl bg-rose-50 p-3 text-sm text-rose-900 ring-1 ring-rose-200">
+                      <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                      <span>No position from the driver’s phone {c.last_seen ? `since ${agoIso(c.last_seen)}` : 'since the trip started'} — GPS may be off or the page closed. Call the driver{c.last_lat != null && c.last_lng != null ? ', or see the last position' : ''}. We have emailed you too.</span>
+                    </p>
+                  )}
+                  {open && c.delivery_code && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-amber-200">
+                      <KeyRound className="h-4 w-4 shrink-0" aria-hidden />
+                      <span>Delivery code <strong className="font-mono text-base tracking-[0.2em]">{c.delivery_code}</strong> — give it only to the receiver. The driver types it when the load arrives; until then the driver cannot stop sharing location.</span>
+                    </div>
+                  )}
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <Btn theme={theme} size="sm" icon={MessageCircle} onClick={() => whatsapp(c.driver_phone, driverText)}>Send driver link</Btn>
-                    <Btn theme={theme} size="sm" variant="soft" icon={Copy} onClick={() => void copy(driverUrl(c.driver_token))}>Copy driver link</Btn>
-                    <Btn theme={theme} size="sm" variant="soft" icon={Share2} onClick={() => whatsapp(null, buyerText)}>Share tracking</Btn>
+                    {open && <Btn theme={theme} size="sm" icon={MessageCircle} onClick={() => whatsapp(c.driver_phone, driverText)}>Send driver link</Btn>}
+                    {open && <Btn theme={theme} size="sm" variant="soft" icon={Copy} onClick={() => void copy(driverUrl(c.driver_token))}>Copy driver link</Btn>}
+                    <Btn theme={theme} size="sm" variant="soft" icon={Share2} onClick={() => whatsapp(null, receiverText)}>Send to receiver</Btn>
                     <Btn theme={theme} size="sm" variant="ghost" icon={MapPinned} onClick={() => onTrack(c.code)}>Track</Btn>
-                    {c.status !== 'delivered' && c.status !== 'cancelled' && (
-                      <Btn theme={theme} size="sm" variant="ghost" icon={CheckCircle2} onClick={() => void setConsignmentStatus(c.code, 'delivered').then(onChange, (e: Error) => toast.error(e.message))}>Mark delivered</Btn>
+                    <a href={googleRoute({ name: c.origin, lat: c.origin_lat, lng: c.origin_lng }, { name: c.destination, lat: c.dest_lat, lng: c.dest_lng })} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-sm font-semibold text-emerald-800 no-underline hover:bg-emerald-50 hover:no-underline">
+                      <Navigation className="h-4 w-4" aria-hidden /> Route in Google Maps
+                    </a>
+                    {c.last_lat != null && c.last_lng != null && (
+                      <a href={googlePoint(c.last_lat, c.last_lng)} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-sm font-semibold text-emerald-800 no-underline hover:bg-emerald-50 hover:no-underline">
+                        <MapPin className="h-4 w-4" aria-hidden /> Last position in Google Maps
+                      </a>
                     )}
+                    {open && <Btn theme={theme} size="sm" variant="ghost" icon={CheckCircle2} onClick={() => finish(c, 'delivered')}>Mark delivered</Btn>}
+                    {open && <Btn theme={theme} size="sm" variant="ghost" icon={XCircle} onClick={() => finish(c, 'cancelled')}>Cancel</Btn>}
+                  </div>
+                  <div className="mt-2">
+                    <button type="button" aria-expanded={history === c.code} onClick={() => setHistory(history === c.code ? null : c.code)} className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900">
+                      <History className="h-3.5 w-3.5" aria-hidden /> {history === c.code ? 'Hide what happened' : 'What happened on this trip'}
+                    </button>
+                    {history === c.code && <div className="mt-1 rounded-xl bg-slate-50 p-3"><TripHistory code={c.code} /></div>}
                   </div>
                 </li>
               );
             })}
           </ul>
         )}
-        <p className="mt-4 text-xs text-slate-500">The driver link is private — only send it to the driver. Anyone with the tracking link or code can see where the load is.</p>
+        <p className="mt-4 text-xs text-slate-500">The driver link is private — only send it to the driver. Anyone with the tracking link or code can see where the load is; only you see the delivery code.</p>
       </Panel>
     </div>
   );
