@@ -82,15 +82,23 @@ test('the live site never uses hCaptcha’s test key', async ({ page }) => {
   test.skip(!LIVE, 'Only on the live site.');
   // The pages' own scripts, read as files — the widget itself is never run by a test.
   const scripts: string[] = [];
+  const said: string[] = [];
+  page.on('console', (m) => m.text().includes('[KashRoot] security check') && said.push(m.text()));
   page.on('response', async (r) => {
     if (/\/_next\/static\/.+\.js(\?|$)/.test(r.url())) scripts.push(await r.text().catch(() => ''));
   });
   await page.route('https://*.hcaptcha.com/**', (route) => route.abort('blockedbyclient'));
   await page.goto('/login/buyer', { waitUntil: 'load' });
-  await expect.poll(() => scripts.some((t) => t.includes('js.hcaptcha.com')), { timeout: 20_000 }).toBe(true);
-  const all = scripts.join('\n');
-  expect(all, 'the test key is in the live pages').not.toContain(TEST_KEY);
-  expect(all, 'a real hCaptcha site key is in the live pages').toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/);
+  // The test key is in the code for test copies (checkMode); the real one (a different key) must be there beside it.
+  // Scripts arrive one by one: wait until the one with the key has come.
+  const realKeys = () => {
+    const keys = new Set(scripts.join(' ').match(/"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"\.trim\(\)/g) ?? []);
+    keys.delete(`"${TEST_KEY}".trim()`);
+    return keys.size;
+  };
+  await expect.poll(realKeys, { timeout: 20_000, message: 'a real hCaptcha site key is in the live pages' }).toBeGreaterThan(0);
+  // On the live address the page says it uses the real key (the console line from checkMode), with hCaptcha blocked.
+  await expect.poll(() => said.join(' '), { timeout: 10_000 }).toContain('real key');
 });
 
 test('a fake token is refused by KashRoot’s server', async ({ request }) => {
