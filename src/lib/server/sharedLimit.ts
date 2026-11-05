@@ -18,8 +18,8 @@ import { supabaseAnonKey, supabaseOrigin } from '@/lib/supabase-config';
 /** A key part that may be personal (phone, email, account): hashed. */
 export const hashed = (value: string) => createHash('sha256').update(`kr-limit|${value.trim().toLowerCase()}`).digest('base64url').slice(0, 24);
 
-/** One of the shared-count functions, with the server's secret; null when it is not set up or did not answer in time. */
-async function rpc(fn: 'kr_rate_hit' | 'kr_rate_peek' | 'kr_rate_clear', args: Record<string, unknown>): Promise<unknown> {
+/** One of the shared-count functions, with the server's secret; null when it is not set up or did not answer within `waitMs`. */
+async function rpc(fn: 'kr_rate_hit' | 'kr_rate_peek' | 'kr_rate_clear', args: Record<string, unknown>, waitMs = 2_500): Promise<unknown> {
   const secret = process.env.KYC_DB_SECRET?.trim();
   const origin = supabaseOrigin(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const anon = supabaseAnonKey(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
@@ -30,7 +30,7 @@ async function rpc(fn: 'kr_rate_hit' | 'kr_rate_peek' | 'kr_rate_clear', args: R
       headers: { apikey: anon, authorization: `Bearer ${anon}`, 'content-type': 'application/json' },
       body: JSON.stringify({ p_secret: secret, ...args }),
       cache: 'no-store',
-      signal: AbortSignal.timeout(2_500),
+      signal: AbortSignal.timeout(waitMs),
     });
     return res.ok ? await res.json() : null;
   } catch {
@@ -40,8 +40,8 @@ async function rpc(fn: 'kr_rate_hit' | 'kr_rate_peek' | 'kr_rate_clear', args: R
 }
 const seconds = (ms: number) => Math.max(1, Math.round(ms / 1000));
 
-async function countHere(key: string, max: number, windowMs: number): Promise<boolean> {
-  return (await rpc('kr_rate_hit', { p_key: key, p_max: max, p_window: seconds(windowMs) })) === true;
+async function countHere(key: string, max: number, windowMs: number, waitMs?: number): Promise<boolean> {
+  return (await rpc('kr_rate_hit', { p_key: key, p_max: max, p_window: seconds(windowMs) }, waitMs)) === true;
 }
 
 /** How many were counted under `key` in `windowMs`, across all instances — without counting this one (e.g. wrong passwords so far). */
@@ -63,15 +63,18 @@ export async function sharedClear(key: string): Promise<void> {
   await rpc('kr_rate_clear', { p_key: key });
 }
 
-/** Count one request under `key`: true when it is over `max` in `windowMs`, here or across all instances. */
-export async function sharedLimited(key: string, max: number, windowMs: number): Promise<boolean> {
+/**
+ * Count one request under `key`: true when it is over `max` in `windowMs`, here or across all instances.
+ * `waitMs`: how long the shared count may take before this instance's own count decides alone.
+ */
+export async function sharedLimited(key: string, max: number, windowMs: number, waitMs?: number): Promise<boolean> {
   if (rateLimited(key, max, windowMs)) return true;
-  return countHere(key, max, windowMs);
+  return countHere(key, max, windowMs, waitMs);
 }
 
 /** The same for one endpoint and the caller's network address; a refusal is logged (lib/server/securityLog), to spot floods and bots. */
-export async function sharedIpLimited(request: Request, name: string, max: number, windowMs = 60_000): Promise<boolean> {
-  const over = await sharedLimited(`${name}:ip:${hashed(clientIp(request))}`, max, windowMs);
+export async function sharedIpLimited(request: Request, name: string, max: number, windowMs = 60_000, waitMs?: number): Promise<boolean> {
+  const over = await sharedLimited(`${name}:ip:${hashed(clientIp(request))}`, max, windowMs, waitMs);
   if (over) securityEvent('rate_limited', { request, detail: `${name}: over ${max} in ${seconds(windowMs)} s` });
   return over;
 }

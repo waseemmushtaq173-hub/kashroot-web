@@ -17,9 +17,11 @@
  * for it (the form shows "Checking you're human…"); if Cloudflare asks for a
  * tap, a small panel says so and the wait lasts until the tap. An error code
  * (110xxx, 300xxx, 600xxx…) or no answer within 8 s is retried 3 times
- * (2, 5 and 10 s apart) and logged on the server (the code only); then
- * Cloudflare's box stays on screen to tap, with a plain message and a Retry
- * button. Our own retries replace Cloudflare's ("retry: never"), so a failure
+ * (2, 5 and 10 s apart) and logged on the server (the code only) — the
+ * security gate says "trying again (1 of 3)", without a spinner; then
+ * Cloudflare's box stays on screen to tap, with a plain message, what to try
+ * in this browser (Shields, VPN, extensions, "Open in Chrome"…) and a Retry
+ * button that draws a brand-new widget. Our own retries replace Cloudflare's ("retry: never"), so a failure
  * is never retried twice over. Submit buttons never wait on the check: they
  * stay pressable and say what is happening.
  *
@@ -130,27 +132,48 @@ export const retriesSoFar = () => userRetries;
 /** Brave looks exactly like Chrome to the server; only the page can tell. */
 export const isBrave = () => typeof navigator !== 'undefined' && 'brave' in navigator;
 
-/** Advice for this very browser, after the reason (what most often stops Cloudflare there). */
-export function browserHelp(): string {
-  if (typeof navigator === 'undefined') return '';
+const IN_APP = /FBAN|FBAV|Instagram|WhatsApp|Line\/|; wv\)|Snapchat/i;
+
+/** What to try in this very browser, most likely first (what most often stops Cloudflare there), then Retry. */
+export function browserSteps(code = ''): string[] {
+  if (typeof navigator === 'undefined') return [];
   const ua = navigator.userAgent;
-  if (/FBAN|FBAV|Instagram|WhatsApp|Line\/|; wv\)|Snapchat/i.test(ua)) return ' You are in an app’s own browser: tap ⋮ or ··· and choose “Open in Chrome” (or Safari on iPhone).';
-  if (isBrave()) return ' In Brave: tap the lion icon in the address bar and turn Shields off for this site, then Retry.';
-  if (/Firefox|FxiOS/i.test(ua)) return ' In Firefox: tap the shield in the address bar and turn off Enhanced Tracking Protection for this site, then Retry.';
-  if (/iPhone|iPad|iPod/i.test(ua)) return ' On iPhone: turn off content blockers and iCloud Private Relay for this site (aA in the address bar → Website Settings), or open it in Chrome.';
-  return ' An ad-blocker or privacy extension, or a VPN, often causes this: turn it off for this site, or open KashRoot in Chrome.';
+  const iphone = /iPhone|iPad|iPod/i.test(ua);
+  const chrome = /CriOS|Chrome\//i.test(ua) && !isBrave() && !/Edg\/|OPR\/|SamsungBrowser/i.test(ua);
+  const steps: string[] = [];
+  if (code.startsWith('2001')) steps.push('Set your phone’s date and time to automatic (Settings → Date & time) — a wrong clock fails the check.');
+  if (IN_APP.test(ua)) steps.push('You are in an app’s own browser (WhatsApp, Facebook, Instagram…): tap ⋮ or ··· and choose “Open in Chrome” (or Safari on iPhone).');
+  else if (isBrave()) steps.push('Brave: tap the lion icon in the address bar and turn Shields off for this site.');
+  else if (/Firefox|FxiOS/i.test(ua)) steps.push('Firefox: tap the shield in the address bar and turn off Enhanced Tracking Protection for this site.');
+  else if (iphone) steps.push('iPhone: tap aA in the address bar → Website Settings, turn off content blockers; and turn off iCloud Private Relay for this site.');
+  steps.push('Turn off any VPN, and any ad-blocking “Private DNS” (Android: Settings → Network → Private DNS → Automatic).');
+  steps.push('Turn off ad-block or privacy extensions for this site, or open it in a private / incognito window.');
+  steps.push(chrome ? 'Still failing: switch between Wi-Fi and mobile data, or try another browser.' : 'Still failing: open https://kashroot-web.vercel.app in Chrome.');
+  return steps;
 }
 
-/** The reason, in words, for a check that could not finish. */
-function problemText(code: string): string {
-  if (code.startsWith('1102')) return 'The security check is not allowed on this address. Please open https://kashroot-web.vercel.app and try again.';
-  if (code === 'unsupported') return 'This browser is too old for the security check. Please open KashRoot in Chrome.';
-  if (code === 'script-blocked') return 'The security check couldn’t load — tap Retry, or turn off Brave Shields / ad-block for kashroot-web.vercel.app, or open it in Chrome.';
-  if (code.startsWith('300')) return `The security check failed in this browser (code ${code}).${browserHelp()}`;
-  if (code.startsWith('600')) return `Cloudflare couldn’t confirm you’re human (code ${code}).${browserHelp()}`;
-  if (code === 'no-answer') return `Couldn’t confirm you’re human — Cloudflare did not answer.${browserHelp()}`;
-  return `Couldn’t confirm you’re human (code ${code.slice(0, 20)}).${browserHelp()}`;
+export interface Problem {
+  /** What went wrong, in one line. */
+  text: string;
+  /** What to try, for this browser (none when the reason is not the browser's). */
+  steps: string[];
 }
+
+/** The reason, in words, for a check that could not finish, and what to try. */
+function problemFor(code: string): Problem {
+  if (code.startsWith('1102')) return { text: 'The security check is not allowed on this address. Please open https://kashroot-web.vercel.app and try again.', steps: [] };
+  if (code === 'unsupported' || code.startsWith('1105')) return { text: 'This browser is too old for the security check. Please open KashRoot in Chrome.', steps: [] };
+  if (code === 'script-blocked') return { text: 'The security check couldn’t load — tap Retry, or turn off Brave Shields / ad-block for kashroot-web.vercel.app, or open it in Chrome.', steps: browserSteps(code) };
+  if (code.startsWith('300')) return { text: `The security check failed in this browser (code ${code}).`, steps: browserSteps(code) };
+  if (code.startsWith('600')) return { text: `Cloudflare couldn’t confirm you’re human (code ${code}).`, steps: browserSteps(code) };
+  if (code === 'no-answer') return { text: 'Couldn’t confirm you’re human — Cloudflare did not answer.', steps: browserSteps(code) };
+  return { text: `Couldn’t confirm you’re human (code ${code.slice(0, 20)}).`, steps: browserSteps(code) };
+}
+/** The reason and the steps in one line (an error a form shows by itself). */
+const problemText = (code: string) => {
+  const p = problemFor(code);
+  return [p.text, ...p.steps].join(' ');
+};
 
 /** Cloudflare's box in the person's language, where it has one. */
 function widgetLanguage(fixed = false): string {
@@ -197,6 +220,8 @@ export interface HumanCheck {
   status: 'working' | 'ready' | 'interactive' | 'failed';
   /** Start again from a fresh widget (the gate's Retry). */
   retry: () => void;
+  /** Which automatic try is under way after a failure (1–3), or 0: the gate shows it, without a spinner. */
+  autoTry: number;
 }
 
 /**
@@ -219,7 +244,8 @@ export function useHumanCheck(
   const renew = useRef<() => void>(() => undefined);
   const [started, setStarted] = useState(!lazy);
   const [status, setStatus] = useState<Status>('working');
-  const [problem, setProblem] = useState<string | null>(null);
+  const [problem, setProblem] = useState<Problem | null>(null);
+  const [autoTry, setAutoTry] = useState(0);
   const [waiting, setWaiting] = useState(false);
   const [took, setTook] = useState<number | null>(null);
   const [round, setRound] = useState(0);
@@ -239,7 +265,7 @@ export function useHumanCheck(
       failure.current = UNAVAILABLE;
       // The address is only known in the browser, so this cannot be decided while rendering.
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setProblem(UNAVAILABLE);
+      setProblem({ text: UNAVAILABLE, steps: [] });
       setStatus('failed');
       return;
     }
@@ -264,19 +290,20 @@ export function useHumanCheck(
       if (tries < BACKOFF_MS.length && !afterTap) {
         later(again, BACKOFF_MS[tries]);
         tries += 1;
+        setAutoTry(tries);
         return;
       }
+      setAutoTry(0);
       // An address Cloudflare does not allow: the same page on the real site (never on a test copy).
       if (code.startsWith('1102') && checkMode().mode === 'real' && !REAL_HOSTS.includes(window.location.host.toLowerCase())) {
         window.location.replace(`${SITE_URL}${window.location.pathname}${window.location.search}`);
         return;
       }
-      const text = problemText(code);
-      failure.current = text;
-      setProblem(text);
+      failure.current = problemText(code);
+      setProblem(problemFor(code));
       setStatus('failed');
       setFailures((n) => n + 1);
-      waiters.current.splice(0).forEach((w) => w.reject(new HumanCheckError(text)));
+      waiters.current.splice(0).forEach((w) => w.reject(new HumanCheckError(failure.current ?? '')));
     };
     // No token and no tap asked for within 8 s: counts as a failure (e.g. Shields blocking Cloudflare's frame).
     // (The gate's visible box gets longer — it offers Retry itself after 8 s, without stopping Cloudflare mid-check.)
@@ -309,6 +336,8 @@ export function useHumanCheck(
       const t = await loadTurnstile();
       if (gone) return;
       if (!t || !box.current) return fail('script-blocked');
+      // A fresh start: nothing left over from an earlier widget in the box.
+      box.current.replaceChildren();
       widget.current = t.render(box.current, {
         sitekey: mode === 'test' ? TEST_SITE_KEY : TURNSTILE_SITE_KEY,
         action,
@@ -327,6 +356,7 @@ export function useHumanCheck(
           interactive.current = false;
           failure.current = null;
           tries = 0;
+          setAutoTry(0);
           setProblem(null);
           setStatus('ready');
           setTook((s) => s ?? Math.round((performance.now() - begun) / 100) / 10);
@@ -340,7 +370,9 @@ export function useHumanCheck(
         },
         'timeout-callback': () => {
           current.current = null;
-          interactive.current = false;
+          // The tap box ran out: Cloudflare draws a fresh one itself ('refresh-timeout': 'auto'), so the person is
+          // still being asked — no error, nothing timed out meanwhile.
+          if (interactive.current) return;
           watch();
         },
         'before-interactive-callback': () => {
@@ -349,12 +381,14 @@ export function useHumanCheck(
           interactive.current = true;
           clear();
           failure.current = null;
+          setAutoTry(0);
           setProblem(null);
           setStatus('interactive');
         },
         'after-interactive-callback': () => {
           interactive.current = false;
           setStatus('working');
+          watch(); // tapped: the answer is due now
         },
         'unsupported-callback': () => fail('unsupported'),
         'error-callback': (code: unknown) => {
@@ -418,6 +452,7 @@ export function useHumanCheck(
     interactive.current = false;
     tapped.current = false;
     setProblem(null);
+    setAutoTry(0);
     setStatus('working');
     setRound((n) => n + 1);
   }, []);
@@ -431,13 +466,28 @@ export function useHumanCheck(
       )}
       {/* Cloudflare draws here; it stays empty unless a tap is needed. Never display:none — it must be able to render. */}
       <div ref={box} className="w-full" />
+      {visible && autoTry > 0 && !problem && (
+        <p className="mt-2 text-sm text-slate-700" data-check-auto-try={autoTry}>
+          Cloudflare’s check didn’t finish — trying again by itself ({autoTry} of {BACKOFF_MS.length})…
+        </p>
+      )}
       {problem && (
         <div role="alert" className="mt-2 flex flex-wrap items-center gap-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-amber-200">
           <ShieldAlert className="h-5 w-5 shrink-0" aria-hidden />
-          <span className="min-w-0 flex-1">{problem}</span>
+          <span className="min-w-0 flex-1">{problem.text}</span>
           <button type="button" onClick={retry} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-white px-3 font-semibold text-amber-950 ring-1 ring-amber-300 hover:bg-amber-100">
             <RotateCcw className="h-4 w-4" aria-hidden /> Retry
           </button>
+          {problem.steps.length > 0 && (
+            <div className="w-full" data-check-help>
+              <p className="font-semibold">What to try, then tap Retry:</p>
+              <ol className="mt-1 list-decimal space-y-1 pl-5">
+                {problem.steps.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+            </div>
+          )}
           {failures >= 2 && !simple && (
             <button
               type="button"
@@ -456,7 +506,7 @@ export function useHumanCheck(
     </div>
   ) : null;
 
-  return { element, token, used, start, waiting, took, wasTapped, status, retry };
+  return { element, token, used, start, waiting, took, wasTapped, status, retry, autoTry };
 }
 
 /** The words on a submit button while token() waits. */

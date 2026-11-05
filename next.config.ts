@@ -43,6 +43,10 @@ const CSP = [
 ].join('; ');
 
 const nextConfig: NextConfig = {
+  // When this version was built: Admin → Security counts "since the last fix" from it.
+  env: {
+    NEXT_PUBLIC_BUILT_AT: new Date().toISOString(),
+  },
   // This folder is the app. Without this, a package-lock.json in a parent
   // folder (on a developer's computer) is taken as the root instead.
   // (`next build` runs from this folder, here and on Vercel.)

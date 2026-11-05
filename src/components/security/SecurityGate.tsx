@@ -18,7 +18,10 @@
  * may have given up. While Cloudflare waits for a tap, only its own line
  * shows ("One quick check…"): no error, no Retry, nothing timed out. KashRoot's
  * answer is awaited at most 8 s; a refusal shows "Security check failed:
- * <reason>" with Retry, and so does 8 s with no answer at all. Already passed
+ * <reason>" with Retry, and so does 8 s with no answer at all. The spinner
+ * turns only while something is under way: a failure, a tap asked for, or a
+ * pause before an automatic try shows a still icon and says so. A token that
+ * arrives before "already passed?" has answered is sent within 1 s anyway. Already passed
  * in this browser (cookie still valid) or the check is off: the form shows at
  * once. When it passes, the first field gets the focus, and the console says
  * how long the gate took (never the token).
@@ -32,15 +35,17 @@ import { rememberedLang } from '@/lib/langDetect';
 
 /** "Checking you're human…" in the person's language (Kashmiri readers get the Urdu wording). */
 const TEXT = {
-  en: { title: 'Checking you’re human…', why: 'One moment — this keeps bots and fake accounts out of KashRoot.', tap: 'Tap to confirm you’re human', slow: 'This is taking longer than usual.', dir: undefined },
-  hi: { title: 'जाँच हो रही है कि आप इंसान हैं…', why: 'बस एक पल — इससे बॉट और नकली खाते KashRoot से दूर रहते हैं।', tap: 'पुष्टि करने के लिए टैप करें कि आप इंसान हैं', slow: 'इसमें सामान्य से अधिक समय लग रहा है।', dir: undefined },
-  ur: { title: 'تصدیق ہو رہی ہے کہ آپ انسان ہیں…', why: 'بس ایک لمحہ — اس سے بوٹ اور جعلی اکاؤنٹ KashRoot سے دور رہتے ہیں۔', tap: 'تصدیق کے لیے ٹیپ کریں کہ آپ انسان ہیں', slow: 'اس میں معمول سے زیادہ وقت لگ رہا ہے۔', dir: 'rtl' as const },
+  en: { title: 'Checking you’re human…', failed: 'Couldn’t confirm you’re human', again: 'Trying the check again…', why: 'One moment — this keeps bots and fake accounts out of KashRoot.', tap: 'Tap to confirm you’re human', slow: 'This is taking longer than usual.', dir: undefined },
+  hi: { title: 'जाँच हो रही है कि आप इंसान हैं…', failed: 'पुष्टि नहीं हो सकी कि आप इंसान हैं', again: 'जाँच फिर से हो रही है…', why: 'बस एक पल — इससे बॉट और नकली खाते KashRoot से दूर रहते हैं।', tap: 'पुष्टि करने के लिए टैप करें कि आप इंसान हैं', slow: 'इसमें सामान्य से अधिक समय लग रहा है।', dir: undefined },
+  ur: { title: 'تصدیق ہو رہی ہے کہ آپ انسان ہیں…', failed: 'تصدیق نہیں ہو سکی کہ آپ انسان ہیں', again: 'تصدیق دوبارہ ہو رہی ہے…', why: 'بس ایک لمحہ — اس سے بوٹ اور جعلی اکاؤنٹ KashRoot سے دور رہتے ہیں۔', tap: 'تصدیق کے لیے ٹیپ کریں کہ آپ انسان ہیں', slow: 'اس میں معمول سے زیادہ وقت لگ رہا ہے۔', dir: 'rtl' as const },
 };
 
 /** KashRoot's answer to a token: at most this long. */
 const ANSWER_MS = 8_000;
 /** No token and no tap asked for after this long: offer Retry. */
 const STALL_MS = 8_000;
+/** A token that came before KashRoot said whether this browser already passed: sent after at most this long anyway. */
+const ASK_WAIT_MS = 1_000;
 
 type State = 'asking' | 'gate' | 'sending' | 'passed';
 
@@ -120,8 +125,14 @@ export function SecurityGate({ place, onPass, children }: { place: string; onPas
       tokenAt.current = performance.now();
       setStalled(false);
       trySend();
+      // "Already passed?" has not come back yet (a slow network): don't hold "Success!" for it — send the token after 1 s.
+      window.setTimeout(() => {
+        if (now.current !== 'asking' || !pending.current) return;
+        go('gate');
+        trySend();
+      }, ASK_WAIT_MS);
     },
-    [trySend],
+    [go, trySend],
   );
   const check = useHumanCheck(`gate-${place}`, { visible: true, onToken });
   useEffect(() => {
@@ -136,13 +147,14 @@ export function SecurityGate({ place, onPass, children }: { place: string; onPas
     void fetch('/api/gate', { cache: 'no-store', signal: AbortSignal.timeout(5_000) })
       .then((r) => r.json())
       .then((g: { on?: boolean; passed?: boolean; tap?: boolean }) => {
-        if (!live) return;
+        // Too late: the token was already sent (or the gate passed meanwhile).
+        if (!live || now.current === 'sending' || now.current === 'passed') return;
         tapNeeded.current = Boolean(g.tap);
         go(g.passed || g.on === false ? 'passed' : 'gate');
         trySend();
       })
       .catch(() => {
-        if (!live) return;
+        if (!live || now.current !== 'asking') return;
         go('gate');
         trySend();
       });
@@ -181,13 +193,16 @@ export function SecurityGate({ place, onPass, children }: { place: string; onPas
 
   if (state === 'passed') return <div ref={box}>{children}</div>;
   // While Cloudflare waits for a tap, only its own line shows: no error, no Retry.
-  const problem = waitingForTap ? null : error ?? (stalled && check.status !== 'failed' ? t.slow : null);
+  const problem = waitingForTap ? null : error ?? (stalled && check.status !== 'failed' && !check.autoTry ? t.slow : null);
+  // The spinner only while something is really under way: never beside a failure, a tap asked for, or a pause before an automatic try.
+  const failed = Boolean(error) || check.status === 'failed';
+  const spinning = !failed && !problem && !waitingForTap && !check.autoTry;
   return (
     // Tall enough for Cloudflare's box from the start, so the page does not jump when the box appears.
     <div className="mt-6 min-h-[13rem] rounded-2xl bg-white p-3 shadow-sm ring-1 ring-[#E8A317]/30 sm:p-5" data-security-gate={state} role="status" aria-live="polite">
       <p dir={t.dir} className="flex items-center gap-2 text-base font-semibold text-slate-900">
-        {problem || waitingForTap || check.status === 'failed' ? <ShieldCheck className="h-5 w-5 shrink-0 text-amber-700" aria-hidden /> : <Loader2 className="h-5 w-5 shrink-0 animate-spin text-emerald-700" aria-hidden />}
-        {t.title}
+        {spinning ? <Loader2 className="h-5 w-5 shrink-0 animate-spin text-emerald-700" aria-hidden /> : <ShieldCheck className="h-5 w-5 shrink-0 text-amber-700" aria-hidden />}
+        {failed ? t.failed : check.autoTry ? t.again : t.title}
       </p>
       <p dir={t.dir} className="mt-1 text-sm text-slate-600">{t.why}</p>
       <div className="mt-3">{check.element}</div>

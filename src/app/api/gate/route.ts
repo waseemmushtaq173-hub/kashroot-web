@@ -61,7 +61,8 @@ export async function POST(request: Request) {
   let limitMs = 0;
   let verifyMs = 0;
   const [limited, result] = await Promise.all([
-    sharedIpLimited(request, 'gate', 20).finally(() => (limitMs = Date.now() - begun)),
+    // The shared count may take 1 s at most (then this instance's own count decides): the form opens about 1 s after "Success!".
+    sharedIpLimited(request, 'gate', 20, 60_000, 1_000).finally(() => (limitMs = Date.now() - begun)),
     checkGateToken(request, body?.token, `gate-${place}`).finally(() => (verifyMs = Date.now() - begun)),
   ]);
   const timing = { 'server-timing': `limit;dur=${limitMs}, verify;dur=${verifyMs}, total;dur=${Date.now() - begun}`, 'cache-control': 'no-store' };

@@ -8,8 +8,10 @@
  * many networks it came from and the busiest one (a hash, never an address).
  * Many wrong passwords or refusals from one network is a guessing attack or a
  * bot. Events from the admin's own network are counted apart ("yours"), so
- * testing does not look like an attack; "Count from now" counts only what
- * happens after a fix. "I am human" failures are grouped by code, each with
+ * testing does not look like an attack. The counts cover the last 24 hours,
+ * the time since the last fix (this version of the site going live), or
+ * since "Count from now". Every code has a label; a browser's most common
+ * failure code shows beside its counts. "I am human" failures are grouped by code, each with
  * what it means, and email failures show the mail server's own reply.
  * Read-only.
  */
@@ -39,40 +41,88 @@ const KIND: Record<string, { label: string; warn?: boolean }> = {
   gate_passed: { label: 'Security gate passed' },
 };
 
-/** What each security-check code means (Cloudflare's codes, KashRoot's own, Supabase's reasons). */
+/**
+ * What each security-check code means: every Cloudflare Turnstile client code family
+ * (developers.cloudflare.com/turnstile/troubleshooting/client-side-errors/error-codes),
+ * Cloudflare's server answers, Supabase's reasons and KashRoot's own. First match wins.
+ */
 const CODE_MEANING: [RegExp, string][] = [
-  [/\[number\]/, 'an older record, saved before codes were kept whole — press “Count from now” to see only new events'],
-  [/^1102/, 'this site address is not allowed by the Cloudflare widget'],
-  [/^1101/, 'the site key is wrong or not for this widget'],
-  [/^1105|^1106/, 'this browser is too old or unsupported'],
-  [/^2005/, 'the Cloudflare frame was blocked (browser setting or extension)'],
-  [/^3000[0-2]/, 'the browser could not finish the check (often a VPN, ad-block or Shields)'],
-  [/^3000/, 'the check timed out or got stuck in the browser'],
-  [/^6000/, 'Cloudflare did not trust this browser and could not finish'],
+  [/\[number\]/, 'an older record, saved before codes were kept whole — choose “Since the last fix” to see only new events'],
+  // Cloudflare, in the browser.
+  [/^1000\d\d/, 'Cloudflare’s box could not start on the page (often an old copy of the page: reload)'],
+  [/^10[2346]\d{3}/, 'the box was set up with a wrong setting (a KashRoot problem, not the person’s)'],
+  [/^105\d{3}/, 'an outdated way of loading Cloudflare’s script (a KashRoot problem)'],
+  [/^1101[01]0/, 'the site key is wrong or not for this widget (Cloudflare dashboard → Turnstile)'],
+  [/^1102/, 'this site address is not on the Cloudflare widget’s list of hostnames'],
+  [/^110420/, 'the form named an action Cloudflare does not accept (a KashRoot problem)'],
+  [/^110430/, 'extra data sent with the check was not accepted (a KashRoot problem)'],
+  [/^110500/, 'this browser is too old or not supported by Cloudflare'],
+  [/^110510/, 'the browser pretends to be another one (a changed user agent — often an extension or a bot)'],
+  [/^11060/, 'the check took too long (very slow network, or a wrong clock)'],
+  [/^11062/, 'Cloudflare asked for a tap and nobody tapped in time'],
+  [/^120\d{3}/, 'a Cloudflare-internal error (only Cloudflare can explain it; usually passes on Retry)'],
+  [/^200010/, 'an old cached copy of Cloudflare’s script (clearing the browser cache fixes it)'],
+  [/^2001\d\d/, 'the device’s clock is wrong (set the date and time to automatic)'],
+  [/^2005\d\d/, 'Cloudflare’s frame could not load (blocked by a browser setting, extension, VPN or firewall)'],
+  [/^3000\d\d/, 'the browser could not finish Cloudflare’s puzzle (often a VPN, ad-block, Shields or an extension)'],
+  [/^3\d{5}/, 'the browser could not finish Cloudflare’s puzzle'],
+  [/^600010/, 'Cloudflare did not trust this browser: it looked automated, or a privacy tool, VPN or extension changed it'],
+  [/^6000\d\d/, 'Cloudflare did not trust this browser and could not finish'],
+  [/^400\d{3}/, 'a wrong site key, size or theme in the box’s set-up (a KashRoot problem)'],
+  // The gate: KashRoot's server checking the token with Cloudflare.
   [/^gate: missing/, 'a sign-in, sign-up, reset or help request sent without passing the security gate first (a script, or a very old page)'],
   [/^gate: wrong-action/, 'a token made for a different form'],
-  [/^gate: /, 'the security gate refused the token (the code after "gate:" says why)'],
+  [/^gate: another-address/, 'a real token made on a different site'],
+  [/^gate: no-token/, 'the gate got no token at all'],
+  [/^gate: cloudflare-no-answer/, 'Cloudflare did not answer KashRoot’s server within 5 s'],
+  [/^gate: .*internal-error/, 'Cloudflare had a problem checking the token'],
+  // Cloudflare's own answers, on the server (gate or form) or relayed by Supabase.
+  [/invalid-input-response/, 'a token Cloudflare did not accept: fake, or from a different widget than the secret (KashRoot’s own tests send fake ones)'],
+  [/timeout-or-duplicate/, 'a token used twice or too old'],
+  [/(missing|invalid)-input-secret/, 'the secret itself is wrong (Supabase → Auth → Bot protection, and TURNSTILE_SECRET_KEY in Vercel)'],
+  [/^supabase-captcha_failed/, 'Supabase refused the form’s token (its CAPTCHA check)'],
+  [/^supabase-/, 'Supabase refused the form’s token (the part after “supabase-” says why)'],
+  [/^gate: /, 'the security gate refused the token (the part after “gate:” says why)'],
+  // KashRoot's own checks.
   [/^honeypot/, 'a bot filled in the hidden field'],
   [/^too-fast/, 'a form sent faster than a person can type'],
   [/^script-blocked/, 'Cloudflare’s script could not load (Brave Shields, ad-block or no network)'],
-  [/^no-answer/, 'no answer from Cloudflare within 8 s'],
+  [/^no-answer|^no answer/, 'no answer from Cloudflare within 8 s'],
   [/^reset-failed/, 'the check could not restart (the form had been closed)'],
   [/^unsupported/, 'this browser cannot run the check'],
-  [/invalid-input-response/, 'a token Cloudflare did not accept: fake, or from a different widget than the secret (KashRoot’s own tests send fake ones)'],
-  [/timeout-or-duplicate/, 'a token used twice or too old'],
-  [/invalid-input-secret/, 'the secret itself is wrong'],
-  [/no token/, 'a request came with no token at all'],
+  [/^no token/, 'a request came with no token at all'],
   [/another address/, 'a real token made on a different site'],
 ];
-const meaning = (code: string) => CODE_MEANING.find(([re]) => re.test(code))?.[1] ?? '';
+const UNLABELLED = 'no label for this code yet — tell your developer which code it is';
+const meaning = (code: string) => CODE_MEANING.find(([re]) => re.test(code))?.[1] ?? UNLABELLED;
 const SINCE_KEY = 'kr_security_since';
-const readSince = () => {
+const PERIOD_KEY = 'kr_security_period';
+/** When this version of the site was built — it went live a minute or two later (next.config.ts). */
+const BUILT_AT = process.env.NEXT_PUBLIC_BUILT_AT ?? '';
+type Period = 'day' | 'fix' | 'mark';
+const readStored = (key: string) => {
   try {
-    return localStorage.getItem(SINCE_KEY);
+    return localStorage.getItem(key);
   } catch {
     return null;
   }
 };
+const keep = (key: string, value: string) => {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* storage blocked: the last 24 hours are shown */
+  }
+};
+/** The chosen period (kept in this browser) and the moment it starts. */
+function periodStart(): { period: Period; from: string } {
+  const p = readStored(PERIOD_KEY);
+  const mark = readStored(SINCE_KEY);
+  if (p === 'fix' && BUILT_AT) return { period: 'fix', from: BUILT_AT };
+  if (p === 'mark' && mark) return { period: 'mark', from: mark };
+  return { period: 'day', from: new Date(Date.now() - 86_400_000).toISOString() };
+}
+const when = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 
 interface Row {
   kind: string;
@@ -101,37 +151,44 @@ export function TrafficPanel() {
   // The security gate, per portal: passed, refused (and how many of each were yours).
   const [gates, setGates] = useState<{ place: string; silent: number; tapped: number; button: number; failed: number; yours: number }[]>([]);
   // The check, by browser family and system ("Chrome on Android", no personal data): passed, failed on the first try, failed after Retry, and 600010s.
-  const [browsers, setBrowsers] = useState<{ family: string; passed: number; firstFail: number; retryFail: number; c600010: number }[]>([]);
-  // "Count from now": only what happened after this moment (kept in this browser).
-  const [since, setSince] = useState<string | null>(null);
+  const [browsers, setBrowsers] = useState<{ family: string; passed: number; firstFail: number; retryFail: number; c600010: number; top: string }[]>([]);
+  // The counts below cover the last 24 hours, the time since the last fix (this version went live), or since "Count from now" (kept in this browser).
+  const [period, setPeriod] = useState<{ period: Period; from: string } | null>(null);
 
   const load = useCallback(async () => {
     const [sum, ev, bot] = await Promise.all([
       supabase.rpc('kr_security_summary', { p_hours: 24 }),
       supabase.from('security_events').select('id, at, kind, ip_hash, path, status, detail').neq('kind', 'signin_ok').order('at', { ascending: false }).limit(40),
-      supabase.from('security_events').select('at, kind, ip_hash, detail').neq('kind', 'signin_ok').gte('at', readSince() ?? new Date(Date.now() - 86_400_000).toISOString()).order('at', { ascending: false }).limit(2000),
+      supabase.from('security_events').select('at, kind, ip_hash, detail').neq('kind', 'signin_ok').gte('at', periodStart().from).order('at', { ascending: false }).limit(2000),
     ]);
     const mine = ((await fetch('/api/security/me', { cache: 'no-store' }).then((r) => r.json()).catch(() => ({}))) as { net?: string }).net ?? '';
-    setSince(readSince());
+    setPeriod(periodStart());
     setRows(sum.error ? null : ((sum.data ?? []) as Row[]));
     setRecent(ev.error ? [] : ((ev.data ?? []) as Event[]));
     const events = (bot.data ?? []) as { at: string; kind: string; ip_hash: string | null; detail: string | null }[];
     const byKind = new Map<string, { all: number; yours: number }>();
     const byCode = new Map<string, { all: number; yours: number }>();
     const byGate = new Map<string, { silent: number; tapped: number; button: number; failed: number; yours: number }>();
-    const byBrowser = new Map<string, { passed: number; firstFail: number; retryFail: number; c600010: number }>();
+    const byBrowser = new Map<string, { passed: number; firstFail: number; retryFail: number; c600010: number; codes: Map<string, number> }>();
     for (const e of events) {
       const yours = Boolean(mine) && e.ip_hash === mine;
       // " · Chrome on Android · first try" (lib/server/browserFamily), on gate passes and check failures since it was added.
       const ctx = (e.detail ?? '').match(/ · (.+?) · (first try|after Retry)/);
       if (ctx && (e.kind === 'gate_passed' || e.kind === 'bot_check_failed')) {
-        const b = byBrowser.get(ctx[1]) ?? { passed: 0, firstFail: 0, retryFail: 0, c600010: 0 };
+        const b = byBrowser.get(ctx[1]) ?? { passed: 0, firstFail: 0, retryFail: 0, c600010: 0, codes: new Map<string, number>() };
         const failed = e.kind === 'bot_check_failed';
+        if (failed) {
+          // "browser: 600010 (gate-buyer) · …" → "600010"; "gate: timeout-or-duplicate (gate-buyer) · …" → "gate: timeout-or-duplicate".
+          const words = (e.detail ?? '').replace(/^browser:\s*/, '').split(/\s/);
+          const code = words[0] === 'gate:' ? words.slice(0, 2).join(' ') : words[0] || 'unknown';
+          b.codes.set(code, (b.codes.get(code) ?? 0) + 1);
+        }
         byBrowser.set(ctx[1], {
           passed: b.passed + (failed ? 0 : 1),
           firstFail: b.firstFail + (failed && ctx[2] === 'first try' ? 1 : 0),
           retryFail: b.retryFail + (failed && ctx[2] === 'after Retry' ? 1 : 0),
           c600010: b.c600010 + (failed && /\b600010\b/.test(e.detail ?? '') ? 1 : 0),
+          codes: b.codes,
         });
       }
       // "gate_passed": "<place> (silent | after a tap | after the confirm button)"; a refused gate: "gate: <reason> (gate-<place>)".
@@ -160,7 +217,7 @@ export function TrafficPanel() {
       byCode.set(code, { all: c.all + 1, yours: c.yours + (yours ? 1 : 0) });
     }
     setGates([...byGate].map(([place, v]) => ({ place, ...v })).sort((x, y) => y.silent + y.tapped + y.button + y.failed - (x.silent + x.tapped + x.button + x.failed)));
-    setBrowsers([...byBrowser].map(([family, v]) => ({ family, ...v })).sort((x, y) => y.firstFail + y.retryFail - (x.firstFail + x.retryFail) || y.passed - x.passed));
+    setBrowsers([...byBrowser].map(([family, { codes, ...v }]) => ({ family, ...v, top: [...codes].sort((x, y) => y[1] - x[1])[0]?.[0] ?? '' })).sort((x, y) => y.firstFail + y.retryFail - (x.firstFail + x.retryFail) || y.passed - x.passed));
     setKinds([...byKind].map(([kind, v]) => ({ kind, ...v })).sort((x, y) => y.all - x.all));
     setBotCodes([...byCode].map(([code, v]) => ({ code, ...v })).sort((x, y) => y.all - x.all));
     setMailErrors(events.filter((e) => e.kind === 'email_failed').slice(0, 5).map((e) => ({ at: e.at, detail: e.detail ?? '' })));
@@ -215,40 +272,44 @@ export function TrafficPanel() {
           </table>
         </div>
       )}
-      <div className="mt-4 flex flex-wrap items-center gap-2" data-count-from>
-        <button
-          type="button"
-          onClick={() => {
-            try {
-              localStorage.setItem(SINCE_KEY, new Date().toISOString());
-            } catch {
-              /* storage blocked */
-            }
-            void load();
-          }}
-          className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-white px-3 text-sm font-semibold text-slate-800 ring-1 ring-slate-300 hover:bg-slate-50"
-        >
-          <Timer className="h-4 w-4" aria-hidden /> Count from now
-        </button>
-        {since && (
-          <button
-            type="button"
-            onClick={() => {
-              try {
-                localStorage.removeItem(SINCE_KEY);
-              } catch {
-                /* storage blocked */
-              }
-              void load();
-            }}
-            className="inline-flex min-h-11 cursor-pointer items-center rounded-xl px-3 text-sm font-semibold text-slate-700 underline"
-          >
-            Back to the last 24 hours
-          </button>
-        )}
-        <span className="text-xs text-slate-500">
-          {since ? `Counting since ${new Date(since).toLocaleString('en-IN')} (this browser)` : 'The counts below: the last 24 hours'} · “yours” = from the network you are on now
-        </span>
+      <div className="mt-4 space-y-2" data-count-from>
+        <div role="radiogroup" aria-label="Count the events below" className="flex flex-wrap gap-2">
+          {(
+            [
+              ['day', 'Last 24 hours'],
+              ...(BUILT_AT ? [['fix', `Since the last fix (${when(BUILT_AT)})`]] : []),
+              ['mark', 'Count from now'],
+            ] as [Period, string][]
+          ).map(([p, label]) => {
+            const on = period?.period === p;
+            return (
+              <button
+                key={p}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => {
+                  // "Count from now" starts again from the moment it is pressed, each time.
+                  if (p === 'mark') keep(SINCE_KEY, new Date().toISOString());
+                  keep(PERIOD_KEY, p);
+                  void load();
+                }}
+                className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-3 text-sm font-semibold ring-1 ${on ? 'bg-chinar text-white ring-chinar' : 'bg-white text-slate-800 ring-slate-300 hover:bg-slate-50'}`}
+              >
+                {p === 'mark' && <Timer className="h-4 w-4" aria-hidden />}
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-slate-500">
+          {period?.period === 'fix'
+            ? `The counts below: since this version of the site went live (${when(period.from)}) — what people met after the last change.`
+            : period?.period === 'mark'
+              ? `The counts below: since you pressed “Count from now” at ${when(period.from)} (this browser). Press it again to restart.`
+              : 'The counts below: the last 24 hours.'}{' '}
+          “Yours” = from the network you are on now.
+        </p>
       </div>
       {kinds.length > 0 && (
         <ul className="mt-2 flex flex-wrap gap-2 text-xs" data-kind-counts>
@@ -286,7 +347,8 @@ export function TrafficPanel() {
                   <th className="py-1.5 pr-3">Gate passed</th>
                   <th className="py-1.5 pr-3">Failed, first try</th>
                   <th className="py-1.5 pr-3">Failed after Retry</th>
-                  <th className="py-1.5">Of those, 600010</th>
+                  <th className="py-1.5 pr-3">Of those, 600010</th>
+                  <th className="py-1.5">Most common code</th>
                 </tr>
               </thead>
               <tbody>
@@ -296,7 +358,17 @@ export function TrafficPanel() {
                     <td className="py-1.5 pr-3">{b.passed}</td>
                     <td className={`py-1.5 pr-3 ${b.firstFail ? 'text-amber-800' : ''}`}>{b.firstFail}</td>
                     <td className={`py-1.5 pr-3 ${b.retryFail ? 'text-amber-800' : ''}`}>{b.retryFail}</td>
-                    <td className="py-1.5">{b.c600010}</td>
+                    <td className="py-1.5 pr-3">{b.c600010}</td>
+                    <td className="py-1.5">
+                      {b.top ? (
+                        <>
+                          <span className="font-mono">{b.top}</span>
+                          <span className="block text-slate-500">{meaning(b.top)}</span>
+                        </>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -315,7 +387,7 @@ export function TrafficPanel() {
               <li key={c.code} className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-amber-950 ring-1 ring-amber-200">
                 <span className="font-mono font-semibold">{c.code}</span>: {c.all}
                 {c.yours > 0 && <span> ({c.yours} yours)</span>}
-                {meaning(c.code) && <span className="text-amber-900/80"> — {meaning(c.code)}</span>}
+                <span className="text-amber-900/80"> — {meaning(c.code)}</span>
               </li>
             ))}
           </ul>
