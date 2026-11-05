@@ -113,10 +113,11 @@ function MobileMenu({ showAuth }: { showAuth: boolean }) {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls="mobile-menu"
-        className="flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg border border-slate-900/10 bg-white/85 px-3 py-2 text-sm font-semibold text-slate-800 backdrop-blur-md transition hover:bg-white"
+        className="flex min-h-11 min-w-11 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-slate-900/10 bg-white/85 px-2.5 py-2 text-sm font-semibold text-slate-800 backdrop-blur-md transition hover:bg-white min-[440px]:px-3"
       >
         {open ? <X className="h-4 w-4" aria-hidden /> : <Menu className="h-4 w-4" aria-hidden />}
-        Menu
+        {/* Narrow phones: the icon alone (Help and Sign in sit beside it); its name stays "Menu". */}
+        <span className="sr-only min-[440px]:not-sr-only">Menu</span>
       </button>
 
       {open && (
@@ -251,7 +252,7 @@ export function SiteHeader({
   }
 
   const navLink = light
-    ? 'min-h-11 items-center rounded-lg px-3 py-2 text-label font-medium text-slate-700 no-underline transition-colors hover:bg-white hover:text-slate-900 hover:no-underline'
+    ? 'min-h-11 items-center rounded-lg px-2.5 py-2 text-label font-medium sm:px-3 text-slate-700 no-underline transition-colors hover:bg-white hover:text-slate-900 hover:no-underline'
     : 'rounded-lg px-3 py-2 text-label text-kr-text-secondary transition-colors hover:bg-white/40 hover:text-kr-text-primary';
 
   return (
@@ -265,24 +266,32 @@ export function SiteHeader({
       <nav
         className={
           light
-            ? 'mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8'
+            ? 'mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 py-3 sm:gap-4 sm:px-6 lg:px-8'
             : 'kr-container flex items-center justify-between gap-4 py-3'
         }
         aria-label="Primary"
       >
         <div className="flex shrink-0 items-center gap-1.5">
           <BackButton light={light} />
-          <Link href="/" onClick={secretTap} className={`shrink-0 ${light ? 'text-slate-900 no-underline hover:no-underline' : ''}`}>
-            <BrandMark />
+          <Link href="/" onClick={secretTap} className={`inline-flex min-h-11 shrink-0 items-center ${light ? 'text-slate-900 no-underline hover:no-underline' : ''}`}>
+            <BrandMark fitPhone={light} />
           </Link>
         </div>
 
         {/* Produce, supplies and Price Comparison live in their portals and the Portals menu, not here. */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <HelpButton />
           {light && showRoleSignIn && !hideSignIn && (
-            <Link href={myPortal ? PORTALS[myPortal].home : '/login'} className={`${navLink} hidden md:inline-flex`}>
-              {myPortal ? `My ${PORTALS[myPortal].label} portal` : 'Sign in'}
+            // Next to Help & support on every screen; on a phone "My portal" keeps it short.
+            <Link href={myPortal ? PORTALS[myPortal].home : '/login'} className={`${navLink} inline-flex whitespace-nowrap`} data-signin-link>
+              {myPortal ? (
+                <>
+                  <span className="md:hidden">My portal</span>
+                  <span className="hidden md:inline">My {PORTALS[myPortal].label} portal</span>
+                </>
+              ) : (
+                'Sign in'
+              )}
             </Link>
           )}
           <div className="hidden md:block">

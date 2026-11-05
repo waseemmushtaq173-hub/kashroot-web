@@ -5,7 +5,9 @@
  * browser has no "human pass" yet (lib/client/humanPass) — or a request was
  * just refused for want of one — shows the "I am human" check once, hands its
  * token to the server for an hour's pass, and then hides again. Usually
- * hCaptcha decides without a click. Renders nothing when the check is off.
+ * hCaptcha decides without a click, and then nothing is seen at all: the card
+ * shows only when hCaptcha asks for a tap or the check fails. Renders nothing
+ * when the check is off.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
@@ -59,11 +61,16 @@ function GateCheck({ className, onPassed }: { className: string; onPassed: () =>
     };
   }, [token, used, onPassed, tries]);
   const failed = tries >= 3;
+  // While hCaptcha checks quietly nothing shows (and nothing jumps when it passes); the card appears only when
+  // hCaptcha asks for a tap or the check fails. The widget stays in the same place in the page either way.
+  const quiet = !failed && (human.status === 'working' || human.status === 'ready');
   return (
-    <div className={`rounded-2xl bg-chinar-soft p-3 ring-1 ring-chinar-line ${className}`} data-human-gate>
-      <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-emerald-950">
-        <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden /> One quick check, so KashRoot’s answers and voice serve people, not machines.
-      </p>
+    <div className={quiet ? 'sr-only' : `rounded-2xl bg-chinar-soft p-3 ring-1 ring-chinar-line ${className}`} data-human-gate={quiet ? 'quiet' : 'shown'}>
+      {!quiet && (
+        <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-emerald-950">
+          <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden /> One quick check, so KashRoot’s answers and voice serve people, not machines.
+        </p>
+      )}
       {human.element}
       {failed && <p className="mt-2 text-sm text-rose-800">The check did not pass. Please try again.</p>}
     </div>

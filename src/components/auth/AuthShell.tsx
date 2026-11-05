@@ -11,6 +11,7 @@ import { useSyncExternalStore, type ReactNode } from 'react';
 import { BadgeCheck, LineChart, ShieldCheck } from 'lucide-react';
 
 import { Emblem, Wordmark } from '@/components/brand/Emblem';
+import { HelpButton } from '@/components/layout/HelpButton';
 import { ValleyScene, type SceneMood } from '@/components/three/ValleyScene';
 import { brandSerif } from '@/lib/fonts';
 
@@ -123,10 +124,14 @@ export function AuthShell({ children }: { children: ReactNode }) {
           <ValleyScene key={theme.mood} mood={theme.mood} className="-z-20" />
           <div aria-hidden className={`absolute inset-0 -z-10 bg-gradient-to-t transition-colors duration-700 ${theme.tint}`} />
 
-          <Link href="/" className="inline-flex w-fit items-center gap-2 rounded-xl text-white no-underline hover:no-underline">
-            <Emblem className="h-11 w-11 drop-shadow-[0_4px_12px_rgba(0,0,0,0.35)]" />
-            <Wordmark className={`${brandSerif.className} text-2xl text-white`} />
-          </Link>
+          <div className="flex items-center justify-between gap-3">
+            <Link href="/" className="inline-flex w-fit items-center gap-2 rounded-xl text-white no-underline hover:no-underline">
+              <Emblem className="h-11 w-11 drop-shadow-[0_4px_12px_rgba(0,0,0,0.35)]" />
+              <Wordmark className={`${brandSerif.className} text-2xl text-white`} />
+            </Link>
+            {/* Most needed here: someone who cannot sign in, or forgot the password. */}
+            <HelpButton />
+          </div>
 
           <div className="mt-10 lg:mt-0">
             <p className={`text-xs font-semibold uppercase tracking-[0.2em] ${theme.eyebrow}`}>Join the valley marketplace</p>

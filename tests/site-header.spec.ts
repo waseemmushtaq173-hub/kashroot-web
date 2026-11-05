@@ -1,6 +1,8 @@
 /**
  * The public top bar has no Produce / Supplies / Compare links, and has Help &
- * support (on phones too, 44 px or more; also in every portal's top bar). The
+ * support next to Sign in (on phones too, down to 320 px; 44 px or more; also
+ * in every portal's and every sign-in page's top bar). KashRoot's support
+ * email and official contacts are only on the Help & support page. The
  * footer holds only the brand, © and the social pages. Each portal tab those
  * links used to open is still reached (signed out: that portal's sign-in,
  * which returns to the tab); the old /compare-prices?category= links still
@@ -15,7 +17,7 @@ const PORTAL_TABS = [
   { label: 'Farm supplies', href: '/kissan-tools/dashboard?tab=shop', login: '/login/kissan' },
 ];
 
-for (const width of [1280, 390]) {
+for (const width of [1280, 390, 360]) {
   test.describe(`${width} px`, () => {
     test.use({ viewport: { width, height: 800 } });
 
@@ -30,7 +32,7 @@ for (const width of [1280, 390]) {
     });
 
     test('Help & support is in the top bar, 44 px or more, and opens Help & support', async ({ page }) => {
-      for (const path of ['/', '/login/buyer', '/tracking/dashboard']) {
+      for (const path of ['/', '/login', '/login/buyer', '/forgot-password', '/tracking/dashboard']) {
         await page.goto(path);
         const help = page.getByRole('link', { name: 'Help & support' }).first();
         await expect(help).toBeVisible();
@@ -40,6 +42,27 @@ for (const width of [1280, 390]) {
       await page.locator('header').first().screenshot({ path: `test-results/header-help-${width}.png` });
       await page.getByRole('link', { name: 'Help & support' }).first().click();
       await page.waitForURL((u) => u.pathname === '/support');
+    });
+
+    test('on the home page, Help & support sits next to Sign in', async ({ page }) => {
+      await page.goto('/');
+      const bar = page.locator('nav[aria-label="Primary"]');
+      const help = (await bar.locator('[data-help-button]').boundingBox())!;
+      const sign = bar.locator('[data-signin-link]');
+      await expect(sign).toBeVisible();
+      const s = (await sign.boundingBox())!;
+      expect(s.height).toBeGreaterThanOrEqual(44);
+      expect(Math.abs(s.y - help.y), 'on the same line').toBeLessThan(4);
+      expect(s.x - (help.x + help.width), 'right beside it').toBeLessThan(16);
+    });
+
+    test('the support email is only on the Help & support page', async ({ page }) => {
+      for (const path of ['/', '/login', '/login/buyer', '/mandi-weather', '/privacy', '/terms']) {
+        await page.goto(path);
+        await expect(page.locator('body'), path).not.toContainText('kashrootsupport@gmail.com');
+      }
+      await page.goto('/support');
+      await expect(page.locator('body')).toContainText('kashrootsupport@gmail.com');
     });
 
     test('the footer holds only the brand, © and the social pages', async ({ page }) => {
