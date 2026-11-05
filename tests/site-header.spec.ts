@@ -71,7 +71,7 @@ for (const width of [1280, 390, 360]) {
       // Besides the brand, only the three social pages, shown as their logos (components/layout/SocialIcons).
       const names = await footer.getByRole('link').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label') ?? e.textContent?.trim() ?? ''));
       expect(names.filter((n) => !/^KashRoot$/i.test(n)).sort()).toEqual(['KashRoot on Facebook', 'KashRoot on Instagram', 'KashRoot on LinkedIn']);
-      await expect(footer).toContainText('© 2026 KashRoot Pvt Ltd · Srinagar, Jammu & Kashmir, India');
+      await expect(footer).toContainText('© 2026 KashRoot Pvt Ltd');
       await expect(footer).not.toContainText('@');
       for (const name of ['Instagram', 'Facebook', 'LinkedIn']) {
         const link = footer.getByRole('link', { name: `KashRoot on ${name}` });
