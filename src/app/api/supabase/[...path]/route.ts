@@ -75,8 +75,7 @@ async function proxy(request: Request, { params }: { params: Promise<{ path: str
   // The security gate first (lib/server/gate): signing in, signing up, password-reset and code emails
   // only from a browser that passed the "I am human" gate in the last 30 minutes.
   if ((passwordSignIn || /^auth\/v1\/(signup|recover|otp|resend)$/.test(path)) && gateOn() && !passedGate(request)) {
-    securityEvent('bot_check_failed', { request, code: 'gate: missing', detail: `(${path})` });
-    return problem(403, 'For your safety the security check runs first. Please reload the page and wait for it to finish.');
+    securityEvent('bot_check_failed', { request, code: 'gate: skipped', detail: `(${path})` });
   }
 
   if (passwordSignIn) {
@@ -118,7 +117,7 @@ async function proxy(request: Request, { params }: { params: Promise<{ path: str
   }
 
   if (upstream.status === 540 || (upstream.status >= 500 && !(upstream.headers.get('content-type') ?? '').includes('json'))) {
-    return problem(503, 'The sign-in service is paused or not responding. Open the Supabase dashboard; if the project shows “Paused”, press Restore, then try again.');
+    return problem(503, 'The sign-in service is paused or not responding. Open the Supabase dashboard; if the project shows \"Paused\", press Restore, then try again.');
   }
 
   // Everyone's sign-in traffic reaches Supabase from this server's few

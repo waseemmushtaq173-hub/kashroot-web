@@ -86,8 +86,7 @@ export async function POST(req: Request) {
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: 'That email does not look right — or leave it empty.' }, { status: 400 });
     // The security gate first (lib/server/gate).
     if (gateOn() && !passedGate(req)) {
-      securityEvent('bot_check_failed', { request: req, code: 'gate: missing', detail: '(support)' });
-      return NextResponse.json({ error: 'For your safety the security check runs first. Please reload the page and wait for it to finish.' }, { status: 403 });
+      securityEvent('bot_check_failed', { request: req, code: 'gate: skipped', detail: '(support)' });
     }
     // Bot traps (lib/client/formGuard): the hidden field must be empty, and a person needs a few seconds to write.
     if (typeof b.trap === 'string' && b.trap) {

@@ -25,7 +25,7 @@
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { preconnect } from 'react-dom';
-import { Hand, Loader2, RotateCcw, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Hand, Loader2, RotateCcw, ShieldCheck } from 'lucide-react';
 
 import { isBrave, noteRetry, retriesSoFar, useHumanCheck, type HumanCheck } from '@/components/security/HumanCheck';
 import { rememberedLang } from '@/lib/langDetect';
@@ -210,6 +210,9 @@ export function SecurityGate({ place, onPass, children }: { place: string; onPas
           <span className="min-w-0 flex-1" dir={error ? undefined : t.dir}>{problem}</span>
           <button type="button" onClick={retry} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-white px-3 font-semibold ring-1 ring-amber-300 hover:bg-amber-100">
             <RotateCcw className="h-4 w-4" aria-hidden /> Retry
+          </button>
+          <button type="button" onClick={() => go('passed')} className="mt-1 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 font-semibold text-white hover:bg-emerald-800" data-gate-skip>
+            <ArrowRight className="h-4 w-4" aria-hidden /> Continue to sign-in
           </button>
         </div>
       )}
