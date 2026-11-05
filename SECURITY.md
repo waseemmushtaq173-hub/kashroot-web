@@ -14,7 +14,7 @@ outside the code (Supabase and Vercel dashboards) — set them exactly as below.
 | Reset links expire | Supabase email links expire (below) and work once. |
 | Password guessing | 8 wrong passwords for one account, or 40 from one network, in 15 minutes → sign-in paused 15 minutes — counted across every server instance in the database (`app/api/supabase` proxy, `rate_buckets`). Supabase's own limits stand behind it for anyone calling Supabase directly. |
 | Sign-up and email floods | 30 new accounts per network per hour; 4 reset/code emails per address and 20 per network per 15 minutes (shared counts). |
-| Bots | Cloudflare Turnstile ("I am human") on sign-in, sign-up, password reset, sending codes and help requests — on when its keys are set (below). |
+| Bots | hCaptcha ("I am human") on sign-in, sign-up, password reset, sending codes and help requests — on when its keys are set (below). |
 | Tokens in the browser | Only Supabase's own session; API calls take the token from it (`lib/auth-fetch`). No copy in cookies or elsewhere. |
 
 ## Data: every row belongs to someone
@@ -41,7 +41,7 @@ outside the code (Supabase and Vercel dashboards) — set them exactly as below.
   No SVG or other files are accepted.
 * React escapes all text; the one raw HTML block is a fixed JSON-LD constant.
   The Content-Security-Policy allows scripts only from KashRoot (and
-  Cloudflare's Turnstile), and data to KashRoot's services only.
+  hCaptcha), and data to KashRoot's services only.
 * Redirect targets (`next=`) are same-site paths only (`safeNextPath`).
 
 ## Abuse and cost limits
@@ -86,7 +86,7 @@ network. Admin actions are in the separate `security_log`. Kept 30 days.
 ## Secrets
 
 * Only `NEXT_PUBLIC_*` values reach browsers, and only public ones are used
-  that way (Supabase URL and anon key, site URL, Turnstile site key). The
+  that way (Supabase URL and anon key, site URL, hCaptcha site key). The
   server **refuses to start** if a secret is put in a `NEXT_PUBLIC_` variable
   (`src/instrumentation.ts`).
 * All secrets live in Vercel environment variables (see `.env.example`).
@@ -107,13 +107,13 @@ No site is 100% safe — the costs of what is left are at the end.
 
 | Threat | Protected now | Missing → fix |
 | --- | --- | --- |
-| S: password guessing / credential stuffing | Shared database limits: 8 wrong per account or 40 per network in 15 min → 15-min pause; Supabase's own limits; Turnstile with Supabase CAPTCHA | Growing delays and a lock **with an email notice**; admin alert on spikes |
-| S: bots making accounts | 30 sign-ups per network per hour; Turnstile; email confirmation (Supabase setting) | Honeypot field and minimum fill time; optional disposable-email block |
+| S: password guessing / credential stuffing | Shared database limits: 8 wrong per account or 40 per network in 15 min → 15-min pause; Supabase's own limits; hCaptcha with Supabase CAPTCHA | Growing delays and a lock **with an email notice**; admin alert on spikes |
+| S: bots making accounts | 30 sign-ups per network per hour; hCaptcha; email confirmation (Supabase setting) | Honeypot field and minimum fill time; optional disposable-email block |
 | S: stolen password | New-device sign-in email; refresh-token reuse detection (Supabase); **two-step sign-in (authenticator app, TOTP)**: required for admins, optional for everyone (`/account/two-step`) | Required for business owners handling money (with the Business Owner consoles); "sign out other devices" |
 | S: leaked passwords | 8+ characters, strength hint | Have I Been Pwned range check (k-anonymity) at sign-up and change (Supabase's own check is Pro-only) |
 | T: reset link reused / hijacked | Supabase links expire and work once; redirects only to the real site | — |
 | I: is this email registered? | Reset says the same either way | Same for sign-up (Supabase answers an existing email without error when confirmation is on) — verify |
-| D: email / code floods | 4 emails per address, 20 per network per 15 min; codes cost money so they need Turnstile | — |
+| D: email / code floods | 4 emails per address, 20 per network per 15 min; codes cost money so they need hCaptcha | — |
 
 ### Every API route and database function (RPC)
 
@@ -227,7 +227,7 @@ them up again, so set them up straight away.
 | Clickjacking | `frame-ancestors 'none'`, `X-Frame-Options: DENY` | — |
 | Open redirects | `next=` only same-site paths (`safeNextPath`) | Attack test |
 | Path tricks on the Supabase proxy | Only `auth/v1` and `rest/v1`; no `..` or encoded slashes | Attack test |
-| Fake copies of the site | One address (src/proxy.ts); Turnstile only on the real address; `/support` → Official contacts | — |
+| Fake copies of the site | One address (src/proxy.ts); hCaptcha only on the real address; `/support` → Official contacts | — |
 
 ### Build, dependencies and secrets
 
@@ -258,9 +258,9 @@ them up again, so set them up straight away.
 * Emails: *Email OTP / link expiration* **3600** s or less.
 * Rate Limits: keep the defaults or lower (emails per hour, sign-ups and
   sign-ins per 5 minutes per IP, token verifications).
-* Attack Protection → **Enable CAPTCHA protection**, provider **Turnstile**,
-  secret = your Turnstile secret key. Set it at the same time as
-  `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` in Vercel and
+* Attack Protection → **Enable CAPTCHA protection**, provider **hCaptcha**,
+  secret = your hCaptcha secret. Set it at the same time as
+  `NEXT_PUBLIC_HCAPTCHA_SITE_KEY` and `HCAPTCHA_SECRET_KEY` in Vercel and
   redeploy — the forms send the token only when the site key is set.
 * URL Configuration: Site URL = the live address; Redirect URLs = only
   `https://<live address>/**`.
@@ -273,9 +273,13 @@ them up again, so set them up straight away.
 * Never share the database password or the service-role / secret key; KashRoot
   does not need them.
 
-**Cloudflare Turnstile** (free): add a widget for the live domain, mode
-*Managed*; put the site key in `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and the secret
-in `TURNSTILE_SECRET_KEY` (and in Supabase CAPTCHA, above).
+**hCaptcha** (free): add a site for the live domain with domain allowlisting
+on; put the site key in `NEXT_PUBLIC_HCAPTCHA_SITE_KEY` and the account secret
+in `HCAPTCHA_SECRET_KEY` (and in Supabase CAPTCHA, above). This computer and
+preview copies use hCaptcha's public test keys (site
+`10000000-ffff-ffff-ffff-000000000001`, secret `0x0000…0000`); Supabase with
+CAPTCHA on refuses their tokens, so sign-in works only on the live site.
+Automated tests never run against the live widget.
 
 **Vercel**
 * Domains: HTTPS is automatic; the site sends HSTS (2 years) and upgrades any

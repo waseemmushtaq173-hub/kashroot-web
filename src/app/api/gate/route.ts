@@ -6,11 +6,11 @@
  *      switch, 20261114000000_gate_tap.sql)? Light and fast: the page calls it
  *      as it opens, which also wakes this route before the token arrives.
  * POST /api/gate { token, place, tapped, confirmed } → { ok } and the kr_gate
- *      cookie, when the "I am human" token is real, from KashRoot's address,
- *      and for "gate-<place>". 20 tries a minute per network. Cloudflare's
+ *      cookie, when the "I am human" token (hCaptcha) is real and from
+ *      KashRoot's address. 20 tries a minute per network. hCaptcha's
  *      verdict waits at most 5 s; a refusal says why in plain words
  *      ("Security check failed: …"). Passes are logged by place and how —
- *      silent, after Cloudflare's tap, or after our confirm button (as the
+ *      silent, after hCaptcha's puzzle, or after our confirm button (as the
  *      browser reports it) — failures by reason (Admin → Security); each POST
  *      logs how long its steps took (never the token).
  */
@@ -57,13 +57,13 @@ export async function POST(request: Request) {
   const place = String(body?.place ?? '');
   if (!GATE_PLACES.test(place)) return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
   if (!hasSigningSecret()) return NextResponse.json({ ok: true, off: true });
-  // The shared count and Cloudflare's verdict side by side: the slower of the two, not both added up.
+  // The shared count and hCaptcha's verdict side by side: the slower of the two, not both added up.
   let limitMs = 0;
   let verifyMs = 0;
   const [limited, result] = await Promise.all([
     // The shared count may take 1 s at most (then this instance's own count decides): the form opens about 1 s after "Success!".
     sharedIpLimited(request, 'gate', 20, 60_000, 1_000).finally(() => (limitMs = Date.now() - begun)),
-    checkGateToken(request, body?.token, `gate-${place}`).finally(() => (verifyMs = Date.now() - begun)),
+    checkGateToken(request, body?.token).finally(() => (verifyMs = Date.now() - begun)),
   ]);
   const timing = { 'server-timing': `limit;dur=${limitMs}, verify;dur=${verifyMs}, total;dur=${Date.now() - begun}`, 'cache-control': 'no-store' };
   console.info(JSON.stringify({ 'kr-gate': place, ok: result.ok && !limited, reason: limited ? 'rate-limited' : result.reason, limitMs, verifyMs, totalMs: Date.now() - begun }));

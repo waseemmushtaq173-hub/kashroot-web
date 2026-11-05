@@ -1,7 +1,7 @@
 /**
  * POST { channel: 'sms' | 'whatsapp' | 'email', to, human? } → { token } (the code goes only to the phone or inbox).
  * Each code costs money: limited per number and per network (shared by all instances), and — when the
- * "I am human" check is switched on (TURNSTILE_SECRET_KEY) — only for a browser that passed it.
+ * "I am human" check is switched on (HCAPTCHA_SECRET_KEY) — only for a browser that passed it.
  */
 import { NextResponse } from 'next/server';
 

@@ -1,8 +1,8 @@
 /**
  * The human pass (lib/server/humanPass).
  * GET  /api/human            → { on, pass }  (is the check on; does this browser hold a pass)
- * POST /api/human { token }  → { ok } and the kr_human cookie, when the Turnstile token is real.
- * POST /api/human { diagnose, otherAddress } → Cloudflare's verdict on that
+ * POST /api/human { token }  → { ok } and the kr_human cookie, when the hCaptcha token is real.
+ * POST /api/human { diagnose, otherAddress } → hCaptcha's verdict on that
  *      fresh token with this server's secret (the /status test; the token is
  *      used up and never shown). 10 a minute.
  * POST /api/human { report, action, host, brave, retries } → { ok }: the

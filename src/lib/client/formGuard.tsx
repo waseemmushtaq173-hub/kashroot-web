@@ -12,7 +12,7 @@
  * Admin → Security) and gets a plain "could not send"; "fast" asks to check
  * and press again — the next press passes. Help requests are checked again
  * on the server (app/api/support); sign-in, sign-up and reset go straight to
- * Supabase, where Turnstile and the sign-in limits stand behind this.
+ * Supabase, where hCaptcha and the sign-in limits stand behind this.
  */
 import { useCallback, useEffect, useRef } from 'react';
 

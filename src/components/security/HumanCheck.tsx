@@ -1,39 +1,41 @@
 'use client';
 
 /**
- * "Are you a person?" — Cloudflare Turnstile, fetched quietly in the
- * background, so sign-in works with Supabase's CAPTCHA on and nobody has to
- * do anything unless Cloudflare really needs a tap.
+ * "Are you a person?" — hCaptcha, run quietly (its invisible mode), so
+ * sign-in works with Supabase's CAPTCHA on and nobody has to do anything
+ * unless hCaptcha really needs a tap.
  *
  *   const human = useHumanCheck('signin');
- *   …{human.element}…                      // where a tap box would appear
+ *   …{human.element}…                      // where a problem (or the simpler checkbox) shows
  *   const captchaToken = await human.token(); // undefined when the check is off
- *   …send it… then human.used();             // tokens work once: a fresh one is fetched
+ *   …send it… then human.used();             // tokens work once: the next token() fetches a fresh one
  *
- * The widget (appearance "interaction-only") starts as the page opens and
- * keeps a fresh token ready: a used or expired token is replaced, and one is
- * renewed before Cloudflare's 5-minute limit. token() reads it from the
- * widget itself at submit time (turnstile.getResponse) and waits up to 8 s
- * for it (the form shows "Checking you're human…"); if Cloudflare asks for a
- * tap, a small panel says so and the wait lasts until the tap. An error code
- * (110xxx, 300xxx, 600xxx…) or no answer within 8 s is retried 3 times
- * (2, 5 and 10 s apart) and logged on the server (the code only) — the
- * security gate says "trying again (1 of 3)", without a spinner; then
- * Cloudflare's box stays on screen to tap, with a plain message, what to try
- * in this browser (Shields, VPN, extensions, "Open in Chrome"…) and a Retry
- * button that draws a brand-new widget. Our own retries replace Cloudflare's ("retry: never"), so a failure
- * is never retried twice over. Submit buttons never wait on the check: they
- * stay pressable and say what is happening.
+ * The security gate (visible) asks hCaptcha as the page opens; a form asks
+ * at the moment it is sent (token(), which reads the widget's own answer —
+ * hcaptcha.getResponse — or runs hcaptcha.execute and waits up to 8 s; the
+ * button says "Checking you're human…"). When hCaptcha wants a tap it opens
+ * its puzzle over the page ("open-callback"): a small line says so and the
+ * wait lasts until the person answers — no error meanwhile. Closing the
+ * puzzle is not an error either: it says how to bring it back. A network or
+ * script error is retried 3 times (2, 5 and 10 s apart) and logged on the
+ * server (the code only) — the security gate says "trying again (1 of 3)",
+ * without a spinner; then a plain message, what to try in this browser
+ * (Shields, VPN, extensions, "Open in Chrome"…) and a Retry button that draws
+ * a brand-new widget. After 2 failures, a simpler way: hCaptcha's own
+ * "I am human" checkbox. Tokens last 120 s and work once: after use or
+ * expiry the widget is reset, and the next token() runs it again. Submit
+ * buttons never wait on the check: they stay pressable and say what is
+ * happening.
  *
  * Which key (checkMode()):
  *   - the real site: the address is kashroot-web.vercel.app, the site's own
  *     address (NEXT_PUBLIC_SITE_URL), or one listed in NEXT_PUBLIC_SITE_HOSTS
  *     (comma-separated, for custom domains) — or Vercel says this is the
  *     production deployment (NEXT_PUBLIC_VERCEL_ENV, the browser's copy of
- *     VERCEL_ENV). It always uses NEXT_PUBLIC_TURNSTILE_SITE_KEY, never the
+ *     VERCEL_ENV). It always uses NEXT_PUBLIC_HCAPTCHA_SITE_KEY, never the
  *     test key; if that key is missing from the build, sign-in says it is
  *     unavailable and Admin → Setup check says why.
- *   - anywhere else (Vercel preview copies, this computer): Cloudflare's
+ *   - anywhere else (Vercel preview copies, this computer): hCaptcha's
  *     always-passing test key; Supabase with CAPTCHA on refuses its tokens,
  *     and the form says this is a test copy.
  *   - no site key and not the real site: no check at all.
@@ -45,16 +47,14 @@ import { RotateCcw, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { SITE_URL } from '@/lib/site';
 
 
-export const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || '';
+export const HCAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY?.trim() || '';
 /** Is the check switched on? */
-export const humanCheckOn = Boolean(TURNSTILE_SITE_KEY);
-/** Cloudflare's test site key: always passes, on any address. Never used on the real site. */
-export const TEST_SITE_KEY = '1x00000000000000000000AA';
+export const humanCheckOn = Boolean(HCAPTCHA_SITE_KEY);
+/** hCaptcha's public test site key: always passes, on any address. Never used on the real site. */
+export const TEST_SITE_KEY = '10000000-ffff-ffff-ffff-000000000001';
 const WAIT_MS = 8_000;
 /** Seconds between the automatic tries after a failure. */
 const BACKOFF_MS = [2_000, 5_000, 10_000];
-/** Tokens last 300 s; a fresh one is fetched before that. */
-const RENEW_MS = 240_000;
 
 /** The real site's addresses: the live one, the site's own, and any custom domains listed. */
 export const REAL_HOSTS = [
@@ -77,46 +77,58 @@ export function checkMode(): { mode: CheckMode; why: string } {
   const mode: CheckMode = realSite ? (humanCheckOn ? 'real' : 'missing') : humanCheckOn ? 'test' : 'off';
   if (!told) {
     told = true;
-    console.info(`[KashRoot] security check: ${mode === 'real' ? 'real key' : mode === 'test' ? 'Cloudflare test key' : mode === 'missing' ? 'REAL KEY MISSING from this build' : 'off'} — ${why}.`);
+    console.info(`[KashRoot] security check (hCaptcha): ${mode === 'real' ? 'real key' : mode === 'test' ? 'hCaptcha test key' : mode === 'missing' ? 'REAL KEY MISSING from this build' : 'off'} — ${why}.`);
   }
   return { mode, why };
 }
 
-/** True on a test copy (a preview, this computer), which uses Cloudflare's test key. */
+/** True on a test copy (a preview, this computer), which uses hCaptcha's test key. */
 export const testKeyHere = () => checkMode().mode === 'test';
 
 /** The real site without its site key: sign-in cannot pass Supabase's CAPTCHA. */
 const UNAVAILABLE = 'Sign-in is temporarily unavailable — please tell KashRoot through Help & support (at the top of the page).';
 
-interface Turnstile {
+interface HCaptcha {
   render: (el: HTMLElement, opts: Record<string, unknown>) => string;
+  execute: (id: string) => void;
   getResponse: (id: string) => string | undefined;
   reset: (id: string) => void;
   remove: (id: string) => void;
 }
 declare global {
   interface Window {
-    turnstile?: Turnstile;
+    hcaptcha?: HCaptcha;
   }
 }
 
-const SCRIPT = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
-let loading: Promise<Turnstile | null> | null = null;
-/** Cloudflare's script, once for the page; null when it is blocked or does not arrive in time. */
-function loadTurnstile(): Promise<Turnstile | null> {
-  if (window.turnstile) return Promise.resolve(window.turnstile);
+/** Is hCaptcha's script in? (Its file may arrive before the API inside it is ready.) */
+const ready = () => (window.hcaptcha && typeof window.hcaptcha.render === 'function' ? window.hcaptcha : null);
+let loading: Promise<HCaptcha | null> | null = null;
+/** hCaptcha's script, once for the page (in the person's language); null when it is blocked or does not arrive in time. */
+function loadHCaptcha(): Promise<HCaptcha | null> {
+  const now = ready();
+  if (now) return Promise.resolve(now);
   loading ??= new Promise((resolve) => {
-    const give = (t: Turnstile | null) => {
-      if (!t) loading = null; // the next try loads it again
-      resolve(t);
+    let done = false;
+    const give = (h: HCaptcha | null) => {
+      if (done) return;
+      done = true;
+      if (!h) loading = null; // the next try loads it again
+      resolve(h);
     };
-    document.querySelectorAll(`script[src="${SCRIPT}"]`).forEach((old) => old.remove());
+    const src = `https://js.hcaptcha.com/1/api.js?render=explicit&recaptchacompat=off&hl=${widgetLanguage()}`;
+    document.querySelectorAll('script[data-kr-hcaptcha]').forEach((old) => old.remove());
     const s = document.createElement('script');
-    s.src = SCRIPT;
+    s.src = src;
     s.async = true;
-    s.onload = () => give(window.turnstile ?? null);
+    s.dataset.krHcaptcha = '';
+    s.onload = () => {
+      // The API can take a moment after the file has run.
+      const poll = (left: number) => (ready() ? give(ready()) : left > 0 ? window.setTimeout(() => poll(left - 1), 50) : give(null));
+      poll(40);
+    };
     s.onerror = () => give(null);
-    window.setTimeout(() => give(window.turnstile ?? null), WAIT_MS);
+    window.setTimeout(() => give(ready()), WAIT_MS);
     document.head.appendChild(s);
   });
   return loading;
@@ -134,14 +146,13 @@ export const isBrave = () => typeof navigator !== 'undefined' && 'brave' in navi
 
 const IN_APP = /FBAN|FBAV|Instagram|WhatsApp|Line\/|; wv\)|Snapchat/i;
 
-/** What to try in this very browser, most likely first (what most often stops Cloudflare there), then Retry. */
-export function browserSteps(code = ''): string[] {
+/** What to try in this very browser, most likely first (what most often stops the check there), then Retry. */
+export function browserSteps(): string[] {
   if (typeof navigator === 'undefined') return [];
   const ua = navigator.userAgent;
   const iphone = /iPhone|iPad|iPod/i.test(ua);
   const chrome = /CriOS|Chrome\//i.test(ua) && !isBrave() && !/Edg\/|OPR\/|SamsungBrowser/i.test(ua);
   const steps: string[] = [];
-  if (code.startsWith('2001')) steps.push('Set your phone’s date and time to automatic (Settings → Date & time) — a wrong clock fails the check.');
   if (IN_APP.test(ua)) steps.push('You are in an app’s own browser (WhatsApp, Facebook, Instagram…): tap ⋮ or ··· and choose “Open in Chrome” (or Safari on iPhone).');
   else if (isBrave()) steps.push('Brave: tap the lion icon in the address bar and turn Shields off for this site.');
   else if (/Firefox|FxiOS/i.test(ua)) steps.push('Firefox: tap the shield in the address bar and turn off Enhanced Tracking Protection for this site.');
@@ -159,30 +170,32 @@ export interface Problem {
   steps: string[];
 }
 
-/** The reason, in words, for a check that could not finish, and what to try. */
+/** The reason, in words, for a check that could not finish (hCaptcha's error codes and ours), and what to try. */
 function problemFor(code: string): Problem {
-  if (code.startsWith('1102')) return { text: 'The security check is not allowed on this address. Please open https://kashroot-web.vercel.app and try again.', steps: [] };
-  if (code === 'unsupported' || code.startsWith('1105')) return { text: 'This browser is too old for the security check. Please open KashRoot in Chrome.', steps: [] };
-  if (code === 'script-blocked') return { text: 'The security check couldn’t load — tap Retry, or turn off Brave Shields / ad-block for kashroot-web.vercel.app, or open it in Chrome.', steps: browserSteps(code) };
-  if (code.startsWith('300')) return { text: `The security check failed in this browser (code ${code}).`, steps: browserSteps(code) };
-  if (code.startsWith('600')) return { text: `Cloudflare couldn’t confirm you’re human (code ${code}).`, steps: browserSteps(code) };
-  if (code === 'no-answer') return { text: 'Couldn’t confirm you’re human — Cloudflare did not answer.', steps: browserSteps(code) };
-  return { text: `Couldn’t confirm you’re human (code ${code.slice(0, 20)}).`, steps: browserSteps(code) };
+  if (code === 'challenge-closed') return { text: 'The puzzle was closed before it was answered. Tap Retry to show it again.', steps: [] };
+  if (code === 'challenge-expired') return { text: 'The puzzle ran out of time before it was answered. Tap Retry for a new one.', steps: [] };
+  if (code === 'rate-limited') return { text: 'Too many checks from this network just now. Please wait a minute, then tap Retry.', steps: [] };
+  if (code === 'script-blocked' || code === 'script-error') return { text: 'The security check couldn’t load — tap Retry, or turn off Brave Shields / ad-block for kashroot-web.vercel.app, or open it in Chrome.', steps: browserSteps() };
+  if (code === 'network-error') return { text: 'The security check lost its connection. Check your internet, then tap Retry.', steps: browserSteps() };
+  if (code === 'no-answer') return { text: 'Couldn’t confirm you’re human — hCaptcha did not answer.', steps: browserSteps() };
+  if (code === 'invalid-data' || code === 'missing-captcha' || code === 'invalid-captcha-id') return { text: `The security check went wrong on this page (${code}). Please reload the page.`, steps: [] };
+  return { text: `Couldn’t confirm you’re human (${code.slice(0, 30)}).`, steps: browserSteps() };
 }
 /** The reason and the steps in one line (an error a form shows by itself). */
 const problemText = (code: string) => {
   const p = problemFor(code);
   return [p.text, ...p.steps].join(' ');
 };
+/** Worth trying again by itself: the network, the script, hCaptcha's own hiccups. Never what the person did. */
+const RETRIED = /^(network-error|internal-error|challenge-error|script-error|script-blocked|invalid-data|no-answer|error)$/;
 
-/** Cloudflare's box in the person's language, where it has one. */
-function widgetLanguage(fixed = false): string {
-  // `fixed`: the simpler way names the language rather than letting Cloudflare guess.
+/** hCaptcha's puzzle in the person's language, where it has one. */
+function widgetLanguage(): string {
   try {
     const l = localStorage.getItem('kr_lang') ?? document.documentElement.lang ?? '';
-    return l.startsWith('hi') ? 'hi' : l.startsWith('ur') ? 'ur' : fixed ? 'en' : 'auto';
+    return l.startsWith('hi') ? 'hi' : l.startsWith('ur') || l.startsWith('ks') ? 'ur' : 'en';
   } catch {
-    return fixed ? 'en' : 'auto';
+    return 'en';
   }
 }
 
@@ -202,22 +215,22 @@ interface Waiter {
 }
 
 export interface HumanCheck {
-  /** Where Cloudflare's tap box (when needed) and any problem show. */
+  /** Where a problem (or the simpler checkbox) shows. */
   element: ReactNode;
-  /** A fresh token: waits up to 8 s (longer while a tap is asked for). Undefined when the check is off. Throws with the reason when it cannot get one. */
+  /** A fresh token: waits up to 8 s (longer while a puzzle is open). Undefined when the check is off. Throws with the reason when it cannot get one. */
   token: () => Promise<string | undefined>;
-  /** The token was sent: fetch a fresh one (tokens work once). */
+  /** The token was sent: the widget is reset (tokens work once); the next token() runs it again. */
   used: () => void;
-  /** Start now (a `lazy` check: e.g. a form's own check, once the security gate has passed). */
+  /** Load the check now (a `lazy` check: e.g. a form's own check, once the security gate has passed). */
   start: () => void;
   /** token() is waiting: the button says "Checking you're human…". */
   waiting: boolean;
   /** Seconds the first token took (Admin → Setup check). */
   took: number | null;
-  /** Did Cloudflare ask for a tap before this token (as the browser saw it)? */
+  /** Did hCaptcha ask for a tap (open its puzzle) before this token? */
   wasTapped: () => boolean;
-  /** 'interactive': Cloudflare is waiting for the person's tap — nothing is timed out meanwhile. */
-  status: 'working' | 'ready' | 'interactive' | 'failed';
+  /** 'interactive': hCaptcha's puzzle is open, waiting for the person — nothing is timed out meanwhile. */
+  status: Status;
   /** Start again from a fresh widget (the gate's Retry). */
   retry: () => void;
   /** Which automatic try is under way after a failure (1–3), or 0: the gate shows it, without a spinner. */
@@ -225,9 +238,10 @@ export interface HumanCheck {
 }
 
 /**
- * One widget for one form. `lazy`: start only when token() is first asked
- * (for forms shown several times on a page, e.g. a code for the mobile and
- * one for the email).
+ * One widget for one form. `visible` (the security gate): runs as soon as it
+ * is drawn. Otherwise it runs when token() is asked. `lazy`: not even loaded
+ * until then (for forms shown several times on a page, e.g. a code for the
+ * mobile and one for the email).
  */
 export function useHumanCheck(
   action: string,
@@ -238,9 +252,11 @@ export function useHumanCheck(
   const current = useRef<string | null>(null);
   const waiters = useRef<Waiter[]>([]);
   const interactive = useRef(false);
-  /** Cloudflare asked this person to tap (an interactive check) before the current token. */
+  /** hCaptcha opened its puzzle for this person before the current token. */
   const tapped = useRef(false);
   const failure = useRef<string | null>(null);
+  /** Run the widget now (when it is drawn and not already running). */
+  const run = useRef<() => void>(() => undefined);
   const renew = useRef<() => void>(() => undefined);
   const [started, setStarted] = useState(!lazy);
   const [status, setStatus] = useState<Status>('working');
@@ -252,7 +268,7 @@ export function useHumanCheck(
   // Checks that ended in failure on this page; after 2, a simpler way is offered.
   const [failures, setFailures] = useState(0);
   const [simple, setSimple] = useState(false);
-  // Told of every fresh token at once (the security gate sends it the moment Cloudflare says "Success!").
+  // Told of every fresh token at once (the security gate sends it the moment hCaptcha passes).
   const tokenListener = useRef(onToken);
   useEffect(() => {
     tokenListener.current = onToken;
@@ -272,86 +288,91 @@ export function useHumanCheck(
     if (mode === 'off') return;
     let gone = false;
     let tries = 0;
+    let running = false;
     let timers: number[] = [];
     const later = (fn: () => void, ms: number) => timers.push(window.setTimeout(fn, ms));
     const clear = () => {
       timers.forEach((t) => window.clearTimeout(t));
       timers = [];
     };
-    const begun = performance.now();
+    let begun = performance.now();
 
     const fail = (code: string) => {
       if (gone) return;
       clear();
+      running = false;
       current.current = null;
-      report(code, action);
-      const afterTap = interactive.current || tapped.current;
+      const afterTap = interactive.current;
       interactive.current = false;
-      if (tries < BACKOFF_MS.length && !afterTap) {
+      if (code !== 'challenge-closed') report(code, action);
+      if (tries < BACKOFF_MS.length && !afterTap && RETRIED.test(code)) {
         later(again, BACKOFF_MS[tries]);
         tries += 1;
         setAutoTry(tries);
         return;
       }
       setAutoTry(0);
-      // An address Cloudflare does not allow: the same page on the real site (never on a test copy).
-      if (code.startsWith('1102') && checkMode().mode === 'real' && !REAL_HOSTS.includes(window.location.host.toLowerCase())) {
-        window.location.replace(`${SITE_URL}${window.location.pathname}${window.location.search}`);
-        return;
-      }
       failure.current = problemText(code);
       setProblem(problemFor(code));
       setStatus('failed');
-      setFailures((n) => n + 1);
+      if (code !== 'challenge-closed') setFailures((n) => n + 1);
       waiters.current.splice(0).forEach((w) => w.reject(new HumanCheckError(failure.current ?? '')));
     };
-    // No token and no tap asked for within 8 s: counts as a failure (e.g. Shields blocking Cloudflare's frame).
-    // (The gate's visible box gets longer — it offers Retry itself after 8 s, without stopping Cloudflare mid-check.)
+    // No token and no puzzle within 8 s (20 s for the gate): counts as a failure (e.g. Shields blocking hCaptcha's frame).
     const watch = () => later(() => !current.current && !interactive.current && fail('no-answer'), visible ? 20_000 : WAIT_MS);
     const again = () => {
       if (gone) return;
-      if (widget.current && window.turnstile) {
+      if (widget.current && window.hcaptcha) {
         try {
-          window.turnstile.reset(widget.current);
+          window.hcaptcha.reset(widget.current);
         } catch {
           return void fail('reset-failed');
         }
-        watch();
+        running = false;
+        run.current();
       } else void start();
     };
-    renew.current = () => {
-      if (gone || !widget.current || !window.turnstile) return;
-      clear();
-      current.current = null;
-      tapped.current = false;
+    run.current = () => {
+      if (gone || running || simple || !widget.current || !window.hcaptcha || current.current) return;
+      running = true;
+      begun = performance.now();
       try {
-        window.turnstile.reset(widget.current);
+        window.hcaptcha.execute(widget.current);
       } catch {
-        return; // the form (and its widget) is gone
+        return void fail('error');
       }
       watch();
     };
+    renew.current = () => {
+      if (gone || !widget.current || !window.hcaptcha) return;
+      clear();
+      running = false;
+      current.current = null;
+      tapped.current = false;
+      try {
+        window.hcaptcha.reset(widget.current);
+      } catch {
+        /* the form (and its widget) is gone */
+      }
+    };
 
     const start = async () => {
-      const t = await loadTurnstile();
+      const h = await loadHCaptcha();
       if (gone) return;
-      if (!t || !box.current) return fail('script-blocked');
+      if (!h || !box.current) return fail('script-blocked');
       // A fresh start: nothing left over from an earlier widget in the box.
       box.current.replaceChildren();
-      widget.current = t.render(box.current, {
-        sitekey: mode === 'test' ? TEST_SITE_KEY : TURNSTILE_SITE_KEY,
-        action,
-        // The security gate shows Cloudflare's box ("Verifying…" → "Success!"); a form's own check stays invisible.
-        // The simpler way (offered after 2 failures): always shown, normal size, its language named.
-        appearance: visible || simple ? 'always' : 'interaction-only',
-        size: simple ? 'normal' : 'flexible',
-        language: widgetLanguage(simple),
-        retry: 'never', // retried here (2, 5, 10 s), counted and logged — never twice over
-        'refresh-expired': 'auto',
-        'refresh-timeout': 'auto',
+      const holder = document.createElement('div');
+      box.current.appendChild(holder);
+      widget.current = h.render(holder, {
+        sitekey: mode === 'test' ? TEST_SITE_KEY : HCAPTCHA_SITE_KEY,
+        // Quietly, opening a puzzle only when hCaptcha needs one. The simpler way (offered after 2 failures):
+        // hCaptcha's own "I am human" checkbox, tapped by the person.
+        size: simple ? 'normal' : 'invisible',
         callback: (token: string) => {
           if (gone) return;
           clear();
+          running = false;
           current.current = token;
           interactive.current = false;
           failure.current = null;
@@ -362,21 +383,16 @@ export function useHumanCheck(
           setTook((s) => s ?? Math.round((performance.now() - begun) / 100) / 10);
           waiters.current.splice(0).forEach((w) => w.resolve(token));
           tokenListener.current?.(token);
-          later(() => renew.current(), RENEW_MS);
         },
+        // A token unused for 120 s: gone; the next token() runs the widget again (the gate's at once).
         'expired-callback': () => {
           current.current = null;
-          watch();
+          running = false;
+          if (visible) run.current();
         },
-        'timeout-callback': () => {
-          current.current = null;
-          // The tap box ran out: Cloudflare draws a fresh one itself ('refresh-timeout': 'auto'), so the person is
-          // still being asked — no error, nothing timed out meanwhile.
-          if (interactive.current) return;
-          watch();
-        },
-        'before-interactive-callback': () => {
-          // Waiting for the person: no error, no Retry, nothing timed out meanwhile.
+        'chalexpired-callback': () => fail('challenge-expired'),
+        'open-callback': () => {
+          // The puzzle is open, waiting for the person: no error, no Retry, nothing timed out meanwhile.
           tapped.current = true;
           interactive.current = true;
           clear();
@@ -385,26 +401,28 @@ export function useHumanCheck(
           setProblem(null);
           setStatus('interactive');
         },
-        'after-interactive-callback': () => {
-          interactive.current = false;
-          setStatus('working');
-          watch(); // tapped: the answer is due now
+        'close-callback': () => {
+          // Closed without an answer.
+          if (!current.current) fail('challenge-closed');
         },
-        'unsupported-callback': () => fail('unsupported'),
-        'error-callback': (code: unknown) => {
-          fail(String(code ?? 'error'));
-          return true; // handled here
-        },
+        'error-callback': (code: unknown) => fail(String(code ?? 'error')),
       });
-      watch();
+      if (simple) {
+        // The checkbox waits for the person's tap: nothing is timed out meanwhile.
+        interactive.current = true;
+        setStatus('interactive');
+        return;
+      }
+      if (visible || waiters.current.length) run.current();
     };
     void start();
 
     return () => {
       gone = true;
       clear();
+      run.current = () => undefined;
       try {
-        if (widget.current) window.turnstile?.remove(widget.current);
+        if (widget.current) window.hcaptcha?.remove(widget.current);
       } catch {
         /* already gone with the page */
       }
@@ -416,7 +434,7 @@ export function useHumanCheck(
   const token = useCallback(async (): Promise<string | undefined> => {
     if (checkMode().mode === 'off') return undefined;
     // The widget's own answer now, when it has one (never a copy from an older render).
-    const live = widget.current ? window.turnstile?.getResponse(widget.current) : undefined;
+    const live = widget.current ? window.hcaptcha?.getResponse(widget.current) : undefined;
     if (live) return live;
     if (current.current) return current.current;
     if (failure.current) throw new HumanCheckError(failure.current);
@@ -426,10 +444,11 @@ export function useHumanCheck(
       return await new Promise<string>((resolve, reject) => {
         const w: Waiter = { resolve, reject };
         waiters.current.push(w);
+        run.current();
         const wait = () =>
           window.setTimeout(() => {
             if (!waiters.current.includes(w)) return;
-            if (interactive.current) return void wait(); // a tap is asked for: wait for it
+            if (interactive.current) return void wait(); // the puzzle is open: wait for the person
             waiters.current = waiters.current.filter((x) => x !== w);
             reject(failure.current ? new HumanCheckError(failure.current) : new Error(problemText('no-answer')));
           }, WAIT_MS);
@@ -461,14 +480,15 @@ export function useHumanCheck(
     <div className="w-full" data-human-check={started ? status : 'idle'}>
       {status === 'interactive' && (
         <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-800">
-          <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden /> One quick check: tap the box below to show you’re human.
+          <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden />
+          {simple ? 'Tap the “I am human” box below.' : 'One quick check: answer the hCaptcha puzzle that has opened.'}
         </p>
       )}
-      {/* Cloudflare draws here; it stays empty unless a tap is needed. Never display:none — it must be able to render. */}
+      {/* hCaptcha's widget lives here: empty in its quiet mode (the puzzle opens over the page), the checkbox in the simpler way. */}
       <div ref={box} className="w-full" />
       {visible && autoTry > 0 && !problem && (
         <p className="mt-2 text-sm text-slate-700" data-check-auto-try={autoTry}>
-          Cloudflare’s check didn’t finish — trying again by itself ({autoTry} of {BACKOFF_MS.length})…
+          The check didn’t finish — trying again by itself ({autoTry} of {BACKOFF_MS.length})…
         </p>
       )}
       {problem && (
@@ -514,8 +534,8 @@ export const CHECKING_HUMAN = 'Checking you’re human…';
 
 /**
  * Supabase refused a token: its reason (e.g. "captcha protection: request
- * disallowed (timeout-or-duplicate)") is logged for Admin → Security as
- * "browser: supabase-timeout-or-duplicate" — the reason only, never the token.
+ * disallowed (invalid-input-response)") is logged for Admin → Security as
+ * "browser: supabase-invalid-input-response" — the reason only, never the token.
  */
 export function reportRefusal(message: string, action: string): void {
   if (typeof window === 'undefined') return;
@@ -523,8 +543,8 @@ export function reportRefusal(message: string, action: string): void {
   report(`supabase-${reason}`, action);
 }
 
-/** What to say when a token was refused (by Supabase or KashRoot's server) — a fresh one is being fetched. */
+/** What to say when a token was refused (by Supabase or KashRoot's server) — the next try fetches a fresh one. */
 export function humanRefusedText(): string {
   if (testKeyHere()) return `Signing in is switched off on this test copy of the site by the security check. Please use ${SITE_URL}.`;
-  return 'The security check was not accepted — it may have run out. A fresh one is ready: please try again.';
+  return 'The security check was not accepted — it may have run out. Please try again: a fresh check runs when you do.';
 }

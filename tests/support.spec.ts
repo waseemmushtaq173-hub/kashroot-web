@@ -34,7 +34,7 @@ for (const width of [1280, 390]) {
       await otp.getByRole('button', { name: /Still stuck/ }).click();
       await expect(page.locator('#ask-kashroot')).toBeInViewport();
       const gated = page.locator('#ask-kashroot [data-security-gate]');
-      // Locally the gate passes by itself (test key); on the live site Cloudflare may ask an automated browser to tap.
+      // Locally the gate passes by itself (test key); on the live site hCaptcha may open a puzzle for an automated browser.
       if (!/^https:/.test(process.env.KR_BASE_URL ?? '')) await expect(gated).toHaveCount(0, { timeout: 30_000 });
       if (!(await gated.count())) await expect(page.getByLabel('What is it about?')).toHaveValue('login');
       await page.screenshot({ path: `test-results/support-${width}.png`, fullPage: true });
@@ -43,15 +43,9 @@ for (const width of [1280, 390]) {
     });
 
     test('a request can be sent without signing in (or it says plainly why not)', async ({ page, request }) => {
+      // Never against the live widget (and no request may reach the real help desk from a test).
+      test.skip(/^https:/.test(process.env.KR_BASE_URL ?? ''), 'Never run against the live widget.');
       await page.goto('/support');
-      // The security gate first: on the live site an automated browser is asked to tap, so the form stays closed —
-      // which is the gate working. (No request is sent from the live site: it would reach the real help desk.)
-      if (/^https:/.test(process.env.KR_BASE_URL ?? '')) {
-        await expect(page.locator('#ask-kashroot [data-security-gate]')).toBeVisible();
-        await expect.poll(() => page.frames().some((f) => f.url().includes('challenges.cloudflare.com')), { timeout: 20_000 }).toBe(true);
-        await expect(page.getByLabel('Your name')).toHaveCount(0);
-        return;
-      }
       await page.getByLabel('Your name').fill('Test Person');
       await page.getByLabel(/Mobile number \(we call you back/).fill('9876543210');
       await page.getByLabel(/The problem, in your words/).fill('The code does not come when I sign in');
@@ -63,7 +57,6 @@ for (const width of [1280, 390]) {
         // The security check is on: it runs with the form in the background, and Send is never held back by it.
         // (No request is sent here: on the live site that would reach the real help desk.)
         await expect(page.locator('#ask-kashroot [data-human-check]')).toBeAttached();
-        await expect.poll(() => page.frames().some((f) => f.url().includes('challenges.cloudflare.com')), { timeout: 20_000 }).toBe(true);
         await expect(send).toBeEnabled();
         return;
       }

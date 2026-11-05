@@ -30,7 +30,7 @@ export function noteBotFailure(request: Request): void {
       subject: `KashRoot: “I am human” failures are spiking (${all} in 10 minutes)`,
       lines: [
         `${all} security-check failures in the last 10 minutes, from more than one network.`,
-        'It can be a bot attack, or real people unable to pass the check (a Cloudflare problem, a wrong key or secret, or a browser setting).',
+        'It can be a bot attack, or real people unable to pass the check (an hCaptcha problem, a wrong key or secret, or a browser setting).',
         'Admin → Security shows the codes and what each one means; /status → Test the security check tests it end to end.',
       ],
       action: { label: 'Open Admin → Security', href: `${SITE_URL}/admin/dashboard?tab=security` },

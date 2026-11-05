@@ -77,7 +77,7 @@ async function bankReply(b: BankAnswer, lang: Lang, wantDevanagari: boolean): Pr
 }
 
 export async function POST(req: Request) {
-  // People, not scripts: the "I am human" pass (when Turnstile is on), then the limits.
+  // People, not scripts: the "I am human" pass (when hCaptcha is on), then the limits.
   if (!hasHumanPass(req)) return needHuman();
   if (await aiLimited(req, 'assistant', 30, 600)) return NextResponse.json({ error: 'Too many questions at once. Please wait a minute.' }, { status: 429 });
   let body: { query?: string; lang?: string; exact?: boolean; speakAs?: string; path?: string; where?: unknown };

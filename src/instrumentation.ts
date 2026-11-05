@@ -39,7 +39,7 @@ export function register() {
   const helpful: Record<string, string> = {
     KYC_DB_SECRET: 'identity checks are not recorded; shared rate limits, the security log, help requests and kept copies of outside sources use this server only',
     GOOGLE_TTS_API_KEY: 'answers are read by the phone’s own voice, not KashRoot’s',
-    TURNSTILE_SECRET_KEY: 'the bot check on sign-in, sign-up, codes and help requests is off',
+    HCAPTCHA_SECRET_KEY: 'the bot check on sign-in, sign-up, codes and help requests is off',
     ANTHROPIC_API_KEY: 'photo checks and the advisory first note are off (the assistant does not use it)',
     OTP_SECRET: 'one-time codes use a key derived from the provider secrets',
   };

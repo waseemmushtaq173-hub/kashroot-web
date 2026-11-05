@@ -5,7 +5,7 @@
  * browser has no "human pass" yet (lib/client/humanPass) — or a request was
  * just refused for want of one — shows the "I am human" check once, hands its
  * token to the server for an hour's pass, and then hides again. Usually
- * Cloudflare decides without a click. Renders nothing when the check is off.
+ * hCaptcha decides without a click. Renders nothing when the check is off.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';

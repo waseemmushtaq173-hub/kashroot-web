@@ -76,7 +76,7 @@ export function securityEvent(kind: SecurityKind, opts: { request?: Request; acc
     const path = opts.path ?? (opts.request ? new URL(opts.request.url).pathname.slice(0, 120) : null);
     // `site`: a site address (letters, digits, dots and dashes only) kept whole — scrub() would hide a long deployment address as "[secret]".
     const site = opts.site ? opts.site.toLowerCase().replace(/[^a-z0-9.-]/g, '').slice(0, 80) : '';
-    // `code`: an error code (Cloudflare's 600010, 110200…) kept whole — scrub() hides 6+ digits as "[number]".
+    // `code`: an error code (hCaptcha's or Cloudflare's) kept whole — scrub() hides 6+ digits as "[number]".
     const code = opts.code ? opts.code.replace(/[^\w :.-]/g, '').slice(0, 60) : '';
     const detail = opts.detail || site || code ? `${code ? `${code} ` : ''}${opts.detail ? scrub(opts.detail) : ''}${site ? ` on ${site}` : ''}`.trim().slice(0, 300) : null;
     console.warn(JSON.stringify({ 'kr-security': kind, ip, actor, path, status: opts.status ?? null, detail, at: new Date().toISOString() }));

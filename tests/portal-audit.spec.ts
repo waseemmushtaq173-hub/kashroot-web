@@ -8,7 +8,7 @@
  *   - the page does not jump while it loads (layout shift 0.1 or less).
  * Signed-in parts of the portals (dashboards, money steps) are covered by the database tests in
  * supabase/tests (what each account may see and do), since accounts cannot be made here without
- * the Cloudflare check. KR_BASE_URL says where the site runs. Screenshots: test-results/audit-*.png
+ * the hCaptcha check. KR_BASE_URL says where the site runs. Screenshots: test-results/audit-*.png
  */
 import { expect, test } from '@playwright/test';
 
@@ -47,7 +47,7 @@ for (const width of [390, 1280]) {
           const inText = (el: Element) => el.tagName === 'A' && !!el.closest('p, li, dd, td, label, figcaption') && getComputedStyle(el).display === 'inline';
           const small = [...document.querySelectorAll('button, a[href], [role="button"], select, input:not([type=hidden]):not([type=checkbox]):not([type=radio])')]
             // The bots' trap field (kr_website) is out of sight and out of the tab order: never tapped.
-            .filter((el) => shown(el) && !inText(el) && !el.closest('iframe, [data-turnstile], .cf-turnstile') && !(el.tagName === 'INPUT' && el.getAttribute('tabindex') === '-1'))
+            .filter((el) => shown(el) && !inText(el) && !el.closest('iframe, [data-hcaptcha-widget-id], .h-captcha') && !(el.tagName === 'INPUT' && el.getAttribute('tabindex') === '-1'))
             // Screen-reader-only controls (1 px) are not tapped.
             .filter((el) => el.getBoundingClientRect().width > 2 && el.getBoundingClientRect().height < 43.5)
             .map((el) => `${el.tagName.toLowerCase()} "${label(el)}" ${Math.round(el.getBoundingClientRect().height)}px`);

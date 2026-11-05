@@ -3,14 +3,14 @@
  * "production"), a page opened on any other address — a deployment's own
  * kashroot-…-team-….vercel.app link, www., an old domain — is sent, before
  * anything loads, to the same path and query on the real site: the security
- * check (Cloudflare Turnstile) works only there (error 110200 elsewhere), and
+ * check (hCaptcha, its site's domain list) works only there, and
  * sign-in links and emails all point there.
  *
  * The real site: NEXT_PUBLIC_SITE_URL (else https://kashroot-web.vercel.app);
  * also accepted as-is: kashroot-web.vercel.app and any host listed in
  * NEXT_PUBLIC_SITE_HOSTS (comma-separated), so a custom domain is added
  * without code changes. Preview deployments and this computer are left alone
- * (they use Cloudflare's test key and show a "test copy" banner). API routes
+ * (they use hCaptcha's test key and show a "test copy" banner). API routes
  * and files are not redirected: scheduled jobs and scripts call them as they are.
  *
  * The Admin pages (/admin/…), everywhere: served only with the KashRoot team

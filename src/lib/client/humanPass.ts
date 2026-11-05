@@ -25,7 +25,7 @@ export function needHumanPass(): void {
   if (typeof window !== 'undefined') window.dispatchEvent(new Event('kr-need-human'));
 }
 
-/** Hand the server a fresh Turnstile token; true when the pass was given. */
+/** Hand the server a fresh hCaptcha token; true when the pass was given. */
 export async function claimHumanPass(token: string): Promise<boolean> {
   try {
     const res = await fetch('/api/human', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token }) });

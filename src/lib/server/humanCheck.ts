@@ -1,8 +1,10 @@
 /**
- * Checks the "are you a person?" token (Cloudflare Turnstile,
+ * Checks the "are you a person?" token (hCaptcha,
  * components/security/HumanCheck) on the server, for what Supabase does not
- * check itself: sending sign-in codes and help requests.
- *   TURNSTILE_SECRET_KEY   server only
+ * check itself: the security gate, sending sign-in codes and help requests.
+ * hCaptcha's siteverify (api.hcaptcha.com) must say success, and the token
+ * must have been made on KashRoot's own address.
+ *   HCAPTCHA_SECRET_KEY   server only
  * Not set: every request passes (the check is off), as before. A failed check
  * is logged (lib/server/securityLog). Server-only.
  */
@@ -12,17 +14,19 @@ import { securityEvent } from '@/lib/server/securityLog';
 import { clientIp } from '@/lib/server/sign';
 import { SITE_URL } from '@/lib/site';
 
-export const humanCheckConfigured = () => Boolean(process.env.TURNSTILE_SECRET_KEY?.trim());
+/** The server's hCaptcha secret ('' when the check is off). */
+export const humanSecret = () => process.env.HCAPTCHA_SECRET_KEY?.trim() || '';
+export const humanCheckConfigured = () => Boolean(humanSecret());
 
-/** Cloudflare's test secrets (preview copies, tests): their tokens name no real address. */
-const testSecret = (secret: string) => /^[123]x0{30,}A{2}$/.test(secret);
+/** hCaptcha's test secret (this computer, tests): its tokens name no real address. */
+const testSecret = (secret: string) => /^0x0{40}$/.test(secret);
 /** The addresses a real token may come from: the live one, the site's own, any custom domains listed. */
 const realHosts = () =>
   ['kashroot-web.vercel.app', new URL(SITE_URL).hostname, ...(process.env.NEXT_PUBLIC_SITE_HOSTS ?? '').split(',')].map((h) => h.trim().toLowerCase().replace(/:\d+$/, '')).filter(Boolean);
 
 /** True when the check is off, or the token is a fresh, real one for this site. */
 export async function isHuman(request: Request, token: unknown): Promise<boolean> {
-  const secret = process.env.TURNSTILE_SECRET_KEY?.trim();
+  const secret = humanSecret();
   if (!secret) return true;
   if (typeof token !== 'string' || !token || token.length > 2048) {
     securityEvent('bot_check_failed', { request, detail: 'no token' });
@@ -39,7 +43,7 @@ export async function isHuman(request: Request, token: unknown): Promise<boolean
     securityEvent('bot_check_failed', { request, detail: (data?.['error-codes'] ?? ['no answer']).join(',') });
     return false;
   } catch {
-    // Cloudflare did not answer: let the person through rather than lock everyone out (the rate limits still hold).
+    // hCaptcha did not answer: let the person through rather than lock everyone out (the rate limits still hold).
     return true;
   }
 }
@@ -51,22 +55,25 @@ interface Verdict {
   'error-codes'?: string[];
 }
 
-/** Cloudflare's verdict on one token (it is used up by this). Throws when Cloudflare does not answer. */
+/** hCaptcha's verdict on one token (it is used up by this). Throws when hCaptcha does not answer. */
 async function siteverify(secret: string, token: string, remoteip: string): Promise<Verdict | null> {
   const form = new URLSearchParams({ secret, response: token, remoteip });
-  const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { method: 'POST', body: form, cache: 'no-store', signal: AbortSignal.timeout(5_000) });
+  // The site key too, on the real site: a token from another hCaptcha site is refused ("sitekey-secret-mismatch").
+  const sitekey = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY?.trim();
+  if (sitekey && !testSecret(secret)) form.set('sitekey', sitekey);
+  const res = await fetch('https://api.hcaptcha.com/siteverify', { method: 'POST', body: form, cache: 'no-store', signal: AbortSignal.timeout(5_000) });
   return (await res.json().catch(() => null)) as Verdict | null;
 }
 
 /**
- * The security-check test on /status: Cloudflare's verdict on a fresh token,
- * checked with this server's TURNSTILE_SECRET_KEY — success, error codes,
+ * The security-check test on /status: hCaptcha's verdict on a fresh token,
+ * checked with this server's HCAPTCHA_SECRET_KEY — success, error codes,
  * the address it was made on — never the token or the secret.
- * `otherAddress`: claim a different visitor address, to see whether Cloudflare
+ * `otherAddress`: claim a different visitor address, to see whether hCaptcha
  * holds a token to the visitor's own (Supabase checks from its own servers).
  */
 export async function diagnoseToken(request: Request, token: string, otherAddress: boolean): Promise<{ configured: boolean; success?: boolean; codes?: string[]; hostname?: string; hostnameOk?: boolean; answered: boolean }> {
-  const secret = process.env.TURNSTILE_SECRET_KEY?.trim();
+  const secret = humanSecret();
   if (!secret) return { configured: false, answered: true };
   try {
     const data = await siteverify(secret, token.slice(0, 2048), otherAddress ? '203.0.113.7' : clientIp(request));
@@ -78,36 +85,33 @@ export async function diagnoseToken(request: Request, token: string, otherAddres
 }
 
 /**
- * The security gate's token (lib/server/gate): real, made on KashRoot's own
- * address, and for this very gate (its action, e.g. "gate-buyer"). Cloudflare
- * not answering fails closed here — the gate's Retry tries again.
+ * The security gate's token (lib/server/gate): real (hCaptcha says success)
+ * and made on KashRoot's own address. hCaptcha not answering fails closed
+ * here — the gate's Retry tries again.
  */
-export async function checkGateToken(request: Request, token: unknown, action: string): Promise<{ ok: boolean; reason: string }> {
-  const secret = process.env.TURNSTILE_SECRET_KEY?.trim();
+export async function checkGateToken(request: Request, token: unknown): Promise<{ ok: boolean; reason: string }> {
+  const secret = humanSecret();
   if (!secret) return { ok: true, reason: 'off' };
   if (typeof token !== 'string' || !token || token.length > 2048) return { ok: false, reason: 'no-token' };
   try {
     const data = await siteverify(secret, token, clientIp(request));
     if (!data?.success) return { ok: false, reason: (data?.['error-codes'] ?? ['no-answer']).join(',') || 'refused' };
     if (!testSecret(secret) && !realHosts().includes(String(data.hostname ?? '').toLowerCase())) return { ok: false, reason: 'another-address' };
-    if (!testSecret(secret) && data.action !== action) return { ok: false, reason: 'wrong-action' };
     return { ok: true, reason: 'passed' };
   } catch {
-    return { ok: false, reason: 'cloudflare-no-answer' };
+    return { ok: false, reason: 'hcaptcha-no-answer' };
   }
 }
 
-/** A gate refusal in plain words, by Cloudflare's code or ours (checkGateToken). */
+/** A gate refusal in plain words, by hCaptcha's siteverify code or ours (checkGateToken). */
 export function gateReasonText(reason: string): string {
-  if (reason.includes('timeout-or-duplicate')) return 'the check ran out or was already used. Tap Retry for a fresh one.';
-  if (reason.includes('invalid-input-response')) return 'the check’s answer was not valid. Tap Retry.';
-  if (/(missing|invalid)-input-secret/.test(reason)) return 'KashRoot’s security key is set up wrongly. Please tell KashRoot through Help & support.';
+  if (/expired-input-response|already-seen-response/.test(reason)) return 'the check ran out or was already used. Tap Retry for a fresh one.';
+  if (/(missing|invalid)-input-response/.test(reason)) return 'the check’s answer was not valid. Tap Retry.';
+  if (/(missing|invalid)-input-secret|sitekey-secret-mismatch|not-using-dummy/.test(reason)) return 'KashRoot’s security key is set up wrongly. Please tell KashRoot through Help & support.';
   if (reason === 'another-address') return 'the check was made on another web address. Please open https://kashroot-web.vercel.app and try again.';
-  if (reason === 'wrong-action') return 'the check was made for another page. Tap Retry.';
-  if (reason === 'cloudflare-no-answer') return 'Cloudflare did not answer within 5 seconds. Tap Retry.';
+  if (reason === 'hcaptcha-no-answer') return 'hCaptcha did not answer within 5 seconds. Tap Retry.';
   if (reason === 'no-token') return 'no answer came from the check. Tap Retry.';
-  if (reason.includes('internal-error')) return 'Cloudflare had a problem. Tap Retry.';
-  return `Cloudflare refused it (${reason.slice(0, 40)}). Tap Retry.`;
+  return `hCaptcha refused it (${reason.slice(0, 40)}). Tap Retry.`;
 }
 
-export const NOT_HUMAN = 'The security check was not accepted — it may have run out. A fresh one is ready: please try again.';
+export const NOT_HUMAN = 'The security check was not accepted — it may have run out. Please try again: a fresh check runs when you do.';

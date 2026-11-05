@@ -1,14 +1,14 @@
 /**
  * The security gate (components/security/SecurityGate): every sign-in,
  * sign-up, password-reset and help form shows only after the person passed
- * the "I am human" check. /api/gate checks that token with Cloudflare
- * (success, KashRoot's own address, and the action "gate-<where>") and sets
+ * the "I am human" check. /api/gate checks that token with hCaptcha
+ * (success and KashRoot's own address) and sets
  * the kr_gate cookie: signed, HttpOnly, Secure, SameSite=Lax, 30 minutes,
  * naming where it was passed and bound to the browser (a hash of its user
  * agent). The Supabase proxy refuses sign-in, sign-up, reset and code
  * emails without it; help requests need it too. The form then gets its own,
  * fresh token for Supabase — the gate's token is used up.
- * Off (every request passes) while TURNSTILE_SECRET_KEY is not set.
+ * Off (every request passes) while HCAPTCHA_SECRET_KEY is not set.
  * Server-only.
  */
 import 'server-only';

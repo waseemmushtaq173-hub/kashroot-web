@@ -13,6 +13,8 @@ const originOf = (url?: string, ws = false) => {
 };
 const supabase = originOf(process.env.NEXT_PUBLIC_SUPABASE_URL);
 const dev = process.env.NODE_ENV !== 'production';
+/** hCaptcha's own addresses (script js.hcaptcha.com, frames newassets.hcaptcha.com, API api.hcaptcha.com…). */
+const HCAPTCHA = 'https://hcaptcha.com https://*.hcaptcha.com';
 
 /**
  * Content-Security-Policy: the browser may load scripts, styles and fonts only
@@ -24,17 +26,17 @@ const dev = process.env.NODE_ENV !== 'production';
  */
 const CSP = [
   "default-src 'self'",
-  // Cloudflare Turnstile: the "I am human" check (components/security/HumanCheck).
-  `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com${dev ? " 'unsafe-eval'" : ''}`,
-  "style-src 'self' 'unsafe-inline'",
+  // hCaptcha: the "I am human" check (components/security/HumanCheck) — its script, puzzle frame, styles and API.
+  `script-src 'self' 'unsafe-inline' ${HCAPTCHA}${dev ? " 'unsafe-eval'" : ''}`,
+  `style-src 'self' 'unsafe-inline' ${HCAPTCHA}`,
   `img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://images.unsplash.com https://upload.wikimedia.org ${supabase}`.trim(),
   "font-src 'self' data:",
-  ['connect-src', "'self'", 'https://api.data.gov.in', 'https://challenges.cloudflare.com', supabase, originOf(supabase, true), dev ? 'ws: http://localhost:* http://127.0.0.1:*' : ''].filter(Boolean).join(' '),
+  ['connect-src', "'self'", 'https://api.data.gov.in', HCAPTCHA, supabase, originOf(supabase, true), dev ? 'ws: http://localhost:* http://127.0.0.1:*' : ''].filter(Boolean).join(' '),
   "media-src 'self' blob: data:",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
-  "frame-src 'self' https://challenges.cloudflare.com",
-  "child-src 'self' blob: https://challenges.cloudflare.com",
+  `frame-src 'self' ${HCAPTCHA}`,
+  `child-src 'self' blob: ${HCAPTCHA}`,
   "frame-ancestors 'none'",
   "object-src 'none'",
   "base-uri 'self'",

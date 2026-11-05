@@ -108,14 +108,14 @@ function OptionalServices() {
     { name: 'Server secret (KYC_DB_SECRET)', on: state.server, onText: 'set — identity checks, shared limits, the security log and help requests work', offText: 'not set — add it in Vercel (see SECURITY.md)' },
     // The site key is built into the pages (NEXT_PUBLIC_, at deploy time); the secret is read by the server now.
     state.human === humanCheckOn
-      ? { name: '“I am human” check (Turnstile)', on: state.human, onText: 'on — both keys set; Supabase CAPTCHA may be on', offText: 'off — optional. While it is off, Supabase CAPTCHA must stay OFF too, or nobody can sign in', optional: true }
+      ? { name: '“I am human” check (hCaptcha)', on: state.human, onText: 'on — both keys set; Supabase CAPTCHA may be on', offText: 'off — optional. While it is off, Supabase CAPTCHA must stay OFF too, or nobody can sign in', optional: true }
       : {
-          name: '“I am human” check (Turnstile)',
+          name: '“I am human” check (hCaptcha)',
           on: false,
           onText: '',
           offText: state.human
-            ? 'half set up — TURNSTILE_SECRET_KEY is set, but NEXT_PUBLIC_TURNSTILE_SITE_KEY is not in this deployment, so forms show no check. Keep Supabase CAPTCHA OFF; add the site key in Vercel and redeploy'
-            : 'half set up — the site key is in the pages, but TURNSTILE_SECRET_KEY is missing on the server, so codes, help requests and the assistant are not checked. Add it in Vercel and redeploy',
+            ? 'half set up — HCAPTCHA_SECRET_KEY is set, but NEXT_PUBLIC_HCAPTCHA_SITE_KEY is not in this deployment, so forms show no check. Keep Supabase CAPTCHA OFF; add the site key in Vercel and redeploy'
+            : 'half set up — the site key is in the pages, but HCAPTCHA_SECRET_KEY is missing on the server, so codes, help requests and the assistant are not checked. Add it in Vercel and redeploy',
         },
     { name: 'Support email', on: state.mail, onText: `set — emails are sent from ${state.mailFrom}; help requests go to ${state.inbox}`, offText: 'not set — the site works, but sends no emails: add SMTP_HOST, SMTP_PORT, SMTP_USER and SMTP_PASS in Vercel and redeploy' },
     { name: 'Voice', on: state.voice, onText: 'KashRoot voice (Google neural voices)', offText: 'browser voice (optional upgrade) — answers are read by the phone’s own voice; adding GOOGLE_TTS_API_KEY in Vercel switches to KashRoot’s voice', optional: true },
@@ -140,7 +140,11 @@ function OptionalServices() {
   );
 }
 
-/** "Bot check: token received in X s" — a real check in this browser, timed (the token is never sent anywhere). */
+/**
+ * "Bot check: hCaptcha OK" — a real check in this browser, timed, and its
+ * token checked once by KashRoot's server with hCaptcha (/api/human
+ * diagnose: success, the address it was made on — never the token).
+ */
 function BotCheckTiming() {
   const human = useHumanCheck('setup');
   const { token } = human;
@@ -149,15 +153,29 @@ function BotCheckTiming() {
     let live = true;
     const started = performance.now();
     void token()
-      .then((t) => {
+      .then(async (t) => {
         if (!live) return;
         const secs = Math.round((performance.now() - started) / 100) / 10;
         const { mode, why } = checkMode();
-        setState(
-          t
-            ? { ok: mode === 'real', text: `Bot check: token received in ${secs} s — ${mode === 'real' ? 'real key' : 'Cloudflare test key'} (${why}). Whether Supabase and Vercel accept it: /status → Test the security check.` }
-            : { ok: false, text: 'Bot check: off — no site key in this deployment. Keep Supabase CAPTCHA OFF, or add NEXT_PUBLIC_TURNSTILE_SITE_KEY in Vercel (tick Production) and redeploy.' },
-        );
+        if (!t) return setState({ ok: false, text: 'Bot check: off — no site key in this deployment. Keep Supabase CAPTCHA OFF, or add NEXT_PUBLIC_HCAPTCHA_SITE_KEY in Vercel (tick Production) and redeploy.' });
+        const v = (await fetch('/api/human', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ diagnose: t }) })
+          .then((r) => r.json())
+          .catch(() => null)) as { configured?: boolean; answered?: boolean; success?: boolean; codes?: string[]; hostname?: string; hostnameOk?: boolean } | null;
+        if (!live) return;
+        const key = mode === 'real' ? 'real key' : 'hCaptcha test key';
+        if (v?.success && v.hostnameOk && mode === 'real') return setState({ ok: true, text: `Bot check: hCaptcha OK — token in ${secs} s, accepted by KashRoot’s server (made on ${v.hostname}). Supabase’s side: /status → Test the security check.` });
+        setState({
+          ok: false,
+          text: !v
+            ? `Bot check: token in ${secs} s (${key}), but KashRoot’s server did not answer. Reload this page.`
+            : !v.configured
+              ? 'Bot check: HCAPTCHA_SECRET_KEY is missing in Vercel — add it (all environments) and redeploy.'
+              : !v.answered
+                ? 'Bot check: hCaptcha did not answer KashRoot’s server. Reload this page.'
+                : v.success
+                  ? `Bot check: token accepted, ${v.hostnameOk ? `but this is a test copy (${key}; ${why})` : `but it was made on ${v.hostname || 'an unknown address'}, not KashRoot’s address`}.`
+                  : `Bot check: hCaptcha refused the token (${(v.codes ?? []).join(', ') || 'no reason'}) — ${(v.codes ?? []).some((c) => /secret|sitekey/.test(c)) ? 'NEXT_PUBLIC_HCAPTCHA_SITE_KEY and HCAPTCHA_SECRET_KEY in Vercel are not from the same hCaptcha account/site' : key}.`,
+        });
       })
       .catch((e: Error) => live && setState({ ok: false, text: `Bot check: no token — ${e.message}` }));
     return () => {

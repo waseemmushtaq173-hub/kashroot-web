@@ -42,13 +42,33 @@ const KIND: Record<string, { label: string; warn?: boolean }> = {
 };
 
 /**
- * What each security-check code means: every Cloudflare Turnstile client code family
- * (developers.cloudflare.com/turnstile/troubleshooting/client-side-errors/error-codes),
- * Cloudflare's server answers, Supabase's reasons and KashRoot's own. First match wins.
+ * What each security-check code means: hCaptcha's codes in the browser
+ * (docs.hcaptcha.com/configuration#error-codes) and from its siteverify,
+ * Supabase's reasons, KashRoot's own, and — for events from before the switch
+ * to hCaptcha — Cloudflare Turnstile's. First match wins.
  */
 const CODE_MEANING: [RegExp, string][] = [
   [/\[number\]/, 'an older record, saved before codes were kept whole — choose “Since the last fix” to see only new events'],
-  // Cloudflare, in the browser.
+  // hCaptcha, in the browser.
+  [/^network-error/, 'hCaptcha: the browser lost its connection to hCaptcha (weak signal, VPN, firewall or ad-block)'],
+  [/^script-error/, 'hCaptcha: its script failed to run in this browser (often an extension or an old browser)'],
+  [/^internal-error/, 'hCaptcha: a problem inside hCaptcha (usually passes on Retry)'],
+  [/^challenge-error/, 'hCaptcha: the puzzle could not load or run'],
+  [/^challenge-closed/, 'hCaptcha: the person closed the puzzle without answering'],
+  [/^challenge-expired/, 'hCaptcha: the puzzle was left unanswered until it ran out'],
+  [/^rate-limited/, 'hCaptcha: too many checks from one network (a bot, or many people on one network)'],
+  [/^invalid-data/, 'hCaptcha: bad data passed to the widget (a KashRoot problem)'],
+  [/^missing-captcha|^invalid-captcha-id/, 'hCaptcha: the widget was gone when it was asked (the form had closed; a KashRoot problem)'],
+  [/^error$/, 'hCaptcha: an error with no code'],
+  // hCaptcha's siteverify (KashRoot's server or Supabase checking a token).
+  [/sitekey-secret-mismatch/, 'hCaptcha: the site key and the secret are from different hCaptcha accounts or sites (Vercel or Supabase settings)'],
+  [/expired-input-response/, 'hCaptcha: the token was older than 2 minutes when it was checked'],
+  [/already-seen-response/, 'hCaptcha: a token used twice'],
+  [/missing-input-response/, 'hCaptcha: no token was sent'],
+  [/not-using-dummy-passcode/, 'hCaptcha: a test-key token checked with the real secret (a test copy of the site)'],
+  [/missing-remoteip|invalid-remoteip|bad-request/, 'hCaptcha: KashRoot’s server sent a malformed check (a KashRoot problem)'],
+  [/^gate: hcaptcha-no-answer/, 'hCaptcha did not answer KashRoot’s server within 5 s'],
+  // Cloudflare Turnstile, in the browser (before the switch to hCaptcha).
   [/^1000\d\d/, 'Cloudflare’s box could not start on the page (often an old copy of the page: reload)'],
   [/^10[2346]\d{3}/, 'the box was set up with a wrong setting (a KashRoot problem, not the person’s)'],
   [/^105\d{3}/, 'an outdated way of loading Cloudflare’s script (a KashRoot problem)'],
@@ -71,23 +91,23 @@ const CODE_MEANING: [RegExp, string][] = [
   [/^400\d{3}/, 'a wrong site key, size or theme in the box’s set-up (a KashRoot problem)'],
   // The gate: KashRoot's server checking the token with Cloudflare.
   [/^gate: missing/, 'a sign-in, sign-up, reset or help request sent without passing the security gate first (a script, or a very old page)'],
-  [/^gate: wrong-action/, 'a token made for a different form'],
+  [/^gate: wrong-action/, 'Cloudflare (before the switch): a token made for a different form'],
   [/^gate: another-address/, 'a real token made on a different site'],
   [/^gate: no-token/, 'the gate got no token at all'],
-  [/^gate: cloudflare-no-answer/, 'Cloudflare did not answer KashRoot’s server within 5 s'],
+  [/^gate: cloudflare-no-answer/, 'Cloudflare (before the switch) did not answer KashRoot’s server within 5 s'],
   [/^gate: .*internal-error/, 'Cloudflare had a problem checking the token'],
   // Cloudflare's own answers, on the server (gate or form) or relayed by Supabase.
-  [/invalid-input-response/, 'a token Cloudflare did not accept: fake, or from a different widget than the secret (KashRoot’s own tests send fake ones)'],
-  [/timeout-or-duplicate/, 'a token used twice or too old'],
-  [/(missing|invalid)-input-secret/, 'the secret itself is wrong (Supabase → Auth → Bot protection, and TURNSTILE_SECRET_KEY in Vercel)'],
+  [/invalid-input-response/, 'a token that was not accepted: fake, or from a different site than the secret (KashRoot’s own tests send fake ones)'],
+  [/timeout-or-duplicate/, 'Cloudflare (before the switch): a token used twice or too old'],
+  [/(missing|invalid)-input-secret/, 'the secret itself is wrong (Supabase → Authentication → Attack Protection, and HCAPTCHA_SECRET_KEY in Vercel)'],
   [/^supabase-captcha_failed/, 'Supabase refused the form’s token (its CAPTCHA check)'],
   [/^supabase-/, 'Supabase refused the form’s token (the part after “supabase-” says why)'],
   [/^gate: /, 'the security gate refused the token (the part after “gate:” says why)'],
   // KashRoot's own checks.
   [/^honeypot/, 'a bot filled in the hidden field'],
   [/^too-fast/, 'a form sent faster than a person can type'],
-  [/^script-blocked/, 'Cloudflare’s script could not load (Brave Shields, ad-block or no network)'],
-  [/^no-answer|^no answer/, 'no answer from Cloudflare within 8 s'],
+  [/^script-blocked/, 'hCaptcha’s script could not load (Brave Shields, ad-block or no network)'],
+  [/^no-answer|^no answer/, 'no answer from the check within 8 s (20 s at the gate)'],
   [/^reset-failed/, 'the check could not restart (the form had been closed)'],
   [/^unsupported/, 'this browser cannot run the check'],
   [/^no token/, 'a request came with no token at all'],

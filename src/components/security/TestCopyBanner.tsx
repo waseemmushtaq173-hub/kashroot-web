@@ -2,7 +2,7 @@
 
 /**
  * A plain banner on a test copy of KashRoot (a Vercel preview, this computer):
- * the security check uses Cloudflare's test key there, so signing in with
+ * the security check uses hCaptcha's test key there, so signing in with
  * Supabase's CAPTCHA on does not work — the real site is one tap away.
  * Nothing on the real site (components/security/HumanCheck checkMode()).
  */

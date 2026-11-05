@@ -16,7 +16,9 @@ test('every page sends the security headers', async ({ request }) => {
   const csp = h['content-security-policy'];
   expect(csp).toContain("object-src 'none'");
   expect(csp).toContain("frame-ancestors 'none'");
-  expect(csp).toMatch(/script-src 'self' 'unsafe-inline' https:\/\/challenges\.cloudflare\.com(;| )/);
+  expect(csp).toMatch(/script-src 'self' 'unsafe-inline' https:\/\/hcaptcha\.com https:\/\/\*\.hcaptcha\.com(;| )/);
+  for (const d of ['frame-src', 'style-src', 'connect-src']) expect(csp).toMatch(new RegExp(`${d} [^;]*https://\\*\\.hcaptcha\\.com`));
+  expect(csp).not.toContain('cloudflare');
 });
 
 test('the AI photo checks refuse anyone not signed in', async ({ request }) => {
@@ -50,11 +52,11 @@ test('no secret reaches the browser', async ({ page }) => {
   });
   await page.goto('/');
   await page.goto('/login/farmer');
-  // Not "network idle": the "I am human" check keeps a connection to Cloudflare open.
+  // Not "network idle": the "I am human" check keeps a connection to hCaptcha open.
   await page.waitForLoadState('load');
   await page.waitForTimeout(3000);
   const all = bodies.join('\n');
-  expect(all).not.toMatch(/sk-ant-[A-Za-z0-9_-]{10}|sb_secret_[A-Za-z0-9]{10}|SUPABASE_SERVICE_ROLE|KYC_DB_SECRET\s*[:=]\s*["'][^"']+|TURNSTILE_SECRET_KEY\s*[:=]\s*["'][^"']+/);
+  expect(all).not.toMatch(/sk-ant-[A-Za-z0-9_-]{10}|sb_secret_[A-Za-z0-9]{10}|SUPABASE_SERVICE_ROLE|KYC_DB_SECRET\s*[:=]\s*["'][^"']+|HCAPTCHA_SECRET_KEY\s*[:=]\s*["'][^"']+/);
   // Any Supabase JWT in the page is the public anon key, never a service-role one.
   for (const jwt of all.match(/eyJ[\w-]{10,}\.eyJ[\w-]{10,}\.[\w-]{10,}/g) ?? []) {
     expect(JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString()).role).not.toBe('service_role');
@@ -64,7 +66,7 @@ test('no secret reaches the browser', async ({ page }) => {
 test('the AI and voice need the "I am human" pass when the check is on', async ({ request }) => {
   const status = (await (await request.get('/api/human')).json()) as { on: boolean; pass: boolean };
   expect(Object.keys(status).sort()).toEqual(['on', 'pass']);
-  test.skip(!status.on, 'The check is off on this server (no TURNSTILE_SECRET_KEY).');
+  test.skip(!status.on, 'The check is off on this server (no HCAPTCHA_SECRET_KEY).');
   expect(status.pass).toBe(false);
   const ask = await request.post('/api/ai', { data: { query: 'how do I sell apples', lang: 'en' } });
   expect(ask.status()).toBe(403);
@@ -75,6 +77,6 @@ test('the AI and voice need the "I am human" pass when the check is on', async (
   // 403 without a pass — or 503 when the voice is not set up at all on this server.
   expect([403, 503]).toContain((await request.get('/api/speak?l=en&t=hello%20there')).status());
   expect((await request.post('/api/label', { data: { photo: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD' } })).status()).toBe(403);
-  // A fake Turnstile token gets no pass.
+  // A fake hCaptcha token gets no pass.
   expect((await request.post('/api/human', { data: { token: 'fake' } })).status()).toBe(403);
 });

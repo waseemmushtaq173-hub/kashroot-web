@@ -492,7 +492,7 @@ export function GateSettingsPanel() {
     const { error } = await supabase.rpc('kr_super_set_gate_tap', { p_on: !tap });
     setBusy(false);
     if (error) return toast.error(error.message);
-    toast.success(tap ? 'Off: Cloudflare decides when to ask for a tap.' : 'On: everyone taps to confirm.');
+    toast.success(tap ? 'Off: hCaptcha decides when to ask for a tap.' : 'On: everyone taps to confirm.');
     await load();
   };
   return (
@@ -501,10 +501,10 @@ export function GateSettingsPanel() {
         <div className="min-w-0 flex-1 text-sm text-slate-700">
           <p className="font-semibold text-slate-900">Ask everyone to tap the box</p>
           <p className="mt-1">
-            <strong>Off (recommended):</strong> Cloudflare checks every sign-in, sign-up, reset and help form, and asks for a tap only when it is unsure — most people pass in a second or two. People always see its box go “Verifying…” → “Success!”.
+            <strong>Off (recommended):</strong> hCaptcha checks every sign-in, sign-up, reset and help form, and opens its puzzle only when it is unsure — most people pass in a second or two. People see “Checking you’re human…” while it works.
           </p>
           <p className="mt-1">
-            <strong>On:</strong> everyone also presses “Tap to confirm you’re human”. People notice it, but it is not a stronger proof — Cloudflare’s check, verified on KashRoot’s server, is the proof either way — and it costs a moment and a tap for farmers on small screens, slow phones and patchy data.
+            <strong>On:</strong> everyone also presses “Tap to confirm you’re human”. People notice it, but it is not a stronger proof — hCaptcha’s check, verified on KashRoot’s server, is the proof either way — and it costs a moment and a tap for farmers on small screens, slow phones and patchy data.
           </p>
         </div>
         <Btn theme={theme} variant={tap ? 'solid' : 'ghost'} icon={Hand} className="min-h-11" disabled={tap === null || busy} aria-pressed={Boolean(tap)} onClick={() => void flip()}>

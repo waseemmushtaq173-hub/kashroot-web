@@ -8,7 +8,7 @@
  *
  * Refuses unless the Supabase URL is localhost / 127.0.0.1: it never touches the live database.
  * Writes .env.test (gitignored by `.env.*`): the local Supabase URL and keys, local-only signing
- * secrets, Cloudflare's public TEST keys, and the test accounts' random passwords. Prints none of
+ * secrets, hCaptcha's public TEST keys, and the test accounts' random passwords. Prints none of
  * them. Every test account is @example.test; every row it writes says "TEST" in a visible field.
  *
  * Build and run the site against it (process env overrides .env.local):
@@ -84,9 +84,9 @@ const env = {
   NEXT_PUBLIC_SUPABASE_ANON_KEY: ANON,
   // Seeding only, on this computer. Never set in Vercel.
   LOCAL_SUPABASE_SERVICE_ROLE_KEY: SERVICE,
-  // Cloudflare Turnstile's public test keys (always pass).
-  NEXT_PUBLIC_TURNSTILE_SITE_KEY: '1x00000000000000000000AA',
-  TURNSTILE_SECRET_KEY: '1x0000000000000000000000000000000AA',
+  // hCaptcha's public test keys (always pass).
+  NEXT_PUBLIC_HCAPTCHA_SITE_KEY: '10000000-ffff-ffff-ffff-000000000001',
+  HCAPTCHA_SECRET_KEY: '0x0000000000000000000000000000000000000000',
   OTP_SECRET: secret('OTP_SECRET', () => randomBytes(32).toString('base64url')),
   KYC_DB_SECRET: secret('KYC_DB_SECRET', () => randomBytes(32).toString('base64url')),
   NEXT_PUBLIC_SITE_URL: 'http://localhost:3600',

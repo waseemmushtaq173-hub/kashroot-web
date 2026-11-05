@@ -42,7 +42,7 @@ function totp(b32: string, at = Date.now()) {
   return String((h.readUInt32BE(o) & 0x7fffffff) % 1_000_000).padStart(6, '0');
 }
 
-/** The portal's own sign-in: the security check passes by itself (Cloudflare test key), then email and password. */
+/** The portal's own sign-in: the security check passes by itself (hCaptcha test key), then email and password. */
 async function signIn(page: Page, portal: string, key: string, next?: string) {
   await page.goto(`/login/${portal}${next ? `?next=${encodeURIComponent(next)}` : ''}`);
   await page.getByLabel('Email address').fill(`test-${key.toLowerCase()}@example.test`, { timeout: 30_000 });

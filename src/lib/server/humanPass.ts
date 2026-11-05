@@ -1,12 +1,12 @@
 /**
- * The "human pass": after one "I am human" check (Cloudflare Turnstile,
+ * The "human pass": after one "I am human" check (hCaptcha,
  * lib/server/humanCheck), the browser gets a signed cookie for an hour, so
  * the assistant, KashRoot's voice and the AI photo checks — called many times
  * in a row, where a one-time token does not fit — serve people, not scripts.
  *   kr_human = <expiry>.<browser hash>.<signature>   HttpOnly, Secure, SameSite=Lax
- * The signature is an HMAC with a key derived from TURNSTILE_SECRET_KEY (server
+ * The signature is an HMAC with a key derived from HCAPTCHA_SECRET_KEY (server
  * only); the browser hash ties it to the browser it was given to. When the
- * check is off (no TURNSTILE_SECRET_KEY) every request passes, as before.
+ * check is off (no HCAPTCHA_SECRET_KEY) every request passes, as before.
  * The per-network, per-account and per-day limits apply on top. Server-only.
  */
 import 'server-only';
@@ -16,7 +16,7 @@ import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 const COOKIE = 'kr_human';
 const HOUR = 3600;
 
-const secret = () => process.env.TURNSTILE_SECRET_KEY?.trim() || '';
+const secret = () => process.env.HCAPTCHA_SECRET_KEY?.trim() || '';
 export const humanPassOn = () => Boolean(secret());
 
 const key = () => createHash('sha256').update(`kr-human-pass|${secret()}`).digest();

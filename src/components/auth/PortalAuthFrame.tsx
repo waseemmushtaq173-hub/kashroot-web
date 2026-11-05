@@ -66,7 +66,7 @@ export function PortalAuthFrame({ portal, labelledBy, children }: { portal: Port
           <p className="mt-8 hidden text-xs text-white/80 lg:mt-auto lg:block">Pay-after-delivery trade · Verified growers, traders and buyers</p>
         </section>
 
-        {/* On a phone the padding leaves room for Cloudflare's 300 px box inside the check card (no overflow, no jump). */}
+        {/* On a phone the padding leaves room for hCaptcha's 300 px checkbox inside the check card (no overflow, no jump). */}
         <section aria-labelledby={labelledBy} className="min-w-0 bg-white/80 px-4 py-6 text-slate-900 sm:p-10">
           <InAppBrowserNotice />
           {children}

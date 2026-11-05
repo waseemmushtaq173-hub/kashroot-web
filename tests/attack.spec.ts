@@ -142,7 +142,7 @@ test.describe('the attack suite', () => {
     // No gate passed in this "browser": the proxy refuses sign-up and reset emails too.
     expect((await request.get('/api/gate')).ok()).toBe(true);
     expect(((await (await request.get('/api/gate')).json()) as { passed: boolean }).passed).toBe(false);
-    // (On this computer Cloudflare's test secret passes any token: a fake one is refused on the live site only.)
+    // (On this computer hCaptcha's test secret passes its test tokens: a fake one is refused on the live site only.)
     if (/^https:/.test(process.env.KR_BASE_URL ?? '')) expect((await request.post('/api/gate', { data: { token: 'XXXX.fake', place: 'buyer' } })).status()).toBe(403);
     expect((await request.post('/api/gate', { data: { token: 'XXXX.fake', place: '../admin' } })).status()).toBe(400);
     const forged = await request.get('/api/gate', { headers: { cookie: `kr_gate=buyer.${Math.floor(Date.now() / 1000) + 600}.AAAAAAAAAAAAAAAA.forged` } });

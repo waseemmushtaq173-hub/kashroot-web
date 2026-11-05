@@ -7,7 +7,7 @@
  *  - the team functions refuse anyone not signed in, and a fake token.
  * Signed-in outsiders (dealer, business owner and staff, farmer) and a team member with one
  * section ticked: supabase/tests/99d_kashroot_team.sql (the database decides; accounts there
- * are made without Cloudflare, which a test on the live site cannot do).
+ * are made without hCaptcha, which a test on the live site cannot do).
  * KR_BASE_URL says where the site runs.
  */
 import { expect, test } from '@playwright/test';
