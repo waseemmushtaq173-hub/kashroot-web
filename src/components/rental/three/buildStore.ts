@@ -16,10 +16,10 @@
  * loaded only when the 3D view opens.
  */
 import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
-import { binTexture, cartonTexture, concreteTexture, crateTexture, fanTexture, ghostTexture, gratingTexture, labelCanvas, panelTexture } from '@/components/rental/three/textures';
+import { binTexture, cartonTexture, concreteTexture, crateTexture, fanTexture, ghostTexture, gratingTexture, labelCanvas, panelTexture, plateTexture } from '@/components/rental/three/textures';
 import type { Route } from '@/components/rental/walk/route';
 import { buildFixtures } from '@/components/rental/three/fixtures';
-import { midOf, segLength, type Kind, type Rect, type Seg, type StoreScene } from '@/components/rental/three/storeScene';
+import { type Kind, midOf, type Rect, rowPlates, type Seg, segLength, type StoreScene } from '@/components/rental/three/storeScene';
 import { countText } from '@/lib/coldStore';
 
 type Three = typeof import('three');
@@ -269,6 +269,10 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
   const walls: Mesh[] = [];
   const labels: Shell['labels'] = [];
   const add = (m: Obj) => (group.add(m), m);
+  // Every row's number plate (storeScene rowPlates): a yellow plate on a slim steel post at the row's aisle end.
+  const plates = rowPlates(scene);
+  const postGeo = new T.BoxGeometry(0.04, 1, 0.04);
+  const plateGeo = new T.PlaneGeometry(0.42, 0.26);
   const box = (w: number, h: number, d: number, x: number, y: number, z: number, mat: Mat) => {
     const m = new T.Mesh(new T.BoxGeometry(w, h, d), mat);
     m.position.set(x, y, z);
@@ -450,6 +454,21 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
         t.position.set(wx(o, cxp), f.z0 + 0.3, wz(o, cyp));
         add(t);
       }
+    }
+    for (const p of plates) {
+      if (p.chamber !== c.index) continue;
+      const base = c.floors[p.floor].z0;
+      const post = new T.Mesh(postGeo, mats.beam);
+      post.scale.y = p.z + 0.13 - base;
+      post.position.set(wx(o, p.at.x), base + post.scale.y / 2, wz(o, p.at.y));
+      add(post);
+      const tex = plateTexture(T, p.row);
+      const plate = new T.Mesh(plateGeo, new T.MeshBasicMaterial({ map: tex, side: T.DoubleSide }));
+      // Just in front of the post, facing the aisle (plan y runs the other way from the scene's z).
+      plate.position.set(wx(o, p.at.x + p.facing.x * 0.03), p.z, wz(o, p.at.y + p.facing.y * 0.03));
+      plate.rotation.y = Math.atan2(p.facing.x, -p.facing.y);
+      plate.userData.plate = p.row;
+      add(plate);
     }
     if (c.floors.length > 1) {
       for (const [x, y] of [[r.x + 0.1, r.y + 0.1], [r.x + r.w - 0.1, r.y + 0.1], [r.x + 0.1, r.y + r.d - 0.1], [r.x + r.w - 0.1, r.y + r.d - 0.1]]) {

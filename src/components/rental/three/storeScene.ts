@@ -475,3 +475,70 @@ export function insideDoor(c: SceneChamber, depth = 0.8): Vec {
   const m = c.door ? midOf(c.door) : { x: c.rect.x + c.rect.w / 2, y: c.rect.y };
   return { x: m.x + c.inward.x * depth, y: m.y + c.inward.y * depth };
 }
+
+/** A row's number plate: on a slim post at the end of the row that opens onto the aisle. */
+export interface RowPlate {
+  chamber: number;
+  /** The floor's index in its chamber, and the row number shown. */
+  floor: number;
+  row: number;
+  /** Where the post stands, how high the plate's middle is above the ground, and which way the plate faces. */
+  at: Vec;
+  z: number;
+  facing: Vec;
+}
+
+/** Plates stand this far from the end of a row, and this high above their floor (lower under a low floor above). */
+export const PLATE_GAP = 0.12;
+export const PLATE_HEIGHT = 1.7;
+
+const inRect = (p: Vec, r: Rect, margin = 0) => p.x > r.x + margin && p.x < r.x + r.w - margin && p.y > r.y + margin && p.y < r.y + r.d - margin;
+
+/**
+ * One number plate for every row on every floor of every chamber drawn to
+ * scale, as stores hang them: beside the row where people walk past — at
+ * the edge of the walkway in from the door (which may cut through the rows),
+ * else nearest the door — facing that way, inside the chamber and clear of
+ * every stack.
+ */
+export function rowPlates(scene: StoreScene): RowPlate[] {
+  const out: RowPlate[] = [];
+  for (const c of scene.chambers) {
+    if (!c.toScale) continue;
+    const left = { x: -c.inward.y, y: c.inward.x };
+    c.floors.forEach((f, fi) => {
+      const byRow = new Map<number, ScenePlace[]>();
+      for (const p of f.places) byRow.set(p.row, [...(byRow.get(p.row) ?? []), p]);
+      for (const [row, places] of byRow) {
+        const sorted = [...places].sort((a, b) => a.col - b.col);
+        const centre = (p: ScenePlace) => ({ x: p.rect.x + p.rect.w / 2, y: p.rect.y + p.rect.d / 2 });
+        // Along the row (a row of one: across the chamber, side to side).
+        const a = centre(sorted[0]);
+        const z = centre(sorted[sorted.length - 1]);
+        const len = Math.hypot(z.x - a.x, z.y - a.y);
+        const along = len > 1e-6 ? { x: (z.x - a.x) / len, y: (z.y - a.y) / len } : left;
+        // Where people walk: the walkway in from the door (it may cut through the rows), else the door itself.
+        const door = c.door ? midOf(c.door) : { x: c.rect.x + c.rect.w / 2, y: c.rect.y };
+        const reach = (v: Vec) => {
+          const w = f.walkway;
+          if (!w) return Math.hypot(v.x - door.x, v.y - door.y);
+          return Math.hypot(Math.max(w.x - v.x, 0, v.x - w.x - w.w), Math.max(w.y - v.y, 0, v.y - w.y - w.d));
+        };
+        // Beside either side of any stack of the row, in the open: the spot nearest where people walk.
+        const spots = sorted
+          .flatMap((p) =>
+            [1, -1].map((sg) => {
+              const dir = { x: along.x * sg, y: along.y * sg };
+              const half = Math.abs(dir.x) * (p.rect.w / 2) + Math.abs(dir.y) * (p.rect.d / 2);
+              const v = centre(p);
+              return { dir, at: { x: v.x + dir.x * (half + PLATE_GAP), y: v.y + dir.y * (half + PLATE_GAP) } };
+            }),
+          )
+          .filter(({ at }) => inRect(at, c.rect, 0.05) && !f.places.some((q) => inRect(at, q.rect)))
+          .sort((x, y) => reach(x.at) - reach(y.at));
+        if (spots.length) out.push({ chamber: c.index, floor: fi, row, at: spots[0].at, z: f.z0 + Math.min(PLATE_HEIGHT, Math.max(0.6, f.h - 0.35)), facing: spots[0].dir });
+      }
+    });
+  }
+  return out;
+}

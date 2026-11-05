@@ -6,9 +6,10 @@
  */
 import { expect, test } from '@playwright/test';
 
-import { buildScene, type StoreScene } from '@/components/rental/three/storeScene';
+import { buildScene, PLATE_GAP, rowPlates, type StoreScene } from '@/components/rental/three/storeScene';
 import { routeTo } from '@/components/rental/walk/route';
 import { planOf } from '@/lib/coldLayout';
+import { pickNearest } from '@/lib/db/coldMap';
 import { blankChamber, blankStore, draftFromSaved, previewChambers, storeModel, type ChamberDraft, type StoreDraft } from '@/lib/coldStore';
 
 const CM = 0.01;
@@ -79,6 +80,42 @@ test('every place and stack stands inside its chamber, under its floor', () => {
     expect(r.x + r.w).toBeLessThanOrEqual(scene.hall.x + scene.hall.w + CM);
     expect(r.y + r.d).toBeLessThanOrEqual(scene.hall.y + scene.hall.d + CM);
   }
+});
+
+test('every row on every floor has one number plate, at its end, inside the chamber and clear of the stacks', () => {
+  const { scene } = built(sample());
+  const plates = rowPlates(scene);
+  for (const c of scene.chambers) {
+    c.floors.forEach((f, fi) => {
+      const rows = [...new Set(f.places.map((p) => p.row))];
+      const mine = plates.filter((p) => p.chamber === c.index && p.floor === fi);
+      expect(mine.map((p) => p.row).sort((a, b) => a - b), `${c.name} floor ${fi + 1}: one plate per row`).toEqual(rows.sort((a, b) => a - b));
+      for (const plate of mine) {
+        const r = c.rect;
+        expect(plate.at.x > r.x && plate.at.x < r.x + r.w && plate.at.y > r.y && plate.at.y < r.y + r.d, `${c.name} row ${plate.row}: inside`).toBe(true);
+        for (const q of f.places) {
+          const inside = plate.at.x > q.rect.x && plate.at.x < q.rect.x + q.rect.w && plate.at.y > q.rect.y && plate.at.y < q.rect.y + q.rect.d;
+          expect(inside, `${c.name} row ${plate.row}: not inside a stack`).toBe(false);
+        }
+        // Right at the end of its own row: PLATE_GAP from the nearest stack of that row.
+        const gap = Math.min(...f.places.filter((q) => q.row === plate.row).map((q) => Math.hypot(Math.max(q.rect.x - plate.at.x, 0, plate.at.x - q.rect.x - q.rect.w), Math.max(q.rect.y - plate.at.y, 0, plate.at.y - q.rect.y - q.rect.d))));
+        expect(gap, `${c.name} row ${plate.row}: at the row's end`).toBeCloseTo(PLATE_GAP, 5);
+        // Between this floor and the next, at eye level or under the floor above.
+        expect(plate.z).toBeGreaterThan(f.z0);
+        expect(plate.z).toBeLessThan(f.z0 + f.h);
+        expect(Math.hypot(plate.facing.x, plate.facing.y)).toBeCloseTo(1, 5);
+        // On the side people walk: nearer the walkway than the middle of its row is.
+        const w = f.walkway;
+        if (w) {
+          const reach = (v: { x: number; y: number }) => Math.hypot(Math.max(w.x - v.x, 0, v.x - w.x - w.w), Math.max(w.y - v.y, 0, v.y - w.y - w.d));
+          const row = f.places.filter((q) => q.row === plate.row);
+          const mid = { x: row.reduce((t, q) => t + q.rect.x + q.rect.w / 2, 0) / row.length, y: row.reduce((t, q) => t + q.rect.y + q.rect.d / 2, 0) / row.length };
+          expect(reach(plate.at), `${c.name} row ${plate.row}: on the walkway side`).toBeLessThanOrEqual(reach(mid));
+        }
+      }
+    });
+  }
+  expect(plates.length).toBeGreaterThan(0);
 });
 
 test('aisle widths, doors and sizes match the inputs to the centimetre', () => {
@@ -183,4 +220,40 @@ test('the way to a place on an upper floor is said in Kashmiri, Urdu, Hindi and 
   for (const l of ['en', 'hi', 'ur', 'ks'] as const) expect(last[l]).toContain(String(p.row));
   // Every point of the way stands in the store, ending on the place's floor.
   expect(route.points[route.points.length - 1].level).toBe(2);
+});
+
+test('"I have 40 bins": the nearest places, filled whole, row 1 at the door first', () => {
+  const { model } = built(sample());
+  const rows = previewChambers(model, 'test');
+  const bins = rows.filter((c) => c.storage === 'bins');
+  const full = (c: (typeof rows)[number]) => c.boxes_per_slot;
+  const { picked, placed } = pickNearest({ chambers: bins, want: 40, roomFor: full });
+  expect(placed).toBe(40);
+  const chosen = [...picked.values()];
+  expect(chosen.reduce((n, p) => n + p.boxes, 0)).toBe(40);
+  // 10 bins a place → exactly 4 whole places, all in row 1 (at the door), stacks A, B, C, D.
+  expect(chosen.map((p) => p.boxes)).toEqual([10, 10, 10, 10]);
+  expect(chosen.map((p) => p.slot)).toEqual(['1A', '1B', '1C', '1D']);
+});
+
+test('auto-pick skips full places, tops up a shared one, and says when there is not enough room', () => {
+  const { model } = built(sample());
+  const bins = previewChambers(model, 'test').filter((c) => c.storage === 'bins');
+  // 1A is full, 1B has room for 4 (shared), the rest are free.
+  const room = (c: (typeof bins)[number], slot: string) => (slot === '1A' ? 0 : slot === '1B' ? 4 : c.boxes_per_slot);
+  const { picked, placed } = pickNearest({ chambers: bins, want: 25, roomFor: room });
+  expect(placed).toBe(25);
+  expect([...picked.values()].map((p) => `${p.slot}:${p.boxes}`)).toEqual(['1B:4', '1C:10', '1D:10', '1E:1']);
+  // More than the chamber holds: every free bin is given, and the count says how many.
+  const all = pickNearest({ chambers: bins, want: 10_000, roomFor: (c) => c.boxes_per_slot });
+  expect(all.placed).toBe(480);
+});
+
+test('crates on 3 floors: one floor when it has room, lowest first', () => {
+  const { model } = built(sample());
+  const crates = previewChambers(model, 'test').filter((c) => c.storage === 'crates');
+  const { picked, placed } = pickNearest({ chambers: crates, want: 600, roomFor: (c) => c.boxes_per_slot });
+  expect(placed).toBe(600);
+  const floors = new Set([...picked.values()].map((p) => p.chamber.floor));
+  expect([...floors]).toEqual([1]);
 });

@@ -331,3 +331,23 @@ export function labelCanvas(title: string, sub: string, dark = false, fill?: str
   }
   return c;
 }
+
+/** A row's number plate, as stores hang them: yellow, a black edge, "ROW" over the number. */
+export function plateTexture(T: Three, row: number) {
+  const { c, g } = canvas(256, 160);
+  if (g) {
+    g.fillStyle = '#111827';
+    g.fillRect(0, 0, 256, 160);
+    g.fillStyle = '#facc15';
+    g.fillRect(8, 8, 240, 144);
+    g.fillStyle = '#111827';
+    g.textAlign = 'center';
+    g.font = '700 30px system-ui, sans-serif';
+    g.fillText('ROW', 128, 44);
+    g.font = `900 ${row > 99 ? 76 : 96}px system-ui, sans-serif`;
+    g.fillText(String(row), 128, 138);
+  }
+  const t = new T.CanvasTexture(c);
+  t.colorSpace = T.SRGBColorSpace;
+  return t;
+}
