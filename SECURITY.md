@@ -164,6 +164,40 @@ member gets *Page not found* at `/team/unlock`. An admin account whose database
 is missing the team update (`kr_team_member` not found) sees *Admin is waiting
 for a database update* with the steps to run. That notice opens nothing.
 
+#### Who can reach Admin
+
+Only the Super Admin (one account, set by `kr_set_super_admin`) and the
+KashRoot team the Super Admin adds in **Super Admin → Team** (each sees only the
+sections ticked for them, after two-step sign-in and their admin code). The
+database decides — the ADMIN staff role and `team_sections` — never anything
+an account writes about itself. To list everyone with Admin or team access,
+run this in the Supabase SQL Editor (read-only; it changes nothing):
+
+```sql
+-- Who can reach Admin (read-only: it changes nothing).
+select u.email,
+       case when u.raw_app_meta_data ->> 'kr_role' = 'super_admin' and lower(u.email) = lower(s.super_admin_email) then 'Super Admin'
+            when r.user_id is not null then 'KashRoot team'
+            else 'no Admin role (leftover sections)' end                       as access,
+       case when u.raw_app_meta_data ->> 'kr_role' = 'super_admin' and lower(u.email) = lower(s.super_admin_email) then 'everything'
+            else coalesce((select string_agg(t.section, ', ' order by t.section) from public.team_sections t where t.user_id = u.id), '(none ticked)') end as sections,
+       r.granted_at::date                                                       as admin_since,
+       (select g.email from auth.users g where g.id = r.granted_by)             as given_by,
+       u.last_sign_in_at::date                                                  as last_sign_in,
+       exists (select 1 from auth.mfa_factors f where f.user_id = u.id and f.status = 'verified') as has_authenticator
+  from auth.users u
+  cross join public.kr_settings s
+  left join public.staff_roles r on r.user_id = u.id and r.role = 'ADMIN'
+ where s.id = 1
+   and (r.user_id is not null
+        or u.raw_app_meta_data ->> 'kr_role' = 'super_admin'
+        or exists (select 1 from public.team_sections t where t.user_id = u.id))
+ order by (u.raw_app_meta_data ->> 'kr_role' = 'super_admin') desc, (r.user_id is null), u.email;
+```
+
+Remove someone in **Super Admin → Team → Remove** (it is logged and emailed to
+the support inbox).
+
 #### Recovering access
 
 * **Lost the device mark, cleared cookies, new browser or phone:** do the steps

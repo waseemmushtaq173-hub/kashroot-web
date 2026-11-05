@@ -114,7 +114,9 @@ export function rolesOf(user: MetaUser | null | undefined): string[] {
   const meta = user?.user_metadata ?? {};
   const listed = Array.isArray(meta.roles) ? meta.roles.filter((r): r is string => typeof r === 'string') : [];
   const single = [meta.role, user?.app_metadata?.role].filter((r): r is string => typeof r === 'string');
-  return [...new Set([...single, ...listed])];
+  // ADMIN never comes from here: people can write their own metadata. KashRoot team access is only
+  // the database's ADMIN staff role (staffRolesOf), given by the Super Admin.
+  return [...new Set([...single, ...listed])].filter((r) => r.toUpperCase() !== 'ADMIN');
 }
 
 /** Adds a portal role to the signed-in account (kept in user_metadata.roles). */

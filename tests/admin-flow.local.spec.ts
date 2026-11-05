@@ -94,28 +94,91 @@ test('the Super Admin on a new device: password, authenticator code, admin code,
   expect(pass?.httpOnly).toBe(true);
 });
 
-for (const key of ['FARMER', 'BUYER'] as const) {
-  test(`a ${key.toLowerCase()} gets "Page not found" for Admin, and the admin API refuses`, async ({ page }) => {
+// Everyone outside the team: farmer, buyer, dealer, cold store (business) owner, staff — each through their own portal.
+const OUTSIDERS = [
+  { key: 'FARMER', portal: 'farmer', home: /\/farmer\/dashboard/ },
+  { key: 'BUYER', portal: 'buyer', home: /\/buyer\/dashboard/ },
+  { key: 'DEALER', portal: 'dealer', home: /\/dealer\/dashboard/ },
+  { key: 'COLDOWNER', portal: 'rental', home: /\/rental\/dashboard/ },
+  { key: 'STAFF', portal: 'trader', home: /\/trader\/dashboard/ },
+] as const;
+
+/** The signed-in session's access token (from Supabase's own storage). */
+const tokenOf = (page: Page) =>
+  page.evaluate(() => {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i) ?? '';
+      if (/auth-token$/.test(k)) return (JSON.parse(localStorage.getItem(k) ?? '{}') as { access_token?: string }).access_token ?? '';
+    }
+    return '';
+  });
+
+/** Admin as the database sees this person: the sections open, an admin function, admin-only rows. */
+async function databaseAdmin(page: Page, token: string) {
+  const headers = { apikey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY, authorization: `Bearer ${token}`, 'content-type': 'application/json' };
+  const base = env.NEXT_PUBLIC_SUPABASE_URL;
+  const sections = await (await page.request.post(`${base}/rest/v1/rpc/kr_team_sections`, { headers, data: {} })).json();
+  const summary = await page.request.post(`${base}/rest/v1/rpc/kr_security_summary`, { headers, data: { p_hours: 24 } });
+  const events = await (await page.request.get(`${base}/rest/v1/security_events?select=id&limit=5`, { headers })).json();
+  const team = await (await page.request.get(`${base}/rest/v1/team_sections?select=user_id&limit=5`, { headers })).json();
+  return { sections, summaryStatus: summary.status(), events, team };
+}
+
+for (const { key, portal, home } of OUTSIDERS) {
+  test(`a ${key.toLowerCase()} sees no Admin, gets "Page not found", and the server and database refuse`, async ({ page }) => {
     test.setTimeout(120_000);
-    await signIn(page, key.toLowerCase(), key);
-    await page.waitForURL(new RegExp(`/${key === 'FARMER' ? 'farmer' : 'buyer'}/dashboard`), { timeout: 60_000 });
+    await signIn(page, portal, key);
+    await page.waitForURL(home, { timeout: 60_000 });
+    // Not shown anywhere: the portal grid, the Portals menu.
+    await page.goto('/');
+    await expect(page.locator('a[href^="/admin"]')).toHaveCount(0);
+    await page.getByRole('button', { name: /Portals/ }).first().click().catch(() => undefined);
+    await expect(page.getByRole('link', { name: /^Admin/ })).toHaveCount(0);
     await page.goto('/admin/dashboard');
     await expect(page).toHaveURL(/\/team\/unlock/);
     await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible({ timeout: 30_000 });
     await shot(page, `5-${key.toLowerCase()}-admin`);
-    const token = await page.evaluate(() => {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i) ?? '';
-        if (/auth-token$/.test(k)) return (JSON.parse(localStorage.getItem(k) ?? '{}') as { access_token?: string }).access_token ?? '';
-      }
-      return '';
-    });
+    const token = await tokenOf(page);
     expect(token, 'signed in').not.toBe('');
     const api = await page.request.post('/api/team/session', { headers: { authorization: `Bearer ${token}` } });
     expect(api.status()).toBe(403);
     expect(api.headers()['set-cookie'] ?? '').not.toMatch(/kr_team=[^;]+\./);
+    const db = await databaseAdmin(page, token);
+    expect(db.sections, 'no Admin section open').toEqual([]);
+    expect(db.summaryStatus, 'admin function refused').toBeGreaterThanOrEqual(400);
+    expect(db.events, 'no security events').toEqual([]);
+    expect(db.team, 'no one else’s team rows').toEqual([]);
   });
 }
+
+test('writing "ADMIN" into one’s own profile opens nothing', async ({ page }) => {
+  test.setTimeout(120_000);
+  await signIn(page, 'farmer', 'FARMER');
+  await page.waitForURL(/\/farmer\/dashboard/, { timeout: 60_000 });
+  const token = await tokenOf(page);
+  const headers = { apikey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY, authorization: `Bearer ${token}`, 'content-type': 'application/json' };
+  // The farmer's own metadata (any user can write it): role and roles say ADMIN.
+  const meta = await (await page.request.get(`${env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/user`, { headers })).json();
+  const put = (data: Record<string, unknown>) => page.request.put(`${env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/user`, { headers, data: { data } });
+  expect((await put({ ...meta.user_metadata, role: 'ADMIN', roles: [...(meta.user_metadata.roles ?? []), 'ADMIN'], portals: [...(meta.user_metadata.portals ?? []), 'admin'] })).ok()).toBe(true);
+  try {
+    await page.goto('/login/admin');
+    await page.getByLabel('Email address').fill('test-farmer@example.test', { timeout: 30_000 });
+    await page.getByLabel('Password', { exact: true }).fill(env.TEST_FARMER_PASSWORD);
+    await page.waitForTimeout(3_200); // a person takes a few seconds (lib/client/formGuard)
+    await page.getByRole('button', { name: /^Sign in to/ }).click();
+    await expect(page.getByText('This account is not a KashRoot admin.')).toBeVisible({ timeout: 30_000 });
+    await page.goto('/');
+    await expect(page.locator('a[href^="/admin"]')).toHaveCount(0);
+    await page.goto('/admin/dashboard');
+    await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible({ timeout: 30_000 });
+    const db = await databaseAdmin(page, token);
+    expect(db.sections).toEqual([]);
+    expect(db.summaryStatus).toBeGreaterThanOrEqual(400);
+  } finally {
+    await put(meta.user_metadata);
+  }
+});
 
 test('an admin whose database lacks the team update is told what to run (not "Page not found")', async ({ page }) => {
   test.setTimeout(120_000);
