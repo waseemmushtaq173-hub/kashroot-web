@@ -32,6 +32,18 @@ test('a customer’s words lose passwords, codes and long numbers, nothing else'
   expect(redactForEmail('400 boxes at ₹120')).toBe('400 boxes at ₹120');
 });
 
+test('a lost trip goes to the sender, with the load, a link to their consignments and no driver link', () => {
+  const l = letterFor({ ...base, kind: 'trip_lost', ref: 'KR-3F9A2C1B', detail: 'Shopian → Azadpur, Delhi · last seen 14:20 IST', to: 'sender@test.in' }, SITE, INBOX)!;
+  expect(l.to).toBe('sender@test.in');
+  expect(l.subject).toContain('KR-3F9A2C1B');
+  expect(l.lines.join(' ')).toContain('Shopian → Azadpur, Delhi');
+  expect(l.action?.href).toBe(`${SITE}/tracking/dashboard?tab=mine`);
+  expect(render(l).text).not.toContain('/drive/');
+  expect(render(l).text).toContain(NEVER_ASKS);
+  // Nowhere to send it (the account has no email): nothing is sent.
+  expect(letterFor({ ...base, kind: 'trip_lost', ref: 'KR-1', to: null }, SITE, INBOX)).toBeNull();
+});
+
 test('a new help request goes to the support inbox, with the Help desk link and the words made safe', () => {
   const l = letterFor(
     { ...base, kind: 'help_new', ref: 'H-3F9A2C1B', help: { name: 'Ali', phone: '9876543210', email: 'ali@test.in', topic: 'login', portal: 'farmer', lang: 'ur', message: 'OTP 123456 never came, Aadhaar 1234 5678 9012', signed_in: false } },

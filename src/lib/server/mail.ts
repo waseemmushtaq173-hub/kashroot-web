@@ -155,6 +155,10 @@ export async function queueLockNotice(email: string, pause: string): Promise<voi
 const shortCode = (reason: string) => reason.match(/^port \d+: ((?:E[A-Z]+ ?)?(?:\d{3})?)/)?.[1]?.trim() || (reason.startsWith('no address') ? 'no-address' : reason.startsWith('email is not set up') ? 'not-set-up' : 'other');
 
 export async function flushOutbox(limit = 10): Promise<{ sent: number; failed: number; codes: string[] }> {
+  // Trips with no position for 5 minutes are marked lost and an email to the sender is queued
+  // (20261120000000_trip_lock.sql; nothing happens before that SQL is run). Done even when email
+  // is not set up, so the senders' pages show "Location lost".
+  await rpc('kr_trip_watch', {});
   if (!smtp()) return { sent: 0, failed: 0, codes: [] }; // Kept queued until email is set up.
   const due = (await rpc('kr_email_claim', { p_limit: limit })) as Queued[] | null;
   let sent = 0;

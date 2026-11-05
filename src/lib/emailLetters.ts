@@ -18,7 +18,7 @@ export interface Letter {
 
 export interface Queued {
   id: number;
-  kind: 'help_new' | 'help_ack' | 'help_reply' | 'help_resolved' | 'payout_changed' | 'password_changed' | 'email_changed' | 'phone_changed' | 'new_signin' | 'signin_locked' | 'team_changed';
+  kind: 'help_new' | 'help_ack' | 'help_reply' | 'help_resolved' | 'payout_changed' | 'password_changed' | 'email_changed' | 'phone_changed' | 'new_signin' | 'signin_locked' | 'team_changed' | 'trip_lost';
   ref: string | null;
   detail: string | null;
   created_at: string;
@@ -61,7 +61,7 @@ export function redactForEmail(text: string): string {
 
 const TOPIC: Record<string, string> = { login: 'Signing in', payment: 'Payment', order: 'An order', cold_storage: 'Cold storage', selling: 'Selling', other: 'Something else' };
 
-const NOTICE: Record<Exclude<Queued['kind'], 'help_new' | 'help_ack' | 'help_reply' | 'help_resolved' | 'team_changed'>, [string, (detail: string | null) => string]> = {
+const NOTICE: Record<Exclude<Queued['kind'], 'help_new' | 'help_ack' | 'help_reply' | 'help_resolved' | 'team_changed' | 'trip_lost'>, [string, (detail: string | null) => string]> = {
   payout_changed: ['Your KashRoot payout details were changed', () => 'The UPI ID or bank account where people pay you was saved or changed on KashRoot.'],
   password_changed: ['Your KashRoot password was changed', () => 'The password of your KashRoot account was changed.'],
   email_changed: ['A change of your KashRoot email was asked for', () => 'Someone signed in to your KashRoot account asked to change its email address. It changes only after the link sent to the new address is opened.'],
@@ -115,6 +115,22 @@ export function letterFor(q: Queued, site: string, inbox: string): Letter | null
     };
   }
   if (!q.to) return null;
+  // A trip with no position from the driver's phone for 5 minutes (20261120000000_trip_lock.sql): to the sender.
+  if (q.kind === 'trip_lost') {
+    return {
+      to: q.to,
+      subject: `Location lost: your load ${q.ref ?? ''}`.trim(),
+      lines: [
+        `KashRoot has had no position from the driver's phone for your load ${q.ref ?? ''} for over 5 minutes.`,
+        q.detail ? `Trip: ${q.detail}` : '',
+        `Noticed: ${indiaTime(q.created_at)} (India time)`,
+        '',
+        'The driver may have turned off GPS, blocked location for KashRoot, closed the page, or be out of mobile network.',
+        'Call the driver now. The trip shows the last position and what happened, and the alert clears by itself when the position comes back.',
+      ].filter((line, i, all) => line !== '' || all[i - 1] !== ''),
+      action: { label: 'Open my consignments', href: `${site}/tracking/dashboard?tab=mine` },
+    };
+  }
   if (q.kind === 'help_ack') {
     return {
       to: q.to,

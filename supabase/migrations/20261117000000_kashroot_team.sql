@@ -601,10 +601,10 @@ create policy "Own requests, admins see all" on public.support_requests for sele
 
 -- ════════ Managing the team: the Super Admin only, audited, emailed ════════
 alter table public.email_outbox drop constraint if exists email_outbox_kind_check;
--- The one complete list (the same in every migration that sets it, newest: 20261117000000_kashroot_team.sql),
+-- The one complete list (the same in every migration that sets it, newest: 20261120000000_trip_lock.sql),
 -- so RUN_THIS_ONCE.sql can be run again on a database that already holds every kind.
 alter table public.email_outbox add constraint email_outbox_kind_check check (kind in (
-  'help_new', 'help_ack', 'help_reply', 'help_resolved', 'payout_changed', 'password_changed', 'email_changed', 'phone_changed', 'new_signin', 'signin_locked', 'team_changed'));
+  'help_new', 'help_ack', 'help_reply', 'help_resolved', 'payout_changed', 'password_changed', 'email_changed', 'phone_changed', 'new_signin', 'signin_locked', 'team_changed', 'trip_lost'));
 
 -- A team change: in the audit log, and an email to the support inbox (lib/emailLetters "team_changed").
 create or replace function public.kr_team_note(p_action text, p_user uuid, p_before jsonb, p_after jsonb) returns void
