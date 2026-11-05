@@ -1,16 +1,16 @@
-Copyright (c) 2026 KashRoot. All rights reserved.
+Copyright (c) 2026 KashRoot Pvt Ltd. All rights reserved.
 
 This software and its source code, design, documentation and data (the
 "Software") are proprietary and confidential. No licence is granted to any
 person to use, copy, modify, merge, publish, distribute, sublicense, sell or
 host the Software, in whole or in part, or to create works derived from it,
-without the prior written permission of KashRoot.
+without the prior written permission of KashRoot Pvt Ltd.
 
 Access to this repository does not grant any such permission. Unauthorised use
 may be unlawful.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED. IN NO EVENT SHALL KASHROOT BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+IMPLIED. IN NO EVENT SHALL KASHROOT PVT LTD BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.
 
 Third-party components keep their own licences (see package.json and each
