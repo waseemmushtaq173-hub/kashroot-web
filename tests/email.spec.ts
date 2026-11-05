@@ -105,11 +105,19 @@ test.describe('the email endpoints', () => {
     expect(Object.keys(body).sort()).toEqual(['configured', 'from', 'inbox', 'settings']);
     // Which settings exist, as true/false (and the port, and which pair is used) — never a value.
     for (const [name, v] of Object.entries(body.settings as Record<string, unknown>)) {
-      if (name === 'port') expect(typeof v).toBe('number');
+      if (name === 'port' || name === 'SMTP_PASS_length') expect(typeof v, name).toBe('number');
       else if (name === 'using') expect(['SMTP_*', 'GMAIL_*', 'none']).toContain(v);
       else expect(typeof v, name).toBe('boolean');
     }
     expect(JSON.stringify(body)).not.toMatch(/secret/i);
+  });
+
+  test('the login check sends nothing and says only yes/no and a short code', async ({ request }) => {
+    const res = await request.get('/api/email?verify=1');
+    expect([200, 429]).toContain(res.status());
+    const login = ((await res.json()) as { login: { ok: boolean; code?: string } }).login;
+    expect(typeof login.ok).toBe('boolean');
+    if (!login.ok) expect(login.code).toMatch(/^[A-Za-z0-9 -]+$/);
   });
 
   test('the test email is for admins only', async ({ request }) => {

@@ -1,7 +1,9 @@
 /**
  * The support email (lib/server/mail).
  *
- * GET  /api/email                    → { configured, from, inbox }  (no secret)
+ * GET  /api/email                    → { configured, from, inbox, settings }  (no secret: yes/no, the password's length)
+ * GET  /api/email?verify=1           → the same, and { login: { ok, code } }: KashRoot logs in to the
+ *     mail server and out again, sending nothing (3 an hour per network, 10 an hour in all).
  * POST /api/email { action: 'test' } → { sent: true } | { sent: false, reason }
  *     KashRoot admins only (Admin → Setup check): sends a real test email to
  *     the support inbox now, not through the queue, and says how it went —
@@ -9,16 +11,19 @@
  */
 import { NextResponse } from 'next/server';
 
-import { mailStatus, sendLetter, supportInbox } from '@/lib/server/mail';
+import { mailStatus, sendLetter, supportInbox, verifyLogin } from '@/lib/server/mail';
 import { securityEvent } from '@/lib/server/securityLog';
-import { sharedLimited } from '@/lib/server/sharedLimit';
+import { sharedIpLimited, sharedLimited } from '@/lib/server/sharedLimit';
 import { supabaseAnonKey, supabaseOrigin } from '@/lib/supabase-config';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
-export function GET() {
-  return NextResponse.json(mailStatus(), { headers: { 'cache-control': 'no-store' } });
+export async function GET(req: Request) {
+  const headers = { 'cache-control': 'no-store' };
+  if (new URL(req.url).searchParams.get('verify') !== '1') return NextResponse.json(mailStatus(), { headers });
+  if ((await sharedIpLimited(req, 'email-verify', 3, 3_600_000)) || (await sharedLimited('email-verify', 10, 3_600_000))) return NextResponse.json({ ...mailStatus(), login: { ok: false, code: 'too-many-checks' } }, { status: 429, headers });
+  return NextResponse.json({ ...mailStatus(), login: await verifyLogin() }, { headers });
 }
 
 /** An admin-only database function, called as the caller (the database decides who is an admin); null when refused. */

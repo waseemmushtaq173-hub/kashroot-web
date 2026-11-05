@@ -130,6 +130,11 @@ for (const u of USERS) {
 
 const sql = (text) => execFileSync('docker', ['exec', '-i', DB_CONTAINER, 'psql', '-U', 'postgres', '-v', 'ON_ERROR_STOP=1', '-q', '-tA'], { input: text, encoding: 'utf8' });
 
+// The server secret, the same in the local database as in .env.test (help requests, shared limits and the
+// security log need both halves; base64url, so it is safe inside the quotes).
+if (!/^[\w-]+$/.test(env.KYC_DB_SECRET)) throw new Error('KYC_DB_SECRET has unexpected characters');
+sql(`update public.kr_settings set kyc_secret = '${env.KYC_DB_SECRET}', updated_at = now() where id = 1;`);
+
 // Admin role and Super Admin (the same SQL the owner runs live), with a fresh admin code next unlock.
 sql(`select public.kr_set_super_admin('test-admin@example.test');
 delete from public.admin_lock where user_id = '${ids.ADMIN}';

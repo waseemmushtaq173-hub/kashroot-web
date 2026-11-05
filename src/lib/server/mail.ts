@@ -50,12 +50,18 @@ function smtp(): Smtp | null {
 /** Which settings are there (true/false only) and what the password looks like — never a value. */
 export function mailSettings(): Record<string, boolean | number | string> {
   const has = (n: string) => Boolean(process.env[n]?.trim());
-  const p = (process.env.SMTP_PASS ?? '').replace(/\s/g, '');
+  const raw = process.env.SMTP_PASS ?? '';
+  const p = raw.replace(/\s/g, '');
   return {
     SMTP_HOST: has('SMTP_HOST'),
     SMTP_PORT: has('SMTP_PORT'),
     SMTP_USER: has('SMTP_USER'),
+    // The official support address, exactly (no value shown — only yes/no).
+    SMTP_USER_is_support_address: (process.env.SMTP_USER ?? '').trim().toLowerCase() === SUPPORT_EMAIL.toLowerCase(),
     SMTP_PASS: Boolean(p),
+    // The saved value as it is: its length and whether it holds spaces (spaces are removed before use).
+    SMTP_PASS_length: raw.length,
+    SMTP_PASS_has_spaces: /\s/.test(raw),
     // A Gmail app password is 16 letters (Google shows it in 4 groups of 4).
     SMTP_PASS_looks_like_app_password: /^[a-z]{16}$/i.test(p),
     SUPPORT_EMAIL: has('SUPPORT_EMAIL'),
@@ -90,6 +96,29 @@ function failureOf(err: unknown, port: number): string {
   return `port ${port}: ${[e?.code, e?.responseCode].filter(Boolean).join(' ')} ${reply}`.replace(/\s+/g, ' ').trim().slice(0, 160) + hint;
 }
 const unreachable = (err: unknown) => ['ETIMEDOUT', 'ECONNECTION', 'ESOCKET', 'EDNS', 'ECONNREFUSED'].includes(String((err as { code?: string })?.code));
+
+/**
+ * Can KashRoot log in to the mail server? Logs in and out (transport.verify)
+ * and sends nothing. { ok } or the failure's short code ("EAUTH 535") — never
+ * the server's words or the password.
+ */
+export async function verifyLogin(): Promise<{ ok: boolean; code?: string }> {
+  const s = smtp();
+  if (!s) return { ok: false, code: 'not-set-up' };
+  const nodemailer = (await import('nodemailer')).default;
+  const ports = s.port === 465 ? [465, 587] : [s.port];
+  let code = 'other';
+  for (const port of ports) {
+    try {
+      await nodemailer.createTransport({ host: s.host, port, secure: port === 465, requireTLS: port !== 465, auth: { user: s.user, pass: s.pass }, connectionTimeout: 8_000, greetingTimeout: 8_000, socketTimeout: 12_000 }).verify();
+      return { ok: true };
+    } catch (err) {
+      code = shortCode(failureOf(err, port));
+      if (!unreachable(err)) break;
+    }
+  }
+  return { ok: false, code };
+}
 
 /** Send one email now; tried on port 587 (STARTTLS) when 465 cannot be reached. Never throws. */
 export async function sendLetter(l: Letter): Promise<{ ok: true } | { ok: false; reason: string }> {
