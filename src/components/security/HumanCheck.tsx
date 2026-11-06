@@ -74,10 +74,10 @@ export function checkMode(): { mode: CheckMode; why: string } {
   const vercelEnv = process.env.NEXT_PUBLIC_VERCEL_ENV ?? '';
   const realSite = REAL_HOSTS.includes(host) || vercelEnv === 'production';
   const why = REAL_HOSTS.includes(host) ? `${host} is the real site` : vercelEnv === 'production' ? 'Vercel says this is the production deployment' : `${host} is not the real site (${REAL_HOSTS.join(', ')}; Vercel: ${vercelEnv || 'not on Vercel'})`;
-  const mode: CheckMode = realSite ? (humanCheckOn ? 'real' : 'missing') : humanCheckOn ? 'test' : 'off';
+  const mode: CheckMode = humanCheckOn ? (realSite ? 'real' : 'test') : 'off';
   if (!told) {
     told = true;
-    console.info(`[KashRoot] security check (hCaptcha): ${mode === 'real' ? 'real key' : mode === 'test' ? 'hCaptcha test key' : mode === 'missing' ? 'REAL KEY MISSING from this build' : 'off'} — ${why}.`);
+    console.info(`[KashRoot] security check (hCaptcha): ${mode === 'real' ? 'real key' : mode === 'test' ? 'hCaptcha test key' : 'off'} — ${why}.`);
   }
   return { mode, why };
 }
