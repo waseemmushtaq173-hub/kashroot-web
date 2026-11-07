@@ -16,7 +16,7 @@ import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 const COOKIE = 'kr_human';
 const HOUR = 3600;
 
-const secret = () => process.env.HCAPTCHA_SECRET_KEY?.trim() || '';
+const secret = () => process.env.HCAPTCHA_SECRET_KEY?.trim() || process.env.RECAPTCHA_SECRET_KEY?.trim() || '';
 export const humanPassOn = () => Boolean(secret());
 
 const key = () => createHash('sha256').update(`kr-human-pass|${secret()}`).digest();

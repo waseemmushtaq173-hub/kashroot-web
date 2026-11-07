@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Inter, Noto_Sans_Devanagari } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
@@ -35,6 +36,7 @@ const nastaliq = localFont({
 
 const DESCRIPTION =
   "KashRoot: live mandi rates, weather, orchard health and pay-after-delivery trade for apple, walnut, saffron and vegetable growers, buyers, sellers and transporters.";
+const RECAPTCHA_PRELOAD = !process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY?.trim() && Boolean(process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY?.trim());
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -86,6 +88,7 @@ export default function RootLayout({
         {/* Offline-first: service worker, offline banner, "Waiting to send". */}
         <PwaRoot />
       </body>
+      {RECAPTCHA_PRELOAD && <Script id="kashroot-recaptcha" src="https://www.google.com/recaptcha/api.js?render=explicit" strategy="beforeInteractive" />}
     </html>
   );
 }

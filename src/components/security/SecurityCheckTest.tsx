@@ -88,7 +88,7 @@ export function SecurityCheckTest() {
       const otherAddress = t2 ? await askServer(t2, true) : null;
       const t3 = await human.token();
       human.used();
-      const { error: err } = await supabase.auth.signInWithPassword({ email: 'kr-security-check@example.invalid', password: `check-${Date.now()}-x`, options: { captchaToken: t3 } });
+      const { error: err } = await supabase.auth.signInWithPassword({ email: 'kr-security-check@example.invalid', password: `check-${Date.now()}-x` });
       const supa = err ? `${err.status ?? ''} ${err.message}`.trim() : 'signed in (unexpected)';
       const v = verdictOf(server, otherAddress, supa);
       setResult({ took, mode: checkMode().why, server, otherAddress, supabase: supa, verdict: v.text, ok: v.ok });

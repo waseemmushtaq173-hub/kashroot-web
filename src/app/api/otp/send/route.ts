@@ -6,13 +6,12 @@
 import { NextResponse } from 'next/server';
 
 import { emailConfigured, normalise, sendCode, SmsProviderError, smsConfigured, whatsappConfigured, type Channel } from '@/lib/server/otp';
-import { isHuman, NOT_HUMAN } from '@/lib/server/humanCheck';
 import { securityEvent } from '@/lib/server/securityLog';
 import { hashed, sharedIpLimited, sharedLimited } from '@/lib/server/sharedLimit';
 import { hasSigningSecret } from '@/lib/server/sign';
 
 export async function POST(request: Request) {
-  const { channel, to, human } = (await request.json().catch(() => ({}))) as { channel?: Channel; to?: string; human?: string };
+  const { channel, to } = (await request.json().catch(() => ({}))) as { channel?: Channel; to?: string };
   if (channel !== 'sms' && channel !== 'whatsapp' && channel !== 'email') return NextResponse.json({ error: 'Choose SMS, WhatsApp or email.' }, { status: 400 });
   const phone = channel !== 'email';
   const target = normalise(channel, String(to ?? ''));
@@ -25,7 +24,6 @@ export async function POST(request: Request) {
       { status: 503 },
     );
   }
-  if (!(await isHuman(request, human))) return NextResponse.json({ error: NOT_HUMAN }, { status: 403 });
   if (await sharedLimited(`otp:${channel}:${hashed(target)}`, 4, 15 * 60_000)) {
     securityEvent('rate_limited', { request, account: target, detail: 'otp-send: 4 codes to one number in 15 min' });
     return NextResponse.json({ error: 'Too many codes requested. Wait a few minutes and try again.' }, { status: 429 });

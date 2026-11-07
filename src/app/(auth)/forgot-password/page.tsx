@@ -5,7 +5,7 @@ import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, KeyRound, Loader2, Mail, MailCheck } from 'lucide-react';
 
-import { CHECKING_HUMAN, HumanCheckError, humanRefusedText, reportRefusal, useHumanCheck } from '@/components/security/HumanCheck';
+import { humanCheckOn, useHumanCheck } from '@/components/security/HumanCheck';
 import { GUARD_TEXT, useFormGuard } from '@/lib/client/formGuard';
 import { SecurityGate } from '@/components/security/SecurityGate';
 import { publicOrigin } from '@/lib/site';
@@ -16,31 +16,26 @@ export default function ForgotPasswordPage() {
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const human = useHumanCheck('reset', { lazy: true });
+  const [captchaVerified, setCaptchaVerified] = useState(!humanCheckOn);
+  const human = useHumanCheck('reset', {
+    checkbox: true,
+    onToken: () => {
+      setCaptchaVerified(true);
+    },
+  });
   const guard = useFormGuard(1500, 'reset');
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!captchaVerified) return setError("Please tick 'I'm not a robot' first.");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) return setError('Enter the email you registered with.');
     if (!supabaseConfigured) return setError('Password reset is not set up on this site yet.');
     const guarded = guard.check();
     if (guarded !== 'ok') return setError(GUARD_TEXT[guarded]);
     setBusy(true);
     setError(null);
-    let captchaToken: string | undefined;
-    try {
-      captchaToken = await human.token();
-    } catch (problem) {
-      setBusy(false);
-      return setError(problem instanceof HumanCheckError ? null : (problem as Error).message);
-    }
-    const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${publicOrigin()}/reset-password`, ...(captchaToken ? { captchaToken } : {}) });
+    const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${publicOrigin()}/reset-password` });
     setBusy(false);
-    human.used();
-    if (err && /captcha/i.test(err.message)) {
-      reportRefusal(err.message, 'reset');
-      return setError(humanRefusedText());
-    }
     if (err && !/rate limit/i.test(err.message)) return setError(err.message);
     if (err) return setError('Too many requests. Please wait a few minutes and try again.');
     // Same message whether or not the account exists, so emails can't be probed.
@@ -69,7 +64,7 @@ export default function ForgotPasswordPage() {
       </span>
       <h1 className="font-display mt-5 text-3xl font-semibold tracking-tight text-slate-900">Forgot your password?</h1>
       <p className="mt-2 text-slate-600">Enter your email and we’ll send you a link to set a new one.</p>
-      <SecurityGate place="reset" onPass={human.start}>
+      <SecurityGate place="reset">
         <form onSubmit={submit} noValidate className="mt-6 space-y-4">
           {guard.trap}
           <label htmlFor="fp-email" className="block text-sm font-semibold text-slate-800">
@@ -82,7 +77,7 @@ export default function ForgotPasswordPage() {
           {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800 ring-1 ring-rose-200">{error}</p>}
           {human.element}
           <button type="submit" disabled={busy} className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 px-5 py-3.5 font-semibold text-white shadow-lg shadow-rose-600/30 transition hover:-translate-y-0.5 disabled:opacity-60">
-            {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} {human.waiting ? CHECKING_HUMAN : 'Send reset link'}
+            {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} Send reset link
           </button>
         </form>
       </SecurityGate>

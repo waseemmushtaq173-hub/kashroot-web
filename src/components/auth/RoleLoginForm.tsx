@@ -39,7 +39,7 @@ import { TwoStepVerify, twoStepState } from '@/components/security/TwoStep';
 import { SecurityGate } from '@/components/security/SecurityGate';
 import { PortalAuthFrame } from '@/components/auth/PortalAuthFrame';
 import { PORTAL_LOGIN } from '@/components/auth/portalLoginConfig';
-import { CHECKING_HUMAN, HumanCheckError, useHumanCheck } from '@/components/security/HumanCheck';
+import { humanCheckOn, HumanCheckError, useHumanCheck } from '@/components/security/HumanCheck';
 import { GUARD_TEXT, useFormGuard } from '@/lib/client/formGuard';
 import { authApi, SELF_JOIN_ROLES, tokenStore } from '@/lib/api/auth';
 import { isMember, joinPortal, markPortalSignedIn, portalAccess, PORTAL_SIGNIN_LIMIT_MS, signedInPortals } from '@/lib/auth/portalAccess';
@@ -68,6 +68,7 @@ interface OtpStep {
   to: string;
   routes: PhoneRoute[];
   emailFallback: string | null;
+  fallback?: boolean;
 }
 
 export interface RoleLoginFormProps {
@@ -89,7 +90,13 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   const [password, setPassword] = useState('');
   // The security check (off until its keys are set): a token fetched in the background, a fresh one for each try.
   // Started once the security gate has passed: Supabase gets this fresh token, never the gate's.
-  const human = useHumanCheck(`signin-${portal}`, { lazy: true });
+  const [captchaVerified, setCaptchaVerified] = useState(!humanCheckOn);
+  const human = useHumanCheck(`signin-${portal}`, {
+    checkbox: true,
+    onToken: () => {
+      setCaptchaVerified(true);
+    },
+  });
   // Bot traps: a hidden field, and at least 0.8 s before pressing (a password manager fills at once).
   const guard = useFormGuard(800, 'signin');
   const [showPassword, setShowPassword] = useState(false);
@@ -226,6 +233,10 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canSubmit) return;
+    if (!captchaVerified) {
+      setError({ text: "Please tick 'I'm not a robot' first." });
+      return;
+    }
     if (email.trim() === '' || password === '') {
       setError({ text: 'Enter your email address and password.' });
       return;
@@ -238,11 +249,8 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
     setPending(true);
     setError(null);
     let navigating = false;
-    let sent = false;
     try {
-      const captchaToken = await human.token();
-      sent = true;
-      const data = await authApi.login({ email: email.trim(), password, captchaToken });
+      const data = await authApi.login({ email: email.trim(), password });
       if (!data.accessToken) throw new Error('Sign-in did not return a session. Please try again.');
 
       const accountRole = data.accountRole;
@@ -281,8 +289,6 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
       if (!(err instanceof HumanCheckError)) setError({ text: err instanceof Error && err.message ? err.message : 'Failed to sign in. Please check your connection.' });
     } finally {
       if (!navigating) setPending(false);
-      // Tokens work once: fetch a fresh one.
-      if (sent) human.used();
     }
   };
 
@@ -446,13 +452,14 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
             onChange={() => undefined}
             locked
             autoSend
+            hint={step.fallback ? 'SMS is at capacity, so we sent the code to your email instead.' : undefined}
             required
             routes={phoneStep ? step.routes : undefined}
             verified={false}
             onVerified={() => finish(step.session)}
             onUnavailable={() => {
               // Phone codes failing on the site's side: fall back to email, then let them in.
-              if (phoneStep && step.emailFallback) setStep({ ...step, channel: 'email', to: step.emailFallback, routes: [], emailFallback: null });
+              if (phoneStep && step.emailFallback) setStep({ ...step, channel: 'email', to: step.emailFallback, routes: [], emailFallback: null, fallback: true });
               else setCodesDown(true);
             }}
           />
@@ -521,7 +528,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
         </p>
       )}
 
-      <SecurityGate place={portal} onPass={human.start}>
+      <SecurityGate place={portal}>
         <form onSubmit={handleSubmit} noValidate className={`mt-6 space-y-5 ${checking ? 'hidden' : ''}`}>
           {guard.trap}
           <div>
@@ -594,7 +601,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
             className={`inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-sm font-semibold shadow-lg transition disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none ${theme.button} ${focusRing}`}
           >
             {pending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-            {human.waiting ? CHECKING_HUMAN : pending ? 'Signing in…' : `Sign in to ${info.label}`}
+            {pending ? 'Signing in…' : `Sign in to ${info.label}`}
             {!pending && <ArrowRight className="h-4 w-4" aria-hidden />}
           </button>
         </form>

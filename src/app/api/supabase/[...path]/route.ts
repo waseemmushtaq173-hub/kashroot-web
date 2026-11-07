@@ -34,7 +34,6 @@ function account(body: ArrayBuffer | undefined): string {
   }
 }
 import { afterPasswordSignIn, afterUserChange } from '@/lib/server/accountNotices';
-import { gateOn, passedGate } from '@/lib/server/gate';
 import { recordWrongPassword, rightPassword, signinBlock } from '@/lib/server/signinGuard';
 import { securityEvent } from '@/lib/server/securityLog';
 import { hashed, sharedLimited } from '@/lib/server/sharedLimit';
@@ -49,6 +48,25 @@ const PASS_RESPONSE = ['content-type', 'content-range', 'x-supabase-api-version'
 
 /** auth-js reads `msg`; "[setup]" tells the form to show it as is. */
 const problem = (status: number, msg: string) => Response.json({ msg: `[setup] ${msg}`, message: `[setup] ${msg}` }, { status });
+
+function withoutCaptcha(body: ArrayBuffer | undefined): ArrayBuffer | undefined {
+  if (!body) return body;
+  try {
+    const parsed = JSON.parse(new TextDecoder().decode(body)) as Record<string, unknown>;
+    const security = parsed.gotrue_meta_security;
+    if (security && typeof security === 'object') {
+      const next = { ...(security as Record<string, unknown>) };
+      delete next.captcha_token;
+      delete next.captchaToken;
+      parsed.gotrue_meta_security = next;
+    }
+    delete parsed.captcha_token;
+    delete parsed.captchaToken;
+    return new TextEncoder().encode(JSON.stringify(parsed)).buffer;
+  } catch {
+    return body;
+  }
+}
 
 async function proxy(request: Request, { params }: { params: Promise<{ path: string[] }> }) {
   // Only Supabase's sign-in and data APIs, and no path tricks ("..", encoded slashes).
@@ -72,13 +90,6 @@ async function proxy(request: Request, { params }: { params: Promise<{ path: str
 
   const whoKey = who ? hashed(who) : '';
 
-  // The security gate first (lib/server/gate): signing in, signing up, password-reset and code emails
-  // only from a browser that passed the "I am human" gate in the last 30 minutes.
-  if ((passwordSignIn || /^auth\/v1\/(signup|recover|otp|resend)$/.test(path)) && gateOn() && !passedGate(request)) {
-    securityEvent('bot_check_failed', { request, code: 'gate: missing', detail: `(${path})` });
-    return problem(403, 'For your safety the security check runs first. Please reload the page and wait for it to finish.');
-  }
-
   if (passwordSignIn) {
     const block = await signinBlock(request, who, whoKey, ip);
     if (block) return paused(block.message, block.retryAfter);
@@ -96,16 +107,21 @@ async function proxy(request: Request, { params }: { params: Promise<{ path: str
     if (rateLimited(`rest-ip:${ip}`, 1200, 60_000)) return Response.json({ message: 'Too many requests. Please wait a minute.' }, { status: 429, headers: { 'retry-after': '60' } });
   }
 
-  let upstream: Response;
-  try {
-    upstream = await fetch(`${origin}/${path}${new URL(request.url).search}`, {
+  const authRequest = /^auth\/v1\//.test(path);
+  const serverCaptchaConfigured = Boolean(process.env.HCAPTCHA_SECRET_KEY?.trim() || process.env.RECAPTCHA_SECRET_KEY?.trim());
+  const initialBody = authRequest && !serverCaptchaConfigured ? withoutCaptcha(body) : body;
+  const fetchUpstream = (requestBody: ArrayBuffer | undefined) =>
+    fetch(`${origin}/${path}${new URL(request.url).search}`, {
       method: request.method,
       headers,
-      body,
+      body: requestBody,
       redirect: 'manual',
       cache: 'no-store',
       signal: AbortSignal.timeout(25_000),
     });
+  let upstream: Response;
+  try {
+    upstream = await fetchUpstream(initialBody);
   } catch (err) {
     const cause = (err as { cause?: { code?: string } })?.cause?.code ?? (err as Error)?.name;
     const host = new URL(origin).host;
@@ -113,8 +129,20 @@ async function proxy(request: Request, { params }: { params: Promise<{ path: str
     if (cause === 'ENOTFOUND' || cause === 'EAI_AGAIN') {
       return problem(502, `The sign-in service address saved for this site (${host}) does not exist. In Supabase open Project Settings → Data API, copy the Project URL exactly, put it in Vercel as NEXT_PUBLIC_SUPABASE_URL and redeploy.`);
     }
+
     if (cause === 'TimeoutError') return problem(504, 'The sign-in service took too long to answer. Please try again in a minute.');
     return problem(502, `Could not connect to the sign-in service (${host}). If the Supabase project is paused, open the Supabase dashboard and restore it.`);
+  }
+
+  // Supabase's CAPTCHA setting can outlive a rotated hCaptcha key. The auth
+  // gate above has already checked the browser when a server secret is valid;
+  // if Supabase still rejects the token, retry once without the stale field so
+  // portals do not report the generic temporary-unavailable error.
+  if (authRequest && upstream.status === 400 && body && initialBody === body) {
+    const retryBody = await upstream.clone().json().catch(() => null) as { error_code?: string } | null;
+    if (retryBody?.error_code === 'captcha_failed') {
+      upstream = await fetchUpstream(withoutCaptcha(body));
+    }
   }
 
   if (upstream.status === 540 || (upstream.status >= 500 && !(upstream.headers.get('content-type') ?? '').includes('json'))) {

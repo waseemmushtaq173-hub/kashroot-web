@@ -18,7 +18,7 @@ import { Counter, Problems, StoragePicker, WallPicker } from '@/components/renta
 import { Preview3D } from '@/components/rental/owner/Preview3D';
 import { StoreDrawing } from '@/components/rental/owner/StoreDrawing';
 import { KitBox, type Kit } from '@/components/rental/owner/StoreSteps';
-import { blankChamber, copyChamber, countText, DEFAULT_AISLE, nextNumber, nice, PACKING, readNumber, typed, UNIT_WORDS, type ChamberDraft } from '@/lib/coldStore';
+import { blankChamber, copyChamber, countText, nextNumber, nice, readNumber, UNIT_WORDS, type ChamberDraft } from '@/lib/coldStore';
 import type { ColdChamber } from '@/lib/db/coldMap';
 
 const theme = PORTAL_THEMES.rental;
@@ -181,14 +181,10 @@ function ChamberEditor({
   const u = kit.draft.unit;
   const W = UNIT_WORDS[c.storage];
   const k = c.key;
-  const P = PACKING[c.storage];
   const count = readNumber(c.count);
-  const kg = readNumber(c.kg) ?? P.defaultKg;
+  const kg = readNumber(c.kg);
   const calc = count && kg && Number.isFinite(count) && Number.isFinite(kg) ? Math.round(count * kg) / 1000 : null;
-  const most = done?.floors.length ? Math.min(...done.floors.map((f) => f.fits)) : undefined;
   const name = `Chamber ${c.no || '?'}`;
-  /** A default in the owner's unit, as shown in an empty box. */
-  const def = (m: number) => typed(m, u);
   const floors = Math.max(1, Math.min(10, Math.floor(Number(c.floors)) || 1));
   return (
     <section aria-label={name} className="space-y-5 rounded-3xl bg-white/90 p-4 ring-1 ring-slate-900/10 sm:p-5">
@@ -199,7 +195,7 @@ function ChamberEditor({
       <StoragePicker name={`${k}.storage`} value={c.storage} onChange={(v) => kit.set(`${k}.storage`, v)} />
       <div className="grid gap-5 sm:grid-cols-2">
         <KitBox kit={kit} field={`${k}.count`} label={`How many ${W.many} does it hold?`} number whole />
-        <KitBox kit={kit} field={`${k}.kg`} label={`Kg of apples in one ${W.one}`} number placeholder={String(P.defaultKg)} hint={`Empty: ${P.defaultKg} kg (the usual). A wooden apple bin holds about 200–400 kg; a plastic crate about 20 kg.`} />
+        <KitBox kit={kit} field={`${k}.kg`} label={`Exact capacity of one ${W.one} (kg)`} number hint="Enter the owner's measured or certified capacity. KashRoot will not assume a standard weight." />
       </div>
       <KitBox
         kit={kit}
@@ -246,17 +242,17 @@ function ChamberEditor({
       <fieldset className="space-y-4 rounded-2xl bg-ivory/80 p-4 ring-1 ring-[#E8A317]/30">
         <legend className="sr-only">One {W.one} and how you stack</legend>
         <p className="flex items-center gap-2 text-base font-semibold text-sky-950"><BoxIcon className="h-5 w-5" aria-hidden /> One {W.one} and how you stack</p>
-        <p className="text-sm text-sky-950">Empty boxes use the usual sizes shown in them. Change any to match your store.</p>
+        <p className="text-sm text-sky-950">Enter the exact container measurements and safe stacking limit used in this chamber.</p>
         <div className="grid gap-5 sm:grid-cols-3">
-          <KitBox kit={kit} field={`${k}.unitL`} label={`${W.title.slice(0, -1)} length (${u})`} number placeholder={def(P.size.l)} />
-          <KitBox kit={kit} field={`${k}.unitW`} label={`${W.title.slice(0, -1)} width (${u})`} number placeholder={def(P.size.w)} />
-          <KitBox kit={kit} field={`${k}.unitH`} label={`${W.title.slice(0, -1)} height (${u})`} number placeholder={def(P.size.h)} hint="With the gap above it in a stack." />
+          <KitBox kit={kit} field={`${k}.unitL`} label={`Exact ${W.title.slice(0, -1)} length (${u})`} number />
+          <KitBox kit={kit} field={`${k}.unitW`} label={`Exact ${W.title.slice(0, -1)} width (${u})`} number />
+          <KitBox kit={kit} field={`${k}.unitH`} label={`Exact ${W.title.slice(0, -1)} height (${u})`} number hint="Measure the container itself, excluding any ceiling clearance." />
         </div>
-        <KitBox kit={kit} field={`${k}.stackHigh`} label={`How many ${W.many} high in one stack?`} number whole placeholder={most ? String(most) : undefined} hint={most ? `Empty: as high as fits under each floor’s ceiling — up to ${most}.` : 'Empty: as high as fits.'} />
+        <KitBox kit={kit} field={`${k}.stackHigh`} label={`Maximum safe layers high in one stack`} number whole hint="Enter the owner's safe limit. It must also fit within the usable stacking height." />
         <div className="grid gap-5 sm:grid-cols-3">
-          <KitBox kit={kit} field={`${k}.aisle`} label={`Main aisle width (${u})`} number placeholder={def(DEFAULT_AISLE)} hint="The forklift aisle in from the door. 0: no aisle." />
-          <KitBox kit={kit} field={`${k}.stackGap`} label={`Gap between stacks (${u})`} number placeholder={def(P.gap)} />
-          <KitBox kit={kit} field={`${k}.wallGap`} label={`Gap at the walls (${u})`} number placeholder={def(P.wallGap)} />
+          <KitBox kit={kit} field={`${k}.aisle`} label={`Forklift aisle width (${u})`} number hint="Enter 0 only if the chamber has no forklift aisle." />
+          <KitBox kit={kit} field={`${k}.stackGap`} label={`Gap between stacks (${u})`} number />
+          <KitBox kit={kit} field={`${k}.wallGap`} label={`Wall airflow gap (${u})`} number />
         </div>
       </fieldset>
 
@@ -323,27 +319,22 @@ function ChamberEditor({
 }
 
 /**
- * Each floor's clear height, lowest first — floor (or grating) to the grating
- * above, or to the ceiling. Kept as one list ("12, 10, 10"); all empty: the
- * chamber's height shared evenly, shown in each box.
+ * Each floor's exact usable stacking height, lowest first.
  */
 function FloorHeights({ kit, c, floors }: { kit: Kit; c: ChamberDraft; floors: number }) {
   const u = kit.draft.unit;
   const field = `${c.key}.floorHeights`;
   const parts = c.floorHeights.split(/[,;]+|\s+/).filter(Boolean);
   const values = Array.from({ length: floors }, (_, i) => parts[i] ?? '');
-  const H = readNumber(c.height);
-  const even = H && !Number.isNaN(H) ? typed((H * (u === 'ft' ? 0.3048 : 1)) / floors, u) : '';
   const put = (i: number, v: string) => {
     const next = values.map((x, j) => (j === i ? v.trim() : x));
-    // All empty: back to sharing the height evenly. Otherwise every floor needs its number (the model says which is missing).
     kit.set(field, next.every((x) => !x) ? '' : next.map((x) => x || '?').join(', '));
   };
   return (
     <fieldset data-field={field} className="space-y-3 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-900/5">
       <legend className="sr-only">Height of each floor</legend>
       <p className="flex items-center gap-2 text-base font-semibold text-slate-900"><Layers className="h-5 w-5 text-emerald-700" aria-hidden /> Height of each floor ({u})</p>
-      <p className="text-sm text-slate-700">Measure from the floor (or grating) up to the grating above — or to the ceiling for the top floor. Leave them all empty to share the chamber’s height evenly{even ? ` (${even} ${u} each)` : ''}.</p>
+      <p className="text-sm text-slate-700">Enter the measured usable stacking height from the floor or grating to the next grating, or to the ceiling for the top floor.</p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {values.map((v, i) => (
           <label key={i} className="block">
@@ -352,7 +343,6 @@ function FloorHeights({ kit, c, floors }: { kit: Kit; c: ChamberDraft; floors: n
               className="mt-1.5 block min-h-[48px] w-full rounded-xl border-0 bg-white px-3 text-base text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-700"
               inputMode="decimal"
               value={v === '?' ? '' : v}
-              placeholder={even || undefined}
               onChange={(e) => put(i, e.target.value.replace(/[^\d.]/g, ''))}
               onBlur={() => kit.touch(field)}
             />

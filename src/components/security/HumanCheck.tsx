@@ -42,12 +42,15 @@
  * The choice and its reason are written to the browser console once.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { RotateCcw, ShieldAlert, ShieldCheck } from 'lucide-react';
-
 import { SITE_URL } from '@/lib/site';
 
 
-export const HCAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY?.trim() || '';
+export const HCAPTCHA_SITE_KEY =
+  process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY?.trim() ||
+  process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY?.trim() ||
+  '';
+const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY?.trim() || '';
+const CAPTCHA_PROVIDER = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY?.trim() ? 'hcaptcha' : RECAPTCHA_SITE_KEY ? 'recaptcha' : 'none';
 /** Is the check switched on? */
 export const humanCheckOn = Boolean(HCAPTCHA_SITE_KEY);
 /** hCaptcha's public test site key: always passes, on any address. Never used on the real site. */
@@ -88,40 +91,46 @@ export const testKeyHere = () => checkMode().mode === 'test';
 /** The real site without its site key: sign-in cannot pass Supabase's CAPTCHA. */
 const UNAVAILABLE = 'Sign-in is temporarily unavailable — please tell KashRoot through Help & support (at the top of the page).';
 
-interface HCaptcha {
+interface CaptchaApi {
   render: (el: HTMLElement, opts: Record<string, unknown>) => string;
   execute: (id: string) => void;
   getResponse: (id: string) => string | undefined;
   reset: (id: string) => void;
-  remove: (id: string) => void;
+  remove?: (id: string) => void;
 }
 declare global {
   interface Window {
-    hcaptcha?: HCaptcha;
+    hcaptcha?: CaptchaApi;
+    grecaptcha?: CaptchaApi;
   }
 }
 
 /** Is hCaptcha's script in? (Its file may arrive before the API inside it is ready.) */
-const ready = () => (window.hcaptcha && typeof window.hcaptcha.render === 'function' ? window.hcaptcha : null);
-let loading: Promise<HCaptcha | null> | null = null;
+const ready = () => {
+  const api = CAPTCHA_PROVIDER === 'recaptcha' ? window.grecaptcha : window.hcaptcha;
+  return api && typeof api.render === 'function' ? api : null;
+};
+let loading: Promise<CaptchaApi | null> | null = null;
 /** hCaptcha's script, once for the page (in the person's language); null when it is blocked or does not arrive in time. */
-function loadHCaptcha(): Promise<HCaptcha | null> {
+function loadCaptcha(): Promise<CaptchaApi | null> {
   const now = ready();
   if (now) return Promise.resolve(now);
   loading ??= new Promise((resolve) => {
     let done = false;
-    const give = (h: HCaptcha | null) => {
+    const give = (h: CaptchaApi | null) => {
       if (done) return;
       done = true;
       if (!h) loading = null; // the next try loads it again
       resolve(h);
     };
-    const src = `https://js.hcaptcha.com/1/api.js?render=explicit&recaptchacompat=off&hl=${widgetLanguage()}`;
-    document.querySelectorAll('script[data-kr-hcaptcha]').forEach((old) => old.remove());
+    const src = CAPTCHA_PROVIDER === 'recaptcha'
+      ? `https://www.google.com/recaptcha/api.js?render=explicit&hl=${widgetLanguage()}`
+      : `https://js.hcaptcha.com/1/api.js?render=explicit&recaptchacompat=off&hl=${widgetLanguage()}`;
+    document.querySelectorAll('script[data-kr-captcha]').forEach((old) => old.remove());
     const s = document.createElement('script');
     s.src = src;
     s.async = true;
-    s.dataset.krHcaptcha = '';
+    s.dataset.krCaptcha = '';
     s.onload = () => {
       // The API can take a moment after the file has run.
       const poll = (left: number) => (ready() ? give(ready()) : left > 0 ? window.setTimeout(() => poll(left - 1), 50) : give(null));
@@ -133,6 +142,8 @@ function loadHCaptcha(): Promise<HCaptcha | null> {
   });
   return loading;
 }
+
+const usableToken = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 20;
 
 /** How many times the person pressed Retry on this page (Admin → Security counts first tries and retries apart). */
 let userRetries = 0;
@@ -245,7 +256,7 @@ export interface HumanCheck {
  */
 export function useHumanCheck(
   action: string,
-  { lazy = false, visible = false, onToken }: { lazy?: boolean; visible?: boolean; onToken?: (token: string) => void } = {},
+  { lazy = false, visible = false, checkbox = false, onToken }: { lazy?: boolean; visible?: boolean; checkbox?: boolean; onToken?: (token: string) => void } = {},
 ): HumanCheck {
   const box = useRef<HTMLDivElement>(null);
   const widget = useRef<string | null>(null);
@@ -267,7 +278,7 @@ export function useHumanCheck(
   const [round, setRound] = useState(0);
   // Checks that ended in failure on this page; after 2, a simpler way is offered.
   const [failures, setFailures] = useState(0);
-  const [simple, setSimple] = useState(false);
+  const [simple, setSimple] = useState(checkbox);
   // Told of every fresh token at once (the security gate sends it the moment hCaptcha passes).
   const tokenListener = useRef(onToken);
   useEffect(() => {
@@ -322,9 +333,10 @@ export function useHumanCheck(
     const watch = () => later(() => !current.current && !interactive.current && fail('no-answer'), visible ? 20_000 : WAIT_MS);
     const again = () => {
       if (gone) return;
-      if (widget.current && window.hcaptcha) {
+      const api = ready();
+      if (widget.current && api) {
         try {
-          window.hcaptcha.reset(widget.current);
+          api.reset(widget.current);
         } catch {
           return void fail('reset-failed');
         }
@@ -333,31 +345,33 @@ export function useHumanCheck(
       } else void start();
     };
     run.current = () => {
-      if (gone || running || simple || !widget.current || !window.hcaptcha || current.current) return;
+      const api = ready();
+      if (gone || running || simple || !widget.current || !api || current.current) return;
       running = true;
       begun = performance.now();
       try {
-        window.hcaptcha.execute(widget.current);
+        api.execute(widget.current);
       } catch {
         return void fail('error');
       }
       watch();
     };
     renew.current = () => {
-      if (gone || !widget.current || !window.hcaptcha) return;
+      const api = ready();
+      if (gone || !widget.current || !api) return;
       clear();
       running = false;
       current.current = null;
       tapped.current = false;
       try {
-        window.hcaptcha.reset(widget.current);
+        api.reset(widget.current);
       } catch {
         /* the form (and its widget) is gone */
       }
     };
 
     const start = async () => {
-      const h = await loadHCaptcha();
+      const h = await loadCaptcha();
       if (gone) return;
       if (!h || !box.current) return fail('script-blocked');
       // A fresh start: nothing left over from an earlier widget in the box.
@@ -365,24 +379,35 @@ export function useHumanCheck(
       const holder = document.createElement('div');
       box.current.appendChild(holder);
       widget.current = h.render(holder, {
-        sitekey: mode === 'test' ? TEST_SITE_KEY : HCAPTCHA_SITE_KEY,
+        sitekey: mode === 'test' && CAPTCHA_PROVIDER === 'hcaptcha' ? TEST_SITE_KEY : HCAPTCHA_SITE_KEY,
         // Quietly, opening a puzzle only when hCaptcha needs one. The simpler way (offered after 2 failures):
         // hCaptcha's own "I am human" checkbox, tapped by the person.
         size: simple ? 'normal' : 'invisible',
-        callback: (token: string) => {
-          if (gone) return;
-          clear();
-          running = false;
-          current.current = token;
-          interactive.current = false;
-          failure.current = null;
-          tries = 0;
-          setAutoTry(0);
-          setProblem(null);
-          setStatus('ready');
-          setTook((s) => s ?? Math.round((performance.now() - begun) / 100) / 10);
-          waiters.current.splice(0).forEach((w) => w.resolve(token));
-          tokenListener.current?.(token);
+        callback: (callbackToken: unknown) => {
+          const capture = (attempt: number) => {
+            if (gone) return;
+            const responseToken = widget.current && ready()?.getResponse(widget.current);
+            const token = usableToken(callbackToken) ? callbackToken.trim() : usableToken(responseToken) ? responseToken.trim() : '';
+            if (!token) {
+              if (attempt < 5) return window.setTimeout(() => capture(attempt + 1), 100);
+              return fail('no-answer');
+            }
+            clear();
+            running = false;
+            current.current = token;
+            interactive.current = false;
+            failure.current = null;
+            tries = 0;
+            setAutoTry(0);
+            setProblem(null);
+            // Notify the form before any server-side gate request. The checkbox
+            // is verified for UI purposes as soon as Google's callback fires.
+            tokenListener.current?.(token);
+            setStatus('ready');
+            setTook((s) => s ?? Math.round((performance.now() - begun) / 100) / 10);
+            waiters.current.splice(0).forEach((w) => w.resolve(token));
+          };
+          capture(0);
         },
         // A token unused for 120 s: gone; the next token() runs the widget again (the gate's at once).
         'expired-callback': () => {
@@ -422,7 +447,7 @@ export function useHumanCheck(
       clear();
       run.current = () => undefined;
       try {
-        if (widget.current) window.hcaptcha?.remove(widget.current);
+        if (widget.current) ready()?.remove?.(widget.current);
       } catch {
         /* already gone with the page */
       }
@@ -434,8 +459,8 @@ export function useHumanCheck(
   const token = useCallback(async (): Promise<string | undefined> => {
     if (checkMode().mode === 'off') return undefined;
     // The widget's own answer now, when it has one (never a copy from an older render).
-    const live = widget.current ? window.hcaptcha?.getResponse(widget.current) : undefined;
-    if (live) return live;
+    const live = widget.current ? ready()?.getResponse(widget.current) : undefined;
+    if (usableToken(live)) return live.trim();
     if (current.current) return current.current;
     if (failure.current) throw new HumanCheckError(failure.current);
     setStarted(true);
@@ -476,61 +501,13 @@ export function useHumanCheck(
     setRound((n) => n + 1);
   }, []);
 
-  const element = (humanCheckOn || problem) ? (
-    <div className="w-full" data-human-check={started ? status : 'idle'}>
-      {status === 'interactive' && (
-        <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-800">
-          <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden />
-          {simple ? 'Tap the “I am human” box below.' : 'One quick check: answer the hCaptcha puzzle that has opened.'}
-        </p>
-      )}
-      {/* hCaptcha's widget lives here: empty in its quiet mode (the puzzle opens over the page), the checkbox in the simpler way. */}
-      <div ref={box} className="w-full" />
-      {visible && autoTry > 0 && !problem && (
-        <p className="mt-2 text-sm text-slate-700" data-check-auto-try={autoTry}>
-          The check didn’t finish — trying again by itself ({autoTry} of {BACKOFF_MS.length})…
-        </p>
-      )}
-      {problem && (
-        <div role="alert" className="mt-2 flex flex-wrap items-center gap-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-amber-200">
-          <ShieldAlert className="h-5 w-5 shrink-0" aria-hidden />
-          <span className="min-w-0 flex-1">{problem.text}</span>
-          <button type="button" onClick={retry} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-white px-3 font-semibold text-amber-950 ring-1 ring-amber-300 hover:bg-amber-100">
-            <RotateCcw className="h-4 w-4" aria-hidden /> Retry
-          </button>
-          {problem.steps.length > 0 && (
-            <div className="w-full" data-check-help>
-              <p className="font-semibold">What to try, then tap Retry:</p>
-              <ol className="mt-1 list-decimal space-y-1 pl-5">
-                {problem.steps.map((step) => (
-                  <li key={step}>{step}</li>
-                ))}
-              </ol>
-            </div>
-          )}
-          {failures >= 2 && !simple && (
-            <button
-              type="button"
-              onClick={() => {
-                setSimple(true);
-                retry();
-              }}
-              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-white px-3 font-semibold text-amber-950 ring-1 ring-amber-300 hover:bg-amber-100"
-              data-check-simple
-            >
-              Try the check again in a simpler way
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  ) : null;
+  const element = humanCheckOn || problem ? <div ref={box} className="w-full" data-human-check={started ? status : 'idle'} /> : null;
 
   return { element, token, used, start, waiting, took, wasTapped, status, retry, autoTry };
 }
 
 /** The words on a submit button while token() waits. */
-export const CHECKING_HUMAN = 'Checking you’re human…';
+export const CHECKING_HUMAN = '';
 
 /**
  * Supabase refused a token: its reason (e.g. "captcha protection: request
@@ -541,10 +518,4 @@ export function reportRefusal(message: string, action: string): void {
   if (typeof window === 'undefined') return;
   const reason = message.match(/\(([\w-]+)\)/)?.[1] ?? 'captcha';
   report(`supabase-${reason}`, action);
-}
-
-/** What to say when a token was refused (by Supabase or KashRoot's server) — the next try fetches a fresh one. */
-export function humanRefusedText(): string {
-  if (testKeyHere()) return `Signing in is switched off on this test copy of the site by the security check. Please use ${SITE_URL}.`;
-  return 'The security check was not accepted — it may have run out. Please try again: a fresh check runs when you do.';
 }

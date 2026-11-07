@@ -16,9 +16,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { CheckCircle2, ChevronDown, LifeBuoy, Loader2, Mail, MessageSquare, Search, Send, ShieldCheck, Square, Volume2 } from 'lucide-react';
 
-import { CHECKING_HUMAN, HumanCheckError, humanCheckOn, useHumanCheck } from '@/components/security/HumanCheck';
 import { GUARD_TEXT, useFormGuard } from '@/lib/client/formGuard';
-import { SecurityGate } from '@/components/security/SecurityGate';
 import { authFetch } from '@/lib/auth-fetch';
 import { supabase } from '@/lib/supabase';
 import { HELP_TOPICS, TOPIC_LABEL, type SupportTopic } from '@/lib/helpTopics';
@@ -27,8 +25,6 @@ import { rememberedLang, rememberLang } from '@/lib/langDetect';
 import { SITE_URL, SOCIAL_LINKS } from '@/lib/site';
 import { NEVER_ASKS, SUPPORT_EMAIL, supportMailto } from '@/lib/supportEmail';
 import type { GuideText } from '@/lib/portalGuide';
-import { HumanGate } from '@/components/security/HumanGate';
-import { humanPassReady } from '@/lib/client/humanPass';
 
 type Lang = 'en' | 'hi' | 'ur';
 const LANGS: Lang[] = ['en', 'hi', 'ur'];
@@ -149,17 +145,6 @@ export function SupportCenter() {
     return l === 'hi' || l === 'ur' ? l : l === 'ks' ? 'ur' : 'en';
   });
   const [open, setOpen] = useState<string | null>(askedTopic === 'login' ? 'otp' : null);
-  // Whether the "I am human" check shows at the top: asked once (cached) before the page is drawn,
-  // so the help below never jumps down when it appears. null: not known yet.
-  const [gateNeeded, setGateNeeded] = useState<boolean | null>(humanCheckOn ? null : false);
-  useEffect(() => {
-    if (!humanCheckOn) return;
-    let live = true;
-    void humanPassReady().then((ok) => live && setGateNeeded(!ok));
-    return () => {
-      live = false;
-    };
-  }, []);
   const [reading, setReading] = useState<string | null>(null);
 
   // Ask KashRoot
@@ -167,7 +152,6 @@ export function SupportCenter() {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const human = useHumanCheck('support', { lazy: true });
   // Bot traps (checked again on the server): a hidden field, and at least 3 s to write the request.
   const guard = useFormGuard(3000, 'support');
 
@@ -239,16 +223,8 @@ export function SupportCenter() {
     const guarded = guard.check();
     if (guarded !== 'ok') return setFormError(GUARD_TEXT[guarded]);
     setSending(true);
-    let token: string | undefined;
-    try {
-      token = await human.token();
-    } catch (problem) {
-      setSending(false);
-      return setFormError(problem instanceof HumanCheckError ? null : (problem as Error).message);
-    }
-    const { ok, data } = await post({ action: 'open', ...form, lang, portal: null, human: token, trap: guard.trapValue(), ms: guard.elapsed() });
+    const { ok, data } = await post({ action: 'open', ...form, lang, portal: null, trap: guard.trapValue(), ms: guard.elapsed() });
     setSending(false);
-    human.used();
     if (!ok || typeof data.code !== 'string') return setFormError(String(data.error ?? 'Could not send. Please try again.'));
     setSent(data.code);
     setCheck({ code: data.code, contact: form.phone });
@@ -295,18 +271,8 @@ export function SupportCenter() {
     document.getElementById('ask-kashroot')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  if (gateNeeded === null) {
-    // As tall as the help to come, so the footer does not show and then jump away.
-    return (
-      <p role="status" className="flex min-h-[80vh] items-start justify-center gap-2 pt-10 text-slate-600">
-        <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> Opening help…
-      </p>
-    );
-  }
   return (
     <div className="space-y-10 [&_h2]:font-serif">
-      {/* KashRoot's voice needs the "I am human" pass; shown only when asked for. */}
-      <HumanGate startNeeded={gateNeeded} />
       {/* Language for the answers (and the voice) */}
       <div role="group" aria-label="Language" className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-semibold text-slate-600">Language:</span>
@@ -391,8 +357,7 @@ export function SupportCenter() {
             </div>
           </div>
         ) : (
-          <SecurityGate place="support" onPass={human.start}>
-            <form
+          <form
               className="mt-4 grid gap-4 sm:grid-cols-2"
               onSubmit={(e) => {
                 e.preventDefault();
@@ -425,14 +390,10 @@ export function SupportCenter() {
                 <textarea className={`${input} min-h-32 py-3`} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} required minLength={5} maxLength={2000} />
               </label>
               {formError && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-rose-900 ring-1 ring-rose-200 sm:col-span-2">{formError}</p>}
-              <div className="sm:col-span-2">
-                {human.element}
-              </div>
               <button type="submit" disabled={sending} className={`${button} bg-chinar text-white hover:bg-chinar-hover sm:col-span-2 sm:justify-self-start`}>
-                {sending ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <Send className="h-5 w-5" aria-hidden />} {human.waiting ? CHECKING_HUMAN : 'Send to KashRoot'}
+                {sending ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <Send className="h-5 w-5" aria-hidden />} {sending ? 'Sending…' : 'Send to KashRoot'}
               </button>
             </form>
-          </SecurityGate>
         )}
       </section>
 

@@ -25,7 +25,7 @@ import { authApi, type RegisterDto } from '@/lib/api/auth';
 import { loginHref, PORTALS, REGISTER_ROLES, SIGNUP_ROLE, type PortalId, type SignUpRole } from '@/lib/auth/roles';
 import { getKycConfig } from '@/lib/kyc/kyc-service';
 import { weakPassword } from '@/lib/auth/passwordRules';
-import { CHECKING_HUMAN, HumanCheckError, useHumanCheck } from '@/components/security/HumanCheck';
+import { humanCheckOn, HumanCheckError, useHumanCheck } from '@/components/security/HumanCheck';
 import { GUARD_TEXT, useFormGuard } from '@/lib/client/formGuard';
 import { SecurityGate } from '@/components/security/SecurityGate';
 
@@ -163,7 +163,13 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
   const password = useWatch({ control, name: 'password', defaultValue: '' });
 
   // The security check (off until its keys are set): a token fetched in the background, a fresh one for each try.
-  const human = useHumanCheck('signup', { lazy: true });
+  const [captchaVerified, setCaptchaVerified] = useState(!humanCheckOn);
+  const human = useHumanCheck('signup', {
+    checkbox: true,
+    onToken: () => {
+      setCaptchaVerified(true);
+    },
+  });
   // Bot traps: a hidden field, and at least 3 s to fill in the form.
   const guard = useFormGuard(3000, 'signup');
   const [guardError, setGuardError] = useState<string | null>(null);
@@ -173,14 +179,7 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
     mutationFn: async (dto: RegisterDto) =>
       authApi.register({
         ...dto,
-        captchaToken: await human.token(),
-        // The email already has an account: adding this portal signs in, which needs a second token.
-        nextCaptchaToken: async () => {
-          human.used();
-          return human.token();
-        },
       }),
-    onSettled: () => human.used(),
     onSuccess: (result) => {
       setSuccess(true);
       setJoinedExisting(Boolean(result.joinedExisting));
@@ -197,12 +196,15 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
     return () => window.clearTimeout(t);
   }, [resendIn]);
   const resend = useMutation({
-    mutationFn: async () => authApi.resendSignupEmail(String(emailValue ?? '').trim(), selectedRole, homePortal, await resendHuman.token()),
-    onSettled: () => resendHuman.used(),
+    mutationFn: async () => authApi.resendSignupEmail(String(emailValue ?? '').trim(), selectedRole, homePortal),
     onSuccess: () => setResendIn(60),
   });
 
   const onSubmit = (values: RegisterDto & { confirmPassword: string }) => {
+    if (!captchaVerified) {
+      setGuardError("Please tick 'I'm not a robot' first.");
+      return;
+    }
     const guarded = guard.check();
     setGuardError(guarded === 'ok' ? null : GUARD_TEXT[guarded]);
     if (guarded !== 'ok') return;
@@ -251,7 +253,7 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
                 className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white px-5 py-3 font-semibold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {resend.isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
-                {resendHuman.waiting ? CHECKING_HUMAN : resendIn > 0 ? `Resend in ${resendIn}s` : 'Resend email'}
+                {resendIn > 0 ? `Resend in ${resendIn}s` : 'Resend email'}
               </button>
             </div>
             <div className="mx-auto mt-3 max-w-sm">{resendHuman.element}</div>
@@ -314,7 +316,7 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
         </div>
       )}
 
-      <SecurityGate place="register" onPass={human.start}>
+      <SecurityGate place="register">
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-6 space-y-5">
           {guard.trap}
           {!portal && (
@@ -457,7 +459,7 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
             className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-4 text-base font-semibold shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 ${look.button}`}
           >
             {registerMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : null}
-            {human.waiting ? CHECKING_HUMAN : registerMutation.isPending ? 'Creating account…' : 'Create account'}
+            {registerMutation.isPending ? 'Creating account…' : 'Create account'}
             {!registerMutation.isPending && <ArrowRight className="h-5 w-5" aria-hidden />}
           </button>
         </form>
