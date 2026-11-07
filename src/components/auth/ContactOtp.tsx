@@ -9,7 +9,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { CheckCircle2, Loader2, Mail, Send, ShieldCheck, Smartphone } from 'lucide-react';
 
-import { CHECKING_HUMAN, HumanCheckError, useHumanCheck } from '@/components/security/HumanCheck';
 import { OtpBoxes, OtpCard } from '@/components/ui/OtpBoxes';
 
 /** Full class strings for the panel's accent colour. */
@@ -68,10 +67,6 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
   const [busy, setBusy] = useState<'send' | 'verify' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [wait, setWait] = useState(0);
-  // The security check (off until its keys are set): codes cost money, so bots get none. A fresh token for each send.
-  // Started only when a code is first asked for (a page can hold one of these for the mobile and one for the email).
-  const human = useHumanCheck('otp', { lazy: !autoSend });
-
   useEffect(() => {
     if (wait <= 0) return;
     const t = window.setTimeout(() => setWait((s) => s - 1), 1000);
@@ -90,13 +85,10 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
   const send = async () => {
     setBusy('send');
     setError(null);
-    let asked = false;
     try {
-      const humanToken = await human.token();
-      asked = true;
-      const res = await fetch('/api/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel, to: value, human: humanToken }) });
+      const res = await fetch('/api/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel, to: value }) });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok && (data.unavailable || data.configured === false)) onUnavailable?.();
+      if (!res.ok && sms) onUnavailable?.();
       if (!res.ok) throw new Error(data.error ?? 'Could not send the OTP.');
       setToken(data.token);
       setSentVia(Array.isArray(data.via) ? data.via : []);
@@ -104,10 +96,10 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
       setCode('');
       setWait(30);
     } catch (err) {
-      if (!(err instanceof HumanCheckError)) setError(err instanceof Error && err.message !== 'Failed to fetch' ? err.message : 'Could not send the OTP. Check your connection.');
+      if (sms) onUnavailable?.();
+      setError(err instanceof Error && err.message !== 'Failed to fetch' ? err.message : 'Could not send the OTP. Check your connection.');
     } finally {
       setBusy(null);
-      if (asked) human.used();
     }
   };
 
@@ -163,7 +155,6 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
 
       {!verified && (
         <div className="mt-3 space-y-2.5">
-          {human.element}
           <div className="flex gap-2">
             <label htmlFor={id} className="sr-only">{fieldLabel}</label>
             <span className="relative flex-1">
@@ -190,7 +181,7 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
             {!token && (
               <button type="button" onClick={() => void send()} disabled={busy !== null || !valid || wait > 0} className={`${BUTTON} ${accent.button}`}>
                 {busy === 'send' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
-                {human.waiting ? CHECKING_HUMAN : wait > 0 ? `Resend ${wait}s` : 'Send OTP'}
+                {wait > 0 ? `Resend ${wait}s` : 'Send OTP'}
               </button>
             )}
           </div>

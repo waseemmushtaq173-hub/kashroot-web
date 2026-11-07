@@ -23,8 +23,6 @@
  */
 import { after, NextResponse } from 'next/server';
 
-import { gateOn, passedGate } from '@/lib/server/gate';
-import { isHuman, NOT_HUMAN } from '@/lib/server/humanCheck';
 import { securityEvent } from '@/lib/server/securityLog';
 import { flushOutbox } from '@/lib/server/mail';
 import { hashed, sharedCount, sharedIpLimited, sharedLimited, sharedRecord } from '@/lib/server/sharedLimit';
@@ -84,11 +82,6 @@ export async function POST(req: Request) {
     if (!name) return NextResponse.json({ error: 'Write your name.' }, { status: 400 });
     if (message.length < 5) return NextResponse.json({ error: 'Tell us the problem in a few words.' }, { status: 400 });
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: 'That email does not look right — or leave it empty.' }, { status: 400 });
-    // The security gate first (lib/server/gate).
-    if (gateOn() && !passedGate(req)) {
-      securityEvent('bot_check_failed', { request: req, code: 'gate: missing', detail: '(support)' });
-      return NextResponse.json({ error: 'For your safety the security check runs first. Please reload the page and wait for it to finish.' }, { status: 403 });
-    }
     // Bot traps (lib/client/formGuard): the hidden field must be empty, and a person needs a few seconds to write.
     if (typeof b.trap === 'string' && b.trap) {
       securityEvent('bot_check_failed', { request: req, code: 'honeypot', detail: '(support, server)' });
@@ -98,7 +91,6 @@ export async function POST(req: Request) {
       securityEvent('bot_check_failed', { request: req, code: 'too-fast', detail: '(support, server)' });
       return NextResponse.json({ error: 'That was very quick — please check the details, then press the button again.' }, { status: 400 });
     }
-    if (!(await isHuman(req, b.human))) return NextResponse.json({ error: NOT_HUMAN }, { status: 403 });
     if ((await sharedIpLimited(req, 'support-open', 5, 3_600_000)) || (await sharedLimited(`support-open:phone:${hashed(phone)}`, 5, 86_400_000))) {
       return NextResponse.json({ error: 'You have sent several requests already. KashRoot will call you — or check your request below with its number.' }, { status: 429 });
     }

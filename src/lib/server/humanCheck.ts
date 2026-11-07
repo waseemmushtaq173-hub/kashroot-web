@@ -15,8 +15,9 @@ import { clientIp } from '@/lib/server/sign';
 import { SITE_URL } from '@/lib/site';
 
 /** The server's hCaptcha secret ('' when the check is off). */
-export const humanSecret = () => process.env.HCAPTCHA_SECRET_KEY?.trim() || '';
+export const humanSecret = () => process.env.HCAPTCHA_SECRET_KEY?.trim() || process.env.RECAPTCHA_SECRET_KEY?.trim() || '';
 export const humanCheckConfigured = () => Boolean(humanSecret());
+const captchaProvider = () => process.env.HCAPTCHA_SECRET_KEY?.trim() ? 'hcaptcha' : process.env.RECAPTCHA_SECRET_KEY?.trim() ? 'recaptcha' : 'none';
 
 /** hCaptcha's test secret (this computer, tests): its tokens name no real address. */
 const testSecret = (secret: string) => /^0x0{40}$/.test(secret);
@@ -55,14 +56,22 @@ interface Verdict {
   'error-codes'?: string[];
 }
 
-/** hCaptcha's verdict on one token (it is used up by this). Throws when hCaptcha does not answer. */
+/** The configured provider's verdict on one token. */
 async function siteverify(secret: string, token: string, remoteip: string): Promise<Verdict | null> {
+  const provider = captchaProvider();
   const form = new URLSearchParams({ secret, response: token, remoteip });
   // The site key too, on the real site: a token from another hCaptcha site is refused ("sitekey-secret-mismatch").
-  const sitekey = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY?.trim();
-  if (sitekey && !testSecret(secret)) form.set('sitekey', sitekey);
-  const res = await fetch('https://api.hcaptcha.com/siteverify', { method: 'POST', body: form, cache: 'no-store', signal: AbortSignal.timeout(5_000) });
-  return (await res.json().catch(() => null)) as Verdict | null;
+  const sitekey = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY?.trim() || process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY?.trim();
+  if (provider === 'hcaptcha' && sitekey && !testSecret(secret)) form.set('sitekey', sitekey);
+  const endpoint = provider === 'recaptcha' ? 'https://www.google.com/recaptcha/api/siteverify' : 'https://api.hcaptcha.com/siteverify';
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 4_000);
+  try {
+    const res = await fetch(endpoint, { method: 'POST', body: form, cache: 'no-store', signal: controller.signal });
+    return (await res.json().catch(() => null)) as Verdict | null;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 /**
@@ -95,11 +104,14 @@ export async function checkGateToken(request: Request, token: unknown): Promise<
   if (typeof token !== 'string' || !token || token.length > 2048) return { ok: false, reason: 'no-token' };
   try {
     const data = await siteverify(secret, token, clientIp(request));
-    if (!data?.success) return { ok: false, reason: (data?.['error-codes'] ?? ['no-answer']).join(',') || 'refused' };
+    if (!data?.success) {
+      const reason = (data?.['error-codes'] ?? ['no-answer']).join(',') || 'refused';
+      return { ok: false, reason };
+    }
     if (!testSecret(secret) && !realHosts().includes(String(data.hostname ?? '').toLowerCase())) return { ok: false, reason: 'another-address' };
     return { ok: true, reason: 'passed' };
   } catch {
-    return { ok: false, reason: 'hcaptcha-no-answer' };
+    return { ok: false, reason: captchaProvider() === 'recaptcha' ? 'recaptcha-no-answer' : 'hcaptcha-no-answer' };
   }
 }
 
@@ -109,9 +121,9 @@ export function gateReasonText(reason: string): string {
   if (/(missing|invalid)-input-response/.test(reason)) return 'the check’s answer was not valid. Tap Retry.';
   if (/(missing|invalid)-input-secret|sitekey-secret-mismatch|not-using-dummy/.test(reason)) return 'KashRoot’s security key is set up wrongly. Please tell KashRoot through Help & support.';
   if (reason === 'another-address') return 'the check was made on another web address. Please open https://kashroot-web.vercel.app and try again.';
-  if (reason === 'hcaptcha-no-answer') return 'hCaptcha did not answer within 5 seconds. Tap Retry.';
+  if (reason === 'recaptcha-no-answer') return 'Google reCAPTCHA did not answer within 4 seconds. Tap Retry.';
+  if (reason === 'hcaptcha-no-answer') return 'hCaptcha did not answer within 4 seconds. Tap Retry.';
   if (reason === 'no-token') return 'no answer came from the check. Tap Retry.';
-  return `hCaptcha refused it (${reason.slice(0, 40)}). Tap Retry.`;
+  return `${captchaProvider() === 'recaptcha' ? 'Google reCAPTCHA' : 'hCaptcha'} refused it (${reason.slice(0, 40)}). Tap Retry.`;
 }
-
-export const NOT_HUMAN = 'The security check was not accepted — it may have run out. Please try again: a fresh check runs when you do.';
+export const NOT_HUMAN = 'Please complete the human verification and try again.';

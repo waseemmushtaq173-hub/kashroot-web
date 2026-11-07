@@ -45,7 +45,6 @@ import {
   myBookings,
   myListings,
   myPayout,
-  requestBooking,
   setAvailability,
   setRent,
   UNIT_LABEL,
@@ -55,8 +54,6 @@ import {
 } from '@/lib/db/rentals';
 
 const theme = PORTAL_THEMES.rental;
-const today = () => new Date().toISOString().slice(0, 10);
-
 type Side = 'farmer' | 'owner';
 /** The side last chosen on this device. */
 const SIDE_KEY = 'kr_cold_side';
@@ -324,10 +321,10 @@ export default function RentalPage() {
         />
       ) : null}
 
-      {booking && account && chambers.some((c) => c.listing_id === booking.listing.id) && (
+      {booking && account && chambers.some((c) => c.listing_id === booking.listing.id && c.size && c.storage !== 'boxes') && (
         <ColdBooking
           listing={booking.listing}
-          chambers={chambers.filter((c) => c.listing_id === booking.listing.id)}
+          chambers={chambers.filter((c) => c.listing_id === booking.listing.id && c.size && c.storage !== 'boxes')}
           account={account}
           quick={booking.quick}
           onClose={() => setBooking(null)}
@@ -338,18 +335,13 @@ export default function RentalPage() {
           }}
         />
       )}
-      {booking && account && !chambers.some((c) => c.listing_id === booking.listing.id) && (
-        <BookingModal
-          listing={booking.listing}
-          account={account}
-          want={want?.storage === 'boxes' || want?.storage === null ? want.n : undefined}
-          onClose={() => setBooking(null)}
-          onBooked={() => {
-            setBooking(null);
-            setTab('bookings');
-            void refresh();
-          }}
-        />
+      {booking && account && !chambers.some((c) => c.listing_id === booking.listing.id && c.size && c.storage !== 'boxes') && (
+        <Modal open onClose={() => setBooking(null)} title={`Booking unavailable · ${booking.listing.title}`}>
+          <div className="space-y-3">
+            <p className="text-sm text-slate-700">This cold store has not published an owner-configured chamber blueprint yet.</p>
+            <p className="text-sm text-slate-600">The owner must enter the facility dimensions, chamber layout, container dimensions, safe stacking height, blocked coordinates, and pricing before booking can open.</p>
+          </div>
+        </Modal>
       )}
     </PortalShell>
   );
@@ -552,67 +544,6 @@ function StoreCard({
         </>
       )}
     </div>
-  );
-}
-
-function BookingModal({ listing: l, account, want, onClose, onBooked }: { listing: RentalListing; account: Account; /** Boxes told to the voice assistant. */ want?: number; onClose: () => void; onBooked: () => void }) {
-  const unit = UNIT_LABEL[l.unit];
-  const [form, setForm] = useState({ units: String(want && l.unit === 'box_month' && want >= l.min_units ? want : l.min_units), duration: l.unit === 'box_month' ? '3' : '1', start: today(), name: account.name, phone: account.phone });
-  const [busy, setBusy] = useState(false);
-  const units = Number(form.units) || 0;
-  const duration = Number(form.duration) || 0;
-  const total = units * duration * l.rate;
-
-  const send = async () => {
-    if (units < l.min_units) return toast.error(`Minimum ${l.min_units} ${unit.unit}.`);
-    if (units > l.available) return toast.error(`Only ${l.available} ${unit.unit} free.`);
-    if (duration < 1) return toast.error(`Choose how many ${unit.duration}.`);
-    if (!/^(\+?91)?[6-9]\d{9}$/.test(form.phone.replace(/\s/g, ''))) return toast.error('Add your 10-digit mobile number.');
-    setBusy(true);
-    try {
-      await requestBooking({ listing_id: l.id, renter_name: form.name, renter_phone: form.phone.replace(/\s/g, ''), units, duration, start_date: form.start });
-      toast.success('Booking sent — now pay the owner to confirm it');
-      onBooked();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not book.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title={`Book ${l.title}`}
-      footer={
-        <>
-          <Btn theme={theme} variant="ghost" onClick={onClose}>Cancel</Btn>
-          <Btn theme={theme} icon={CalendarDays} disabled={busy} onClick={() => void send()}>{busy ? 'Sending…' : `Book for ${inr(total)}`}</Btn>
-        </>
-      }
-    >
-      <div className="grid gap-4">
-        <p className="text-sm text-slate-600">{inr(l.rate)} {unit.per} · {l.available} {unit.unit} free · minimum {l.min_units}</p>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label={l.unit === 'box_month' ? 'How many boxes?' : 'How many?'}>
-            <input type="number" min={l.min_units} max={l.available} className={INPUT} value={form.units} onChange={(e) => setForm({ ...form, units: e.target.value })} />
-          </Field>
-          <Field label={`For how many ${unit.duration}?`}>
-            <input type="number" min={1} max={365} className={INPUT} value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })} />
-          </Field>
-          <Field label="Starting from">
-            <input type="date" min={today()} className={INPUT} value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} />
-          </Field>
-          <Field label="Your mobile">
-            <input type="tel" className={INPUT} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-          </Field>
-        </div>
-        <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-950">
-          Total <strong className="text-lg">{inr(total)}</strong>. After booking you pay the owner directly by UPI or bank transfer; the space is yours once the owner confirms your payment.
-        </p>
-      </div>
-    </Modal>
   );
 }
 

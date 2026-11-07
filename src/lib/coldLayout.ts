@@ -129,7 +129,7 @@ export interface CoolingInfo {
   humidity?: number;
 }
 
-/** A floor's clear height and how far above the ground it starts (metres), from the owner's heights or the height shared evenly. */
+/** A floor's exact usable height and its measured elevation from owner data. */
 export function floorSpan(s: Pick<ChamberSize, 'height' | 'floors' | 'floor' | 'floorHeights'>): { h: number; z0: number } {
   const floors = s.floors ?? 1;
   const floor = s.floor ?? 1;
@@ -137,24 +137,11 @@ export function floorSpan(s: Pick<ChamberSize, 'height' | 'floors' | 'floor' | '
   if (own && own.length === floors && own.every((h) => Number.isFinite(h) && h > 0)) {
     return { h: own[floor - 1], z0: own.slice(0, floor - 1).reduce((a, b) => a + b, 0) };
   }
-  const h = s.height / floors;
-  return { h, z0: (floor - 1) * h };
+  return { h: 0, z0: 0 };
 }
 
 /** How long a wall is: front and back walls are the breadth, left and right the length. */
 export const wallLength = (s: Pick<ChamberSize, 'length' | 'width'>, wall: Wall) => (wall === 'front' || wall === 'back' ? s.width : s.length);
-
-/** Common values; the owner changes them to match their store. */
-export const STANDARDS: Omit<ChamberSize, 'unit' | 'length' | 'width' | 'height'> = {
-  box: { l: 0.5, w: 0.3, h: 0.3 },
-  place: { l: 1.2, w: 1.0 },
-  base: 0.15,
-  aisle: 1.5,
-  wallGap: 0.3,
-  stackGap: 0.1,
-  topGap: 0.5,
-  doorGap: 1.5,
-};
 
 export const FOOT = 0.3048;
 export const INCH = 0.0254;
@@ -441,6 +428,7 @@ function planCounted(s: ChamberSize): ChamberPlan {
     else if (!ok(door.height, 0.5, s.height * (1 + ROOM_SLACK))) problems.push('The door must be lower than the chamber.');
   }
   const { h: floorH, z0: floorZ } = floorSpan(s);
+  if (!(floorH > 0)) problems.push('Enter the exact usable stacking height for every floor.');
   const empty: ChamberPlan = {
     rows: 0, cols: 0, aisleAfter: null, aisleX: null, doorX: [0, 0], doorH: 0, doorSet: false, windows: [], placeW: s.place.w, placeD: s.place.l,
     colX: [], rowZ: [], perLayer: 1, layers: 0, boxesPerPlace: 0, fits: 0, stackHeight: 0, problems, notes, unused: [], crowded: false, floorH: 0, floorZ: 0, stackOf: s.stackOf,

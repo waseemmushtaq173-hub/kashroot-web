@@ -15,7 +15,7 @@ import { useId, useState, type FormEvent } from 'react';
 import { ArrowLeft, Eye, EyeOff, LogIn, ShoppingCart, Store, UserPlus } from 'lucide-react';
 
 import { Btn, INPUT, Modal, PORTAL_THEMES } from '@/components/portal/kit';
-import { CHECKING_HUMAN, HumanCheckError, useHumanCheck } from '@/components/security/HumanCheck';
+import { humanCheckOn, HumanCheckError, useHumanCheck } from '@/components/security/HumanCheck';
 import { GUARD_TEXT, useFormGuard } from '@/lib/client/formGuard';
 import { SecurityGate } from '@/components/security/SecurityGate';
 import { authApi } from '@/lib/api/auth';
@@ -43,11 +43,18 @@ export function SignInModal({ reason, onClose, onSignedIn }: { reason: SignInRea
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const human = useHumanCheck('signin', { lazy: true });
+  const [captchaVerified, setCaptchaVerified] = useState(!humanCheckOn);
+  const human = useHumanCheck('signin', {
+    checkbox: true,
+    onToken: () => {
+      setCaptchaVerified(true);
+    },
+  });
   const guard = useFormGuard(800, 'signin');
 
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!captchaVerified) return setError("Please tick 'I'm not a robot' first.");
     const address = email.trim();
     if (!address) return setError('Write the email address of your KashRoot account.');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) return setError('This email address is not complete. Write it like name@gmail.com.');
@@ -56,11 +63,8 @@ export function SignInModal({ reason, onClose, onSignedIn }: { reason: SignInRea
     if (guarded !== 'ok') return setError(GUARD_TEXT[guarded]);
     setBusy(true);
     setError(null);
-    let sent = false;
     try {
-      const captchaToken = await human.token();
-      sent = true;
-      await authApi.login({ email: address, password, captchaToken });
+      await authApi.login({ email: address, password });
       const account = await loadAccount();
       if (!account) throw new Error('You are signed in, but your account could not be read. Please try again.');
       onSignedIn(account);
@@ -68,7 +72,6 @@ export function SignInModal({ reason, onClose, onSignedIn }: { reason: SignInRea
       if (!(err instanceof HumanCheckError)) setError(err instanceof Error && err.message ? err.message : 'Could not sign in. Check your internet and try again.');
     } finally {
       setBusy(false);
-      if (sent) human.used();
     }
   };
 
@@ -94,7 +97,7 @@ export function SignInModal({ reason, onClose, onSignedIn }: { reason: SignInRea
   return (
     <Modal open onClose={onClose} title={step === 'create' ? 'Create an account' : TITLE[reason]}>
       {step === 'signin' ? (
-        <SecurityGate place="signin" onPass={human.start}>
+        <SecurityGate place="signin">
           <form className="grid gap-4" onSubmit={(e) => void submit(e)} noValidate>
             {guard.trap}
             <p className="text-sm text-slate-600">Use the email and password of your KashRoot account. You stay on Price Comparison.</p>
@@ -113,7 +116,7 @@ export function SignInModal({ reason, onClose, onSignedIn }: { reason: SignInRea
             </div>
             {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm font-medium text-rose-800 ring-1 ring-rose-200">{error}</p>}
             {human.element}
-            <Btn theme={theme} type="submit" icon={LogIn} className="min-h-12 w-full text-base" disabled={busy}>{human.waiting ? CHECKING_HUMAN : busy ? 'Signing in…' : 'Sign in'}</Btn>
+            <Btn theme={theme} type="submit" icon={LogIn} className="min-h-12 w-full text-base" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</Btn>
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
               <Link href={AUTH_ROUTES.forgotPassword} className="inline-flex min-h-11 items-center font-semibold text-sky-800">Forgot password?</Link>
               <Link href="/support?topic=login" className="inline-flex min-h-11 items-center font-semibold text-sky-800">Trouble signing in?</Link>

@@ -72,12 +72,10 @@ export function unitsText(storages: Storage[]): string {
  * the layout keeps (at the walls, between stacks, inside the door) and the
  * walkway's width (as wide as the door, within these limits).
  */
-export const PACKING: Record<Packed, { size: { l: number; w: number; h: number }; kg: [number, number]; usualKg: string; defaultKg: number; wallGap: number; gap: number; doorGap: number; walk: [number, number]; sizeRange: { lw: [number, number]; h: [number, number] } }> = {
-  bins: { size: { l: 1.2, w: 1.0, h: 0.76 }, kg: [50, 1500], usualKg: 'about 200–400 kg', defaultKg: 200, wallGap: 0.3, gap: 0.1, doorGap: 1.5, walk: [1.2, 3.5], sizeRange: { lw: [0.5, 2.5], h: [0.3, 1.5] } },
-  crates: { size: { l: 0.6, w: 0.4, h: 0.3 }, kg: [2, 60], usualKg: 'about 20 kg', defaultKg: 20, wallGap: 0.2, gap: 0.05, doorGap: 1, walk: [0.9, 2.5], sizeRange: { lw: [0.2, 1.2], h: [0.1, 0.7] } },
+export const PACKING: Record<Packed, { kg: [number, number]; usualKg: string; sizeRange: { lw: [number, number]; h: [number, number] } }> = {
+  bins: { kg: [50, 1500], usualKg: 'about 200–400 kg', sizeRange: { lw: [0.5, 2.5], h: [0.3, 1.5] } },
+  crates: { kg: [2, 60], usualKg: 'about 20 kg', sizeRange: { lw: [0.2, 1.2], h: [0.1, 0.7] } },
 };
-/** The main forklift aisle, from the door to the back wall, unless the owner says otherwise. */
-export const DEFAULT_AISLE = 3.0;
 /** The owner's stated capacity and what fits by the measurements may differ by this much before KashRoot asks. */
 export const CAPACITY_SLACK = 0.1;
 
@@ -131,13 +129,13 @@ export interface ChamberDraft {
   /** Where it stands, if the owner says: from the building's left wall and front wall ('' = drawn in order). */
   spotX: string;
   spotY: string;
-  /** One bin / crate: length, width, height ('' = the usual size, shown as the default). */
+  /** One bin / crate: exact owner-entered length, width, and height. */
   unitL: string;
   unitW: string;
   unitH: string;
-  /** Each floor's clear height, lowest first, comma-separated ('' = the height shared evenly). */
+  /** Each floor's exact usable stacking height, lowest first, comma-separated. */
   floorHeights: string;
-  /** The main forklift aisle, the gap between stacks and the gap at the walls ('' = the defaults shown). */
+  /** Exact main forklift aisle, stack gap, and wall airflow gap. */
   aisle: string;
   stackGap: string;
   wallGap: string;
@@ -208,7 +206,7 @@ export const blankChamber = (no: number, storage: Packed = 'bins'): ChamberDraft
   count: '',
   kg: '',
   tonnes: '',
-  floors: '1',
+  floors: '',
   length: '',
   width: '',
   height: '',
@@ -440,8 +438,8 @@ function meant(v: number, unit: SizeUnit, typicalLo: number, typicalHi: number):
 
 /**
  * A chamber as typed, with every box there: a draft kept on a phone before a
- * box was added (unit size, floor heights, cooling…) gets it empty, which
- * means "the default", so the wizard never breaks on an older draft.
+ * box was added (unit size, floor heights, cooling…) gets it empty and must be
+ * completed before the listing can be published.
  */
 export const withAllBoxes = (c: ChamberDraft): ChamberDraft => ({ ...blankChamber(0, c.storage), ...c, door: { ...blankDoor(), ...c.door } });
 
@@ -657,9 +655,9 @@ function readChamber(c: ChamberDraft, numbers: Map<number, number>, u: SizeUnit,
   if (count === null) ok = (add('error', 3, `${k}.count`, `Write how many ${W.many} ${name} holds.`), false);
   else if (Number.isNaN(count) || !Number.isInteger(count) || count < 1) ok = (add('error', 3, `${k}.count`, `Write a whole number of ${W.many}, like 80.`), false);
   else if (count > 1_000_000) ok = (add('error', 3, `${k}.count`, `${nice(count)} ${W.many} is too many for one chamber. Please check the number.`), false);
-  // Empty: the usual kg (shown in the box as the default).
-  const kg = readNumber(c.kg) ?? P.defaultKg;
-  if (Number.isNaN(kg) || kg <= 0) ok = (add('error', 3, `${k}.kg`, `Write the kg in one ${W.one} as a number, like ${P.defaultKg} — or leave it empty for ${P.defaultKg} kg.`), false);
+  // Container capacity is always supplied by the owner.
+  const kg = readNumber(c.kg);
+  if (kg === null || Number.isNaN(kg) || kg <= 0) ok = (add('error', 3, `${k}.kg`, `Write the exact capacity in kg for one ${W.one}.`), false);
   else if (kg < P.kg[0]) {
     const other = c.storage === 'bins' ? ' If they are plastic crates (about 20 kg), choose Crates above.' : '';
     ok = (add('error', 3, `${k}.kg`, `${nice(kg)} kg is too little for one ${W.one} — a ${c.storage === 'bins' ? 'wooden apple bin' : 'plastic crate'} usually holds ${P.usualKg}.${other} Check the kg.`), false);
@@ -726,34 +724,33 @@ function readChamber(c: ChamberDraft, numbers: Map<number, number>, u: SizeUnit,
   /** Metres in the owner's unit, for the words. */
   const inU = (m: number) => say(m / (u === 'ft' ? FOOT : 1), u);
 
-  // One bin or crate: the owner's size, else the usual one (shown as the default).
-  const unitSize = (field: 'unitL' | 'unitW' | 'unitH', usual: number, [lo, hi]: [number, number], label: string): number => {
+  // Every container dimension must come from the owner. Never substitute a
+  // standard bin/crate footprint for missing data.
+  const unitSize = (field: 'unitL' | 'unitW' | 'unitH', [lo, hi]: [number, number], label: string): number => {
     const n = readNumber(c[field]);
-    if (n === null) return usual;
-    if (Number.isNaN(n) || n <= 0) return (ok = false), add('error', 3, `${k}.${field}`, `Write the ${label} of one ${W.one} as a number — or leave it empty for ${inU(usual)}.`), usual;
+    if (n === null || Number.isNaN(n) || n <= 0) return (ok = false), add('error', 3, `${k}.${field}`, `Write the exact ${label} of one ${W.one}.`), 0;
     const m = metres(n, u);
-    if (m < lo || m > hi) return (ok = false), add('error', 3, `${k}.${field}`, `${say(n, u)} is not the ${label} of one ${W.one} (a usual one is ${inU(usual)}). Check it, or leave it empty.`, { label: `Use ${inU(usual)}`, field: `${k}.${field}`, value: '' }), usual;
+    if (m < lo || m > hi) return (ok = false), add('error', 3, `${k}.${field}`, `${say(n, u)} is outside the allowed ${label} range. Check the owner's measurement.`), 0;
     return m;
   };
   const box = {
-    l: unitSize('unitL', P.size.l, P.sizeRange.lw, 'length'),
-    w: unitSize('unitW', P.size.w, P.sizeRange.lw, 'width'),
-    h: unitSize('unitH', P.size.h, P.sizeRange.h, 'height'),
+    l: unitSize('unitL', P.sizeRange.lw, 'length'),
+    w: unitSize('unitW', P.sizeRange.lw, 'width'),
+    h: unitSize('unitH', P.sizeRange.h, 'height'),
   };
   if (door && c.storage === 'bins' && door.width < Math.min(box.l, box.w) * 0.98) add('warn', 3, `${k}.door.width`, `A bin is ${inU(Math.min(box.l, box.w))} wide, but the door of ${name} is only ${inU(door.width)} wide. Check the door width.`);
 
-  // The aisle and the gaps: the owner's, else the defaults shown.
-  const gapOf = (field: 'aisle' | 'stackGap' | 'wallGap', usual: number, hi: number, label: string): number => {
+  // Aisles and airflow gaps are physical measurements, not UI defaults.
+  const gapOf = (field: 'aisle' | 'stackGap' | 'wallGap', hi: number, label: string): number => {
     const n = readNumber(c[field]);
-    if (n === null) return usual;
-    if (Number.isNaN(n) || n < 0) return (ok = false), add('error', 3, `${k}.${field}`, `Write the ${label} as a number — or leave it empty for ${inU(usual)}.`), usual;
+    if (n === null || Number.isNaN(n) || n < 0) return (ok = false), add('error', 3, `${k}.${field}`, `Write the exact ${label}.`), 0;
     const m = metres(n, u);
-    if (m > hi) return (ok = false), add('error', 3, `${k}.${field}`, `${say(n, u)} is too much for the ${label}. Check it, or leave it empty for ${inU(usual)}.`, { label: `Use ${inU(usual)}`, field: `${k}.${field}`, value: '' }), usual;
+    if (m > hi) return (ok = false), add('error', 3, `${k}.${field}`, `${say(n, u)} is too much for the ${label}. Check the owner's measurement.`), 0;
     return m;
   };
-  const aisle = gapOf('aisle', DEFAULT_AISLE, 10, 'main aisle width');
-  const stackGap = gapOf('stackGap', P.gap, 1, 'gap between stacks');
-  const wallGap = gapOf('wallGap', P.wallGap, 2, 'gap at the walls');
+  const aisle = gapOf('aisle', 10, 'main forklift aisle width');
+  const stackGap = gapOf('stackGap', 1, 'gap between stacks');
+  const wallGap = gapOf('wallGap', 2, 'wall airflow gap');
   if (door && A !== null && D !== null) {
     const across = door.wall === 'front' || door.wall === 'back' ? A : D;
     if (aisle > 0 && across - 2 * wallGap < aisle) add('warn', 3, `${k}.aisle`, `The aisle (${inU(aisle)}) is wider than the room across ${name} (${inU(Math.max(0, across - 2 * wallGap))} between the wall gaps), so the stacks are drawn with no aisle. Check the aisle or the size.`);
@@ -765,22 +762,24 @@ function readChamber(c: ChamberDraft, numbers: Map<number, number>, u: SizeUnit,
   else if (Number.isNaN(rate) || rate <= 0) ok = (add('error', 3, `${k}.rate`, `Write the rent as a number of rupees for one ${W.one} for one month.`), false);
   else if (rate > 100_000) ok = (add('error', 3, `${k}.rate`, `₹${nice(rate)} for one ${W.one} for one month is too much. Please check.`), false);
 
-  // Each floor's clear height: the owner's, else the chamber's height shared evenly.
+  // Each floor's clear/usable height must be entered by the owner. Never split
+  // a chamber height evenly because that would invent clearance data.
   const floorsOk = floors !== null && Number.isInteger(floors) && floors >= 1 && floors <= 10;
   let floorHs: number[] | null = null;
   if (H !== null && floorsOk && c.floorHeights.trim()) {
     const parts = c.floorHeights.split(/[,;]+|\s+/).filter(Boolean).map((s) => readNumber(s));
-    const even = { label: 'Share the height evenly', field: `${k}.floorHeights`, value: '' };
     if (parts.length !== floors || parts.some((p) => p === null || Number.isNaN(p) || p <= 0)) {
-      ok = (add('error', 3, `${k}.floorHeights`, `Write ${floors} heights, one for each floor, lowest first${floors > 1 ? ` — like ${Array.from({ length: floors }, () => nice(Math.round((H / floors / (u === 'ft' ? FOOT : 1)) * 10) / 10)).join(', ')}` : ''} — or leave it empty to share ${inU(H)} evenly.`, even), false);
+      ok = (add('error', 3, `${k}.floorHeights`, `Write ${floors} usable stacking heights, one for each floor, lowest first.`), false);
     } else {
       const hs = parts.map((p) => metres(p!, u));
       const sum = hs.reduce((a, b) => a + b, 0);
-      if (sum > H * 1.01) ok = (add('error', 3, `${k}.floorHeights`, `The floors add up to ${inU(sum)}, more than ${name}’s height of ${inU(H)}. Check the heights.`, even), false);
+      if (sum > H * 1.01) ok = (add('error', 3, `${k}.floorHeights`, `The floors add up to ${inU(sum)}, more than ${name}’s height of ${inU(H)}. Check the heights.`), false);
       else floorHs = hs;
     }
+  } else if (H !== null && floorsOk) {
+    ok = (add('error', 3, `${k}.floorHeights`, `Write the usable stacking height for each of the ${floors} floor${floors === 1 ? '' : 's'} after allowing for the evaporator and ceiling air clearance.`), false);
   }
-  const floorH = (f: number) => (floorHs ? floorHs[f - 1] : H! / floors!);
+  const floorH = (f: number) => floorHs?.[f - 1] ?? 0;
 
   // How high a stack goes on each floor (each floor by its own height).
   let fitsByFloor: number[] = [];
@@ -795,7 +794,9 @@ function readChamber(c: ChamberDraft, numbers: Map<number, number>, u: SizeUnit,
   const fits = fitsByFloor.length ? Math.min(...fitsByFloor) : 0;
   let stackHigh: number | null = null;
   const sh = readNumber(c.stackHigh);
-  if (sh !== null) {
+  if (sh === null) {
+    ok = (add('error', 3, `${k}.stackHigh`, `Write the maximum safe vertical layers for one ${W.one}.`), false);
+  } else {
     if (Number.isNaN(sh) || !Number.isInteger(sh) || sh < 1) ok = (add('error', 3, `${k}.stackHigh`, `Write how many ${W.many} high you stack, like ${c.storage === 'bins' ? '5' : '10'} — or leave it empty.`), false);
     else if (fits >= 1 && sh > fits) {
       const lowest = fitsByFloor.indexOf(fits) + 1;
@@ -844,7 +845,7 @@ function readChamber(c: ChamberDraft, numbers: Map<number, number>, u: SizeUnit,
     wallGap,
     stackGap,
     topGap: 0,
-    doorGap: P.doorGap,
+    doorGap: 0,
     boxes: stack,
     door: { at: door.from, width: door.width, height: door.height },
     doorWall: door.wall,
@@ -861,7 +862,7 @@ function readChamber(c: ChamberDraft, numbers: Map<number, number>, u: SizeUnit,
   // What fits by the measurements alone: stacks on each floor (aisle and gaps kept) × how high they go.
   const perFloor = placesByMeasure(sizeFor(1, 1, 1));
   chamber.fitsByMeasure = fitsByFloor.reduce((sum, n) => sum + perFloor * (stackHigh ?? n), 0);
-  chamber.tonnesByMeasure = Math.round(chamber.fitsByMeasure * kg) / 1000;
+  chamber.tonnesByMeasure = Math.round(chamber.fitsByMeasure * (kg ?? 0)) / 1000;
   const typedTonnes = readNumber(c.tonnes);
   if (typedTonnes !== null && !Number.isNaN(typedTonnes) && typedTonnes > 0 && chamber.tonnesByMeasure > 0 && Math.abs(typedTonnes - chamber.tonnesByMeasure) / chamber.tonnesByMeasure > CAPACITY_SLACK) {
     const t = nice(Math.round(chamber.tonnesByMeasure * 10) / 10);

@@ -4,7 +4,6 @@
  * browser (tokenStore).
  */
 
-import { humanRefusedText, reportRefusal } from '@/components/security/HumanCheck';
 import { loginHref, portalForRole, type PortalId } from '@/lib/auth/roles';
 import { markPortalSignedIn, portalsOf } from '@/lib/auth/portalAccess';
 import { staffRolesOf } from '@/lib/auth/staffRoles';
@@ -25,10 +24,6 @@ function friendlyAuthError(message: string | undefined, fallback: string): strin
   if (message?.startsWith('[setup] ')) return message.slice(8);
   const m = (message ?? '').toLowerCase();
   if (m.includes('invalid api key') || m.includes('no api key')) return 'The sign-in key saved for this site is wrong. In Supabase open Project Settings → API Keys, copy the anon (publishable) key, put it in Vercel as NEXT_PUBLIC_SUPABASE_ANON_KEY and redeploy.';
-  if (m.includes('captcha')) {
-    reportRefusal(message ?? '', 'auth');
-    return humanRefusedText();
-  }
   if (m.includes('email not confirmed')) return 'Your email is not confirmed yet. Open the confirmation link we emailed you (check Spam/Promotions too), then sign in.';
   if (m.includes('invalid login credentials')) return 'Wrong email or password. If you have not created an account yet, use Create an account.';
   if (m.includes('already registered') || m.includes('already been registered')) return 'An account with this email already exists. Sign in instead, or use Forgot password.';
@@ -60,19 +55,11 @@ export interface RegisterDto {
   phone?:   string;
   /** The portal the person signed up from; the confirmation link returns there. */
   portal?:  PortalId;
-  /** The "I am human" token (components/security/HumanCheck), checked by Supabase when its CAPTCHA is on. */
-  captchaToken?: string;
-  /**
-   * A second, fresh token, when the email already has an account and this
-   * portal is added to it by signing in (tokens work once: sign-up used the first).
-   */
-  nextCaptchaToken?: () => Promise<string | undefined>;
 }
 
 export interface LoginDto {
   email:    string;
   password: string;
-  captchaToken?: string;
 }
 
 export interface VerifyOtpDto {
@@ -167,7 +154,6 @@ export const authApi = {
         // The confirmation link opens this site's sign-in for the chosen portal
         // (without it Supabase uses its "Site URL", often still localhost).
         emailRedirectTo: confirmRedirect(dto.role, dto.portal),
-        ...(dto.captchaToken ? { captchaToken: dto.captchaToken } : {}),
         data: {
           full_name: dto.fullName,
           role: dto.role,
@@ -184,8 +170,7 @@ export const authApi = {
     // KashRoot account: with the right password, this portal is added to it.
     const exists = (error && /already (been )?registered|already exists/i.test(error.message)) || (!error && data.user && data.user.identities?.length === 0);
     if (exists) {
-      const captchaToken = dto.captchaToken ? await dto.nextCaptchaToken?.() : undefined;
-      const joined = await supabase.auth.signInWithPassword({ email: dto.email, password: dto.password, ...(captchaToken ? { options: { captchaToken } } : {}) });
+      const joined = await supabase.auth.signInWithPassword({ email: dto.email, password: dto.password });
       if (joined.error) {
         const m = joined.error.message.toLowerCase();
         if (m.includes('email not confirmed')) throw new Error(friendlyAuthError(joined.error.message, ''));
@@ -222,7 +207,6 @@ export const authApi = {
     const { data, error } = await supabase.auth.signInWithPassword({
       email: dto.email,
       password: dto.password,
-      ...(dto.captchaToken ? { options: { captchaToken: dto.captchaToken } } : {}),
     });
 
     if (error) {
@@ -271,9 +255,9 @@ export const authApi = {
     return addRoleToSession(role);
   },
   /** Sends the sign-up confirmation email again. */
-  resendSignupEmail: async (email: string, role: RegisterDto['role'], portal?: PortalId, captchaToken?: string) => {
+  resendSignupEmail: async (email: string, role: RegisterDto['role'], portal?: PortalId) => {
     if (!supabaseConfigured) throw new Error(NOT_SET_UP);
-    const { error } = await supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: confirmRedirect(role, portal), ...(captchaToken ? { captchaToken } : {}) } });
+    const { error } = await supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: confirmRedirect(role, portal) } });
     if (error) throw new Error(friendlyAuthError(error.message, 'Could not resend the email.'));
   },
   // Sign out on this device only. (The default, 'global', ended the person's
