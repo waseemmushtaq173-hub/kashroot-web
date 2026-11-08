@@ -380,9 +380,10 @@ export function useHumanCheck(
       box.current.appendChild(holder);
       widget.current = h.render(holder, {
         sitekey: mode === 'test' && CAPTCHA_PROVIDER === 'hcaptcha' ? TEST_SITE_KEY : HCAPTCHA_SITE_KEY,
-        // Quietly, opening a puzzle only when hCaptcha needs one. The simpler way (offered after 2 failures):
-        // hCaptcha's own "I am human" checkbox, tapped by the person.
-        size: simple ? 'normal' : 'invisible',
+        // Google reCAPTCHA v2 Checkbox key (size: "normal") — never "invisible",
+        // because a checkbox site key is not enabled for the invisible captcha.
+        // hCaptcha, when it needs a tap, opens its own "I am human" checkbox.
+        size: 'normal',
         callback: (callbackToken: unknown) => {
           const capture = (attempt: number) => {
             if (gone) return;
