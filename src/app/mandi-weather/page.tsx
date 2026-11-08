@@ -100,10 +100,10 @@ const STATES = [
   'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Nagaland', 'NCT of Delhi', 'Odisha',
   'Pondicherry', 'Punjab', 'Rajasthan', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttrakhand', 'West Bengal',
 ];
-const COMMODITIES = [
-  'Apple', 'Walnut', 'Almond(Badam)', 'Cherry', 'Pear(Marasebu)', 'Plum', 'Peach', 'Apricot(Jardalu/Khumani)', 'Grapes', 'Pomegranate',
-  'Onion', 'Potato', 'Tomato', 'Garlic', 'Cauliflower', 'Cabbage', 'Green Chilli', 'Rice', 'Wheat', 'Maize',
-];
+
+/** Live commodities discovered from data.gov.in. Starts empty; populated on mount from /api/mandi/commodities. */
+const COMMODITIES: string[] = [];
+const COMMODITY_VARIETIES: Record<string, string[]> = {};
 
 const WMO: [number[], string, LucideIcon][] = [
   [[0], 'Clear sky', Sun],
@@ -217,15 +217,38 @@ export default function MandiWeatherPage() {
   };
 
   // Mandi
-  const [filters, setFilters] = useState({ state: '', district: '', market: '', commodity: 'Apple' });
-  const [applied, setApplied] = useState(filters);
+  const [filters, setFilters] = useState<{ state: string; district: string; market: string; commodity: string; variety: string; grade: string }>({ state: '', district: '', market: '', commodity: '', variety: '', grade: '' });
+  const [applied, setApplied] = useState<{ state: string; district: string; market: string; commodity: string; variety: string; grade: string }>({ state: '', district: '', market: '', commodity: '', variety: '', grade: '' });
+  // Live commodity discovery from data.gov.in.
+  const [commodities, setCommodities] = useState<string[]>([]);
+  const [commodityVarieties, setCommodityVarieties] = useState<Record<string, string[]>>({});
+  const [commodityLoading, setCommodityLoading] = useState(false);
   // Opened by the voice assistant ("walnut rate in Sopore"): ?crop=&market= fill the search.
   const fromLink = useCallback((p: URLSearchParams) => {
     const asked = mandiFromLink(p);
     if (!asked) return;
-    const next = { state: '', district: '', market: '', commodity: 'Apple', ...asked };
+    const next = { state: '', district: '', market: '', commodity: '', variety: '', grade: '', ...asked };
     setFilters(next);
     setApplied(next);
+  }, []);
+  // Fetch live commodity list from data.gov.in on mount.
+  useEffect(() => {
+    let live = true;
+    const t = setTimeout(async () => {
+      try {
+        setCommodityLoading(true);
+        const res = await fetch('/api/mandi/commodities', { headers: { Accept: 'application/json' } });
+        if (!res.ok) throw new Error(`commodities feed answered ${res.status}`);
+        const data = await res.json();
+        setCommodities(data.commodities ?? []);
+        setCommodityVarieties(data.varieties ?? {});
+      } catch (err) {
+        console.error('Commodity discovery failed:', err);
+      } finally {
+        if (live) setCommodityLoading(false);
+      }
+    }, 0);
+    return () => { live = false; };
   }, []);
   // Kashmir growers think in boxes: ₹ per box of `boxKg` kg (editable, default 17 kg).
   const [unit, setUnit] = useState<'quintal' | 'kg' | 'box'>('box');
@@ -458,10 +481,42 @@ export default function MandiWeatherPage() {
               setApplied(filters);
             }}
           >
-            <label className="text-sm font-medium text-slate-700">
-              Commodity
-              <input list="commodities" className={`${INPUT} mt-1`} value={filters.commodity} onChange={(e) => setFilters({ ...filters, commodity: e.target.value })} placeholder="e.g. Apple" />
-            </label>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-slate-700">
+                Commodity
+              </label>
+              <div className="relative mt-1">
+                <input
+                  list="commodities"
+                  className={`${INPUT} pl-9`}
+                  value={filters.commodity}
+                  onChange={(e) => setFilters({ ...filters, commodity: e.target.value })}
+                  placeholder="e.g. Apple, Walnut, Saffron…"
+                />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
+              </div>
+              {commodityLoading ? (
+                <p className="text-xs text-slate-500">Loading commodity list from data.gov.in…</p>
+              ) : commodities.length > 0 ? (
+                <div className="mt-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Quick select commodity:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {COMMODITIES.slice(0, 12).map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        aria-pressed={filters.commodity === c}
+                        onClick={() => setFilters({ ...filters, commodity: c })}
+                        className={`min-h-[30px] cursor-pointer rounded-full px-3 py-1 text-xs font-semibold transition ${filters.commodity === c ? 'bg-chinar text-white shadow-sm' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'}`}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              <datalist id="commodities">{commodities.map((c) => <option key={c} value={c} />)}</datalist>
+            </div>
             <label className="text-sm font-medium text-slate-700">
               State
               <input list="states" className={`${INPUT} mt-1`} value={filters.state} onChange={(e) => setFilters({ ...filters, state: e.target.value })} placeholder="All India" />
@@ -477,7 +532,6 @@ export default function MandiWeatherPage() {
             <div className="flex items-end">
               <Btn theme={theme} type="submit" icon={Search} className="w-full">Show prices</Btn>
             </div>
-            <datalist id="commodities">{COMMODITIES.map((c) => <option key={c} value={c} />)}</datalist>
             <datalist id="states">{STATES.map((s) => <option key={s} value={s} />)}</datalist>
           </form>
 
