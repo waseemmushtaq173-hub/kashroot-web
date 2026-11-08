@@ -407,8 +407,8 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
                     {browseResults.length} official record{browseResults.length === 1 ? '' : 's'}
                   </p>
                   <div className="space-y-2">
-                    {browseResults.map((h) => (
-                      <div key={`${h.kind}-${h.active_molecule || h.fertiliser_type}-${Math.random()}`} className="rounded-xl bg-white p-3 ring-1 ring-slate-200">
+                    {browseResults.map((h, i) => (
+                      <div key={`${h.kind}-${h.active_molecule || h.fertiliser_type}-${i}`} className="rounded-xl bg-white p-3 ring-1 ring-slate-200">
                         {h.kind === 'registered' && (
                           <>
                             <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-emerald-700">
@@ -1050,7 +1050,7 @@ function LabelRegistration({ check }: { check: RegCheck }) {
       </section>
     );
   }
-  return <p className="text-xs text-slate-500">Registration {check.no} is not in the CIBRC registered list — it may be very new, or fake. {ASK} If the photo was unclear, type the number in "Registration / batch".</p>;
+  return <p className="text-xs text-slate-500">Registration {check.no} is not in the CIBRC registered list — it may be very new, or fake. {ASK} If the photo was unclear, type the number in &quot;Registration / batch&quot;.</p>;
 }
 
 const RULE_ICON = { ok: CheckCircle2, missing: XCircle, problem: XCircle, caution: CircleAlert } as const;

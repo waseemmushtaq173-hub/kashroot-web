@@ -15,7 +15,7 @@ import { searchAllMerged } from '@/lib/gov-agro-registry';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const DATA_GOV_IN_API_KEY = '579b464db66ec23bdd000001dbc75365931646465791ec2e46ef03a7';
+const DATA_GOV_IN_API_KEY = process.env.DATA_GOV_IN_API_KEY ?? '';
 const MANDI_RESOURCE = '9ef84268-d588-465a-a308-a864a43d0070';
 
 /**
