@@ -19,15 +19,16 @@ export type FcoStandard = {
   grade: string;
   total_n_min: number | null;
   ws_p2o5_min: number | null;
-  cs_p2o5_min: number | null;
+  /** FCO-only fields — optional because embedded catalogue entries may omit them. */
+  cs_p2o5_min?: number | null;
   ws_k2o_min: number | null;
   micronutrient_min: number | null;
   moisture_max: number | null;
   biuret_max: number | null;
-  chlorides_max: number | null;
-  free_acidity_max: number | null;
-  ph_range: string | null;
-  particle_size_spec: string | null;
+  chlorides_max?: number | null;
+  free_acidity_max?: number | null;
+  ph_range?: string | null;
+  particle_size_spec?: string | null;
   source: string;
   source_url: string;
   published_at: string;
@@ -36,27 +37,68 @@ export type FcoStandard = {
 export type CibrcProduct = {
   id: string;
   cir_no: string;
+  /** Unique statutory CIBRC Registration Number alias. */
+  cirNumber?: string;
+  /** Exact commercial product / brand name printed on the bottle/bag. */
+  productName?: string;
+  /** Single commercial brand / trade name (strict 1-to-1 → manufacturer). */
+  brandName?: string;
+  /** Commercial brand / trade names farmers type in (e.g. Applin, Promalin, Cultar, Score). */
+  brandNames?: string[];
+  /** Exact official active ingredient / formulation. */
+  activeIngredient?: string;
   active_molecule: string;
   formulation: string | null;
   section: string | null;
-  /** Commercial brand / trade names farmers type in (e.g. Applin, Promalin, Cultar, Score). */
-  brandNames?: string[];
+  /** CIBRC registration section alias (e.g. "9(3)", "9(3) FI", "9(4)"). */
+  registrationSection?: string;
   /** CIBRC category, e.g. "Plant Growth Regulator (PGR) — Section 9(3)" or "Fungicide — Section 9(3)". */
   category?: string;
   /** Legal manufacturer / registrant name as printed on the CIBRC registration certificate. */
   legalManufacturer?: string;
+  /** Exact official manufacturer / marketed-by company. */
+  manufacturerCompany?: string;
   /** Manufacturing licence / company code from the CIBRC certificate (anti-counterfeit cross-check). */
   manufacturerLicense?: string;
-  approved_crops: string[];
-  target_pests: string[];
-  dosage_per_ha: string | null;
-  dosage_per_acre: string | null;
-  waiting_period_days: number | null;
-  toxicity_class: string | null;
   manufacturer: string | null;
+  approved_crops: string[];
+  /** Approved crops alias. */
+  approvedCrops?: string[];
+  target_pests: string[];
+  /** Target pests alias. */
+  targetPests?: string[];
+  dosage_per_ha: string | null;
+  /** Dosage per ha alias. */
+  dosagePerHa?: string | null;
+  dosage_per_acre: string | null;
+  /** Dosage per acre alias. */
+  dosagePerAcre?: string | null;
+  waiting_period_days: number | null;
+  /** SKUAST-Kashmir dosage per 100L / 200L water & orchard stage. */
+  skuast_kashmir_dosage?: string | null;
+  skuastKashmirDosage?: string | null;
+  /** Waiting period days alias. */
+  waitingPeriodDays?: number | null;
+  toxicity_class: string | null;
+  /** Toxicity triangle (Red / Yellow / Blue / Green). */
+  toxicityTriangle?: string;
   source: string;
   source_url: string;
   published_at: string;
+  /** FCO 1985 Schedule-I clause (fertilisers only). */
+  fco_schedule_clause?: string | null;
+  fcoScheduleClause?: string | null;
+  total_n_min?: number | null;
+  ws_p2o5_min?: number | null;
+  cs_p2o5_min?: number | null;
+  ws_k2o_min?: number | null;
+  micronutrient_min?: number | null;
+  moisture_max?: number | null;
+  biuret_max?: number | null;
+  chlorides_max?: number | null;
+  free_acidity_max?: number | null;
+  ph_range?: string | null;
+  particle_size_spec?: string | null;
 };
 
 export type CibrcBanned = {

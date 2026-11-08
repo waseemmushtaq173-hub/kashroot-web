@@ -1,8 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": [
-    "bom1"
-  ],
+  "regions": ["bom1"],
   "git": {
     "deploymentEnabled": {
       "claude/**": false
@@ -12,6 +10,10 @@
     {
       "path": "/api/email/flush",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/sync-gov-registry",
+      "schedule": "0 4 * * *"
     }
   ]
 }

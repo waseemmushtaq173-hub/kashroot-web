@@ -699,6 +699,9 @@ function ScanResult({ result, account, onPhoto, onLab, standard, cibrcResult, sk
                 {p.approved_crops.length > 0 && <p className="text-xs text-slate-600">Approved crops: {p.approved_crops.join(', ')}</p>}
                 {p.target_pests.length > 0 && <p className="text-xs text-slate-600">Targets: {p.target_pests.join(', ')}</p>}
                 {p.waiting_period_days !== null && <p className="text-xs text-slate-600">Waiting period: {p.waiting_period_days} days</p>}
+                {p.skuast_kashmir_dosage && (
+                  <p className="text-xs text-slate-600">SKUAST-Kashmir dose: {p.skuast_kashmir_dosage}</p>
+                )}
                 {/* Anti-counterfeit warning banner */}
                 <p className="mt-3 rounded-xl bg-amber-50 p-3 text-amber-900 text-xs font-medium ring-1 ring-amber-200">
                   ⚠️ <strong>SCAM ALERT CHECK:</strong> verify that the manufacturer printed on your bottle is strictly <strong>{legal}</strong> and the CIR number matches <strong>{p.cir_no}</strong>. If another company name or a different CIR number is printed on a bottle sold as <strong>{brand}</strong>, it is counterfeit / unauthorised —{' '}
