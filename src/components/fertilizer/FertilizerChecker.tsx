@@ -25,14 +25,14 @@ import { useEffect, useRef, useState } from 'react';
 import { BadgeCheck, Camera, CheckCircle2, CircleAlert, FileQuestion, Flag, FlaskConical, Loader2, ScanLine, ShieldCheck, XCircle } from 'lucide-react';
 
 import { LangPicker, SpeakButton } from '@/components/voice/VoiceButtons';
-import { checkAgainstFco, FCO_PRODUCTS, type FcoProduct } from '@/lib/fertilizer/fco';
 import { checkLabel, type LabelFacts, type RuleReport } from '@/lib/fertilizer/labelRules';
 import { KIND_WORDS } from '@/lib/fertilizer/officialList';
-import { fcoTypeOf, readTyped, type Typed } from '@/lib/fertilizer/trueScan';
+import { readTyped, type Typed } from '@/lib/fertilizer/trueScan';
 import { compressImage } from '@/lib/client/image';
 import { isRtl, type SpeechLang } from '@/lib/client/speech';
 import { dbMessage, loadAccount, supabase, supabaseConfigured, type Account } from '@/lib/db/client';
 import { registryStats, searchRegistry, type OfficialHit, type OfficialKind, type RegistryStats } from '@/lib/db/registry';
+import { fcoLookup, cibrcLookup, cibrcBannedCheck, type FcoStandard, type CibrcProduct, type CibrcBanned } from '@/lib/db/govRegistry';
 import { reportBatch } from '@/lib/db/security';
 
 interface BatchRow {
@@ -69,7 +69,7 @@ type Scan =
   | { state: 'idle' }
   | { state: 'loading' }
   | { state: 'error'; message: string }
-  | { state: 'done'; typed: Typed; hits: OfficialHit[] | null; stats: RegistryStats | null; fco?: FcoProduct; dealer?: Lookup };
+  | { state: 'done'; typed: Typed; hits: OfficialHit[] | null; stats: RegistryStats | null; dealer?: Lookup };
 
 /** A registration number read from the label photo, looked up in the official list. */
 type RegCheck = { state: 'idle' } | { state: 'loading' } | { state: 'error'; message: string } | { state: 'done'; no: string; hits: OfficialHit[] | null; stats: RegistryStats | null };
@@ -83,6 +83,34 @@ const count = (n: number) => n.toLocaleString('en-IN');
 /** "1 product", "1,234 products" */
 const products = (n: number) => `${count(n)} product${n === 1 ? '' : 's'}`;
 const offline = (err: unknown) => (err instanceof Error && !/Failed to fetch|NetworkError|Load failed/i.test(err.message) ? err.message : 'No internet connection. Please try again.');
+
+type FcoRow = { key: string; label: string; min: number | null; max: number | null; value: number | null; verdict: 'pass' | 'fail' | 'missing' };
+
+function checkAgainstFcoStandard(standard: FcoStandard, measured: Record<string, number | undefined>) {
+  const base: Array<{ key: string; label: string; min: number | null; max: number | null }> = [
+    { key: 'n', label: 'Total nitrogen (N)', min: standard.total_n_min ?? null, max: null },
+    { key: 'p', label: 'Total phosphate (P₂O₅)', min: standard.ws_p2o5_min ?? null, max: null },
+    { key: 'k', label: 'Water-soluble potash (K₂O)', min: standard.ws_k2o_min ?? null, max: null },
+    { key: 's', label: 'Sulphur (S)', min: standard.micronutrient_min ?? null, max: null },
+    { key: 'zn', label: 'Zinc (Zn)', min: standard.micronutrient_min ?? null, max: null },
+    { key: 'b', label: 'Boron (B)', min: standard.micronutrient_min ?? null, max: null },
+    { key: 'moisture', label: 'Moisture', min: null, max: standard.moisture_max ?? null },
+    { key: 'biuret', label: 'Biuret', min: null, max: standard.biuret_max ?? null },
+    { key: 'chlorides', label: 'Chlorides', min: null, max: standard.chlorides_max ?? null },
+    { key: 'free_acidity', label: 'Free acidity', min: null, max: standard.free_acidity_max ?? null },
+  ];
+  const rows: FcoRow[] = base.map((p): FcoRow => {
+    const value = measured[p.key];
+    const row: FcoRow = { ...p, value: null, verdict: 'missing' };
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      row.value = value;
+      row.verdict = ((p.min == null || value >= p.min) && (p.max == null || value <= p.max)) ? 'pass' : 'fail';
+    }
+    return row;
+  });
+  const tested = rows.filter((r) => r.verdict !== 'missing');
+  return { rows, complete: tested.length === rows.length, pass: tested.length > 0 && tested.every((r) => r.verdict === 'pass') };
+}
 
 /** The heading of a product found in an official list. */
 const REGISTERED: Record<OfficialKind, string> = {
@@ -112,7 +140,7 @@ async function scan(raw: string): Promise<Scan> {
       searchRegistry(typed.text),
       typed.kind === 'batch' && typed.text.length >= 3 ? lookupBatch(typed.text) : Promise.resolve(undefined),
     ]);
-    return { state: 'done', typed, hits, stats, dealer, fco: typed.kind === 'name' ? fcoTypeOf(typed.text) : undefined };
+    return { state: 'done', typed, hits, stats, dealer };
   } catch (err) {
     return { state: 'error', message: offline(err) };
   }
@@ -127,28 +155,50 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
   const [scans, setScans] = useState(0);
   // undefined: not read yet; null: the official lists are not set up on this site.
   const [stats, setStats] = useState<RegistryStats | null | undefined>(undefined);
-  const [productId, setProductId] = useState(FCO_PRODUCTS[0].id);
+  // Live FCO standard for the lab tab: null when not set up or not yet fetched.
+  const [fcoStandard, setFcoStandard] = useState<FcoStandard | null | undefined>(undefined);
+  const [fcoLoading, setFcoLoading] = useState(false);
+  // Lab values entered for the loaded FCO standard, keyed by parameter key.
   const [values, setValues] = useState<Record<string, string>>({});
+  // CIBRC check results for what was typed / photographed.
+  const [cibrcResult, setCibrcResult] = useState<{ products: CibrcProduct[] | null; banned: CibrcBanned[] | null } | null>(null);
 
   useEffect(() => {
     void loadAccount().then(setAccount).catch(() => setAccount(null));
   }, []);
 
-  const product = FCO_PRODUCTS.find((p) => p.id === productId)!;
-  const measured = Object.fromEntries(product.parameters.map((p) => [p.key, values[p.key] === undefined || values[p.key] === '' ? undefined : Number(values[p.key])]));
-  const report = checkAgainstFco(product, measured);
+  const standard = fcoStandard;
+  const measured = Object.fromEntries(Object.keys(values).map((k) => [k, values[k] === undefined || values[k] === '' ? undefined : Number(values[k])]));
+  const report = standard ? checkAgainstFcoStandard(standard, measured) : null;
 
   const open = (id: typeof mode) => {
     setMode(id);
     // What the lists hold, said under the box before anything is typed.
     if (id === 'registry' && stats === undefined) void registryStats().then(setStats).catch(() => undefined);
+    if (id === 'lab' && fcoStandard === undefined) {
+      setFcoLoading(true);
+      void fcoLookup('Diammonium phosphate (DAP)', '18:46:0')
+        .then(setFcoStandard)
+        .catch(() => setFcoStandard(null))
+        .finally(() => setFcoLoading(false));
+    }
   };
   const check = async () => {
     setResult({ state: 'loading' });
+    setCibrcResult(null);
     const r = await scan(code);
     if (r.state === 'done') setStats(r.stats);
     setScans((n) => n + 1);
     setResult(r);
+    // Also check the CIBRC registry and banned list for what was typed.
+    const typed = readTyped(code);
+    if (typed.text && typed.text.length >= 3) {
+      const [products, banned] = await Promise.all([
+        cibrcLookup(undefined, typed.text),
+        typed.text.length >= 3 ? cibrcBannedCheck(typed.text) : Promise.resolve(null as CibrcBanned[] | null),
+      ]);
+      setCibrcResult({ products, banned });
+    }
   };
 
   return (
@@ -176,18 +226,16 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
       {mode === 'registry' && (
         <div className="mt-5">
           <RegistryForm code={code} setCode={setCode} busy={result.state === 'loading'} onCheck={() => void check()} />
-          <ListsHeld stats={stats} />
+          <ListsHeld stats={stats} fcoAvailable={fcoStandard !== null && fcoStandard !== undefined} />
           <div aria-live="polite" className="mt-4">
             <ScanResult
               key={scans}
               result={result}
               account={account}
               onPhoto={() => setMode('photo')}
-              onLab={(id) => {
-                setProductId(id);
-                setValues({});
-                setMode('lab');
-              }}
+              onLab={() => setMode('lab')}
+              standard={fcoStandard}
+              cibrcResult={cibrcResult}
             />
           </div>
         </div>
@@ -195,35 +243,56 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
 
       {mode === 'lab' && (
         <div className="mt-5">
-          <label className="block text-sm font-medium text-slate-800" htmlFor="fco-product">Fertiliser</label>
-          <select id="fco-product" value={productId} onChange={(e) => { setProductId(e.target.value); setValues({}); }} className={`${INPUT} mt-1.5`}>
-            {FCO_PRODUCTS.map((p) => <option key={p.id} value={p.id}>{p.name} — {p.grade}</option>)}
-          </select>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {report.rows.map((r) => (
-              <label key={r.key} className="block text-sm">
-                <span className="font-medium text-slate-800">{r.label}</span>
-                <span className="ms-1 text-xs text-slate-500">({r.min !== undefined ? `min ${r.min}%` : `max ${r.max}%`})</span>
-                <span className="relative mt-1.5 block">
-                  <input type="number" inputMode="decimal" step="0.01" min={0} max={100} value={values[r.key] ?? ''} onChange={(e) => setValues({ ...values, [r.key]: e.target.value })} placeholder="Lab value %" className={`${INPUT} pr-10`} />
-                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-                    {r.verdict === 'pass' && <CheckCircle2 className="h-5 w-5 text-emerald-600" aria-label="Meets FCO" />}
-                    {r.verdict === 'fail' && <XCircle className="h-5 w-5 text-rose-600" aria-label="Fails FCO" />}
-                  </span>
-                </span>
-              </label>
-            ))}
+          <div className="flex gap-2">
+            <label className="block text-sm font-medium text-slate-800" htmlFor="fco-type">Fertiliser type</label>
+            <input
+              id="fco-type"
+              value=""
+              placeholder="e.g. DAP, Urea, MOP, SSP"
+              onChange={(e) => {
+                setValues({});
+                setFcoLoading(true);
+                void fcoLookup(e.target.value.trim())
+                  .then((s) => setFcoStandard(s))
+                  .catch(() => setFcoStandard(null))
+                  .finally(() => setFcoLoading(false));
+              }}
+              className={`${INPUT} mt-1.5 flex-1`}
+            />
           </div>
-          {report.rows.some((r) => r.verdict !== 'missing') && (
-            <p aria-live="polite" className={`mt-4 rounded-2xl p-4 text-sm font-medium ring-1 ${report.pass ? 'bg-emerald-50 text-emerald-900 ring-emerald-200' : 'bg-rose-50 text-rose-900 ring-rose-200'}`}>
-              {report.pass
-                ? report.complete
-                  ? 'Every tested value meets the Fertiliser (Control) Order minimums.'
-                  : 'Values entered so far meet the FCO — enter the rest for a full check.'
-                : 'Below FCO standard. Keep the bag and bill, and take the lab report to your district agriculture office.'}
-            </p>
+          {fcoLoading ? (
+            <p className="mt-3 flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading FCO standard…</p>
+          ) : standard && report ? (
+            <>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {report.rows.map((r) => (
+                  <label key={r.key} className="block text-sm">
+                    <span className="font-medium text-slate-800">{r.label}</span>
+                    <span className="ms-1 text-xs text-slate-500">({r.min !== null ? `min ${r.min}%` : `max ${r.max}%`})</span>
+                    <span className="relative mt-1.5 block">
+                      <input type="number" inputMode="decimal" step="0.01" min={0} max={100} value={values[r.key] ?? ''} onChange={(e) => setValues({ ...values, [r.key]: e.target.value })} placeholder="Lab value %" className={`${INPUT} pr-10`} />
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                        {r.verdict === 'pass' && <CheckCircle2 className="h-5 w-5 text-emerald-600" aria-label="Meets FCO" />}
+                        {r.verdict === 'fail' && <XCircle className="h-5 w-5 text-rose-600" aria-label="Fails FCO" />}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {report.rows.some((r) => r.verdict !== 'missing') && (
+                <p aria-live="polite" className={`mt-4 rounded-2xl p-4 text-sm font-medium ring-1 ${report.pass ? 'bg-emerald-50 text-emerald-900 ring-emerald-200' : 'bg-rose-50 text-rose-900 ring-rose-200'}`}>
+                  {report.pass
+                    ? report.complete
+                      ? 'Every tested value meets the Fertiliser (Control) Order minimums.'
+                      : 'Values entered so far meet the FCO — enter the rest for a full check.'
+                    : 'Below FCO standard. Keep the bag and bill, and take the lab report to your district agriculture office.'}
+                </p>
+              )}
+              <p className="mt-3 text-xs text-slate-500">Standard: {standard.fco_schedule_clause} — Fertiliser (Control) Order, 1985, Schedule I. Source: {standard.source}, published {new Date(standard.published_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}. A state fertiliser quality control lab report is the legal test.</p>
+            </>
+          ) : (
+            <p className="mt-3 text-sm text-slate-500">Type a fertiliser type (e.g. DAP, Urea, MOP) to load its FCO Schedule I standard.</p>
           )}
-          <p className="mt-3 text-xs text-slate-500">Standards: Fertiliser (Control) Order, 1985, Schedule I headline values. A state fertiliser quality control lab report is the legal test.</p>
         </div>
       )}
       {!compact && <OfficialChecks />}
@@ -281,16 +350,24 @@ function RegistryForm({ code, setCode, busy, onCheck }: { code: string; setCode:
 }
 
 /** Under the box: which official lists KashRoot holds, and how fresh they are. */
-function ListsHeld({ stats }: { stats: RegistryStats | null | undefined }) {
-  if (stats === undefined) return <p id="truescan-lists" className="sr-only" />;
+function ListsHeld({ stats, fcoAvailable }: { stats: RegistryStats | null | undefined; fcoAvailable: boolean }) {
+  if (stats === undefined && !fcoAvailable) return <p id="truescan-lists" className="sr-only" />;
   const kinds = (Object.entries(stats?.kinds ?? {}) as [OfficialKind, { count: number; last_import: string }][]).filter(([, k]) => k.count > 0);
-  return (
-    <p id="truescan-lists" className="mt-2 text-xs text-slate-500">
-      {kinds.length
-        ? `Checked against: ${kinds.map(([kind, k]) => `${KIND_WORDS[kind]}, ${products(k.count)}, updated ${day(k.last_import)}`).join('; ')} — and the FCO standards of ${FCO_PRODUCTS.length} common fertilisers.`
-        : `The Government lists of registered products are not loaded on KashRoot yet. Fertiliser types are checked against the FCO standards of ${FCO_PRODUCTS.length} common fertilisers.`}
-    </p>
-  );
+  const parts: string[] = [];
+  if (kinds.length) {
+    parts.push(`Checked against: ${kinds.map(([kind, k]) => `${KIND_WORDS[kind]}, ${products(k.count)}, updated ${day(k.last_import)}`).join('; ')}`);
+  }
+  if (fcoAvailable) {
+    parts.push('Fertiliser types checked against the live Fertiliser (Control) Order, 1985 Schedule I standards.');
+  }
+  if (parts.length === 0) {
+    return (
+      <p id="truescan-lists" className="mt-2 text-xs text-slate-500">
+        The Government lists of registered products and the FCO standards are not loaded on KashRoot yet.
+      </p>
+    );
+  }
+  return <p id="truescan-lists" className="mt-2 text-xs text-slate-500">{parts.join(' — ')}.</p>;
 }
 
 /** The official-list answer for one product, in one sentence, with its source and date. */
@@ -322,13 +399,13 @@ function listsFor(stats: RegistryStats | null, kind: Typed['kind']) {
   return { kinds, last, held: kinds.length > 0 };
 }
 
-function ScanResult({ result, account, onPhoto, onLab }: { result: Scan; account: Account | null; onPhoto: () => void; onLab: (fcoId: string) => void }) {
+function ScanResult({ result, account, onPhoto, onLab, standard, cibrcResult }: { result: Scan; account: Account | null; onPhoto: () => void; onLab: () => void; standard: FcoStandard | null | undefined; cibrcResult: { products: CibrcProduct[] | null; banned: CibrcBanned[] | null } | null }) {
   const [all, setAll] = useState(false);
   if (result.state === 'idle') return null;
   if (result.state === 'loading') return <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Checking the official lists…</p>;
   if (result.state === 'error') return <p role="alert" className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">{result.message}</p>;
 
-  const { typed, hits, stats, fco, dealer } = result;
+  const { typed, hits, stats, dealer } = result;
   const byNumber = (hits ?? []).filter((h) => h.matched === 'registration');
   const byName = (hits ?? []).filter((h) => h.matched === 'name');
   const lists = listsFor(stats, typed.kind);
@@ -387,26 +464,61 @@ function ScanResult({ result, account, onPhoto, onLab }: { result: Scan; account
         </section>
       )}
 
-      {fco && (
+      {standard && (
         <section aria-label="Fertiliser (Control) Order" className="rounded-2xl bg-sky-50 p-4 text-slate-800 ring-1 ring-sky-200">
           <p className="flex items-center gap-2 text-base font-semibold text-sky-950"><ShieldCheck className="h-5 w-5 shrink-0" aria-hidden /> This fertiliser type is specified in the Fertiliser (Control) Order — check the label photo against its standard</p>
-          <p className="mt-2 font-semibold">Government standard for {fco.name} ({fco.grade})</p>
+          <p className="mt-2 font-semibold">Government standard for {standard.fertiliser_type} ({standard.grade})</p>
           <ul className="mt-1 list-disc ps-5">
-            {fco.parameters.map((p) => <li key={p.key}>{p.label}: {p.min !== undefined ? `at least ${p.min}%` : `at most ${p.max}%`}</li>)}
+            <li key="n">{`Total nitrogen (N): at least ${standard.total_n_min ?? '—'}%`}</li>
+            <li key="p">{`Total phosphate (P₂O₅): at least ${standard.ws_p2o5_min ?? '—'}%`}</li>
+            <li key="k">{`Water-soluble potash (K₂O): at least ${standard.ws_k2o_min ?? '—'}%`}</li>
+            {standard.moisture_max !== undefined && <li key="moisture">{`Moisture: at most ${standard.moisture_max}%`}</li>}
+            {standard.biuret_max !== undefined && <li key="biuret">{`Biuret: at most ${standard.biuret_max}%`}</li>}
           </ul>
-          <p className="mt-2 text-xs text-slate-600">Fertiliser (Control) Order, 1985, Schedule I. The type being in the Order does not prove a bag is genuine — the label must show it, and only a Government lab test proves what is inside.</p>
+          <p className="mt-2 text-xs text-slate-600">Fertiliser (Control) Order, 1985, Schedule I — {standard.fco_schedule_clause}. Source: {standard.source}, published {new Date(standard.published_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}. The type being in the Order does not prove a bag is genuine — the label must show it, and only a Government lab test proves what is inside.</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" onClick={onPhoto} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-sky-800 px-4 py-2 font-semibold text-white hover:bg-sky-900">
               <Camera className="h-4 w-4" aria-hidden /> Check the label photo
             </button>
-            <button type="button" onClick={() => onLab(fco.id)} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-white px-4 py-2 font-semibold text-sky-900 ring-1 ring-sky-200 hover:bg-sky-100">
+            <button type="button" onClick={onLab} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-white px-4 py-2 font-semibold text-sky-900 ring-1 ring-sky-200 hover:bg-sky-100">
               <FlaskConical className="h-4 w-4" aria-hidden /> Compare a lab report
             </button>
           </div>
         </section>
       )}
 
-      {!found && !fco && typed.kind !== 'batch' && (lists.held && hits !== null ? (
+      {cibrcResult && cibrcResult.products && cibrcResult.products.length > 0 && (
+        <section aria-label="CIB&RC registered product" className="rounded-2xl bg-emerald-50 p-4 text-slate-800 ring-1 ring-emerald-200">
+          <p className="flex items-center gap-2 text-base font-semibold text-emerald-900"><BadgeCheck className="h-5 w-5 shrink-0" aria-hidden /> Registered with the Government (CIB&RC, ppqs.gov.in)</p>
+          {cibrcResult.products.map((p) => (
+            <div key={p.id} className="mt-2 rounded-xl bg-white/80 p-3 ring-1 ring-emerald-100">
+              <p className="text-xs font-semibold uppercase tracking-wider text-emerald-800">{p.active_molecule}</p>
+              <p className="text-sm text-slate-900">{p.cir_no}{p.formulation ? ` — ${p.formulation}` : ''}{p.manufacturer ? `, ${p.manufacturer}` : ''}</p>
+              {p.approved_crops.length > 0 && <p className="text-xs text-slate-600">Approved crops: {p.approved_crops.join(', ')}</p>}
+              {p.target_pests.length > 0 && <p className="text-xs text-slate-600">Targets: {p.target_pests.join(', ')}</p>}
+              {p.waiting_period_days !== null && <p className="text-xs text-slate-600">Waiting period: {p.waiting_period_days} days</p>}
+              <p className="text-xs text-slate-600 mt-1">Source: <a href={p.source_url} target="_blank" rel="noopener noreferrer" className="font-medium text-sky-800 underline">{p.source}</a>, published {new Date(p.published_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}.</p>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {cibrcResult && cibrcResult.banned && cibrcResult.banned.length > 0 && (
+        <section aria-label="CIB&RC banned/restricted" className="rounded-2xl bg-rose-50 p-4 text-slate-800 ring-1 ring-rose-200">
+          <p className="flex items-center gap-2 text-base font-semibold text-rose-900"><CircleAlert className="h-5 w-5 shrink-0" aria-hidden /> Banned or restricted pesticide</p>
+          {cibrcResult.banned.map((b) => (
+            <div key={b.id} className="mt-2 rounded-xl bg-white/80 p-3 ring-1 ring-rose-100">
+              <p className="text-xs font-semibold uppercase tracking-wider text-rose-800">{b.active_molecule}</p>
+              <p className="text-sm text-slate-900">Status: <span className="font-semibold text-rose-700 capitalize">{b.status}</span>{b.common_name ? ` — ${b.common_name}` : ''}</p>
+              {b.ban_date && <p className="text-xs text-slate-600">Ban notification: {b.ban_notification ?? '—'} ({new Date(b.ban_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })})</p>}
+              {b.reason_summary && <p className="text-xs text-slate-600">Reason: {b.reason_summary}</p>}
+              <p className="text-xs text-slate-600 mt-1">Source: <a href={b.source_url} target="_blank" rel="noopener noreferrer" className="font-medium text-sky-800 underline">{b.source}</a>, published {new Date(b.published_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}.</p>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {!found && typed.kind !== 'batch' && (lists.held && hits !== null ? (
         <section aria-label="Not in the official list" className="rounded-2xl bg-amber-50 p-4 text-amber-950 ring-1 ring-amber-200">
           <p className="flex items-center gap-2 text-base font-semibold"><CircleAlert className="h-5 w-5 shrink-0" aria-hidden /> Not in the official list KashRoot holds (updated {day(lists.last)})</p>
           <p className="mt-1">It may be very new — or fake. {ASK}</p>

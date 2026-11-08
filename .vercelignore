@@ -1,0 +1,7 @@
+.github/skills/
+.git/
+node_modules/
+.next/
+android/app/src/main/assets/public/cache/
+tmp-shot.cjs
+tests/

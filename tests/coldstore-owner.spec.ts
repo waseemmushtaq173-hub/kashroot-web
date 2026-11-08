@@ -50,6 +50,13 @@ async function typeStore(page: Page) {
   await page.getByLabel('Length, along the front (m)').fill('14');
   await page.getByLabel('Width, front to back (m)').fill('12');
   await page.getByLabel('Height, floor to ceiling (m)').fill('8');
+  await page.getByLabel('Exact bin length (m)').fill('1.2');
+  await page.getByLabel('Exact bin width (m)').fill('1');
+  await page.getByLabel('Exact bin height (m)').fill('0.76');
+  await page.getByLabel('Maximum safe layers high in one stack').fill('8');
+  await page.getByLabel('Forklift aisle width (m)').fill('3.5');
+  await page.getByLabel('Gap between stacks (m)').fill('0.1');
+  await page.getByLabel('Wall airflow gap (m)').fill('0.3');
   await page.getByLabel('Door: distance from the left corner (m)').fill('5');
   await page.getByLabel('Door: width (m)').fill('3');
   await page.getByLabel('Door: height (m)').fill('4');
@@ -57,12 +64,19 @@ async function typeStore(page: Page) {
   // Chamber 2: crates, 3 floors of 3.2, 3 and 2.8 m.
   await addChamber.click();
   await page.getByRole('radio', { name: 'Crates' }).click();
-  await page.getByLabel('How many crates does it hold?').fill('9000');
+  await page.getByLabel('How many crates does it hold?').fill('3000');
   await page.getByLabel('Kg of apples in one crate').fill('20');
   await page.getByRole('textbox', { name: 'How many floors?', exact: true }).fill('3');
   await page.getByLabel('Length, along the front (m)').fill('12');
   await page.getByLabel('Width, front to back (m)').fill('10');
   await page.getByLabel('Height, floor to ceiling (m)').fill('9');
+  await page.getByLabel('Exact crate length (m)').fill('0.6');
+  await page.getByLabel('Exact crate width (m)').fill('0.4');
+  await page.getByLabel('Exact crate height (m)').fill('0.3');
+  await page.getByLabel('Maximum safe layers high in one stack').fill('9');
+  await page.getByLabel('Forklift aisle width (m)').fill('3');
+  await page.getByLabel('Gap between stacks (m)').fill('0.05');
+  await page.getByLabel('Wall airflow gap (m)').fill('0.2');
   await page.getByRole('textbox', { name: 'Floor 1', exact: true }).fill('3.2');
   await page.getByRole('textbox', { name: 'Floor 2', exact: true }).fill('3');
   await page.getByRole('textbox', { name: 'Floor 3', exact: true }).fill('2.8');
@@ -82,7 +96,7 @@ for (const width of [1280, 390]) {
     await typeStore(page);
 
     // The owner sees exactly what was typed, and what fits by the measurements.
-    await expect(page.getByText('480 bins + 9,000 crates')).toBeVisible();
+    await expect(page.getByText('480 bins + 3,000 crates')).toBeVisible();
     await expect(page.getByText(/By its size/)).toBeVisible();
     // The owner's drawing is to scale: its length and width lines measure 40 m and 30 m on its own scale bar.
     const ownerSvg = page.locator('figure svg').filter({ has: page.locator('[data-scale-bar]') }).first();
@@ -92,7 +106,7 @@ for (const width of [1280, 390]) {
 
     // Farmers: the same counts, in the Drawing, the 3D view and the walk inside.
     await page.goto(`${PAGE}?view=farmer`);
-    await expect(page.getByText(/2 chambers · holds/)).toContainText('480 bins and 9,000 crates');
+    await expect(page.getByText(/2 chambers · holds/)).toContainText('480 bins and 3,000 crates');
     const farmerSvg = page.locator('figure svg').filter({ has: page.locator('[data-scale-bar]') }).first();
     await expectDim(farmerSvg, 'length', 40);
     await expectDim(farmerSvg, 'width', 30);

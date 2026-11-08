@@ -20,9 +20,9 @@ function sampleStore(): StoreDraft {
   Object.assign(d, { title: 'Test cold store', ownerName: 'Owner', ownerPhone: '9876543210', managerPhone: '9876543210', district: 'Shopian', area: 'Test', unit: 'm' });
   d.building = { length: '40', width: '30', height: '12', door: { wall: 'front', from: '18', width: '4', height: '5' }, sides: 'both' };
   const bins = blankChamber(1, 'bins');
-  Object.assign(bins, { count: '480', kg: '250', floors: '1', length: '14', width: '12', height: '8', rate: '45', door: { wall: 'front', from: '5', width: '3', height: '4' } });
+  Object.assign(bins, { count: '480', kg: '250', floors: '1', length: '14', width: '12', height: '8', rate: '45', unitL: '1.2', unitW: '1', unitH: '0.76', floorHeights: '8', aisle: '3.5', stackGap: '0.1', wallGap: '0.3', stackHigh: '8', door: { wall: 'front', from: '5', width: '3', height: '4' } });
   const crates = blankChamber(2, 'crates');
-  Object.assign(crates, { count: '9000', kg: '20', floors: '3', length: '12', width: '10', height: '9', rate: '6', floorHeights: '3.2, 3, 2.8', door: { wall: 'front', from: '4', width: '2', height: '2.8' } });
+  Object.assign(crates, { count: '3000', kg: '20', floors: '3', length: '12', width: '10', height: '9', rate: '6', unitL: '0.6', unitW: '0.4', unitH: '0.3', aisle: '3', stackGap: '0.05', wallGap: '0.2', stackHigh: '9', floorHeights: '3.2, 3, 2.8', door: { wall: 'front', from: '4', width: '2', height: '2.8' } });
   d.chambers = [bins, crates];
   return d;
 }
