@@ -39,6 +39,10 @@ export type CibrcProduct = {
   active_molecule: string;
   formulation: string | null;
   section: string | null;
+  /** Commercial brand / trade names farmers type in (e.g. Applin, Promalin, Cultar, Score). */
+  brandNames?: string[];
+  /** CIBRC category, e.g. "Plant Growth Regulator (PGR) — Section 9(3)" or "Fungicide — Section 9(3)". */
+  category?: string;
   approved_crops: string[];
   target_pests: string[];
   dosage_per_ha: string | null;
