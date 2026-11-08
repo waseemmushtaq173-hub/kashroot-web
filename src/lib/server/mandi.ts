@@ -54,7 +54,7 @@ const MANDI_KEEP_MS = 7 * 24 * 3600_000;
  * shown with a note instead of an empty page.
  */
 export async function fetchMandiPrices(query: MandiQuery): Promise<MandiResult> {
-  const wide: MandiQuery = { state: titleCase(query.state), commodity: titleCase(query.commodity), limit: Math.max(query.limit ?? 1000, 1000) };
+  const wide: MandiQuery = { state: titleCase(query.state), commodity: titleCase(query.commodity), limit: Math.max(query.limit ?? 2000, 2000) };
   const result = await stateWideOrLast(wide);
   if (!query.district?.trim() && !query.market?.trim()) return result;
   const n = narrowMandi(result.records, query.district, query.market, wide.state);

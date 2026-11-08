@@ -33,7 +33,7 @@ export async function GET(request: Request) {
       district: pick('district'),
       market: pick('market'),
       commodity: pick('commodity'),
-      limit: Math.min(Number(q.get('limit')) || 1000, 2000),
+      limit: Math.min(Number(q.get('limit')) || 2000, 2000),
     });
     // A kept copy (both feeds down) is not held at the edge: the next request tries for today's.
     return NextResponse.json(result, { headers: { 'Cache-Control': result.stale ? 'public, s-maxage=60' : 'public, s-maxage=900, stale-while-revalidate=1800' } });

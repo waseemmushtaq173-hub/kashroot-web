@@ -43,6 +43,10 @@ export type CibrcProduct = {
   brandNames?: string[];
   /** CIBRC category, e.g. "Plant Growth Regulator (PGR) — Section 9(3)" or "Fungicide — Section 9(3)". */
   category?: string;
+  /** Legal manufacturer / registrant name as printed on the CIBRC registration certificate. */
+  legalManufacturer?: string;
+  /** Manufacturing licence / company code from the CIBRC certificate (anti-counterfeit cross-check). */
+  manufacturerLicense?: string;
   approved_crops: string[];
   target_pests: string[];
   dosage_per_ha: string | null;

@@ -45,7 +45,7 @@ export function mandiUrl(query: MandiQuery, key: string): string {
   const params = new URLSearchParams({
     'api-key': key,
     format: 'json',
-    limit: String(Math.min(Math.max(query.limit ?? 200, 1), 1000)),
+    limit: String(Math.min(Math.max(query.limit ?? 200, 1), 2000)),
     offset: '0',
   });
   // The state field needs the ".keyword" form; plain keys work for the rest.
@@ -63,7 +63,10 @@ export function mandiUrl(query: MandiQuery, key: string): string {
 export function parseMandi(json: { records?: Record<string, unknown>[] }, query: MandiQuery): MandiRecord[] {
   // data.gov.in silently ignores filters it does not understand, so re-check.
   const norm = (v: string) => v.toLowerCase().replace(/[^a-z]/g, '');
-  const same = (a: string, b?: string) => !b || norm(a).includes(norm(b)) || norm(b).includes(norm(a));
+  // Exact match for commodity (avoid "Apple" matching "Custard Apple"); fuzzy
+  // includes-match for state/district/market where spellings vary.
+  const same = (a: string, b?: string) => !b || norm(a) === norm(b);
+  const sameFuzzy = (a: string, b?: string) => !b || norm(a).includes(norm(b)) || norm(b).includes(norm(a));
   const [state, district, market, commodity] = [clean(query.state), clean(query.district), clean(query.market), clean(query.commodity)];
   return (json.records ?? [])
     .map((r) => ({
@@ -78,7 +81,7 @@ export function parseMandi(json: { records?: Record<string, unknown>[] }, query:
       maxPrice: num(r.max_price),
       modalPrice: num(r.modal_price),
     }))
-    .filter((r) => same(r.state, state) && same(r.district, district) && same(r.market, market) && same(r.commodity, commodity))
+    .filter((r) => sameFuzzy(r.state, state) && sameFuzzy(r.district, district) && sameFuzzy(r.market, market) && same(r.commodity, commodity))
     .sort((a, b) => b.arrivalDate.localeCompare(a.arrivalDate) || a.market.localeCompare(b.market));
 }
 
