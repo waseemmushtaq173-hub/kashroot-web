@@ -52,6 +52,8 @@ export interface ContactOtpProps {
   locked?: boolean;
   /** Send the code as soon as the panel opens. */
   autoSend?: boolean;
+  /** Email to fall back to when SMS cannot be sent (rate-limit, quota, delivery error, or a 4 s timeout). */
+  emailFallback?: string | null;
 }
 
 export type PhoneRoute = 'sms' | 'whatsapp';
@@ -59,7 +61,7 @@ export type PhoneRoute = 'sms' | 'whatsapp';
 const INPUT = 'block min-h-11 w-full rounded-xl border-0 bg-white px-3.5 py-2.5 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 disabled:bg-slate-50 disabled:text-slate-500';
 const BUTTON = 'inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50';
 
-export function ContactOtp({ channel, value, onChange, onVerified, verified, onReset, label, accent = EMERALD, required, hint, routes = ['sms'], onUnavailable, locked = false, autoSend = false }: ContactOtpProps) {
+export function ContactOtp({ channel, value, onChange, onVerified, verified, onReset, label, accent = EMERALD, required, hint, routes = ['sms'], onUnavailable, locked = false, autoSend = false, emailFallback }: ContactOtpProps) {
   const id = useId();
   const [token, setToken] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState('');
@@ -67,6 +69,7 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
   const [busy, setBusy] = useState<'send' | 'verify' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [wait, setWait] = useState(0);
+  const [fallback, setFallback] = useState(false);
   useEffect(() => {
     if (wait <= 0) return;
     const t = window.setTimeout(() => setWait((s) => s - 1), 1000);
@@ -85,8 +88,9 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
   const send = async () => {
     setBusy('send');
     setError(null);
+    setFallback(false);
     try {
-      const res = await fetch('/api/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel, to: value }) });
+      const res = await fetch('/api/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel, to: value }), signal: AbortSignal.timeout(4_000) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok && sms) onUnavailable?.();
       if (!res.ok) throw new Error(data.error ?? 'Could not send the OTP.');
@@ -96,8 +100,27 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
       setCode('');
       setWait(30);
     } catch (err) {
-      if (sms) onUnavailable?.();
-      setError(err instanceof Error && err.message !== 'Failed to fetch' ? err.message : 'Could not send the OTP. Check your connection.');
+      // SMS failed (rate-limit, quota, delivery error, or 4 s timeout): fall back to email automatically.
+      if (sms && emailFallback) {
+        setFallback(true);
+        try {
+          const res2 = await fetch('/api/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel: 'email', to: emailFallback }), signal: AbortSignal.timeout(4_000) });
+          const data2 = await res2.json().catch(() => ({}));
+          if (!res2.ok) throw new Error(data2.error ?? 'Could not send the OTP.');
+          setToken(data2.token);
+          setSentVia(['email']);
+          setSentTo(emailFallback ?? '');
+          setCode('');
+          setWait(30);
+          setError(null);
+        } catch (err2) {
+          setFallback(false);
+          setError(err2 instanceof Error && err2.message !== 'Failed to fetch' ? err2.message : 'Could not send the OTP. Check your connection.');
+        }
+      } else {
+        if (sms) onUnavailable?.();
+        setError(err instanceof Error && err.message !== 'Failed to fetch' ? err.message : 'Could not send the OTP. Check your connection.');
+      }
     } finally {
       setBusy(null);
     }
@@ -193,7 +216,11 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
               resending={busy === 'send'}
             >
               <OtpBoxes id={`${id}-code`} label="6-digit OTP" value={code} onChange={setCode} disabled={busy === 'verify'} invalid={Boolean(error)} onEnter={() => void verify()} />
-              <p className="mt-3 text-sm text-slate-600">OTP sent{sms && sentVia.length ? ` by ${joinNames(sentVia)}` : ''} to <span className="font-semibold text-slate-900">{sentTo}</span>. It expires in 10 minutes.</p>
+              {fallback ? (
+                <p className="mt-3 text-sm text-emerald-700">SMS limit reached — we sent the 6-digit verification code to your email instead.</p>
+              ) : (
+                <p className="mt-3 text-sm text-slate-600">OTP sent{sms && sentVia.length ? ` by ${joinNames(sentVia)}` : ''} to <span className="font-semibold text-slate-900">{sentTo}</span>. It expires in 10 minutes.</p>
+              )}
               <button type="button" onClick={() => void verify()} disabled={code.length !== 6 || busy !== null} className={`${BUTTON} mt-4 w-full py-3 text-base ${accent.button}`}>
                 {busy === 'verify' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <ShieldCheck className="h-4 w-4" aria-hidden />}
                 Verify OTP

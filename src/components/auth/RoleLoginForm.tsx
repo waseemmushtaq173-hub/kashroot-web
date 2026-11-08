@@ -452,7 +452,8 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
             onChange={() => undefined}
             locked
             autoSend
-            hint={step.fallback ? 'SMS is at capacity, so we sent the code to your email instead.' : undefined}
+            emailFallback={step.emailFallback}
+            hint={step.fallback ? 'SMS limit reached — we sent the 6-digit verification code to your email instead.' : undefined}
             required
             routes={phoneStep ? step.routes : undefined}
             verified={false}
