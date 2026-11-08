@@ -221,12 +221,10 @@ export const authApi = {
       throw new Error(friendlyAuthError('email not confirmed', ''));
     }
 
-    // The role recorded at sign-up wins; kr_mock_role stays as the fallback
-    // for accounts created before sign-up wrote any metadata.
-    // app_metadata is only writable server-side (dashboard / service role), so
-    // it wins over user_metadata, which the user can edit.
+    // The role recorded at sign-up wins. app_metadata is only writable
+    // server-side (dashboard / service role), so it wins over user_metadata,
+    // which the user can edit.
     const metadataRole = (data.user.app_metadata?.role ?? data.user.user_metadata?.role) as UserRole | undefined;
-    const mockRole = (typeof window !== 'undefined' && localStorage.getItem('kr_mock_role')) as UserRole || 'FARMER';
     // Staff roles (admin, expert, dealer) are granted by an admin in the database.
     // Asked afresh at every sign-in (a role granted since shows now), then kept for the portals.
     const staffRoles = await staffRolesOf(data.user.id, true);
@@ -243,7 +241,7 @@ export const authApi = {
         id: data.user.id,
         email: dto.email,
         fullName: data.user.user_metadata?.full_name || 'Verified User',
-        role: metadataRole ?? mockRole,
+        role: metadataRole ?? 'FARMER',
         kycStatus: 'VERIFIED',
         mfaEnabled: false
       }
