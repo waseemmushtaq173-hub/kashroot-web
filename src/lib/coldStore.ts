@@ -103,6 +103,49 @@ export interface DoorDraft {
   height: string;
 }
 
+// ───────────────────────── work areas in the building ─────────────────────────
+
+/** The parts of a cold store building that are not chambers: where apples are received, graded, washed, packed and loaded. */
+export type AreaKind = 'receiving' | 'grading' | 'washing' | 'packing' | 'machinery' | 'loading' | 'office' | 'other';
+export const AREA_KINDS: Record<AreaKind, { title: string; hint: string; colour: string }> = {
+  receiving: { title: 'Receiving & weighing', hint: 'Where trucks unload and apples are weighed.', colour: '#fde68a' },
+  grading: { title: 'Grading & sorting line', hint: 'The sorting machine or tables where apples are graded by size and colour.', colour: '#bbf7d0' },
+  washing: { title: 'Washing & drying', hint: 'Where apples are washed, waxed or dried.', colour: '#bae6fd' },
+  packing: { title: 'Packing hall', hint: 'Where apples are filled into boxes or crates and transferred into bins.', colour: '#fed7aa' },
+  machinery: { title: 'Machine room', hint: 'Compressors, generator, electric panel.', colour: '#e2e8f0' },
+  loading: { title: 'Loading dock', hint: 'Where trucks are loaded for dispatch.', colour: '#fecaca' },
+  office: { title: 'Office', hint: 'Office, store keeper, staff room.', colour: '#ddd6fe' },
+  other: { title: 'Other', hint: 'Any other area — write its name.', colour: '#f5f5f4' },
+};
+export const AREA_ORDER: AreaKind[] = ['receiving', 'grading', 'washing', 'packing', 'machinery', 'loading', 'office', 'other'];
+/** The building is saved in one small database field: at most this many areas. */
+export const MAX_AREAS = 8;
+
+/** A work area as typed: its kind, name (for "other"), size and where it stands (from the building's left wall and front wall). */
+export interface AreaDraft {
+  key: string;
+  kind: AreaKind;
+  name: string;
+  length: string;
+  width: string;
+  x: string;
+  y: string;
+}
+
+/** A work area as saved, in metres, in the building's frame: x along the front from the left wall, y in from the front wall. */
+export interface WorkArea {
+  kind: AreaKind;
+  name?: string;
+  x: number;
+  y: number;
+  length: number;
+  width: number;
+}
+
+export const blankArea = (kind: AreaKind = 'packing'): AreaDraft => ({ key: newKey(), kind, name: '', length: '', width: '', x: '', y: '' });
+/** What an area is called: its own name, or its kind. */
+export const areaName = (a: Pick<WorkArea, 'kind' | 'name'>) => (a.name?.trim() ? a.name.trim() : AREA_KINDS[a.kind].title);
+
 /** One chamber as typed (lengths in the store's unit). */
 export interface ChamberDraft {
   /** Stable while editing (the drawings and 3D keep track of it by this). */
@@ -161,7 +204,7 @@ export interface StoreDraft {
   /** Feet or metres, for the building and every chamber. */
   unit: SizeUnit;
   /** `sides`: where the chambers are along the passage from the main door ('' = not chosen yet). */
-  building: { length: string; width: string; height: string; door: DoorDraft; sides: Sides | '' };
+  building: { length: string; width: string; height: string; door: DoorDraft; sides: Sides | ''; areas?: AreaDraft[] };
   chambers: ChamberDraft[];
 }
 
@@ -194,7 +237,7 @@ export function blankStore(who?: { name?: string; phone?: string; district?: str
     area: who?.village ?? '',
     address: prefill?.address ?? '',
     unit: 'ft',
-    building: { length: '', width: '', height: '', door: blankDoor(), sides: '' },
+    building: { length: '', width: '', height: '', door: blankDoor(), sides: '', areas: [] },
     chambers: [],
   };
 }
@@ -307,6 +350,8 @@ export interface Building {
   door: DoorAt;
   /** Where the chambers are along the passage from the main door ('both' for stores saved before it was asked). */
   sides: Sides;
+  /** Work areas (packing, grading, machinery…), when the owner added them. */
+  areas?: WorkArea[];
 }
 /** A door in metres: its wall, from the left corner of that wall (standing outside facing it), width, height. */
 export interface DoorAt {
@@ -511,6 +556,12 @@ export function storeModel(draft: StoreDraft): StoreModel {
   if (!sides) add('error', 2, 'building.sides', 'Choose where the chambers are, as you walk in through the main door: on the left side of the passage, on the right side, or on both sides.');
   // Drawn on both sides until the owner chooses (it cannot be saved before).
   const building: Building | null = bL !== null && bW !== null && bH !== null && mainDoor ? { unit: u, length: bL, width: bW, height: bH, door: mainDoor, sides: sides ?? 'both' } : null;
+  const areas = readAreas(d.building.areas ?? [], bL, bW, u, add);
+  if (building && areas.length) building.areas = areas;
+  if (building) {
+    const way = passageOf(building).rect;
+    for (const ar of areas) if (overlaps({ x: ar.x, y: ar.y, w: ar.length, d: ar.width }, way)) add('warn', 2, 'building.areas', `The ${areaName(ar).toLowerCase()} is in the passage from the main door. Chambers open onto that passage — check where the area is.`);
+  }
 
   // ── 3. The chambers ──
   if (!d.chambers.length) add('error', 3, 'chambers', 'Add your first chamber: tap “Add a chamber”.');
@@ -549,6 +600,13 @@ export function storeModel(draft: StoreDraft): StoreModel {
   if (building && chambers.length) {
     layout = arrangeStore(building, chambers.map((mc) => ({ key: mc.key, name: mc.name, outline: mc.outline, spot: mc.spot, side: mc.side ?? undefined })));
     for (const p of layout.problems) add('warn', 3, `${p.key}.fit`, p.message);
+    // A chamber standing on a work area: say which, so the owner moves one of them.
+    for (const mc of chambers) {
+      const sp = layout.spots[mc.key];
+      if (!sp) continue;
+      const hit = areas.find((a) => overlaps({ x: sp.x, y: sp.y, w: sp.w, d: sp.d }, { x: a.x, y: a.y, w: a.length, d: a.width }));
+      if (hit) add('warn', 3, `${mc.key}.fit`, `${mc.name} stands on the ${areaName(hit).toLowerCase()}. Put the chambers on the other side of the passage (step 2), or say where ${mc.name} stands under “More details”.`);
+    }
   }
 
   const totals = { bins: 0, crates: 0, tonnes: 0, places: 0 };
@@ -583,6 +641,43 @@ export function storeModel(draft: StoreDraft): StoreModel {
 }
 
 type Add = (level: Issue['level'], step: Issue['step'], field: string, message: string, fix?: Issue['fix']) => void;
+
+const overlaps = (a: { x: number; y: number; w: number; d: number }, b: { x: number; y: number; w: number; d: number }) =>
+  a.x < b.x + b.w - 0.05 && b.x < a.x + a.w - 0.05 && a.y < b.y + b.d - 0.05 && b.y < a.y + a.d - 0.05;
+const r2 = (n: number) => Math.round(n * 100) / 100;
+
+/** The work areas as typed, checked against the building (`bL` × `bW`); only the right ones come back. */
+function readAreas(list: AreaDraft[], bL: number | null, bW: number | null, u: SizeUnit, add: Add): WorkArea[] {
+  const out: WorkArea[] = [];
+  if (list.length > MAX_AREAS) add('error', 2, 'building.areas', `KashRoot keeps up to ${MAX_AREAS} work areas. Join small ones together.`);
+  const show = (m: number) => say(m / (u === 'ft' ? FOOT : 1), u);
+  list.slice(0, MAX_AREAS).forEach((a, i) => {
+    const f = `building.areas.${a.key}`;
+    const title = a.kind === 'other' ? a.name.trim() || `Area ${i + 1}` : AREA_KINDS[a.kind]?.title ?? `Area ${i + 1}`;
+    let ok = true;
+    if (!AREA_KINDS[a.kind]) return add('error', 2, `${f}.kind`, 'Choose what this area is.');
+    if (a.kind === 'other' && !a.name.trim()) ok = (add('error', 2, `${f}.name`, 'Write the name of this area, like “Bin repair”.'), false);
+    if (a.name.trim().length > 40) ok = (add('error', 2, `${f}.name`, 'Keep the name short — 40 letters at most.'), false);
+    const num = (k: 'length' | 'width' | 'x' | 'y', ask: string, zero: boolean): number | null => {
+      const n = readNumber(a[k]);
+      if (n === null) return add('error', 2, `${f}.${k}`, ask), null;
+      if (Number.isNaN(n) || n < 0 || (!zero && n === 0)) return add('error', 2, `${f}.${k}`, 'Write it as a number of the building’s unit.'), null;
+      return metres(n, u);
+    };
+    const L = num('length', `Write how long the ${title.toLowerCase()} is, along the front.`, false);
+    const W = num('width', `Write how wide the ${title.toLowerCase()} is, front to back.`, false);
+    const x = num('x', 'Write how far it is from the building’s left wall (0 at the wall).', true);
+    const y = num('y', 'Write how far it is from the building’s front wall (0 at the wall).', true);
+    if (L === null || W === null || x === null || y === null || !ok) return;
+    if (bL !== null && x + L > bL * 1.01) return add('error', 2, `${f}.x`, `The ${title.toLowerCase()} goes past the right wall: ${show(x)} + ${show(L)} is more than the building’s ${show(bL)}. Check its length or where it is.`);
+    if (bW !== null && y + W > bW * 1.01) return add('error', 2, `${f}.y`, `The ${title.toLowerCase()} goes past the back wall: ${show(y)} + ${show(W)} is more than the building’s ${show(bW)}. Check its width or where it is.`);
+    const area: WorkArea = { kind: a.kind, ...(a.kind === 'other' || a.name.trim() ? { name: a.name.trim() } : {}), x: r2(x), y: r2(y), length: r2(L), width: r2(W) };
+    const clash = out.find((o) => overlaps({ x: o.x, y: o.y, w: o.length, d: o.width }, { x: area.x, y: area.y, w: area.length, d: area.width }));
+    if (clash) add('warn', 2, `${f}.x`, `The ${title.toLowerCase()} overlaps the ${areaName(clash).toLowerCase()}. Check where each one is.`);
+    out.push(area);
+  });
+  return out;
+}
 
 /**
  * A door as typed, checked against its wall (`room` in the building's frame); null until it is right.
@@ -1243,7 +1338,13 @@ export function asBuilding(v: unknown): Building | null {
   if (!num(b.length) || !num(b.width) || !num(b.height) || !d || !WALLS.includes(d.wall as Wall) || typeof d.from !== 'number' || !num(d.width) || !num(d.height)) return null;
   // Stores saved before the owner was asked which side the chambers are on: both sides.
   const sides = SIDES.includes(b.sides as Sides) ? (b.sides as Sides) : 'both';
-  return { unit: b.unit === 'm' ? 'm' : 'ft', length: b.length, width: b.width, height: b.height, door: { wall: d.wall as Wall, from: d.from, width: d.width, height: d.height }, sides };
+  const areas = Array.isArray(b.areas)
+    ? b.areas
+        .filter((a): a is WorkArea => Boolean(a) && typeof a === 'object' && a.kind in AREA_KINDS && [a.x, a.y].every((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0) && num(a.length) && num(a.width))
+        .slice(0, MAX_AREAS)
+        .map((a) => ({ kind: a.kind, ...(typeof a.name === 'string' && a.name.trim() ? { name: a.name.trim().slice(0, 40) } : {}), x: a.x, y: a.y, length: a.length, width: a.width }))
+    : [];
+  return { unit: b.unit === 'm' ? 'm' : 'ft', length: b.length, width: b.width, height: b.height, door: { wall: d.wall as Wall, from: d.from, width: d.width, height: d.height }, sides, ...(areas.length ? { areas } : {}) };
 }
 
 // ───────────────────────── saved chambers, grouped ─────────────────────────
@@ -1353,8 +1454,8 @@ export function draftFromSaved(
     address: l.address ?? '',
     unit,
     building: building
-      ? { length: t(building.length), width: t(building.width), height: t(building.height), door: { wall: building.door.wall, from: t(building.door.from), width: t(building.door.width), height: t(building.door.height) }, sides: building.sides }
-      : { length: '', width: '', height: '', door: blankDoor(), sides: '' },
+      ? { length: t(building.length), width: t(building.width), height: t(building.height), door: { wall: building.door.wall, from: t(building.door.from), width: t(building.door.width), height: t(building.door.height) }, sides: building.sides, areas: (building.areas ?? []).map((a, i) => ({ key: `area-${i}`, kind: a.kind, name: a.name ?? '', length: t(a.length), width: t(a.width), x: t(a.x), y: t(a.y) })) }
+      : { length: '', width: '', height: '', door: blankDoor(), sides: '', areas: [] },
     chambers: groups.map((g) => {
       const s = g.size!;
       const o = outlineOf(s);
@@ -1404,7 +1505,7 @@ export function switchUnit(d: StoreDraft, unit: SizeUnit): StoreDraft {
   return {
     ...d,
     unit,
-    building: { ...d.building, length: conv(d.building.length), width: conv(d.building.width), height: conv(d.building.height), door: door(d.building.door) },
+    building: { ...d.building, length: conv(d.building.length), width: conv(d.building.width), height: conv(d.building.height), door: door(d.building.door), areas: (d.building.areas ?? []).map((a) => ({ ...a, length: conv(a.length), width: conv(a.width), x: conv(a.x), y: conv(a.y) })) },
     chambers: d.chambers.map((c) => ({
       ...c,
       length: conv(c.length),
@@ -1427,6 +1528,7 @@ export function switchUnit(d: StoreDraft, unit: SizeUnit): StoreDraft {
 /** The value of a field of the draft by its issue name ('title', 'building.door.from', '<key>.count'). */
 export function getField(d: StoreDraft, field: string): string {
   const path = field.split('.');
+  if (path[0] === 'building' && path[1] === 'areas') return String((d.building.areas ?? []).find((a) => a.key === path[2])?.[path[3] as keyof AreaDraft] ?? '');
   if (path[0] === 'building') return String(path[1] === 'door' ? d.building.door[path[2] as keyof DoorDraft] ?? '' : d.building[path[1] as 'length' | 'width' | 'height' | 'sides'] ?? '');
   const c = d.chambers.find((x) => x.key === path[0]);
   if (c) return String(path[1] === 'door' ? c.door[path[2] as keyof DoorDraft] ?? '' : c[path[1] as keyof ChamberDraft] ?? '');
@@ -1438,6 +1540,7 @@ export function getField(d: StoreDraft, field: string): string {
 export function setField(d: StoreDraft, field: string, value: string): StoreDraft {
   const path = field.split('.');
   if (path[0] === 'building') {
+    if (path[1] === 'areas') return { ...d, building: { ...d.building, areas: (d.building.areas ?? []).map((a) => (a.key === path[2] ? { ...a, [path[3]]: value } : a)) } };
     if (path[1] === 'door') return { ...d, building: { ...d.building, door: { ...d.building.door, [path[2]]: value } } };
     return { ...d, building: { ...d.building, [path[1]]: value } };
   }

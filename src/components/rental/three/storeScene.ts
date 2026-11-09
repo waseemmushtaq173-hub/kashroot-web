@@ -14,8 +14,8 @@
  * plan; with a building they are drawn beside it. Without a building the
  * chambers stand side by side along a corridor. Pure: no three.js, no React.
  */
-import { planOf, type ChamberPlan, type Wall } from '@/lib/coldLayout';
-import { arrangeStore, doorLine, fromDoor, groupChambers, outlineOf, placeRect, type Building, type ChamberGroup, type PreviewRows, type Side, type Storage } from '@/lib/coldStore';
+import { planOf, showLength, type ChamberPlan, type Wall } from '@/lib/coldLayout';
+import { areaName, arrangeStore, doorLine, fromDoor, groupChambers, outlineOf, placeRect, type Building, type ChamberGroup, type PreviewRows, type Side, type Storage } from '@/lib/coldStore';
 import { placeName, type ColdChamber } from '@/lib/db/coldMap';
 
 export interface Vec {
@@ -439,6 +439,8 @@ const ORD = ['1st', '2nd', '3rd'];
 export function sceneText(scene: StoreScene): string {
   const out: string[] = [];
   if (scene.mainDoor) out.push(`The main door is in the ${scene.mainDoor.wall} wall; a passage runs straight in from it.`);
+  const areas = scene.building?.areas ?? [];
+  if (areas.length) out.push(`Work areas: ${areas.map((ar) => `${areaName(ar)}, ${showLength(ar.x, scene.unit)} from the left wall and ${showLength(ar.y, scene.unit)} from the front wall`).join('; ')}.`);
   const seen: Record<Side, number> = { left: 0, right: 0 };
   for (const c of scene.chambers) {
     const floors = c.floors.length > 1 ? ` It has ${c.floors.length} floors.` : '';

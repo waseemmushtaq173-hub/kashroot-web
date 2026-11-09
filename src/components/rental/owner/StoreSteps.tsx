@@ -8,14 +8,16 @@
  *                       main door (which wall, how far from the left
  *                       corner, how wide and how high) and where the
  *                       chambers are: left, right or both sides of the
- *                       passage from the main door — drawn from above as
- *                       the owner types.
+ *                       passage from the main door, and the work areas
+ *                       (receiving, grading, washing, packing, machine
+ *                       room, loading dock, office) with their size and
+ *                       place — drawn from above as the owner types.
  */
-import { DoorOpen, Ruler, Store, Warehouse } from 'lucide-react';
+import { Cog, DoorOpen, Droplets, Factory, Filter, Package, Ruler, Store, Trash2, Truck, Warehouse, Weight, Briefcase, type LucideIcon } from 'lucide-react';
 
 import { Box, Choose, Problems, UnitSwitch, WallPicker } from '@/components/rental/owner/fields';
 import { StoreDrawing } from '@/components/rental/owner/StoreDrawing';
-import { getField, JK, JK_DISTRICTS, STATES, switchUnit, type Issue, type Sides, type StoreDraft, type StoreModel } from '@/lib/coldStore';
+import { AREA_KINDS, AREA_ORDER, blankArea, getField, JK, JK_DISTRICTS, MAX_AREAS, STATES, switchUnit, type AreaKind, type Issue, type Sides, type StoreDraft, type StoreModel } from '@/lib/coldStore';
 
 /** What every step gets from the wizard. */
 export interface Kit {
@@ -168,11 +170,79 @@ export function BuildingStep({ kit }: { kit: Kit }) {
           </div>
         </fieldset>
         <SidesPicker value={draft.building.sides ?? ''} onChange={(v) => kit.set('building.sides', v)} issues={kit.issuesOf('building.sides')} />
+        <WorkAreas kit={kit} />
       </div>
       <section aria-label="Live drawing of the building" className="space-y-2 lg:sticky lg:top-4 lg:self-start">
         <p className="text-sm font-semibold text-slate-800">Live drawing <span className="font-normal text-slate-600">— changes as you type</span></p>
         <StoreDrawing model={kit.shown} title={draft.title.trim() || undefined} />
       </section>
     </div>
+  );
+}
+
+const AREA_ICON: Record<AreaKind, LucideIcon> = { receiving: Weight, grading: Filter, washing: Droplets, packing: Package, machinery: Cog, loading: Truck, office: Briefcase, other: Factory };
+
+/**
+ * The parts of the building that are not chambers — where apples are received,
+ * graded, washed, packed into bins and loaded — each with its size and where
+ * it stands, measured from the building's left wall and front wall.
+ */
+function WorkAreas({ kit }: { kit: Kit }) {
+  const u = kit.draft.unit;
+  const areas = kit.draft.building.areas ?? [];
+  const add = (kind: AreaKind) => kit.update((d) => ({ ...d, building: { ...d.building, areas: [...(d.building.areas ?? []), blankArea(kind)] } }));
+  const remove = (key: string) => kit.update((d) => ({ ...d, building: { ...d.building, areas: (d.building.areas ?? []).filter((a) => a.key !== key) } }));
+  const full = areas.length >= MAX_AREAS;
+  return (
+    <fieldset data-field="building.areas" className="space-y-4 rounded-2xl bg-orange-50/60 p-4 ring-1 ring-orange-200">
+      <legend className="sr-only">Work areas</legend>
+      <p className="flex items-center gap-2 text-base font-semibold text-orange-950"><Factory className="h-5 w-5" aria-hidden /> Work areas (if your store has them)</p>
+      <p className="text-sm text-slate-700">Grading, washing, packing, the machine room — the parts of the building that are not chambers. Tap what you have, then measure it and where it is. They are drawn in the plan and in 3D, so farmers know where to bring their apples.</p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="Add a work area">
+        {AREA_ORDER.map((kind) => {
+          const Icon = AREA_ICON[kind];
+          return (
+            <button
+              key={kind}
+              type="button"
+              disabled={full}
+              onClick={() => add(kind)}
+              className="flex min-h-[72px] cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl bg-white p-2 text-center text-sm font-semibold text-slate-800 ring-2 ring-slate-200 transition hover:ring-orange-300 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span className="grid h-8 w-8 place-items-center rounded-xl" style={{ background: AREA_KINDS[kind].colour }}><Icon className="h-5 w-5 text-slate-800" aria-hidden /></span>
+              <span className="leading-tight">{AREA_KINDS[kind].title}</span>
+            </button>
+          );
+        })}
+      </div>
+      {full && <p className="text-sm text-amber-900">{MAX_AREAS} areas is the most — join small ones together.</p>}
+      <Problems issues={kit.issuesOf('building.areas')} />
+      {areas.map((a, i) => {
+        const Icon = AREA_ICON[a.kind];
+        const f = `building.areas.${a.key}`;
+        const title = a.kind === 'other' ? a.name.trim() || 'Other area' : AREA_KINDS[a.kind].title;
+        return (
+          <section key={a.key} aria-label={`Work area ${i + 1}: ${title}`} className="space-y-3 rounded-2xl bg-white p-4 ring-1 ring-slate-900/10">
+            <div className="flex items-center justify-between gap-2">
+              <p className="flex items-center gap-2 font-semibold text-slate-900">
+                <span className="grid h-8 w-8 place-items-center rounded-xl" style={{ background: AREA_KINDS[a.kind].colour }}><Icon className="h-5 w-5" aria-hidden /></span>
+                {title}
+              </p>
+              <button type="button" onClick={() => remove(a.key)} aria-label={`Remove ${title}`} className="grid h-11 w-11 cursor-pointer place-items-center rounded-xl text-rose-700 hover:bg-rose-50">
+                <Trash2 className="h-5 w-5" aria-hidden />
+              </button>
+            </div>
+            <p className="text-xs text-slate-600">{AREA_KINDS[a.kind].hint}</p>
+            <KitBox kit={kit} field={`${f}.name`} label={a.kind === 'other' ? 'Name of this area' : 'Name (optional)'} maxLength={40} />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <KitBox kit={kit} field={`${f}.length`} label={`Length, along the front (${u})`} number />
+              <KitBox kit={kit} field={`${f}.width`} label={`Width, front to back (${u})`} number />
+              <KitBox kit={kit} field={`${f}.x`} label={`From the building’s left wall (${u})`} number hint="Stand outside facing the front. 0 if it touches the left wall." />
+              <KitBox kit={kit} field={`${f}.y`} label={`From the building’s front wall (${u})`} number hint="0 if it touches the front wall." />
+            </div>
+          </section>
+        );
+      })}
+    </fieldset>
   );
 }

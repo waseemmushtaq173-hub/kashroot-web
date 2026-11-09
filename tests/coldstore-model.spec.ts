@@ -10,7 +10,7 @@ import { buildScene, PLATE_GAP, rowPlates, type StoreScene } from '@/components/
 import { routeTo } from '@/components/rental/walk/route';
 import { ownerMeasured, planOf } from '@/lib/coldLayout';
 import { pickNearest } from '@/lib/db/coldMap';
-import { blankChamber, blankStore, draftFromSaved, previewChambers, storeModel, type ChamberDraft, type StoreDraft } from '@/lib/coldStore';
+import { blankChamber, blankStore, draftFromSaved, MAX_AREAS, previewChambers, storeModel, type ChamberDraft, type StoreDraft } from '@/lib/coldStore';
 
 const CM = 0.01;
 
@@ -189,6 +189,42 @@ test('only chambers the owner measured can be booked: old box chambers and missi
   expect(ownerMeasured(legacy)).toBe(false);
   const noStack = { ...rows[0].size!, stackHigh: undefined };
   expect(ownerMeasured(noStack)).toBe(false);
+});
+
+test('work areas: measured, kept inside the building, saved with it and opened again unchanged', () => {
+  const d = sample((st) => {
+    st.building.sides = 'left';
+    st.building.areas = [
+      { key: 'a1', kind: 'grading', name: '', length: '14', width: '8', x: '24', y: '2' },
+      { key: 'a2', kind: 'packing', name: '', length: '14', width: '10', x: '24', y: '12' },
+      { key: 'a3', kind: 'other', name: 'Bin repair', length: '4', width: '4', x: '34', y: '24' },
+    ];
+  });
+  const model = storeModel(d);
+  const areaErrors = model.issues.filter((i) => i.level === 'error' && i.field.startsWith('building'));
+  expect(areaErrors, JSON.stringify(areaErrors)).toHaveLength(0);
+  expect(model.building?.areas?.map((a) => a.kind)).toEqual(['grading', 'packing', 'other']);
+  expect(model.building?.areas?.[2]).toMatchObject({ name: 'Bin repair', x: 34, y: 24, length: 4, width: 4 });
+  // Saved in one small database field (rental_listings.building: under 2,000 bytes even with the most areas).
+  const most = { ...model.building!, areas: Array.from({ length: MAX_AREAS }, (_, i) => ({ kind: 'other' as const, name: 'A long area name here!!', x: 123.45, y: 67.89, length: 12.34, width: 56.78 + i })) };
+  expect(JSON.stringify(most).length).toBeLessThan(1900);
+  // Opened again from what is saved: the same areas.
+  const again = draftFromSaved({ title: 'T', owner_name: 'O', phone: '9876543210', district: 'Shopian', address: null, building: model.building }, []);
+  expect(storeModel({ ...d, building: again.building }).building?.areas).toEqual(model.building?.areas);
+  // Outside the building, or with no name for "other": refused.
+  const out = storeModel(sample((st) => (st.building.areas = [{ key: 'b', kind: 'packing', name: '', length: '10', width: '5', x: '35', y: '0' }])));
+  expect(out.issues.some((i) => i.level === 'error' && /past the right wall/.test(i.message))).toBe(true);
+  const noName = storeModel(sample((st) => (st.building.areas = [{ key: 'c', kind: 'other', name: '', length: '3', width: '3', x: '0', y: '0' }])));
+  expect(noName.issues.some((i) => i.field === 'building.areas.c.name')).toBe(true);
+});
+
+test('a chamber standing on a work area is pointed out', () => {
+  const d = sample((st) => {
+    st.building.sides = 'left';
+    st.building.areas = [{ key: 'p', kind: 'packing', name: '', length: '16', width: '28', x: '0', y: '1' }];
+  });
+  const model = storeModel(d);
+  expect(model.issues.some((i) => i.level === 'warn' && /stands on the packing hall/.test(i.message))).toBe(true);
 });
 
 test('impossible values are refused', () => {

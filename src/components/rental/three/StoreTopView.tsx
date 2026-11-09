@@ -15,7 +15,7 @@ import { DimLine, ScaleBar } from '@/components/rental/drawingMarks';
 import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
 import { midOf, type Rect, type SceneChamber, type StoreScene, type Vec } from '@/components/rental/three/storeScene';
 import { showLength } from '@/lib/coldLayout';
-import { countText, nice, type Storage } from '@/lib/coldStore';
+import { AREA_KINDS, areaName, countText, nice, type Storage } from '@/lib/coldStore';
 import type { ColdChamber } from '@/lib/db/coldMap';
 
 /** How wide an element is on screen (0 until known). */
@@ -176,7 +176,7 @@ export const StoreTopView = memo(function StoreTopView({
   };
 
   const pass = scene.passage;
-  const summary = `${b ? `The building from above: ${showLength(b.length, u)} long and ${showLength(b.width, u)} wide, the main door in the ${b.door.wall} wall. ` : ''}${scene.chambers.length} chamber${scene.chambers.length === 1 ? '' : 's'}: ${scene.chambers.map((c) => c.name).join(', ')}. Showing floor ${floor}.`;
+  const summary = `${b ? `The building from above: ${showLength(b.length, u)} long and ${showLength(b.width, u)} wide, the main door in the ${b.door.wall} wall. ${b.areas?.length ? `Work areas: ${b.areas.map(areaName).join(', ')}. ` : ''}` : ''}${scene.chambers.length} chamber${scene.chambers.length === 1 ? '' : 's'}: ${scene.chambers.map((c) => c.name).join(', ')}. Showing floor ${floor}.`;
   return (
     <figure ref={ref} className="space-y-1">
       <div className="overflow-hidden rounded-3xl bg-gradient-to-b from-slate-50 to-white ring-1 ring-slate-900/10">
@@ -217,6 +217,20 @@ export const StoreTopView = memo(function StoreTopView({
               })()}
             </g>
           )}
+          {(b?.areas ?? []).map((ar, i) => {
+            const name = areaName(ar);
+            const w = ar.length * k;
+            const h = ar.width * k;
+            const cx = X(ar.x + ar.length / 2);
+            const cy = Y(ar.y + ar.width / 2);
+            const fs = Math.max(9, Math.min(font, (Math.max(w, h) - 10) / (name.length * 0.58)));
+            return (
+              <g key={`area-${i}`} data-area={ar.kind}>
+                <rect x={X(ar.x)} y={Y(ar.y + ar.width)} width={w} height={h} rx={6} fill={AREA_KINDS[ar.kind].colour} stroke="#475569" strokeWidth={1.5} strokeDasharray="8 4" />
+                <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight={700} fill="#1e293b" transform={h > w * 1.4 ? `rotate(-90 ${cx} ${cy})` : undefined}>{name}</text>
+              </g>
+            );
+          })}
           {scene.chambers.map(chamber)}
           {md && (
             <g>

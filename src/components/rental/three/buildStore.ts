@@ -20,7 +20,8 @@ import { binTexture, cartonTexture, concreteTexture, crateTexture, fanTexture, g
 import type { Route } from '@/components/rental/walk/route';
 import { buildFixtures } from '@/components/rental/three/fixtures';
 import { type Kind, midOf, type Rect, rowPlates, type Seg, segLength, type StoreScene } from '@/components/rental/three/storeScene';
-import { countText } from '@/lib/coldStore';
+import { showLength } from '@/lib/coldLayout';
+import { AREA_KINDS, areaName, countText } from '@/lib/coldStore';
 
 type Three = typeof import('three');
 type Obj = InstanceType<Three['Object3D']>;
@@ -334,6 +335,67 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
       ? [{ x: pass.x, y: pass.y, w: t, d: pass.d }, { x: pass.x + pass.w - t, y: pass.y, w: t, d: pass.d }]
       : [{ x: pass.x, y: pass.y, w: pass.w, d: t }, { x: pass.x, y: pass.y + pass.d - t, w: pass.w, d: t }])
       slab(r, 0.012, 0.01, mats.stripe);
+  }
+  // Work areas (receiving, grading, washing, packing, machine room, loading, office): a coloured floor, its name, and its kind of equipment.
+  for (const ar of scene.building?.areas ?? []) {
+    const r: Rect = { x: ar.x, y: ar.y, w: ar.length, d: ar.width };
+    const tint = new T.MeshStandardMaterial({ color: AREA_KINDS[ar.kind].colour, roughness: 0.95 });
+    slab(r, 0.01, 0.008, tint);
+    const cx = r.x + r.w / 2;
+    const cy = r.y + r.d / 2;
+    const long = r.w >= r.d;
+    const L = long ? r.w : r.d;
+    const S = long ? r.d : r.w;
+    /** A box in the area's own frame: `a` along its long side from the middle, `c` across, size `al` × `ac` × `h`. */
+    const part = (a: number, c: number, al: number, ac: number, h: number, mat: Mat, y0 = 0) => {
+      const x = long ? cx + a : cx + c;
+      const y = long ? cy + c : cy + a;
+      return box(long ? al : ac, h, long ? ac : al, wx(o, x), y0 + h / 2, wz(o, y), mat);
+    };
+    const steel = mats.guard;
+    if (ar.kind === 'grading') {
+      // A sorting line: a conveyor on legs, a hopper where bins are tipped, the sizing rollers.
+      const run = Math.max(1, L * 0.75);
+      part(0, 0, run, Math.min(1.1, S * 0.5), 0.12, mats.pipe, 0.85);
+      for (let i = 0; i <= Math.floor(run / 2); i++) part(-run / 2 + i * 2, 0, 0.08, Math.min(1, S * 0.45), 0.85, steel);
+      part(-run / 2 - 0.6, 0, 1.2, Math.min(1.4, S * 0.6), 1.4, mats.condenser);
+      part(run / 4, 0, Math.min(2.5, run / 3), Math.min(1.3, S * 0.6), 0.35, mats.cooler, 0.97);
+    } else if (ar.kind === 'washing') {
+      const tank = Math.min(4, L * 0.6);
+      part(0, 0, tank, Math.min(1.4, S * 0.6), 1, mats.glass);
+      part(tank / 2 + 0.6, 0, 1.2, Math.min(1.2, S * 0.5), 0.9, mats.cooler);
+    } else if (ar.kind === 'packing') {
+      // Packing tables, and empty bins waiting to be filled.
+      const n = Math.max(1, Math.min(4, Math.floor(L / 2.6)));
+      for (let i = 0; i < n; i++) part(-L / 2 + 1.4 + i * 2.6, -S / 4, 1.8, Math.min(0.9, S * 0.3), 0.85, mats.leaf);
+      const bins = Math.max(1, Math.min(5, Math.floor(L / 1.6)));
+      for (let i = 0; i < bins; i++) {
+        const m = new T.Mesh(kit.stackGeo(2), mats.binEmpty);
+        const a = -L / 2 + 0.9 + i * 1.5;
+        const c = S / 4;
+        m.scale.set(1.2, 1.5, 1);
+        m.position.set(wx(o, long ? cx + a : cx + c), 0.01, wz(o, long ? cy + c : cy + a));
+        add(m);
+      }
+    } else if (ar.kind === 'machinery') {
+      const n = Math.max(1, Math.min(3, Math.floor(L / 2.2)));
+      for (let i = 0; i < n; i++) part(-L / 2 + 1.2 + i * 2.2, 0, 1.6, Math.min(1.1, S * 0.5), 1.5, mats.condenser);
+      part(L / 2 - 0.4, S / 2 - 0.3, 0.5, 0.25, 2, mats.pipe);
+    } else if (ar.kind === 'loading') {
+      // A raised dock with a yellow edge.
+      part(0, 0, L * 0.9, S * 0.8, 1.1, mats.apron);
+      part(0, -S * 0.4, L * 0.9, 0.12, 0.02, mats.stripe, 1.1);
+    } else if (ar.kind === 'receiving') {
+      part(0, 0, Math.min(3, L * 0.5), Math.min(3, S * 0.6), 0.1, mats.shutter);
+      part(Math.min(3, L * 0.5) / 2 + 0.4, 0, 0.3, 0.5, 1.2, mats.pipe);
+    } else if (ar.kind === 'office') {
+      const h = Math.min(2.8, Math.max(2.2, scene.height * 0.4));
+      for (const [a, c, al, ac] of [[0, -S / 2 + 0.05, L, 0.1], [0, S / 2 - 0.05, L, 0.1], [-L / 2 + 0.05, 0, 0.1, S], [L / 2 - 0.05, 0, 0.1, S]] as const) part(a, c, al, ac, h, mats.chamberNear);
+    }
+    const tag = label(T, areaName(ar), `${showLength(ar.length, scene.unit)} × ${showLength(ar.width, scene.unit)}`, Math.min(6, Math.max(2.6, L * 0.6)), true, 26, 64);
+    tag.position.set(wx(o, cx), 2.6, wz(o, cy));
+    add(tag);
+    labels.push(tag);
   }
   const md = scene.mainDoor;
   if (md) {

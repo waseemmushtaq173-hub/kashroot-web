@@ -17,7 +17,7 @@ import { DoorOpen } from 'lucide-react';
 
 import { DimLine, ScaleBar } from '@/components/rental/drawingMarks';
 import { useWidth } from '@/components/rental/owner/useWidth';
-import { countText, doorLine, fromDoor, passageOf, placeRect, type Building, type ModelChamber, type Sides, type StoreModel, type Wall } from '@/lib/coldStore';
+import { AREA_KINDS, areaName, countText, doorLine, fromDoor, passageOf, placeRect, type Building, type ModelChamber, type Sides, type StoreModel, type Wall } from '@/lib/coldStore';
 import { FOOT, type SizeUnit } from '@/lib/coldLayout';
 
 const WALL_NAME = { front: 'front', back: 'back', left: 'left', right: 'right' } as const;
@@ -42,7 +42,8 @@ export const SIDES_TEXT: Record<Sides, string> = {
 /** "Building 120 ft long, 60 ft wide, 30 ft high; main door in the front wall, 10 ft from the left corner, 10 ft wide; chambers on both sides of the passage from the main door." */
 export function buildingText(b: Building): string {
   const u = b.unit;
-  return `Building ${say(b.length, u)} long, ${say(b.width, u)} wide, ${say(b.height, u)} high; main door in the ${WALL_NAME[b.door.wall]} wall, ${say(b.door.from, u)} from the left corner, ${say(b.door.width, u)} wide and ${say(b.door.height, u)} high; chambers ${SIDES_TEXT[b.sides]}`;
+  const areas = (b.areas ?? []).map((a) => `${areaName(a)} ${say(a.length, u)} × ${say(a.width, u)}, ${say(a.x, u)} from the left wall and ${say(a.y, u)} from the front wall`);
+  return `Building ${say(b.length, u)} long, ${say(b.width, u)} wide, ${say(b.height, u)} high; main door in the ${WALL_NAME[b.door.wall]} wall, ${say(b.door.from, u)} from the left corner, ${say(b.door.width, u)} wide and ${say(b.door.height, u)} high; chambers ${SIDES_TEXT[b.sides]}${areas.length ? `; work areas: ${areas.join('; ')}` : ''}`;
 }
 
 export const StoreDrawing = memo(function StoreDrawing({ model, selected, onPick, title, empty }: { model: StoreModel; selected?: string | null; onPick?: (key: string) => void; title?: string; /** What to say before the building is known. */ empty?: string }) {
@@ -186,6 +187,21 @@ export const StoreDrawing = memo(function StoreDrawing({ model, selected, onPick
               </g>
             );
           })()}
+          {/* Work areas: packing, grading, machinery… where the owner measured them */}
+          {(b.areas ?? []).map((a, i) => {
+            const name = areaName(a);
+            const w = a.length * k;
+            const h = a.width * k;
+            const fs = fitFont(name, Math.max(w, h) - 10, font, 9);
+            const cx = X(a.x + a.length / 2);
+            const cy = Y(a.y + a.width / 2);
+            return (
+              <g key={`area-${i}`} data-area={a.kind}>
+                <rect x={X(a.x)} y={Y(a.y + a.width)} width={w} height={h} rx={6} fill={AREA_KINDS[a.kind].colour} fillOpacity={0.85} stroke="#475569" strokeWidth={1.5} strokeDasharray="8 4" />
+                <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight={700} fill="#1e293b" transform={h > w * 1.4 ? `rotate(-90 ${cx} ${cy})` : undefined}>{name}</text>
+              </g>
+            );
+          })}
           {items.map(({ mc, spot }) => {
             const on = selected === mc.key;
             const sx = (x: number) => X(spot.x + x);
