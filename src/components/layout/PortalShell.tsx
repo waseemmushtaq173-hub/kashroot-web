@@ -30,7 +30,7 @@ import { Children, Fragment, isValidElement, useEffect, useId, useRef, useState,
 
 import { SiteFooter, SiteHeader } from '@/components/layout/SiteHeader';
 import { KashmirBackdrop } from '@/components/layout/portal/KashmirBackdrop';
-import { RegionBackdrop, RegionCredit } from '@/components/layout/portal/RegionBackdrop';
+import { RegionBackdrop } from '@/components/layout/portal/RegionBackdrop';
 import type { SearchItem } from '@/components/layout/portal/ShellSearch';
 import { SidebarContent, SidebarDrawer } from '@/components/layout/portal/ShellSidebar';
 import { ShellTabs } from '@/components/layout/portal/ShellTabs';
@@ -332,7 +332,6 @@ export function PortalShell({
           <main id="main-content" className="mx-auto min-h-[100svh] max-w-7xl px-4 pb-16 pt-6 sm:px-6 sm:pt-8 xl:px-8">
             {page}
           </main>
-          <RegionCredit skin={skin} />
         </div>
       </div>
       {/* The assistant, in every portal: a guide to this page, read aloud, and answers to questions. */}
