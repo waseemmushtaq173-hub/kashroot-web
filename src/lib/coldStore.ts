@@ -795,9 +795,9 @@ function readChamber(c: ChamberDraft, numbers: Map<number, number>, u: SizeUnit,
   let stackHigh: number | null = null;
   const sh = readNumber(c.stackHigh);
   if (sh === null) {
-    ok = (add('error', 3, `${k}.stackHigh`, `Write the maximum safe vertical layers for one ${W.one}.`), false);
+    ok = (add('error', 3, `${k}.stackHigh`, `Write how many ${W.many} high you stack in one stack, like ${c.storage === 'bins' ? '5' : '10'}.`), false);
   } else {
-    if (Number.isNaN(sh) || !Number.isInteger(sh) || sh < 1) ok = (add('error', 3, `${k}.stackHigh`, `Write how many ${W.many} high you stack, like ${c.storage === 'bins' ? '5' : '10'} — or leave it empty.`), false);
+    if (Number.isNaN(sh) || !Number.isInteger(sh) || sh < 1) ok = (add('error', 3, `${k}.stackHigh`, `Write how many ${W.many} high you stack, as a whole number like ${c.storage === 'bins' ? '5' : '10'}.`), false);
     else if (fits >= 1 && sh > fits) {
       const lowest = fitsByFloor.indexOf(fits) + 1;
       ok = (add('error', 3, `${k}.stackHigh`, `${W.title} stacked ${sh} high need ${inU(sh * box.h)}, but ${floors! > 1 ? `floor ${lowest}` : name} is only ${inU(floorH(lowest))} high. At most ${fits} fit.`, { label: `Use ${fits}`, field: `${k}.stackHigh`, value: String(fits) }), false);
@@ -869,53 +869,44 @@ function readChamber(c: ChamberDraft, numbers: Map<number, number>, u: SizeUnit,
     add('warn', 3, `${k}.tonnes`, `By its size, ${name} fits about ${countText(chamber.fitsByMeasure, c.storage)} = ${t} tonnes, but you wrote ${nice(typedTonnes)} tonnes. Check the size or the kg.`, { label: `Use ${t} tonnes`, field: `${k}.tonnes`, value: String(Math.round(chamber.tonnesByMeasure * 10) / 10) });
   }
 
-  const layable = count !== null && Number.isInteger(count) && count >= 1 && count <= 1_000_000 && count >= floors! && (sh === null || stackHigh !== null);
+  const layable = count !== null && Number.isInteger(count) && count >= 1 && count <= 1_000_000 && stackHigh !== null;
   if (!layable) return chamber;
 
-  // The floors: the count split evenly (lower floors take the extra one), each in equal stacks.
+  // Every stack is exactly as high as the owner stacks, so the count must make full stacks.
+  const sk = stackHigh!;
+  if (count % sk !== 0) {
+    const down = count - (count % sk);
+    const up = down + sk;
+    const fixTo = (n: number) => ({ label: `Use ${countText(n, c.storage)}`, field: `${k}.count`, value: String(n) });
+    add('error', 3, `${k}.count`, `${countText(count, c.storage)} in stacks of ${sk} leave ${countText(count % sk, c.storage)} over. Every stack is ${sk} high, so write ${down >= sk ? `${countText(down, c.storage)} (${nice(down / sk)} stacks) or ` : ''}${countText(up, c.storage)} (${nice(up / sk)} stacks) — or check how high you stack.`, down >= sk ? fixTo(down) : fixTo(up));
+    chamber.ready = false;
+    return chamber;
+  }
+  const stacks = count / sk;
+  if (stacks < floors!) {
+    add('error', 3, `${k}.count`, `${countText(count, c.storage)} make only ${nice(stacks)} stack${stacks === 1 ? '' : 's'} of ${sk}, fewer than the ${floors} floors of ${name}. Check the count or the floors.`);
+    chamber.ready = false;
+    return chamber;
+  }
+
+  // The stacks shared over the floors (lower floors take the extra one).
   const out = chamber.floors;
-  const raised: { floor: number; n: number; stack: number }[] = [];
-  const base = Math.floor(count / floors!);
-  const extra = count % floors!;
+  const perFloorBase = Math.floor(stacks / floors!);
+  const extraStacks = stacks % floors!;
   for (let f = 1; f <= floors!; f++) {
-    const n = base + (f <= extra ? 1 : 0);
-    const most = stackHigh ?? fitsByFloor[f - 1];
-    let stack = 1;
-    for (let s = Math.min(most, n); s >= 1; s--) {
-      if (n % s === 0) {
-        stack = s;
-        break;
-      }
-    }
-    // The booking map holds at most 99 × 26 places a floor: only then, taller stacks.
-    const limit = GRID_ROWS * MAX_COLS;
-    if (n / stack > limit) {
-      let s = stack + 1;
-      while (s <= n && (n % s !== 0 || n / s > limit)) s++;
-      stack = s;
-      raised.push({ floor: f, n, stack });
-    }
-    const places = n / stack;
-    const size = sizeFor(f, stack, places);
-    if (stack > 5000) {
-      const room = roomOnFloor(size);
-      const near = nearestEven(count, floors!, stackHigh ?? fits, room);
-      const most = room * (stackHigh ?? fits) * floors!;
-      add(
-        'error',
-        3,
-        `${k}.count`,
-        `${countText(n, c.storage)} on floor ${f} of ${name} cannot stand in equal stacks that fit (${nice(n)} cannot be split into equal stacks of ${stackHigh ?? fits} or less). Please check the count.${near ? ` Did you mean ${countText(near, c.storage)}?` : most > 0 ? ` At most about ${countText(most, c.storage)} fit in ${name}.` : ''}`,
-        near ? { label: `Use ${countText(near, c.storage)}`, field: `${k}.count`, value: String(near) } : undefined,
-      );
+    const places = perFloorBase + (f <= extraStacks ? 1 : 0);
+    const n = places * sk;
+    if (places > GRID_ROWS * MAX_COLS) {
+      add('error', 3, `${k}.count`, `${nice(places)} stacks on floor ${f} of ${name} is more than one floor can hold. Check the count.`);
       chamber.ready = false;
       chamber.floors = [];
       return chamber;
     }
+    const size = sizeFor(f, sk, places);
     const plan = planOf(size);
     const unused = plan.unused ?? [];
-    if (plan.problems.length || (plan.rows * plan.cols - unused.length) * stack !== n) {
-      add('error', 3, `${k}.fit`, plan.problems.length ? `${name}: ${plan.problems[0]}` : `${name}: the places on floor ${f} do not add up. Please change the count a little and try again.`);
+    if (plan.problems.length || (plan.rows * plan.cols - unused.length) * sk !== n) {
+      add('error', 3, `${k}.fit`, plan.problems.length ? `${name}: ${plan.problems[0]}` : `${name}: the places on floor ${f} do not add up. Please check the count.`);
       chamber.ready = false;
       chamber.floors = [];
       return chamber;
@@ -923,7 +914,7 @@ function readChamber(c: ChamberDraft, numbers: Map<number, number>, u: SizeUnit,
     out.push({
       floor: f,
       count: n,
-      stack,
+      stack: sk,
       places,
       fits: fitsByFloor[f - 1],
       size,
@@ -935,7 +926,7 @@ function readChamber(c: ChamberDraft, numbers: Map<number, number>, u: SizeUnit,
         position: 0,
         rows: plan.rows,
         cols: plan.cols,
-        boxes_per_slot: stack,
+        boxes_per_slot: sk,
         blocked: unused,
         storage: c.storage,
         unit_kg: kg ?? 0,
@@ -945,62 +936,21 @@ function readChamber(c: ChamberDraft, numbers: Map<number, number>, u: SizeUnit,
       },
     });
   }
-  // Too many places for the floor or the booking map: say so, and the nearest count that stacks evenly and fits.
-  const crowded = out.filter((f) => f.plan.crowded);
-  if (raised.length || crowded.length) {
-    const most = stackHigh ?? fits;
-    const room = roomOnFloor(out[0].size);
-    const near = nearestEven(count, floors!, most, room);
-    const fix = near ? { label: `Use ${countText(near, c.storage)}`, field: `${k}.count`, value: String(near) } : undefined;
-    const better = near ? ` Did you mean ${countText(near, c.storage)}? Those stand in equal stacks that fit.` : '';
-    if (raised.length) {
-      const r = raised[0];
-      add('warn', 3, `${k}.count`, `${countText(r.n, c.storage)} on floor ${r.floor} of ${name} cannot stand in equal stacks of ${most} or less without too many places for the booking map, so each place counts as a stack of ${nice(r.stack)}. Please check the count.${better}`, fix);
-    } else {
-      const f0 = crowded[0];
-      const why = f0.stack === 1 && most > 1 ? ` (${nice(f0.count)} cannot be split into equal stacks of 2 to ${most})` : '';
-      const fitsAll = room * most * floors!;
-      add(
-        'warn',
-        3,
-        `${k}.fit`,
-        `${countText(f0.count, c.storage)} on floor ${f0.floor} of ${name} make ${nice(f0.places)} stacks of ${f0.stack}${why}, but only about ${nice(room)} stacks fit on a ${say(A / (u === 'ft' ? FOOT : 1), u)} × ${say(D / (u === 'ft' ? FOOT : 1), u)} floor. ${fitsAll > 0 ? `At most about ${countText(fitsAll, c.storage)} fit in ${name}. ` : ''}Check the count and the size.${better}`,
-        fix,
-      );
-    }
+  // More stacks than stand on the floor at their real size: say so, with what fits.
+  const crowded = out.find((f) => f.plan.crowded);
+  if (crowded) {
+    const room = roomOnFloor(crowded.size);
+    const fitsAll = room * sk * floors!;
+    add(
+      'error',
+      3,
+      `${k}.fit`,
+      `${countText(crowded.count, c.storage)} on floor ${crowded.floor} of ${name} make ${nice(crowded.places)} stacks of ${sk}, but only ${nice(room)} stacks stand on a ${say(A / (u === 'ft' ? FOOT : 1), u)} × ${say(D / (u === 'ft' ? FOOT : 1), u)} floor with the aisle and gaps you gave.${fitsAll > 0 ? ` At most ${countText(fitsAll, c.storage)} fit in ${name}.` : ''} Check the count, the sizes and the gaps.`,
+      fitsAll > 0 && fitsAll < count ? { label: `Use ${countText(fitsAll, c.storage)}`, field: `${k}.count`, value: String(fitsAll) } : undefined,
+    );
+    chamber.ready = false;
   }
   return chamber;
-}
-
-/**
- * The count nearest to `count` (a little less first) whose floors all stand
- * in equal stacks of at most `most` that fit on a floor with room for `room`
- * stacks — or null when none is near.
- */
-export function nearestEven(count: number, floors: number, most: number, room: number): number | null {
-  const even = (n: number) => {
-    if (n < floors) return false;
-    const base = Math.floor(n / floors);
-    const extra = n % floors;
-    for (let f = 1; f <= floors; f++) {
-      const c = base + (f <= extra ? 1 : 0);
-      let k = 1;
-      for (let s = Math.min(most, c); s >= 1; s--) {
-        if (c % s === 0) {
-          k = s;
-          break;
-        }
-      }
-      if (c / k > Math.min(room, GRID_ROWS * MAX_COLS)) return false;
-    }
-    return true;
-  };
-  const span = Math.min(200, Math.max(20, Math.ceil(count * 0.05)));
-  for (let d = 1; d <= span; d++) {
-    if (even(count - d)) return count - d;
-    if (even(count + d)) return count + d;
-  }
-  return null;
 }
 
 /**

@@ -75,69 +75,110 @@ function finish(T: Three, c: HTMLCanvasElement, repeatY = true) {
   return t;
 }
 
-/** A wooden apple bin: slatted sides with apples showing between the slats, on a forklift pallet base; apples on top. */
-export function binTexture(T: Three) {
+/** The inside of an empty bin or crate: its floor boards, in shadow. */
+function emptyInside(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, tone: string, seed: number) {
+  const n = Math.max(3, Math.round(h / 18));
+  for (let i = 0; i < n; i++) board(g, x, y + (i * h) / n, w, h / n - 2, tone, seed + i);
+  const shade = g.createRadialGradient(x + w / 2, y + h / 2, w * 0.1, x + w / 2, y + h / 2, w * 0.75);
+  shade.addColorStop(0, 'rgba(0,0,0,0)');
+  shade.addColorStop(1, 'rgba(0,0,0,0.35)');
+  g.fillStyle = shade;
+  g.fillRect(x, y, w, h);
+}
+
+/**
+ * A wooden apple bin as used in Kashmir: pale pine slats with gaps, square
+ * corner posts, on a forklift base — full (apples between the slats and on
+ * top) or empty (the inside in shadow, the floor boards on top).
+ */
+export function binTexture(T: Three, full = true) {
   const { c, g } = canvas(256, 128);
   if (g) {
-    // Side (one bin, 0.76 m with the gap above it).
-    g.fillStyle = '#20150d';
+    // Side (one bin).
+    g.fillStyle = full ? '#20150d' : '#2b2017';
     g.fillRect(0, 0, 128, 128);
-    apples(g, 8, 8, 112, 84, 7, 7);
-    const slats = [[8, 21], [33, 21], [58, 21], [83, 13]];
-    slats.forEach(([y, h], i) => board(g, 6, y, 116, h, i % 2 ? '#c8955a' : '#cf9d61', 11 + i));
-    board(g, 0, 6, 11, 92, '#a8733d', 31);
-    board(g, 117, 6, 11, 92, '#a8733d', 32);
-    // Pallet base: a deck board, three blocks with the fork openings between them.
-    board(g, 0, 96, 128, 7, '#9b6a37', 41);
+    if (full) apples(g, 8, 8, 112, 84, 7, 7);
+    const slats = [[8, 19], [31, 19], [54, 19], [77, 17]];
+    slats.forEach(([y, h], i) => board(g, 9, y, 110, h, i % 2 ? '#dcbc85' : '#e3c690', 11 + i));
+    // Corner posts.
+    board(g, 0, 4, 12, 94, '#c9a26a', 31);
+    board(g, 116, 4, 12, 94, '#c9a26a', 32);
+    // Forklift base: a deck board, three blocks with the fork openings between them.
+    board(g, 0, 96, 128, 7, '#c49a5f', 41);
     g.fillStyle = '#1a120b';
     g.fillRect(0, 103, 128, 21);
-    board(g, 0, 103, 14, 21, '#8d5f30', 42);
-    board(g, 57, 103, 14, 21, '#8d5f30', 43);
-    board(g, 114, 103, 14, 21, '#8d5f30', 44);
-    board(g, 0, 122, 128, 6, '#85582c', 45);
-    g.fillStyle = 'rgba(0,0,0,0.65)';
-    g.fillRect(0, 0, 128, 6);
-    // Top: the rim, apples inside.
-    board(g, 128, 0, 128, 128, '#b9844b', 51);
-    apples(g, 140, 12, 104, 104, 7.5, 53);
-    g.strokeStyle = 'rgba(70,40,15,0.6)';
+    board(g, 0, 103, 14, 21, '#b58b52', 42);
+    board(g, 57, 103, 14, 21, '#b58b52', 43);
+    board(g, 114, 103, 14, 21, '#b58b52', 44);
+    board(g, 0, 122, 128, 6, '#ad844c', 45);
+    g.fillStyle = 'rgba(0,0,0,0.55)';
+    g.fillRect(0, 0, 128, 4);
+    // Top: the rim, apples or the empty floor inside.
+    board(g, 128, 0, 128, 128, '#d8b77f', 51);
+    if (full) apples(g, 140, 12, 104, 104, 7.5, 53);
+    else emptyInside(g, 140, 12, 104, 104, '#c9a873', 55);
+    g.strokeStyle = 'rgba(90,60,25,0.6)';
     g.lineWidth = 2;
     g.strokeRect(140, 12, 104, 104);
   }
   return finish(T, c);
 }
 
-/** A plastic apple crate: ribbed sides, a hand hole, air slots; apples on top. */
-export function crateTexture(T: Three) {
+/**
+ * A plastic apple crate: ribbed sides, a hand hole, air slots — full or
+ * empty. Drawn in light grey: each stack gets its own colour (blue, violet,
+ * green…) from the instance colour, as real crates are mixed.
+ */
+export function crateTexture(T: Three, full = true) {
   const { c, g } = canvas(256, 128);
   if (g) {
-    g.fillStyle = '#0b1f33';
+    g.fillStyle = '#1f2937';
     g.fillRect(0, 0, 128, 128);
     const body = g.createLinearGradient(0, 10, 0, 128);
-    body.addColorStop(0, '#3d8fd6');
-    body.addColorStop(1, '#2569a8');
+    body.addColorStop(0, '#ffffff');
+    body.addColorStop(1, '#c7ced8');
     g.fillStyle = body;
-    g.fillRect(2, 12, 124, 114);
-    // Ribs and the top rim.
-    g.fillStyle = 'rgba(255,255,255,0.22)';
-    g.fillRect(2, 12, 124, 9);
-    g.fillStyle = 'rgba(8,30,60,0.35)';
-    for (const x of [2, 32, 62, 92, 122]) g.fillRect(x, 21, 4, 105);
-    // Hand hole and air slots.
-    g.fillStyle = '#0a1726';
+    g.fillRect(2, 10, 124, 116);
+    // Rim, ribs, a hand hole and the air slots (apples show through them when full).
+    g.fillStyle = 'rgba(255,255,255,0.5)';
+    g.fillRect(2, 10, 124, 8);
+    g.fillStyle = 'rgba(15,23,42,0.28)';
+    for (const x of [2, 32, 62, 92, 122]) g.fillRect(x, 18, 4, 108);
+    g.fillStyle = '#111827';
     if (g.roundRect) {
       g.beginPath();
-      g.roundRect(44, 28, 40, 13, 6);
+      g.roundRect(44, 26, 40, 12, 6);
       g.fill();
-    } else g.fillRect(44, 28, 40, 13);
-    for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) g.fillRect(12 + i * 30, 60 + j * 26, 16, 14);
-    g.fillStyle = 'rgba(0,0,0,0.6)';
-    g.fillRect(0, 0, 128, 12);
-    // Top: rim and apples.
-    g.fillStyle = '#2f7cc0';
+    } else g.fillRect(44, 26, 40, 12);
+    for (let i = 0; i < 4; i++) {
+      for (let j = 0; j < 3; j++) {
+        const x = 10 + i * 30;
+        const y = 50 + j * 24;
+        g.fillStyle = '#111827';
+        g.fillRect(x, y, 18, 14);
+        if (full) {
+          g.save();
+          g.beginPath();
+          g.rect(x, y, 18, 14);
+          g.clip();
+          apples(g, x - 4, y - 4, 26, 22, 6, 70 + i * 3 + j);
+          g.restore();
+        }
+      }
+    }
+    g.fillStyle = 'rgba(0,0,0,0.5)';
+    g.fillRect(0, 0, 128, 10);
+    // Top: rim, and apples or the crate's slotted floor.
+    g.fillStyle = '#e5e9ef';
     g.fillRect(128, 0, 128, 128);
-    apples(g, 138, 10, 108, 108, 10, 61);
-    g.strokeStyle = '#1d4f80';
+    if (full) apples(g, 138, 10, 108, 108, 10, 61);
+    else {
+      g.fillStyle = '#9aa4b2';
+      g.fillRect(138, 10, 108, 108);
+      g.fillStyle = '#4b5563';
+      for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) g.fillRect(144 + i * 17, 16 + j * 17, 10, 10);
+    }
+    g.strokeStyle = '#6b7280';
     g.lineWidth = 3;
     g.strokeRect(138, 10, 108, 108);
   }

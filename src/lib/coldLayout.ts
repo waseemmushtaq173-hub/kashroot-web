@@ -577,6 +577,18 @@ export function showLength(m: number, unit: SizeUnit): string {
   return `${m >= 10 ? Math.round(m * 10) / 10 : Math.round(m * 100) / 100} m`;
 }
 
+/**
+ * Measured by the owner in the owner wizard: an exact number of stacks, what
+ * they are (bins or crates) at the owner's own size, every stack exactly as
+ * high as the owner stacks, and each floor's measured height. Only these can
+ * be booked — nothing about them is a default or worked out from a guess.
+ */
+export function ownerMeasured(s: ChamberSize | null | undefined): boolean {
+  if (!s || s.places === undefined || !s.stackOf || !s.stackHigh || s.boxes !== s.stackHigh) return false;
+  if (!(s.box.l > 0 && s.box.w > 0 && s.box.h > 0)) return false;
+  return floorSpan(s).h > 0;
+}
+
 /** A size as JSON from the database, checked (null when it is not a usable size). */
 export function asChamberSize(v: unknown): ChamberSize | null {
   if (!v || typeof v !== 'object') return null;

@@ -8,7 +8,7 @@ import { expect, test } from '@playwright/test';
 
 import { buildScene, PLATE_GAP, rowPlates, type StoreScene } from '@/components/rental/three/storeScene';
 import { routeTo } from '@/components/rental/walk/route';
-import { planOf } from '@/lib/coldLayout';
+import { ownerMeasured, planOf } from '@/lib/coldLayout';
 import { pickNearest } from '@/lib/db/coldMap';
 import { blankChamber, blankStore, draftFromSaved, previewChambers, storeModel, type ChamberDraft, type StoreDraft } from '@/lib/coldStore';
 
@@ -28,7 +28,7 @@ function sample(change: (d: StoreDraft, bins: ChamberDraft, crates: ChamberDraft
   const bins = blankChamber(1, 'bins');
   Object.assign(bins, { count: '480', kg: '250', floors: '1', length: '14', width: '12', height: '8', rate: '45', unitL: '1.2', unitW: '1', unitH: '0.76', floorHeights: '8', aisle: '3.5', stackGap: '0.1', wallGap: '0.3', stackHigh: '8', door: { wall: 'front', from: '5', width: '3', height: '4' } });
   const crates = blankChamber(2, 'crates');
-  Object.assign(crates, { count: '3000', kg: '20', floors: '3', length: '12', width: '10', height: '9', rate: '6', unitL: '0.6', unitW: '0.4', unitH: '0.3', aisle: '3', stackGap: '0.05', wallGap: '0.2', stackHigh: '9', floorHeights: '3.2, 3, 2.8', door: { wall: 'front', from: '4', width: '2', height: '2.8' } });
+  Object.assign(crates, { count: '3000', kg: '20', floors: '3', length: '12', width: '10', height: '9', rate: '6', unitL: '0.6', unitW: '0.4', unitH: '0.3', aisle: '3', stackGap: '0.05', wallGap: '0.2', stackHigh: '8', floorHeights: '3.2, 3, 2.8', door: { wall: 'front', from: '4', width: '2', height: '2.8' } });
   change(d, bins, crates);
   d.chambers = [bins, crates];
   return d;
@@ -164,6 +164,31 @@ test('the stated tonnes are checked against what fits by size (10%)', () => {
   // Within 10% of what fits by size: no such warning.
   const near = storeModel(sample((d, bins) => Object.assign(bins, { tonnes: String(Math.round(fits.tonnesByMeasure * 1.05)) })));
   expect(near.issues.some((i) => i.field.endsWith('.tonnes') && /By its size/.test(i.message))).toBe(false);
+});
+
+test('every stack is exactly as high as the owner stacks: a count that leaves some over is refused, with the nearest full counts', () => {
+  const odd = storeModel(sample((_, bins) => Object.assign(bins, { count: '481' })));
+  const issue = odd.issues.find((i) => i.level === 'error' && i.field.endsWith('.count'));
+  expect(issue?.message).toMatch(/480 bins \(60 stacks\) or 488 bins \(61 stacks\)/);
+  expect(issue?.fix?.value).toBe('480');
+  const { model } = built(sample());
+  for (const mc of model.chambers) for (const f of mc.floors) expect(f.stack, `${mc.name} floor ${f.floor}`).toBe(8);
+});
+
+test('a one-floor chamber asks for its usable height too, and nothing is made up without it', () => {
+  const none = storeModel(sample((_, bins) => Object.assign(bins, { floorHeights: '' })));
+  expect(none.issues.some((i) => i.level === 'error' && i.field.endsWith('.floorHeights'))).toBe(true);
+  expect(none.chambers[0].ready).toBe(false);
+});
+
+test('only chambers the owner measured can be booked: old box chambers and missing stack heights are not', () => {
+  const rows = previewChambers(storeModel(sample()), 'test');
+  expect(rows.length).toBeGreaterThan(0);
+  for (const r of rows) expect(ownerMeasured(r.size), r.name).toBe(true);
+  const legacy = { unit: 'ft' as const, length: 30, width: 15, height: 15, box: { l: 0.5, w: 0.3, h: 0.3 }, place: { l: 1.2, w: 1 }, base: 0.15, aisle: 1.5, wallGap: 0.3, stackGap: 0.1, topGap: 0.5, doorGap: 1 };
+  expect(ownerMeasured(legacy)).toBe(false);
+  const noStack = { ...rows[0].size!, stackHigh: undefined };
+  expect(ownerMeasured(noStack)).toBe(false);
 });
 
 test('impossible values are refused', () => {

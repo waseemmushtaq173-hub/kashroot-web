@@ -7,8 +7,8 @@
  * chamber where it stands with its own door, the floors inside a chamber as
  * grating decks, and every bin or crate stacked where the plan puts it.
  * Colours say what each place is (components/rental/placeLook): booked
- * stacks stand full, a free place is a marked space with the outline of the
- * stack that fits there.
+ * stacks stand full of apples, a free place holds the store's bins or crates
+ * standing empty, as high as the owner stacks; crates keep mixed colours.
  *
  *   orbit  drag to turn, pinch or scroll to zoom; one tap for the whole store,
  *          the view from the main door or from above; tap a chamber for what
@@ -861,7 +861,8 @@ export function ColdStore3D({
         const stops = new Set<string>();
         for (const c of cs) {
           const ch = s.chambers[c.chamber];
-          if (c.look === 'booked' || c.look === 'mine' || c.look === 'part' || (c.look === 'blocked' && ch?.storage === 'boxes')) stops.add(`${c.chamber}:${c.floor}:${c.place}`);
+          // Every standing stack stops you — free places hold the store's empty bins or crates too.
+          if (c.look === 'booked' || c.look === 'mine' || c.look === 'part' || (c.look === 'free' && ch?.storage !== 'boxes') || (c.look === 'blocked' && ch?.storage === 'boxes')) stops.add(`${c.chamber}:${c.floor}:${c.place}`);
         }
         walkWorldNow = walkWorld(s, (ci, fi, pi) => stops.has(`${ci}:${fi}:${pi}`));
         const first = !shown;
@@ -1433,7 +1434,7 @@ export function ColdStore3D({
       <p className="text-xs text-slate-600">
         {walking
           ? `Walk with the arrows (or the keys W A S D, ← →) · drag to look around · ${mode === 'book' ? 'tap a free place in front of you, or aim the ring at it, to choose it.' : mode === 'owner' ? 'tap a stack to see whose it is.' : 'your stacks are tinted violet.'}`
-          : `Drag to turn the store · pinch or scroll to zoom · two fingers to move. Tap a chamber to see what it holds. ${mode === 'book' ? 'Tap a free place (an outlined stack) to choose it; tap it again to undo.' : mode === 'owner' ? 'Tap a stack to see whose it is.' : 'Your stacks are tinted violet.'}`}
+          : `Drag to turn the store · pinch or scroll to zoom · two fingers to move. Tap a chamber to see what it holds. ${mode === 'book' ? 'Empty stacks are free, stacks full of apples are taken. Tap an empty stack to choose it; tap it again to undo.' : mode === 'owner' ? 'Tap a stack to see whose it is.' : 'Your stacks are tinted violet.'}`}
       </p>
     </div>
   );

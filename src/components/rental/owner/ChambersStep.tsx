@@ -237,7 +237,7 @@ function ChamberEditor({
         </div>
       </fieldset>
 
-      {floors > 1 && <FloorHeights kit={kit} c={c} floors={floors} />}
+      <FloorHeights kit={kit} c={c} floors={floors} />
 
       <fieldset className="space-y-4 rounded-2xl bg-ivory/80 p-4 ring-1 ring-[#E8A317]/30">
         <legend className="sr-only">One {W.one} and how you stack</legend>
@@ -248,7 +248,7 @@ function ChamberEditor({
           <KitBox kit={kit} field={`${k}.unitW`} label={`Exact ${W.title.slice(0, -1)} width (${u})`} number />
           <KitBox kit={kit} field={`${k}.unitH`} label={`Exact ${W.title.slice(0, -1)} height (${u})`} number hint="Measure the container itself, excluding any ceiling clearance." />
         </div>
-        <KitBox kit={kit} field={`${k}.stackHigh`} label={`Maximum safe layers high in one stack`} number whole hint="Enter the owner's safe limit. It must also fit within the usable stacking height." />
+        <KitBox kit={kit} field={`${k}.stackHigh`} label={`How many ${W.many} high is one stack?`} number whole hint={`Every stack is exactly this high, so the ${W.many} the chamber holds must make full stacks on each floor.`} />
         <div className="grid gap-5 sm:grid-cols-3">
           <KitBox kit={kit} field={`${k}.aisle`} label={`Forklift aisle width (${u})`} number hint="Enter 0 only if the chamber has no forklift aisle." />
           <KitBox kit={kit} field={`${k}.stackGap`} label={`Gap between stacks (${u})`} number />
@@ -332,13 +332,13 @@ function FloorHeights({ kit, c, floors }: { kit: Kit; c: ChamberDraft; floors: n
   };
   return (
     <fieldset data-field={field} className="space-y-3 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-900/5">
-      <legend className="sr-only">Height of each floor</legend>
-      <p className="flex items-center gap-2 text-base font-semibold text-slate-900"><Layers className="h-5 w-5 text-emerald-700" aria-hidden /> Height of each floor ({u})</p>
-      <p className="text-sm text-slate-700">Enter the measured usable stacking height from the floor or grating to the next grating, or to the ceiling for the top floor.</p>
+      <legend className="sr-only">{floors > 1 ? 'Height of each floor' : 'Usable stacking height'}</legend>
+      <p className="flex items-center gap-2 text-base font-semibold text-slate-900"><Layers className="h-5 w-5 text-emerald-700" aria-hidden /> {floors > 1 ? `Height of each floor (${u})` : `Usable stacking height (${u})`}</p>
+      <p className="text-sm text-slate-700">{floors > 1 ? 'Measure from the floor or grating to the next grating, or to the cooling units / ceiling for the top floor.' : 'Measure from the floor to the lowest thing above the stacks (cooling units, beams or ceiling).'}</p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {values.map((v, i) => (
           <label key={i} className="block">
-            <span className="block text-sm font-semibold text-slate-800">Floor {i + 1}</span>
+            <span className="block text-sm font-semibold text-slate-800">{floors > 1 ? `Floor ${i + 1}` : 'Height'}</span>
             <input
               className="mt-1.5 block min-h-[48px] w-full rounded-xl border-0 bg-white px-3 text-base text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-700"
               inputMode="decimal"

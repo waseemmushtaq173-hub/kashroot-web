@@ -59,7 +59,7 @@ export interface Kit {
   stackGeo: (units: number) => Geo;
   /** `wall` / `chamberWall` solid, `wallNear` / `chamberNear` see-through (the walls between the camera and the inside). */
   mats: Record<
-    | 'bin' | 'crate' | 'carton' | 'ghostOn' | 'tile' | 'hall' | 'yard' | 'apron' | 'walk' | 'passage' | 'stripe' | 'chamberFloor' | 'wall' | 'wallNear' | 'chamberWall' | 'chamberNear' | 'door' | 'leaf' | 'deck' | 'beam' | 'glass' | 'hit' | 'shutter'
+    | 'bin' | 'crate' | 'binEmpty' | 'crateEmpty' | 'carton' | 'ghostOn' | 'tile' | 'hall' | 'yard' | 'apron' | 'walk' | 'passage' | 'stripe' | 'chamberFloor' | 'wall' | 'wallNear' | 'chamberWall' | 'chamberNear' | 'door' | 'leaf' | 'deck' | 'beam' | 'glass' | 'hit' | 'shutter'
     // The machines and fittings (three/fixtures).
     | 'ceiling' | 'roof' | 'lamp' | 'cooler' | 'fan' | 'guard' | 'pipe' | 'copper' | 'curtain' | 'condenser',
     Mat
@@ -100,7 +100,7 @@ function makeStackGeo(T: Three, units: number): Geo {
 }
 
 export function makeKit(T: Three, phone: boolean): Kit {
-  const tex = { bin: binTexture(T), crate: crateTexture(T), carton: cartonTexture(T), ghost: ghostTexture(T), concrete: concreteTexture(T), grating: gratingTexture(T), panel: panelTexture(T), fan: fanTexture(T) };
+  const tex = { bin: binTexture(T), crate: crateTexture(T), binEmpty: binTexture(T, false), crateEmpty: crateTexture(T, false), carton: cartonTexture(T), ghost: ghostTexture(T), concrete: concreteTexture(T), grating: gratingTexture(T), panel: panelTexture(T), fan: fanTexture(T) };
   if (phone) for (const t of Object.values(tex)) t.anisotropy = 1;
   const unitBox = new T.BoxGeometry(1, 1, 1);
   unitBox.translate(0, 0.5, 0);
@@ -117,6 +117,9 @@ export function makeKit(T: Three, phone: boolean): Kit {
   const mats = {
     bin: new T.MeshStandardMaterial({ map: tex.bin, roughness: 0.82 }),
     crate: new T.MeshStandardMaterial({ map: tex.crate, roughness: 0.55 }),
+    // Free places: the store's own bins or crates standing empty, ready for a farmer's apples.
+    binEmpty: new T.MeshStandardMaterial({ map: tex.binEmpty, roughness: 0.85 }),
+    crateEmpty: new T.MeshStandardMaterial({ map: tex.crateEmpty, roughness: 0.55 }),
     carton: new T.MeshStandardMaterial({ map: tex.carton, roughness: 0.9 }),
     // A place being chosen or waiting for payment: the outline of the stack that fits there (front faces only).
     ghostOn: new T.MeshBasicMaterial({ map: tex.ghost, ...see, side: T.FrontSide, opacity: 0.88 }),
@@ -495,6 +498,9 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
 }
 
 /** What a place's mark on the floor looks like, and how strongly its bins are tinted. */
+/** Crate colours as stacked in Kashmir stores: mostly blue, then violet, green, a few orange. */
+const CRATE_COLOURS = ['#2563eb', '#1d4ed8', '#3b82f6', '#6d28d9', '#5b21b6', '#15803d', '#2563eb', '#ea580c'];
+
 const MARK: Record<Look, { tile: string; tint: string | null; amount: number }> = {
   free: { tile: PLACE_LOOK.free.hex, tint: '#7dd3fc', amount: 1 },
   part: { tile: PLACE_LOOK.part.hex, tint: null, amount: 0 },
@@ -526,7 +532,7 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
   const white = new T.Color('#ffffff');
 
   type Item = { cell: Cell; y: number; h: number; units: number; tint: string | null; amount: number };
-  const stacks = new Map<string, { kind: Kind; units: number; items: Item[] }>();
+  const stacks = new Map<string, { kind: Kind; units: number; empty: boolean; items: Item[] }>();
   // Outlines of the stacks being chosen or held.
   const ghosts = new Map<string, Item[]>();
   const strong = (look: Look) => look === 'selected' || look === 'held';
@@ -553,25 +559,39 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
       const key = `${c.kind}:${units}`;
       let s = stacks.get(key);
       if (!s) {
-        s = { kind: c.kind, units, items: [] };
+        s = { kind: c.kind, units, empty: false, items: [] };
         stacks.set(key, s);
       }
       s.items.push({ cell, y: f.z0, h: units * unitH, units, tint: mk.tint, amount: mk.amount });
     } else if (strong(cell.look)) {
       // A place being chosen or held: the outline of the stack that will stand there.
       put(ghosts, `strong:${f.layers}`, { cell, y: f.z0, h: f.stackH, units: f.layers, tint: mk.tint, amount: 1 });
+    } else if (cell.look === 'free' && c.kind !== 'carton') {
+      // A free place: the store's bins or crates standing there empty, as high as the owner stacks.
+      const key = `${c.kind}:${f.layers}:empty`;
+      let s = stacks.get(key);
+      if (!s) {
+        s = { kind: c.kind, units: f.layers, empty: true, items: [] };
+        stacks.set(key, s);
+      }
+      s.items.push({ cell, y: f.z0, h: f.stackH, units: f.layers, tint: null, amount: 0 });
     }
-    // A free place is only its painted bay on the floor (as in a real store): no stacks of air.
   }
 
   const place = (cell: Cell) => scene.chambers[cell.chamber].floors[cell.floor].places[cell.place].rect;
+  const kindOf = (cell: Cell) => scene.chambers[cell.chamber].kind;
+  const tintCol = new T.Color();
+  // Crates in a real store are mixed colours: each stack keeps one, the same every time.
+  const crateCols = CRATE_COLOURS.map((h) => new T.Color(h));
+  const crateColour = (cell: Cell) => crateCols[(cell.chamber * 7919 + cell.floor * 104729 + cell.place * 2654435761) % 997 % crateCols.length];
   const fill = (mesh: IMesh, items: Item[], shrink: number) => {
     items.forEach((it, i) => {
       const r = place(it.cell);
       m4.makeScale(r.w * shrink, it.h, r.d * shrink).setPosition(wx(o, r.x + r.w / 2), it.y + 0.012, wz(o, r.y + r.d / 2));
       mesh.setMatrixAt(i, m4);
-      if (it.tint) col.copy(white).lerp(col.clone().set(it.tint), it.amount);
-      else col.copy(white);
+      const base = kindOf(it.cell) === 'crate' ? crateColour(it.cell) : white;
+      if (it.tint) col.copy(base).lerp(tintCol.set(it.tint), it.amount);
+      else col.copy(base);
       mesh.setColorAt(i, col);
     });
     mesh.instanceMatrix.needsUpdate = true;
@@ -580,7 +600,8 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
   };
   for (const s of stacks.values()) {
     const geo = kit.stackGeo(s.units);
-    const mesh = new T.InstancedMesh(geo, s.kind === 'bin' ? mats.bin : s.kind === 'crate' ? mats.crate : mats.carton, s.items.length);
+    const mat = s.kind === 'bin' ? (s.empty ? mats.binEmpty : mats.bin) : s.kind === 'crate' ? (s.empty ? mats.crateEmpty : mats.crate) : mats.carton;
+    const mesh = new T.InstancedMesh(geo, mat, s.items.length);
     fill(mesh, s.items, 0.94);
     group.add(mesh);
     picks.push({ mesh, cells: s.items.map((x) => x.cell) });

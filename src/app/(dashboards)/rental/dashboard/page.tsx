@@ -26,6 +26,7 @@ import { PortalShell } from '@/components/layout/PortalShell';
 import { ColdBooking, MyPlaces, niceDate } from '@/components/rental/ColdBooking';
 import { PayOwner } from '@/components/rental/receipt/PayOwner';
 import { ColdMapEditor } from '@/components/rental/ColdMapEditor';
+import { ownerMeasured } from '@/lib/coldLayout';
 import { OwnerWizard, type Step } from '@/components/rental/owner/OwnerWizard';
 import { StorePhotosEditor } from '@/components/rental/StorePhotos';
 import { PaymentDetails } from '@/components/rental/owner/PaymentStep';
@@ -289,7 +290,7 @@ export default function RentalPage() {
           ) : (
             <div className="space-y-4">
               {visible.map((l) => (
-                <StoreCard key={l.id} listing={l} chambers={chambers.filter((c) => c.listing_id === l.id)} free={free} own={l.owner_id === account.id} want={want} onBook={(quick) => setBooking(l, quick)} />
+                <StoreCard key={l.id} listing={l} chambers={chambers.filter((c) => c.listing_id === l.id && c.storage !== 'boxes' && ownerMeasured(c.size))} free={free} own={l.owner_id === account.id} want={want} onBook={(quick) => setBooking(l, quick)} />
               ))}
             </div>
           )}
@@ -321,10 +322,10 @@ export default function RentalPage() {
         />
       ) : null}
 
-      {booking && account && chambers.some((c) => c.listing_id === booking.listing.id && c.size && c.storage !== 'boxes') && (
+      {booking && account && chambers.some((c) => c.listing_id === booking.listing.id && c.storage !== 'boxes' && ownerMeasured(c.size)) && (
         <ColdBooking
           listing={booking.listing}
-          chambers={chambers.filter((c) => c.listing_id === booking.listing.id && c.size && c.storage !== 'boxes')}
+          chambers={chambers.filter((c) => c.listing_id === booking.listing.id && c.storage !== 'boxes' && ownerMeasured(c.size))}
           account={account}
           quick={booking.quick}
           onClose={() => setBooking(null)}
@@ -335,7 +336,7 @@ export default function RentalPage() {
           }}
         />
       )}
-      {booking && account && !chambers.some((c) => c.listing_id === booking.listing.id && c.size && c.storage !== 'boxes') && (
+      {booking && account && !chambers.some((c) => c.listing_id === booking.listing.id && c.storage !== 'boxes' && ownerMeasured(c.size)) && (
         <Modal open onClose={() => setBooking(null)} title={`Booking unavailable · ${booking.listing.title}`}>
           <div className="space-y-3">
             <p className="text-sm text-slate-700">This cold store has not published an owner-configured chamber blueprint yet.</p>
@@ -779,6 +780,17 @@ function OwnerPanel({
                       </p>
                       <Btn theme={theme} className="mt-3 min-h-[48px] w-full text-base sm:w-auto" icon={Warehouse} onClick={() => openWizard(l, l.building ? 3 : 2)}>
                         Set up building & chambers
+                      </Btn>
+                    </div>
+                  )}
+                  {wizardStore && mine.some((c) => c.storage === 'boxes' || !ownerMeasured(c.size)) && (
+                    <div className="mt-3 rounded-2xl bg-amber-50 p-4 ring-2 ring-amber-300">
+                      <p className="font-semibold text-amber-950">Some chambers need exact measurements before farmers can book them</p>
+                      <p className="mt-1 text-sm text-amber-950">
+                        KashRoot only shows what you measured — never a standard size. For each chamber enter one bin or crate’s length, width and height, how many high you stack, and each floor’s usable height.
+                      </p>
+                      <Btn theme={theme} className="mt-3 min-h-[48px] w-full text-base sm:w-auto" icon={Warehouse} onClick={() => openWizard(l, l.building ? 3 : 2)}>
+                        Finish chamber measurements
                       </Btn>
                     </div>
                   )}
