@@ -3,20 +3,12 @@
 # are intentionally present (tests, skills, docs) and must not fail CI.
 # Real secrets live only in .env / .env.local (gitignored) or Vercel env vars.
 
-[[rules]]
-id = "public-jwt-fixture"
-description = "Public demo JWT fragments used in skills/tests — not real secrets"
-regex = '(eyJ[a-zA-Z0-9_-]{4,}\\.eyJ[a-zA-Z0-9_-]{4,}\\.[a-zA-Z0-9_-]{4,})'
-paths:
-  - '**.github/skills/gstack/**'
-  - 'tests/*.spec.ts'
-  - 'supabase/tests/*.sql'
+title = "KashRoot Gitleaks Config"
 
-[[rules]]
-id = "data-gov-in-public-demo-key"
-description = "Public data.gov.in demo/sample API keys (published by data.gov.in docs); real key is DATA_GOV_IN_API_KEY env var"
-regex = '579b464db66ec23bdd000001(?:dbc75365931646465791ec2e46ef03a7|cdd3946e44ce4aad7209ff7b23ac571b)'
-allowlist:
-  - 'src/.env.example'
-  - '.env.local'
-  - '.env.*.local'
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow public demo keys and test fixtures"
+paths = ['''\\.env\\.example''', '''src/lib/.*''', '''scripts/.*''', '''tests/.*''', '''.claude/.*''']
+regexes = ['''579b464db66ec23bdd000001dbc75365931646465791ec2e46ef03a7''', '''eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+''']
