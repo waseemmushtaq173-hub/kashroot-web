@@ -3,8 +3,9 @@
 /**
  * Live position of a consignment from its driver's phone (kr_track),
  * refreshed every 30 seconds: status, last seen, the village or town it is
- * near (OpenStreetMap), roughly how far is left to the destination, a map of
- * the trail, and a button to call the driver.
+ * near (OpenStreetMap), roughly how far is left to the destination, the
+ * truck's live position on Google Maps (or the trail it took), and a button
+ * to call the driver.
  */
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
@@ -60,6 +61,7 @@ export function LiveTrack({ code }: { code: string }) {
   const [error, setError] = useState<string | null>(null);
   // When the data was last fetched — used to tell if the driver went quiet.
   const [checkedAt, setCheckedAt] = useState(0);
+  const [mapView, setMapView] = useState<'google' | 'trail'>('google');
   const pickedDest = data?.dest_lat != null && data?.dest_lng != null ? { lat: data.dest_lat, lng: data.dest_lng } : null;
   const { near, dest } = usePlaces(data?.last_lat, data?.last_lng, data?.destination, pickedDest?.lat ?? null, pickedDest?.lng ?? null);
 
@@ -148,8 +150,26 @@ export function LiveTrack({ code }: { code: string }) {
       </div>
       {points.length > 0 ? (
         <>
-          <RouteMap crossings={points.map((p) => ({ ...p, plaza: p.time }))} />
-          <p className="text-xs text-slate-500">Positions from the driver’s phone GPS, updated about every minute while the driver’s KashRoot page is open. Map © OpenStreetMap contributors.</p>
+          <div role="radiogroup" aria-label="Map" className="inline-flex rounded-xl bg-white p-1 ring-1 ring-slate-900/10">
+            {([['google', 'Google Maps (live)'], ['trail', 'Trail of the trip']] as const).map(([v, t]) => (
+              <button key={v} type="button" role="radio" aria-checked={mapView === v} onClick={() => setMapView(v)} className={`min-h-11 cursor-pointer rounded-lg px-3 text-sm font-semibold ${mapView === v ? 'bg-chinar text-white' : 'text-slate-700 hover:bg-slate-100'}`}>
+                {t}
+              </button>
+            ))}
+          </div>
+          {mapView === 'google' && data.last_lat != null && data.last_lng != null ? (
+            <iframe
+              key={`${data.last_lat},${data.last_lng}`}
+              title={`Truck’s last position on Google Maps${near ? `, near ${near}` : ''}`}
+              src={`https://www.google.com/maps?q=${data.last_lat},${data.last_lng}&z=14&output=embed`}
+              className="h-[24rem] w-full rounded-2xl border-0 ring-1 ring-slate-900/10"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          ) : (
+            <RouteMap crossings={points.map((p) => ({ ...p, plaza: p.time }))} />
+          )}
+          <p className="text-xs text-slate-500">Positions from the driver’s phone GPS, updated about every minute while the driver’s KashRoot page is open; this page checks every 30 seconds. {mapView === 'google' ? 'Map © Google.' : 'Map © OpenStreetMap contributors.'}</p>
         </>
       ) : (
         <div className="grid place-items-center rounded-2xl bg-white/70 p-10 text-center text-sm text-slate-600 ring-1 ring-slate-900/5">
