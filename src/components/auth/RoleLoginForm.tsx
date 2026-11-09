@@ -34,7 +34,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { ArrowRight, CircleAlert, Eye, EyeOff, Loader2, PlusCircle, UserRound } from 'lucide-react';
 
-import { ContactOtp, type PhoneRoute } from '@/components/auth/ContactOtp';
+import { ContactOtp } from '@/components/auth/ContactOtp';
 import { TwoStepVerify, twoStepState } from '@/components/security/TwoStep';
 import { SecurityGate } from '@/components/security/SecurityGate';
 import { PortalAuthFrame } from '@/components/auth/PortalAuthFrame';
@@ -45,7 +45,6 @@ import { authApi, SELF_JOIN_ROLES, tokenStore } from '@/lib/api/auth';
 import { isMember, joinPortal, markPortalSignedIn, portalAccess, PORTAL_SIGNIN_LIMIT_MS, signedInPortals } from '@/lib/auth/portalAccess';
 import { AUTH_ROUTES, loginHref, PORTALS, portalForRole, portalOfPath, safeNextPath, type PortalId } from '@/lib/auth/roles';
 import { forgetPerson, rememberedPerson, rememberSignedIn, restoreSession, signOutCompletely, type RememberedPerson } from '@/lib/auth/session';
-import { getKycConfig } from '@/lib/kyc/kyc-service';
 
 const LEGACY_OK: PortalId[] = ['farmer', 'buyer'];
 
@@ -64,11 +63,10 @@ interface Session {
 interface OtpStep {
   /** Held back until the code is verified; the dashboards open only after tokenStore has it. */
   session: Session;
-  channel: 'sms' | 'email';
+  /** Always 'email' — SMS rate limits are bypassed entirely. */
+  channel: 'email';
+  /** The email address the code was sent to. */
   to: string;
-  routes: PhoneRoute[];
-  emailFallback: string | null;
-  fallback?: boolean;
 }
 
 export interface RoleLoginFormProps {
@@ -292,7 +290,9 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
     }
   };
 
-  /** One-time code to the account's mobile or email; returns true when it went straight in. */
+  /** One-time code to the account's email address — always email, never SMS,
+   *  so SMS rate limits can never block sign-in. Returns true when it went
+   *  straight in (no OTP step needed). */
   const startCodeStep = async (session: Session): Promise<boolean> => {
     // Two-step sign-in set up (components/security/TwoStep): the authenticator app is the stronger check.
     const two = await twoStepState().catch(() => ({ hasFactor: false, passed: false }));
@@ -300,20 +300,15 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
       setTwoStepFor(session);
       return false;
     }
-    const config = await getKycConfig();
-    const phone = (session.phone ?? '').replace(/\D/g, '').slice(-10);
-    const phoneRoutes: PhoneRoute[] = [...(config.sms ? (['sms'] as const) : []), ...(config.whatsapp ? (['whatsapp'] as const) : [])];
-    const emailFallback = config.email ? email.trim() : null;
-    if (/^[6-9]\d{9}$/.test(phone) && phoneRoutes.length > 0) {
-      setStep({ session, channel: 'sms', to: phone, routes: phoneRoutes, emailFallback });
+    // Email-only OTP delivery — bypass SMS rate limits entirely.
+    const emailAddress = email.trim();
+    if (emailAddress && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(emailAddress)) {
+      setStep({ session, channel: 'email', to: emailAddress });
       return false;
     }
-    if (emailFallback) {
-      setStep({ session, channel: 'email', to: emailFallback, routes: [], emailFallback: null });
-      return false;
-    }
-    finish(session);
-    return true;
+    // No valid email: the visitor must correct it before an OTP can be sent.
+    setError({ text: 'Enter a valid email address to receive the sign-in code.' });
+    return false;
   };
 
   const addThisPortal = async () => {
@@ -434,35 +429,27 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   }
 
   if (step) {
-    const phoneStep = step.channel === 'sms';
     return (
       <PortalAuthFrame portal={portal} labelledBy={ids.heading}>
         <h2 id={ids.heading} className="font-display text-2xl font-semibold tracking-tight text-slate-900">
           Verify it’s you
         </h2>
         <p className="mt-1 text-sm text-slate-600">
-          {phoneStep ? 'We’re sending a one-time code to the mobile number on your account.' : 'We’re emailing a one-time code to the address on your account.'}
+          We’re emailing a one-time code to {step.to}.
         </p>
         <div className="mt-6">
           <ContactOtp
             key={step.channel}
             channel={step.channel}
-            label={phoneStep ? 'Mobile number' : 'Email address'}
+            label="Email address"
             value={step.to}
-            onChange={() => undefined}
-            locked
+            onChange={(v) => setStep({ ...step, to: v })}
+            locked={false}
             autoSend
-            emailFallback={step.emailFallback}
-            hint={step.fallback ? 'SMS limit reached — we sent the 6-digit verification code to your email instead.' : undefined}
             required
-            routes={phoneStep ? step.routes : undefined}
             verified={false}
             onVerified={() => finish(step.session)}
-            onUnavailable={() => {
-              // Phone codes failing on the site's side: fall back to email, then let them in.
-              if (phoneStep && step.emailFallback) setStep({ ...step, channel: 'email', to: step.emailFallback, routes: [], emailFallback: null, fallback: true });
-              else setCodesDown(true);
-            }}
+            onUnavailable={() => setCodesDown(true)}
           />
         </div>
         {codesDown && (
