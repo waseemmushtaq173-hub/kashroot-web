@@ -35,6 +35,7 @@ import type { FcoStandard, CibrcProduct, CibrcBanned } from '@/lib/db/govRegistr
 import {
   cibrcLookupRegistered,
   cibrcLookupBanned,
+  fcoLookupEmbedded,
   fcoLookupMerged,
   agroRegistryStats,
   searchAllEmbedded,
@@ -206,7 +207,8 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
   const [stats, setStats] = useState<AgroRegistryStats | null | undefined>(undefined);
   // Live FCO standard for the lab tab: null when not set up or not yet fetched.
   const [fcoStandard, setFcoStandard] = useState<FcoStandard | null | undefined>(undefined);
-  const [fcoLoading, setFcoLoading] = useState(false);
+  // Dedicated input state for the Lab tab — never disabled during loading
+  const [fcoQuery, setFcoQuery] = useState('');
   // Lab values entered for the loaded FCO standard, keyed by parameter key.
   const [values, setValues] = useState<Record<string, string>>({});
   // CIBRC check results for what was typed / photographed.
@@ -237,12 +239,13 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
     setMode(id);
     // What the lists hold, said under the box before anything is typed.
     if (id === 'registry' && stats === undefined) setStats(agroRegistryStats());
-    if (id === 'lab' && fcoStandard === undefined) {
-      setFcoLoading(true);
-      void fcoLookupMerged('Diammonium phosphate (DAP)', '18:46:0')
-        .then(setFcoStandard)
-        .catch(() => setFcoStandard(null))
-        .finally(() => setFcoLoading(false));
+    if (id === 'lab') {
+      // Load FCO standards synchronously (0ms) from embedded registry —
+      // never block on a slow or failing network fetch.
+      if (fcoStandard === undefined) {
+        const embedded = fcoLookupEmbedded('Diammonium phosphate (DAP)', '18:46:0');
+        setFcoStandard(embedded ?? null);
+      }
     }
   };
   const check = async () => {
@@ -351,26 +354,66 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
 
       {mode === 'lab' && (
         <div className="mt-5">
+          {/* Input row — never disabled, never blocked by loading */}
           <div className="flex gap-2">
             <label className="block text-sm font-medium text-slate-800" htmlFor="fco-type">Fertiliser type</label>
             <input
               id="fco-type"
-              value=""
+              value={fcoQuery}
               placeholder="e.g. DAP, Urea, MOP, SSP"
               onChange={(e) => {
+                const v = e.target.value.trim();
+                setFcoQuery(v);
                 setValues({});
-                setFcoLoading(true);
-                void fcoLookupMerged(e.target.value.trim())
-                  .then((s) => setFcoStandard(s))
-                  .catch(() => setFcoStandard(null))
-                  .finally(() => setFcoLoading(false));
+                // Synchronous (0ms) lookup from embedded registry — never blocked on network
+                const embedded = fcoLookupEmbedded(v);
+                setFcoStandard(embedded ?? null);
+                if (!embedded && v.length > 0) {
+                  // Live fallback in background without blocking UI
+                  void fcoLookupMerged(v)
+                    .then((s) => setFcoStandard(s ?? null))
+                    .catch(() => setFcoStandard(null));
+                }
               }}
               className={`${INPUT} mt-1.5 flex-1`}
             />
           </div>
-          {fcoLoading ? (
-            <p className="mt-3 flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading FCO standard…</p>
-          ) : standard && report ? (
+
+          {/* Quick-select pills */}
+          <div className="flex flex-wrap gap-2 mt-3">
+            <p className="text-xs text-slate-500 mb-1">Quick select:</p>
+            {[
+              'IFFCO Urea',
+              'IFFCO DAP',
+              'Nano Urea',
+              'MOP',
+              'SOP',
+              'SSP',
+              'NPK 19:19:19',
+              'NPK 12:32:16',
+              'Calcium Nitrate',
+              'Boron 20%',
+              'Zinc Sulphate 21%',
+              'YaraLiva Nitrabor',
+            ].map((pill) => (
+              <button
+                key={pill}
+                type="button"
+                onClick={() => {
+                  setFcoQuery(pill);
+                  setValues({});
+                  const embedded = fcoLookupEmbedded(pill);
+                  setFcoStandard(embedded ?? null);
+                }}
+                className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-3 py-1 text-sm font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-900 transition"
+              >
+                {pill}
+              </button>
+            ))}
+          </div>
+
+          {/* Results — render immediately once fcoStandard is set */}
+          {standard && report ? (
             <>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {report.rows.map((r) => (
@@ -397,6 +440,25 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
                 </p>
               )}
               <p className="mt-3 text-xs text-slate-500">Standard: {standard.fco_schedule_clause} — Fertiliser (Control) Order, 1985, Schedule I. Source: {standard.source}, published {new Date(standard.published_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}. A state fertiliser quality control lab report is the legal test.</p>
+
+              {/* Authorised registered manufacturer */}
+              {(standard.manufacturerCompany || standard.brandName) && (
+                <div className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-slate-800 ring-1 ring-emerald-200">
+                  <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-emerald-800 mb-1">Authorised Registered Manufacturer</p>
+                  <p className="font-medium">{standard.manufacturerCompany}</p>
+                  {standard.brandName && standard.brandName !== standard.manufacturerCompany && (
+                    <p className="text-xs text-slate-600">Brand: {standard.brandName}</p>
+                  )}
+                </div>
+              )}
+
+              {/* SKUAST-Kashmir official dosage */}
+              {standard.skuast_kashmir_dosage && (
+                <div className="mt-4 rounded-xl bg-indigo-50 p-3 text-sm text-slate-800 ring-1 ring-indigo-200">
+                  <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-indigo-800 mb-1">SKUAST-Kashmir Official Dosage</p>
+                  <p className="font-medium">{standard.skuast_kashmir_dosage}</p>
+                </div>
+              )}
             </>
           ) : (
             <p className="mt-3 text-sm text-slate-500">Type a fertiliser type (e.g. DAP, Urea, MOP) to load its FCO Schedule I standard.</p>

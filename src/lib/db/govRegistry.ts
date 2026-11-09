@@ -32,6 +32,7 @@ export type FcoStandard = {
   /** Manufacturer and brand — optional because embedded catalogue entries may omit them. */
   manufacturerCompany?: string;
   brandName?: string;
+  skuast_kashmir_dosage?: string | null;
   source: string;
   source_url: string;
   published_at: string;
