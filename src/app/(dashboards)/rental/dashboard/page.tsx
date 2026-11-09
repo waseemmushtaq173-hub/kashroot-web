@@ -26,6 +26,7 @@ import { PortalShell } from '@/components/layout/PortalShell';
 import { ColdBooking, MyPlaces, niceDate } from '@/components/rental/ColdBooking';
 import { PayOwner } from '@/components/rental/receipt/PayOwner';
 import { ColdMapEditor } from '@/components/rental/ColdMapEditor';
+import { TwinPeek } from '@/components/rental/twin/TwinPeek';
 import { OwnerWizard, type Step } from '@/components/rental/owner/OwnerWizard';
 import { StorePhotosEditor } from '@/components/rental/StorePhotos';
 import { PaymentDetails } from '@/components/rental/owner/PaymentStep';
@@ -493,6 +494,7 @@ function StoreCard({
           <p className="mt-2 text-xs font-medium text-emerald-800">
             Any number of {anyOf(kinds)}{l.min_units > 1 ? ` from ${l.min_units.toLocaleString('en-IN')}` : ''}: share a place, pay only for your own {anyOf(kinds)}
           </p>
+          <TwinPeek store={l.title} />
           {own ? (
             <p className="mt-3"><Badge tone="violet">Your listing</Badge></p>
           ) : (

@@ -16,6 +16,7 @@ import { Btn, PORTAL_THEMES } from '@/components/portal/kit';
 import { ChamberSide, floorText } from '@/components/rental/owner/ChamberSide';
 import { Counter, Problems, StoragePicker, WallPicker } from '@/components/rental/owner/fields';
 import { Preview3D } from '@/components/rental/owner/Preview3D';
+import { TwinCapacity } from '@/components/rental/owner/TwinCapacity';
 import { StoreDrawing } from '@/components/rental/owner/StoreDrawing';
 import { KitBox, type Kit } from '@/components/rental/owner/StoreSteps';
 import { blankChamber, copyChamber, countText, nextNumber, nice, readNumber, UNIT_WORDS, type ChamberDraft } from '@/lib/coldStore';
@@ -154,6 +155,7 @@ export function ChambersStep({
         {draft.chambers.filter((c) => !shown.chambers.some((mc) => mc.key === c.key)).map((c) => (
           <p key={c.key} className="text-xs text-slate-600">Chamber {c.no || '?'} is drawn once its length, width and height are filled in.</p>
         ))}
+        <TwinCapacity drafts={draft.chambers} unit={draft.unit} />
       </section>
     </div>
   );
