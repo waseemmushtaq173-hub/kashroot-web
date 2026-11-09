@@ -30,7 +30,7 @@ import { readTyped, type Typed } from '@/lib/fertilizer/trueScan';
 import { compressImage } from '@/lib/client/image';
 import { isRtl, type SpeechLang } from '@/lib/client/speech';
 import { dbMessage, loadAccount, supabase, supabaseConfigured, type Account } from '@/lib/db/client';
-import { searchRegistry, type OfficialHit } from '@/lib/db/registry';
+import { searchRegistry, type OfficialHit, type OfficialKind } from '@/lib/db/registry';
 import type { FcoStandard, CibrcProduct, CibrcBanned } from '@/lib/db/govRegistry';
 import {
   cibrcLookupRegistered,
@@ -139,17 +139,57 @@ async function lookupBatch(raw: string): Promise<Lookup> {
 }
 
 /** Everything TrueScan can say about what was typed — all looked up at once. */
+/** Convert an embedded SearchHit into an OfficialHit for the UI. */
+function toOfficialHit(h: SearchHit): OfficialHit {
+  return {
+    kind: (h.kind === 'fco' ? 'fertiliser' : 'pesticide') as OfficialKind,
+    name: h.brandName ?? h.productName ?? h.active_molecule ?? h.fertiliser_type ?? 'Unknown',
+    registration_no: h.cir_no ?? null,
+    registrant: h.legalManufacturer ?? h.manufacturerCompany ?? h.manufacturer ?? null,
+    details: {},
+    source: h.source,
+    source_url: h.source_url,
+    imported_at: new Date().toISOString(),
+    matched: 'name',
+  };
+}
+
 async function scan(raw: string): Promise<Scan> {
   const typed = readTyped(raw);
   if (!typed.text) return { state: 'error', message: 'Type what is printed on the label: the registration number (CIR-…), the product name, or the batch number.' };
   if (typed.text.length < 2) return { state: 'error', message: `“${typed.text}” is too short. Type the whole registration number, product name or batch number.` };
   try {
-    const [statsResult, hits, dealer] = await Promise.all([
+    // ── Primary: embedded search — always works, fuzzy/typo-tolerant ──
+    const embeddedHits = searchAllEmbedded(typed.text).map(toOfficialHit);
+
+    // ── Supplementary: Supabase registry (if configured) ──
+    let supabaseHits: OfficialHit[] | null = null;
+    if (supabaseConfigured) {
+      try {
+        const { data, error } = await supabase.rpc('kr_registry_search', { p_text: typed.text.slice(0, 200) });
+        if (!error && data) {
+          supabaseHits = ((data ?? []) as OfficialHit[]).map((h) => ({ ...h, details: h.details ?? {} }));
+        }
+      } catch {
+        // ignore Supabase errors — embedded data is authoritative
+      }
+    }
+
+    // ── Merge: embedded first, then Supabase (dedup by kind + name) ──
+    const merged: OfficialHit[] = [];
+    const seen = new Set<string>();
+    const add = (h: OfficialHit) => {
+      const key = `${h.kind}:${(h.name ?? '').toLowerCase()}`;
+      if (!seen.has(key)) { seen.add(key); merged.push(h); }
+    };
+    for (const h of embeddedHits) add(h);
+    for (const h of (supabaseHits ?? [])) add(h);
+
+    const [statsResult, dealer] = await Promise.all([
       agroRegistryStats(),
-      searchRegistry(typed.text),
       typed.kind === 'batch' && typed.text.length >= 3 ? lookupBatch(typed.text) : Promise.resolve(undefined),
     ]);
-    return { state: 'done', typed, hits, stats: statsResult, dealer };
+    return { state: 'done', typed, hits: merged, stats: statsResult, dealer };
   } catch (err) {
     return { state: 'error', message: offline(err) };
   }

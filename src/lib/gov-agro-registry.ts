@@ -1,6 +1,4 @@
 
-// @ts-nocheck
-
 /**
  * Official Government of India agro-chemical and fertiliser registries.
  *
@@ -4605,6 +4603,7 @@ export const EMBEDDED_CIBRC_BANNED: CibrcBanned[] = [
 //   OFFICIAL FERTILISER (CONTROL) ORDER, 1985 — SCHEDULE I STATUTORY STANDARDS
 //   ═══════════════════════════════════════════════════════════════════════════
 
+// @ts-ignore - Union type too complex for inline array literal
 export const EMBEDDED_FCO_STANDARDS: FcoStandard[] = [
   {
     id: 'fco-schedule-i-part-a-clause-1-46-0-0',
@@ -95347,6 +95346,7 @@ export function agroRegistryStats(): AgroRegistryStats {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════
 // PHONETIC / TYPO-TOLERANT NORMALISATION
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -95359,7 +95359,7 @@ export function normalizeQuery(q: string): string {
   s = s.replace(/([a-z])\1{2,}/g, '$1$1');
   const keys = Object.keys(PHONETIC_MAP).sort((a: string, b: string) => b.length - a.length);
   for (const k of keys) {
-//    if (s.includes(k)) s = s.split(k).join(PHONETIC_MAP[k]);
+    if (s.includes(k)) s = s.split(k).join(PHONETIC_MAP[k as keyof typeof PHONETIC_MAP]);
   }
   return s;
 }
@@ -95392,6 +95392,7 @@ export interface SearchHit {
   dosage_per_acre?: string | null;
   waiting_period_days?: number | null;
   toxicity_class?: string | null;
+  skuast_kashmir_dosage?: string | null;
   status?: "banned" | "restricted" | "withdrawn";
   ban_notification?: string | null;
   ban_date?: string | null;
@@ -95405,7 +95406,6 @@ export interface SearchHit {
   micronutrient_min?: number | null;
   moisture_max?: number | null;
   biuret_max?: number | null;
-  skuast_kashmir_dosage?: string | null;
   source: string;
   source_url: string;
 }
@@ -95482,6 +95482,8 @@ export function searchAllEmbedded(q: string): SearchHit[] {
     const haystack = [
       f.fertiliser_type?.toLowerCase() ?? '',
       f.grade?.toLowerCase() ?? '',
+      f.manufacturerCompany?.toLowerCase() ?? '',
+      f.brandName?.toLowerCase() ?? '',
       f.fco_schedule_clause?.toLowerCase() ?? '',
     ].join(' ');
     if (tokens.every((t) => haystack.includes(t))) {
@@ -95560,7 +95562,7 @@ export function cibrcLookupRegistered(
   let results = EMBEDDED_CIBRC_REGISTERED;
   if (cirNo) {
     const q = cirNo.toLowerCase();
-    results = results.filter((p) => p.cir_no.toLowerCase().includes(q));
+    results = results.filter((p: CibrcProduct) => p.cir_no.toLowerCase().includes(q));
   }
   if (activeMolecule) {
     const q = activeMolecule.toLowerCase();
@@ -95613,7 +95615,6 @@ export function fcoLookupEmbedded(fertiliserType: string, grade?: string): FcoSt
 }
 
 // ── Merged: embedded primary + Supabase + data.gov.in secondary ──
-
 export async function cibrcLookupMerged(
   cirNo?: string,
   activeMolecule?: string,
@@ -95635,7 +95636,7 @@ export async function cibrcLookupMerged(
         }));
       }
     } catch {
-      // ignore Supabase errors — embedded data is authoritative
+      // ignore Supabase errors -- embedded data is authoritative
     }
   }
   const seen = new Set(embedded.map((p) => p.cir_no));
@@ -95665,7 +95666,7 @@ export async function cibrcBannedLookupMerged(
         }));
       }
     } catch {
-      // ignore Supabase errors — embedded data is authoritative
+      // ignore Supabase errors -- embedded data is authoritative
     }
   }
   const seen = new Set(embedded.map((b) => b.active_molecule));
@@ -95693,7 +95694,7 @@ export async function fcoLookupMerged(
         return data[0] as FcoStandard;
       }
     } catch {
-      // ignore Supabase errors — embedded data is authoritative
+      // ignore Supabase errors -- embedded data is authoritative
     }
   }
   return embedded;

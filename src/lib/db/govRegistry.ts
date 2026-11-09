@@ -29,6 +29,9 @@ export type FcoStandard = {
   free_acidity_max?: number | null;
   ph_range?: string | null;
   particle_size_spec?: string | null;
+  /** Manufacturer and brand — optional because embedded catalogue entries may omit them. */
+  manufacturerCompany?: string;
+  brandName?: string;
   source: string;
   source_url: string;
   published_at: string;
