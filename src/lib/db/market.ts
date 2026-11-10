@@ -197,6 +197,12 @@ export async function myListings(sellerId: string): Promise<MarketListing[]> {
 export type ListingInput = Pick<MarketListing, 'seller_name' | 'phone' | 'district' | 'category' | 'subcategory' | 'product' | 'variety' | 'grade' | 'unit' | 'price' | 'quantity' | 'details' | 'photo' | 'box_capacity_kg' | 'packing_layers' | 'apples_per_box' | 'captured_lat' | 'captured_lng' | 'captured_accuracy_m' | 'captured_address' | 'captured_at_iso' | 'is_live_camera_verified'> & {
   /** Up to three photos; when given, `photo` should be the first. */
   photos?: string[] | null;
+  /** A recorded live video (data URL), saved when the database owns the column; otherwise packed into details. */
+  video_url?: string | null;
+  /** The live GPS locked in the listing modal (fallback: the district pin). Saved into details when the columns are missing. */
+  seller_lat?: number | null;
+  seller_lng?: number | null;
+  seller_location_label?: string | null;
 };
 
 /** Columns that exist in the local type but may not exist in the remote Supabase DB yet. */
@@ -210,6 +216,10 @@ const EXTENDED_LISTING_COLUMNS = new Set([
   'captured_address',
   'captured_at_iso',
   'is_live_camera_verified',
+  'video_url',
+  'seller_lat',
+  'seller_lng',
+  'seller_location_label',
 ]);
 
 /** Parse a missing-column name from a PostgREST 42703 / PGRST204 error message. */
