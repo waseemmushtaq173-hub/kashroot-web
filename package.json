@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "license": "UNLICENSED",
+  "overrides": {
+    "postcss-selector-parser": "^6.1.5",
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.1"
+    }
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
