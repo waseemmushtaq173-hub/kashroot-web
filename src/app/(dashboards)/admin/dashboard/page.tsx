@@ -27,10 +27,11 @@
  * Admin lock, removed from the team), the page closes.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BarChart3, Building2, Crown, DatabaseZap, GraduationCap, LifeBuoy, ListChecks, LockKeyhole, PackageX, Settings, Snowflake, UserCog, Users, Wallet } from 'lucide-react';
+import { BarChart3, Building2, Crown, DatabaseZap, GraduationCap, LifeBuoy, ListChecks, LockKeyhole, PackageX, Settings, Snowflake, Truck, UserCog, Users, Wallet } from 'lucide-react';
 
 import { AccountsPanel } from '@/components/admin/AccountsPanel';
 import { AdminLock } from '@/components/admin/AdminLock';
+import { AdminOrdersPanel } from '@/components/admin/AdminOrdersPanel';
 import { ApprovalsPanel } from '@/components/admin/ApprovalsPanel';
 import { ColdDirectoryPanel } from '@/components/admin/ColdDirectoryPanel';
 import { ContributorsPanel } from '@/components/admin/ContributorsPanel';
@@ -47,7 +48,7 @@ import { authFetch } from '@/lib/auth-fetch';
 import { functionMissing } from '@/lib/client/teamCheck';
 import { supabase } from '@/lib/db/client';
 
-type Tab = 'super' | 'approvals' | 'accounts' | 'problems' | 'help' | 'contributors' | 'coldstores' | 'registry' | 'numbers' | 'security' | 'setup' | 'team' | 'businesses' | 'settings';
+type Tab = 'super' | 'orders' | 'approvals' | 'accounts' | 'problems' | 'help' | 'contributors' | 'coldstores' | 'registry' | 'numbers' | 'security' | 'setup' | 'team' | 'businesses' | 'settings';
 
 interface Counts {
   waiting: number;
@@ -56,6 +57,8 @@ interface Counts {
   accounts7d: number;
   /** Accounts used during the last 7 days (null if unknown). */
   active7d: number | null;
+  /** Orders on the platform — all of them (Platform numbers → optional). */
+  orders: number;
 }
 
 export default function AdminConsolePage() {
@@ -125,6 +128,8 @@ function Console({ sections }: { sections: string[] }) {
   const superAdmin = sections.includes('*');
   const can = useCallback((section: string) => sections.includes('*') || sections.includes(section), [sections]);
   const allTabs = ([
+    // The one Super Admin first: 100% of orders with live GPS and the escrow ledger.
+    { id: 'orders', label: 'Orders · GPS & Escrow', icon: Truck, section: 'orders' },
     { id: 'approvals', label: 'Approvals', icon: GraduationCap, section: 'approvals' },
     { id: 'accounts', label: 'Accounts', icon: Users, section: 'accounts' },
     { id: 'problems', label: 'Problems', icon: PackageX, section: 'problems' },
@@ -162,7 +167,7 @@ function Console({ sections }: { sections: string[] }) {
       const t = a.last_active_at ?? a.last_sign_in_at;
       return t && now - Date.parse(t) < 7 * 86_400_000;
     }).length;
-    setCounts({ waiting: requests.data?.length ?? 0, problems: problems.length, accounts: stats?.accounts ?? 0, accounts7d: stats?.accounts_7d ?? 0, active7d: signedIn });
+    setCounts({ waiting: requests.data?.length ?? 0, problems: problems.length, accounts: stats?.accounts ?? 0, accounts7d: stats?.accounts_7d ?? 0, active7d: signedIn, orders: stats ? Object.values(stats.orders).reduce((s, x) => s + Number(x ?? 0), 0) : 0 });
     // Nothing waiting for approval: open on the list of accounts.
     if (!requests.data?.length && can('accounts')) setTab((t) => (t === 'approvals' && !opened.current ? 'accounts' : t));
   }, [can]);
@@ -194,6 +199,7 @@ function Console({ sections }: { sections: string[] }) {
       eyebrow="Platform admin"
       theme="admin"
       kpis={[
+        ...(can('orders') ? [{ label: 'Platform orders', value: n(counts?.orders), trend: '100% of orders · live GPS · escrow ledger — tap to open', onClick: () => show('orders') }] : []),
         ...(can('approvals') ? [{ label: 'Waiting for approval', value: n(counts?.waiting), trend: 'Agronomists, dealers, Mandi Helpers', onClick: () => show('approvals') }] : []),
         ...(can('problems') ? [{ label: 'Orders with a problem', value: n(counts?.problems), trend: 'Reported by buyers', onClick: () => show('problems') }] : []),
         ...(can('accounts') && can('numbers')
@@ -221,6 +227,7 @@ function Console({ sections }: { sections: string[] }) {
       onTabChange={(id) => show(id as Tab)}
     >
       {tab === 'super' && superAdmin && <SuperAdminPanel />}
+      {tab === 'orders' && can('orders') && <AdminOrdersPanel canRelease={superAdmin} />}
       {tab === 'approvals' && can('approvals') && <ApprovalsPanel />}
       {tab === 'accounts' && can('accounts') && <AccountsPanel onRefreshed={load} />}
       {tab === 'problems' && can('problems') && <ReportedOrders />}

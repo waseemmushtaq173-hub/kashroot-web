@@ -1,22 +1,26 @@
 /**
- * Ordering one listing with pay after delivery — the same window on Price
- * Comparison and in the Buyer portal's shop. Nothing is paid now: the order
- * goes to the seller (market_orders); when the goods arrive and are checked,
- * the buyer pays the seller directly by UPI / bank and enters the reference;
- * the seller confirms. KashRoot never holds it.
+ * Ordering one listing into the true five-step escrow lifecycle — the same
+ * window on Price Comparison and in the Buyer portal's shop. The buyer's
+ * live GPS is captured (navigator.geolocation, high accuracy) and sent with
+ * the order: it becomes the destination pin on the live mutual map, and
+ * fills the delivery point. The payment is locked in KashRoot escrow the
+ * moment the order goes (escrow_status 'locked'); when the goods arrive the
+ * buyer presses "✅ Confirm Delivery Received" and the escrow releases to
+ * the farmer.
  *
  * The database takes the listing's price at the moment of ordering, and the
  * seller can change it while this window is open. So the listing is read
  * again just before the order goes: a new price is shown and the buyer
  * presses Order again; a product taken off sale says so.
  */
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import React from 'react';
-import { ArrowLeft, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, Crosshair, ShoppingCart } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { Btn, Field, INPUT, Modal, type PortalTheme } from '@/components/portal/kit';
 import { NEEDS_INTERNET, offlineNow } from '@/components/pwa/net';
+import { capturePoint, type LiveFix } from '@/lib/client/liveGps';
 import { inr, supabase, type Account } from '@/lib/db/client';
 import { orderAction, placeOrder, type MarketListing, type MarketOrder, type MarketUnit } from '@/lib/db/market';
 import { LISTINGS_CHANGED, UNIT_PLURAL as PLURAL, amountOf } from '@/components/market/shop/useLiveListings';
@@ -57,6 +61,10 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [gone, setGone] = useState(false);
+  /** The buyer's live GPS fix: captured at once, chance to capture again. */
+  const [fix, setFix] = useState<LiveFix | null>(null);
+  const [fixing, setFixing] = useState(false);
+  const [fixError, setFixError] = useState<string | null>(null);
   const qty = Number(form.quantity) || 0;
   const set = useCallback((patch: Partial<typeof form>) => {
     setForm({ ...form, ...patch });
@@ -64,11 +72,39 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
   }, [form]);
   const total = useMemo(() => inr(qty * Number(l.price)), [qty, l.price]);
 
+  /** High-accuracy live GPS, reverse-geocoded; mandatory before the order goes. */
+  const takeFix = useCallback(async () => {
+    setFixing(true);
+    setFixError(null);
+    try {
+      const f = await capturePoint();
+      setFix(f);
+      // The reverse-geocoded address pre-fills "Deliver to" when it is empty.
+      setForm((cur) => (cur.address.trim() ? cur : { ...cur, address: f.address }));
+    } catch (err) {
+      setFix(null);
+      setFixError(`We could not get your live GPS location (${err instanceof Error ? err.message : 'unknown error'}). Allow location access — it puts your exact delivery pin on the live map.`);
+    } finally {
+      setFixing(false);
+    }
+  }, []);
+
+  // The first fix is taken just after the window opens — deferred to a timer
+  // so no state is set synchronously inside the effect.
+  useEffect(() => {
+    const id = window.setTimeout(() => { void takeFix(); }, 0);
+    return () => window.clearTimeout(id);
+  }, [takeFix]);
+
   const place = async () => {
     const wrong = orderProblem(l, form);
     if (wrong) return setProblem(wrong);
     // An order is money: never kept to send later.
     if (offlineNow()) return setProblem(NEEDS_INTERNET);
+    // The live mutual GPS needs the buyer's exact destination: nothing goes without it.
+    if (!fix) {
+      return setProblem(fixError ?? 'Your live GPS is not captured yet. Allow location access, then press “Capture my live GPS” and Order again — it puts your exact delivery pin on the live map.');
+    }
     setBusy(true);
     try {
       const fresh = await latest(l.id);
@@ -89,7 +125,17 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
         const short = orderProblem({ ...l, ...fresh }, form);
         if (short) return setProblem(short);
       }
-      const order = await placeOrder({ listing_id: l.id, buyer_name: form.name.trim() || account.name, buyer_phone: form.phone.replace(/[\s-]/g, ''), delivery_address: form.address.trim(), quantity: qty });
+      const order = await placeOrder({
+        listing_id: l.id,
+        buyer_name: form.name.trim() || account.name,
+        buyer_phone: form.phone.replace(/[\s-]/g, ''),
+        delivery_address: form.address.trim(),
+        quantity: qty,
+        // The buyer's live GPS, locked at checkout: the destination pin on the live mutual map.
+        buyer_live_lat: fix?.lat,
+        buyer_live_lng: fix?.lng,
+        buyer_live_address: fix?.address,
+      });
       // The price changed in the same moment: take the order back and ask again.
       if (Number(order.unit_price) !== Number(fresh.price)) {
         setNow({ price: order.unit_price, quantity: fresh.quantity });
@@ -101,7 +147,7 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
         }
         return setProblem(`The seller changed the price to ${inr(order.unit_price)} per ${l.unit} as you ordered, so that order was cancelled. Your total is now ${inr(order.amount)}. Press Order again if you agree.`);
       }
-      toast.success('Order sent to the seller — pay only after delivery');
+      toast.success(`Order sent — ${inr(order.amount)} locked in KashRoot escrow`);
       onPlaced(order);
     } catch (err) {
       let message = err instanceof Error ? err.message : 'Could not send the order. Check your internet and try again.';
@@ -152,8 +198,28 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
         <Field label="Deliver to">
           <textarea rows={2} className={INPUT} value={form.address} onChange={(e) => set({ address: e.target.value })} placeholder="Village, tehsil, district, landmark" />
         </Field>
+        {fix && (
+          <p className="rounded-xl bg-sky-50 p-3 text-sm text-sky-950">
+            <strong>📍 Live GPS locked:</strong> {fix.address} · {fix.lat.toFixed(5)}, {fix.lng.toFixed(5)} (±{Math.round(fix.accuracy ?? 0)} m). Your pin goes on the live map the farmer follows to you.
+            <button type="button" onClick={() => void takeFix()} disabled={fixing} className="ms-2 inline-flex min-h-8 items-center gap-1 rounded-lg bg-sky-100 px-2 font-semibold text-sky-900 underline-offset-2 hover:bg-sky-200 disabled:opacity-50">
+              <Crosshair className="h-3.5 w-3.5" aria-hidden /> {fixing ? 'Capturing…' : 'Capture again'}
+            </button>
+          </p>
+        )}
+        {fixError && (
+          <div>
+            <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm font-medium text-rose-800 ring-1 ring-rose-200">{fixError}</p>
+            <button type="button" onClick={() => void takeFix()} disabled={fixing} className="mt-2 inline-flex min-h-11 items-center gap-2 rounded-xl bg-sky-600 px-4 font-bold text-white hover:bg-sky-700 disabled:opacity-50">
+              <Crosshair className="h-4 w-4" aria-hidden /> {fixing ? 'Capturing your live GPS…' : 'Capture my live GPS'}
+            </button>
+          </div>
+        )}
         {(gone || problem) && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm font-medium text-rose-800 ring-1 ring-rose-200">{gone ? GONE : problem}</p>}
-        <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-950">You pay nothing now. When the goods reach you and you have checked them, press “I received the goods” and pay the seller by UPI.</p>
+        {fix ? (
+          <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-950">🔒 <strong>{inr(qty * Number(l.price))} goes into KashRoot Escrow</strong> when you press Order. It releases to the farmer only when you press “✅ Confirm Delivery Received” after the goods reach you at {form.address.trim() || fix.address}.</p>
+        ) : (
+          <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-950">You pay nothing now. When the goods reach you and you have checked them, press “✅ Confirm Delivery Received” and the escrow releases to the farmer.</p>
+        )}
       </div>
     </Modal>
   );

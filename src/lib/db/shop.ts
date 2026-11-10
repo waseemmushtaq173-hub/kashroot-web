@@ -14,7 +14,7 @@
  * never holds the money.
  */
 import { dbMessage, supabase } from '@/lib/db/client';
-import { ORDER_STATUS, type MarketOrder, type MarketUnit } from '@/lib/db/market';
+import { OPEN_ORDER_STATUSES, ORDER_STATUS, type MarketOrder, type MarketUnit } from '@/lib/db/market';
 
 const fail = (error: { message?: string; code?: string } | null, fallback: string): never => {
   throw new Error(dbMessage(error, fallback));
@@ -89,8 +89,8 @@ export const basketTotal = (lines: MarketOrder[]) => lines.reduce((s, l) => s + 
 export const sellerMustAct = (o: Pick<MarketOrder, 'status' | 'pay_first' | 'payment_state'>) =>
   o.status === 'placed' || o.status === 'paid' || (o.status === 'accepted' && !(o.pay_first && (o.payment_state ?? 'unpaid') === 'unpaid'));
 
-/** How many orders wait for the seller (the products of one Kissan Tools order count once). */
-export const sellerToAct = (orders: MarketOrder[]) => groupBaskets(orders).filter((g) => sellerMustAct(g[0])).length;
+/** How many ACTIVE orders the seller has — new, being packed, on the way, arrived and waiting for the buyer's escrow confirmation — the products of one Kissan Tools order count once. */
+export const sellerToAct = (orders: MarketOrder[]) => groupBaskets(orders).filter((g) => OPEN_ORDER_STATUSES.includes(g[0].status)).length;
 
 /** The seller ships: vehicle number or courier, and the driver (optional). */
 export async function shipOrder(id: string, p: { vehicle: string; driverName?: string; driverPhone?: string; note?: string }): Promise<void> {

@@ -8,6 +8,7 @@ import { Field, INPUT } from '@/components/portal/kit';
 import { compressImage } from '@/lib/client/image';
 import { getLiveGPS, reverseGeocode, nowIST, type GeoResult, engravePhotoFrame, startEngravedVideo } from '@/lib/geoStampMedia';
 import { PRODUCE, SUBCATEGORIES, UNITS, type ListingInput } from '@/lib/db/market';
+import type { PayoutAccount } from '@/lib/db/rentals';
 
 export const MAX_PHOTOS = 3;
 /** The longest photo (data URL) the database keeps. */
@@ -42,7 +43,7 @@ type CapturedMedia = {
 };
 
 /** Produce listings require live camera + GPS — no gallery uploads. */
-export function ProductForm({ value: v, onChange, isNew = false }: { value: ListingInput; onChange: (v: ListingInput) => void; /** A new listing (a farm input then needs a photo). */ isNew?: boolean }) {
+export function ProductForm({ value: v, onChange, isNew = false, payout, onPayoutChange }: { value: ListingInput; onChange: (v: ListingInput) => void; /** A new listing (a farm input then needs a photo). */ isNew?: boolean; /** The farmer's payout account the escrow releases into (produce only). */ payout?: PayoutAccount | null; /** Fired on every payout field edit. */ onPayoutChange?: (p: PayoutAccount) => void }) {
   const produce = v.category === 'produce';
   const photos = photosOf(v);
   const [gps, setGps] = useState<GeoResult | null>(null);
@@ -262,6 +263,31 @@ export function ProductForm({ value: v, onChange, isNew = false }: { value: List
             {!gps && !gpsError && !gpsLoading && <p className="text-xs text-slate-500">Waiting for live GPS lock…</p>}
             {needsLiveMedia && <p className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800 ring-1 ring-rose-200">At least one live camera photo or video is required for produce listings.</p>}
           </Field>
+
+          {/* Mandatory payout account: the escrow releases the order money into it. */}
+          {onPayoutChange && (
+            <div className="sm:col-span-2 rounded-2xl bg-white/90 p-3 ring-1 ring-emerald-200">
+              <p className="text-sm font-bold text-slate-900">🏦 Farmer Payout Account <span className="text-xs font-medium text-slate-500">(where the escrow releases your payment)</span></p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <Field label="Account holder name">
+                  <input className={`${INPUT} min-h-11`} value={payout?.account_name ?? ''} onChange={(e) => onPayoutChange({ account_name: e.target.value, upi_id: payout?.upi_id ?? null, account_number: payout?.account_number ?? null, ifsc: payout?.ifsc ?? null, bank_name: payout?.bank_name ?? null })} placeholder="e.g. Waseem Mushtaq Mir" />
+                </Field>
+                <Field label="UPI ID">
+                  <input className={`${INPUT} min-h-11`} value={payout?.upi_id ?? ''} onChange={(e) => onPayoutChange({ account_name: payout?.account_name ?? '', upi_id: e.target.value, account_number: payout?.account_number ?? null, ifsc: payout?.ifsc ?? null, bank_name: payout?.bank_name ?? null })} placeholder="e.g. 6006561291@upi" />
+                </Field>
+                <Field label="Bank name">
+                  <input className={`${INPUT} min-h-11`} value={payout?.bank_name ?? ''} onChange={(e) => onPayoutChange({ account_name: payout?.account_name ?? '', upi_id: payout?.upi_id ?? null, account_number: payout?.account_number ?? null, ifsc: payout?.ifsc ?? null, bank_name: e.target.value })} placeholder="e.g. J&K Grameen Bank" />
+                </Field>
+                <Field label="Account number">
+                  <input className={`${INPUT} min-h-11`} value={payout?.account_number ?? ''} onChange={(e) => onPayoutChange({ account_name: payout?.account_name ?? '', upi_id: payout?.upi_id ?? null, account_number: e.target.value, ifsc: payout?.ifsc ?? null, bank_name: payout?.bank_name ?? null })} inputMode="numeric" />
+                </Field>
+                <Field label="IFSC code">
+                  <input className={`${INPUT} min-h-11`} value={payout?.ifsc ?? ''} onChange={(e) => onPayoutChange({ account_name: payout?.account_name ?? '', upi_id: payout?.upi_id ?? null, account_number: payout?.account_number ?? null, ifsc: e.target.value, bank_name: payout?.bank_name ?? null })} placeholder="e.g. JAKA0GRAMEEN" />
+                </Field>
+              </div>
+              <p className="text-xs text-slate-500">Saved on your profile and filled in next time. Buyers see only your UPI ID and a masked account number on the escrow line of the order.</p>
+            </div>
+          )}
         </>
       )}
       {!produce && (

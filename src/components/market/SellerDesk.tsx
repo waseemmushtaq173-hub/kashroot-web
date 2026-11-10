@@ -24,8 +24,18 @@ import { isOfflineError, NEEDS_INTERNET, offlineNow, useOnline } from '@/compone
 import { keepListingDraft, OUTBOX_SENT } from '@/components/pwa/outboxSend';
 import { inr, type Account } from '@/lib/db/client';
 import { deleteListing, myListings, saveListing, sellerOrders, updateListing, type ListingInput, type MarketCategory, type MarketListing, type MarketOrder } from '@/lib/db/market';
-import { myPayout, type PayoutAccount } from '@/lib/db/rentals';
+import { myPayout, savePayout, type PayoutAccount } from '@/lib/db/rentals';
 import { groupBaskets, listingPhotos, sellerMustAct } from '@/lib/db/shop';
+
+/** The mandatory payout account for produce listings (the escrow releases the order money into it). */
+const payoutProblem = (p: PayoutAccount | null | undefined, produce: boolean): string | null => {
+  if (!produce) return null;
+  if (!p || p.account_name.trim().length < 2) return 'Fill the 🏦 Farmer Payout Account: the account holder name — the escrow releases your payment there.';
+  if (!(p.upi_id ?? '').trim() && !((p.account_number ?? '').trim() && (p.ifsc ?? '').trim())) {
+    return 'Add a UPI ID, or a bank account number with IFSC: the escrow needs somewhere to release your payment.';
+  }
+  return null;
+};
 
 export function blankProduct(account: Account, category: MarketCategory = 'supplies'): ListingInput {
   const produce = category === 'produce';
@@ -118,13 +128,17 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
   const save = () => {
     if (!editing) return;
     const problem = productProblem(editing.data, { isNew: !editing.id });
-    if (problem) return toast.error(problem);
+    const payProblem = payoutProblem(payout, editing.data.category === 'produce');
+    if (problem || payProblem) return toast.error(problem ?? payProblem);
     const input = { ...editing.data, product: editing.data.product.trim(), phone: editing.data.phone.replace(/\s/g, ''), variety: editing.data.variety || null, grade: editing.data.grade || null, details: editing.data.details || null };
     if (offlineNow()) return draftable ? void keepDraft(input) : void toast.error(NEEDS_INTERNET);
     const id = editing.id;
+    const produce = editing.data.category === 'produce';
     void (async () => {
       setBusy(true);
       try {
+        // The payout account first: the escrow of every order releases there.
+        if (produce && payout) await savePayout(payout);
         await saveListing(input, id);
         setEditing(null);
         // The list first, then the message: "Listed" shows when the product is on screen.
@@ -165,7 +179,7 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
         </>
       }
     >
-      <ProductForm value={editing.data} isNew={!editing.id} onChange={(data) => setEditing({ ...editing, data })} />
+      <ProductForm value={editing.data} isNew={!editing.id} onChange={(data) => setEditing({ ...editing, data })} payout={payout ?? null} onPayoutChange={(p) => setPayout(p)} />
     </Modal>
   );
 

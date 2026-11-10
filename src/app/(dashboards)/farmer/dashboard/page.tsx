@@ -103,8 +103,8 @@ function FarmerDashboard() {
       eyebrow="Farmer portal"
       theme="farmer"
       kpis={[
-        { label: 'Money received', value: inr(received), trend: 'Paid to you directly' },
-        { label: 'Orders to act on', value: String(toAct), trend: 'Accept, ship, confirm payment' },
+        { label: 'Money received', value: inr(received), trend: 'Escrow released to you after delivery' },
+        { label: 'Orders to act on', value: String(toAct), trend: 'All active orders — accept, dispatch, arrive' },
         { label: 'On sale', value: String(onSale), trend: 'Produce and farm inputs' },
       ]}
       tabs={[

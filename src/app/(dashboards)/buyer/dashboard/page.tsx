@@ -150,12 +150,12 @@ function BuyerDashboard() {
 
             <Panel theme={theme} title="Pay after delivery" icon={ShieldCheck}>
               <ol className="list-decimal space-y-1 pl-5 text-sm text-slate-700">
-                <li>Order in Buy apples & produce. You pay nothing now.</li>
-                <li>The seller accepts and sends it.</li>
-                <li>When it arrives, check it and press “I received the goods”.</li>
-                <li>Pay the seller from your UPI app and type the payment number.</li>
+                <li>Order in Buy apples & produce — your payment locks in KashRoot escrow.</li>
+                <li>The farmer accepts, packs and dispatches; live GPS follows the trip.</li>
+                <li>When it arrives, check it and press “✅ Confirm Delivery Received”.</li>
+                <li>The escrow releases to the farmer — pay by UPI and type the payment number.</li>
               </ol>
-              <p className="mt-3 text-xs text-slate-500">Something wrong? Press “Report a problem” on the order before you pay.</p>
+              <p className="mt-3 text-xs text-slate-500">Something wrong? Press “Report a problem” on the order before you confirm — the escrow waits for KashRoot.</p>
             </Panel>
           </div>
         </div>
@@ -165,7 +165,7 @@ function BuyerDashboard() {
         <div className="space-y-5">
           <p className="flex items-start gap-2 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-950 ring-1 ring-emerald-200">
             <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" aria-hidden />
-            <span><strong>Pay after delivery.</strong> Farmers list their produce in the Farmer portal and it shows here by itself. Order now; pay the farmer by UPI only when the goods reach you and you have checked them. KashRoot never holds your money.</span>
+            <span><strong>Pay after delivery.</strong> Farmers list their produce in the Farmer portal and it shows here by itself. Order now — your payment locks in KashRoot escrow. The farmer dispatches with live GPS; press “✅ Confirm Delivery Received” after the goods reach you, and the escrow releases to the farmer.</span>
           </p>
           <ListingBrowser
             category="produce"
@@ -189,7 +189,7 @@ function BuyerDashboard() {
         <SafePayment as="buyer" account={account} theme={theme}>
           <Panel theme={theme} title="Waiting for your payment" icon={ShieldCheck}>
             {toPay.length === 0 ? (
-              <p className="text-sm text-slate-600">Nothing to pay right now. When goods reach you and you press “I received the goods”, the order appears here with the farmer’s UPI / bank details.</p>
+              <p className="text-sm text-slate-600">Nothing to pay right now. When goods reach you, press “✅ Confirm Delivery Received” on the order — the escrow releases to the farmer there.</p>
             ) : (
               list(toPay)
             )}
