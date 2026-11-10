@@ -20,11 +20,6 @@ import { NextResponse } from 'next/server';
 
 import { ipLimited, tooMany } from '@/lib/server/sign';
 
-import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-
 export const dynamic = 'force-dynamic';
 
 /** The three artifacts the Blender generator must leave in public/models/. */
@@ -47,10 +42,9 @@ function badPayload(payload: unknown): string | null {
   return null;
 }
 
-/** Blender: env override, then the usual installs. Every path is built at
- * run time — a rooted literal here is a build-time foldable one, and this
- * route knows nothing of the file system at build time. */
-function findBlender(): string | null {
+/** Blender: env override, then the usual installs. Uses dynamic imports to avoid Turbopack static analysis. */
+async function findBlender(): Promise<string | null> {
+  const { existsSync, readdirSync } = await import('node:fs');
   const sep = process.platform === 'win32' ? '\\' : '/';
   if (process.env.BLENDER_EXE && existsSync(process.env.BLENDER_EXE)) {
     return process.env.BLENDER_EXE;
@@ -59,7 +53,7 @@ function findBlender(): string | null {
     const base = `${process.env['ProgramFiles'] ?? ''}${sep}Blender Foundation`;
     try {
       const newest = readdirSync(base)
-        .filter((d) => /^blender\W/i.test(d))
+        .filter((d: string) => /^blender\W/i.test(d))
         .sort()
         .reverse()
         .at(0);
@@ -82,14 +76,21 @@ export async function POST(request: Request) {
   // Serverless production (Vercel): Blender is not installed. Return the
   // pre-generated artifacts without touching child_process or node:fs, so
   // Turbopack does not trace filesystem access at build time.
-  if (process.env.VERCEL === '1') {
+  if (process.env.VERCEL === '1' || process.env.NODE_ENV === 'production') {
     return NextResponse.json({
       ok: true,
       mode: 'pre-generated-fallback',
       kitUrl: '/models/coldstore_kit.glb',
       facilityUrl: '/models/coldstore_facility_twin.glb',
+      message: 'Using pre-generated 3D assets on Vercel serverless environment.'
     });
   }
+  // Dynamic imports to avoid Turbopack static analysis tracing
+  const { spawn } = await import('node:child_process');
+  const { existsSync, readdirSync, rmSync, statSync, writeFileSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const path = await import('node:path');
+
   let payload: unknown;
   try {
     payload = await request.json();
@@ -105,7 +106,7 @@ export async function POST(request: Request) {
   if (!existsSync(script)) {
     return NextResponse.json({ ok: false, error: 'generator script missing (scripts/blender_generate_coldstore.py)' }, { status: 500 });
   }
-  const blender = findBlender();
+  const blender = await findBlender();
   if (!blender) {
     return NextResponse.json(
       { ok: false, error: 'Blender is not installed (looked: BLENDER_EXE, then the usual install folders). The web keeps its procedural kit meanwhile.' },
@@ -156,6 +157,7 @@ export async function POST(request: Request) {
 /** Pipeline status: artifacts with sizes + where Blender was found. */
 export async function GET(request: Request) {
   if (ipLimited(request, 'blender-generate', 60)) return tooMany();
+  const { existsSync, statSync } = await import('node:fs');
   const sep = process.platform === 'win32' ? '\\' : '/';
   const root = process.cwd();
   const models = [root, 'public', 'models'].join(sep);
@@ -169,11 +171,11 @@ export async function GET(request: Request) {
       updatedAt: on ? statSync(p).mtime.toISOString() : null,
     };
   };
-  if (process.env.VERCEL === '1') {
+  if (process.env.VERCEL === '1' || process.env.NODE_ENV === 'production') {
     return NextResponse.json(
       { runtime: 'static', note: 'On this deployed site the twin files are the ones generated with Blender on the store machine and shipped in public/models.', artifacts: ARTIFACTS.map(describe) },
       { status: 503 },
     );
   }
-  return NextResponse.json({ runtime: 'local', artifacts: ARTIFACTS.map(describe), blender: findBlender() });
+  return NextResponse.json({ runtime: 'local', artifacts: ARTIFACTS.map(describe), blender: await findBlender() });
 }
