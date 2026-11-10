@@ -79,11 +79,16 @@ function findBlender(): string | null {
 
 /** Run the generator against a payload and reply with its own RESULT line. */
 export async function POST(request: Request) {
+  // Serverless production (Vercel): Blender is not installed. Return the
+  // pre-generated artifacts without touching child_process or node:fs, so
+  // Turbopack does not trace filesystem access at build time.
   if (process.env.VERCEL === '1') {
-    return NextResponse.json(
-      { ok: false, error: 'The twin is generated on the store machine where Blender lives, not on the deployed site (there the shipped GLBs are used as they are).' },
-      { status: 503 },
-    );
+    return NextResponse.json({
+      ok: true,
+      mode: 'pre-generated-fallback',
+      kitUrl: '/models/coldstore_kit.glb',
+      facilityUrl: '/models/coldstore_facility_twin.glb',
+    });
   }
   let payload: unknown;
   try {
