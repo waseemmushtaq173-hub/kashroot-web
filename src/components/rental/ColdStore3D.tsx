@@ -28,7 +28,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { DoorOpen, Footprints, Layers, Maximize2, ScanEye, Volume2, X } from 'lucide-react';
 
 import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
-import { buildPlaces, buildRoute, buildShell, disposeGroup, faceWalls, makeKit, sizeLabels, wx, wz, type Cell, type Origin, type Places, type Shell } from '@/components/rental/three/buildStore';
+import { buildPlaces, buildRoute, buildShell, disposeGroup, faceWalls, makeKit, sizeLabels, wx, wz, type Cell, type Origin, type Places, type PlacesState, type Shell } from '@/components/rental/three/buildStore';
 import { routeTo, type Route, type RouteLang } from '@/components/rental/walk/route';
 import { speak, stopSpeaking } from '@/lib/client/speech';
 import { rememberedLang, rememberLang } from '@/lib/langDetect';
@@ -104,6 +104,10 @@ interface Api {
   /** Walk the way from the main door (walking only). False when there is no way to walk. */
   guide: () => boolean;
   stopGuide: () => void;
+  /** Floor slice + grower highlight on the already-built places (the toggles re-slice, without rebuilding). */
+  world: (s: { floor: number | 'all'; mine: boolean }) => void;
+  /** X-ray walls on/off (every wall turns glass at once). */
+  xray: (on: boolean) => void;
 }
 
 /**
@@ -187,6 +191,70 @@ function InfoCard({ c, free, rate, unit, onClose, onWalk, zoom }: { c: SceneCham
 const UNIT_ONE: Record<Storage, string> = { bins: 'bin', crates: 'crate', boxes: 'box' };
 const UNIT_MANY: Record<Storage, string> = { bins: 'bins', crates: 'crates', boxes: 'boxes' };
 
+/**
+ * The crate drawer, opened by tapping a booked, shared or own stack in the
+ * 3D and walk views: the place's own identifiers and exact bookkeeping —
+ * weights from the owner's kg per unit and the boxes the database says are
+ * standing, allocation from the bookings (never invented, "—" without).
+ */
+function CrateCard({
+  cell,
+  scene,
+  chambers,
+  stackOf,
+  mineName,
+  onClose,
+}: {
+  cell: Cell;
+  scene: StoreScene;
+  chambers: ColdChamber[];
+  stackOf?: (c: ColdChamber, slot: string) => string | null;
+  mineName?: string;
+  onClose: () => void;
+}) {
+  const c = scene.chambers[cell.chamber];
+  const f = c?.floors[cell.floor];
+  const row = chambers.find((x) => x.id === f?.row.id);
+  const st: Storage = c?.storage ?? 'boxes';
+  const per = row?.unit_kg ?? c?.group?.unitKg ?? null;
+  const maxUnits = f?.k ?? 0;
+  const standing = Math.max(0, maxUnits - cell.free);
+  const kg = (units: number) => (per != null ? `${nice(units * per)} kg` : '—');
+  const allocation = row ? stackOf?.(row, cell.slot) ?? null : null;
+  const whose = allocation ?? (cell.look === 'mine' ? (mineName?.trim() ? `${mineName.trim()} (you)` : 'You') : null);
+  return (
+    <section aria-label={`${c?.name ?? 'Place'}: what is on place ${cell.slot}`} className="rounded-2xl bg-white/95 p-3 text-sm text-slate-800 shadow-xl ring-1 ring-slate-900/10 backdrop-blur">
+      <div className="flex items-start justify-between gap-2">
+        <h4 className="text-base font-bold text-slate-900">{placeLabel(cell.slot)} · {PLACE_LOOK[cell.look].label}</h4>
+        <button type="button" onClick={onClose} aria-label="Close" className="-m-1 grid h-11 w-11 cursor-pointer place-items-center rounded-xl text-slate-500 hover:bg-slate-100">
+          <X className="h-5 w-5" aria-hidden />
+        </button>
+      </div>
+      <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
+        <dt className="text-slate-500">Unit ID</dt>
+        <dd className="font-semibold">{`${c?.name ?? 'Chamber'}${row?.chamber_no != null ? ` (Chamber ${row.chamber_no})` : ''} · Floor ${f?.floor ?? cell.floor + 1} · ${cell.slot}`}</dd>
+        <dt className="text-slate-500">Chamber</dt>
+        <dd>{c?.name}{c?.toScale ? ` · ${sizeText(c, scene.unit)}` : ''}</dd>
+        <dt className="text-slate-500">Floor level</dt>
+        <dd>{f && c && c.floors.length > 1 ? `Floor ${f.floor} of ${c.floors.length}` : 'Ground level'}</dd>
+        <dt className="text-slate-500">Produce</dt>
+        <dd>Kashmiri apples — cold-stored</dd>
+        <dt className="text-slate-500">Holds</dt>
+        <dd className="font-semibold">{countText(maxUnits, st)}</dd>
+        <dt className="text-slate-500">Max weight</dt>
+        <dd>{kg(maxUnits)}</dd>
+        <dt className="text-slate-500">Occupied weight</dt>
+        <dd className={standing ? 'font-semibold text-emerald-800' : ''}>{standing.toLocaleString('en-IN')} {unitWord(st, standing)} · {kg(standing)}</dd>
+        <dt className="text-slate-500">Remaining weight</dt>
+        <dd>{cell.free.toLocaleString('en-IN')} {unitWord(st, cell.free)} · {kg(cell.free)}</dd>
+        <dt className="text-slate-500">Grower allocation</dt>
+        <dd>{whose ?? '—'}</dd>
+      </dl>
+    </section>
+  );
+}
+
+
 /** What is shown from outside: every place, only those with room, or only the person's own. */
 type Focus = 'all' | 'free' | 'mine';
 /** A place someone can still put bins on (or has just chosen). */
@@ -213,6 +281,7 @@ export function ColdStore3D({
   view = 'orbit',
   onView,
   mineName,
+  stackOf,
 }: {
   chambers: ColdChamber[];
   stateOf: (c: ColdChamber, slot: string) => Look;
@@ -231,6 +300,8 @@ export function ColdStore3D({
   onView?: (v: View3D) => void;
   /** The farmer's name, shown over their own places ('mine'). */
   mineName?: string;
+  /** Who holds one place (owner views): a sentence for the crate drawer read from the bookings, or null. */
+  stackOf?: (c: ColdChamber, slot: string) => string | null;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const tip = useRef<HTMLDivElement>(null);
@@ -243,6 +314,11 @@ export function ColdStore3D({
   const [where, setWhere] = useState<Where>({ text: 'You are outside the main door.', chamber: -1, level: 1, floors: 1 });
   const [target, setTarget] = useState<Target | null>(null);
   const [measure, setMeasure] = useState<Measure | null>(null);
+  // The digital-twin controls (in addition to the camera pills and the place filters).
+  const [xrayWalls, setXrayWalls] = useState(false);
+  const [myHighlight, setMyHighlight] = useState(false);
+  /** The crate stack the drawer is open for: one tap on a booked (or the farmer's own) stack. */
+  const [stackCell, setStackCell] = useState<Cell | null>(null);
   // On a phone the page is shrunk to fit: a taller view and bigger buttons.
   const zoom = usePageZoom();
   const textId = useId();
@@ -301,11 +377,14 @@ export function ColdStore3D({
     setGuideDone(done);
   }, []);
 
+  // Opening the crate drawer from inside the scene (a tap on a booked / own stack).
+  const onStack = useCallback((c: Cell) => setStackCell(c), []);
+
   // The latest data and callbacks, for the scene (which is set up once).
-  const latest = useRef({ scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName, route, onStep });
+  const latest = useRef({ scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName, route, onStep, onStack, chambers, stackOf });
   useEffect(() => {
-    latest.current = { scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName, route, onStep };
-  }, [scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName, route, onStep]);
+    latest.current = { scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName, route, onStep, onStack, chambers, stackOf };
+  }, [scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName, route, onStep, onStack, chambers, stackOf]);
   useEffect(() => api.current?.setRoute(route), [route]);
   // Each step said aloud as the walk reaches it, in the person's language.
   useEffect(() => {
@@ -338,6 +417,10 @@ export function ColdStore3D({
     input.current[k] = on;
     if (on) api.current?.kick();
   }, []);
+
+  // Floor slice and grower highlight, also without building the places again.
+  useEffect(() => api.current?.world({ floor: floorShown ?? 'all', mine: myHighlight }), [floorShown, myHighlight, shownCells]);
+  useEffect(() => api.current?.xray(xrayWalls), [xrayWalls]);
 
   useEffect(() => {
     const el = host.current;
@@ -400,7 +483,7 @@ export function ColdStore3D({
       const root = new T.Group();
       world3.add(root);
       let shell: Shell | null = null;
-      let places: Places | null = null;
+      let places: PlacesState | null = null;
       // The way to the farmer's place (arrows on the floor), and the guided walk along it:
       // `i` the next point, `said` the last step told.
       let routeNow: Route | null = null;
@@ -420,6 +503,8 @@ export function ColdStore3D({
       let running = false;
       let last = 0;
       let held = 0;
+      // X-ray walls: every wall of the store turns glass at once (the 3D toggle).
+      let xrayNow = false;
       const me: Walker & { heading: number; pitch: number } = { x: 0, y: 0, level: 1, inside: -1, heading: Math.PI / 2, pitch: -0.08 };
       let orbitPose: { pos: [number, number, number]; target: [number, number, number] } | null = null;
       let startAt: number | null = null;
@@ -745,6 +830,8 @@ export function ColdStore3D({
         if (e.pointerType !== 'mouse') hideTip = window.setTimeout(() => showTip(null, 0, 0), 2600);
         if (cell) {
           act(cell);
+          // A booked (or shared) stack opens its crate drawer as well as saying whose it is.
+          if (cell.look === 'booked' || cell.look === 'mine' || cell.look === 'part') latest.current.onStack?.(cell);
           return;
         }
         if (mode3 === 'orbit') {
@@ -888,11 +975,12 @@ export function ColdStore3D({
       };
       /**
        * One frame. From outside, the walls between the camera and the inside
-       * are see-through (a cutaway from any side); walking, every wall looks
-       * solid. Labels stay readable however far away they are.
+       * are see-through (a cutaway from any side) — or all of them are, when
+       * x-ray mode is on; walking, every wall looks solid (unless x-ray).
+       * Labels stay readable however far away they are.
        */
       const render = () => {
-        if (shell) faceWalls(kit, shell.walls, mode3 === 'walk' ? null : { x: camera.position.x, z: camera.position.z });
+        if (shell) faceWalls(kit, shell.walls, mode3 === 'walk' ? null : { x: camera.position.x, z: camera.position.z }, xrayNow);
         // Ceilings, roof and lights only when walking: from outside the roof is off so you can look in.
         if (shell) shell.walkOnly.visible = mode3 === 'walk';
         world3.fog = mode3 === 'walk' ? haze : null;
@@ -1144,7 +1232,7 @@ export function ColdStore3D({
         raf = requestAnimationFrame(loop);
       }
 
-      api.current = {
+        api.current = {
         setData,
         setActive,
         setView,
@@ -1171,6 +1259,19 @@ export function ColdStore3D({
         mark: () => {
           mark = { x: me.x, y: me.y, level: me.level, inside: me.inside };
           tellMeasure();
+        },
+        // The digital-twin controls, applied to the places already built: no rebuild, a shade of work.
+        world: (s) => {
+          if (!places) return;
+          places.applyWorld(s);
+          places.applyWorldApples(s);
+          dirty = true;
+          kick();
+        },
+        xray: (on) => {
+          xrayNow = on;
+          dirty = true;
+          kick();
         },
       };
       setData(latest.current.scene, latest.current.cells, latest.current.free, latest.current.mineName);
@@ -1330,8 +1431,11 @@ export function ColdStore3D({
             {walking ? `Go to ${c.name}` : c.name}
           </button>
         ))}
+        <span aria-label="What the store holds" className="ml-auto inline-flex min-h-[36px] items-center rounded-xl bg-white px-3 text-xs font-semibold uppercase tracking-wide text-slate-600 ring-1 ring-slate-200">
+          {kinds.size === 1 ? UNIT_MANY[[...kinds][0]] : 'Places'}
+        </span>
       </div>
-      {!walking && (mode !== 'owner' || floorsMost > 1) && (
+      {!walking && (
         <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Show">
           {mode !== 'owner' && (
             <>
@@ -1363,6 +1467,18 @@ export function ColdStore3D({
               ))}
             </span>
           )}
+          <button type="button" aria-pressed={xrayWalls} onClick={() => setXrayWalls((v) => !v)} className={chip(xrayWalls)}>
+            <ScanEye className="h-4 w-4" aria-hidden /> X-ray walls
+          </button>
+          <button
+            type="button"
+            aria-pressed={myHighlight}
+            onClick={() => setMyHighlight((v) => !v)}
+            className={chip(myHighlight)}
+            aria-description={mode === 'owner' ? 'Dims every stack that nobody has booked' : 'Dims every stack that is not yours'}
+          >
+            {mode === 'owner' ? 'Highlight booked' : 'Highlight mine'}
+          </button>
         </div>
       )}
       {!walking && showing && (
@@ -1398,6 +1514,16 @@ export function ColdStore3D({
         {!big && card}
       </div>
       {big && card}
+      {stackCell && (
+        <CrateCard
+          cell={stackCell}
+          scene={scene}
+          chambers={chambers}
+          stackOf={stackOf}
+          mineName={mineName}
+          onClose={() => setStackCell(null)}
+        />
+      )}
       {route && guideAt !== null && (
         <section aria-label="The way to your place" className="rounded-2xl bg-emerald-50 p-3 ring-1 ring-emerald-200">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1428,7 +1554,6 @@ export function ColdStore3D({
         </section>
       )}
       {note &&<p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-950 ring-1 ring-amber-300">{note}</p>}
-      {scene.beside && <p className="text-xs text-slate-600">Chambers set up before the building was measured stand beside it, outside its walls.</p>}
       <p className="text-xs text-slate-500">Sizes, chambers, doors and places are the owner’s. Cooling units hang on the wall the owner named (or the one facing the door); how many, and the lights and curtains, are drawn as in a typical cold store — the Photos tab shows this store as it really is, when the owner has added photos.</p>
       <p className="text-xs text-slate-600">
         {walking

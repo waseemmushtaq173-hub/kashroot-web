@@ -278,18 +278,18 @@ function wizardChamber(g: ChamberGroup, index: number, at: { x: number; y: numbe
   };
 }
 
-/** The footprint of an older chamber (its door in the front wall). */
-function olderSize(g: ChamberGroup): { w: number; d: number } {
+/** The footprint of an older chamber (its door in the front wall); `d` clamps inside a hall depth when given. */
+function olderSize(g: ChamberGroup, limitD = Infinity): { w: number; d: number } {
   const row = g.floors[0];
-  if (row.size) return { w: row.size.width, d: row.size.length };
-  return { w: row.cols * PITCH + 2 * PAD, d: row.rows * PITCH + 2 * PAD };
+  if (row.size) return { w: row.size.width, d: Math.min(row.size.length, limitD) };
+  return { w: row.cols * PITCH + 2 * PAD, d: Math.min(row.rows * PITCH + 2 * PAD, limitD) };
 }
 
 /** An older chamber (boxes): measured (door and windows as measured) or rows × stacks. */
-function olderChamber(g: ChamberGroup, index: number, at: Vec, beside: boolean): SceneChamber {
+function olderChamber(g: ChamberGroup, index: number, at: Vec, beside = false, sizeUnknown?: { w: number; d: number }): SceneChamber {
   const row = g.floors[0];
   const s = row.size;
-  const { w, d } = olderSize(g);
+  const { w, d } = sizeUnknown ?? olderSize(g);
   const rect: Rect = { x: at.x, y: at.y, w, d };
   const places: ScenePlace[] = [];
   let floor: SceneFloor;
@@ -379,11 +379,20 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
     const pre = rows as PreviewRows;
     for (const p of pre.spots ? (pre.problems ?? []) : lay.problems.map((x) => x.message)) if (!problems.includes(p)) problems.push(p);
     for (const g of wizard) chambers.push(wizardChamber(g, chambers.length, pre.spots?.[g.floors[0].id] ?? lay.spots[g.key]));
-    // Older chambers: in a line beside the building, to its right.
-    let x = b.length + 4;
+    // Older chambers: never outside the walls. The building stretches to
+    // wrap them, east of the measured chambers, passage still in front —
+    // Chamber 1 every chamber sits inside the insulated perimeter.
+    let x = b.length + 2;
+    const olderPlaced: { g: ChamberGroup; at: Vec; size: { w: number; d: number } }[] = [];
     for (const g of older) {
-      chambers.push(olderChamber(g, chambers.length, { x, y: 0 }, true));
-      x += olderSize(g).w + GAP;
+      const s = olderSize(g, Math.max(2, b.width - 2 * PAD));
+      olderPlaced.push({ g, at: { x, y: (b.width - s.d) / 2 }, size: s });
+      x += s.w + GAP;
+    }
+    for (const p of olderPlaced) chambers.push(olderChamber(p.g, chambers.length, p.at, false, p.size));
+    // The east wall moves out so every chamber is inside the building.
+    if (olderPlaced.length > 0) {
+      hall = { x: 0, y: 0, w: b.length + 2 + olderPlaced.reduce((n, p) => n + p.size.w + GAP, 0), d: b.width };
     }
   } else {
     // No building: side by side along a corridor (in front of them), fronts in a line.
@@ -427,7 +436,7 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
     height = Math.max(height, c.h);
     floors = Math.max(floors, c.floors.length);
   }
-  return { building: b, hall, bounds: { x: x0, y: y0, w: x1 - x0, d: y1 - y0 }, height: Math.max(height, 1), mainDoor, walls, passage, chambers, problems, beside: Boolean(b) && older.length > 0, floors, unit };
+  return { building: b, hall, bounds: { x: x0, y: y0, w: x1 - x0, d: y1 - y0 }, height: Math.max(height, 1), mainDoor, walls, passage, chambers, problems, beside: false, floors, unit };
 }
 
 const ORD = ['1st', '2nd', '3rd'];

@@ -297,6 +297,7 @@ export function ColdStoreExplorer({
   building: buildingProp,
   rate: rateProp,
   mineName,
+  stackOf,
 }: {
   chambers: ColdChamber[];
   stateOf: (c: ColdChamber, slot: string) => Look;
@@ -316,6 +317,8 @@ export function ColdStoreExplorer({
   rate?: number | null;
   /** The farmer's name, shown over their own places in the 3D views. */
   mineName?: string;
+  /** Who holds one place (owner flow): a drawer sentence from the bookings, or null when nothing says. */
+  stackOf?: (c: ColdChamber, slot: string) => string | null;
 }) {
   const [view, setView] = useState<ExplorerView>('drawing');
   // While the drawing is looked at, the 3D code (and three.js) loads in the background, so the
@@ -448,6 +451,7 @@ export function ColdStoreExplorer({
               building={building}
               rate={rate}
               mineName={mineName}
+              stackOf={stackOf}
               view={view === 'walk' ? 'walk' : 'orbit'}
               onView={(v) => setView(v === 'walk' ? 'walk' : '3d')}
             />

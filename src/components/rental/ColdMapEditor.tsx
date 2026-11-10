@@ -105,6 +105,18 @@ export function ColdMapEditor({
     if (!on?.length) return undefined;
     return `${initials(on[0].booking.renter_name)}${on.length > 1 ? `+${on.length - 1}` : ''}`;
   };
+  // Who holds one place for the crate drawer: names and their boxes there, from the
+  // bookings alone (nothing invented when the records do not say).
+  const stackOf = useCallback(
+    (c: ColdChamber, slot: string) => {
+      const on = holder.get(placeKey(c.id, slot));
+      if (!on?.length) return null;
+      const [first] = on;
+      const boxes = first.boxes != null && first.boxes > 0 ? `${first.boxes.toLocaleString('en-IN')} ${unitWord(c.storage, first.boxes)}` : null;
+      return `${first.booking.renter_name}${boxes ? ` — ${boxes}` : ''}${on.length > 1 ? ` (+${on.length - 1} more)` : ''}`;
+    },
+    [holder],
+  );
 
   const who = picked ? holder.get(picked) ?? [] : [];
   const unit = chambers.find((c) => picked?.startsWith(`${c.id}:`))?.storage ?? 'boxes';
@@ -136,6 +148,7 @@ export function ColdMapEditor({
               mode="owner"
               onPlace={onStore}
               labelOf={initialsOf}
+              stackOf={stackOf}
               active={viewing}
               onActive={setViewing}
               legend={['free', 'part', 'held', 'booked', 'blocked']}

@@ -183,7 +183,7 @@ export const StoreTopView = memo(function StoreTopView({
         <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="group" aria-label={summary} className="block h-auto w-full select-none">
           {b ? (
             <>
-              <rect x={X(0)} y={Y(b.width)} width={b.length * k} height={b.width * k} fill="#e2e8f0" stroke="#334155" strokeWidth={5} />
+              <rect x={X(scene.hall.x)} y={Y(scene.hall.y + scene.hall.d)} width={scene.hall.w * k} height={scene.hall.d * k} fill="#e2e8f0" stroke="#334155" strokeWidth={5} />
               {(() => {
                 const y = lengthOn === 'back' ? Y(b.width) - font - 2 : Y(0) + font + 6;
                 return <DimLine dim="length" x1={X(0)} y1={y} x2={X(b.length)} y2={y} text={`Length ${showLength(b.length, u)}`} font={font} />;
@@ -244,7 +244,6 @@ export const StoreTopView = memo(function StoreTopView({
         <span className="inline-flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm bg-amber-100 ring-1 ring-amber-300" aria-hidden /> Passage and walkways</span>
         {b && md && <span>Main door {showLength(md.from, u)} from the left corner of the {md.wall} wall (standing outside, facing it).</span>}
         {scene.floors > 1 && <span>Showing floor {floor}. Upper floors are steel decks inside the same chamber.</span>}
-        {scene.beside && <span>Chambers set up before the building was measured stand beside it here.</span>}
       </figcaption>
     </figure>
   );

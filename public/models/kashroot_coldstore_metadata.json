@@ -1,7 +1,7 @@
 {
  "$schema": "kashroot_coldstore_twin.metadata/1.0",
  "facility_name": "KashRoot Reference Cold Store - Sopore Apple CA Store",
- "generated_at": "2026-11-09T17:13:03Z",
+ "generated_at": "2026-11-09T18:32:05Z",
  "generator": "kashroot-coldstore-twin (headless glb_exporter, pure Python; glTF 2.0 + EXT_mesh_gpu_instancing)",
  "units": {
   "length": "metre",
@@ -10,8 +10,8 @@
   "humidity": "percent"
  },
  "glb": {
-  "filename": "kashroot_coldstore_twin.glb",
-  "path": "C:\\Users\\wasee\\OneDrive\\Desktop\\Project Alpha\\kashroot-web\\public\\models\\kashroot_coldstore_twin.glb",
+  "filename": "kashroot_facility_twin.glb",
+  "path": "C:\\Users\\wasee\\OneDrive\\Desktop\\Project Alpha\\kashroot-web\\public\\models\\kashroot_facility_twin.glb",
   "bytes": 417432,
   "sha256": "2f8ac6fe8558de2f609eeaa863fd8f9f397b241875a09314d45ee4448f4a192b",
   "nodes": 497,
@@ -1024,5 +1024,21 @@
   "actual_usable_capacity_kg": "min(geometric total, chamber max_load_capacity_kg, deck-load-limited total)",
   "occupied_capacity_kg": "sum over booked crates of kg recorded against them (rated crate capacity when the engine fills an empty station)",
   "guarantee": "every figure derives from the facility spec; the engine invents nothing"
+ },
+ "rack_stack": {
+  "filename": "kashroot_rack_stack.glb",
+  "bytes": 137568,
+  "sha256": "e0b3a395bf7b5d5318121f4a34ad7795c57e29ec7a99a16906aee1e2306f726b",
+  "nodes": 3,
+  "meshes": 3,
+  "instanced_nodes": 2,
+  "crates_per_bay": 48,
+  "levels": 12
+ },
+ "bridge": {
+  "blender": false,
+  "blend_scene_built": false,
+  "python": "3.15.2",
+  "owner_payload": null
  }
 }

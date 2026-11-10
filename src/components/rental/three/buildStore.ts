@@ -173,6 +173,57 @@ export function makeKit(T: Three, phone: boolean): Kit {
   };
 }
 
+/**
+ * Re-slice one instanced mesh in place: the kept instances are copied to the
+ * front (three.js draws only the first `count` of them), their matrices and
+ * colours put back from the ones it was built with — or tinted darker when
+ * `tint` says so. Done per change of the floor filter or the grower
+ * highlight, never per frame, and with no allocations.
+ */
+function sliceMesh<T>(o: {
+  mesh: IMesh;
+  /** One entry per instance, in instance order (carries its cell). */
+  rows: T[];
+  cellsOf: (r: T) => Cell | null;
+  /** The stored floor number of a cell (-99 when a place has none). */
+  label: (c: Cell | null) => number;
+  floor: number | 'all';
+  baseM: Float32Array;
+  baseC: Float32Array | null;
+  /** 0–1: how much darker this instance is drawn against its built colour (null: as was). */
+  tint: (r: T) => number | null;
+  col: import('three').Color;
+}): void {
+  const keep: number[] = [];
+  for (let i = 0; i < o.rows.length; i++) {
+    const c = o.cellsOf(o.rows[i]);
+    if (o.floor === 'all' || o.label(c) === o.floor) keep.push(i);
+  }
+  const m = o.mesh.instanceMatrix.array as Float32Array;
+  for (let k = 0; k < keep.length; k++) {
+    const i = keep[k];
+    m.set(o.baseM.subarray(i * 16, i * 16 + 16), k * 16);
+  }
+  o.mesh.count = keep.length;
+  o.mesh.instanceMatrix.needsUpdate = true;
+  if (o.baseC && o.mesh.instanceColor) {
+    const cc = o.mesh.instanceColor.array as Float32Array;
+    for (let k = 0; k < keep.length; k++) {
+      const i = keep[k];
+      cc.set(o.baseC.subarray(i * 3, i * 3 + 3), k * 3);
+      const t = o.tint(o.rows[i]);
+      if (t !== null) {
+        o.col.setRGB(cc[k * 3], cc[k * 3 + 1], cc[k * 3 + 2]).multiplyScalar(t);
+        cc[k * 3] = o.col.r;
+        cc[k * 3 + 1] = o.col.g;
+        cc[k * 3 + 2] = o.col.b;
+      }
+    }
+    o.mesh.instanceColor.needsUpdate = true;
+  }
+  o.mesh.computeBoundingSphere();
+}
+
 /** Free everything a group made for itself (not the kit's shared parts). */
 export function disposeGroup(T: Three, kit: Kit, g: Obj) {
   const shared = new Set<unknown>([...Object.values(kit.mats), kit.edge, kit.edgeOn, kit.unitBox]);
@@ -245,13 +296,14 @@ export interface Shell {
   walkOnly: Obj;
 }
 
-/** Make the walls between the camera and the inside see-through (orbit), or every wall solid (walk). */
-export function faceWalls(kit: Kit, walls: Mesh[], eye: { x: number; z: number } | null) {
+/** Make the walls between the camera and the inside see-through (orbit), or every wall solid (walk). In x-ray mode every wall turns glass at once, whatever the eye does. */
+export function faceWalls(kit: Kit, walls: Mesh[], eye: { x: number; z: number } | null, xray = false) {
   for (const m of walls) {
     const out = m.userData.out as { x: number; z: number } | undefined;
     const hall = m.userData.of === 'hall';
     let near = false;
-    if (eye && out) {
+    if (xray) near = true;
+    else if (eye && out) {
       const c = m.userData.mid as { x: number; z: number };
       near = (eye.x - c.x) * out.x + (eye.z - c.z) * out.z > 0;
     }
@@ -513,14 +565,46 @@ export interface Places {
   labels: InstanceType<Three['Sprite']>[];
 }
 
+/** What the floor filter and the grower highlight ask the places to show (ColdStore3D's toggles). */
+export interface WorldState {
+  /** `all`: every floor stacked as it stands; a number: only that floor of every chamber (1 = lowest). */
+  floor: number | 'all';
+  /** Grower highlight: every stack but the person's own (or, for the owner, the booked ones) dims. */
+  mine: boolean;
+}
+
+/** One instanced group of places that the floor filter may re-slice at any time. */
+interface Slice {
+  mesh: IMesh;
+  /** The cell behind each instance, in instance order. */
+  cells: Cell[];
+  /** When true the meshes carry per-instance colours (restore + dim them on a re-slice). */
+  colors: boolean;
+  /** `stack`: a stack of bins/crates; `ghost`: an outline of a stack being chosen; tile / open: the floor marks. */
+  kind: 'stack' | 'ghost' | 'tile' | 'open';
+  /** The instance data as it was built (matrices, then colours): everything is put back from these. */
+  base: { m: Float32Array; c: Float32Array | null };
+}
+
+/** The whole set of places plus the handles that drive their floor slice, racks and apples (ColdStore3D). */
+export interface PlacesState extends Places {
+  /** Apply the floor filter and the grower highlight (cheap: only counts, matrices and colours are touched). */
+  applyWorld: (s: WorldState) => void;
+  /** Apples lying on the booked places, instanced (the floor filter hides them together with their stacks). */
+  applyWorldApples: (s: WorldState) => void;
+}
+
+const APPLE_COUNT = 3; // a crown of apples across the top crate: two corners and the middle
+
 /**
  * The places for the months looked at. `cells[i]` belongs to
  * `scene.chambers[cell.chamber].floors[cell.floor].places[cell.place]`.
  */
-export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origin, freeOf: (chamber: number) => number, mineName?: string): Places {
+export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origin, freeOf: (chamber: number) => number, mineName?: string): PlacesState {
   const { T, mats } = kit;
   const group = new T.Group();
   const picks: Places['picks'] = [];
+  const slices: Slice[] = [];
   const m4 = new T.Matrix4();
   const col = new T.Color();
   const white = new T.Color('#ffffff');
@@ -584,6 +668,7 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
     fill(mesh, s.items, 0.94);
     group.add(mesh);
     picks.push({ mesh, cells: s.items.map((x) => x.cell) });
+    slices.push({ mesh, cells: s.items.map((x) => x.cell), colors: true, kind: 'stack', base: { m: mesh.instanceMatrix.array.slice() as Float32Array, c: null } });
   }
   for (const [key, items] of ghosts) {
     const units = key.split(':')[1];
@@ -592,6 +677,7 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
     mesh.renderOrder = 3;
     group.add(mesh);
     picks.push({ mesh, cells: items.map((x) => x.cell) });
+    slices.push({ mesh, cells: items.map((x) => x.cell), colors: true, kind: 'ghost', base: { m: mesh.instanceMatrix.array.slice() as Float32Array, c: null } });
   }
   if (tiles.length) {
     const mesh = new T.InstancedMesh(kit.unitBox, mats.tile, tiles.length);
@@ -608,6 +694,7 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
     mesh.computeBoundingSphere();
     group.add(mesh);
     picks.push({ mesh, cells: tiles });
+    slices.push({ mesh, cells: tiles, colors: true, kind: 'tile', base: { m: mesh.instanceMatrix.array.slice() as Float32Array, c: null } });
   }
   // A free place is only a painted bay, but it can be pointed at anywhere in the space its stack would take
   // (walking, the ring need not be aimed at the floor): an unseen box over each bay, for choosing only.
@@ -625,6 +712,107 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
     mesh.visible = false;
     group.add(mesh);
     picks.push({ mesh, cells: open });
+    slices.push({ mesh, cells: open, colors: false, kind: 'open', base: { m: mesh.instanceMatrix.array.slice() as Float32Array, c: null } });
+  }
+
+  // Steel racking under the places: a post at each corner and a rail along the front
+  // and back edge of every level, instanced (two draws for the whole store). The floor
+  // filter slices them level for level, like the stacks they hold.
+  const posts: { c: Cell; r: Rect; z0: number; h: number; corners: [number, number][] }[] = [];
+  const rails: { c: Cell; r: Rect; y: number }[] = [];
+  for (const cell of tiles.filter((c) => c.look !== 'blocked')) {
+    const r = place(cell);
+    const f = scene.chambers[cell.chamber].floors[cell.floor];
+    posts.push({ c: cell, r, z0: f.z0, h: f.stackH, corners: [[0.06, 0.06], [0.06, -0.06], [-0.06, 0.06], [-0.06, -0.06]] });
+    for (let k = 0; k <= f.layers; k++) {
+      rails.push({ c: cell, r, y: f.z0 + k * (f.stackH / Math.max(1, f.layers)) });
+    }
+  }
+  let rackMeshes: { posts: IMesh; rails: IMesh } | null = null;
+  let postRows: Cell[] = [];
+  let railRows: Cell[] = [];
+  let postBase: Float32Array = new Float32Array(0);
+  let railBase: Float32Array = new Float32Array(0);
+  if (posts.length) {
+    const pm = new T.InstancedMesh(kit.unitBox, mats.beam, posts.length * 4);
+    posts.forEach((p, i) => {
+      p.corners.forEach(([dx, dz], k) => {
+        m4.makeScale(0.07, p.h, 0.07).setPosition(wx(o, p.r.x + p.r.w / 2 + dx * p.r.w * 0.94), p.z0, wz(o, p.r.y + p.r.d / 2 + dz * p.r.d * 0.94));
+        pm.setMatrixAt(i * 4 + k, m4);
+      });
+    });
+    pm.instanceMatrix.needsUpdate = true;
+    pm.computeBoundingSphere();
+    pm.frustumCulled = false;
+    group.add(pm);
+    const rm = new T.InstancedMesh(kit.unitBox, mats.beam, rails.length * 2);
+    rails.forEach((p, i) => {
+      const uw = 0.055;
+      m4.makeScale(p.r.w - 0.1, uw, uw).setPosition(wx(o, p.r.x + p.r.w / 2), p.y, wz(o, p.r.y + p.r.d / 2 - p.r.d * 0.47));
+      rm.setMatrixAt(i * 2, m4);
+      m4.makeScale(p.r.w - 0.1, uw, uw).setPosition(wx(o, p.r.x + p.r.w / 2), p.y, wz(o, p.r.y + p.r.d / 2 + p.r.d * 0.47));
+      rm.setMatrixAt(i * 2 + 1, m4);
+    });
+    rm.instanceMatrix.needsUpdate = true;
+    rm.computeBoundingSphere();
+    rm.frustumCulled = false;
+    group.add(rm);
+    rackMeshes = { posts: pm, rails: rm };
+    postRows = posts.flatMap((p) => [p.c, p.c, p.c, p.c]);
+    railRows = rails.flatMap((p) => [p.c, p.c]);
+    postBase = pm.instanceMatrix.array.slice() as Float32Array;
+    railBase = rm.instanceMatrix.array.slice() as Float32Array;
+  }
+
+  // Apples on the places holding produce: a crown of red fruit across the top crate,
+  // so a grower sees apples, not only crates. One instanced draw for the whole store.
+  type AppleIt = { cell: Cell; x: number; y: number; z: number; mine: boolean };
+  const appleIt: AppleIt[] = [];
+  for (const s of stacks.values()) {
+    for (const it of s.items) {
+      if (it.cell.look !== 'booked' && it.cell.look !== 'mine') continue;
+      const r = place(it.cell);
+      const top = it.y + it.h;
+      appleIt.push(
+        { cell: it.cell, x: r.x + r.w * 0.3, y: top, z: r.y + r.d * 0.5, mine: it.cell.look === 'mine' },
+        { cell: it.cell, x: r.x + r.w * 0.5, y: top, z: r.y + r.d * 0.72, mine: it.cell.look === 'mine' },
+        { cell: it.cell, x: r.x + r.w * 0.7, y: top, z: r.y + r.d * 0.5, mine: it.cell.look === 'mine' },
+      );
+    }
+  }
+  let apples: { mesh: IMesh; items: AppleIt[] } | null = null;
+  let applyWorldApples: (s: WorldState) => void = () => {};
+  if (appleIt.length) {
+    const radius = Math.min(0.11, Math.max(0.035, place(appleIt[0].cell).w * 0.14));
+    const geo = new T.SphereGeometry(radius, 9, 6);
+    const mat = new T.MeshStandardMaterial({ color: '#d42a1e', roughness: 0.3, metalness: 0.02 });
+    const mesh = new T.InstancedMesh(geo, mat, appleIt.length);
+    appleIt.forEach((a, i) => {
+      m4.makeTranslation(wx(o, a.x), a.y + radius * 1.02, wz(o, a.z));
+      mesh.setMatrixAt(i, m4);
+      mesh.setColorAt(i, col.copy(white));
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    mesh.computeBoundingSphere();
+    mesh.frustumCulled = false;
+    group.add(mesh);
+    apples = { mesh, items: appleIt };
+    const appleBase = mesh.instanceMatrix.array.slice() as Float32Array;
+    const appleColors = (mesh.instanceColor?.array.slice() as Float32Array | undefined) ?? null;
+    applyWorldApples = (s: WorldState) => {
+      sliceMesh({
+        mesh,
+        rows: apples!.items.map((a) => ({ c: a.cell, mine: a.mine })),
+        cellsOf: (row) => row.c,
+        label: floorLabel,
+        floor: s.floor,
+        baseM: appleBase,
+        baseC: appleColors,
+        tint: (row) => (s.mine && !row.mine ? 0.38 : null),
+        col,
+      });
+    };
   }
 
   // A label over each chamber: its number, what it holds and what is free.
@@ -714,7 +902,55 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
   };
   glow('selected', '#10b981');
   glow('mine', '#8b5cf6');
-  return { group, picks, labels };
+
+  // Per-instance colours, as they were built (stacks, their outlines, the bays): the
+  // floor filter restores them, the grower highlight dims the stacks that are not yours.
+  for (const part of slices) {
+    if (part.colors && part.mesh.instanceColor) part.base.c = part.mesh.instanceColor.array.slice() as Float32Array;
+  }
+  const floorLabel = (c: Cell | null): number => (c && scene.chambers[c.chamber]?.floors[c.floor] ? scene.chambers[c.chamber].floors[c.floor].floor : -99);
+  const applyWorld = (s: WorldState) => {
+    for (const part of slices) {
+      sliceMesh({
+        mesh: part.mesh,
+        rows: part.cells,
+        cellsOf: (c) => c,
+        label: floorLabel,
+        floor: s.floor,
+        baseM: part.base.m,
+        baseC: part.base.c,
+        tint: part.kind === 'stack' ? (c) => (s.mine && c.look !== 'mine' ? 0.38 : null) : () => null,
+        col,
+      });
+    }
+    if (rackMeshes) {
+      const pm = rackMeshes.posts;
+      sliceMesh({
+        mesh: pm,
+        rows: postRows,
+        cellsOf: (c) => c,
+        label: floorLabel,
+        floor: s.floor,
+        baseM: postBase,
+        baseC: null,
+        tint: () => null,
+        col,
+      });
+      sliceMesh({
+        mesh: rackMeshes.rails,
+        rows: railRows,
+        cellsOf: (c) => c,
+        label: floorLabel,
+        floor: s.floor,
+        baseM: railBase,
+        baseC: null,
+        tint: () => null,
+        col,
+      });
+    }
+  };
+
+  return { group, picks, labels, applyWorld, applyWorldApples };
 }
 
 /**
