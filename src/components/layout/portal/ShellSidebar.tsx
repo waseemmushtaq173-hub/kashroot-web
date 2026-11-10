@@ -51,6 +51,8 @@ export interface SidebarProps {
   onNavigate?: () => void;
   /** Bigger rows, for the drawer. */
   large?: boolean;
+  /** Only the KashRoot Super Admin gets "My business"; everyone else stays on My details / Home. */
+  isSuperAdmin?: boolean;
 }
 
 function MenuLink({ href, icon: Icon, children, onNavigate, outline, size, current = false }: { href: string; icon: ElementType; children: ReactNode; onNavigate?: () => void; outline: string; size: string; current?: boolean }) {
@@ -63,7 +65,7 @@ function MenuLink({ href, icon: Icon, children, onNavigate, outline, size, curre
 }
 
 export function SidebarContent(props: SidebarProps) {
-  const { theme, look, portalLabel, title, tabs, activeTab, onSelect, idPrefix, panelId, navItems, dashboard, onDetails, onSignOut, onNavigate, pending = 0, large = false } = props;
+  const { theme, look, portalLabel, title, tabs, activeTab, onSelect, idPrefix, panelId, navItems, dashboard, onDetails, onSignOut, onNavigate, pending = 0, large = false, isSuperAdmin = false } = props;
   const hold = (n: number) => (pending > 0 && !onSignOut ? Array.from({ length: n }, (_, i) => <li key={`hold-${i}`} aria-hidden className={size} />) : null);
   const size = large ? SIZE.large : SIZE.normal;
   const hasMenu = tabs.length > 0 || navItems.length > 0 || Boolean(dashboard);
@@ -128,7 +130,7 @@ export function SidebarContent(props: SidebarProps) {
               </MenuLink>
             </li>
           )}
-          {onSignOut && (
+          {onSignOut && isSuperAdmin && (
             <li>
               {/* Cold stores, dealers and shops run by more than one person: owner, managers, staff. */}
               <MenuLink href="/account/business" icon={Building2} onNavigate={onNavigate} outline={theme.outline} size={size}>

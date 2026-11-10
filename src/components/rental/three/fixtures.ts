@@ -142,7 +142,19 @@ export function buildFixtures(kit: Kit, scene: StoreScene, o: Origin): Fixtures 
       const off = ud / 2 + 0.1;
       const px = alongX ? a : far - to.x * off;
       const py = alongX ? far - to.y * off : a;
-      box(alongX ? uw : ud, uh, alongX ? ud : uw, X(px), cy, Z(py), mats.cooler);
+      // The Blender kit's own evaporator when it is in: casing, triple fan
+      // shrouds, grille — one shared proto, turned so its fans blow into the
+      // room (shrouds point local −Z, so the turn is atan2(−nx, −nz)).
+      const evapProto = kit.protos?.evap;
+      if (evapProto) {
+        const m = new T.Mesh(evapProto, [mats.cooler, mats.fan, mats.guard]);
+        m.scale.set(uw, uh, ud);
+        m.rotation.y = Math.atan2(-nx, -nz);
+        m.position.set(X(px), cy - uh / 2, Z(py));
+        group.add(m);
+      } else {
+        box(alongX ? uw : ud, uh, alongX ? ud : uw, X(px), cy, Z(py), mats.cooler);
+      }
       // The drip tray under it.
       box(alongX ? uw + 0.1 : ud + 0.1, 0.05, alongX ? ud + 0.1 : uw + 0.1, X(px), cy - uh / 2 - 0.03, Z(py), mats.guard);
       for (let k = 0; k < fansEach; k++) {

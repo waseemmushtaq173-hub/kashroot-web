@@ -394,6 +394,21 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
     if (olderPlaced.length > 0) {
       hall = { x: 0, y: 0, w: b.length + 2 + olderPlaced.reduce((n, p) => n + p.size.w + GAP, 0), d: b.width };
     }
+    // A chamber measured before the building was (or one bigger than its
+    // shell) still ends up inside the walls: the building grows around every
+    // chamber and the passage too. The front wall keeps its y = 0, so the
+    // main door and the walls derived below stay where the owner measured.
+    let east = hall.x + hall.w;
+    let back = hall.y + hall.d;
+    for (const c of chambers) {
+      east = Math.max(east, c.rect.x + c.rect.w);
+      back = Math.max(back, c.rect.y + c.rect.d);
+    }
+    if (passage) {
+      east = Math.max(east, passage.x + passage.w);
+      back = Math.max(back, passage.y + passage.d);
+    }
+    hall = { x: hall.x, y: hall.y, w: Math.max(hall.w, east - hall.x), d: Math.max(hall.d, back - hall.y) };
   } else {
     // No building: side by side along a corridor (in front of them), fronts in a line.
     let x = 0;

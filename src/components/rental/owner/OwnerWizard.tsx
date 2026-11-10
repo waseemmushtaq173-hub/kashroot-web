@@ -24,7 +24,7 @@ import { ChambersStep } from '@/components/rental/owner/ChambersStep';
 import { PayoutFields, payoutDraftOf, savePayoutDraft } from '@/components/rental/owner/PaymentStep';
 import { ReviewStep } from '@/components/rental/owner/ReviewStep';
 import { BuildingStep, StoreStep, type Kit } from '@/components/rental/owner/StoreSteps';
-import { blankStore, draftFromSaved, payoutIssues, setField, storeModel, withAllBoxes, type Issue, type PayoutDraft, type StoreDraft } from '@/lib/coldStore';
+import { blankStore, draftFromSaved, payoutIssues, setField, storeModel, twinPayload, withAllBoxes, type Issue, type PayoutDraft, type StoreDraft } from '@/lib/coldStore';
 import type { Account } from '@/lib/db/client';
 import { deleteChamber, saveColdStore, type ColdChamber } from '@/lib/db/coldMap';
 import { publishStore, saveStore, type PayoutAccount, type RentalListing } from '@/lib/db/rentals';
@@ -207,6 +207,16 @@ export function OwnerWizard({
         await saveColdStore(listingId, model.rows);
         setDone((d) => ({ ...d, chambers: model.rows.length > 0 || older.length > 0 }));
         toast.success(`Chambers saved — ${model.rows.length} floor${model.rows.length === 1 ? '' : 's'} in all`);
+        // The Blender twin regenerates from the very rows that were saved, on
+        // the store machine where Blender lives. Never held against the save.
+        const twin = twinPayload(model, draft);
+        if (twin) {
+          void fetch('/api/cold-storage/blender-generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(twin),
+          }).catch(() => {});
+        }
       } else if (step === 4) {
         onPayout(await savePayoutDraft(payDraft));
         toast.success('Payment details saved');

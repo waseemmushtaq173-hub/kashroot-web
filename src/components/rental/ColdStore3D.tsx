@@ -28,6 +28,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { DoorOpen, Footprints, Layers, Maximize2, ScanEye, Volume2, X } from 'lucide-react';
 
 import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
+import { loadColdKitGeo } from '@/components/rental/three/coldKit';
 import { buildPlaces, buildRoute, buildShell, disposeGroup, faceWalls, makeKit, sizeLabels, wx, wz, type Cell, type Origin, type Places, type PlacesState, type Shell } from '@/components/rental/three/buildStore';
 import { routeTo, type Route, type RouteLang } from '@/components/rental/walk/route';
 import { speak, stopSpeaking } from '@/lib/client/speech';
@@ -477,7 +478,10 @@ export function ColdStore3D({
       fill.position.set(50, 30, -40);
       world3.add(fill);
 
-      const kit = makeKit(T, phone);
+      // The Blender kit: six real-world protos, loaded while the scene builds.
+      // Anything short of a load leaves the hand-drawn kit below as it always was.
+      const protos = await loadColdKitGeo(T);
+      const kit = makeKit(T, phone, protos);
       // Walking: a light haze gives the long rooms their depth.
       const haze = new T.Fog('#e6edf3', 14, 70);
       const root = new T.Group();

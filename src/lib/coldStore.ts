@@ -415,6 +415,90 @@ export interface StoreModel {
   totals: { bins: number; crates: number; tonnes: number; places: number };
 }
 
+/**
+ * The Blender twin's own payload, in the bridge's words (scripts/
+ * blender_kashroot_bridge materialize): the building in metres, every saved
+ * (ready) chamber, and the racks one entry per chamber. Nothing here is a
+ * number that was not typed on this wizard first: sizes and counts come
+ * from the very model that is drawn and saved, and anything the owner left
+ * blank is left out so the twin engine keeps its own reference default.
+ * `null` when no chamber is ready yet — there is nothing to generate.
+ */
+export function twinPayload(model: StoreModel, draft: StoreDraft): Record<string, unknown> | null {
+  const u = draft.unit;
+  const toM = (s: string): number | null => {
+    const n = readNumber(s);
+    return n === null ? null : metres(n, u);
+  };
+  const byKey = new Map(draft.chambers.map((c) => [c.key, c]));
+  const chambers: Record<string, unknown>[] = [];
+  const racks: Record<string, unknown>[] = [];
+  for (const m of model.chambers) {
+    if (!m.ready || !m.outline) continue;
+    const dc = byKey.get(m.key);
+    const no = m.no > 0 ? m.no : chambers.length + 1;
+    const cid = `CH${String(no).padStart(2, '0')}`;
+    const ch: Record<string, unknown> = {
+      chamberId: cid,
+      label: m.name || `Chamber ${no}`,
+      length: m.outline.length,
+      width: m.outline.width,
+      height: m.outline.height,
+      floors: m.floors.length || 1,
+    };
+    if (m.outline.door) {
+      ch.doorWidth = m.outline.door.width;
+      ch.doorHeight = m.outline.door.height;
+    }
+    if (m.count > 0 && m.kg > 0) ch.maxLoadKg = m.count * m.kg;
+    if (dc) {
+      const c1 = readNumber(dc.temperature);
+      if (c1 !== null) ch.temperature = c1;
+      const h1 = readNumber(dc.humidity);
+      if (h1 !== null) ch.humidity = h1;
+      if (dc.ca === 'yes' || dc.ca === 'no') ch.controlAtmosphere = dc.ca === 'yes';
+      const aisle = dc.aisle ? toM(dc.aisle) : null;
+      if (aisle !== null) ch.aisleWidth = aisle;
+    }
+    chambers.push(ch);
+
+    // One rack unit per chamber: the owner's own bin/crate, its stack and gap.
+    const floor0 = m.floors[0];
+    const rack: Record<string, unknown> = {
+      chamberId: cid,
+      unitType: m.storage === 'bins' ? 'BIN' : 'CRATE',
+    };
+    if (m.kg > 0) rack.unitCapacityKg = m.kg;
+    if (floor0) {
+      if (floor0.row.cols > 0) rack.cratesPerRow = Math.round(floor0.row.cols);
+      if (floor0.row.rows > 0) rack.rowsPerLevel = Math.round(floor0.row.rows);
+    }
+    if (dc) {
+      const ul = dc.unitL ? toM(dc.unitL) : null;
+      const uw = dc.unitW ? toM(dc.unitW) : null;
+      const uh = dc.unitH ? toM(dc.unitH) : null;
+      if (ul !== null) rack.unitLength = ul;
+      if (uw !== null) rack.unitWidth = uw;
+      if (uh !== null) rack.unitHeight = uh;
+      const levels = dc.stackHigh ? readNumber(dc.stackHigh) : floor0?.stack ?? null;
+      if (levels !== null) rack.verticalStackLevels = Math.max(1, Math.round(levels));
+      const gap = dc.stackGap ? toM(dc.stackGap) : null;
+      if (gap !== null) rack.rackClearance = gap;
+    }
+    racks.push(rack);
+  }
+  // The twin draws the whole facility: without the measured building there is nothing to generate.
+  if (chambers.length === 0 || !model.building) return null;
+  const payload: Record<string, unknown> = {
+    building: { length: model.building.length, width: model.building.width, height: model.building.height },
+    chambers,
+    racks,
+  };
+  const title = draft.title.trim();
+  if (title) payload.facilityName = title;
+  return payload;
+}
+
 /** Typical and allowed sizes, in metres: [allowed low, typical low, typical high, allowed high]. */
 const RANGE = {
   buildingSide: [3, 15, 120, 600],

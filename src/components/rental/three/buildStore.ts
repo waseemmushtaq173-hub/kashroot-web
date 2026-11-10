@@ -19,6 +19,7 @@ import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
 import { binTexture, cartonTexture, concreteTexture, crateTexture, fanTexture, ghostTexture, gratingTexture, labelCanvas, panelTexture, plateTexture } from '@/components/rental/three/textures';
 import type { Route } from '@/components/rental/walk/route';
 import { buildFixtures } from '@/components/rental/three/fixtures';
+import type { ColdKitGeos } from '@/components/rental/three/coldKit';
 import { type Kind, midOf, type Rect, rowPlates, type Seg, segLength, type StoreScene } from '@/components/rental/three/storeScene';
 import { countText } from '@/lib/coldStore';
 
@@ -52,11 +53,17 @@ export interface Origin {
 export const wx = (o: Origin, x: number) => x - o.ox;
 export const wz = (o: Origin, y: number) => o.oy - y;
 
+/** What a stack of places is drawn as: bins, crates, or paper cartons. */
+export type StackKind = 'bin' | 'crate' | 'carton';
+
 /** Materials, textures and shapes shared by everything drawn (made once per 3D view). */
 export interface Kit {
   T: Three;
   unitBox: Geo;
-  stackGeo: (units: number) => Geo;
+  /** One level of the drawn look per unit of height (`kind`: which proto the Blender kit lends its slats). */
+  stackGeo: (units: number, kind?: StackKind) => Geo;
+  /** The Blender kit's squeezed protos (null when the kit GLB did not load this session). */
+  protos: ColdKitGeos | null;
   /** `wall` / `chamberWall` solid, `wallNear` / `chamberNear` see-through (the walls between the camera and the inside). */
   mats: Record<
     | 'bin' | 'crate' | 'carton' | 'ghostOn' | 'tile' | 'hall' | 'yard' | 'apron' | 'walk' | 'passage' | 'stripe' | 'chamberFloor' | 'wall' | 'wallNear' | 'chamberWall' | 'chamberNear' | 'door' | 'leaf' | 'deck' | 'beam' | 'glass' | 'hit' | 'shutter'
@@ -70,8 +77,8 @@ export interface Kit {
   dispose: () => void;
 }
 
-/** The side of every stack shows one bin per unit of height; the top shows the top (two halves of one picture). */
-function makeStackGeo(T: Three, units: number): Geo {
+/** The drawn look: the side of every stack shows one bin per unit of height; the top shows the top (two halves of one picture). */
+function drawnStackGeo(T: Three, units: number): Geo {
   const P: number[] = [];
   const N: number[] = [];
   const U: number[] = [];
@@ -99,17 +106,65 @@ function makeStackGeo(T: Three, units: number): Geo {
   return g;
 }
 
-export function makeKit(T: Three, phone: boolean): Kit {
+/**
+ * The Blender kit's real slatted shape, one proto per unit of height: the
+ * proto (squeezed into the unit cube) copies into each level slab of
+ * [0..1], stacked `units` high, with the drawn look's own UV rule so the
+ * texture, the per-instance colours and all the level slicing stay true.
+ * Sides sample u 0.01–0.49 with v = level + the proto height; the top strip
+ * stays u 0.51–0.99.
+ */
+function slattedStackGeo(T: Three, units: number, proto: Geo): Geo {
+  const pa = proto.getAttribute('position') as import('three').BufferAttribute;
+  const na = proto.getAttribute('normal') as import('three').BufferAttribute | undefined;
+  if (!pa) return drawnStackGeo(T, units);
+  const idx = proto.getIndex();
+  const faceIdx = idx ? Array.from(idx.array as ArrayLike<number>) : Array.from({ length: pa.count }, (_, i) => i);
+  const P: number[] = [];
+  const N: number[] = [];
+  const U: number[] = [];
+  const I: number[] = [];
+  const topStrip = (px: number, pz: number) => U.push(0.51 + 0.48 * px, 0.01 + 0.98 * pz);
+  for (let lv = 0; lv < units; lv++) {
+    const base = P.length / 3;
+    for (let i = 0; i < pa.count; i++) {
+      const px = pa.getX(i);
+      const py = pa.getY(i);
+      const pz = pa.getZ(i);
+      const nx = na ? na.getX(i) : 0;
+      const ny = na ? na.getY(i) : 0;
+      const nz = na ? na.getZ(i) : 0;
+      P.push(px, (py + lv) / units, pz);
+      N.push(nx, ny, nz);
+      if (Math.abs(ny) > 0.55) topStrip(px, pz);
+      else U.push(0.01 + 0.48 * (Math.abs(nx) > Math.abs(nz) ? pz : px), lv + py);
+    }
+    for (const j of faceIdx) I.push(j + base);
+  }
+  const g = new T.BufferGeometry();
+  g.setAttribute('position', new T.Float32BufferAttribute(P, 3));
+  g.setAttribute('normal', new T.Float32BufferAttribute(N, 3));
+  g.setAttribute('uv', new T.Float32BufferAttribute(U, 2));
+  g.setIndex(I);
+  if (!na) g.computeVertexNormals();
+  g.userData.stack = true;
+  return g;
+}
+
+export function makeKit(T: Three, phone: boolean, protos: ColdKitGeos | null = null): Kit {
   const tex = { bin: binTexture(T), crate: crateTexture(T), carton: cartonTexture(T), ghost: ghostTexture(T), concrete: concreteTexture(T), grating: gratingTexture(T), panel: panelTexture(T), fan: fanTexture(T) };
   if (phone) for (const t of Object.values(tex)) t.anisotropy = 1;
   const unitBox = new T.BoxGeometry(1, 1, 1);
   unitBox.translate(0, 0.5, 0);
-  const geos = new Map<number, Geo>();
-  const stackGeo = (units: number) => {
-    let g = geos.get(units);
+  const geos = new Map<string, Geo>();
+  const forKind = (kind?: StackKind): Geo | null => (!protos || !kind || kind === 'carton' ? null : kind === 'bin' ? protos.bin : protos.crate);
+  const stackGeo = (units: number, kind?: StackKind) => {
+    const proto = forKind(kind);
+    const key = `${proto ? 'slat' : 'draw'}:${kind ?? ''}:${units}`;
+    let g = geos.get(key);
     if (!g) {
-      g = makeStackGeo(T, units);
-      geos.set(units, g);
+      g = proto ? slattedStackGeo(T, units, proto) : drawnStackGeo(T, units);
+      geos.set(key, g);
     }
     return g;
   };
@@ -158,6 +213,7 @@ export function makeKit(T: Three, phone: boolean): Kit {
     T,
     unitBox,
     stackGeo,
+    protos,
     mats,
     edge,
     edgeOn,
@@ -165,6 +221,7 @@ export function makeKit(T: Three, phone: boolean): Kit {
     dispose: () => {
       unitBox.dispose();
       for (const g of geos.values()) g.dispose();
+      if (protos) for (const g of Object.values(protos)) g.dispose();
       for (const m of Object.values(mats)) m.dispose();
       edge.dispose();
       edgeOn.dispose();
@@ -663,7 +720,7 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
     mesh.computeBoundingSphere();
   };
   for (const s of stacks.values()) {
-    const geo = kit.stackGeo(s.units);
+    const geo = kit.stackGeo(s.units, s.kind);
     const mesh = new T.InstancedMesh(geo, s.kind === 'bin' ? mats.bin : s.kind === 'crate' ? mats.crate : mats.carton, s.items.length);
     fill(mesh, s.items, 0.94);
     group.add(mesh);
@@ -734,7 +791,9 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
   let postBase: Float32Array = new Float32Array(0);
   let railBase: Float32Array = new Float32Array(0);
   if (posts.length) {
-    const pm = new T.InstancedMesh(kit.unitBox, mats.beam, posts.length * 4);
+    // The kit's real uprights and beams when the Blender GLB is in — the
+    // same unit-cube matrices scale them into place either way.
+    const pm = new T.InstancedMesh(kit.protos?.post ?? kit.unitBox, mats.beam, posts.length * 4);
     posts.forEach((p, i) => {
       p.corners.forEach(([dx, dz], k) => {
         m4.makeScale(0.07, p.h, 0.07).setPosition(wx(o, p.r.x + p.r.w / 2 + dx * p.r.w * 0.94), p.z0, wz(o, p.r.y + p.r.d / 2 + dz * p.r.d * 0.94));
@@ -745,7 +804,7 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
     pm.computeBoundingSphere();
     pm.frustumCulled = false;
     group.add(pm);
-    const rm = new T.InstancedMesh(kit.unitBox, mats.beam, rails.length * 2);
+    const rm = new T.InstancedMesh(kit.protos?.beam ?? kit.unitBox, mats.beam, rails.length * 2);
     rails.forEach((p, i) => {
       const uw = 0.055;
       m4.makeScale(p.r.w - 0.1, uw, uw).setPosition(wx(o, p.r.x + p.r.w / 2), p.y, wz(o, p.r.y + p.r.d / 2 - p.r.d * 0.47));
@@ -764,31 +823,50 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
     railBase = rm.instanceMatrix.array.slice() as Float32Array;
   }
 
-  // Apples on the places holding produce: a crown of red fruit across the top crate,
+  // Apples on the places holding produce: a crown of fruit across the top crate,
   // so a grower sees apples, not only crates. One instanced draw for the whole store.
-  type AppleIt = { cell: Cell; x: number; y: number; z: number; mine: boolean };
+  type AppleIt = { cell: Cell; x: number; y: number; z: number; mine: boolean; s?: number };
   const appleIt: AppleIt[] = [];
+  const crown = kit.protos?.apples ?? null;
   for (const s of stacks.values()) {
     for (const it of s.items) {
       if (it.cell.look !== 'booked' && it.cell.look !== 'mine') continue;
       const r = place(it.cell);
       const top = it.y + it.h;
-      appleIt.push(
-        { cell: it.cell, x: r.x + r.w * 0.3, y: top, z: r.y + r.d * 0.5, mine: it.cell.look === 'mine' },
-        { cell: it.cell, x: r.x + r.w * 0.5, y: top, z: r.y + r.d * 0.72, mine: it.cell.look === 'mine' },
-        { cell: it.cell, x: r.x + r.w * 0.7, y: top, z: r.y + r.d * 0.5, mine: it.cell.look === 'mine' },
-      );
+      if (crown) {
+        // The Blender cluster (a real checkerboard crown, gold apples in, stems
+        // up): about two-fifths of the place wide, sitting on the top crate.
+        const size = 0.42 * Math.min(r.w, r.d);
+        appleIt.push({ cell: it.cell, x: r.x + r.w / 2, y: top + 0.012, z: r.y + r.d / 2, mine: it.cell.look === 'mine', s: size });
+      } else {
+        appleIt.push(
+          { cell: it.cell, x: r.x + r.w * 0.3, y: top, z: r.y + r.d * 0.5, mine: it.cell.look === 'mine' },
+          { cell: it.cell, x: r.x + r.w * 0.5, y: top, z: r.y + r.d * 0.72, mine: it.cell.look === 'mine' },
+          { cell: it.cell, x: r.x + r.w * 0.7, y: top, z: r.y + r.d * 0.5, mine: it.cell.look === 'mine' },
+        );
+      }
     }
   }
   let apples: { mesh: IMesh; items: AppleIt[] } | null = null;
   let applyWorldApples: (s: WorldState) => void = () => {};
   if (appleIt.length) {
-    const radius = Math.min(0.11, Math.max(0.035, place(appleIt[0].cell).w * 0.14));
-    const geo = new T.SphereGeometry(radius, 9, 6);
-    const mat = new T.MeshStandardMaterial({ color: '#d42a1e', roughness: 0.3, metalness: 0.02 });
+    let geo: Geo;
+    let mat: Mat | Mat[];
+    let radius = 0.05;
+    if (crown) {
+      geo = crown;
+      // The kit carries three slots — red skin, gold skin, stems — in group order.
+      const apple = (hex: string, rough: number) => new T.MeshStandardMaterial({ color: hex, roughness: rough, metalness: 0.02 });
+      mat = [apple('#6b0806', 0.32), apple('#ad700f', 0.35), apple('#291a0b', 0.8)];
+    } else {
+      radius = Math.min(0.11, Math.max(0.035, place(appleIt[0].cell).w * 0.14));
+      geo = new T.SphereGeometry(radius, 9, 6);
+      mat = new T.MeshStandardMaterial({ color: '#d42a1e', roughness: 0.3, metalness: 0.02 });
+    }
     const mesh = new T.InstancedMesh(geo, mat, appleIt.length);
     appleIt.forEach((a, i) => {
-      m4.makeTranslation(wx(o, a.x), a.y + radius * 1.02, wz(o, a.z));
+      if (a.s) m4.makeScale(a.s, a.s, a.s).setPosition(wx(o, a.x), a.y, wz(o, a.z));
+      else m4.makeTranslation(wx(o, a.x), a.y + radius * 1.02, wz(o, a.z));
       mesh.setMatrixAt(i, m4);
       mesh.setColorAt(i, col.copy(white));
     });
