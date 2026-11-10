@@ -1,17 +1,17 @@
-'use client';
-
 /**
  * Ordering one listing with pay after delivery — the same window on Price
  * Comparison and in the Buyer portal's shop. Nothing is paid now: the order
  * goes to the seller (market_orders); when the goods arrive and are checked,
- * the buyer pays the seller directly by UPI / bank. KashRoot never holds it.
+ * the buyer pays the seller directly by UPI / bank and enters the reference;
+ * the seller confirms. KashRoot never holds it.
  *
  * The database takes the listing's price at the moment of ordering, and the
  * seller can change it while this window is open. So the listing is read
  * again just before the order goes: a new price is shown and the buyer
  * presses Order again; a product taken off sale says so.
  */
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import React from 'react';
 import { ArrowLeft, ShoppingCart } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
@@ -49,7 +49,7 @@ async function latest(id: string): Promise<Pick<MarketListing, 'price' | 'quanti
   return row && row.active && Number(row.quantity) > 0 ? { price: row.price, quantity: row.quantity } : null;
 }
 
-export function OrderModal({ listing, account, theme, onClose, onPlaced }: { listing: Orderable; account: Account; theme: PortalTheme; onClose: () => void; onPlaced: (order: MarketOrder) => void }) {
+const OrderModalInner = React.memo(function OrderModalInner({ listing, account, theme, onClose, onPlaced }: { listing: Orderable; account: Account; theme: PortalTheme; onClose: () => void; onPlaced: (order: MarketOrder) => void }) {
   // Price and stock as last read: they change here when the seller changes them.
   const [now, setNow] = useState({ price: listing.price, quantity: listing.quantity });
   const l = { ...listing, ...now };
@@ -58,10 +58,11 @@ export function OrderModal({ listing, account, theme, onClose, onPlaced }: { lis
   const [problem, setProblem] = useState<string | null>(null);
   const [gone, setGone] = useState(false);
   const qty = Number(form.quantity) || 0;
-  const set = (patch: Partial<typeof form>) => {
+  const set = useCallback((patch: Partial<typeof form>) => {
     setForm({ ...form, ...patch });
     setProblem(null);
-  };
+  }, [form]);
+  const total = useMemo(() => inr(qty * Number(l.price)), [qty, l.price]);
 
   const place = async () => {
     const wrong = orderProblem(l, form);
@@ -129,7 +130,7 @@ export function OrderModal({ listing, account, theme, onClose, onPlaced }: { lis
           ) : (
             <>
               <Btn theme={theme} variant="ghost" className="min-h-11" onClick={onClose}>Cancel</Btn>
-              <Btn theme={theme} icon={ShoppingCart} className="min-h-11" disabled={busy} onClick={() => void place()}>{busy ? 'Sending…' : `Order for ${inr(qty * Number(l.price))}`}</Btn>
+              <Btn theme={theme} icon={ShoppingCart} className="min-h-11" disabled={busy} onClick={() => void place()}>{busy ? 'Sending…' : `Order for ${total}`}</Btn>
             </>
           )}
         </>
@@ -156,4 +157,8 @@ export function OrderModal({ listing, account, theme, onClose, onPlaced }: { lis
       </div>
     </Modal>
   );
+});
+
+export function OrderModal({ listing, account, theme, onClose, onPlaced }: { listing: Orderable; account: Account; theme: PortalTheme; onClose: () => void; onPlaced: (order: MarketOrder) => void }) {
+  return <OrderModalInner listing={listing} account={account} theme={theme} onClose={onClose} onPlaced={onPlaced} />;
 }

@@ -379,7 +379,7 @@ export function Modal({
       onClick={(e) => {
         if (e.target === e.currentTarget) ref.current?.close();
       }}
-      className={`kr-sheet m-auto max-h-[calc(100svh-2rem)] w-[calc(100%-2rem)] overflow-hidden rounded-3xl bg-white/95 p-0 text-slate-900 shadow-[0_30px_90px_rgba(15,23,42,0.3)] ring-1 ring-[#E8A317]/25 backdrop-blur-2xl backdrop:bg-slate-900/30 backdrop:backdrop-blur-sm max-sm:mb-0 max-sm:max-h-[92svh] max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none ${wide ? 'max-w-3xl' : 'max-w-lg'}`}
+      className={`kr-sheet m-auto max-h-[calc(100svh-2rem)] w-[calc(100%-2rem)] overflow-hidden rounded-3xl bg-white/95 p-0 text-slate-900 shadow-[0_30px_90px_rgba(15,23,42,0.3)] ring-1 ring-[#E8A317]/25 backdrop-blur-2xl backdrop:bg-slate-900/30 backdrop:backdrop-blur-sm max-sm:mb-0 max-sm:max-h-[92svh] max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none ${wide ? 'max-w-3xl' : 'max-w-lg'}[will-change:transform,opacity][transform:translate3d(0,0,0)]`}
     >
       <div className="flex max-h-[calc(100svh-2rem)] flex-col max-sm:max-h-[92svh]">
         <span aria-hidden className="mx-auto mt-2 h-1.5 w-10 shrink-0 rounded-full bg-slate-300 sm:hidden" />

@@ -445,15 +445,19 @@ export function ColdStore3D({
         setFailed(true);
         return;
       }
+      // No shadows needed in the industrial cold-store view: saves a full extra
+      // draw pass per light. Keep the renderer lean.
+      renderer.shadowMap.enabled = false;
+      renderer.localClippingEnabled = true;
       const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       // Sharp when still. On a slow phone, fewer pixels while something moves (see the loop).
       const fullRatio = Math.min(window.devicePixelRatio || 1, weak ? 1 : phone ? 1.5 : 2);
-      let moveRatio = fullRatio;
-      let slowFrames = 0;
-      let handHeld = false;
       renderer.setPixelRatio(fullRatio);
       renderer.setClearColor('#e3edf5');
       const cv = renderer.domElement;
+      let moveRatio = fullRatio;
+      let slowFrames = 0;
+      let handHeld = false;
       cv.className = 'block h-full w-full rounded-3xl outline-none';
       cv.setAttribute('role', 'img');
       cv.setAttribute('aria-describedby', textId);

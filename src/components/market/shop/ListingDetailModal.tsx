@@ -6,6 +6,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import React from 'react';
 import { CreditCard, ExternalLink, MapPin, MessageCircle, Phone, ShoppingCart, ShieldCheck } from 'lucide-react';
 
 import { Btn, Badge, Modal, type PortalTheme } from '@/components/portal/kit';
@@ -23,10 +24,9 @@ export interface ListingDetailModalProps {
   onManageListing?: () => void;
 }
 
-export function ListingDetailModal({ listing: l, verified, own, theme, onClose, onOrder, onManageListing }: ListingDetailModalProps) {
+const ListingDetailModalInner = React.memo(function ListingDetailModalInner({ listing: l, verified, own, theme, onClose, onOrder, onManageListing }: ListingDetailModalProps) {
   const [qty, setQty] = useState(1);
   const max = Number(l.quantity);
-  const total = Number(l.price) * qty;
   const stockText = amountOf(max, l.unit);
 
   const stockRange = useMemo(() => {
@@ -34,22 +34,32 @@ export function ListingDetailModal({ listing: l, verified, own, theme, onClose, 
     return Array.from({ length: n }, (_, i) => i + 1);
   }, [max]);
 
-  const whatsapp = `https://wa.me/${String(l.phone).replace(/[^\d+]/g, '')}?text=${encodeURIComponent(`Hi ${l.seller_name}, I want to buy ${qty} ${l.unit} of ${l.product} from KashRoot.`)}`;
+  const total = useMemo(() => Number(l.price) * qty, [l.price, qty]);
+  const totalWeightKg = useMemo(() => l.box_capacity_kg ? Number(l.quantity) * Number(l.box_capacity_kg) : null, [l.quantity, l.box_capacity_kg]);
+  const pricePerKg = useMemo(() => l.box_capacity_kg && Number(l.price) > 0 ? Number(l.price) / Number(l.box_capacity_kg) : null, [l.price, l.box_capacity_kg]);
 
-  const call = () => {
-    if (!l.phone) return;
-    if (typeof window !== 'undefined') window.location.href = `tel:${l.phone}`;
-  };
+  const whatsapp = useMemo(() => `https://wa.me/${String(l.phone).replace(/[^\d+]/g, '')}?text=${encodeURIComponent(`Hi ${l.seller_name}, I want to buy ${qty} ${l.unit} of ${l.product} from KashRoot.`)}`, [l.phone, l.seller_name, l.unit, l.product, qty]);
 
-  const handleOrder = () => {
-    if (onOrder) onOrder(l);
-    onClose();
-  };
+  const call = useMemo(() => {
+    return () => {
+      if (!l.phone) return;
+      if (typeof window !== 'undefined') window.location.href = `tel:${l.phone}`;
+    };
+  }, [l.phone]);
 
-  const handleManage = () => {
-    if (onManageListing) onManageListing();
-    onClose();
-  };
+  const handleOrder = useMemo(() => {
+    return () => {
+      if (onOrder) onOrder(l);
+      onClose();
+    };
+  }, [l, onOrder, onClose]);
+
+  const handleManage = useMemo(() => {
+    return () => {
+      if (onManageListing) onManageListing();
+      onClose();
+    };
+  }, [onManageListing, onClose]);
 
   const isProduce = l.category === 'produce';
 
@@ -60,7 +70,7 @@ export function ListingDetailModal({ listing: l, verified, own, theme, onClose, 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <div className="rounded-2xl bg-slate-100 overflow-hidden border border-slate-200 aspect-[4/5]">
             {l.photo ? (
-              <img src={l.photo} alt={l.product} className="h-full w-full object-cover cursor-pointer" title="Tap to enlarge" />
+              <img src={l.photo} alt={l.product} className="h-full w-full object-cover cursor-pointer" title="Tap to enlarge" loading="lazy" decoding="async" />
             ) : (
               <div className="h-full w-full flex flex-col items-center justify-center text-slate-400 text-sm">
                 <span>No photo</span>
@@ -69,7 +79,7 @@ export function ListingDetailModal({ listing: l, verified, own, theme, onClose, 
           </div>
           {(l.photos ?? []).slice(1, 4).map((p, i) => (
             <div key={i} className="rounded-xl bg-slate-100 overflow-hidden border border-slate-200 aspect-[4/5] cursor-pointer" title="Tap to enlarge">
-              <img src={p} alt="" className="h-full w-full object-cover" />
+              <img src={p} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
             </div>
           ))}
         </div>
@@ -97,7 +107,7 @@ export function ListingDetailModal({ listing: l, verified, own, theme, onClose, 
           <span className="text-2xl font-bold text-slate-900">{inr(l.price)}</span>
           <span className="text-sm font-normal text-slate-500">/ {l.unit}</span>{l.box_capacity_kg && <span className="text-xs text-emerald-600 font-semibold ml-2">({l.box_capacity_kg} kg / box)</span>}
         </div>
-        <p className="text-sm text-slate-500">{stockText} in stock{l.box_capacity_kg ? ` · ${(Number(l.quantity) * Number(l.box_capacity_kg)).toLocaleString('en-IN')} kg total` : ''}</p>
+        <p className="text-sm text-slate-500">{stockText} in stock{l.box_capacity_kg ? ` · ${totalWeightKg!.toLocaleString('en-IN')} kg total` : ''}</p>
         {l.details && <p className="mt-2 line-clamp-3 text-sm text-slate-600">{l.details}</p>}
 
         {/* Packing specs for produce */}
@@ -126,13 +136,13 @@ export function ListingDetailModal({ listing: l, verified, own, theme, onClose, 
               {l.box_capacity_kg && l.quantity > 0 && (
                 <div className="flex items-center gap-1">
                   <span className="text-slate-500">Total weight:</span>
-                  <span className="font-semibold text-slate-900">${(Number(l.quantity) * Number(l.box_capacity_kg)).toLocaleString('en-IN')} kg</span>
+                  <span className="font-semibold text-slate-900">${totalWeightKg!.toLocaleString('en-IN')} kg</span>
                 </div>
               )}
               {l.box_capacity_kg && Number(l.price) > 0 && (
                 <div className="flex items-center gap-1">
                   <span className="text-slate-500">Rate per kg:</span>
-                  <span className="font-semibold text-emerald-700">₹${(Number(l.price) / Number(l.box_capacity_kg)).toFixed(2)}</span>
+                  <span className="font-semibold text-emerald-700">₹${pricePerKg!.toFixed(2)}</span>
                 </div>
               )}
             </div>
@@ -199,6 +209,10 @@ export function ListingDetailModal({ listing: l, verified, own, theme, onClose, 
       </div>
     </Modal>
   );
+});
+
+export function ListingDetailModal({ listing: l, verified, own, theme, onClose, onOrder, onManageListing }: ListingDetailModalProps) {
+  return <ListingDetailModalInner listing={l} verified={verified} own={own} theme={theme} onClose={onClose} onOrder={onOrder} onManageListing={onManageListing} />;
 }
 
 function BadgeCheck({ className }: { className?: string }) {
