@@ -165,12 +165,13 @@ export async function POST(request: Request) {
   }
 }
 
-/** Pipeline status: the artifacts with sizes, and where Blender (and so the live scene build) is. */
+/** Pipeline status: the artifacts with sizes, and where Blender (and so the live scene build) is.
+ * The deployed site ships the generated twin statically — it says so, plainly. */
 export async function GET(request: Request) {
   if (ipLimited(request, 'blender-sync', 60)) return tooMany();
   const root = process.cwd();
   const models = path.join(root, 'public', 'models');
-  const artifacts = ARTIFACTS.map((a) => {
+  const describe = (a: { name: string; role: string }) => {
     const p = path.join(models, a.name);
     const on = existsSync(p);
     return {
@@ -179,6 +180,16 @@ export async function GET(request: Request) {
       bytes: on ? statSync(p).size : null,
       updatedAt: on ? statSync(p).mtime.toISOString() : null,
     };
-  });
-  return NextResponse.json({ runtime: 'local', artifacts, blender: findBlender(root) });
+  };
+  if (process.env.VERCEL === '1') {
+    return NextResponse.json(
+      {
+        runtime: 'static',
+        note: `On this deployed site the twin is the one generated on the store's machine and shipped in public/models. Run the bridge where the repository lives (dev, or VS Code → Blender) to regenerate it.`,
+        artifacts: ARTIFACTS.map(describe),
+      },
+      { status: 503 },
+    );
+  }
+  return NextResponse.json({ runtime: 'local', artifacts: ARTIFACTS.map(describe), blender: findBlender(root) });
 }
