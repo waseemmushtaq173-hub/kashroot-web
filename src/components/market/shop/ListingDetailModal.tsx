@@ -79,22 +79,65 @@ export function ListingDetailModal({ listing: l, verified, own, theme, onClose, 
           <span className="text-xs font-bold uppercase tracking-wider text-sky-700">{l.subcategory ?? l.category}</span>
           {verified && <BadgeCheck className="h-4 w-4 text-emerald-700" aria-hidden />}
           {verified && <Badge tone="green">Verified seller</Badge>}
+          {l.is_live_camera_verified && <Badge tone="green">🛡️ Live Camera & GPS Verified at Orchard</Badge>}
           <span className="text-sm font-semibold text-slate-900">{l.seller_name}</span>
         </div>
+        {l.is_live_camera_verified && l.captured_address && (
+          <p className="text-xs text-slate-500"><MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden /> {l.captured_address} · ±{l.captured_accuracy_m?.toFixed(0)}m · {new Date(l.captured_at_iso ?? '').toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+        )}
         <p className="text-sm text-slate-600"><MapPin className="h-4 w-4 shrink-0" aria-hidden /> {l.district}</p>
 
         {/* Crop / variety / grade. */}
-        {(l.variety || l.grade) && (
-          <p className="text-sm text-slate-600">{[l.variety, l.grade && `Grade ${l.grade}`].filter(Boolean).join(' · ')}</p>
+        {(l.variety || l.grade || l.packing_layers) && (
+          <p className="text-sm text-slate-600">{[l.variety, l.grade && `Grade ${l.grade}`, l.packing_layers].filter(Boolean).join(' · ')}</p>
         )}
 
         {/* Price + stock. */}
         <div className="flex items-baseline gap-2">
           <span className="text-2xl font-bold text-slate-900">{inr(l.price)}</span>
-          <span className="text-sm font-normal text-slate-500">/ {l.unit}</span>
+          <span className="text-sm font-normal text-slate-500">/ {l.unit}</span>{l.box_capacity_kg && <span className="text-xs text-emerald-600 font-semibold ml-2">({l.box_capacity_kg} kg / box)</span>}
         </div>
-        <p className="text-sm text-slate-500">{stockText} in stock</p>
+        <p className="text-sm text-slate-500">{stockText} in stock{l.box_capacity_kg ? ` · ${(Number(l.quantity) * Number(l.box_capacity_kg)).toLocaleString('en-IN')} kg total` : ''}</p>
         {l.details && <p className="mt-2 line-clamp-3 text-sm text-slate-600">{l.details}</p>}
+
+        {/* Packing specs for produce */}
+        {(l.box_capacity_kg || l.packing_layers || l.apples_per_box) && (
+          <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+            <p className="text-xs font-semibold text-slate-700 mb-1">Box specifications</p>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              {l.box_capacity_kg && (
+                <div className="flex items-center gap-1">
+                  <span className="text-slate-500">Box capacity:</span>
+                  <span className="font-semibold text-slate-900">{l.box_capacity_kg} kg</span>
+                </div>
+              )}
+              {l.packing_layers && (
+                <div className="flex items-center gap-1">
+                  <span className="text-slate-500">Packing:</span>
+                  <span className="font-semibold text-slate-900">{l.packing_layers}</span>
+                </div>
+              )}
+              {l.apples_per_box && (
+                <div className="flex items-center gap-1">
+                  <span className="text-slate-500">Apples per box:</span>
+                  <span className="font-semibold text-slate-900">{l.apples_per_box}</span>
+                </div>
+              )}
+              {l.box_capacity_kg && l.quantity > 0 && (
+                <div className="flex items-center gap-1">
+                  <span className="text-slate-500">Total weight:</span>
+                  <span className="font-semibold text-slate-900">${(Number(l.quantity) * Number(l.box_capacity_kg)).toLocaleString('en-IN')} kg</span>
+                </div>
+              )}
+              {l.box_capacity_kg && Number(l.price) > 0 && (
+                <div className="flex items-center gap-1">
+                  <span className="text-slate-500">Rate per kg:</span>
+                  <span className="font-semibold text-emerald-700">₹${(Number(l.price) / Number(l.box_capacity_kg)).toFixed(2)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="border-t border-slate-900/5 pt-4 mt-4 grid gap-3">
           {own ? (

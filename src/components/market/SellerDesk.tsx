@@ -29,7 +29,7 @@ import { groupBaskets, listingPhotos, sellerMustAct } from '@/lib/db/shop';
 
 export function blankProduct(account: Account, category: MarketCategory = 'supplies'): ListingInput {
   const produce = category === 'produce';
-  return { seller_name: account.business || account.name, phone: account.phone, district: account.district, category, subcategory: produce ? 'Apple' : 'Packaging', product: '', variety: '', grade: '', unit: produce ? 'box' : 'piece', price: 0, quantity: 0, details: '', photo: null };
+  return { seller_name: account.business || account.name, phone: account.phone, district: account.district, category, subcategory: produce ? 'Apple' : 'Packaging', product: '', variety: '', grade: '', unit: produce ? 'box' : 'piece', price: 0, quantity: 0, details: '', photo: null, box_capacity_kg: null, packing_layers: null, apples_per_box: null, captured_lat: null, captured_lng: null, captured_accuracy_m: null, captured_address: null, captured_at_iso: null, is_live_camera_verified: false };
 }
 
 export function SellerDesk({ account, theme, show = 'all', category = 'supplies', mixed = false, addRequest = 0, addDraft, onLoaded }: { account: Account; theme: PortalTheme; /** 'sell': orders and products (payout details shown elsewhere). */ show?: 'all' | 'sell' | 'products' | 'orders' | 'payouts'; category?: MarketCategory; /** Farmer portal: produce and farm inputs side by side. */ mixed?: boolean; addRequest?: number; /** Filled into the form that addRequest opens (e.g. a dealer's batch). */ addDraft?: Partial<ListingInput>; onLoaded?: (products: MarketListing[], orders: MarketOrder[]) => void }) {
@@ -91,7 +91,7 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
     setOpening(p.id);
     try {
       const photos = p.photo ? await listingPhotos(p.id) : [];
-      setEditing({ id: p.id, data: { seller_name: p.seller_name, phone: p.phone, district: p.district, category: p.category, subcategory: p.subcategory, product: p.product, variety: p.variety ?? '', grade: p.grade ?? '', unit: p.unit, price: Number(p.price), quantity: Number(p.quantity), details: p.details ?? '', photo: photos[0] ?? null, photos: photos.length ? photos : null } });
+      setEditing({ id: p.id, data: { seller_name: p.seller_name, phone: p.phone, district: p.district, category: p.category, subcategory: p.subcategory, product: p.product, variety: p.variety ?? '', grade: p.grade ?? '', unit: p.unit, price: Number(p.price), quantity: Number(p.quantity), details: p.details ?? '', photo: photos[0] ?? null, photos: photos.length ? photos : null, box_capacity_kg: p.box_capacity_kg, packing_layers: p.packing_layers, apples_per_box: p.apples_per_box, captured_lat: p.captured_lat, captured_lng: p.captured_lng, captured_accuracy_m: p.captured_accuracy_m, captured_address: p.captured_address, captured_at_iso: p.captured_at_iso, is_live_camera_verified: p.is_live_camera_verified } });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not open the product. Check your internet and try again.');
     } finally {

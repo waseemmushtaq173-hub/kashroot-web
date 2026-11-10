@@ -35,18 +35,19 @@ export function ListingCard({ listing: l, verified, lowest, own, theme, onOrder 
         {isNewToday(l) && <Badge tone="amber"><Sparkles className="h-3 w-3" aria-hidden /> New today</Badge>}
       </div>
       <h3 className="mt-1 font-display text-lg font-semibold text-slate-900 cursor-pointer" onClick={(e) => e.stopPropagation()}>{l.product}</h3>
-      {(l.variety || l.grade) && <p className="text-sm text-slate-600">{[l.variety, l.grade && `Grade ${l.grade}`].filter(Boolean).join(' · ')}</p>}
+      {(l.variety || l.grade || l.packing_layers) && <p className="text-sm text-slate-600">{[l.variety, l.grade && `Grade ${l.grade}`].filter(Boolean).join(l.packing_layers ? ` · ${l.packing_layers}` : ' · ')}</p>}
       <p className="flex items-center gap-1.5 text-sm text-slate-700 cursor-pointer" onClick={(e) => e.stopPropagation()}>
         {verified ? <ShieldCheck className="h-4 w-4 text-emerald-700" aria-hidden /> : <Store className="h-4 w-4 text-slate-400" aria-hidden />}
         {l.seller_name}
         {verified && <Badge tone="green">Verified seller</Badge>}
+        {l.is_live_camera_verified && <Badge tone="green">🛡️ Live GPS Verified</Badge>}
       </p>
       <p className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer" onClick={(e) => e.stopPropagation()}><MapPin className="h-4 w-4" aria-hidden /> {l.district}</p>
       {l.details && <p className="mt-2 line-clamp-2 text-sm text-slate-600">{l.details}</p>}
       <div className="mt-auto flex items-end justify-between gap-2 border-t border-slate-900/5 pt-4">
         <div>
-          <p className="text-xl font-bold text-slate-900 cursor-pointer" onClick={(e) => e.stopPropagation()}>{inr(l.price)} <span className="text-sm font-normal text-slate-500">/ {l.unit}</span></p>
-          <p className="text-xs text-slate-500 cursor-pointer" onClick={(e) => e.stopPropagation()}>{amountOf(Number(l.quantity), l.unit)} in stock</p>
+          <p className="text-xl font-bold text-slate-900 cursor-pointer" onClick={(e) => e.stopPropagation()}>{inr(l.price)} <span className="text-sm font-normal text-slate-500">/ {l.unit}</span>{l.box_capacity_kg && <span className="text-xs text-emerald-600 font-semibold ml-1">({l.box_capacity_kg} kg/box)</span>}</p>
+          <p className="text-xs text-slate-500 cursor-pointer" onClick={(e) => e.stopPropagation()}>{amountOf(Number(l.quantity), l.unit)} in stock{l.box_capacity_kg && ` · ${(Number(l.quantity) * Number(l.box_capacity_kg)).toLocaleString('en-IN')} kg`}</p>
         </div>
         <div className="flex gap-2">
           {/* Signed out, the number is not sent at all (lib/db/phones). */}

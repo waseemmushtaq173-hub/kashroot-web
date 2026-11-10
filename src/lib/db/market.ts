@@ -40,6 +40,24 @@ export interface MarketListing {
   photos?: string[] | null;
   active: boolean;
   updated_at: string;
+  /** Net weight of one box in kg (e.g. 16.0, 18.0, 20.0). Produce only. */
+  box_capacity_kg: number | null;
+  /** Packing style per box (e.g. "4 Layer", "5 Layer", "3 Layer", "2 Layer (Half Box)", "Loose / Crate Packed"). Produce only. */
+  packing_layers: string | null;
+  /** Approximate apple count per box (e.g. "80–100 pieces", "125–150 pieces"). Produce only. */
+  apples_per_box: string | null;
+  /** Live GPS latitude of the photo/video capture location. */
+  captured_lat: number | null;
+  /** Live GPS longitude of the photo/video capture location. */
+  captured_lng: number | null;
+  /** GPS accuracy in metres at capture time. */
+  captured_accuracy_m: number | null;
+  /** Reverse-geocoded address of the capture location. */
+  captured_address: string | null;
+  /** ISO timestamp of the live capture. */
+  captured_at_iso: string | null;
+  /** True when the listing photo/video was captured via live camera with GPS lock. */
+  is_live_camera_verified: boolean;
 }
 
 export interface MarketOrder {
@@ -107,9 +125,9 @@ const fail = (error: { message?: string; code?: string } | null, fallback: strin
   throw new Error(dbMessage(error, fallback));
 };
 
-const LISTING = 'id, seller_id, seller_name, phone, district, category, subcategory, product, variety, grade, unit, price, quantity, details, photo, active, updated_at';
+const LISTING = 'id, seller_id, seller_name, phone, district, category, subcategory, product, variety, grade, unit, price, quantity, details, photo, box_capacity_kg, packing_layers, apples_per_box, captured_lat, captured_lng, captured_accuracy_m, captured_address, captured_at_iso, is_live_camera_verified, active, updated_at';
 /** A seller's own products without the photos (heavy): the list reloads every 30 seconds. */
-const MY_LISTING = 'id, seller_id, seller_name, phone, district, category, subcategory, product, variety, grade, unit, price, quantity, details, active, updated_at, photo_at';
+const MY_LISTING = 'id, seller_id, seller_name, phone, district, category, subcategory, product, variety, grade, unit, price, quantity, details, active, updated_at, photo_at, box_capacity_kg, packing_layers, apples_per_box, captured_lat, captured_lng, captured_accuracy_m, captured_address, captured_at_iso, is_live_camera_verified';
 /** The first photo of each of the seller's products, fetched again only when photo_at changes. */
 const myPhotos = new Map<string, { at: string; photo: string | null }>();
 
@@ -145,7 +163,7 @@ export async function myListings(sellerId: string): Promise<MarketListing[]> {
   });
 }
 
-export type ListingInput = Pick<MarketListing, 'seller_name' | 'phone' | 'district' | 'category' | 'subcategory' | 'product' | 'variety' | 'grade' | 'unit' | 'price' | 'quantity' | 'details' | 'photo'> & {
+export type ListingInput = Pick<MarketListing, 'seller_name' | 'phone' | 'district' | 'category' | 'subcategory' | 'product' | 'variety' | 'grade' | 'unit' | 'price' | 'quantity' | 'details' | 'photo' | 'box_capacity_kg' | 'packing_layers' | 'apples_per_box' | 'captured_lat' | 'captured_lng' | 'captured_accuracy_m' | 'captured_address' | 'captured_at_iso' | 'is_live_camera_verified'> & {
   /** Up to three photos; when given, `photo` should be the first. */
   photos?: string[] | null;
 };
