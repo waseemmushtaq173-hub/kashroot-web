@@ -125,9 +125,10 @@ const fail = (error: { message?: string; code?: string } | null, fallback: strin
   throw new Error(dbMessage(error, fallback));
 };
 
-const LISTING = 'id, seller_id, seller_name, phone, district, category, subcategory, product, variety, grade, unit, price, quantity, details, photo, box_capacity_kg, packing_layers, apples_per_box, captured_lat, captured_lng, captured_accuracy_m, captured_address, captured_at_iso, is_live_camera_verified, active, updated_at';
+/** The columns to read: use '*' so a missing migrated column never breaks the query. */
+const LISTING = '*';
 /** A seller's own products without the photos (heavy): the list reloads every 30 seconds. */
-const MY_LISTING = 'id, seller_id, seller_name, phone, district, category, subcategory, product, variety, grade, unit, price, quantity, details, active, updated_at, photo_at, box_capacity_kg, packing_layers, apples_per_box, captured_lat, captured_lng, captured_accuracy_m, captured_address, captured_at_iso, is_live_camera_verified';
+const MY_LISTING = '*';
 /** The first photo of each of the seller's products, fetched again only when photo_at changes. */
 const myPhotos = new Map<string, { at: string; photo: string | null }>();
 
@@ -152,7 +153,7 @@ export async function myListings(sellerId: string): Promise<MarketListing[]> {
   const missing = rows.filter((r) => myPhotos.get(r.id)?.at !== (r.photo_at ?? '')).map((r) => r.id);
   // A few photos per request keeps the request address short.
   for (let i = 0; i < missing.length; i += 20) {
-    const p = await supabase.from('market_listings').select('id, photo, photo_at').in('id', missing.slice(i, i + 20));
+    const p = await supabase.from('market_listings').select('*').in('id', missing.slice(i, i + 20));
     if (p.error) fail(p.error, 'Could not load your products.');
     for (const x of (p.data ?? []) as { id: string; photo: string | null; photo_at: string | null }[]) myPhotos.set(x.id, { at: x.photo_at ?? '', photo: x.photo });
   }
@@ -168,10 +169,67 @@ export type ListingInput = Pick<MarketListing, 'seller_name' | 'phone' | 'distri
   photos?: string[] | null;
 };
 
+/** Columns that exist in the local type but may not exist in the remote Supabase DB yet. */
+const EXTENDED_LISTING_COLUMNS = new Set([
+  'box_capacity_kg',
+  'packing_layers',
+  'apples_per_box',
+  'captured_lat',
+  'captured_lng',
+  'captured_accuracy_m',
+  'captured_address',
+  'captured_at_iso',
+  'is_live_camera_verified',
+]);
+
+/** Parse a missing-column name from a PostgREST 42703 / PGRST204 error message. */
+const missingColumnFromError = (message: string): string | null => {
+  const m = message.match(/column ["']([^"']+)["'] does not exist/i) ?? message.match(/column "([^"]+)"/i);
+  return m ? m[1] : null;
+};
+
+/** Store extended metadata inside the details field so nothing is lost when columns are missing. */
+const packExtendedIntoDetails = (dbInput: Record<string, unknown>, extended: Record<string, unknown>): Record<string, unknown> => {
+  if (!Object.keys(extended).length) return dbInput;
+  const existing = String(dbInput.details ?? '');
+  const meta = { ...extended, stored_at: new Date().toISOString() };
+  try {
+    const prev = existing ? JSON.parse(existing) : {};
+    dbInput.details = JSON.stringify({ ...prev, _kr_meta: meta });
+  } catch {
+    dbInput.details = existing ? `${existing}\n${JSON.stringify(meta)}` : JSON.stringify(meta);
+  }
+  return dbInput;
+};
+
 export async function saveListing(input: ListingInput, id?: string): Promise<void> {
-  const q = id ? supabase.from('market_listings').update(input).eq('id', id) : supabase.from('market_listings').insert(input);
+  const extended: Record<string, unknown> = {};
+  const dbInput: Record<string, unknown> = { ...input };
+  for (const col of EXTENDED_LISTING_COLUMNS) {
+    if (col in dbInput && dbInput[col] !== null && dbInput[col] !== undefined) {
+      extended[col] = dbInput[col];
+      delete dbInput[col];
+    }
+  }
+  packExtendedIntoDetails(dbInput, extended);
+  const q = id ? supabase.from('market_listings').update(dbInput).eq('id', id) : supabase.from('market_listings').insert(dbInput);
   const { error } = await q;
-  if (error) fail(error, 'Could not save the product.');
+  if (!error) return;
+  // If the remote DB is missing a column we didn't anticipate, strip it and retry once.
+  if ((error.code === 'PGRST204' || error.code === '42703') && error.message) {
+    const col = missingColumnFromError(error.message);
+    if (col && col in dbInput) {
+      const retry = { ...dbInput };
+      delete retry[col];
+      extended[col] = dbInput[col];
+      packExtendedIntoDetails(retry, extended);
+      const q2 = id ? supabase.from('market_listings').update(retry).eq('id', id) : supabase.from('market_listings').insert(retry);
+      const { error: e2 } = await q2;
+      if (!e2) return;
+      fail(e2, 'Could not save the product.');
+    }
+  }
+  fail(error, 'Could not save the product.');
 }
 
 export async function updateListing(id: string, patch: Partial<Pick<MarketListing, 'quantity' | 'price' | 'active'>>): Promise<void> {

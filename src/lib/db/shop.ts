@@ -22,7 +22,7 @@ const fail = (error: { message?: string; code?: string } | null, fallback: strin
 
 /** Every photo of one listing (the shop cards only carry the first). */
 export async function listingPhotos(id: string): Promise<string[]> {
-  const { data, error } = await supabase.from('market_listings').select('photo, photos').eq('id', id).maybeSingle();
+  const { data, error } = await supabase.from('market_listings').select('*').eq('id', id).maybeSingle();
   if (error) fail(error, 'Could not load the photos.');
   const row = data as { photo: string | null; photos: string[] | null } | null;
   return row?.photos?.length ? row.photos : row?.photo ? [row.photo] : [];
@@ -236,7 +236,7 @@ export function sellerOfOrder(o: MarketOrder, byListing?: Map<string, ShopSeller
 export async function sellersOf(listingIds: string[]): Promise<Map<string, ShopSeller>> {
   const ids = [...new Set(listingIds.filter(Boolean))];
   if (!ids.length) return new Map();
-  const { data, error } = await supabase.from('market_listings').select('id, seller_name, phone, district').in('id', ids);
+  const { data, error } = await supabase.from('market_listings').select('*').in('id', ids);
   // A hidden or removed product leaves the order without the name: not an error.
   if (error) return new Map();
   return new Map(((data ?? []) as (ShopSeller & { id: string })[]).map((r) => [r.id, { seller_name: r.seller_name, phone: r.phone, district: r.district }]));

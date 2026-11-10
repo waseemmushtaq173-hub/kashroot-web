@@ -43,7 +43,7 @@ const NOT_CHECKED = 'Could not check the price just now. Check your internet and
 
 /** The listing as it is now, or null when it is no longer on sale. */
 async function latest(id: string): Promise<Pick<MarketListing, 'price' | 'quantity'> | null> {
-  const { data, error } = await supabase.from('market_listings').select('price, quantity, active').eq('id', id).maybeSingle();
+  const { data, error } = await supabase.from('market_listings').select('*').eq('id', id).maybeSingle();
   if (error) throw new Error(NOT_CHECKED);
   const row = data as { price: number; quantity: number; active: boolean } | null;
   return row && row.active && Number(row.quantity) > 0 ? { price: row.price, quantity: row.quantity } : null;

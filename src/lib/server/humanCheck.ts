@@ -15,9 +15,16 @@ import { clientIp } from '@/lib/server/sign';
 import { SITE_URL } from '@/lib/site';
 
 /** The server's hCaptcha secret ('' when the check is off). */
-export const humanSecret = () => process.env.HCAPTCHA_SECRET_KEY?.trim() || process.env.RECAPTCHA_SECRET_KEY?.trim() || '';
+export const humanSecret = () => process.env.HCAPTCHA_SECRET_KEY?.trim() || process.env.RECAPTCHA_SECRET_KEY?.trim() || process.env.NEXT_PUBLIC_RECAPTCHA_SECRET_KEY?.trim() || '';
 export const humanCheckConfigured = () => Boolean(humanSecret());
-const captchaProvider = () => process.env.HCAPTCHA_SECRET_KEY?.trim() ? 'hcaptcha' : process.env.RECAPTCHA_SECRET_KEY?.trim() ? 'recaptcha' : 'none';
+/** Which provider the secret looks like: Google reCAPTCHA secrets start with 6L; hCaptcha secrets do not. */
+const secretIsRecaptcha = (secret: string) => /^6[Ld]_[0-9A-Za-z_-]{38,}$/.test(secret.trim());
+const captchaProvider = () => {
+  const s = process.env.RECAPTCHA_SECRET_KEY?.trim() || process.env.NEXT_PUBLIC_RECAPTCHA_SECRET_KEY?.trim();
+  if (s) return 'recaptcha';
+  if (process.env.HCAPTCHA_SECRET_KEY?.trim()) return 'hcaptcha';
+  return 'none';
+};
 
 /** hCaptcha's test secret (this computer, tests): its tokens name no real address. */
 const testSecret = (secret: string) => /^0x0{40}$/.test(secret);
@@ -34,17 +41,26 @@ export async function isHuman(request: Request, token: unknown): Promise<boolean
     return false;
   }
   try {
+    // Always try Google reCAPTCHA's endpoint first: a reCAPTCHA token posted to
+    // hCaptcha's siteverify fails with "invalid-input-response" (the bug).
+    const recaptcha = await verifyRecaptcha(secret, token, clientIp(request));
+    if (recaptcha?.success) {
+      // Real, and made on KashRoot's own address (not a copy of the widget on another site).
+      if (testSecret(secret) || realHosts().includes(String(recaptcha.hostname ?? '').toLowerCase())) return true;
+      securityEvent('bot_check_failed', { request, detail: 'token from another address' });
+      return false;
+    }
+    // Google refused or is not configured: fall back to hCaptcha's endpoint.
     const data = await siteverify(secret, token, clientIp(request));
-    // Real, and made on KashRoot's own address (not a copy of the widget on another site).
     if (data?.success && (testSecret(secret) || realHosts().includes(String(data.hostname ?? '').toLowerCase()))) return true;
     if (data?.success) {
       securityEvent('bot_check_failed', { request, detail: 'token from another address' });
       return false;
     }
-    securityEvent('bot_check_failed', { request, detail: (data?.['error-codes'] ?? ['no answer']).join(',') });
+    securityEvent('bot_check_failed', { request, detail: (data?.['error-codes'] ?? recaptcha?.['error-codes'] ?? ['no answer']).join(',') });
     return false;
   } catch {
-    // hCaptcha did not answer: let the person through rather than lock everyone out (the rate limits still hold).
+    // Neither provider answered: let the person through rather than lock everyone out (the rate limits still hold).
     return true;
   }
 }
@@ -56,14 +72,26 @@ interface Verdict {
   'error-codes'?: string[];
 }
 
-/** The configured provider's verdict on one token. */
+/** Google reCAPTCHA's verdict on one token: posts to google.com/recaptcha/api/siteverify. */
+async function verifyRecaptcha(secret: string, token: string, remoteip: string): Promise<Verdict | null> {
+  const form = new URLSearchParams({ secret, response: token, remoteip });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 4_000);
+  try {
+    const res = await fetch('https://www.google.com/recaptcha/api/siteverify', { method: 'POST', body: form, cache: 'no-store', signal: controller.signal });
+    return (await res.json().catch(() => null)) as Verdict | null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/** The configured provider's verdict on one token. hCaptcha's siteverify (api.hcaptcha.com). */
 async function siteverify(secret: string, token: string, remoteip: string): Promise<Verdict | null> {
-  const provider = captchaProvider();
   const form = new URLSearchParams({ secret, response: token, remoteip });
   // The site key too, on the real site: a token from another hCaptcha site is refused ("sitekey-secret-mismatch").
   const sitekey = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY?.trim() || process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY?.trim();
-  if (provider === 'hcaptcha' && sitekey && !testSecret(secret)) form.set('sitekey', sitekey);
-  const endpoint = provider === 'recaptcha' ? 'https://www.google.com/recaptcha/api/siteverify' : 'https://api.hcaptcha.com/siteverify';
+  if (sitekey && !testSecret(secret)) form.set('sitekey', sitekey);
+  const endpoint = 'https://api.hcaptcha.com/siteverify';
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 4_000);
   try {
@@ -85,9 +113,12 @@ export async function diagnoseToken(request: Request, token: string, otherAddres
   const secret = humanSecret();
   if (!secret) return { configured: false, answered: true };
   try {
-    const data = await siteverify(secret, token.slice(0, 2048), otherAddress ? '203.0.113.7' : clientIp(request));
-    const hostname = String(data?.hostname ?? '');
-    return { configured: true, answered: true, success: Boolean(data?.success), codes: data?.['error-codes'] ?? [], hostname, hostnameOk: testSecret(secret) || realHosts().includes(hostname.toLowerCase()) };
+    // Try Google reCAPTCHA first, then hCaptcha.
+    const data = await verifyRecaptcha(secret, token.slice(0, 2048), otherAddress ? '203.0.113.7' : clientIp(request));
+    const hcaptcha = data?.success ? undefined : await siteverify(secret, token.slice(0, 2048), otherAddress ? '203.0.113.7' : clientIp(request));
+    const verdict = data?.success ? data : hcaptcha;
+    const hostname = String(verdict?.hostname ?? '');
+    return { configured: true, answered: true, success: Boolean(verdict?.success), codes: verdict?.['error-codes'] ?? [], hostname, hostnameOk: testSecret(secret) || realHosts().includes(hostname.toLowerCase()) };
   } catch {
     return { configured: true, answered: false };
   }
@@ -103,7 +134,9 @@ export async function checkGateToken(request: Request, token: unknown): Promise<
   if (!secret) return { ok: true, reason: 'off' };
   if (typeof token !== 'string' || !token || token.length > 2048) return { ok: false, reason: 'no-token' };
   try {
-    const data = await siteverify(secret, token, clientIp(request));
+    // Try Google reCAPTCHA first, then hCaptcha.
+    let data = await verifyRecaptcha(secret, token, clientIp(request));
+    if (!data?.success) data = await siteverify(secret, token, clientIp(request));
     if (!data?.success) {
       const reason = (data?.['error-codes'] ?? ['no-answer']).join(',') || 'refused';
       return { ok: false, reason };

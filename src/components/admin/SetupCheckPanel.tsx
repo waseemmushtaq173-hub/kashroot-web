@@ -108,9 +108,9 @@ function OptionalServices() {
     { name: 'Server secret (KYC_DB_SECRET)', on: state.server, onText: 'set — identity checks, shared limits, the security log and help requests work', offText: 'not set — add it in Vercel (see SECURITY.md)' },
     // The site key is built into the pages (NEXT_PUBLIC_, at deploy time); the secret is read by the server now.
     state.human === humanCheckOn
-      ? { name: '“I am human” check (hCaptcha)', on: state.human, onText: 'on — both keys set; Supabase CAPTCHA may be on', offText: 'off — optional. While it is off, Supabase CAPTCHA must stay OFF too, or nobody can sign in', optional: true }
+      ? { name: '“I am human” check (Google reCAPTCHA)', on: state.human, onText: 'on — both keys set; Supabase CAPTCHA may be on', offText: 'off — optional. While it is off, Supabase CAPTCHA must stay OFF too, or nobody can sign in', optional: true }
       : {
-          name: '“I am human” check (hCaptcha)',
+          name: '“I am human” check (Google reCAPTCHA)',
           on: false,
           onText: '',
           offText: state.human
