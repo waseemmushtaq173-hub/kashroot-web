@@ -7,6 +7,7 @@
 
 import { useMemo, useState } from 'react';
 import React from 'react';
+import dynamic from 'next/dynamic';
 import { CreditCard, ExternalLink, MapPin, MessageCircle, Phone, ShoppingCart, ShieldCheck } from 'lucide-react';
 
 import { Btn, Badge, Modal, type PortalTheme } from '@/components/portal/kit';
@@ -23,6 +24,11 @@ export interface ListingDetailModalProps {
   onOrder?: (listing: ShopListing) => void;
   onManageListing?: () => void;
 }
+
+const FarmMap = dynamic(() => import('@/components/market/shop/FarmMap'), {
+  ssr: false,
+  loading: () => <div className="h-56 w-full animate-pulse rounded-xl bg-slate-100" aria-hidden />,
+});
 
 const ListingDetailModalInner = React.memo(function ListingDetailModalInner({ listing: l, verified, own, theme, onClose, onOrder, onManageListing }: ListingDetailModalProps) {
   const [qty, setQty] = useState(1);
@@ -94,6 +100,17 @@ const ListingDetailModalInner = React.memo(function ListingDetailModalInner({ li
         </div>
         {l.is_live_camera_verified && l.captured_address && (
           <p className="text-xs text-slate-500"><MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden /> {l.captured_address} · ±{l.captured_accuracy_m?.toFixed(0)}m · {new Date(l.captured_at_iso ?? '').toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+        )}
+        {/* The exact orchard spot the live photo/video was taken — the same map
+            for farmer and buyer, with the GPS lock from the capture itself. */}
+        {l.is_live_camera_verified && l.captured_lat != null && l.captured_lng != null && (
+          <figure className="grid gap-1.5">
+            <FarmMap lat={Number(l.captured_lat)} lng={Number(l.captured_lng)} label="Live camera capture point" />
+            <figcaption className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+              <span>📍 Farm gate on the map — where the live photo was taken, shown the same to farmer and buyer.</span>
+              <a href={`https://www.google.com/maps?q=${l.captured_lat},${l.captured_lng}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-700 underline underline-offset-2">Open in Google Maps</a>
+            </figcaption>
+          </figure>
         )}
         <p className="text-sm text-slate-600"><MapPin className="h-4 w-4 shrink-0" aria-hidden /> {l.district}</p>
 
