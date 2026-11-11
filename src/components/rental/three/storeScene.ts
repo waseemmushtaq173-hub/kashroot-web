@@ -15,7 +15,7 @@
  * chambers stand side by side along a corridor. Pure: no three.js, no React.
  */
 import { ensureBuildingEnclosesChambers, planOf, type ChamberPlan, type Wall } from '@/lib/coldLayout';
-import { arrangeStore, doorLine, fromDoor, groupChambers, outlineOf, placeRect, type Building, type ChamberGroup, type PreviewRows, type Side, type Storage } from '@/lib/coldStore';
+import { arrangeStore, doorLine, fromDoor, groupChambers, outlineOf, placeRect, type Building, type ChamberGroup, type PreviewRows, type Side, type Storage, type WorkSpaces } from '@/lib/coldStore';
 import { placeName, type ColdChamber } from '@/lib/db/coldMap';
 
 export interface Vec {
@@ -110,6 +110,8 @@ export interface MainDoor {
   mid: Vec;
   /** Into the building. */
   inward: Vec;
+  /** How it opens (absent: a roll-up shutter, as always drawn). */
+  kind?: import('@/lib/coldStore').DoorKind;
 }
 
 /** A work zone painted on the real floor: the dock at the main door, or a line of work set out on free floor. */
@@ -437,34 +439,72 @@ export const ZONE_LOOK: Record<SceneZone['key'], string> = {
 };
 
 /**
- * Where the work zones stand: the four lines on the biggest clear floor of
- * the hall (as many of them as fit in it, side by side along its longer
- * side), and the dock on the passage floor at the main door. Only real free
- * floor is set out — never a chamber, never the forklift corridor.
+ * Where the work zones stand. A zone the owner sized keeps its own length ×
+ * width (clamped into the free floor, laid along its longer side; too many
+ * for it shrink together so every one still fits); zones left empty are set
+ * out as equal lanes on whatever room is left. The dock stands on the
+ * passage floor at the main door — an owner-sized dock keeps its length as
+ * the depth it reaches into the passage. Only real free floor is set out —
+ * never a chamber, never the forklift corridor. Exported for the wizard's
+ * own live drawing (owner/StoreDrawing), which draws the same zones from
+ * the draft.
  */
-function workZones(hall: Rect, chamberRects: Rect[], passage: Rect | null, doorWall: Wall): SceneZone[] {
+export function workZones(hall: Rect, chamberRects: Rect[], passage: Rect | null, doorWall: Wall, ownerSpaces?: WorkSpaces): SceneZone[] {
   const zones: SceneZone[] = [];
   const taken = [...chamberRects];
   if (passage) taken.push({ ...passage });
   const free = biggestFreeRect(hall, taken);
+  const owner = ownerSpaces ?? null;
   if (free) {
     const along = free.w >= free.d;
     const run = along ? free.w : free.d;
-    const n = Math.min(ZONE_LINES.length, Math.floor(run / ZONE_MIN_LANE));
-    const lane = run / n;
-    ZONE_LINES.slice(0, n).forEach(([key, label], i) => {
-      const at = i * lane + ZONE_GAP;
-      const len = lane - 2 * ZONE_GAP;
-      const cross = (along ? free.d : free.w) - 2 * ZONE_GAP;
-      zones.push({ key, label, rect: along ? { x: free.x + at, y: free.y + ZONE_GAP, w: len, d: cross } : { x: free.x + ZONE_GAP, y: free.y + at, w: cross, d: len } });
-    });
+    const cross = along ? free.d : free.w;
+    const put = (key: SceneZone['key'], label: string, len: number, wid: number, at: number) => {
+      zones.push({ key, label, rect: along ? { x: free.x + at, y: free.y + (cross - wid) / 2, w: len, d: wid } : { x: free.x + (cross - wid) / 2, y: free.y + at, w: wid, d: len } });
+    };
+    const sized = ZONE_LINES.filter(([k]) => owner?.[k]);
+    const rest = ZONE_LINES.filter(([k]) => !owner?.[k]);
+    if (sized.length) {
+      // Owner-sized first: their lengths along the run (an owner space is
+      // never smaller than 1 m), shrinking together when they overflow, with
+      // the gap left between them.
+      const lanes = sized.map(([k, label]) => {
+        const s = owner![k]!;
+        const len = Math.min(Math.max(s.l, 1), run);
+        const wid = Math.min(Math.max(s.w, 1), cross);
+        return { k, label, len, wid };
+      });
+      const room = run - ZONE_GAP * Math.max(0, lanes.length - 1);
+      const total = lanes.reduce((n, s) => n + s.len, 0);
+      const scale = total > room && total > 0 ? room / total : 1;
+      let at = 0;
+      for (const s of lanes) {
+        const len = Math.max(1, s.len * scale);
+        put(s.k, s.label, len, s.wid, at);
+        at += len + ZONE_GAP;
+      }
+      // The zones left to KashRoot: equal lanes over what run is still free.
+      const left = Math.max(0, run - at);
+      const n = Math.min(rest.length, Math.floor(left / ZONE_MIN_LANE));
+      if (n > 0) {
+        const lane = left / n;
+        rest.slice(0, n).forEach(([key, label], i) => put(key, label, lane - 2 * ZONE_GAP, cross - 2 * ZONE_GAP, at + i * lane + ZONE_GAP));
+      }
+    } else {
+      // Nothing owner-sized: the four lines of work as equal lanes, as many
+      // as fit side by side along the free rect's longer side.
+      const n = Math.min(ZONE_LINES.length, Math.floor(run / ZONE_MIN_LANE));
+      const lane = run / n;
+      ZONE_LINES.slice(0, n).forEach(([key, label], i) => put(key, label, lane - 2 * ZONE_GAP, cross - 2 * ZONE_GAP, i * lane + ZONE_GAP));
+    }
   }
   if (passage) {
     // The dock is the strip of the passage at the main door: the passage
-    // runs from it, clear of every chamber, to the wall opposite.
+    // runs from it, clear of every chamber, to the wall opposite. An
+    // owner-sized dock keeps its length as the depth it reaches in.
     const horiz = doorWall === 'front' || doorWall === 'back';
     const size = horiz ? passage.d : passage.w;
-    const depth = Math.min(3, size);
+    const depth = Math.min(owner?.dock ? Math.max(1.2, owner.dock.l) : 3, size);
     if (depth >= 1.2 && Math.min(passage.w, passage.d) >= 1.2) {
       const touchesNear = horiz ? Math.abs(passage.y - hall.y) < 0.6 : Math.abs(passage.x - hall.x) < 0.6;
       const touchesFar = horiz ? Math.abs(passage.y + passage.d - (hall.y + hall.d)) < 0.6 : Math.abs(passage.x + passage.w - (hall.x + hall.w)) < 0.6;
@@ -625,11 +665,12 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
   let zones: SceneZone[] = [];
   if (b) {
     const seg = doorLine(b.door, { length: hall.w, width: hall.d });
-    mainDoor = { seg, wall: b.door.wall, from: b.door.from, width: b.door.width, height: b.door.height, mid: midOf(seg), inward: INWARD[b.door.wall] };
+    mainDoor = { seg, wall: b.door.wall, from: b.door.from, width: b.door.width, height: b.door.height, mid: midOf(seg), inward: INWARD[b.door.wall], kind: b.doorKind };
     walls = wallsOf(hall, seg, b.door.wall);
     // The work zones painted on the floor: the dock at the main door, and
-    // the lines of work on the biggest clear floor — real free floor only.
-    zones = workZones(hall, chambers.map((c) => c.rect), passage, b.door.wall);
+    // the lines of work on the biggest clear floor — real free floor only,
+    // the owner's own sizes kept where they gave them.
+    zones = workZones(hall, chambers.map((c) => c.rect), passage, b.door.wall, b.workSpaces);
   }
 
   let x0 = hall.x;

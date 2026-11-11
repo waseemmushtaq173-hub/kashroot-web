@@ -8,6 +8,13 @@ import { Field, INPUT } from '@/components/portal/kit';
 import { reverseGeocode, nowIST, type GeoResult, engravePhotoFrame, startEngravedVideo } from '@/lib/geoStampMedia';
 import { PRODUCE, SUBCATEGORIES, UNITS, type ListingInput } from '@/lib/db/market';
 import type { PayoutAccount } from '@/lib/db/rentals';
+import dynamic from 'next/dynamic';
+
+// The native tile map of the orchard pin — no iframe, never blocked by CSP.
+const LiveInteractiveMap = dynamic(() => import('@/components/common/LiveInteractiveMap'), {
+  ssr: false,
+  loading: () => <div className="h-56 w-full animate-pulse rounded-xl bg-slate-100" aria-hidden />,
+});
 
 export const MAX_PHOTOS = 3;
 /** The longest photo (data URL) the gallery keeps. */
@@ -325,12 +332,27 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
           <Field label="Packing layers (per box)">
             <div className="pointer-events-auto relative z-10 flex flex-wrap gap-1.5">
               {LAYER_PRESETS.map((preset) => (
-                <button key={preset.value} type="button" aria-pressed={v.packing_layers === preset.value} onClick={(e) => { e.preventDefault(); e.stopPropagation(); set('packing_layers', preset.value); set('apples_per_box', preset.hint.split('·')[1]?.trim() ?? null); }} className={`relative z-10 min-h-10 cursor-pointer rounded-lg border-2 px-3 py-1 text-start text-xs leading-tight transition-colors ${v.packing_layers === preset.value ? 'bg-emerald-600 text-white border-emerald-600 shadow-md ring-2 ring-emerald-400' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>
+                <button key={preset.value} type="button" aria-pressed={v.packing_layers === preset.value} onClick={(e) => {
+                  // Both fields in ONE patch: a second `set` would spread the
+                  // stale value and wipe the layer choice back off.
+                  e.preventDefault(); e.stopPropagation();
+                  onChange({ ...v, packing_layers: preset.value, apples_per_box: preset.hint.split('·')[1]?.trim() ?? null });
+                }} className={`relative z-10 min-h-10 cursor-pointer rounded-lg border-2 px-3 py-1 text-start text-xs leading-tight transition-colors ${v.packing_layers === preset.value ? 'bg-emerald-600 text-white border-emerald-600 font-semibold shadow-sm' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>
                   <span className="block font-bold">{v.packing_layers === preset.value ? '✓ ' : ''}{preset.label}</span>
                   <span className={`block text-[10px] ${v.packing_layers === preset.value ? 'text-white/85' : 'text-slate-400'}`}>{preset.hint}</span>
                 </button>
               ))}
             </div>
+            {/* Permanent green confirmation, exactly like the box-capacity bar above. */}
+            {(() => {
+              const chosen = LAYER_PRESETS.find((p) => p.value === v.packing_layers);
+              if (!chosen) return null;
+              return (
+                <p className="mt-2 rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-950 ring-1 ring-emerald-200">
+                  ✓ Selected packing: {chosen.label} ({chosen.hint})
+                </p>
+              );
+            })()}
             <p className="text-xs text-slate-500">How the fruit is packed inside one box. 4 Layer = larger fruit, fewer per box; 5 Layer = standard.</p>
           </Field>
 
@@ -354,6 +376,7 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
                 ✓ Live GPS Locked: {addressIsCoords(gps.address) ? gps.address : `${gps.address} · ${coordsText(gps)}`} (±{Math.round(gps.accuracy)} m)
               </p>
             )}
+            {gps && <div className="mt-2"><LiveInteractiveMap lat={gps.lat} lng={gps.lng} accuracy={gps.accuracy} label="Orchard / capture spot" /></div>}
             {cameraError && <p className="mt-1 rounded-xl bg-rose-50 p-3 text-sm text-rose-800 ring-1 ring-rose-200">{cameraError}</p>}
 
             {/* Live capture controls — inside the box once the camera is open. */}

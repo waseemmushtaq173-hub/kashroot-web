@@ -163,7 +163,25 @@ export interface StoreDraft {
   /** Feet or metres, for the building and every chamber. */
   unit: SizeUnit;
   /** `sides`: where the chambers are along the passage from the main door ('' = not chosen yet). */
-  building: { length: string; width: string; height: string; door: DoorDraft; sides: Sides | '' };
+  building: {
+    length: string;
+    width: string;
+    height: string;
+    door: DoorDraft;
+    sides: Sides | '';
+    /** Insulated wall thickness ('' = the drawing's default). */
+    wallThickness: string;
+    /** The main forklift passage width ('' = as wide as the door, at least CORRIDOR). */
+    passageWidth: string;
+    /** How the main door opens ('' = not chosen yet). */
+    doorKind: '' | DoorKind;
+    /** The five work spaces, length × width each ('' = not set). */
+    spCleaningL: string; spCleaningW: string;
+    spGradingL: string; spGradingW: string;
+    spPackingL: string; spPackingW: string;
+    spMachineryL: string; spMachineryW: string;
+    spDockL: string; spDockW: string;
+  };
   chambers: ChamberDraft[];
 }
 
@@ -183,6 +201,14 @@ export const newKey = () => `c${Date.now().toString(36)}${(made++).toString(36)}
 
 export const blankDoor = (): DoorDraft => ({ wall: 'front', from: '', width: '', height: '' });
 
+/** One building length from the draft ('' or nonsense → null), clamped into [lo, hi] metres. */
+const buildingLen = (s: string, u: SizeUnit, lo: number, hi: number): number | null => {
+  const n = readNumber(s);
+  if (n === null) return null;
+  const m = metres(n, u);
+  return Number.isFinite(m) ? Math.min(hi, Math.max(lo, m)) : null;
+};
+
 export function blankStore(who?: { name?: string; phone?: string; district?: string; village?: string } | null, prefill?: { title?: string; district?: string; address?: string } | null): StoreDraft {
   const district = prefill?.district || who?.district || '';
   return {
@@ -196,7 +222,7 @@ export function blankStore(who?: { name?: string; phone?: string; district?: str
     area: who?.village ?? '',
     address: prefill?.address ?? '',
     unit: 'ft',
-    building: { length: '', width: '', height: '', door: blankDoor(), sides: '' },
+    building: { length: '', width: '', height: '', door: blankDoor(), sides: '', wallThickness: '', passageWidth: '', doorKind: '', spCleaningL: '', spCleaningW: '', spGradingL: '', spGradingW: '', spPackingL: '', spPackingW: '', spMachineryL: '', spMachineryW: '', spDockL: '', spDockW: '' },
     chambers: [],
   };
 }
@@ -310,7 +336,44 @@ export interface Building {
   door: DoorAt;
   /** Where the chambers are along the passage from the main door ('both' for stores saved before it was asked). */
   sides: Sides;
+  /** Insulated wall thickness in metres (absent: the drawing's sensible default). */
+  wallThickness?: number;
+  /** How the main door opens (absent: a roll-up shutter, as always drawn). */
+  doorKind?: DoorKind;
+  /** The main forklift passage width in metres (absent: as wide as the door, at least CORRIDOR). */
+  passageWidth?: number;
+  /** The five work spaces, length × width in metres (absent: sized from the free floor). */
+  workSpaces?: WorkSpaces;
 }
+
+/** How the main door opens: it slides out along the wall, slides in, or rolls up. */
+export type DoorKind = 'outside-slide' | 'inside-slide' | 'roll-up';
+export const DOOR_KINDS: DoorKind[] = ['outside-slide', 'inside-slide', 'roll-up'];
+export const DOOR_KIND_TEXT: Record<DoorKind, string> = { 'outside-slide': 'Outside sliding', 'inside-slide': 'Inside sliding', 'roll-up': 'Roll-up' };
+
+/** The five work spaces round the chambers. */
+export type SpaceKey = 'cleaning' | 'grading' | 'packing' | 'machinery' | 'dock';
+export const SPACE_KEYS: SpaceKey[] = ['cleaning', 'grading', 'packing', 'machinery', 'dock'];
+export const SPACE_TEXT: Record<SpaceKey, string> = {
+  cleaning: 'Apple Cleaning & Washing',
+  grading: 'Grading & Sorting Machinery',
+  packing: 'Apple Packing & Boxing',
+  machinery: 'Refrigeration Plant / Machinery Room',
+  dock: 'Loading & Unloading Bay',
+};
+/** One space as the owner sized it: length × width, in metres. */
+export type SpaceSize = { l: number; w: number };
+export type WorkSpaces = Partial<Record<SpaceKey, SpaceSize>>;
+/** The draft fields of each space's length and width. */
+export const SPACE_DRAFT_FIELDS: Record<SpaceKey, { l: string; w: string }> = {
+  cleaning: { l: 'spCleaningL', w: 'spCleaningW' },
+  grading: { l: 'spGradingL', w: 'spGradingW' },
+  packing: { l: 'spPackingL', w: 'spPackingW' },
+  machinery: { l: 'spMachineryL', w: 'spMachineryW' },
+  dock: { l: 'spDockL', w: 'spDockW' },
+};
+/** Every building length is kept inside these metres, however it was typed. */
+export const BUILDING_LIMITS = { wallThickness: [0.05, 1.5], passage: [2, 12], space: [1, 60] } as const;
 /** A door in metres: its wall, from the left corner of that wall (standing outside facing it), width, height. */
 export interface DoorAt {
   wall: Wall;
@@ -603,8 +666,27 @@ export function storeModel(draft: StoreDraft): StoreModel {
   const mainDoor = readDoor(d.building.door, 'building.door', 'the main door', 'the building', 2, bL !== null && bW !== null && bH !== null ? { length: bL, width: bW, height: bH } : null, u, add);
   const sides = SIDES.includes(d.building.sides as Sides) ? (d.building.sides as Sides) : null;
   if (!sides) add('error', 2, 'building.sides', 'Choose where the chambers are, as you walk in through the main door: on the left side of the passage, on the right side, or on both sides.');
+  // The owner's extra architecture: wall thickness, the passage width, how
+  // the main door opens, and the five work spaces. Anything left empty falls
+  // back to the drawing's own sensible choice; anything typed is clamped.
+  const wallThickness = buildingLen(d.building.wallThickness, u, BUILDING_LIMITS.wallThickness[0], BUILDING_LIMITS.wallThickness[1]) ?? undefined;
+  const passageWidth = buildingLen(d.building.passageWidth, u, BUILDING_LIMITS.passage[0], BUILDING_LIMITS.passage[1]) ?? undefined;
+  const doorKind = DOOR_KINDS.includes(d.building.doorKind as DoorKind) ? (d.building.doorKind as DoorKind) : undefined;
+  const workSpaces: WorkSpaces = {};
+  for (const k of SPACE_KEYS) {
+    const f = SPACE_DRAFT_FIELDS[k];
+    const l = buildingLen(d.building[f.l as keyof typeof d.building] as string, u, BUILDING_LIMITS.space[0], BUILDING_LIMITS.space[1]);
+    const w = buildingLen(d.building[f.w as keyof typeof d.building] as string, u, BUILDING_LIMITS.space[0], BUILDING_LIMITS.space[1]);
+    if (l !== null && w !== null) workSpaces[k] = { l, w };
+  }
   // Drawn on both sides until the owner chooses (it cannot be saved before).
-  const building: Building | null = bL !== null && bW !== null && bH !== null && mainDoor ? { unit: u, length: bL, width: bW, height: bH, door: mainDoor, sides: sides ?? 'both' } : null;
+  const building: Building | null = bL !== null && bW !== null && bH !== null && mainDoor ? {
+    unit: u, length: bL, width: bW, height: bH, door: mainDoor, sides: sides ?? 'both',
+    ...(wallThickness !== undefined && { wallThickness }),
+    ...(passageWidth !== undefined && { passageWidth }),
+    ...(doorKind !== undefined && { doorKind }),
+    ...(Object.keys(workSpaces).length > 0 && { workSpaces }),
+  } : null;
 
   // ── 3. The chambers ──
   if (!d.chambers.length) add('error', 3, 'chambers', 'Add your first chamber: tap “Add a chamber”.');
@@ -1184,13 +1266,14 @@ export const CORRIDOR = 3;
 /** How far in from the main door the way in must be clear. */
 const DOOR_CLEAR = 1.5;
 
-/** The passage from the main door (in the middle of the front wall when the door is not known). */
-export function passageOf(b: { length: number; width: number; door?: DoorAt | null }): Passage {
+/** The passage from the main door (in the middle of the front wall when the door is not known).
+ *  A wider owner-set passage width (`passageWidth`) widens it beyond the door. */
+export function passageOf(b: { length: number; width: number; door?: DoorAt | null; passageWidth?: number | null }): Passage {
   const door = b.door ?? { wall: 'front' as Wall, from: b.length / 2, width: 0, height: 0 };
   const alongFront = door.wall === 'front' || door.wall === 'back';
   const across = alongFront ? b.length : b.width;
   const depth = alongFront ? b.width : b.length;
-  const wide = Math.min(across, Math.max(CORRIDOR, door.width));
+  const wide = Math.min(across, Math.max(CORRIDOR, door.width, b.passageWidth ?? 0));
   const u0 = Math.min(Math.max(0, door.from + door.width / 2 - wide / 2), across - wide);
   const room = { length: b.length, width: b.width };
   const p = fromDoor(door.wall, room, u0, 0);
@@ -1384,11 +1467,33 @@ export function asBuilding(v: unknown): Building | null {
   if (!v || typeof v !== 'object') return null;
   const b = v as Partial<Building>;
   const num = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0;
+  const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
   const d = b.door as Partial<DoorAt> | undefined;
   if (!num(b.length) || !num(b.width) || !num(b.height) || !d || !WALLS.includes(d.wall as Wall) || typeof d.from !== 'number' || !num(d.width) || !num(d.height)) return null;
   // Stores saved before the owner was asked which side the chambers are on: both sides.
   const sides = SIDES.includes(b.sides as Sides) ? (b.sides as Sides) : 'both';
-  return { unit: b.unit === 'm' ? 'm' : 'ft', length: b.length, width: b.width, height: b.height, door: { wall: d.wall as Wall, from: d.from, width: d.width, height: d.height }, sides };
+  const wallThickness = num(b.wallThickness) ? clamp(b.wallThickness, BUILDING_LIMITS.wallThickness[0], BUILDING_LIMITS.wallThickness[1]) : undefined;
+  const doorKind = DOOR_KINDS.includes(b.doorKind as DoorKind) ? (b.doorKind as DoorKind) : undefined;
+  const passageWidth = num(b.passageWidth) ? clamp(b.passageWidth, BUILDING_LIMITS.passage[0], BUILDING_LIMITS.passage[1]) : undefined;
+  let workSpaces: WorkSpaces | undefined;
+  if (b.workSpaces && typeof b.workSpaces === 'object') {
+    const ws = b.workSpaces as WorkSpaces;
+    const out: WorkSpaces = {};
+    for (const k of SPACE_KEYS) {
+      const s = ws[k];
+      if (s && num(s.l) && num(s.w)) out[k] = { l: clamp(s.l, BUILDING_LIMITS.space[0], BUILDING_LIMITS.space[1]), w: clamp(s.w, BUILDING_LIMITS.space[0], BUILDING_LIMITS.space[1]) };
+    }
+    if (Object.keys(out).length > 0) workSpaces = out;
+  }
+  return {
+    unit: b.unit === 'm' ? 'm' : 'ft', length: b.length, width: b.width, height: b.height,
+    door: { wall: d.wall as Wall, from: d.from, width: d.width, height: d.height },
+    sides,
+    ...(wallThickness !== undefined && { wallThickness }),
+    ...(doorKind !== undefined && { doorKind }),
+    ...(passageWidth !== undefined && { passageWidth }),
+    ...(workSpaces !== undefined && { workSpaces }),
+  };
 }
 
 // ───────────────────────── saved chambers, grouped ─────────────────────────
@@ -1498,8 +1603,25 @@ export function draftFromSaved(
     address: l.address ?? '',
     unit,
     building: building
-      ? { length: t(building.length), width: t(building.width), height: t(building.height), door: { wall: building.door.wall, from: t(building.door.from), width: t(building.door.width), height: t(building.door.height) }, sides: building.sides }
-      : { length: '', width: '', height: '', door: blankDoor(), sides: '' },
+      ? {
+          length: t(building.length), width: t(building.width), height: t(building.height),
+          door: { wall: building.door.wall, from: t(building.door.from), width: t(building.door.width), height: t(building.door.height) },
+          sides: building.sides,
+          wallThickness: building.wallThickness !== undefined ? t(building.wallThickness) : '',
+          passageWidth: building.passageWidth !== undefined ? t(building.passageWidth) : '',
+          doorKind: building.doorKind ?? '',
+          spCleaningL: building.workSpaces?.cleaning ? t(building.workSpaces.cleaning.l) : '',
+          spCleaningW: building.workSpaces?.cleaning ? t(building.workSpaces.cleaning.w) : '',
+          spGradingL: building.workSpaces?.grading ? t(building.workSpaces.grading.l) : '',
+          spGradingW: building.workSpaces?.grading ? t(building.workSpaces.grading.w) : '',
+          spPackingL: building.workSpaces?.packing ? t(building.workSpaces.packing.l) : '',
+          spPackingW: building.workSpaces?.packing ? t(building.workSpaces.packing.w) : '',
+          spMachineryL: building.workSpaces?.machinery ? t(building.workSpaces.machinery.l) : '',
+          spMachineryW: building.workSpaces?.machinery ? t(building.workSpaces.machinery.w) : '',
+          spDockL: building.workSpaces?.dock ? t(building.workSpaces.dock.l) : '',
+          spDockW: building.workSpaces?.dock ? t(building.workSpaces.dock.w) : '',
+        }
+      : { length: '', width: '', height: '', door: blankDoor(), sides: '', wallThickness: '', passageWidth: '', doorKind: '', spCleaningL: '', spCleaningW: '', spGradingL: '', spGradingW: '', spPackingL: '', spPackingW: '', spMachineryL: '', spMachineryW: '', spDockL: '', spDockW: '' },
     chambers: groups.map((g) => {
       const s = g.size!;
       const o = outlineOf(s);
@@ -1550,7 +1672,18 @@ export function switchUnit(d: StoreDraft, unit: SizeUnit): StoreDraft {
   return {
     ...d,
     unit,
-    building: { ...d.building, length: conv(d.building.length), width: conv(d.building.width), height: conv(d.building.height), door: door(d.building.door) },
+    building: {
+      ...d.building,
+      length: conv(d.building.length), width: conv(d.building.width), height: conv(d.building.height),
+      door: door(d.building.door),
+      wallThickness: conv(d.building.wallThickness),
+      passageWidth: conv(d.building.passageWidth),
+      spCleaningL: conv(d.building.spCleaningL), spCleaningW: conv(d.building.spCleaningW),
+      spGradingL: conv(d.building.spGradingL), spGradingW: conv(d.building.spGradingW),
+      spPackingL: conv(d.building.spPackingL), spPackingW: conv(d.building.spPackingW),
+      spMachineryL: conv(d.building.spMachineryL), spMachineryW: conv(d.building.spMachineryW),
+      spDockL: conv(d.building.spDockL), spDockW: conv(d.building.spDockW),
+    },
     chambers: d.chambers.map((c) => ({
       ...c,
       length: conv(c.length),
@@ -1573,7 +1706,7 @@ export function switchUnit(d: StoreDraft, unit: SizeUnit): StoreDraft {
 /** The value of a field of the draft by its issue name ('title', 'building.door.from', '<key>.count'). */
 export function getField(d: StoreDraft, field: string): string {
   const path = field.split('.');
-  if (path[0] === 'building') return String(path[1] === 'door' ? d.building.door[path[2] as keyof DoorDraft] ?? '' : d.building[path[1] as 'length' | 'width' | 'height' | 'sides'] ?? '');
+  if (path[0] === 'building') return String(path[1] === 'door' ? d.building.door[path[2] as keyof DoorDraft] ?? '' : d.building[path[1] as keyof StoreDraft['building']] ?? '');
   const c = d.chambers.find((x) => x.key === path[0]);
   if (c) return String(path[1] === 'door' ? c.door[path[2] as keyof DoorDraft] ?? '' : c[path[1] as keyof ChamberDraft] ?? '');
   const v = d[path[0] as keyof StoreDraft];

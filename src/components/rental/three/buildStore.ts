@@ -20,8 +20,8 @@ import { binTexture, cartonTexture, concreteTexture, crateTexture, fanTexture, g
 import type { Route } from '@/components/rental/walk/route';
 import { buildFixtures } from '@/components/rental/three/fixtures';
 import type { ColdKitGeos } from '@/components/rental/three/coldKit';
-import { type Kind, midOf, type Rect, rowPlates, type Seg, segLength, type StoreScene, ZONE_LOOK } from '@/components/rental/three/storeScene';
-import { countText } from '@/lib/coldStore';
+import { type Kind, midOf, type Rect, rowPlates, type SceneZone, type Seg, segLength, type StoreScene, ZONE_LOOK } from '@/components/rental/three/storeScene';
+import { DOOR_KIND_TEXT, countText } from '@/lib/coldStore';
 import { showLength } from '@/lib/coldLayout';
 
 type Three = typeof import('three');
@@ -459,10 +459,13 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
     slab(r, -0.005, 0.03, mats.apron);
   }
 
-  // The building: its walls (the ones facing the camera turn see-through), the main door with its rolled-up shutter.
+  // The building: its walls (the ones facing the camera turn see-through), the main door as the owner says it opens.
   if (scene.building) {
     const H = scene.building.height;
-    for (const s of scene.walls) roomWall(s, 0, H, 0.25, scene.hall, 'hall');
+    // The owner's insulated wall thickness (a store measured before it was
+    // asked: the usual 25 cm panel).
+    const wallT = scene.building.wallThickness ?? 0.25;
+    for (const s of scene.walls) roomWall(s, 0, H, wallT, scene.hall, 'hall');
     const outline = new T.LineSegments(new T.EdgesGeometry(new T.BoxGeometry(scene.hall.w, H, scene.hall.d)), kit.edge);
     outline.position.set(wx(o, scene.hall.w / 2), H / 2, wz(o, scene.hall.d / 2));
     add(outline);
@@ -480,15 +483,32 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
     dim(showLength(scene.building.width, u), 'Width (front to back)', Math.min(4, Math.max(2.6, scene.hall.d * 0.25))).position.set(wx(o, -2.4), 0.5, wz(o, scene.hall.d / 2));
     dim(showLength(H, u), 'Height (to the roof)', Math.min(3.6, Math.max(2.4, H * 0.35))).position.set(wx(o, -1.8), H * 0.55, wz(o, -1.8));
     if (md) {
-      roomWall(md.seg, md.height, H, 0.25, scene.hall, 'hall');
+      roomWall(md.seg, md.height, H, wallT, scene.hall, 'hall');
       const along = md.wall === 'front' || md.wall === 'back';
       for (const end of [{ x: md.seg.x1, y: md.seg.y1 }, { x: md.seg.x2, y: md.seg.y2 }]) box(0.3, md.height, 0.3, wx(o, end.x), md.height / 2, wz(o, end.y), mats.door);
       box(along ? md.width + 0.3 : 0.3, 0.3, along ? 0.3 : md.width + 0.3, wx(o, md.mid.x), md.height + 0.15, wz(o, md.mid.y), mats.door);
-      const roll = new T.Mesh(new T.CylinderGeometry(0.32, 0.32, md.width, 20), mats.shutter);
-      roll.rotation.set(along ? 0 : Math.PI / 2, 0, along ? Math.PI / 2 : 0);
-      roll.position.set(wx(o, md.mid.x - md.inward.x * 0.45), md.height + 0.5, wz(o, md.mid.y - md.inward.y * 0.45));
-      add(roll);
-      const tag = label(T, 'Main door', `${showLength(md.width, u)} wide · ${md.wall} wall`, Math.min(4, Math.max(2.4, md.width)), true, 26, 64);
+      const kind = md.kind ?? 'roll-up';
+      if (kind === 'roll-up') {
+        // A roll-up door: its shutter wound on the roller over the opening.
+        const roll = new T.Mesh(new T.CylinderGeometry(0.32, 0.32, md.width, 20), mats.shutter);
+        roll.rotation.set(along ? 0 : Math.PI / 2, 0, along ? Math.PI / 2 : 0);
+        roll.position.set(wx(o, md.mid.x - md.inward.x * 0.45), md.height + 0.5, wz(o, md.mid.y - md.inward.y * 0.45));
+        add(roll);
+      } else {
+        // A sliding door: the insulated leaf pushed open along the wall —
+        // outside the wall (Outside sliding) or just inside it (Inside
+        // sliding) — running on a track beam over the opening.
+        const outside = kind === 'outside-slide';
+        const off = md.width / 2 + 0.2;
+        const ux = along ? 1 : 0;
+        const uy = along ? 0 : 1;
+        const lx = md.mid.x + ux * off - md.inward.x * (outside ? -0.18 : 0.18);
+        const ly = md.mid.y + uy * off - md.inward.y * (outside ? -0.18 : 0.18);
+        box(along ? md.width : 0.12, md.height, along ? 0.12 : md.width, wx(o, lx), md.height / 2, wz(o, ly), mats.leaf);
+        const trackLen = md.width * 2 + 0.8;
+        box(along ? trackLen : 0.16, 0.14, along ? 0.16 : trackLen, wx(o, md.mid.x + ux * off * 0.5), md.height + 0.55, wz(o, md.mid.y + uy * off * 0.5), mats.beam);
+      }
+      const tag = label(T, 'Main door', `${showLength(md.width, u)} wide · ${md.wall} wall · ${DOOR_KIND_TEXT[kind]}`, Math.min(4, Math.max(2.4, md.width)), true, 26, 64);
       tag.position.set(wx(o, md.mid.x - md.inward.x * 1.2), md.height + 1.4, wz(o, md.mid.y - md.inward.y * 1.2));
       add(tag);
       labels.push(tag);
@@ -509,11 +529,65 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
         zoneMats.set(z.key, zm);
       }
       slab(z.rect, 0.02, 0.015, zm);
-      const tag = label(T, z.label, '', Math.min(4.5, Math.max(2, Math.min(z.rect.w, z.rect.d))), true, 20, 46);
+      const tag = label(T, z.label, `${showLength(z.rect.w, u)} × ${showLength(z.rect.d, u)}`, Math.min(4.5, Math.max(2, Math.min(z.rect.w, z.rect.d))), true, 20, 46);
       tag.position.set(wx(o, z.rect.x + z.rect.w / 2), 1.5, wz(o, z.rect.y + z.rect.d / 2));
       add(tag);
       labels.push(tag);
     }
+    // Procedural equipment inside each work zone — a washing trough, a
+    // grading conveyor, packing tables, the plant's skid blocks and the
+    // dock leveller — sized from the zone's own rect, so an owner-sized
+    // zone holds kit that fits exactly what they measured.
+    const gear = (z: SceneZone) => {
+      const r = z.rect;
+      const alongX = r.w >= r.d;
+      const len = Math.min(alongX ? r.w : r.d, 16);
+      const cross = Math.min(alongX ? r.d : r.w, 5);
+      if (len < 1 || cross < 0.5) return;
+      const midX = wx(o, r.x + r.w / 2);
+      const midZ = wz(o, r.y + r.d / 2);
+      /** One piece: `l` along the zone's line, `w` across it, `off` along the line from its middle. */
+      const piece = (l: number, w: number, h: number, y: number, off: number, mat: Mat) =>
+        alongX ? box(l, h, w, midX + off, y, midZ, mat) : box(w, h, l, midX, y, midZ + off, mat);
+      switch (z.key) {
+        case 'cleaning': {
+          // The washing trough in stainless, a brush roller over it.
+          piece(Math.min(len, cross * 3), Math.min(0.9, cross), 0.65, 0.33, 0, mats.condenser);
+          piece(Math.min(len * 0.8, cross * 2.4), 0.22, 0.22, 0.85, 0, mats.guard);
+          break;
+        }
+        case 'grading': {
+          // A roller conveyor at waist height on slim steel legs.
+          const belt = Math.min(len, cross * 3);
+          piece(belt, Math.min(0.8, cross), 0.07, 0.78, 0, mats.guard);
+          piece(0.07, Math.max(0.2, Math.min(0.7, cross - 0.2)), 0.75, 0.38, -belt / 2 + 0.1, mats.beam);
+          piece(0.07, Math.max(0.2, Math.min(0.7, cross - 0.2)), 0.75, 0.38, belt / 2 - 0.1, mats.beam);
+          break;
+        }
+        case 'packing': {
+          // Two packing tables along the line.
+          const tw = Math.min(1.5, len / 2 - 0.2);
+          if (tw >= 0.6) {
+            piece(tw, Math.min(0.8, cross), 0.06, 0.85, -len / 4, mats.leaf);
+            piece(tw, Math.min(0.8, cross), 0.06, 0.85, len / 4, mats.leaf);
+          }
+          break;
+        }
+        case 'machinery': {
+          // The plant: two skid blocks along the line.
+          piece(Math.min(1.4, len * 0.45), Math.min(1.1, cross), 1.1, 0.55, -len / 4, mats.condenser);
+          piece(Math.min(1.4, len * 0.45), Math.min(1.1, cross), 1.1, 0.55, len / 4, mats.condenser);
+          break;
+        }
+        case 'dock': {
+          // The dock leveller: a plate across the passage, tipped a little.
+          const plate = piece(Math.min(2.2, len), cross, 0.06, 0.42, 0, mats.shutter);
+          if (alongX) plate.rotation.z = 0.09; else plate.rotation.x = 0.09;
+          break;
+        }
+      }
+    };
+    for (const z of scene.zones) gear(z);
   }
 
   // The chambers.

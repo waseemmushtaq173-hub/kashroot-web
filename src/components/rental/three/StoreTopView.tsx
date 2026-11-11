@@ -15,7 +15,7 @@ import { DimLine, ScaleBar } from '@/components/rental/drawingMarks';
 import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
 import { midOf, ZONE_LOOK, type Rect, type SceneChamber, type SceneZone, type StoreScene, type Vec } from '@/components/rental/three/storeScene';
 import { showLength } from '@/lib/coldLayout';
-import { countText, nice, type Storage } from '@/lib/coldStore';
+import { countText, DOOR_KIND_TEXT, nice, type Storage } from '@/lib/coldStore';
 import type { ColdChamber } from '@/lib/db/coldMap';
 
 /** How wide an element is on screen (0 until known). */
@@ -254,15 +254,23 @@ export const StoreTopView = memo(function StoreTopView({
               const zx = X(z.rect.x);
               const zy = Y(z.rect.y + z.rect.d);
               const upright = zd >= zw;
+              // The zone's own dimensions under its name (the owner's unit).
+              const dims = `${showLength(z.rect.w, u)} × ${showLength(z.rect.d, u)}`;
+              const withDims = zw >= 54 || zd >= 54;
               const size = fitFont(z.label, (upright ? zd : zw) - 8, font - 2, 7);
               const cx = zx + zw / 2;
               const cy = zy + zd / 2;
               return (
                 <g key={z.key} aria-hidden>
                   <rect x={zx} y={zy} width={zw} height={zd} fill={ZONE_FILL[z.key]} stroke={ZONE_LOOK[z.key]} strokeWidth={1.5} strokeDasharray="6 4" />
-                  <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={size} fontWeight={800} letterSpacing={1} fill={ZONE_LOOK[z.key]} transform={upright ? `rotate(-90 ${cx} ${cy})` : undefined}>
+                  <text x={cx} y={cy - (withDims ? 6 : 0)} textAnchor="middle" dominantBaseline="central" fontSize={size} fontWeight={800} letterSpacing={1} fill={ZONE_LOOK[z.key]} transform={upright ? `rotate(-90 ${cx} ${cy})` : undefined}>
                     {z.label.toUpperCase()}
                   </text>
+                  {withDims && (
+                    <text x={cx} y={cy + 9} textAnchor="middle" dominantBaseline="central" fontSize={Math.max(6, size - 2)} fontWeight={700} fill={ZONE_LOOK[z.key]} transform={upright ? `rotate(-90 ${cx} ${cy})` : undefined}>
+                      {dims}
+                    </text>
+                  )}
                 </g>
               );
             })}
@@ -278,7 +286,7 @@ export const StoreTopView = memo(function StoreTopView({
                 const upright = md.wall === 'left' || md.wall === 'right';
                 return (
                   <text x={px} y={py} textAnchor="middle" dominantBaseline="central" fontSize={font} fontWeight={800} fill="#b45309" transform={upright ? `rotate(-90 ${px} ${py})` : undefined}>
-                    {`Main door · ${showLength(md.width, u)}`}
+                    {`Main door · ${showLength(md.width, u)} · ${md.kind ? DOOR_KIND_TEXT[md.kind] : 'Roll-up'}`}
                   </text>
                 );
               })()}

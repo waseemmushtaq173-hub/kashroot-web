@@ -15,7 +15,7 @@ import { DoorOpen, Ruler, Store, Warehouse } from 'lucide-react';
 
 import { Box, Choose, Problems, UnitSwitch, WallPicker } from '@/components/rental/owner/fields';
 import { StoreDrawing } from '@/components/rental/owner/StoreDrawing';
-import { getField, JK, JK_DISTRICTS, STATES, switchUnit, type Issue, type Sides, type StoreDraft, type StoreModel } from '@/lib/coldStore';
+import { DOOR_KINDS, DOOR_KIND_TEXT, SPACE_DRAFT_FIELDS, SPACE_KEYS, SPACE_TEXT, getField, JK, JK_DISTRICTS, STATES, switchUnit, type DoorKind, type Issue, type Sides, type SpaceKey, type StoreDraft, type StoreModel } from '@/lib/coldStore';
 
 /** What every step gets from the wizard. */
 export interface Kit {
@@ -132,6 +132,32 @@ function SidesPicker({ value, onChange, issues }: { value: Sides | ''; onChange:
   );
 }
 
+/** How the main door opens: three picture buttons — slides out, slides in, or rolls up. */
+function DoorKindPicker({ value, onChange }: { value: '' | DoorKind; onChange: (v: DoorKind) => void }) {
+  const label = 'How does the main door open?';
+  return (
+    <fieldset className="space-y-2 rounded-2xl bg-amber-50/70 p-4 ring-1 ring-amber-200">
+      <legend className="sr-only">{label}</legend>
+      <p className="text-base font-semibold text-amber-950">{label}</p>
+      <p className="text-sm text-slate-700">The drawing and the 3D view show the door exactly as it opens.</p>
+      <div role="radiogroup" aria-label={label} className="grid grid-cols-3 gap-2">
+        {DOOR_KINDS.map((k) => (
+          <button
+            key={k}
+            type="button"
+            role="radio"
+            aria-checked={value === k}
+            onClick={() => onChange(k)}
+            className={`min-h-11 cursor-pointer rounded-xl px-2 text-sm font-bold ring-2 transition ${value === k ? 'bg-chinar text-white shadow-md ring-chinar' : 'bg-white text-slate-800 ring-slate-200 hover:ring-amber-300'}`}
+          >
+            {DOOR_KIND_TEXT[k]}
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
 export function BuildingStep({ kit }: { kit: Kit }) {
   const { draft } = kit;
   const u = draft.unit;
@@ -165,6 +191,27 @@ export function BuildingStep({ kit }: { kit: Kit }) {
           <div className="grid gap-5 sm:grid-cols-2">
             <KitBox kit={kit} field="building.door.width" label={`Main door: width (${u})`} number />
             <KitBox kit={kit} field="building.door.height" label={`Main door: height (${u})`} number />
+          </div>
+          <DoorKindPicker value={draft.building.doorKind} onChange={(v) => kit.set('building.doorKind', v)} />
+        </fieldset>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <KitBox kit={kit} field="building.wallThickness" label={`Insulated wall thickness (${u})`} number hint="How thick the cold-store panels are. Leave empty for the usual thickness." />
+          <KitBox kit={kit} field="building.passageWidth" label={`Main forklift passage width (${u})`} number hint="How wide the passage from the main door is. Leave empty for the door's own width." />
+        </div>
+        <fieldset className="space-y-3 rounded-2xl bg-sky-50/70 p-4 ring-1 ring-sky-200">
+          <legend className="sr-only">Work spaces</legend>
+          <p className="flex items-center gap-2 text-base font-semibold text-sky-950"><Warehouse className="h-5 w-5" aria-hidden /> Work spaces (cleaning, grading, packing, plant, bay)</p>
+          <p className="text-sm text-slate-700">The rooms around the chambers where the fruit is cleaned, graded, packed and loaded. Give each one its length and width — leave a space empty and the drawing makes it fit the room left over.</p>
+          <div className="space-y-3">
+            {SPACE_KEYS.map((k: SpaceKey) => (
+              <div key={k} className="rounded-xl bg-white p-3 ring-1 ring-slate-200">
+                <p className="text-sm font-semibold text-slate-900">{SPACE_TEXT[k]}</p>
+                <div className="mt-1.5 grid gap-3 sm:grid-cols-2">
+                  <KitBox kit={kit} field={`building.${SPACE_DRAFT_FIELDS[k].l}`} label={`Length (${u})`} number />
+                  <KitBox kit={kit} field={`building.${SPACE_DRAFT_FIELDS[k].w}`} label={`Width (${u})`} number />
+                </div>
+              </div>
+            ))}
           </div>
         </fieldset>
         <SidesPicker value={draft.building.sides ?? ''} onChange={(v) => kit.set('building.sides', v)} issues={kit.issuesOf('building.sides')} />

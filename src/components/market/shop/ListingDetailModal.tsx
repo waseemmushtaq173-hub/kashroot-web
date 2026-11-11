@@ -35,6 +35,12 @@ const FarmMap = dynamic(() => import('@/components/market/shop/FarmMap'), {
   loading: () => <div className="h-56 w-full animate-pulse rounded-xl bg-slate-100" aria-hidden />,
 });
 
+// The native tile map for the buyer's delivery pin — no iframe, never blocked.
+const LiveInteractiveMap = dynamic(() => import('@/components/common/LiveInteractiveMap'), {
+  ssr: false,
+  loading: () => <div className="h-56 w-full animate-pulse rounded-xl bg-slate-100" aria-hidden />,
+});
+
 /** Units sold whole: nobody orders half a box. */
 const WHOLE_UNITS = ['box', 'piece', 'bag'];
 
@@ -88,15 +94,18 @@ function BuyerCheckoutForm({ listing: l, theme }: { listing: ShopListing; theme:
 
   // The locked address fills the Delivery address in — into an empty field,
   // or replacing what a previous lock put there — never over the buyer's own
-  // typing. Coordinates alone are not an address: nothing fills then.
+  // typing made after the lock. Coordinates alone are not an address: nothing
+  // fills then.
   const [autoAddr, setAutoAddr] = useState<string | null>(null);
+  /** True once the buyer edits the address after the last lock: then their words win. */
+  const [addrTouched, setAddrTouched] = useState(false);
   useEffect(() => {
     if (!fix) return;
     const a = fix.address;
     if (addressIsCoords(a) || a === autoAddr) return;
-    setForm((cur) => (cur.address.trim() && cur.address !== autoAddr ? cur : { ...cur, address: a }));
+    setForm((cur) => (addrTouched && cur.address.trim() && cur.address !== autoAddr ? cur : { ...cur, address: a }));
     setAutoAddr(a);
-  }, [fix, autoAddr]);
+  }, [fix, autoAddr, addrTouched]);
 
   /** High-accuracy live GPS, reverse-geocoded; locked before the order goes. */
   const takeFix = useCallback(async () => {
@@ -104,6 +113,10 @@ function BuyerCheckoutForm({ listing: l, theme }: { listing: ShopListing; theme:
     setFixError(null);
     try {
       setFix(await capturePoint());
+      // A fresh lock clears any stale red order error and opens a new
+      // "the buyer may override the address" window.
+      setProblem(null);
+      setAddrTouched(false);
     } catch (err) {
       setFix(null);
       setFixError(`We could not get your live GPS location (${err instanceof Error ? err.message : 'unknown error'}). Allow location access — it puts your exact delivery pin on the live map.`);
@@ -127,9 +140,22 @@ function BuyerCheckoutForm({ listing: l, theme }: { listing: ShopListing; theme:
     if (wrong) return setProblem(wrong);
     // An order is money: never kept to send later.
     if (offlineNow()) return setProblem(NEEDS_INTERNET);
-    // The live mutual GPS needs the buyer's exact destination: nothing goes without it.
-    if (!fix) {
-      return setProblem(fixError ?? 'Your live GPS is not captured yet. Allow location access, then press “Lock Live Buyer GPS” and order again — it puts your exact delivery pin on the live map.');
+    // The live mutual GPS needs the buyer's exact destination: nothing goes
+    // without it. If the lock is still in flight (the buyer pressed Place
+    // Order right after Lock GPS), capture a fresh fix here instead of
+    // failing with the red error.
+    let live = fix;
+    if (!live) {
+      setProblem(null);
+      try {
+        live = await capturePoint();
+        setFix(live);
+        setFixError(null);
+        setAddrTouched(false);
+      } catch (err) {
+        setFixError(`We could not get your live GPS location (${err instanceof Error ? err.message : 'unknown error'}). Allow location access — it puts your exact delivery pin on the live map.`);
+        return setProblem('Your live GPS is not captured yet. Allow location access, then press “Lock Live Buyer GPS” and order again — it puts your exact delivery pin on the live map.');
+      }
     }
     setBusy(true);
     try {
@@ -140,9 +166,9 @@ function BuyerCheckoutForm({ listing: l, theme }: { listing: ShopListing; theme:
         delivery_address: form.address.trim(),
         quantity: qty,
         // The buyer's live GPS, locked at checkout: the destination pin on the live mutual map.
-        buyer_live_lat: fix?.lat,
-        buyer_live_lng: fix?.lng,
-        buyer_live_address: fix?.address,
+        buyer_live_lat: live.lat,
+        buyer_live_lng: live.lng,
+        buyer_live_address: live.address,
       });
       setPlaced(order);
       toast.success(`Order sent — ${inr(order.amount)} locked in KashRoot escrow`);
@@ -211,7 +237,7 @@ function BuyerCheckoutForm({ listing: l, theme }: { listing: ShopListing; theme:
       </div>
       <label className="flex flex-col gap-1 text-xs text-slate-500">
         Delivery address
-        <textarea rows={2} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Village, tehsil, district, landmark" className="w-full rounded-xl border-0 bg-white px-3 py-2 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500" />
+        <textarea rows={2} value={form.address} onChange={(e) => { setForm({ ...form, address: e.target.value }); setAddrTouched(true); }} placeholder="Village, tehsil, district, landmark" className="w-full rounded-xl border-0 bg-white px-3 py-2 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500" />
       </label>
       <div className="grid gap-1.5">
         <button type="button" onClick={() => void takeFix()} disabled={fixing} className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 text-sm font-bold text-white hover:bg-sky-700 disabled:opacity-50">
@@ -222,15 +248,7 @@ function BuyerCheckoutForm({ listing: l, theme }: { listing: ShopListing; theme:
             <p className="rounded-xl bg-white p-2.5 text-xs font-semibold text-sky-900 ring-1 ring-sky-200">
               ✓ Live GPS Locked: {addressIsCoords(fix.address) ? fix.address : `${fix.address} · ${coordsText(fix)}`} (±{Math.round(fix.accuracy ?? 0)} m)
             </p>
-            <figure className="grid gap-1">
-              <iframe
-                title="Your exact delivery pin on the map"
-                src={`https://www.openstreetmap.org/export/embed.html?bbox=${(fix.lng - 0.004).toFixed(5)},${(fix.lat - 0.003).toFixed(5)},${(fix.lng + 0.004).toFixed(5)},${(fix.lat + 0.003).toFixed(5)}&layer=mapnik&marker=${fix.lat},${fix.lng}`}
-                className="h-44 w-full rounded-xl border border-sky-200 bg-white"
-                loading="lazy"
-              />
-              <figcaption className="text-[11px] text-slate-500">📍 Your exact delivery pin — map data © OpenStreetMap contributors.</figcaption>
-            </figure>
+            <LiveInteractiveMap lat={fix.lat} lng={fix.lng} accuracy={fix.accuracy} label="Your exact delivery pin" />
           </>
         )}
         {fixError && <p role="alert" className="rounded-xl bg-rose-50 p-2.5 text-xs font-medium text-rose-800 ring-1 ring-rose-200">{fixError}</p>}

@@ -13,8 +13,9 @@
  * again just before the order goes: a new price is shown and the buyer
  * presses Order again; a product taken off sale says so.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import React from 'react';
+import dynamic from 'next/dynamic';
 import { ArrowLeft, Crosshair, ShoppingCart } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
@@ -24,6 +25,12 @@ import { capturePoint, type LiveFix } from '@/lib/client/liveGps';
 import { inr, supabase, type Account } from '@/lib/db/client';
 import { orderAction, placeOrder, type MarketListing, type MarketOrder, type MarketUnit } from '@/lib/db/market';
 import { LISTINGS_CHANGED, UNIT_PLURAL as PLURAL, amountOf } from '@/components/market/shop/useLiveListings';
+
+// The native tile map for the buyer's delivery pin — no iframe, never blocked.
+const LiveInteractiveMap = dynamic(() => import('@/components/common/LiveInteractiveMap'), {
+  ssr: false,
+  loading: () => <div className="h-56 w-full animate-pulse rounded-xl bg-slate-100" aria-hidden />,
+});
 
 type Orderable = Pick<MarketListing, 'id' | 'product' | 'price' | 'unit' | 'quantity' | 'seller_name' | 'district'>;
 
@@ -69,8 +76,18 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
   const set = useCallback((patch: Partial<typeof form>) => {
     setForm({ ...form, ...patch });
     setProblem(null);
+    // Editing the address after a lock is the buyer's own override.
+    if (patch.address !== undefined) setAddrTouched(true);
   }, [form]);
   const total = useMemo(() => inr(qty * Number(l.price)), [qty, l.price]);
+
+  // The overwrite rule read inside takeFix without making it unstable:
+  // a fresh lock overwrites the address unless the buyer typed their own
+  // words after the previous lock.
+  const [autoAddr, setAutoAddr] = useState<string | null>(null);
+  const [addrTouched, setAddrTouched] = useState(false);
+  const addrRef = useRef({ addrTouched, autoAddr });
+  addrRef.current = { addrTouched, autoAddr };
 
   /** High-accuracy live GPS, reverse-geocoded; mandatory before the order goes. */
   const takeFix = useCallback(async () => {
@@ -79,8 +96,13 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
     try {
       const f = await capturePoint();
       setFix(f);
-      // The reverse-geocoded address pre-fills "Deliver to" when it is empty.
-      setForm((cur) => (cur.address.trim() ? cur : { ...cur, address: f.address }));
+      // A fresh lock clears any stale red order error and opens a new
+      // "the buyer may override the address" window.
+      setProblem(null);
+      setAddrTouched(false);
+      const { addrTouched: touched, autoAddr: prev } = addrRef.current;
+      setForm((cur) => (touched && cur.address.trim() && cur.address !== prev ? cur : { ...cur, address: f.address }));
+      setAutoAddr(f.address);
     } catch (err) {
       setFix(null);
       setFixError(`We could not get your live GPS location (${err instanceof Error ? err.message : 'unknown error'}). Allow location access — it puts your exact delivery pin on the live map.`);
@@ -101,9 +123,21 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
     if (wrong) return setProblem(wrong);
     // An order is money: never kept to send later.
     if (offlineNow()) return setProblem(NEEDS_INTERNET);
-    // The live mutual GPS needs the buyer's exact destination: nothing goes without it.
-    if (!fix) {
-      return setProblem(fixError ?? 'Your live GPS is not captured yet. Allow location access, then press “Capture my live GPS” and Order again — it puts your exact delivery pin on the live map.');
+    // The live mutual GPS needs the buyer's exact destination: nothing goes
+    // without it. If the lock is still in flight (the buyer pressed Order
+    // right after the capture), take a fresh fix here instead of failing.
+    let live = fix;
+    if (!live) {
+      setProblem(null);
+      try {
+        live = await capturePoint();
+        setFix(live);
+        setFixError(null);
+        setAddrTouched(false);
+      } catch (err) {
+        setFixError(`We could not get your live GPS location (${err instanceof Error ? err.message : 'unknown error'}). Allow location access — it puts your exact delivery pin on the live map.`);
+        return setProblem('Your live GPS is not captured yet. Allow location access, then press “Capture my live GPS” and Order again — it puts your exact delivery pin on the live map.');
+      }
     }
     setBusy(true);
     try {
@@ -132,9 +166,9 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
         delivery_address: form.address.trim(),
         quantity: qty,
         // The buyer's live GPS, locked at checkout: the destination pin on the live mutual map.
-        buyer_live_lat: fix?.lat,
-        buyer_live_lng: fix?.lng,
-        buyer_live_address: fix?.address,
+        buyer_live_lat: live.lat,
+        buyer_live_lng: live.lng,
+        buyer_live_address: live.address,
       });
       // The price changed in the same moment: take the order back and ask again.
       if (Number(order.unit_price) !== Number(fresh.price)) {
@@ -199,12 +233,15 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
           <textarea rows={2} className={INPUT} value={form.address} onChange={(e) => set({ address: e.target.value })} placeholder="Village, tehsil, district, landmark" />
         </Field>
         {fix && (
-          <p className="rounded-xl bg-sky-50 p-3 text-sm text-sky-950">
-            <strong>📍 Live GPS locked:</strong> {fix.address} · {fix.lat.toFixed(5)}, {fix.lng.toFixed(5)} (±{Math.round(fix.accuracy ?? 0)} m). Your pin goes on the live map the farmer follows to you.
-            <button type="button" onClick={() => void takeFix()} disabled={fixing} className="ms-2 inline-flex min-h-8 items-center gap-1 rounded-lg bg-sky-100 px-2 font-semibold text-sky-900 underline-offset-2 hover:bg-sky-200 disabled:opacity-50">
-              <Crosshair className="h-3.5 w-3.5" aria-hidden /> {fixing ? 'Capturing…' : 'Capture again'}
-            </button>
-          </p>
+          <>
+            <p className="rounded-xl bg-sky-50 p-3 text-sm text-sky-950">
+              <strong>📍 Live GPS locked:</strong> {fix.address} · {fix.lat.toFixed(5)}, {fix.lng.toFixed(5)} (±{Math.round(fix.accuracy ?? 0)} m). Your pin goes on the live map the farmer follows to you.
+              <button type="button" onClick={() => void takeFix()} disabled={fixing} className="ms-2 inline-flex min-h-8 items-center gap-1 rounded-lg bg-sky-100 px-2 font-semibold text-sky-900 underline-offset-2 hover:bg-sky-200 disabled:opacity-50">
+                <Crosshair className="h-3.5 w-3.5" aria-hidden /> {fixing ? 'Capturing…' : 'Capture again'}
+              </button>
+            </p>
+            <LiveInteractiveMap lat={fix.lat} lng={fix.lng} accuracy={fix.accuracy} label="Your delivery pin" />
+          </>
         )}
         {fixError && (
           <div>
