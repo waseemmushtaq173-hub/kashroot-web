@@ -53,6 +53,16 @@ export interface Chamber3DConfig {
   temperatureSource?: 'MANUAL_ENTRY' | 'IOT_SENSOR' | 'NONE';
 }
 
+/**
+ * The batching tier for massive facilities (Al Noor generates tens of
+ * thousands of unit slots): past 2,000 units the twin draws 1,000 evenly
+ * spread representative units instead — one procedural THREE.BoxGeometry
+ * instanced mesh either way, so the WebGL context never drowns — and an
+ * honest badge over the canvas says exactly how many the store really holds.
+ */
+const SLOT_CAP_TRIGGER = 2000;
+const SLOT_CAP_SHOWN = 1000;
+
 export interface IndustrialColdStoreTwinProps {
   facilityCode: string;
   facilityName: string;
@@ -204,6 +214,21 @@ export function IndustrialColdStoreTwin3D({
     });
   }, [allSlots, activeChamberId, activeLevel]);
 
+  // The safety cap: past 2,000 units in this view, draw a stride sample of
+  // 1,000 representative units (the full spread of chambers and levels stays
+  // covered) and remember the view's true totals for the badge. Clicks map
+  // through the same array order, so picking a unit in 3D keeps working.
+  const capped = useMemo(() => {
+    if (visibleSlots.length <= SLOT_CAP_TRIGGER) {
+      return { slots: visibleSlots, summary: null as null | { shown: number; total: number; kg: number } };
+    }
+    const stride = Math.ceil(visibleSlots.length / SLOT_CAP_SHOWN);
+    const sampled: StorageSlotRecord[] = [];
+    for (let i = 0; i < visibleSlots.length && sampled.length < SLOT_CAP_SHOWN; i += stride) sampled.push(visibleSlots[i]);
+    const kg = visibleSlots.reduce((n, s) => n + s.capacityKg, 0);
+    return { slots: sampled, summary: { shown: sampled.length, total: visibleSlots.length, kg } };
+  }, [visibleSlots]);
+
   const maxLevels = useMemo(
     () => chambers.reduce((m, c) => Math.max(m, c.levels || 4), 4),
     [chambers]
@@ -339,7 +364,7 @@ export function IndustrialColdStoreTwin3D({
           })}
 
           <InstancedStorageUnits
-            slots={visibleSlots}
+            slots={capped.slots}
             selectedSlotKeys={selectedSlotKeys}
             onSelectSlot={(slot) => {
               setInspectedSlot(slot);
@@ -424,6 +449,11 @@ export function IndustrialColdStoreTwin3D({
           <ContactShadows position={[0, 0, 0]} opacity={0.35} scale={safeLengthM * 1.5} blur={2} />
           <OrbitControls makeDefault maxPolarAngle={Math.PI / 2 - 0.04} />
         </Canvas>
+        {capped.summary && (
+          <p role="status" className="pointer-events-none absolute inset-x-3 top-3 z-10 mx-auto w-fit max-w-full rounded-full bg-slate-950/80 px-3.5 py-1.5 text-center text-[11px] font-semibold text-emerald-200 shadow-lg ring-1 ring-emerald-500/30">
+            Showing optimized 3D instanced view of {capped.summary.total.toLocaleString('en-IN')} storage units · {capped.summary.kg.toLocaleString('en-IN')} kg total capacity
+          </p>
+        )}
       </div>
 
       {/* Quick Unit & Level Selector Bar — every unit the view shows, as real
@@ -436,10 +466,10 @@ export function IndustrialColdStoreTwin3D({
         className="max-h-64 overflow-y-auto border-t border-emerald-800/40 bg-emerald-950/70 px-4 py-3"
       >
         <p className="text-xs font-semibold text-emerald-300">
-          Select units — Tab / Enter / Space or tap: {Math.min(visibleSlots.length, 200)} of {visibleSlots.length} unit{visibleSlots.length === 1 ? '' : 's'} shown
+          Select units — Tab / Enter / Space or tap: {Math.min(capped.slots.length, 200)} of {capped.summary ? capped.summary.total.toLocaleString('en-IN') : capped.slots.length} shown in 3D
         </p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {(visibleSlots.length > 200 ? visibleSlots.slice(0, 200) : visibleSlots).map((s) => {
+          {(capped.slots.length > 200 ? capped.slots.slice(0, 200) : capped.slots).map((s) => {
             const selected = selectedSlotKeys.includes(s.slotKey);
             const statusText =
               s.status === 'MY_BOOKING'
@@ -472,10 +502,10 @@ export function IndustrialColdStoreTwin3D({
               </button>
             );
           })}
-          {visibleSlots.length === 0 && (
+          {capped.slots.length === 0 && (
             <p className="text-xs text-slate-400">No units in this view — choose All Chambers or another level above.</p>
           )}
-          {visibleSlots.length > 200 && (
+          {capped.slots.length > 200 && (
             <p className="text-xs text-slate-400">Showing the first 200. Pick a single chamber above to see all of its units.</p>
           )}
         </div>

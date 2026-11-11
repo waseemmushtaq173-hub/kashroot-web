@@ -690,15 +690,36 @@ interface Slice {
   base: { m: Float32Array; c: Float32Array | null };
 }
 
+/** What the safety cap drew, when it trimmed a very large store. */
+export interface InstSummary {
+  /** Places actually drawn (a representative sample). */
+  shown: number;
+  /** Places the store really has: one place at one level is one slot. */
+  total: number;
+  /** Boxes the whole store holds at full capacity. */
+  boxes: number;
+}
+
 /** The whole set of places plus the handles that drive their floor slice, racks and apples (ColdStore3D). */
 export interface PlacesState extends Places {
   /** Apply the floor filter and the grower highlight (cheap: only counts, matrices and colours are touched). */
   applyWorld: (s: WorldState) => void;
   /** Apples lying on the booked places, instanced (the floor filter hides them together with their stacks). */
   applyWorldApples: (s: WorldState) => void;
+  /** Set when the safety cap trimmed a very large store: the honest badge the viewer shows. */
+  instSummary: InstSummary | null;
 }
 
 const APPLE_COUNT = 3; // a crown of apples across the top crate: two corners and the middle
+
+/**
+ * The safety cap for massive stores (Al Noor: 1,556 places over five levels —
+ * tens of thousands of rack posts, rails and stack instances at once, beyond
+ * what a phone's WebGL context survives). Past 2,000 slots the view draws
+ * 1,000 evenly spread representative places instead and says so honestly.
+ */
+const SLOT_CAP_TRIGGER = 2000;
+const SLOT_CAP_SHOWN = 1000;
 
 /**
  * The places for the months looked at. `cells[i]` belongs to
@@ -725,7 +746,24 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
     else map.set(key, [it]);
   };
 
-  for (const cell of cells) {
+  // The batching tier: past the cap, draw a stride sample across the whole
+  // store (chambers and levels stay proportionally covered), always drawing
+  // places being chosen or held so choosing never loses its outline. Every
+  // downstream group — stacks, ghosts, floor bays, racks, apples — is built
+  // from the sample only.
+  let draw = cells;
+  let instSummary: InstSummary | null = null;
+  if (cells.length > SLOT_CAP_TRIGGER) {
+    const stride = Math.ceil(cells.length / SLOT_CAP_SHOWN);
+    const shown = new Set<Cell>();
+    for (let i = 0; i < cells.length && shown.size < SLOT_CAP_SHOWN; i += stride) shown.add(cells[i]);
+    for (const cell of cells) if (strong(cell.look)) shown.add(cell);
+    const boxes = cells.reduce((n, cell) => n + (scene.chambers[cell.chamber]?.floors[cell.floor]?.k ?? 0), 0);
+    draw = Array.from(shown);
+    instSummary = { shown: draw.length, total: cells.length, boxes };
+  }
+
+  for (const cell of draw) {
     const c = scene.chambers[cell.chamber];
     const f = c?.floors[cell.floor];
     const p = f?.places[cell.place];
@@ -1075,7 +1113,7 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
     }
   };
 
-  return { group, picks, labels, applyWorld, applyWorldApples };
+  return { group, picks, labels, applyWorld, applyWorldApples, instSummary };
 }
 
 /**

@@ -29,7 +29,7 @@ import { DoorOpen, Factory, Footprints, Layers, Maximize2, ScanEye, Volume2, X }
 
 import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
 import { loadColdKitGeo } from '@/components/rental/three/coldKit';
-import { buildPlaces, buildRoute, buildShell, disposeGroup, faceWalls, makeKit, sizeLabels, wx, wz, type Cell, type Origin, type Places, type PlacesState, type Shell } from '@/components/rental/three/buildStore';
+import { buildPlaces, buildRoute, buildShell, disposeGroup, faceWalls, makeKit, sizeLabels, wx, wz, type Cell, type InstSummary, type Origin, type Places, type PlacesState, type Shell } from '@/components/rental/three/buildStore';
 import { routeTo, type Route, type RouteLang } from '@/components/rental/walk/route';
 import { speak, stopSpeaking } from '@/lib/client/speech';
 import { rememberedLang, rememberLang } from '@/lib/langDetect';
@@ -337,6 +337,8 @@ export function ColdStore3D({
   // network round trip. The view is rebuilt from scratch up to three times,
   // a quarter second apart, before the quiet "cannot show 3D" panel shows.
   const [attempt, setAttempt] = useState(0);
+  // Set when the safety cap trims a very large store: the honest badge over the view.
+  const [instSummary, setInstSummary] = useState<InstSummary | null>(null);
   // The 3D world is built only once the component has truly mounted (never
   // during a portal's first render or a stray server pass): three.js, WebGL
   // and their loaders exist only in the browser, and a hiccup there must
@@ -1115,6 +1117,7 @@ export function ColdStore3D({
           disposeGroup(T, kit, places.group);
         }
         places = buildPlaces(kit, s, cs, origin, (i) => freeBy[i] ?? 0, who);
+        setInstSummary(places.instSummary);
         dressShadows(places.group);
         root.add(places.group);
         labelsWalk = null;
@@ -1691,6 +1694,11 @@ export function ColdStore3D({
         )}
         <p id={textId} data-scene-text className="sr-only">{sceneText(scene)}</p>
         <div ref={tip} aria-live="polite" className="pointer-events-none absolute z-30 max-w-[228px] whitespace-pre-line rounded-xl bg-slate-900/90 px-3 py-2 text-xs font-semibold text-white opacity-0 shadow-lg transition-opacity" />
+        {instSummary && ready && (
+          <p role="status" className="pointer-events-none absolute left-1/2 top-3 z-30 w-fit max-w-[calc(100%-1rem)] -translate-x-1/2 rounded-full bg-slate-900/85 px-3.5 py-1.5 text-center text-[11px] font-semibold text-white shadow-lg">
+            Showing optimized 3D instanced view of {instSummary.total.toLocaleString('en-IN')} storage places · {instSummary.boxes.toLocaleString('en-IN')} total box capacity
+          </p>
+        )}
         {walking && ready && (
           <WalkHud
             press={press}
