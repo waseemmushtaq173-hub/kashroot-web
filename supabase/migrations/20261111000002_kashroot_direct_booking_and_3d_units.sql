@@ -102,3 +102,29 @@ BEGIN
       FOR ALL USING (true) WITH CHECK (true);
   END IF;
 END $$;
+
+-- 5. The live tables: rental_listings is the facility row, cold_chambers the
+-- chamber rows (cold_stores / cold_store_chambers do not exist here).
+ALTER TABLE IF EXISTS public.rental_listings
+  ADD COLUMN IF NOT EXISTS facility_code TEXT,
+  ADD COLUMN IF NOT EXISTS corridor_layout TEXT DEFAULT 'BOTH_SIDES' CHECK (corridor_layout IN ('LEFT_SIDE', 'RIGHT_SIDE', 'BOTH_SIDES', 'CUSTOM')),
+  ADD COLUMN IF NOT EXISTS cleaning_zone_sqft NUMERIC(8,2) DEFAULT 600,
+  ADD COLUMN IF NOT EXISTS grading_sorting_zone_sqft NUMERIC(8,2) DEFAULT 900,
+  ADD COLUMN IF NOT EXISTS packing_zone_sqft NUMERIC(8,2) DEFAULT 600,
+  ADD COLUMN IF NOT EXISTS machinery_room_sqft NUMERIC(8,2) DEFAULT 500,
+  ADD COLUMN IF NOT EXISTS loading_bay_sqft NUMERIC(8,2) DEFAULT 800,
+  ADD COLUMN IF NOT EXISTS owner_payout_upi TEXT,
+  ADD COLUMN IF NOT EXISTS owner_bank_account_name TEXT,
+  ADD COLUMN IF NOT EXISTS owner_bank_account_no TEXT,
+  ADD COLUMN IF NOT EXISTS owner_bank_ifsc TEXT;
+
+ALTER TABLE IF EXISTS public.cold_chambers
+  ADD COLUMN IF NOT EXISTS chamber_code TEXT,
+  ADD COLUMN IF NOT EXISTS side_position TEXT DEFAULT 'LEFT' CHECK (side_position IN ('LEFT', 'RIGHT', 'CENTER', 'CUSTOM')),
+  ADD COLUMN IF NOT EXISTS storage_unit_type TEXT DEFAULT 'WOODEN_BIN' CHECK (storage_unit_type IN ('WOODEN_BIN', 'PLASTIC_CRATE')),
+  ADD COLUMN IF NOT EXISTS unit_default_capacity_kg NUMERIC(6,2) DEFAULT 200.0,
+  ADD COLUMN IF NOT EXISTS unit_length_m NUMERIC(5,3) DEFAULT 1.200,
+  ADD COLUMN IF NOT EXISTS unit_width_m NUMERIC(5,3) DEFAULT 1.000,
+  ADD COLUMN IF NOT EXISTS unit_height_m NUMERIC(5,3) DEFAULT 0.780,
+  ADD COLUMN IF NOT EXISTS unit_spacing_m NUMERIC(4,3) DEFAULT 0.120,
+  ADD COLUMN IF NOT EXISTS levels_count INTEGER DEFAULT 4;
