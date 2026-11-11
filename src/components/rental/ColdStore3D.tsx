@@ -193,10 +193,11 @@ const UNIT_ONE: Record<Storage, string> = { bins: 'bin', crates: 'crate', boxes:
 const UNIT_MANY: Record<Storage, string> = { bins: 'bins', crates: 'crates', boxes: 'boxes' };
 
 /**
- * The crate drawer, opened by tapping a booked, shared or own stack in the
- * 3D and walk views: the place's own identifiers and exact bookkeeping —
- * weights from the owner's kg per unit and the boxes the database says are
- * standing, allocation from the bookings (never invented, "—" without).
+ * The crate drawer, opened by tapping any stack in the 3D and walk views —
+ * the live booking / capacity inspector: the place's own identifiers and
+ * exact bookkeeping — weights from the owner's kg per unit and the boxes
+ * the database says are standing, allocation from the bookings (never
+ * invented, "—" without).
  */
 function CrateCard({
   cell,
@@ -204,6 +205,7 @@ function CrateCard({
   chambers,
   stackOf,
   mineName,
+  facilityName,
   onClose,
 }: {
   cell: Cell;
@@ -211,6 +213,7 @@ function CrateCard({
   chambers: ColdChamber[];
   stackOf?: (c: ColdChamber, slot: string) => string | null;
   mineName?: string;
+  facilityName?: string;
   onClose: () => void;
 }) {
   const c = scene.chambers[cell.chamber];
@@ -232,18 +235,20 @@ function CrateCard({
         </button>
       </div>
       <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
-        <dt className="text-slate-500">Unit ID</dt>
-        <dd className="font-semibold">{`${c?.name ?? 'Chamber'}${row?.chamber_no != null ? ` (Chamber ${row.chamber_no})` : ''} · Floor ${f?.floor ?? cell.floor + 1} · ${cell.slot}`}</dd>
+        <dt className="text-slate-500">Facility</dt>
+        <dd className="font-semibold">{facilityName?.trim() || 'This cold store'}</dd>
         <dt className="text-slate-500">Chamber</dt>
         <dd>{c?.name}{c?.toScale ? ` · ${sizeText(c, scene.unit)}` : ''}</dd>
-        <dt className="text-slate-500">Floor level</dt>
+        <dt className="text-slate-500">Level / layer</dt>
         <dd>{f && c && c.floors.length > 1 ? `Floor ${f.floor} of ${c.floors.length}` : 'Ground level'}</dd>
+        <dt className="text-slate-500">Stack / unit</dt>
+        <dd className="font-semibold">{`${c?.name ?? 'Chamber'}${row?.chamber_no != null ? ` (Chamber ${row.chamber_no})` : ''} · Floor ${f?.floor ?? cell.floor + 1} · ${cell.slot}`}</dd>
         <dt className="text-slate-500">Produce</dt>
         <dd>Kashmiri apples — cold-stored</dd>
-        <dt className="text-slate-500">Holds</dt>
-        <dd className="font-semibold">{countText(maxUnits, st)}</dd>
-        <dt className="text-slate-500">Max weight</dt>
-        <dd>{kg(maxUnits)}</dd>
+        <dt className="text-slate-500">Capacity</dt>
+        <dd className="font-semibold">{countText(maxUnits, st)} · {kg(maxUnits)}</dd>
+        <dt className="text-slate-500">Booked status</dt>
+        <dd>{PLACE_LOOK[cell.look].label}{whose ? ` · ${whose}` : ''}</dd>
         <dt className="text-slate-500">Occupied weight</dt>
         <dd className={standing ? 'font-semibold text-emerald-800' : ''}>{standing.toLocaleString('en-IN')} {unitWord(st, standing)} · {kg(standing)}</dd>
         <dt className="text-slate-500">Remaining weight</dt>
@@ -284,6 +289,7 @@ export function ColdStore3D({
   mineName,
   stackOf,
   onOpenTwin,
+  facilityName,
 }: {
   chambers: ColdChamber[];
   stateOf: (c: ColdChamber, slot: string) => Look;
@@ -306,6 +312,8 @@ export function ColdStore3D({
   stackOf?: (c: ColdChamber, slot: string) => string | null;
   /** Owner preview only: opens the industrial digital twin for the same store (Preview3D). */
   onOpenTwin?: () => void;
+  /** The facility's name, shown in the place inspector (Facility → Chamber → …). */
+  facilityName?: string;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const tip = useRef<HTMLDivElement>(null);
@@ -314,6 +322,12 @@ export function ColdStore3D({
   const input = useRef<WalkInput>(noInput());
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
+  // The 3D world is built only once the component has truly mounted (never
+  // during a portal's first render or a stray server pass): three.js, WebGL
+  // and their loaders exist only in the browser, and a hiccup there must
+  // never take the page down.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [info, setInfo] = useState<number | null>(null);
   const [where, setWhere] = useState<Where>({ text: 'You are outside the main door.', chamber: -1, level: 1, floors: 1 });
   const [target, setTarget] = useState<Target | null>(null);
@@ -329,8 +343,25 @@ export function ColdStore3D({
 
   // The owner's live preview brings its building with its rows (lib/coldStore previewChambers).
   const shownBuilding = building !== undefined ? building : ((chambers as PreviewRows).building ?? null);
-  const scene = useMemo(() => buildScene(chambers, shownBuilding), [chambers, shownBuilding]);
-  const cells = useMemo(() => cellsOf(scene, stateOf, roomOf), [scene, stateOf, roomOf]);
+  // The scene and its places are built in a guard: odd input can never take
+  // the page down — worst case the view opens empty and the Drawing beside
+  // it still shows the store.
+  const scene = useMemo(() => {
+    try {
+      return buildScene(chambers, shownBuilding);
+    } catch (err) {
+      console.error('The store scene failed to build:', err instanceof Error ? err.message : err);
+      return buildScene([], null);
+    }
+  }, [chambers, shownBuilding]);
+  const cells = useMemo(() => {
+    try {
+      return cellsOf(scene, stateOf, roomOf);
+    } catch (err) {
+      console.error('The places failed to build:', err instanceof Error ? err.message : err);
+      return [] as Cell[];
+    }
+  }, [scene, stateOf, roomOf]);
   const free = useMemo(() => {
     const out = scene.chambers.map(() => 0);
     for (const c of cells) out[c.chamber] += c.free;
@@ -428,7 +459,10 @@ export function ColdStore3D({
 
   useEffect(() => {
     const el = host.current;
-    if (!el) return;
+    // Not mounted yet (or already gone): nothing to build — three.js exists
+    // only in a browser, and the mount gate keeps the first portal render
+    // free of any 3D work at all.
+    if (!el || !mounted) return;
     let disposed = false;
     let cleanup = () => {};
 
@@ -908,8 +942,9 @@ export function ColdStore3D({
         if (e.pointerType !== 'mouse') hideTip = window.setTimeout(() => showTip(null, 0, 0), 2600);
         if (cell) {
           act(cell);
-          // A booked (or shared) stack opens its crate drawer as well as saying whose it is.
-          if (cell.look === 'booked' || cell.look === 'mine' || cell.look === 'part') latest.current.onStack?.(cell);
+          // Any stack opens the live booking / capacity inspector — free or
+          // booked — so what a place is and holds is always one tap away.
+          latest.current.onStack?.(cell);
           return;
         }
         if (mode3 === 'orbit') {
@@ -1390,14 +1425,21 @@ export function ColdStore3D({
         cv.remove();
         api.current = null;
       };
-    })();
+    })().catch((err) => {
+      // Any 3D failure stays inside this panel: a WebGL, module or geometry
+      // hiccup never takes the page down to the portal's error screen.
+      if (disposed) return;
+      console.error('3D scene failed:', err instanceof Error ? err.message : err);
+      setFailed(true);
+    });
 
     return () => {
       disposed = true;
       cleanup();
     };
-    // Set up once (textId never changes); data and callbacks reach the scene through `latest` and `api`.
-  }, [textId]);
+    // Set up once, after the mount gate flips (textId never changes); data
+    // and callbacks reach the scene through `latest` and `api`.
+  }, [textId, mounted]);
 
   if (failed) {
     return <p className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-950 ring-1 ring-amber-200">This phone or browser cannot show 3D. Use the Drawing — it shows the same chambers and places.</p>;
@@ -1621,6 +1663,7 @@ export function ColdStore3D({
           chambers={chambers}
           stackOf={stackOf}
           mineName={mineName}
+          facilityName={facilityName}
           onClose={() => setStackCell(null)}
         />
       )}

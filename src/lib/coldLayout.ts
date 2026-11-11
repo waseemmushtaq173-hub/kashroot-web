@@ -400,20 +400,22 @@ interface Way {
 
 /**
  * Grows the building just enough that every chamber stands inside its walls.
- * The owner's door, heights, unit and sides stay exactly as they were: only
- * the length (along the front) and the width (front to back) stretch when a
- * chamber pokes out, by a small margin — never shrunk, never reset. Chambers
- * without a spot of their own are placed along the passage by arrangeStore,
- * so they say nothing here.
+ * The owner's door, unit and sides stay exactly as they were: only the length
+ * (along the front), the width (front to back) and the height (floor to
+ * roof) stretch when a chamber pokes out — through a side wall or up through
+ * the roof — by a small margin — never shrunk, never reset. Chambers without
+ * a spot of their own are placed along the passage by arrangeStore, so they
+ * say nothing here.
  */
 export function ensureBuildingEnclosesChambers(
   building: Building,
-  chambers: Pick<ChamberSize, 'spot' | 'width' | 'length' | 'doorWall'>[],
+  chambers: Pick<ChamberSize, 'spot' | 'width' | 'length' | 'height' | 'doorWall'>[],
 ): Building {
   if (!chambers.length) return building;
   const MARGIN = 0.6;
   let east = building.length;
   let back = building.width;
+  let up = building.height;
   for (const c of chambers) {
     if (!c.spot) continue;
     const wall = c.doorWall ?? 'front';
@@ -424,11 +426,13 @@ export function ensureBuildingEnclosesChambers(
     const d = along ? c.length : c.width;
     east = Math.max(east, c.spot.x + w);
     back = Math.max(back, c.spot.y + d);
+    up = Math.max(up, c.height);
   }
   const length = east > building.length ? round(east + MARGIN) : building.length;
   const width = back > building.width ? round(back + MARGIN) : building.width;
-  if (length === building.length && width === building.width) return building;
-  return { ...building, length, width };
+  const height = up > building.height ? round(up + MARGIN) : building.height;
+  if (length === building.length && width === building.width && height === building.height) return building;
+  return { ...building, length, width, height };
 }
 function planCounted(s: ChamberSize): ChamberPlan {
   const problems: string[] = [];

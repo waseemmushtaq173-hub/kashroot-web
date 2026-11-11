@@ -22,6 +22,7 @@ import { z } from 'zod';
 import { toast } from '@/lib/client/toast';
 
 import { ColdStoreExplorer, type Look } from '@/components/rental/ColdStoreMap';
+import { Guard3D } from '@/components/rental/three/SceneGuard';
 import { PayOwner } from '@/components/rental/receipt/PayOwner';
 import { Btn, Field, INPUT, Modal, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
 import { inr, type Account } from '@/lib/db/client';
@@ -744,6 +745,7 @@ export function ColdBooking({
               onActive={setActive}
               legend={['free', 'part', 'selected', 'held', 'booked', 'mine', 'blocked']}
               mineName={form.name || account.name}
+              facilityName={l.title}
             />
           )}
           {taken && (
@@ -759,18 +761,20 @@ export function ColdBooking({
                   <p className="mb-2 text-xs text-slate-600">
                     The same places as the drawing, drawn as {wordFor(kinds)}. Tap a bin or crate to choose that place; tap it again to take it off. Red places are booked, green ones are yours or chosen.
                   </p>
-                  <IndustrialColdStoreTwin3D
-                    facilityCode={l.facility_code || l.title}
-                    facilityName={l.title}
-                    buildingLengthM={0}
-                    buildingWidthM={0}
-                    buildingHeightM={0}
-                    corridorLayout="BOTH_SIDES"
-                    chambers={twinConfigs}
-                    occupiedAllocations={twinAllocations}
-                    selectedSlotKeys={selectedTwinKeys}
-                    onToggleSelectSlot={onTwinSlot}
-                  />
+                  <Guard3D>
+                    <IndustrialColdStoreTwin3D
+                      facilityCode={l.facility_code || l.title}
+                      facilityName={l.title}
+                      buildingLengthM={0}
+                      buildingWidthM={0}
+                      buildingHeightM={0}
+                      corridorLayout="BOTH_SIDES"
+                      chambers={twinConfigs}
+                      occupiedAllocations={twinAllocations}
+                      selectedSlotKeys={selectedTwinKeys}
+                      onToggleSelectSlot={onTwinSlot}
+                    />
+                  </Guard3D>
                 </div>
               )}
             </section>

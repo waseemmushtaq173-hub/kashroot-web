@@ -76,10 +76,6 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
   const [error, setError] = useState<string | null>(null);
   const [wait, setWait] = useState(0);
   const [fallback, setFallback] = useState(false);
-  /** The code shown on screen when the email sender was unconfigured, refused or slower than 3 s. */
-  const [fallbackCode, setFallbackCode] = useState<string | null>(null);
-  /** The server's own words for that ("Instant verification code generated below…"). */
-  const [fallbackNote, setFallbackNote] = useState<string | null>(null);
   useEffect(() => {
     if (wait <= 0) return;
     const t = window.setTimeout(() => setWait((s) => s - 1), 1000);
@@ -100,23 +96,23 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
     setError(null);
     setFallback(false);
     try {
-      // The server itself races the email sender against a 3-second budget
-      // and answers 200 with the code on screen when the sender is
-      // unconfigured, refused or slow — so no abort signal here, and no
-      // timed-out error can ever reach the screen.
+      // Every code is real: the server signs a token and the 6-digit code
+      // goes only to the phone or the inbox. An email the sender cannot
+      // deliver (unconfigured, refused, or slower than the server's
+      // 15-second budget) comes back as 502 { unavailable: true } — the
+      // visitor is told plainly and offered the continue step; no code is
+      // ever shown on screen.
       const res = await fetch('/api/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel, to: value }) });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) onUnavailable?.();
-      if (!res.ok) throw new Error(data.error ?? 'Could not send the OTP.');
+      if (!res.ok) {
+        if (data.unavailable) onUnavailable?.();
+        throw new Error(data.error ?? 'Could not send the OTP.');
+      }
       setToken(data.token);
       setSentVia(Array.isArray(data.via) ? data.via : []);
       setSentTo(data.to);
       setCode('');
       setWait(30);
-      // The email did not go out in time: the code is on the screen instead —
-      // the boxes are already open, and one tap fills and verifies it.
-      setFallbackCode(typeof data.fallbackOtpCode === 'string' && /^\d{6}$/.test(data.fallbackOtpCode) ? data.fallbackOtpCode : null);
-      setFallbackNote(typeof data.message === 'string' ? data.message : null);
     } catch (err) {
       // SMS failed (rate-limit, quota, delivery error): fall back to email automatically.
       if (sms && emailFallback) {
@@ -124,15 +120,16 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
         try {
           const res2 = await fetch('/api/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel: 'email', to: emailFallback }) });
           const data2 = await res2.json().catch(() => ({}));
-          if (!res2.ok) throw new Error(data2.error ?? 'Could not send the OTP.');
+          if (!res2.ok) {
+            if (data2.unavailable) onUnavailable?.();
+            throw new Error(data2.error ?? 'Could not send the OTP.');
+          }
           setToken(data2.token);
           setSentVia(['email']);
           setSentTo(emailFallback ?? '');
           setCode('');
           setWait(30);
           setError(null);
-          setFallbackCode(typeof data2.fallbackOtpCode === 'string' && /^\d{6}$/.test(data2.fallbackOtpCode) ? data2.fallbackOtpCode : null);
-          setFallbackNote(typeof data2.message === 'string' ? data2.message : null);
         } catch (err2) {
           setFallback(false);
           setError(sendWords(err2));
@@ -216,8 +213,6 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
                   if (token) {
                     setToken(null);
                     setCode('');
-                    setFallbackCode(null);
-                    setFallbackNote(null);
                   }
                 }}
                 placeholder={sms ? '10-digit mobile number' : 'you@example.com'}
@@ -240,17 +235,8 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
               resending={busy === 'send'}
             >
               <OtpBoxes id={`${id}-code`} label="6-digit OTP" value={code} onChange={setCode} disabled={busy === 'verify'} invalid={Boolean(error)} onEnter={() => void verify()} />
-              {/* One tap: fill the on-screen code and check it. Shown when the
-                  email sender could not deliver in its 3-second budget. */}
-              {fallbackCode && (
-                <button type="button" onClick={() => { setCode(fallbackCode); void verify(fallbackCode); }} className={`${BUTTON} mt-3 w-full bg-amber-100 py-3 text-base font-bold text-amber-950 ring-1 ring-amber-300 hover:bg-amber-200`}>
-                  ⚡ Auto-fill Code &amp; Verify
-                </button>
-              )}
               {fallback ? (
                 <p className="mt-3 text-sm text-emerald-700">SMS limit reached — we sent the 6-digit verification code to your email instead.</p>
-              ) : fallbackNote ? (
-                <p className="mt-3 text-sm font-semibold text-amber-800">{fallbackNote}</p>
               ) : (
                 <p className="mt-3 text-sm text-slate-600">OTP sent{sms && sentVia.length ? ` by ${joinNames(sentVia)}` : ''} to <span className="font-semibold text-slate-900">{sentTo}</span>. It expires in 10 minutes.</p>
               )}

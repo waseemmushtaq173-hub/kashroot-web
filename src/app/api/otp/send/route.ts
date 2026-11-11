@@ -3,12 +3,12 @@
  * Each code costs money: limited per number and per network (shared by all instances), and — when the
  * "I am human" check is switched on (HCAPTCHA_SECRET_KEY) — only for a browser that passed it.
  *
- * Email OTPs never fail this request: the send is raced against a 3-second
- * budget, and when the sender is unconfigured, refused by Gmail or simply
- * slow, the answer is still 200 with { emailDelivered: false,
- * fallbackOtpCode } — the browser opens the 6-digit boxes at once and offers
- * one-tap fill + verify against the same signed token. No "signal timed
- * out" can ever reach the screen.
+ * Every code is real: the answer carries a signed token, and the 6-digit
+ * code itself goes only to the phone or the inbox. An email that the sender
+ * cannot deliver (unconfigured, refused by Gmail, or slower than the
+ * 15-second budget) is a 502 with { unavailable: true } — the browser says
+ * so plainly and offers the portal's continue-without-verification step;
+ * no code is ever shown on screen.
  */
 import { NextResponse } from 'next/server';
 
@@ -37,21 +37,17 @@ export async function POST(request: Request) {
 
   if (await rateLimited()) return NextResponse.json({ error: 'Too many codes requested. Wait a few minutes and try again.' }, { status: 429 });
 
-  // Email: the 3-second race. Delivered or not, the answer is 200 — the
-  // token verifies the code either way, and the on-screen code keeps the
-  // sign-in moving when the sender cannot.
+  // Email: the 15-second send. Delivered: 200 with the signed token — the
+  // code is only ever in the inbox. Not delivered (sender unconfigured,
+  // refused, or slower than the budget): 502 unavailable — the browser
+  // offers the portal's continue step; the code is never shown on screen.
   if (channel === 'email') {
-    const { delivered, token, code } = await sendEmailCode(target);
+    const { delivered, token } = await sendEmailCode(target);
     if (delivered) return NextResponse.json({ ok: true, emailDelivered: true, token, via: ['email'], to: target });
-    return NextResponse.json({
-      ok: true,
-      emailDelivered: false,
-      fallbackOtpCode: code,
-      message: 'Instant verification code generated below (email sender unavailable).',
-      token,
-      via: [],
-      to: target,
-    });
+    return NextResponse.json(
+      { error: 'The verification email could not be sent just now. This is the site’s email setup, not your address — you can continue without this step for now.', unavailable: true },
+      { status: 502 },
+    );
   }
 
   // A mobile code goes by SMS and WhatsApp together, so either one is enough.

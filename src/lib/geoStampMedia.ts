@@ -15,8 +15,26 @@
  * with MediaRecorder.
  */
 
-/** Reverse-geocode live coordinates via OpenStreetMap Nominatim. */
+/**
+ * Reverse-geocode live coordinates into a human-readable place: the app's
+ * own server lookup first (/api/geo/reverse — the User-Agent contact and
+ * both upstream providers live there, so the browser never depends on a
+ * third party's CORS policy), with the same Nominatim lookup straight from
+ * the browser as a fallback. When everything is unreachable the coordinates
+ * themselves are the label — the camera stamp and the pin still carry the
+ * place.
+ */
 export async function reverseGeocode(lat: number, lng: number): Promise<string> {
+  try {
+    const res = await fetch(`/api/geo/reverse?lat=${lat}&lng=${lng}`);
+    if (res.ok) {
+      const d = (await res.json()) as { formattedAddress?: unknown };
+      const a = typeof d?.formattedAddress === 'string' ? d.formattedAddress.trim() : '';
+      if (a) return a;
+    }
+  } catch {
+    // The fallback below answers.
+  }
   try {
     const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=16&addressdetails=1`, {
       headers: { 'Accept-Language': 'en' },

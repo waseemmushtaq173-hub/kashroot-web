@@ -9,9 +9,9 @@
  *             along that wall under the ceiling;
  *   curtains  clear PVC strip curtains hanging in each chamber's doorway;
  *   outside   condensing units along the building's back wall;
- *   walkOnly  the ceilings, the hall's roof with its trusses, and the LED
- *             lights under them — shown only when walking (from outside the
- *             roof stays off, so you can look in).
+ *   walkOnly  the ceilings, and the hall's roof with its trusses — shown
+ *             only when walking (from outside the roof stays off, so you
+ *             can look in). The lights under the ceilings show always.
  *
  * How many there are follows the size of each room: they show what a cold
  * store looks like inside, not this store's own machines (the page says so).
@@ -244,16 +244,18 @@ export function buildFixtures(kit: Kit, scene: StoreScene, o: Origin): Fixtures 
     q.setFromUnitVectors(fwd, dir.set(f.nx, f.ny, f.nz).normalize());
     m4.compose(pos.set(f.x + f.nx * 0.02, f.y + f.ny * 0.02, f.z + f.nz * 0.02), q, scl.set(f.r, f.r, f.r));
   });
-  // LED battens under the ceilings, round high-bay lights in the hall.
+  // LED battens under the ceilings, round high-bay lights in the hall —
+  // part of the scene in the orbit view too (a cold store is lit), while
+  // the ceilings and roof they hang from stay walk-only.
   add(new T.BoxGeometry(1, 1, 1), mats.lamp, lamps.length, (i) => {
     const l = lamps[i];
     q.identity();
     m4.compose(pos.set(l.x, l.y, l.z), q, l.alongX ? scl.set(l.len, 0.04, 0.09) : scl.set(0.09, 0.04, l.len));
-  }, walkOnly);
+  });
   add(new T.CylinderGeometry(0.3, 0.38, 0.12, 20), mats.lamp, bays.length, (i) => {
     q.identity();
     m4.compose(pos.set(bays[i].x, bays[i].y, bays[i].z), q, scl.set(1, 1, 1));
-  }, walkOnly);
+  });
   // Strip curtains: overlapping clear strips, 20 cm wide.
   const curtain = add(new T.BoxGeometry(1, 1, 1), mats.curtain, strips.length, (i) => {
     const s = strips[i];

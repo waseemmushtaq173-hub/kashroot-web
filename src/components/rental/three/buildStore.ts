@@ -22,6 +22,7 @@ import { buildFixtures } from '@/components/rental/three/fixtures';
 import type { ColdKitGeos } from '@/components/rental/three/coldKit';
 import { type Kind, midOf, type Rect, rowPlates, type Seg, segLength, type StoreScene } from '@/components/rental/three/storeScene';
 import { countText } from '@/lib/coldStore';
+import { showLength } from '@/lib/coldLayout';
 
 type Three = typeof import('three');
 type Obj = InstanceType<Three['Object3D']>;
@@ -465,6 +466,19 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
     const outline = new T.LineSegments(new T.EdgesGeometry(new T.BoxGeometry(scene.hall.w, H, scene.hall.d)), kit.edge);
     outline.position.set(wx(o, scene.hall.w / 2), H / 2, wz(o, scene.hall.d / 2));
     add(outline);
+    // The building's measurements, written the way the owner reads them:
+    // length along the front, width front to back, height to the roof —
+    // in the owner's own unit, on the grown shell the drawing encloses.
+    const u = scene.building.unit;
+    const dim = (title: string, sub: string, width: number) => {
+      const t = label(T, title, sub, width, true, 24, 60);
+      labels.push(t);
+      add(t);
+      return t;
+    };
+    dim(showLength(scene.building.length, u), 'Length (along the front)', Math.min(6, Math.max(3, scene.hall.w * 0.3))).position.set(wx(o, scene.hall.w / 2), 0.5, wz(o, -2.4));
+    dim(showLength(scene.building.width, u), 'Width (front to back)', Math.min(4, Math.max(2.6, scene.hall.d * 0.25))).position.set(wx(o, -2.4), 0.5, wz(o, scene.hall.d / 2));
+    dim(showLength(H, u), 'Height (to the roof)', Math.min(3.6, Math.max(2.4, H * 0.35))).position.set(wx(o, -1.8), H * 0.55, wz(o, -1.8));
     if (md) {
       roomWall(md.seg, md.height, H, 0.25, scene.hall, 'hall');
       const along = md.wall === 'front' || md.wall === 'back';
@@ -474,10 +488,15 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
       roll.rotation.set(along ? 0 : Math.PI / 2, 0, along ? Math.PI / 2 : 0);
       roll.position.set(wx(o, md.mid.x - md.inward.x * 0.45), md.height + 0.5, wz(o, md.mid.y - md.inward.y * 0.45));
       add(roll);
-      const tag = label(T, 'Main door', `${md.wall} wall`, Math.min(4, Math.max(2.4, md.width)), true, 26, 64);
+      const tag = label(T, 'Main door', `${showLength(md.width, u)} wide · ${md.wall} wall`, Math.min(4, Math.max(2.4, md.width)), true, 26, 64);
       tag.position.set(wx(o, md.mid.x - md.inward.x * 1.2), md.height + 1.4, wz(o, md.mid.y - md.inward.y * 1.2));
       add(tag);
       labels.push(tag);
+    }
+    // The passage in from the main door, named on the drawing like on the floor.
+    if (pass) {
+      const wide = pass.d >= pass.w ? pass.w : pass.d;
+      dim('Passage', `${showLength(wide, u)} wide · from the main door`, Math.min(3.2, Math.max(2.2, wide))).position.set(wx(o, pass.x + pass.w / 2), 1.2, wz(o, pass.y + pass.d / 2));
     }
   }
 
@@ -525,6 +544,13 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
         sign.rotation.y = Math.atan2(-c.inward.x, c.inward.y);
         add(sign);
       }
+    } else {
+      // No measured door, no painted sign: the chamber's name floats over
+      // its middle, so "Chamber 2" stays findable in the 3D view.
+      const tag = label(T, c.name, '', Math.min(3, Math.max(1.6, Math.min(r.w, r.d) * 0.6)), true, 24, 56);
+      tag.position.set(cx, H + 0.9, cz);
+      add(tag);
+      labels.push(tag);
     }
     // Windows and vents (older measured chambers).
     for (const win of c.windows) {

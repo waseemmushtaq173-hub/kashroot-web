@@ -113,7 +113,7 @@ export interface MainDoor {
 }
 
 export interface StoreScene {
-  /** The owner's building (null: not given). */
+  /** The owner's building as the drawing encloses it — grown where a chamber poked out (null: not given). */
   building: Building | null;
   /** The building's floor, or the space the chambers stand in. */
   hall: Rect;
@@ -319,11 +319,19 @@ function olderChamber(g: ChamberGroup, index: number, at: Vec, beside = false, s
     const walkway = plan.aisleX ? { x: at.x + plan.aisleX[0], y: at.y, w: plan.aisleX[1] - plan.aisleX[0], d } : null;
     floor = { row, floor: 1, z0: 0, h: s.height, k: row.boxes_per_slot, layers: Math.max(1, plan.layers), stackH: Math.max(0.2, plan.stackHeight), places, walkway, crowded: false, plan };
   } else {
-    const f = PITCH * 0.82;
+    // Rows × stacks without a measured size: the places stand inside the
+    // chamber's own rectangle. When there are more rows than 1.2 m steps
+    // fit between the walls, the step shrinks (crowded) and the footprint
+    // with it — a long chamber's grid never runs out through the back wall.
+    const stepX = row.cols > 1 ? Math.min(PITCH, (w - 2 * PAD) / row.cols) : PITCH;
+    const stepY = Math.min(PITCH, (d - 2 * PAD) / Math.max(1, row.rows));
+    const f = Math.max(0.05, Math.min(PITCH * 0.82, stepX * 0.9, stepY * 0.9));
+    const midX = at.x + (w - (row.cols - 1) * stepX) / 2;
+    const midY = at.y + (d - (row.rows - 1) * stepY) / 2;
     for (let r = 1; r <= row.rows; r++) {
       for (let c = 0; c < row.cols; c++) {
         const slot = placeName(r, c);
-        places.push({ row: r, col: c, slot, rect: { x: at.x + PAD + (c + 0.5) * PITCH - f / 2, y: at.y + PAD + (r - 0.5) * PITCH - f / 2, w: f, d: f }, blocked: row.blocked.includes(slot) });
+        places.push({ row: r, col: c, slot, rect: { x: midX + c * stepX - f / 2, y: midY + (r - 1) * stepY - f / 2, w: f, d: f }, blocked: row.blocked.includes(slot) });
       }
     }
     const dw = Math.min(1.6, w * 0.4);
@@ -375,9 +383,29 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
     // Every chamber inside the walls (lib/coldLayout): the owner's building
     // grows a little where a chamber pokes out — its door and heights stay
     // as measured — so the arrangement below never stands one outside.
-    const enclosed = ensureBuildingEnclosesChambers(b, wizard.map((g) => g.size!));
+    // Growing the shell moves the passage and every spot with it, so the
+    // arrangement is reworked (at most three rounds) until nothing pokes
+    // past the walls. A chamber wider than the passage leaves room for is
+    // beyond growing: it keeps its fits = false and the hall stretches
+    // around it below.
+    let enclosed = ensureBuildingEnclosesChambers(b, wizard.map((g) => g.size!));
+    const arranged = (cur: Building) => arrangeStore(cur, wizard.map((g) => ({ key: g.key, name: g.name, outline: outlineOf(g.size!), spot: g.size!.spot })));
+    let lay = arranged(enclosed);
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    for (let grown = 0; grown < 3; grown++) {
+      let east = enclosed.length;
+      let back = enclosed.width;
+      for (const g of wizard) {
+        const spot = lay.spots[g.key];
+        if (!spot || spot.fits) continue;
+        east = Math.max(east, spot.x + spot.w);
+        back = Math.max(back, spot.y + spot.d);
+      }
+      if (east <= enclosed.length && back <= enclosed.width) break;
+      enclosed = { ...enclosed, length: round2(east + 0.6), width: round2(back + 0.6) };
+      lay = arranged(enclosed);
+    }
     hall = { x: 0, y: 0, w: enclosed.length, d: enclosed.width };
-    const lay = arrangeStore(enclosed, wizard.map((g) => ({ key: g.key, name: g.name, outline: outlineOf(g.size!), spot: g.size!.spot })));
     passage = lay.passage.rect;
     // The owner's live preview brings where its top view puts each chamber (lib/coldStore previewChambers): the very same places.
     const pre = rows as PreviewRows;
@@ -386,33 +414,69 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
     // Older chambers: never outside the walls. The building stretches to
     // wrap them, east of the measured chambers, passage still in front —
     // Chamber 1 every chamber sits inside the insulated perimeter.
-    let x = b.length + 2;
+    let x = enclosed.length + 2;
     const olderPlaced: { g: ChamberGroup; at: Vec; size: { w: number; d: number } }[] = [];
     for (const g of older) {
-      const s = olderSize(g, Math.max(2, b.width - 2 * PAD));
-      olderPlaced.push({ g, at: { x, y: (b.width - s.d) / 2 }, size: s });
+      const s = olderSize(g, Math.max(2, enclosed.width - 2 * PAD));
+      olderPlaced.push({ g, at: { x, y: (enclosed.width - s.d) / 2 }, size: s });
       x += s.w + GAP;
     }
     for (const p of olderPlaced) chambers.push(olderChamber(p.g, chambers.length, p.at, false, p.size));
     // The east wall moves out so every chamber is inside the building.
     if (olderPlaced.length > 0) {
-      hall = { x: 0, y: 0, w: b.length + 2 + olderPlaced.reduce((n, p) => n + p.size.w + GAP, 0), d: b.width };
+      hall = { x: 0, y: 0, w: enclosed.length + 2 + olderPlaced.reduce((n, p) => n + p.size.w + GAP, 0), d: enclosed.width };
     }
     // A chamber measured before the building was (or one bigger than its
     // shell) still ends up inside the walls: the building grows around every
-    // chamber and the passage too. The front wall keeps its y = 0, so the
-    // main door and the walls derived below stay where the owner measured.
+    // chamber, every place and the passage too. The front wall keeps its
+    // y = 0, so the main door and the walls derived below stay where the
+    // owner measured.
     let east = hall.x + hall.w;
     let back = hall.y + hall.d;
     for (const c of chambers) {
       east = Math.max(east, c.rect.x + c.rect.w);
       back = Math.max(back, c.rect.y + c.rect.d);
+      for (const f of c.floors) {
+        if (f.walkway) {
+          east = Math.max(east, f.walkway.x + f.walkway.w);
+          back = Math.max(back, f.walkway.y + f.walkway.d);
+        }
+        for (const p of f.places) {
+          east = Math.max(east, p.rect.x + p.rect.w);
+          back = Math.max(back, p.rect.y + p.rect.d);
+        }
+      }
     }
     if (passage) {
       east = Math.max(east, passage.x + passage.w);
       back = Math.max(back, passage.y + passage.d);
     }
     hall = { x: hall.x, y: hall.y, w: Math.max(hall.w, east - hall.x), d: Math.max(hall.d, back - hall.y) };
+    // The passage runs straight in from the main door to the wall opposite:
+    // it reaches the back of the hall even when the hall grew around it.
+    if (passage) passage = { x: passage.x, y: passage.y, w: passage.w, d: Math.max(passage.d, hall.y + hall.d - passage.y) };
+    // Every place sits inside its own chamber — hard-clamped, so no
+    // rounding or odd input can poke a stack through a chamber wall.
+    for (const c of chambers) {
+      for (const f of c.floors) {
+        if (f.walkway) {
+          f.walkway = {
+            x: Math.max(c.rect.x, Math.min(f.walkway.x, c.rect.x + c.rect.w - f.walkway.w)),
+            y: Math.max(c.rect.y, Math.min(f.walkway.y, c.rect.y + c.rect.d - f.walkway.d)),
+            w: f.walkway.w,
+            d: f.walkway.d,
+          };
+        }
+        for (const p of f.places) {
+          p.rect = {
+            x: Math.max(c.rect.x, Math.min(p.rect.x, c.rect.x + c.rect.w - p.rect.w)),
+            y: Math.max(c.rect.y, Math.min(p.rect.y, c.rect.y + c.rect.d - p.rect.d)),
+            w: p.rect.w,
+            d: p.rect.d,
+          };
+        }
+      }
+    }
   } else {
     // No building: side by side along a corridor (in front of them), fronts in a line.
     let x = 0;
@@ -433,10 +497,20 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
     hall = { x: -1, y: 0, w: width + 2, d: CORRIDOR + Math.max(deep, 2) + 1 };
   }
 
+  // The building everything is drawn inside: the owner's shell grown where a
+  // chamber poked out through a wall or up through the roof, so the labels,
+  // the walls and the roof all tell the same truth as the drawing.
+  let effBuilding: Building | null = null;
+  if (b) {
+    let tall = b.height;
+    for (const c of chambers) tall = Math.max(tall, c.h);
+    effBuilding = { ...b, length: hall.w, width: hall.d, height: tall > b.height ? Math.round((tall + 0.3) * 100) / 100 : b.height };
+  }
+
   let mainDoor: MainDoor | null = null;
   let walls: Seg[] = [];
   if (b) {
-    const seg = doorLine(b.door, { length: b.length, width: b.width });
+    const seg = doorLine(b.door, { length: hall.w, width: hall.d });
     mainDoor = { seg, wall: b.door.wall, from: b.door.from, width: b.door.width, height: b.door.height, mid: midOf(seg), inward: INWARD[b.door.wall] };
     walls = wallsOf(hall, seg, b.door.wall);
   }
@@ -445,7 +519,7 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
   let y0 = hall.y;
   let x1 = hall.x + hall.w;
   let y1 = hall.y + hall.d;
-  let height = b?.height ?? 0;
+  let height = effBuilding ? effBuilding.height : 0;
   let floors = 1;
   for (const c of chambers) {
     x0 = Math.min(x0, c.rect.x);
@@ -455,7 +529,7 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
     height = Math.max(height, c.h);
     floors = Math.max(floors, c.floors.length);
   }
-  return { building: b, hall, bounds: { x: x0, y: y0, w: x1 - x0, d: y1 - y0 }, height: Math.max(height, 1), mainDoor, walls, passage, chambers, problems, beside: false, floors, unit };
+  return { building: effBuilding, hall, bounds: { x: x0, y: y0, w: x1 - x0, d: y1 - y0 }, height: Math.max(height, 1), mainDoor, walls, passage, chambers, problems, beside: false, floors, unit };
 }
 
 const ORD = ['1st', '2nd', '3rd'];

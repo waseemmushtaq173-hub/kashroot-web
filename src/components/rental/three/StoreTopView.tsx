@@ -71,13 +71,20 @@ export const StoreTopView = memo(function StoreTopView({
   const bx = scene.bounds;
   const md = scene.mainDoor;
   // The sizes stand on walls without the main door; the main door's words outside its wall.
+  // The height (to the roof) is written on whichever side the width is not on.
   const lengthOn = md?.wall === 'back' ? 'front' : 'back';
   const widthOn = md?.wall === 'left' ? 'right' : 'left';
+  const heightOn = widthOn === 'left' ? 'right' : 'left';
   const side = font * 2 + 10;
   // A row under everything for the scale bar.
   const scaleRow = font + 18;
   const pad = b
-    ? { l: widthOn === 'left' || md?.wall === 'left' ? side : 10, r: widthOn === 'right' || md?.wall === 'right' ? side : 10, t: side, b: font * 3 + 24 + scaleRow }
+    ? {
+        l: widthOn === 'left' || heightOn === 'left' || md?.wall === 'left' ? side : 10,
+        r: widthOn === 'right' || heightOn === 'right' || md?.wall === 'right' ? side : 10,
+        t: side,
+        b: font * 3 + 24 + scaleRow,
+      }
     : { l: 8, r: 10, t: 8, b: font * 2 + 16 + scaleRow };
   const k = Math.min((W - pad.l - pad.r) / Math.max(1, bx.w), (narrow ? 460 : 560) / Math.max(1, bx.d));
   const left = pad.l + (W - pad.l - pad.r - bx.w * k) / 2;
@@ -176,7 +183,7 @@ export const StoreTopView = memo(function StoreTopView({
   };
 
   const pass = scene.passage;
-  const summary = `${b ? `The building from above: ${showLength(b.length, u)} long and ${showLength(b.width, u)} wide, the main door in the ${b.door.wall} wall. ` : ''}${scene.chambers.length} chamber${scene.chambers.length === 1 ? '' : 's'}: ${scene.chambers.map((c) => c.name).join(', ')}. Showing floor ${floor}.`;
+  const summary = `${b ? `The building from above: ${showLength(b.length, u)} long, ${showLength(b.width, u)} wide and ${showLength(b.height, u)} high, the main door in the ${b.door.wall} wall. ` : ''}${scene.chambers.length} chamber${scene.chambers.length === 1 ? '' : 's'}: ${scene.chambers.map((c) => c.name).join(', ')}. Showing floor ${floor}.`;
   return (
     <figure ref={ref} className="space-y-1">
       <div className="overflow-hidden rounded-3xl bg-gradient-to-b from-slate-50 to-white ring-1 ring-slate-900/10">
@@ -191,6 +198,17 @@ export const StoreTopView = memo(function StoreTopView({
               {(() => {
                 const x = widthOn === 'left' ? X(0) - font - 2 : X(b.length) + font + 2;
                 return <DimLine dim="width" x1={x} y1={Y(0)} x2={x} y2={Y(b.width)} text={`Width ${showLength(b.width, u)}`} font={font} />;
+              })()}
+              {(() => {
+                // The height is not a length in the plan: it stands written
+                // beside the building on the side the width is not on.
+                const x = heightOn === 'left' ? X(0) - font - 2 : X(b.length) + font + 2;
+                const y = Y(b.width / 2);
+                return (
+                  <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={font - 1} fontWeight={800} fill="#64748b" transform={`rotate(-90 ${x} ${y})`}>
+                    {`Height ${showLength(b.height, u)}`}
+                  </text>
+                );
               })()}
             </>
           ) : (

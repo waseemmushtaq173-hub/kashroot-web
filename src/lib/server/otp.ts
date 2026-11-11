@@ -21,8 +21,8 @@ import { sign, verifySignature } from './sign';
 
 export type Channel = 'sms' | 'whatsapp' | 'email';
 const TTL_MS = 10 * 60_000;
-/** Email budget: after 3 s the code is handed to the screen instead of the inbox. */
-const EMAIL_BUDGET_MS = 3_000;
+/** Email budget: 15 s for the send; after it the request reports the email as not delivered. */
+const EMAIL_BUDGET_MS = 15_000;
 
 export function normalise(channel: Channel, to: string): string | null {
   if (channel === 'sms' || channel === 'whatsapp') {
@@ -191,21 +191,20 @@ export async function sendCode(channel: Channel, to: string): Promise<{ token: s
   return { token: `${body}.${sign(`${body}|${code}`)}`, via };
 }
 
-/** One email code: whether it went out, the signed token, and the code itself for the screen. */
+/** One email code: whether it went out, and the signed token. The code itself goes only to the inbox. */
 export interface EmailOtpResult {
-  /** False when the sender was unconfigured, refused, or slower than the 3-second budget. */
+  /** False when the sender was unconfigured, refused, or slower than the 15-second budget. */
   delivered: boolean;
   token: string;
-  code: string;
 }
 
 /**
- * One email code with a hard 3-second budget: the send is raced against the
- * clock, and the moment the race is lost the code is handed back for
- * on-screen entry — the same signed token still verifies it, so the code
- * never "fails" the request and no timed-out error can reach the screen.
- * A send still in flight when the race ends may yet land in the inbox; that
- * is harmless (the person has the code in front of them either way).
+ * One email code with a hard 15-second budget: the send is raced against the
+ * clock, and the moment the race is lost the request reports the email as
+ * not delivered (the same signed token would still have verified the code).
+ * A send still in flight when the race ends may yet land in the inbox; if
+ * the person pressed send again meanwhile, the newest code is the one that
+ * works and the older one quietly expires.
  */
 export async function sendEmailCode(to: string): Promise<EmailOtpResult> {
   const code = String(randomInt(100000, 1000000));
@@ -223,7 +222,7 @@ export async function sendEmailCode(to: string): Promise<EmailOtpResult> {
     setTimeout(() => resolve(false), EMAIL_BUDGET_MS);
   });
   const delivered = await Promise.race([attempt, outOfTime]);
-  return { delivered, token, code };
+  return { delivered, token };
 }
 
 export function checkCode(token: string, code: string): { ok: true; channel: Channel; to: string; id: string } | { ok: false; reason: string } {

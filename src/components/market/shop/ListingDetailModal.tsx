@@ -38,6 +38,11 @@ const FarmMap = dynamic(() => import('@/components/market/shop/FarmMap'), {
 /** Units sold whole: nobody orders half a box. */
 const WHOLE_UNITS = ['box', 'piece', 'bag'];
 
+/** Coordinates as words ("34.05500° N, 74.80000° E"): the pin when no place name was found. */
+const coordsText = (fix: LiveFix) => `${fix.lat.toFixed(5)}° N, ${fix.lng.toFixed(5)}° E`;
+/** The address is only the coordinates (the place lookup found nothing): never say them twice. */
+const addressIsCoords = (a: string) => a.includes('° N,');
+
 /** What is wrong with the checkout order, in words the buyer can act on; null when it can go. */
 function checkoutProblem(l: Pick<ShopListing, 'unit' | 'quantity'>, f: { quantity: string; phone: string; address: string }): string | null {
   const qty = Number(f.quantity);
@@ -80,6 +85,18 @@ function BuyerCheckoutForm({ listing: l, theme }: { listing: ShopListing; theme:
     }, 0);
     return () => window.clearTimeout(id);
   }, []);
+
+  // The locked address fills the Delivery address in — into an empty field,
+  // or replacing what a previous lock put there — never over the buyer's own
+  // typing. Coordinates alone are not an address: nothing fills then.
+  const [autoAddr, setAutoAddr] = useState<string | null>(null);
+  useEffect(() => {
+    if (!fix) return;
+    const a = fix.address;
+    if (addressIsCoords(a) || a === autoAddr) return;
+    setForm((cur) => (cur.address.trim() && cur.address !== autoAddr ? cur : { ...cur, address: a }));
+    setAutoAddr(a);
+  }, [fix, autoAddr]);
 
   /** High-accuracy live GPS, reverse-geocoded; locked before the order goes. */
   const takeFix = useCallback(async () => {
@@ -201,9 +218,20 @@ function BuyerCheckoutForm({ listing: l, theme }: { listing: ShopListing; theme:
           <Crosshair className="h-4 w-4" aria-hidden /> {fixing ? 'Locking your live GPS…' : 'Lock Live Buyer GPS'}
         </button>
         {fix && (
-          <p className="rounded-xl bg-white p-2.5 text-xs font-semibold text-sky-900 ring-1 ring-sky-200">
-            ✓ GPS Locked: {fix.address} · {fix.lat.toFixed(5)}° N, {fix.lng.toFixed(5)}° E (±{Math.round(fix.accuracy ?? 0)} m)
-          </p>
+          <>
+            <p className="rounded-xl bg-white p-2.5 text-xs font-semibold text-sky-900 ring-1 ring-sky-200">
+              ✓ Live GPS Locked: {addressIsCoords(fix.address) ? fix.address : `${fix.address} · ${coordsText(fix)}`} (±{Math.round(fix.accuracy ?? 0)} m)
+            </p>
+            <figure className="grid gap-1">
+              <iframe
+                title="Your exact delivery pin on the map"
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${(fix.lng - 0.004).toFixed(5)},${(fix.lat - 0.003).toFixed(5)},${(fix.lng + 0.004).toFixed(5)},${(fix.lat + 0.003).toFixed(5)}&layer=mapnik&marker=${fix.lat},${fix.lng}`}
+                className="h-44 w-full rounded-xl border border-sky-200 bg-white"
+                loading="lazy"
+              />
+              <figcaption className="text-[11px] text-slate-500">📍 Your exact delivery pin — map data © OpenStreetMap contributors.</figcaption>
+            </figure>
+          </>
         )}
         {fixError && <p role="alert" className="rounded-xl bg-rose-50 p-2.5 text-xs font-medium text-rose-800 ring-1 ring-rose-200">{fixError}</p>}
       </div>

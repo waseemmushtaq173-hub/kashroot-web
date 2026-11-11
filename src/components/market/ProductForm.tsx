@@ -49,6 +49,11 @@ type CapturedMedia = {
 
 const commaNum = (n: number) => n.toLocaleString('en-IN');
 
+/** Coordinates as words ("34.05500° N, 74.80000° E"): the pin when no place name was found. */
+const coordsText = (g: GeoResult) => `${g.lat.toFixed(5)}° N, ${g.lng.toFixed(5)}° E`;
+/** The address is only the coordinates (the place lookup found nothing): never say them twice. */
+const addressIsCoords = (a: string) => a.includes('° N,');
+
 /** Produce listings require live camera + GPS — no gallery uploads. Every control is a button the farmer presses. */
 export function ProductForm({ value: v, onChange, isNew = false, payout, onPayoutChange }: {
   value: ListingInput;
@@ -346,7 +351,7 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
             </div>
             {gps && (
               <p className="mt-1.5 text-xs font-bold text-emerald-700">
-                ✓ GPS Locked: {gps.address} · {gps.lat.toFixed(5)}° N, {gps.lng.toFixed(5)}° E (±{Math.round(gps.accuracy)} m)
+                ✓ Live GPS Locked: {addressIsCoords(gps.address) ? gps.address : `${gps.address} · ${coordsText(gps)}`} (±{Math.round(gps.accuracy)} m)
               </p>
             )}
             {cameraError && <p className="mt-1 rounded-xl bg-rose-50 p-3 text-sm text-rose-800 ring-1 ring-rose-200">{cameraError}</p>}
@@ -358,7 +363,7 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
                   <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
                   <div className="absolute inset-x-0 bottom-0 px-3 pb-3">
                     <p className="rounded-lg bg-emerald-950/85 px-3 py-1.5 text-xs font-semibold text-white">
-                      🛡️ {gps ? gps.address : 'Lock GPS for the stamp'}{gps && gps.accuracy > 0 ? ` ±${Math.round(gps.accuracy)}m` : ''} · {v.seller_name} · {nowIST()}
+                      🛡️ {gps ? (addressIsCoords(gps.address) ? gps.address : `${coordsText(gps)} · ${gps.address}`) : 'Lock GPS for the stamp'}{gps && gps.accuracy > 0 ? ` ±${Math.round(gps.accuracy)}m` : ''} · {v.seller_name} · {nowIST()}
                     </p>
                   </div>
                   {recording && <span className="absolute left-3 top-3 flex items-center gap-1.5 rounded-lg bg-rose-600/90 px-2.5 py-1 text-xs font-bold text-white">⏺ Recording · stops at 30 s</span>}

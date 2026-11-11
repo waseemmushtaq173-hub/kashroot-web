@@ -41,6 +41,7 @@ import { StorePhotosView } from '@/components/rental/StorePhotos';
 import { lookLabel, PLACE_LOOK, placesOf, type Look } from '@/components/rental/placeLook';
 import { StoreTopView, type ChamberCount } from '@/components/rental/three/StoreTopView';
 import { buildScene } from '@/components/rental/three/storeScene';
+import { Guard3D } from '@/components/rental/three/SceneGuard';
 import { layersText, planOf, showLength } from '@/lib/coldLayout';
 import { asBuilding, countText, unitsText, unitWord, type Building, type Storage } from '@/lib/coldStore';
 import { supabase } from '@/lib/db/client';
@@ -48,7 +49,9 @@ import { placeKey, placeLabel, placeName, usablePlaces, type ColdChamber } from 
 
 export { PLACE_LOOK, type Look };
 
-// three.js loads only when someone opens the 3D view or walks inside.
+// three.js loads only when someone opens the 3D view or walks inside, and a
+// WebGL or network hiccup there stays inside the 3D panel (three/SceneGuard):
+// it never takes the whole page down to the portal's error screen.
 const ColdStore3D = dynamic(() => import('@/components/rental/ColdStore3D').then((m) => m.ColdStore3D), {
   ssr: false,
   loading: () => <div className="grid h-[420px] place-items-center rounded-3xl bg-slate-100 text-sm text-slate-500">Opening the 3D view…</div>,
@@ -298,6 +301,7 @@ export function ColdStoreExplorer({
   rate: rateProp,
   mineName,
   stackOf,
+  facilityName,
 }: {
   chambers: ColdChamber[];
   stateOf: (c: ColdChamber, slot: string) => Look;
@@ -319,6 +323,8 @@ export function ColdStoreExplorer({
   mineName?: string;
   /** Who holds one place (owner flow): a drawer sentence from the bookings, or null when nothing says. */
   stackOf?: (c: ColdChamber, slot: string) => string | null;
+  /** The facility's name, shown in the 3D place inspector (Facility → Chamber → …). */
+  facilityName?: string;
 }) {
   const [view, setView] = useState<ExplorerView>('drawing');
   // While the drawing is looked at, the 3D code (and three.js) loads in the background, so the
@@ -440,21 +446,24 @@ export function ColdStoreExplorer({
           {waiting ? (
             drawingSoon
           ) : (
-            <ColdStore3D
-              chambers={chambers}
-              stateOf={stateOf}
-              roomOf={roomOf}
-              mode={mode}
-              onPlace={onPlace}
-              active={chamber?.id ?? null}
-              onActive={onActive}
-              building={building}
-              rate={rate}
-              mineName={mineName}
-              stackOf={stackOf}
-              view={view === 'walk' ? 'walk' : 'orbit'}
-              onView={(v) => setView(v === 'walk' ? 'walk' : '3d')}
-            />
+            <Guard3D>
+              <ColdStore3D
+                chambers={chambers}
+                stateOf={stateOf}
+                roomOf={roomOf}
+                mode={mode}
+                onPlace={onPlace}
+                active={chamber?.id ?? null}
+                onActive={onActive}
+                building={building}
+                rate={rate}
+                mineName={mineName}
+                stackOf={stackOf}
+                facilityName={facilityName}
+                view={view === 'walk' ? 'walk' : 'orbit'}
+                onView={(v) => setView(v === 'walk' ? 'walk' : '3d')}
+              />
+            </Guard3D>
           )}
           {chamber && (
             <section aria-label={`${chamber.name} in numbers`} className="space-y-2">
