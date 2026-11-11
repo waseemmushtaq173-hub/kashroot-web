@@ -429,8 +429,18 @@ export function isBrave(): boolean {
 /** What to tell someone whose browser cannot listen. */
 export function noListenHelp(): string {
   return isBrave()
-    ? 'Bhashini ASR not available. Use Chrome on your phone — or type your question.'
-    : 'This browser cannot listen. Use Chrome on your phone — or type your question.';
+    ? 'Brave blocks voice input. Open this page in Chrome or Edge — or type your question.'
+    : 'This browser cannot listen. Use Chrome or Edge — or type your question.';
+}
+
+/** Is Bhashini ASR set up on the server? Asked once per page, then cached. */
+let bhashiniAsrProbe: Promise<boolean> | null = null;
+export function bhashiniAsrAvailable(): Promise<boolean> {
+  if (typeof window === 'undefined') return Promise.resolve(false);
+  bhashiniAsrProbe ??= fetch('/api/bhashini/asr', { signal: AbortSignal.timeout(2500) })
+    .then((r) => r.ok)
+    .catch(() => false);
+  return bhashiniAsrProbe;
 }
 
 export function recognitionAvailable(): boolean {
@@ -443,36 +453,18 @@ export const LISTEN_ERRORS: Record<string, string> = {
   'not-allowed': 'Microphone permission was blocked. Allow the microphone for this site and try again.',
   'no-speech': 'I did not hear anything. Tap the microphone and speak.',
   'language-not-supported': 'This browser cannot listen in that language yet — please type instead.',
-  network: 'Voice input could not connect. Some browsers, such as Brave, block it — use Chrome, or type instead.',
+  network: 'Voice input could not connect. Use Chrome or Edge, or type instead.',
   'service-not-allowed': 'This browser does not allow voice input. Use Chrome, or type instead.',
 };
 
-/**
- * Starts listening; `onText` gets the running transcript, `onDone` the final
- * text (empty when nothing was heard). Returns a stop function, or null when
- * the browser can't listen.
- * 
- * Fallback chain:
- * 1. Bhashini ASR (server, best for Indian languages)
- * 2. Browser Web Speech API (device)
- */
-export function listen(lang: SpeechLang, handlers: { onText?: (t: string) => void; onDone: (finalText: string) => void; onError?: (message: string) => void }): (() => void) | null {
-  // Try Bhashini ASR first if available
-  const useBhashiniAsr = async () => {
-    try {
-      const res = await fetch('/api/bhashini/asr', { method: 'HEAD', signal: AbortSignal.timeout(2000) });
-      return res.ok;
-    } catch {
-      return false;
-    }
-  };
+export interface ListenHandlers {
+  onText?: (t: string) => void;
+  onDone: (finalText: string) => void;
+  onError?: (message: string) => void;
+}
 
-  // For now, use browser Web Speech API (Bhashini ASR requires audio blob handling)
-  // Bhashini ASR would need MediaRecorder integration
-  if (!recognitionAvailable()) return null;
-  const w = window as unknown as { SpeechRecognition?: RecognitionCtor; webkitSpeechRecognition?: RecognitionCtor };
-  const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
-  if (!Ctor) return null;
+/** The instant path: the browser's own speech recognition (desktop Chrome/Edge, Android Chrome, iOS Safari). */
+function listenWithWebSpeech(Ctor: RecognitionCtor, lang: SpeechLang, handlers: ListenHandlers): () => void {
   stopSpeaking();
   const rec = new Ctor();
   rec.lang = LISTEN_CODE[lang];
@@ -493,6 +485,96 @@ export function listen(lang: SpeechLang, handlers: { onText?: (t: string) => voi
   rec.onend = () => handlers.onDone(finalText.trim());
   rec.start();
   return () => rec.stop();
+}
+
+/**
+ * The fallback for browsers without the Web Speech API (Firefox, older iOS, or
+ * Brave, which blocks its own service): record one short clip with the
+ * MediaRecorder, then send it to Bhashini ASR on the server. Bhashini's
+ * availability is probed while the clip records, so the round-trip costs
+ * nothing extra. Recording stops by itself after 8 s; tapping the microphone
+ * again stops it sooner and sends what was heard.
+ */
+function listenWithBhashini(lang: SpeechLang, handlers: ListenHandlers): (() => void) | null {
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') return null;
+  stopSpeaking();
+  let recorder: MediaRecorder | null = null;
+  let stream: MediaStream | null = null;
+  let cancelled = false;
+  const chunks: Blob[] = [];
+  const cleanup = () => {
+    stream?.getTracks().forEach((t) => t.stop());
+    stream = null;
+    recorder = null;
+  };
+  const finish = async () => {
+    if (cancelled) {
+      cleanup();
+      return;
+    }
+    if (!(await bhashiniAsrAvailable())) {
+      handlers.onError?.(LISTEN_ERRORS.network);
+      cleanup();
+      return;
+    }
+    try {
+      const blob = new Blob(chunks, { type: recorder?.mimeType || 'audio/webm' });
+      const text = await bhashiniListen(blob, lang);
+      if (cancelled) return;
+      if (text) handlers.onDone(text);
+      else handlers.onError?.(LISTEN_ERRORS['no-speech']);
+    } catch {
+      handlers.onError?.(LISTEN_ERRORS.network);
+    } finally {
+      cleanup();
+    }
+  };
+  navigator.mediaDevices
+    .getUserMedia({ audio: true })
+    .then((s) => {
+      if (cancelled) {
+        s.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      stream = s;
+      recorder = new MediaRecorder(s);
+      recorder.ondataavailable = (e) => {
+        if (e.data.size) chunks.push(e.data);
+      };
+      recorder.onstop = () => void finish();
+      recorder.start();
+      window.setTimeout(() => {
+        if (recorder?.state === 'recording') recorder.stop();
+      }, 8000);
+    })
+    .catch(() => {
+      if (!cancelled) handlers.onError?.(LISTEN_ERRORS['not-allowed']);
+      cleanup();
+    });
+  return () => {
+    if (recorder?.state === 'recording') recorder.stop(); // onstop sends the clip
+    else if (!recorder) cancelled = true; // mic not open yet: cancel outright
+  };
+}
+
+/**
+ * Starts listening; `onText` gets the running transcript, `onDone` the final
+ * text (empty when nothing was heard). Returns a stop function, or null when
+ * the browser can't listen.
+ *
+ * Fallback chain:
+ * 1. Browser Web Speech API on mic click — instant, no server round-trip
+ *    (desktop Chrome/Edge, Android Chrome, iOS Safari).
+ * 2. Bhashini ASR (server) — records one short clip when the browser has no
+ *    speech recognition (or Brave blocks its service) and Bhashini is set up.
+ * 3. null → the caller shows `noListenHelp()` and the user types instead.
+ */
+export function listen(lang: SpeechLang, handlers: ListenHandlers): (() => void) | null {
+  if (typeof window === 'undefined') return null;
+  const w = window as unknown as { SpeechRecognition?: RecognitionCtor; webkitSpeechRecognition?: RecognitionCtor };
+  const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+  if (Ctor && !isBrave()) return listenWithWebSpeech(Ctor, lang, handlers);
+  return listenWithBhashini(lang, handlers);
 }
 
 /** The language to read a text in, from its script (Urdu/Kashmiri script, Devanagari or Latin). */

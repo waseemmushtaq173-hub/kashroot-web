@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Mic, Square, Volume2 } from 'lucide-react';
 
-import { isRtl, LANG_LABEL, listen, recognitionAvailable, speak, stopSpeaking, voiceHint, type SpeechLang } from '@/lib/client/speech';
+import { bhashiniAsrAvailable, isRtl, LANG_LABEL, listen, recognitionAvailable, speak, stopSpeaking, voiceHint, type SpeechLang } from '@/lib/client/speech';
 
 export function SpeakButton({ text, lang, speech, label = 'Listen', className = '', autoPlay = false }: { text: string; lang: SpeechLang; speech?: string; label?: string; className?: string; autoPlay?: boolean }) {
   const [speaking, setSpeaking] = useState(false);
@@ -65,8 +65,16 @@ export function MicButton({ lang, onText, className = '' }: { lang: SpeechLang; 
   const stop = useRef<(() => void) | null>(null);
   const [available, setAvailable] = useState(false);
   useEffect(() => {
-    const id = requestAnimationFrame(() => setAvailable(recognitionAvailable()));
-    return () => cancelAnimationFrame(id);
+    let dead = false;
+    requestAnimationFrame(() => {
+      void (async () => {
+        const ok = recognitionAvailable() || (await bhashiniAsrAvailable());
+        if (!dead) setAvailable(ok);
+      })();
+    });
+    return () => {
+      dead = true;
+    };
   }, []);
   if (!available) return null;
 

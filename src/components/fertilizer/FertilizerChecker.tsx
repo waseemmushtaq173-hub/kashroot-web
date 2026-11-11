@@ -207,7 +207,7 @@ async function scan(raw: string): Promise<Scan> {
 }
 
 export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
-  const [mode, setMode] = useState<'photo' | 'qr' | 'registry' | 'lab' | 'bagChecklist'>('photo');
+  const [mode, setMode] = useState<'photo' | 'qr' | 'registry' | 'lab' | 'bagChecklist'>('registry');
   const [account, setAccount] = useState<Account | null>(null);
   const [code, setCode] = useState('');
   const [result, setResult] = useState<Scan>({ state: 'idle' });
@@ -382,7 +382,7 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
             }}
             onClose={() => {
               setQrScannerOpen(false);
-              setMode('photo');
+              setMode('registry');
             }}
             isOffline={!navigator.onLine}
           />

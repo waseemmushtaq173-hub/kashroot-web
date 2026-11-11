@@ -32,7 +32,7 @@ import { RegionChip } from '@/components/voice/RegionChip';
 import { heard, LangPicker, type VoiceLang } from '@/components/voice/VoiceButtons';
 import { useAssistant } from '@/lib/client/assistant';
 import { ksText } from '@/lib/kashmiri/phrases';
-import { isRtl, listen, noListenHelp, recognitionAvailable } from '@/lib/client/speech';
+import { bhashiniAsrAvailable, isRtl, listen, noListenHelp, recognitionAvailable } from '@/lib/client/speech';
 import { loadAccount } from '@/lib/db/client';
 import { detectReplyLang, rememberedLang, rememberLang } from '@/lib/langDetect';
 import { actionSentence, openingLine, voiceAction, type VoiceAction } from '@/lib/navIntent';
@@ -201,17 +201,19 @@ export function VoiceConcierge({ compact = false, autoListen = false, onNavigate
 
   useEffect(() => {
     const id = requestAnimationFrame(() => {
-      const ok = recognitionAvailable();
-      setCanListen(ok);
-      setListenHelp(ok ? null : noListenHelp());
-      const remembered = rememberedLang();
-      const start: VoiceLang | null = remembered === 'hi' && dogriRemembered() ? 'doi' : remembered;
-      if (start) setLang(start);
-      // Opened from the floating microphone: listen at once (or let them type).
-      if (autoListen) {
-        if (ok) startListening(start ?? 'en');
-        else inputRef.current?.focus();
-      }
+      void (async () => {
+        const ok = recognitionAvailable() || (await bhashiniAsrAvailable());
+        setCanListen(ok);
+        setListenHelp(ok ? null : noListenHelp());
+        const remembered = rememberedLang();
+        const start: VoiceLang | null = remembered === 'hi' && dogriRemembered() ? 'doi' : remembered;
+        if (start) setLang(start);
+        // Opened from the floating microphone: listen at once (or let them type).
+        if (autoListen) {
+          if (ok) startListening(start ?? 'en');
+          else inputRef.current?.focus();
+        }
+      })();
     });
     // A language saved in My details wins over what this phone remembers.
     void loadAccount()

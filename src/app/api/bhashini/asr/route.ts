@@ -41,3 +41,14 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+/**
+ * GET /api/bhashini/asr
+ *
+ * Is Bhashini ASR configured on this server? The browser probes this once per
+ * page before falling back to Bhashini where the Web Speech API is unavailable.
+ */
+export async function GET(): Promise<Response> {
+  const configured = bhashiniAsrConfigured();
+  return NextResponse.json({ configured }, { status: configured ? 200 : 503 });
+}
