@@ -85,3 +85,20 @@ BEGIN
     CREATE POLICY "Read chamber temperature logs" ON public.cold_chamber_temperature_logs FOR SELECT USING (true);
   END IF;
 END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'cold_storage_unit_allocations' AND policyname = 'Write availability allocations'
+  ) THEN
+    CREATE POLICY "Write availability allocations" ON public.cold_storage_unit_allocations
+      FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'cold_chamber_temperature_logs' AND policyname = 'Write chamber temperature logs'
+  ) THEN
+    CREATE POLICY "Write chamber temperature logs" ON public.cold_chamber_temperature_logs
+      FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
