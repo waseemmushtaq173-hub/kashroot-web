@@ -112,6 +112,13 @@ export interface MainDoor {
   inward: Vec;
 }
 
+/** A work zone painted on the real floor: the dock at the main door, or a line of work set out on free floor. */
+export interface SceneZone {
+  key: 'cleaning' | 'grading' | 'packing' | 'machinery' | 'dock';
+  label: string;
+  rect: Rect;
+}
+
 export interface StoreScene {
   /** The owner's building as the drawing encloses it — grown where a chamber poked out (null: not given). */
   building: Building | null;
@@ -126,6 +133,8 @@ export interface StoreScene {
   walls: Seg[];
   /** The passage straight in from the main door (null without a building). */
   passage: Rect | null;
+  /** Work zones painted on the floor (none without a building, and only where free floor has room). */
+  zones: SceneZone[];
   chambers: SceneChamber[];
   /** Why something is drawn where it should not be. */
   problems: string[];
@@ -364,6 +373,110 @@ function olderChamber(g: ChamberGroup, index: number, at: Vec, beside = false, s
   };
 }
 
+/** The smallest floor a work lane needs, and the gap left between lanes. */
+const ZONE_MIN_LANE = 3;
+const ZONE_MIN_DEPTH = 3;
+const ZONE_GAP = 0.4;
+
+/**
+ * The biggest empty rectangle of the hall's floor on a 1 m grid: nothing in
+ * `taken` (chambers, the passage) stands on it. The classic row-by-row scan
+ * of free heights (largest rectangle under a histogram), so one pass finds
+ * it.
+ */
+function biggestFreeRect(hall: Rect, taken: Rect[]): Rect | null {
+  const gw = Math.max(2, Math.floor(hall.w));
+  const gd = Math.max(2, Math.floor(hall.d));
+  const occ = new Uint8Array(gw * gd);
+  for (const r of taken) {
+    const xa = Math.max(0, Math.floor(r.x - hall.x));
+    const ya = Math.max(0, Math.floor(r.y - hall.y));
+    const xb = Math.min(gw, Math.ceil(r.x + r.w - hall.x));
+    const yb = Math.min(gd, Math.ceil(r.y + r.d - hall.y));
+    for (let y = ya; y < yb; y++) for (let x = xa; x < xb; x++) occ[y * gw + x] = 1;
+  }
+  const hgt = new Int32Array(gw);
+  const stack: number[] = [];
+  let best: Rect | null = null;
+  let bestArea = 0;
+  for (let y = 0; y < gd; y++) {
+    for (let x = 0; x < gw; x++) hgt[x] = occ[y * gw + x] ? 0 : hgt[x] + 1;
+    stack.length = 0;
+    for (let x = 0; x <= gw; x++) {
+      const cur = x < gw ? hgt[x] : 0;
+      while (stack.length && hgt[stack[stack.length - 1]] >= cur) {
+        const h = hgt[stack.pop() as number];
+        const left = stack.length ? stack[stack.length - 1] + 1 : 0;
+        const w = x - left;
+        if (h * w > bestArea && h >= ZONE_MIN_DEPTH && w >= ZONE_MIN_LANE) {
+          bestArea = h * w;
+          best = { x: hall.x + left, y: hall.y + y - h + 1, w, d: h };
+        }
+      }
+      stack.push(x);
+    }
+  }
+  return best;
+}
+
+/** The four lines of work, in the order they follow the fruit through the store. */
+const ZONE_LINES: [SceneZone['key'], string][] = [
+  ['cleaning', 'Cleaning & washing line'],
+  ['grading', 'Grading & sorting line'],
+  ['packing', 'Packing section'],
+  ['machinery', 'Refrigeration plant'],
+];
+
+/** The colour a work zone is painted in — the same hue in the 2D drawing and on the 3D floor. */
+export const ZONE_LOOK: Record<SceneZone['key'], string> = {
+  cleaning: '#0e7490',
+  grading: '#15803d',
+  packing: '#a16207',
+  machinery: '#475569',
+  dock: '#c2410c',
+};
+
+/**
+ * Where the work zones stand: the four lines on the biggest clear floor of
+ * the hall (as many of them as fit in it, side by side along its longer
+ * side), and the dock on the passage floor at the main door. Only real free
+ * floor is set out — never a chamber, never the forklift corridor.
+ */
+function workZones(hall: Rect, chamberRects: Rect[], passage: Rect | null, doorWall: Wall): SceneZone[] {
+  const zones: SceneZone[] = [];
+  const taken = [...chamberRects];
+  if (passage) taken.push({ ...passage });
+  const free = biggestFreeRect(hall, taken);
+  if (free) {
+    const along = free.w >= free.d;
+    const run = along ? free.w : free.d;
+    const n = Math.min(ZONE_LINES.length, Math.floor(run / ZONE_MIN_LANE));
+    const lane = run / n;
+    ZONE_LINES.slice(0, n).forEach(([key, label], i) => {
+      const at = i * lane + ZONE_GAP;
+      const len = lane - 2 * ZONE_GAP;
+      const cross = (along ? free.d : free.w) - 2 * ZONE_GAP;
+      zones.push({ key, label, rect: along ? { x: free.x + at, y: free.y + ZONE_GAP, w: len, d: cross } : { x: free.x + ZONE_GAP, y: free.y + at, w: cross, d: len } });
+    });
+  }
+  if (passage) {
+    // The dock is the strip of the passage at the main door: the passage
+    // runs from it, clear of every chamber, to the wall opposite.
+    const horiz = doorWall === 'front' || doorWall === 'back';
+    const size = horiz ? passage.d : passage.w;
+    const depth = Math.min(3, size);
+    if (depth >= 1.2 && Math.min(passage.w, passage.d) >= 1.2) {
+      const touchesNear = horiz ? Math.abs(passage.y - hall.y) < 0.6 : Math.abs(passage.x - hall.x) < 0.6;
+      const touchesFar = horiz ? Math.abs(passage.y + passage.d - (hall.y + hall.d)) < 0.6 : Math.abs(passage.x + passage.w - (hall.x + hall.w)) < 0.6;
+      const frontEnd = doorWall === 'front' || doorWall === 'left' ? touchesNear : touchesFar;
+      const lo = horiz ? passage.y : passage.x;
+      const at = frontEnd ? lo : lo + size - depth;
+      zones.push({ key: 'dock', label: 'Loading & unloading dock', rect: horiz ? { x: passage.x, y: at, w: passage.w, d: depth } : { x: at, y: passage.y, w: depth, d: passage.d } });
+    }
+  }
+  return zones;
+}
+
 /**
  * The store from its saved rows (one per floor of a chamber) and, when known,
  * its building. Deterministic: the same rows give the same scene.
@@ -509,10 +622,14 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
 
   let mainDoor: MainDoor | null = null;
   let walls: Seg[] = [];
+  let zones: SceneZone[] = [];
   if (b) {
     const seg = doorLine(b.door, { length: hall.w, width: hall.d });
     mainDoor = { seg, wall: b.door.wall, from: b.door.from, width: b.door.width, height: b.door.height, mid: midOf(seg), inward: INWARD[b.door.wall] };
     walls = wallsOf(hall, seg, b.door.wall);
+    // The work zones painted on the floor: the dock at the main door, and
+    // the lines of work on the biggest clear floor — real free floor only.
+    zones = workZones(hall, chambers.map((c) => c.rect), passage, b.door.wall);
   }
 
   let x0 = hall.x;
@@ -529,7 +646,7 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
     height = Math.max(height, c.h);
     floors = Math.max(floors, c.floors.length);
   }
-  return { building: effBuilding, hall, bounds: { x: x0, y: y0, w: x1 - x0, d: y1 - y0 }, height: Math.max(height, 1), mainDoor, walls, passage, chambers, problems, beside: false, floors, unit };
+  return { building: effBuilding, hall, bounds: { x: x0, y: y0, w: x1 - x0, d: y1 - y0 }, height: Math.max(height, 1), mainDoor, walls, passage, zones, chambers, problems, beside: false, floors, unit };
 }
 
 const ORD = ['1st', '2nd', '3rd'];

@@ -20,7 +20,7 @@ import { binTexture, cartonTexture, concreteTexture, crateTexture, fanTexture, g
 import type { Route } from '@/components/rental/walk/route';
 import { buildFixtures } from '@/components/rental/three/fixtures';
 import type { ColdKitGeos } from '@/components/rental/three/coldKit';
-import { type Kind, midOf, type Rect, rowPlates, type Seg, segLength, type StoreScene } from '@/components/rental/three/storeScene';
+import { type Kind, midOf, type Rect, rowPlates, type Seg, segLength, type StoreScene, ZONE_LOOK } from '@/components/rental/three/storeScene';
 import { countText } from '@/lib/coldStore';
 import { showLength } from '@/lib/coldLayout';
 
@@ -497,6 +497,22 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
     if (pass) {
       const wide = pass.d >= pass.w ? pass.w : pass.d;
       dim('Passage', `${showLength(wide, u)} wide · from the main door`, Math.min(3.2, Math.max(2.2, wide))).position.set(wx(o, pass.x + pass.w / 2), 1.2, wz(o, pass.y + pass.d / 2));
+    }
+    // The work zones painted on the real floor (storeScene workZones): a
+    // tinted slab and a small sign over each — the dock at the main door,
+    // the lines of work where the free floor has room for them.
+    const zoneMats = new Map<string, Mat>();
+    for (const z of scene.zones) {
+      let zm = zoneMats.get(z.key);
+      if (!zm) {
+        zm = new T.MeshStandardMaterial({ color: ZONE_LOOK[z.key], transparent: true, opacity: 0.38, depthWrite: false, roughness: 0.9 });
+        zoneMats.set(z.key, zm);
+      }
+      slab(z.rect, 0.02, 0.015, zm);
+      const tag = label(T, z.label, '', Math.min(4.5, Math.max(2, Math.min(z.rect.w, z.rect.d))), true, 20, 46);
+      tag.position.set(wx(o, z.rect.x + z.rect.w / 2), 1.5, wz(o, z.rect.y + z.rect.d / 2));
+      add(tag);
+      labels.push(tag);
     }
   }
 

@@ -206,6 +206,7 @@ function CrateCard({
   stackOf,
   mineName,
   facilityName,
+  facilityId,
   onClose,
 }: {
   cell: Cell;
@@ -214,6 +215,7 @@ function CrateCard({
   stackOf?: (c: ColdChamber, slot: string) => string | null;
   mineName?: string;
   facilityName?: string;
+  facilityId?: string;
   onClose: () => void;
 }) {
   const c = scene.chambers[cell.chamber];
@@ -226,6 +228,7 @@ function CrateCard({
   const kg = (units: number) => (per != null ? `${nice(units * per)} kg` : '—');
   const allocation = row ? stackOf?.(row, cell.slot) ?? null : null;
   const whose = allocation ?? (cell.look === 'mine' ? (mineName?.trim() ? `${mineName.trim()} (you)` : 'You') : null);
+  const unitType = st === 'bins' ? 'Wooden bins' : st === 'crates' ? 'Plastic crates' : 'Paper cartons';
   return (
     <section aria-label={`${c?.name ?? 'Place'}: what is on place ${cell.slot}`} className="rounded-2xl bg-white/95 p-3 text-sm text-slate-800 shadow-xl ring-1 ring-slate-900/10 backdrop-blur">
       <div className="flex items-start justify-between gap-2">
@@ -237,22 +240,26 @@ function CrateCard({
       <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
         <dt className="text-slate-500">Facility</dt>
         <dd className="font-semibold">{facilityName?.trim() || 'This cold store'}</dd>
+        <dt className="text-slate-500">Facility ID</dt>
+        <dd>{facilityId?.trim() || '—'}</dd>
         <dt className="text-slate-500">Chamber</dt>
         <dd>{c?.name}{c?.toScale ? ` · ${sizeText(c, scene.unit)}` : ''}</dd>
+        <dt className="text-slate-500">Chamber ID</dt>
+        <dd>{row?.id ?? c?.group?.key ?? c?.key ?? '—'}</dd>
         <dt className="text-slate-500">Level / layer</dt>
         <dd>{f && c && c.floors.length > 1 ? `Floor ${f.floor} of ${c.floors.length}` : 'Ground level'}</dd>
-        <dt className="text-slate-500">Stack / unit</dt>
+        <dt className="text-slate-500">Storage Unit ID</dt>
         <dd className="font-semibold">{`${c?.name ?? 'Chamber'}${row?.chamber_no != null ? ` (Chamber ${row.chamber_no})` : ''} · Floor ${f?.floor ?? cell.floor + 1} · ${cell.slot}`}</dd>
-        <dt className="text-slate-500">Produce</dt>
-        <dd>Kashmiri apples — cold-stored</dd>
-        <dt className="text-slate-500">Capacity</dt>
+        <dt className="text-slate-500">Storage Type</dt>
+        <dd>{unitType}</dd>
+        <dt className="text-slate-500">Maximum Capacity</dt>
         <dd className="font-semibold">{countText(maxUnits, st)} · {kg(maxUnits)}</dd>
-        <dt className="text-slate-500">Booked status</dt>
-        <dd>{PLACE_LOOK[cell.look].label}{whose ? ` · ${whose}` : ''}</dd>
-        <dt className="text-slate-500">Occupied weight</dt>
+        <dt className="text-slate-500">Stored Quantity</dt>
         <dd className={standing ? 'font-semibold text-emerald-800' : ''}>{standing.toLocaleString('en-IN')} {unitWord(st, standing)} · {kg(standing)}</dd>
-        <dt className="text-slate-500">Remaining weight</dt>
+        <dt className="text-slate-500">Available Capacity</dt>
         <dd>{cell.free.toLocaleString('en-IN')} {unitWord(st, cell.free)} · {kg(cell.free)}</dd>
+        <dt className="text-slate-500">Occupancy Status</dt>
+        <dd>{PLACE_LOOK[cell.look].label}{whose ? ` · ${whose}` : ''}</dd>
         <dt className="text-slate-500">Grower allocation</dt>
         <dd>{whose ?? '—'}</dd>
       </dl>
@@ -290,6 +297,7 @@ export function ColdStore3D({
   stackOf,
   onOpenTwin,
   facilityName,
+  facilityId,
 }: {
   chambers: ColdChamber[];
   stateOf: (c: ColdChamber, slot: string) => Look;
@@ -314,6 +322,8 @@ export function ColdStore3D({
   onOpenTwin?: () => void;
   /** The facility's name, shown in the place inspector (Facility → Chamber → …). */
   facilityName?: string;
+  /** The facility's database id, shown in the place inspector (Facility ID row). */
+  facilityId?: string;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const tip = useRef<HTMLDivElement>(null);
@@ -1664,6 +1674,7 @@ export function ColdStore3D({
           stackOf={stackOf}
           mineName={mineName}
           facilityName={facilityName}
+          facilityId={facilityId}
           onClose={() => setStackCell(null)}
         />
       )}

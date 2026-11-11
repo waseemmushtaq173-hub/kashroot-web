@@ -13,7 +13,7 @@ import { memo, useCallback, useState, type SVGProps } from 'react';
 
 import { DimLine, ScaleBar } from '@/components/rental/drawingMarks';
 import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
-import { midOf, type Rect, type SceneChamber, type StoreScene, type Vec } from '@/components/rental/three/storeScene';
+import { midOf, ZONE_LOOK, type Rect, type SceneChamber, type SceneZone, type StoreScene, type Vec } from '@/components/rental/three/storeScene';
 import { showLength } from '@/lib/coldLayout';
 import { countText, nice, type Storage } from '@/lib/coldStore';
 import type { ColdChamber } from '@/lib/db/coldMap';
@@ -32,6 +32,15 @@ function useShownWidth(): [(el: HTMLElement | null) => (() => void) | undefined,
 
 /** A font size for words that should fit in `room` px: at most `max`, at least `min`. */
 const fitFont = (text: string, room: number, max: number, min: number) => Math.max(min, Math.min(max, room / (text.length * 0.58)));
+
+/** The pale fill a work zone is painted with on the drawing (the stroke is the zone's own colour). */
+const ZONE_FILL: Record<SceneZone['key'], string> = {
+  cleaning: '#ecfeff',
+  grading: '#f0fdf4',
+  packing: '#fef9c3',
+  machinery: '#f1f5f9',
+  dock: '#ffedd5',
+};
 
 /** What one chamber holds and has free (on all its floors), and the places with room. */
 export interface ChamberCount {
@@ -235,6 +244,28 @@ export const StoreTopView = memo(function StoreTopView({
               })()}
             </g>
           )}
+          {scene.building &&
+            scene.zones.map((z) => {
+              // The work zones painted on the free floor (the dock in the
+              // passage mouth): only where they have room on the drawing.
+              const zw = z.rect.w * k;
+              const zd = z.rect.d * k;
+              if (zw < 10 || zd < 10) return null;
+              const zx = X(z.rect.x);
+              const zy = Y(z.rect.y + z.rect.d);
+              const upright = zd >= zw;
+              const size = fitFont(z.label, (upright ? zd : zw) - 8, font - 2, 7);
+              const cx = zx + zw / 2;
+              const cy = zy + zd / 2;
+              return (
+                <g key={z.key} aria-hidden>
+                  <rect x={zx} y={zy} width={zw} height={zd} fill={ZONE_FILL[z.key]} stroke={ZONE_LOOK[z.key]} strokeWidth={1.5} strokeDasharray="6 4" />
+                  <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={size} fontWeight={800} letterSpacing={1} fill={ZONE_LOOK[z.key]} transform={upright ? `rotate(-90 ${cx} ${cy})` : undefined}>
+                    {z.label.toUpperCase()}
+                  </text>
+                </g>
+              );
+            })}
           {scene.chambers.map(chamber)}
           {md && (
             <g>

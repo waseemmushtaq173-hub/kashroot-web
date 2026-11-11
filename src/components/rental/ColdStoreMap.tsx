@@ -302,6 +302,7 @@ export function ColdStoreExplorer({
   mineName,
   stackOf,
   facilityName,
+  facilityId,
 }: {
   chambers: ColdChamber[];
   stateOf: (c: ColdChamber, slot: string) => Look;
@@ -325,6 +326,8 @@ export function ColdStoreExplorer({
   stackOf?: (c: ColdChamber, slot: string) => string | null;
   /** The facility's name, shown in the 3D place inspector (Facility → Chamber → …). */
   facilityName?: string;
+  /** The facility's database id, shown in the 3D place inspector (Facility ID row). */
+  facilityId?: string;
 }) {
   const [view, setView] = useState<ExplorerView>('drawing');
   // While the drawing is looked at, the 3D code (and three.js) loads in the background, so the
@@ -460,6 +463,7 @@ export function ColdStoreExplorer({
                 mineName={mineName}
                 stackOf={stackOf}
                 facilityName={facilityName}
+                facilityId={facilityId}
                 view={view === 'walk' ? 'walk' : 'orbit'}
                 onView={(v) => setView(v === 'walk' ? 'walk' : '3d')}
               />

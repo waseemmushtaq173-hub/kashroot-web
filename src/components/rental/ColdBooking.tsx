@@ -746,6 +746,7 @@ export function ColdBooking({
               legend={['free', 'part', 'selected', 'held', 'booked', 'mine', 'blocked']}
               mineName={form.name || account.name}
               facilityName={l.title}
+              facilityId={l.id}
             />
           )}
           {taken && (
@@ -931,7 +932,7 @@ export function MyPlaces({ places, chambers, listingId, start, months, name }: {
       )}
       {open && chambers.length > 0 && (
         <div className="mt-3">
-          <ColdStoreExplorer chambers={chambers} stateOf={stateOf} roomOf={roomOf} mode="view" active={active} onActive={setActive} legend={['mine', 'free', 'part', 'held', 'booked', 'blocked']} mineName={name} />
+          <ColdStoreExplorer chambers={chambers} stateOf={stateOf} roomOf={roomOf} mode="view" active={active} onActive={setActive} legend={['mine', 'free', 'part', 'held', 'booked', 'blocked']} mineName={name} facilityId={listingId} />
         </div>
       )}
     </div>

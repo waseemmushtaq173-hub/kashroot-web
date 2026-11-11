@@ -70,7 +70,7 @@ export const Preview3D = memo(function Preview3D({ model, listingId, selected, o
         </button>
       </div>
       {view3d === 'walk' ? (
-        <ColdStore3D chambers={chambers} stateOf={stateOf} roomOf={roomOf} mode="owner" active={active} onActive={onActive} onOpenTwin={() => setView3d('twin')} />
+        <ColdStore3D chambers={chambers} stateOf={stateOf} roomOf={roomOf} mode="owner" active={active} onActive={onActive} onOpenTwin={() => setView3d('twin')} facilityName="Your cold store" facilityId={listingId} />
       ) : (
         plan && (
           <IndustrialColdStoreTwin3D

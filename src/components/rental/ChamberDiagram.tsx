@@ -187,6 +187,9 @@ export function ChamberDiagram({
           <marker id={`arr-${uid}`} viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
             <path d="M0,0 L10,5 L0,10 z" fill="#64748b" />
           </marker>
+          <clipPath id={`room-${uid}`}>
+            <rect x={M.l} y={M.t} width={w} height={h} />
+          </clipPath>
         </defs>
 
         {/* Floor */}
@@ -214,8 +217,10 @@ export function ChamberDiagram({
           </g>
         )}
 
-        {/* Places */}
-        {Array.from({ length: rows }, (_, ri) => Array.from({ length: cols }, (_, i) => place(ri + 1, i)))}
+        {/* Places — clipped to the room, so no rounding or odd measured size can ever poke a place past its walls */}
+        <g clipPath={`url(#room-${uid})`}>
+          {Array.from({ length: rows }, (_, ri) => Array.from({ length: cols }, (_, i) => place(ri + 1, i)))}
+        </g>
 
         {/* Walls, with the door in the front wall */}
         <g aria-hidden fill="none" stroke={wall} strokeWidth={6} strokeLinecap="square">

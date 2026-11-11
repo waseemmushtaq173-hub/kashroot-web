@@ -7,9 +7,11 @@
  *   1. OpenStreetMap Nominatim (zoom 18, addressdetails) — the exact place;
  *   2. BigDataCloud's client reverse geocode — when Nominatim is slow or down.
  *
- * `formattedAddress` is always a place name. When both upstreams are
- * unreachable the answer is 502 and the caller shows the coordinates — the
- * server never sends raw coordinates dressed up as an address.
+ * `formattedAddress` is always a place name (locality → city → district →
+ * state → postcode). When both upstreams are unreachable the answer is 502
+ * with `ok: false` and an empty `formattedAddress` — the caller shows the
+ * coordinates themselves; the server never sends raw coordinates dressed up
+ * as an address.
  *
  * 200 GeoAddress · 400 malformed coordinates · 502 both upstreams down.
  */
@@ -17,6 +19,7 @@ import { NextResponse } from 'next/server';
 
 import { ipLimited, tooMany } from '@/lib/server/sign';
 
+export const dynamic = 'force-dynamic';
 export const maxDuration = 20;
 
 const NOMINATIM = 'https://nominatim.openstreetmap.org/reverse';
@@ -25,6 +28,7 @@ const BIGDATACLOUD = 'https://api.bigdatacloud.net/data/reverse-geocode-client';
 interface GeoAddress {
   ok: true;
   formattedAddress: string;
+  locality: string;
   neighbourhood: string | null;
   city: string | null;
   district: string | null;
@@ -34,9 +38,9 @@ interface GeoAddress {
   lng: number;
 }
 
-const clean = (s: unknown): string | null => {
+const clean = (s: unknown): string => {
   const v = typeof s === 'string' ? s.trim() : '';
-  return v.length > 0 ? v : null;
+  return v;
 };
 
 /** One lookup on Nominatim: the exact address with its parts. */
@@ -51,6 +55,7 @@ async function fromNominatim(lat: number, lng: number): Promise<GeoAddress | nul
         Accept: 'application/json',
       },
       signal: AbortSignal.timeout(7_000),
+      cache: 'no-store',
     });
   } catch {
     return null;
@@ -61,16 +66,33 @@ async function fromNominatim(lat: number, lng: number): Promise<GeoAddress | nul
     | null;
   if (!d) return null;
   const a = d.address ?? {};
-  const formatted = clean(d.display_name);
-  if (!formatted) return null;
+  // The nearest named place first: the many names one neighbourhood goes by.
+  const locality =
+    clean(a.suburb) ||
+    clean(a.neighbourhood) ||
+    clean(a.residential) ||
+    clean(a.village) ||
+    clean(a.town) ||
+    clean(a.hamlet) ||
+    clean(a.quarter);
+  const city = clean(a.city) || clean(a.town) || clean(a.county) || clean(a.state_district) || clean(a.municipality);
+  const district = clean(a.state_district) || clean(a.city_district) || clean(a.county) || city;
+  const state = clean(a.state);
+  const postcode = clean(a.postcode);
+  const parts = [locality, city, district && district !== city ? district : '', state, postcode]
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const formattedAddress = [...new Set(parts)].join(', ') || clean(d.display_name);
+  if (!formattedAddress) return null;
   return {
     ok: true,
-    formattedAddress: formatted,
-    neighbourhood: clean(a.neighbourhood) ?? clean(a.suburb) ?? clean(a.village) ?? clean(a.hamlet) ?? clean(a.quarter) ?? null,
-    city: clean(a.city) ?? clean(a.town) ?? clean(a.municipality) ?? null,
-    district: clean(a.city_district) ?? clean(a.county) ?? clean(a.state_district) ?? null,
-    state: clean(a.state) ?? null,
-    postcode: clean(a.postcode) ?? null,
+    formattedAddress,
+    locality,
+    neighbourhood: locality || null,
+    city: city || null,
+    district: district || null,
+    state: state || null,
+    postcode: postcode || null,
     lat,
     lng,
   };
@@ -81,7 +103,7 @@ async function fromBigDataCloud(lat: number, lng: number): Promise<GeoAddress | 
   const url = `${BIGDATACLOUD}?${new URLSearchParams({ latitude: String(lat), longitude: String(lng), localityLanguage: 'en' })}`;
   let res: Response;
   try {
-    res = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(7_000) });
+    res = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(7_000), cache: 'no-store' });
   } catch {
     return null;
   }
@@ -90,18 +112,19 @@ async function fromBigDataCloud(lat: number, lng: number): Promise<GeoAddress | 
     | { locality?: string; city?: string; principalSubdivision?: string; postcode?: string; localityInfo?: { administrative?: { administrativeName?: string; adminLevel?: number }[] } }
     | null;
   if (!d) return null;
-  const parts = [clean(d.locality), clean(d.city), clean(d.principalSubdivision)].filter((x): x is string => Boolean(x));
+  const parts = [clean(d.locality), clean(d.city), clean(d.principalSubdivision)].filter((x) => x.length > 0);
   if (parts.length === 0) return null;
-  const admins = (d.localityInfo?.administrative ?? []).filter((x) => clean(x?.administrativeName));
-  const district = clean(admins.find((x) => (x.adminLevel ?? 0) >= 6)?.administrativeName) ?? clean(admins[0]?.administrativeName);
+  const admins = (d.localityInfo?.administrative ?? []).filter((x) => clean(x?.administrativeName).length > 0);
+  const district = clean(admins.find((x) => (x.adminLevel ?? 0) >= 6)?.administrativeName) || clean(admins[0]?.administrativeName);
   return {
     ok: true,
     formattedAddress: [...new Set(parts)].join(', '),
-    neighbourhood: clean(d.locality) ?? null,
-    city: clean(d.city) ?? null,
-    district: district ?? null,
-    state: clean(d.principalSubdivision) ?? null,
-    postcode: clean(d.postcode) ?? null,
+    locality: clean(d.locality),
+    neighbourhood: clean(d.locality) || null,
+    city: clean(d.city) || null,
+    district: district || null,
+    state: clean(d.principalSubdivision) || null,
+    postcode: clean(d.postcode) || null,
     lat,
     lng,
   };
@@ -113,10 +136,13 @@ export async function GET(request: Request) {
   const lat = Number(params.get('lat'));
   const lng = Number(params.get('lng'));
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
-    return NextResponse.json({ ok: false, error: 'Send lat and lng as decimal degrees.' }, { status: 400 });
+    return NextResponse.json({ ok: false, error: 'Send lat and lng as decimal degrees.', formattedAddress: '' }, { status: 400 });
   }
 
   const answer = (await fromNominatim(lat, lng)) ?? (await fromBigDataCloud(lat, lng));
   if (answer) return NextResponse.json(answer, { headers: { 'Cache-Control': 'private, max-age=60' } });
-  return NextResponse.json({ ok: false, error: 'Both address lookups are unreachable right now.' }, { status: 502 });
+  return NextResponse.json(
+    { ok: false, formattedAddress: '', locality: '', lat, lng, error: 'Both address lookups are unreachable right now.' },
+    { status: 502 },
+  );
 }
