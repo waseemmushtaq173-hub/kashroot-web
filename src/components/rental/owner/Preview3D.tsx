@@ -14,20 +14,31 @@ import { memo, useCallback, useMemo, useState } from 'react';
 
 import { twinPlanOf } from '@/components/rental/twinMap';
 import type { Look } from '@/components/rental/placeLook';
+import { Guard3D } from '@/components/rental/three/SceneGuard';
 import type { StorageSlotRecord } from '@/components/rental/IndustrialColdStoreTwin3D';
 import { previewChambers, type StoreModel } from '@/lib/coldStore';
 import type { ColdChamber } from '@/lib/db/coldMap';
 
+/** The branded loader shown while three.js / R3F and their assets arrive. */
+const SpinBox = ({ text }: { text: string }) => (
+  <div className="grid h-[420px] place-items-center rounded-3xl bg-slate-100" role="status" aria-live="polite">
+    <div className="flex flex-col items-center gap-3">
+      <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-emerald-200 border-t-emerald-600" aria-hidden />
+      <p className="text-sm font-semibold text-slate-600">{text}</p>
+    </div>
+  </div>
+);
+
 const ColdStore3D = dynamic(() => import('@/components/rental/ColdStore3D').then((m) => m.ColdStore3D), {
   ssr: false,
-  loading: () => <div className="grid h-[420px] place-items-center rounded-3xl bg-slate-100 text-sm text-slate-500">Opening the 3D view…</div>,
+  loading: () => <SpinBox text="Initializing the 3D cold store..." />,
 });
 
 const IndustrialColdStoreTwin3D = dynamic(
   () => import('@/components/rental/IndustrialColdStoreTwin3D').then((m) => m.IndustrialColdStoreTwin3D),
   {
     ssr: false,
-    loading: () => <div className="grid h-[420px] place-items-center rounded-3xl bg-slate-100 text-sm text-slate-500">Opening the digital twin…</div>,
+    loading: () => <SpinBox text="Initializing Industrial 3D Digital Twin..." />,
   },
 );
 
@@ -73,17 +84,19 @@ export const Preview3D = memo(function Preview3D({ model, listingId, selected, o
         <ColdStore3D chambers={chambers} stateOf={stateOf} roomOf={roomOf} mode="owner" active={active} onActive={onActive} onOpenTwin={() => setView3d('twin')} facilityName="Your cold store" facilityId={listingId} />
       ) : (
         plan && (
-          <IndustrialColdStoreTwin3D
-            facilityCode={`KS-${listingId.slice(0, 6).toUpperCase()}`}
-            facilityName="Your cold store"
-            buildingLengthM={0}
-            buildingWidthM={0}
-            buildingHeightM={0}
-            corridorLayout="BOTH_SIDES"
-            chambers={plan.configs}
-            selectedSlotKeys={selectedSlotKeys}
-            onToggleSelectSlot={onToggleSlot}
-          />
+          <Guard3D>
+            <IndustrialColdStoreTwin3D
+              facilityCode={`KS-${listingId.slice(0, 6).toUpperCase()}`}
+              facilityName="Your cold store"
+              buildingLengthM={0}
+              buildingWidthM={0}
+              buildingHeightM={0}
+              corridorLayout="BOTH_SIDES"
+              chambers={plan.configs}
+              selectedSlotKeys={selectedSlotKeys}
+              onToggleSelectSlot={onToggleSlot}
+            />
+          </Guard3D>
         )
       )}
     </div>

@@ -7,8 +7,11 @@
  * boundary catches anything thrown while a 3D view mounts or renders, logs
  * it, and shows a quiet panel with a retry — the Drawing right beside it
  * still shows the very same store, so nobody is left with nothing.
+ *
+ * "Try again" mounts the 3D view from scratch (a fresh key): a brand-new
+ * canvas, a brand-new WebGL context, no memory of the failed one.
  */
-import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { Component, Fragment, type ErrorInfo, type ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
@@ -16,12 +19,14 @@ interface Props {
 
 interface State {
   failed: string | null;
+  /** Bumped on every retry: the new key tears the whole 3D subtree down and mounts it clean. */
+  tries: number;
 }
 
 export class Guard3D extends Component<Props, State> {
-  state: State = { failed: null };
+  state: State = { failed: null, tries: 0 };
 
-  static getDerivedStateFromError(err: unknown): State {
+  static getDerivedStateFromError(err: unknown): Partial<State> {
     return { failed: err instanceof Error ? err.message : 'The 3D view could not open.' };
   }
 
@@ -37,7 +42,7 @@ export class Guard3D extends Component<Props, State> {
           <p className="max-w-md text-xs text-slate-500">The Drawing shows the same store — and you can try the 3D view again at once.</p>
           <button
             type="button"
-            onClick={() => this.setState({ failed: null })}
+            onClick={() => this.setState((s) => ({ failed: null, tries: s.tries + 1 }))}
             className="min-h-10 cursor-pointer rounded-xl bg-slate-800 px-4 text-sm font-bold text-white hover:bg-slate-900"
           >
             Try the 3D view again
@@ -45,6 +50,6 @@ export class Guard3D extends Component<Props, State> {
         </div>
       );
     }
-    return this.props.children;
+    return <Fragment key={this.state.tries}>{this.props.children}</Fragment>;
   }
 }

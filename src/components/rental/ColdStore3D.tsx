@@ -332,6 +332,11 @@ export function ColdStore3D({
   const input = useRef<WalkInput>(noInput());
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
+  // WebGL contexts and module loads can fail transiently — a phone juggling
+  // too many live canvases, a driver hiccup just after a tab switch, one bad
+  // network round trip. The view is rebuilt from scratch up to three times,
+  // a quarter second apart, before the quiet "cannot show 3D" panel shows.
+  const [attempt, setAttempt] = useState(0);
   // The 3D world is built only once the component has truly mounted (never
   // during a portal's first render or a stray server pass): three.js, WebGL
   // and their loaders exist only in the browser, and a hiccup there must
@@ -476,10 +481,37 @@ export function ColdStore3D({
     let disposed = false;
     let cleanup = () => {};
 
-    void (async () => {
-      const T = await import('three');
-      const { OrbitControls } = await import('three/examples/jsm/controls/OrbitControls.js');
+    // Transient WebGL failures (a context lost to tab churn, a driver hiccup,
+    // one slow module fetch) get an automatic retry: this mount is rebuilt
+    // from scratch up to three times, a quarter second apart, before the
+    // quiet "cannot show 3D" panel shows. A fresh attempt means a brand-new
+    // canvas and a brand-new WebGL context — the old one is torn down by the
+    // cleanup below before the next run starts.
+    const scheduleRetry = () => {
       if (disposed) return;
+      if (attempt < 2) {
+        window.setTimeout(() => {
+          if (!disposed) setAttempt((a) => a + 1);
+        }, 250);
+      } else {
+        setFailed(true);
+      }
+    };
+
+    void (async () => {
+      let T: typeof import('three');
+      let controlsMod: typeof import('three/examples/jsm/controls/OrbitControls.js');
+      try {
+        T = await import('three');
+        controlsMod = await import('three/examples/jsm/controls/OrbitControls.js');
+      } catch {
+        // The module bundle itself did not arrive — often a one-off network
+        // hiccup, not a broken browser. Same retry, not an instant give-up.
+        scheduleRetry();
+        return;
+      }
+      if (disposed) return;
+      const { OrbitControls } = controlsMod;
 
       const phone = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 640;
       // A low-cost phone (4 GB or less, or 4 cores or fewer): one pixel per screen pixel, no smoothing.
@@ -489,7 +521,9 @@ export function ColdStore3D({
       try {
         renderer = new T.WebGLRenderer({ antialias: !phone, powerPreference: phone ? 'low-power' : 'default' });
       } catch {
-        setFailed(true);
+        // Context creation refused — try the whole mount again before
+        // concluding this phone cannot show 3D.
+        scheduleRetry();
         return;
       }
       // Filmic tone mapping and sRGB output: the same pixels, but light rolls
@@ -561,8 +595,10 @@ export function ColdStore3D({
       }
 
       // The Blender kit: six real-world protos, loaded while the scene builds.
-      // Anything short of a load leaves the hand-drawn kit below as it always was.
-      const protos = await loadColdKitGeo(T);
+      // Anything short of a load leaves the hand-drawn kit below as it always
+      // was. A five-second budget: a big chamber falls back to the procedural
+      // kit instead of staring at a spinner while the GLB crawls in.
+      const protos = await loadColdKitGeo(T, '/models/coldstore_kit.glb', 5000);
       // The kit used for all logic is the procedural one, dressed with the
       // Blender protos when they answered.
       const kit = makeKit(T, phone, protos);
@@ -1437,19 +1473,20 @@ export function ColdStore3D({
       };
     })().catch((err) => {
       // Any 3D failure stays inside this panel: a WebGL, module or geometry
-      // hiccup never takes the page down to the portal's error screen.
+      // hiccup never takes the page down to the portal's error screen — and
+      // it goes through the same automatic retry as the rest.
       if (disposed) return;
       console.error('3D scene failed:', err instanceof Error ? err.message : err);
-      setFailed(true);
+      scheduleRetry();
     });
 
     return () => {
       disposed = true;
       cleanup();
     };
-    // Set up once, after the mount gate flips (textId never changes); data
-    // and callbacks reach the scene through `latest` and `api`.
-  }, [textId, mounted]);
+    // Rebuilt from scratch per attempt (the retry counter); textId never
+    // changes, and data and callbacks reach the scene through `latest`/`api`.
+  }, [textId, mounted, attempt]);
 
   if (failed) {
     return <p className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-950 ring-1 ring-amber-200">This phone or browser cannot show 3D. Use the Drawing — it shows the same chambers and places.</p>;
@@ -1644,7 +1681,14 @@ export function ColdStore3D({
         className="relative w-full touch-none select-none overflow-hidden rounded-3xl bg-gradient-to-b from-sky-50 to-slate-100 outline-none ring-1 ring-slate-900/10 focus-visible:ring-2 focus-visible:ring-sky-600"
         style={{ height }}
       >
-        {!ready && <p className="absolute inset-0 grid place-items-center text-sm text-slate-500">Opening the 3D view…</p>}
+        {!ready && (
+          <div className="absolute inset-0 grid place-items-center rounded-3xl bg-slate-100/80" role="status" aria-live="polite">
+            <div className="flex flex-col items-center gap-3">
+              <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-emerald-200 border-t-emerald-600" aria-hidden />
+              <p className="text-sm font-semibold text-slate-600">Initializing the 3D cold store...</p>
+            </div>
+          </div>
+        )}
         <p id={textId} data-scene-text className="sr-only">{sceneText(scene)}</p>
         <div ref={tip} aria-live="polite" className="pointer-events-none absolute z-30 max-w-[228px] whitespace-pre-line rounded-xl bg-slate-900/90 px-3 py-2 text-xs font-semibold text-white opacity-0 shadow-lg transition-opacity" />
         {walking && ready && (

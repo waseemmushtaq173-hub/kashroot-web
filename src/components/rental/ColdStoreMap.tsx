@@ -54,7 +54,14 @@ export { PLACE_LOOK, type Look };
 // it never takes the whole page down to the portal's error screen.
 const ColdStore3D = dynamic(() => import('@/components/rental/ColdStore3D').then((m) => m.ColdStore3D), {
   ssr: false,
-  loading: () => <div className="grid h-[420px] place-items-center rounded-3xl bg-slate-100 text-sm text-slate-500">Opening the 3D view…</div>,
+  loading: () => (
+    <div className="grid h-[420px] place-items-center rounded-3xl bg-slate-100" role="status" aria-live="polite">
+      <div className="flex flex-col items-center gap-3">
+        <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-emerald-200 border-t-emerald-600" aria-hidden />
+        <p className="text-sm font-semibold text-slate-600">Initializing the 3D cold store...</p>
+      </div>
+    </div>
+  ),
 });
 
 /** "4,480" — Indian grouping. */
