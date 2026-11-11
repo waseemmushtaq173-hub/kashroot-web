@@ -47,6 +47,8 @@ export interface Chamber3DConfig {
   unitWidthM: number;
   unitHeightM: number;
   spacingM: number;
+  /** The owner's own chamber code from cold_chambers.chamber_code, when they saved one. */
+  chamberCode?: string;
   temperatureC?: number;
   temperatureSource?: 'MANUAL_ENTRY' | 'IOT_SENSOR' | 'NONE';
 }
@@ -68,7 +70,7 @@ export interface IndustrialColdStoreTwinProps {
 }
 
 export function IndustrialColdStoreTwin3D({
-  facilityCode = 'KS-001',
+  facilityCode = '',
   facilityName,
   buildingLengthM,
   buildingWidthM,
@@ -207,15 +209,19 @@ export function IndustrialColdStoreTwin3D({
     [chambers]
   );
 
+  // The owner's own chamber code (cold_chambers.chamber_code) behind the inspected slot, when they saved one.
+  const inspectedChamber = inspectedSlot ? chambers.find((ch) => ch.code === inspectedSlot.chamberCode) ?? null : null;
+
   return (
     <div className="w-full rounded-2xl border border-emerald-900/15 bg-slate-950 text-white overflow-hidden shadow-xl">
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-emerald-950/90 border-b border-emerald-800/40 text-xs">
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Which chamber to show">
           <span className="font-semibold text-emerald-300 mr-1">
-            {facilityCode} · {facilityName}:
+            {facilityCode ? `${facilityCode} · ` : ''}{facilityName}:
           </span>
           <button
             type="button"
+            aria-pressed={activeChamberId === 'ALL'}
             onClick={() => setActiveChamberId('ALL')}
             className={`px-2.5 py-1 rounded-full transition ${
               activeChamberId === 'ALL'
@@ -229,6 +235,7 @@ export function IndustrialColdStoreTwin3D({
             <button
               key={ch.id}
               type="button"
+              aria-pressed={activeChamberId === ch.code}
               onClick={() => setActiveChamberId(ch.code)}
               className={`px-2.5 py-1 rounded-full transition ${
                 activeChamberId === ch.code
@@ -236,15 +243,16 @@ export function IndustrialColdStoreTwin3D({
                   : 'bg-white/10 hover:bg-white/20 text-white'
               }`}
             >
-              {ch.code} ({ch.unitType === 'WOODEN_BIN' ? '200kg Bins' : '17kg Blue Crates'})
+              {ch.code} ({ch.unitType === 'WOODEN_BIN' ? `${Math.round(ch.unitCapacityKg)}kg Bins` : `${Math.round(ch.unitCapacityKg)}kg Blue Crates`})
             </button>
           ))}
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Which level to show">
           <span className="text-emerald-300">Level:</span>
           <button
             type="button"
+            aria-pressed={activeLevel === 'ALL'}
             onClick={() => setActiveLevel('ALL')}
             className={`px-2 py-1 rounded ${
               activeLevel === 'ALL' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-white/10'
@@ -256,6 +264,7 @@ export function IndustrialColdStoreTwin3D({
             <button
               key={lvl}
               type="button"
+              aria-pressed={activeLevel === lvl}
               onClick={() => setActiveLevel(lvl)}
               className={`px-2 py-1 rounded ${
                 activeLevel === lvl ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-white/10'
@@ -267,10 +276,12 @@ export function IndustrialColdStoreTwin3D({
 
           <span className="mx-1 text-emerald-700">|</span>
 
+          <div role="group" aria-label="Wall view" className="flex flex-wrap items-center gap-1.5">
           {(['SOLID', 'TRANSPARENT', 'CUTAWAY'] as const).map((mode) => (
             <button
               key={mode}
               type="button"
+              aria-pressed={wallMode === mode}
               onClick={() => setWallMode(mode)}
               className={`px-2.5 py-1 rounded-full ${
                 wallMode === mode
@@ -281,6 +292,7 @@ export function IndustrialColdStoreTwin3D({
               {mode === 'SOLID' ? 'Solid Walls' : mode === 'TRANSPARENT' ? 'X-Ray Walls' : 'Cutaway'}
             </button>
           ))}
+          </div>
         </div>
       </div>
 
@@ -358,6 +370,12 @@ export function IndustrialColdStoreTwin3D({
                   </button>
                 </div>
                 <div className="space-y-1 text-[11px]">
+                  {inspectedChamber?.chamberCode && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Owner code:</span>
+                      <span className="font-semibold">{inspectedChamber.chamberCode}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-slate-400">Level / Unit:</span>
                     <span className="font-semibold">
@@ -407,6 +425,61 @@ export function IndustrialColdStoreTwin3D({
           <OrbitControls makeDefault maxPolarAngle={Math.PI / 2 - 0.04} />
         </Canvas>
       </div>
+
+      {/* Quick Unit & Level Selector Bar — every unit the view shows, as real
+          buttons: Tab to move, Enter or Space to choose, exactly like tapping
+          the unit in the 3D view. Screen readers hear the unit code, its kind
+          and capacity, and whether it is free or whose booking it is. */}
+      <section
+        role="region"
+        aria-label="Quick unit and level selector"
+        className="max-h-64 overflow-y-auto border-t border-emerald-800/40 bg-emerald-950/70 px-4 py-3"
+      >
+        <p className="text-xs font-semibold text-emerald-300">
+          Select units — Tab / Enter / Space or tap: {Math.min(visibleSlots.length, 200)} of {visibleSlots.length} unit{visibleSlots.length === 1 ? '' : 's'} shown
+        </p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {(visibleSlots.length > 200 ? visibleSlots.slice(0, 200) : visibleSlots).map((s) => {
+            const selected = selectedSlotKeys.includes(s.slotKey);
+            const statusText =
+              s.status === 'MY_BOOKING'
+                ? 'your booking'
+                : s.status === 'OCCUPIED'
+                  ? `booked by ${s.farmerName ?? 'another farmer'}`
+                  : s.status === 'PENDING_PAYMENT'
+                    ? 'held for payment'
+                    : 'available';
+            return (
+              <button
+                key={s.slotKey}
+                type="button"
+                aria-pressed={selected}
+                aria-label={`${s.unitCode}, ${s.unitType === 'WOODEN_BIN' ? 'wooden bin' : 'blue plastic crate'}, capacity ${s.capacityKg} kg, ${statusText}${typeof s.temperatureC === 'number' ? `, chamber at ${s.temperatureC.toFixed(1)} degrees` : ''}`}
+                title={`${s.unitCode} · ${statusText}`}
+                onClick={() => {
+                  setInspectedSlot(s);
+                  onToggleSelectSlot(s);
+                }}
+                className={`min-h-[36px] rounded-lg px-2.5 py-1 text-xs font-semibold tabular-nums transition ${
+                  selected
+                    ? 'bg-emerald-500 text-slate-950 ring-2 ring-emerald-300'
+                    : s.status === 'OCCUPIED'
+                      ? 'bg-rose-950/70 text-rose-300 ring-1 ring-rose-500/40 hover:bg-rose-900/70'
+                      : 'bg-white/10 text-white ring-1 ring-white/15 hover:bg-white/20'
+                }`}
+              >
+                {s.unitCode}
+              </button>
+            );
+          })}
+          {visibleSlots.length === 0 && (
+            <p className="text-xs text-slate-400">No units in this view — choose All Chambers or another level above.</p>
+          )}
+          {visibleSlots.length > 200 && (
+            <p className="text-xs text-slate-400">Showing the first 200. Pick a single chamber above to see all of its units.</p>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

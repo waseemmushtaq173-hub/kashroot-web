@@ -218,7 +218,27 @@ export function OwnerWizard({
           }).catch(() => {});
         }
       } else if (step === 4) {
-        onPayout(await savePayoutDraft(payDraft));
+        const savedPayout = await savePayoutDraft(payDraft);
+        onPayout(savedPayout);
+        // The same real details go onto the cold store's own row
+        // (rental_listings.owner_payout_upi and the bank fields), so the 3D
+        // unit booking shows farmers exactly where to pay. Never held
+        // against the saved payout account.
+        if (listingId) {
+          try {
+            await saveStore(
+              {
+                owner_payout_upi: savedPayout.upi_id,
+                owner_bank_account_name: savedPayout.account_name,
+                owner_bank_account_no: savedPayout.account_number,
+                owner_bank_ifsc: savedPayout.ifsc,
+              },
+              listingId,
+            );
+          } catch (storeErr) {
+            console.error('Payout details on the cold store row failed', storeErr);
+          }
+        }
         toast.success('Payment details saved');
       }
       // What was kept on the phone is saved now: the notice about it goes.

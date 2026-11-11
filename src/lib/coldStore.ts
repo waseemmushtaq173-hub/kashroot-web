@@ -398,6 +398,11 @@ export interface StoreRow {
   area: string;
   address: string | null;
   building: Building | null;
+  /** Where farmers pay the owner directly (20261111000002): read per facility by the unit booking API. */
+  owner_payout_upi?: string | null;
+  owner_bank_account_name?: string | null;
+  owner_bank_account_no?: string | null;
+  owner_bank_ifsc?: string | null;
 }
 
 export interface StoreModel {

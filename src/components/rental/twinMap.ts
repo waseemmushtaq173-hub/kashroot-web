@@ -78,7 +78,8 @@ export function twinPlanOf(chambers: ColdChamber[]): TwinPlan {
       id: c.id,
       code,
       name: c.name,
-      side: i % 2 === 0 ? 'LEFT' : 'RIGHT',
+      // Where the owner says the chamber stands; the alternating default only for rows without it.
+      side: c.side_position === 'LEFT' || c.side_position === 'RIGHT' ? c.side_position : i % 2 === 0 ? 'LEFT' : 'RIGHT',
       lengthM,
       widthM,
       heightM: Math.max(2.4, c.size?.height ?? 2.4),
@@ -89,6 +90,7 @@ export function twinPlanOf(chambers: ColdChamber[]): TwinPlan {
       unitWidthM: u.w,
       unitHeightM: u.h,
       spacingM: u.gap,
+      chamberCode: c.chamber_code || undefined,
     });
     byCode.set(code, c);
     codeOf.set(c.id, code);

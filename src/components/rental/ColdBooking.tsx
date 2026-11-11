@@ -32,6 +32,7 @@ import {
   countsText,
   lastDay,
   parsePlace,
+  periodEnd,
   pickNearest,
   placeKey,
   placeLabel,
@@ -168,6 +169,27 @@ const BOOKING = z.object({
 const today = () => new Date().toISOString().slice(0, 10);
 const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 18, 24];
 export const niceDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+
+/** One booked 3D unit, as the unit registry (api/cold-storage/book-units) returns it — a real row of cold_storage_unit_allocations. */
+interface UnitAllocation {
+  id: string;
+  chamber_id: string;
+  level_index: number;
+  unit_code: string;
+  unit_type: string;
+  stored_quantity_kg: number | string;
+  farmer_id: string;
+  farmer_name: string;
+  payment_status: string;
+  created_at: string;
+}
+/** One real temperature reading of a chamber (cold_chamber_temperature_logs). */
+interface TempLog {
+  chamber_id: string;
+  temperature_c: number | string;
+  source_type: string;
+  recorded_at: string;
+}
 
 /** A place and, when it is shared, how many of the farmer's bins are on it. */
 type Placed = { chamber_id: string; slot: string; boxes?: number | null };
@@ -367,6 +389,60 @@ export function ColdBooking({
   // months (taken); a place with room left stays blue and a click shares it.
   const [twinOpen, setTwinOpen] = useState(false);
   const twin = useMemo(() => (twinOpen ? twinPlanOf(chambers) : null), [chambers, twinOpen]);
+  // The unit-level bookings and the recorded temperatures, read from the real
+  // database through api/cold-storage/book-units when the twin is open.
+  const [unitBookings, setUnitBookings] = useState<UnitAllocation[]>([]);
+  const [chamberTemps, setChamberTemps] = useState<Map<string, { temperatureC: number; source: 'MANUAL_ENTRY' | 'IOT_SENSOR' }>>(new Map());
+  useEffect(() => {
+    if (!twinOpen || !chambers.length) return;
+    let live = true;
+    void (async () => {
+      try {
+        const parts = await Promise.all(
+          chambers.map(async (c) => {
+            const res = await fetch(`/api/cold-storage/book-units?facilityId=${l.id}&chamberId=${c.id}`);
+            if (!res.ok) return { chamberId: c.id, allocations: [] as UnitAllocation[], temperatureLogs: [] as TempLog[] };
+            const json = (await res.json()) as { allocations?: UnitAllocation[]; temperatureLogs?: TempLog[] };
+            return { chamberId: c.id, allocations: json.allocations ?? [], temperatureLogs: json.temperatureLogs ?? [] };
+          }),
+        );
+        if (!live) return;
+        const seen = new Set<string>();
+        const allocs: UnitAllocation[] = [];
+        for (const { allocations } of parts) {
+          for (const a of allocations) {
+            if (a.payment_status === 'RELEASED' || a.payment_status === 'FAILED' || a.payment_status === 'REFUNDED') continue;
+            if (seen.has(a.id)) continue;
+            seen.add(a.id);
+            allocs.push(a);
+          }
+        }
+        setUnitBookings(allocs);
+        const temps = new Map<string, { temperatureC: number; source: 'MANUAL_ENTRY' | 'IOT_SENSOR' }>();
+        for (const { chamberId, temperatureLogs } of parts) {
+          const latest = temperatureLogs[0];
+          const value = Number(latest?.temperature_c);
+          if (!latest || !Number.isFinite(value)) continue;
+          temps.set(chamberId, { temperatureC: value, source: latest.source_type === 'IOT_SENSOR' ? 'IOT_SENSOR' : 'MANUAL_ENTRY' });
+        }
+        setChamberTemps(temps);
+      } catch {
+        // The twin still shows the months' bookings (takenPlaces); the unit registry only adds to it when it answers.
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [twinOpen, chambers, l.id]);
+  // The twin's chambers with each chamber's real latest temperature, when one has been recorded.
+  const twinConfigs = useMemo(
+    () =>
+      (twin?.configs ?? []).map((cfg) => {
+        const t = chamberTemps.get(cfg.id);
+        return t ? { ...cfg, temperatureC: t.temperatureC, temperatureSource: t.source } : cfg;
+      }),
+    [twin, chamberTemps],
+  );
   const twinAllocations = useMemo(() => {
     if (!twin || !taken) return {};
     const out: Record<string, NonNullable<IndustrialColdStoreTwinProps['occupiedAllocations']>[string]> = {};
@@ -394,8 +470,23 @@ export function ColdBooking({
         }
       }
     }
+    // The exact booked units (cold_storage_unit_allocations) over that: the
+    // real farmer name and stored kg for each 3D unit, straight from the
+    // database. A unit's own code pins its slot inside its row-chamber.
+    const codeOfId = new Map<string, string>();
+    for (const [code, row] of twin.byCode) codeOfId.set(row.id, code);
+    for (const a of unitBookings) {
+      const code = codeOfId.get(a.chamber_id);
+      if (!code) continue;
+      out[`${code}:LEVEL-01:${a.unit_code}`] = {
+        storedKg: Number(a.stored_quantity_kg) || 0,
+        farmerName: a.farmer_id === account.id ? form.name || account.name : a.farmer_name,
+        isCurrentFarmer: a.farmer_id === account.id,
+        bookingDate: a.created_at,
+      };
+    }
     return out;
-  }, [twin, taken, chambers, form.name, account.name]);
+  }, [twin, taken, chambers, form.name, account.name, unitBookings]);
   const selectedTwinKeys = useMemo(() => (twin ? chosen.map((p) => twin.keyOf(p.chamber, p.slot)) : []), [twin, chosen]);
   const onTwinSlot = useCallback(
     (rec: StorageSlotRecord) => {
@@ -444,6 +535,63 @@ export function ColdBooking({
     setStep('confirm');
   };
 
+  /**
+   * The exact 3D units behind the booking, to the unit registry
+   * (api/cold-storage/book-units) — one row per chosen place per chamber,
+   * built only from what the database and the farmer gave: the chamber's own
+   * floor, row and stack, its unit kind and kg from the owner's save, and
+   * the real booking as the transaction reference.
+   */
+  const bookUnits = useCallback(
+    async (bookingId: string, chosenNow: ChosenPlace[]): Promise<void> => {
+      const byChamber = new Map<string, { levelIndex: number; levelCode: string; row: number; col: number; unitCode: string; unitType: 'WOODEN_BIN' | 'PLASTIC_CRATE'; unitCapacityKg: number; storedQuantityKg: number }[]>();
+      for (const p of chosenNow) {
+        const c = p.chamber;
+        const kg = c.unit_kg ?? 0;
+        const capacity = Math.round(kg * c.boxes_per_slot * 100) / 100;
+        if (!(kg > 0) || !(capacity > 0)) continue; // no real unit capacity saved for this chamber — nothing to record
+        const place = parsePlace(p.slot);
+        const unitCode = `${c.storage === 'bins' ? 'BIN' : 'CRATE'}-${String((place.row - 1) * c.cols + place.stack).padStart(3, '0')}`;
+        const list = byChamber.get(c.id) ?? [];
+        list.push({
+          levelIndex: c.floor,
+          levelCode: `LEVEL-${String(c.floor).padStart(2, '0')}`,
+          row: place.row,
+          col: place.stack,
+          unitCode,
+          unitType: c.storage === 'bins' ? 'WOODEN_BIN' : 'PLASTIC_CRATE',
+          unitCapacityKg: capacity,
+          storedQuantityKg: Math.round(p.boxes * kg * 100) / 100,
+        });
+        byChamber.set(c.id, list);
+      }
+      if (!byChamber.size) return;
+      await Promise.all(
+        [...byChamber].map(([chamberId, units]) =>
+          fetch('/api/cold-storage/book-units', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              bookingId,
+              facilityId: l.id,
+              chamberId,
+              farmerId: account.id,
+              farmerName: form.name.trim(),
+              transactionId: bookingCode(bookingId),
+              idempotencyKeyPrefix: `kr-booking-${bookingId}`,
+              paymentStatus: 'PENDING',
+              storageEndDate: `${periodEnd(start, months)}T00:00:00.000Z`,
+              units,
+            }),
+          }).then(async (res) => {
+            if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? `Unit registry answered ${res.status}`);
+          }),
+        ),
+      );
+    },
+    [l.id, account.id, form.name, start, months],
+  );
+
   const nameProblem = !form.name.trim() ? 'Write your name, as the owner will know you.' : form.name.trim().length > 80 ? 'Your name is too long. Keep it under 80 letters.' : null;
   const phoneProblem = mobileProblem(form.phone, 'your');
   const book = async () => {
@@ -462,6 +610,14 @@ export function ColdBooking({
       // The price the database set (each chamber's own rent) is the one to pay.
       const saved = await bookingById(id).catch(() => null);
       setBooked({ id, amount: Number(saved?.amount ?? price.total), at: Date.now() });
+      // The exact 3D units are recorded against the real booking. Never held against the hold itself.
+      const chosenNow = [...picked.values()];
+      try {
+        await bookUnits(id, chosenNow);
+      } catch (unitErr) {
+        console.error('Unit registry save failed', unitErr);
+        toast.error('Your places are booked and held. Saving their 3D unit details failed — the owner still sees your booking.');
+      }
       setStep('pay');
       toast.success('Places held for you for 24 hours — now pay the owner');
     } catch (err) {
@@ -604,13 +760,13 @@ export function ColdBooking({
                     The same places as the drawing, drawn as {wordFor(kinds)}. Tap a bin or crate to choose that place; tap it again to take it off. Red places are booked, green ones are yours or chosen.
                   </p>
                   <IndustrialColdStoreTwin3D
-                    facilityCode={`KS-${l.id.slice(0, 6).toUpperCase()}`}
+                    facilityCode={l.facility_code || l.title}
                     facilityName={l.title}
                     buildingLengthM={0}
                     buildingWidthM={0}
                     buildingHeightM={0}
                     corridorLayout="BOTH_SIDES"
-                    chambers={twin.configs}
+                    chambers={twinConfigs}
                     occupiedAllocations={twinAllocations}
                     selectedSlotKeys={selectedTwinKeys}
                     onToggleSelectSlot={onTwinSlot}
