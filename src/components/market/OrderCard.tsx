@@ -100,9 +100,12 @@ function PayAfterDeliveryOrder({ order: o, as, theme, onChange }: { order: Marke
     : coord(o.delivery_lat, o.delivery_lon)
       ? { ...coord(o.delivery_lat, o.delivery_lon)!, label: `🔵 Destination · ${o.buyer_name}`, sub: o.delivery_address ?? null }
       : null;
-  const transitPoint: OrderPin | null = coord(o.last_lat, o.last_lon)
-    ? { ...coord(o.last_lat, o.last_lon)!, label: '🚚 Shipment', sub: o.ship_vehicle ? String(o.ship_vehicle) : null, live: nowish(o.last_at) }
-    : null;
+  const transitPoint: OrderPin | null = (() => {
+    // The moving shipment's live pin: shipment_live_* first (kr_order_location
+    // writes it next to the legacy last_* columns), last_* as the fallback.
+    const c = coord(o.shipment_live_lat, o.shipment_live_lng) ?? coord(o.last_lat, o.last_lon);
+    return c ? { ...c, label: '🚚 Shipment', sub: o.ship_vehicle ? String(o.ship_vehicle) : null, live: nowish(o.shipment_gps_updated_at ?? o.last_at) } : null;
+  })();
   const mapShown = Boolean(sellerPoint || buyerPoint || transitPoint) && !['cancelled', 'rejected'].includes(o.status);
 
   const est = sellerPoint && buyerPoint ? roadEstimate(sellerPoint, buyerPoint) : null;
@@ -170,7 +173,7 @@ function PayAfterDeliveryOrder({ order: o, as, theme, onChange }: { order: Marke
       {o.escrow_status === 'released' && (
         <p className="mt-2 flex items-start gap-2 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-950">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" aria-hidden />
-          <span>✅ <strong>Escrow Released to Farmer</strong>{o.escrow_released_at ? ` · ${ago(o.escrow_released_at)}` : ''}</span>
+          <span>✅ <strong>Escrow Released to Farmer</strong>{o.escrow_released_at ? ` · ${ago(o.escrow_released_at)}` : ''}{o.escrow_tx_ref ? ` · UTR ${o.escrow_tx_ref}` : ''}</span>
         </p>
       )}
 

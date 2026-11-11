@@ -127,13 +127,27 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
   const draftable = mixed && !editing?.id;
   const save = () => {
     if (!editing) return;
+    const produce = editing.data.category === 'produce';
     const problem = productProblem(editing.data, { isNew: !editing.id });
-    const payProblem = payoutProblem(payout, editing.data.category === 'produce');
+    const payProblem = payoutProblem(payout, produce);
     if (problem || payProblem) return toast.error(problem ?? payProblem);
-    const input = { ...editing.data, product: editing.data.product.trim(), phone: editing.data.phone.replace(/\s/g, ''), variety: editing.data.variety || null, grade: editing.data.grade || null, details: editing.data.details || null };
+    const input = {
+      ...editing.data,
+      product: editing.data.product.trim(),
+      phone: editing.data.phone.replace(/\s/g, ''),
+      variety: editing.data.variety || null,
+      grade: editing.data.grade || null,
+      details: editing.data.details || null,
+      // The farmer's real payout account rides on the listing too — the same
+      // details just saved to payout_accounts — so the escrow release and the
+      // buyer's payment always know exactly where to settle.
+      payout_upi: produce && payout ? payout.upi_id ?? null : null,
+      bank_account_name: produce && payout ? payout.account_name || null : null,
+      bank_account_no: produce && payout ? payout.account_number ?? null : null,
+      bank_ifsc: produce && payout ? payout.ifsc ?? null : null,
+    };
     if (offlineNow()) return draftable ? void keepDraft(input) : void toast.error(NEEDS_INTERNET);
     const id = editing.id;
-    const produce = editing.data.category === 'produce';
     void (async () => {
       setBusy(true);
       try {

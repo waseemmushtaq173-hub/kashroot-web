@@ -58,6 +58,9 @@ export interface AdminOrder {
   last_lon: number | null;
   last_accuracy: number | null;
   last_at: string | null;
+  shipment_live_lat: number | null;
+  shipment_live_lng: number | null;
+  shipment_gps_updated_at: string | null;
   ship_vehicle: string | null;
   driver_name: string | null;
   driver_phone: string | null;
@@ -68,6 +71,8 @@ export interface AdminOrder {
   escrow_status: 'locked' | 'released' | 'refunded' | null;
   escrow_locked_at: string | null;
   escrow_released_at: string | null;
+  escrow_tx_ref: string | null;
+  delivered_confirmed_at: string | null;
   category: string | null;
   grade: string | null;
   box_capacity_kg: number | null;
@@ -180,8 +185,11 @@ function AdminOrderCard({ o, canRelease, busy, onEscrow }: { o: AdminOrder; canR
     return c ? { ...c, label: `🔵 Destination · ${o.buyer_name}`, sub: o.buyer_live_address ?? o.delivery_address, live: o.buyer_gps_updated_at != null && Date.now() - Date.parse(o.buyer_gps_updated_at) < 120_000 } : null;
   })();
   const pinTruck: OrderPin | null = (() => {
-    const c = pinOf(num(o.last_lat), num(o.last_lon));
-    return c ? { ...c, label: '🚚 Shipment', sub: o.ship_vehicle ?? null, live: o.last_at != null && Date.now() - Date.parse(o.last_at) < 120_000 } : null;
+    // The moving shipment: shipment_live_* first (kr_order_location writes it
+    // next to the legacy last_* columns), last_* as the fallback.
+    const c = pinOf(num(o.shipment_live_lat), num(o.shipment_live_lng)) ?? pinOf(num(o.last_lat), num(o.last_lon));
+    const at = o.shipment_gps_updated_at ?? o.last_at;
+    return c ? { ...c, label: '🚚 Shipment', sub: o.ship_vehicle ?? null, live: at != null && Date.now() - Date.parse(at) < 120_000 } : null;
   })();
   const est = pin && pinCash ? roadEstimate(pin, pinCash) : null;
   const toGo = pinTruck && pinCash ? kmBetween(pinTruck, pinCash) : null;
@@ -255,7 +263,7 @@ function AdminOrderCard({ o, canRelease, busy, onEscrow }: { o: AdminOrder; canR
         <ShieldCheck className="h-4 w-4 text-emerald-700" aria-hidden />
         <span className="text-sm text-slate-700">
           {o.escrow_status === 'locked' && <span><strong>🔒 {inr(o.amount)} locked</strong> since {o.escrow_locked_at ? ago(o.escrow_locked_at) : 'the order'}</span>}
-          {o.escrow_status === 'released' && <span><strong>✅ Released to farmer</strong>{o.escrow_released_at ? ` · ${ago(o.escrow_released_at)}` : ''}</span>}
+          {o.escrow_status === 'released' && <span><strong>✅ Released to farmer</strong>{o.escrow_released_at ? ` · ${ago(o.escrow_released_at)}` : ''}{o.escrow_tx_ref ? ` · UTR ${o.escrow_tx_ref}` : ''}</span>}
           {o.escrow_status === 'refunded' && <span><strong>↩ Refunded to buyer</strong>{o.escrow_released_at ? ` · ${ago(o.escrow_released_at)}` : ''}</span>}
           {!o.escrow_status && <span>No escrow ledger on this order (Kissan Tools orders are paid directly; very old orders predate the ledger)</span>}
           {o.payment_ref && <span className="block text-xs text-slate-500">Payment reference: {o.payment_ref}</span>}

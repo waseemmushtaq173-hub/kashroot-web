@@ -66,6 +66,11 @@ export interface MarketListing {
   captured_at_iso: string | null;
   /** True when the listing photo/video was captured via live camera with GPS lock. */
   is_live_camera_verified: boolean;
+  /** The farmer's payout account, saved from the listing modal for produce — the escrow releases the order money into it. */
+  payout_upi: string | null;
+  bank_account_name: string | null;
+  bank_account_no: string | null;
+  bank_ifsc: string | null;
 }
 
 export interface MarketOrder {
@@ -129,6 +134,13 @@ export interface MarketOrder {
   buyer_gps_accuracy?: number | null;
   buyer_live_address?: string | null;
   buyer_gps_updated_at?: string | null;
+  /** The moving shipment's live GPS, streamed by the seller's phone (kr_order_location writes it next to last_*). */
+  shipment_live_lat?: number | null;
+  shipment_live_lng?: number | null;
+  shipment_gps_updated_at?: string | null;
+  /** The buyer's delivery confirmation, and the settlement reference written on the escrow ledger when it released. */
+  delivered_confirmed_at?: string | null;
+  escrow_tx_ref?: string | null;
 }
 
 export const SUBCATEGORIES = ['Packaging', 'Fertiliser', 'Pesticide / fungicide', 'Seeds & saplings', 'Tools & machinery', 'Irrigation', 'Anti-hail net', 'Other'];
@@ -203,28 +215,19 @@ export type ListingInput = Pick<MarketListing, 'seller_name' | 'phone' | 'distri
   seller_lat?: number | null;
   seller_lng?: number | null;
   seller_location_label?: string | null;
+  /** The farmer's payout account saved onto the listing itself (produce — the escrow releases there). */
+  payout_upi?: string | null;
+  bank_account_name?: string | null;
+  bank_account_no?: string | null;
+  bank_ifsc?: string | null;
 };
 
-/** Columns that exist in the local type but may not exist in the remote Supabase DB yet. */
-const EXTENDED_LISTING_COLUMNS = new Set([
-  'box_capacity_kg',
-  'packing_layers',
-  'apples_per_box',
-  'captured_lat',
-  'captured_lng',
-  'captured_accuracy_m',
-  'captured_address',
-  'captured_at_iso',
-  'is_live_camera_verified',
-  'video_url',
-  'seller_lat',
-  'seller_lng',
-  'seller_location_label',
-]);
-
-/** Parse a missing-column name from a PostgREST 42703 / PGRST204 error message. */
+/** Parse a missing-column name from a Postgres 42703 or PostgREST PGRST204 error message. */
 const missingColumnFromError = (message: string): string | null => {
-  const m = message.match(/column ["']([^"']+)["'] does not exist/i) ?? message.match(/column "([^"]+)"/i);
+  const m =
+    message.match(/column ["']([^"']+)["'] does not exist/i) ??
+    message.match(/the ["']([^"']+)["'] column of/i) ??
+    message.match(/column "([^"]+)"/i);
   return m ? m[1] : null;
 };
 
@@ -243,33 +246,23 @@ const packExtendedIntoDetails = (dbInput: Record<string, unknown>, extended: Rec
 };
 
 export async function saveListing(input: ListingInput, id?: string): Promise<void> {
-  const extended: Record<string, unknown> = {};
+  // Every column goes in as itself: the real database columns carry the real
+  // data (box capacity, packing layers, the payout account — all of it). If
+  // the remote database is still missing one of them, that column is taken
+  // back out, packed into the details text so nothing is lost, and the save
+  // tries again — until it goes through.
   const dbInput: Record<string, unknown> = { ...input };
-  for (const col of EXTENDED_LISTING_COLUMNS) {
-    if (col in dbInput && dbInput[col] !== null && dbInput[col] !== undefined) {
-      extended[col] = dbInput[col];
-      delete dbInput[col];
-    }
+  const extended: Record<string, unknown> = {};
+  for (;;) {
+    const q = id ? supabase.from('market_listings').update(dbInput).eq('id', id) : supabase.from('market_listings').insert(dbInput);
+    const { error } = await q;
+    if (!error) return;
+    const col = (error.code === 'PGRST204' || error.code === '42703') ? missingColumnFromError(error.message ?? '') : null;
+    if (col === null || !(col in dbInput)) throw new Error(dbMessage(error, 'Could not save the product.'));
+    extended[col] = dbInput[col];
+    delete dbInput[col];
+    packExtendedIntoDetails(dbInput, extended);
   }
-  packExtendedIntoDetails(dbInput, extended);
-  const q = id ? supabase.from('market_listings').update(dbInput).eq('id', id) : supabase.from('market_listings').insert(dbInput);
-  const { error } = await q;
-  if (!error) return;
-  // If the remote DB is missing a column we didn't anticipate, strip it and retry once.
-  if ((error.code === 'PGRST204' || error.code === '42703') && error.message) {
-    const col = missingColumnFromError(error.message);
-    if (col && col in dbInput) {
-      const retry = { ...dbInput };
-      delete retry[col];
-      extended[col] = dbInput[col];
-      packExtendedIntoDetails(retry, extended);
-      const q2 = id ? supabase.from('market_listings').update(retry).eq('id', id) : supabase.from('market_listings').insert(retry);
-      const { error: e2 } = await q2;
-      if (!e2) return;
-      fail(e2, 'Could not save the product.');
-    }
-  }
-  fail(error, 'Could not save the product.');
 }
 
 export async function updateListing(id: string, patch: Partial<Pick<MarketListing, 'quantity' | 'price' | 'active'>>): Promise<void> {
