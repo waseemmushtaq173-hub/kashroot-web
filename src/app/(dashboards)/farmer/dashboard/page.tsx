@@ -63,7 +63,8 @@ export default function FarmerDashboardPage() {
 
 function FarmerDashboard() {
   const params = useSearchParams();
-  const initial = params.get('tab') as Tab | null;
+  // “Manage / Edit My Listing” sends ?tab=sell&edit=<id>: sell is the products tab.
+  const initial = (params.get('tab') === 'sell' ? 'lots' : params.get('tab')) as Tab | null;
   const [tab, setTab] = useState<Tab>(initial && TABS.includes(initial) ? initial : 'overview');
   // The open tab lives in the address too: a refresh stays on it, and the
   // portal frame hides its identity-check banner on the Safe payment tab.
@@ -71,6 +72,8 @@ function FarmerDashboard() {
     window.history.replaceState(null, '', tab === 'overview' ? window.location.pathname : `${window.location.pathname}?tab=${tab}`);
   }, [tab]);
   const [addRequest, setAddRequest] = useState(params.get('add') === '1' ? 1 : 0);
+  // ?edit=<id> (from “Manage / Edit My Listing”): SellerDesk opens that product's editor.
+  const autoEditId = params.get('edit');
   // Said to the voice assistant ("sell 50 boxes of apples"): ?crop=&qty= fill the form add=1 opens, that time only.
   const [voiceDraft] = useState(() => (params.get('add') === '1' ? listingDraftFromLink(params) : undefined));
   // What "add" opens: produce from the orchard, or farm inputs for sale.
@@ -200,6 +203,7 @@ function FarmerDashboard() {
             show={tab === 'lots' ? 'products' : tab === 'payouts' ? 'payouts' : 'orders'}
             addRequest={addRequest}
             addDraft={addRequest === 1 ? voiceDraft : undefined}
+            autoEditId={autoEditId}
             onLoaded={onLoaded}
           />
         </div>

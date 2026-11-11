@@ -42,7 +42,7 @@ export function blankProduct(account: Account, category: MarketCategory = 'suppl
   return { seller_name: account.business || account.name, phone: account.phone, district: account.district, category, subcategory: produce ? 'Apple' : 'Packaging', product: '', variety: '', grade: '', unit: produce ? 'box' : 'piece', price: 0, quantity: 0, details: '', photo: null, box_capacity_kg: null, packing_layers: null, apples_per_box: null, captured_lat: null, captured_lng: null, captured_accuracy_m: null, captured_address: null, captured_at_iso: null, is_live_camera_verified: false };
 }
 
-export function SellerDesk({ account, theme, show = 'all', category = 'supplies', mixed = false, addRequest = 0, addDraft, onLoaded }: { account: Account; theme: PortalTheme; /** 'sell': orders and products (payout details shown elsewhere). */ show?: 'all' | 'sell' | 'products' | 'orders' | 'payouts'; category?: MarketCategory; /** Farmer portal: produce and farm inputs side by side. */ mixed?: boolean; addRequest?: number; /** Filled into the form that addRequest opens (e.g. a dealer's batch). */ addDraft?: Partial<ListingInput>; onLoaded?: (products: MarketListing[], orders: MarketOrder[]) => void }) {
+export function SellerDesk({ account, theme, show = 'all', category = 'supplies', mixed = false, addRequest = 0, addDraft, autoEditId, onLoaded }: { account: Account; theme: PortalTheme; /** 'sell': orders and products (payout details shown elsewhere). */ show?: 'all' | 'sell' | 'products' | 'orders' | 'payouts'; category?: MarketCategory; /** Farmer portal: produce and farm inputs side by side. */ mixed?: boolean; addRequest?: number; /** Filled into the form that addRequest opens (e.g. a dealer's batch). */ addDraft?: Partial<ListingInput>; /** ?edit=<id> from “Manage / Edit My Listing”: this product's editor opens as soon as the list is in. */ autoEditId?: string | null; onLoaded?: (products: MarketListing[], orders: MarketOrder[]) => void }) {
   const [products, setProducts] = useState<MarketListing[] | null>(null);
   const [orders, setOrders] = useState<MarketOrder[]>([]);
   const [payout, setPayout] = useState<PayoutAccount | null | undefined>(undefined);
@@ -108,6 +108,15 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
       setOpening(null);
     }
   };
+
+  // ?edit=<id> (from “Manage / Edit My Listing”): the editor opens for that
+  // product the moment the list is in — once, so a later reload does not reopen it.
+  const [seenEdit, setSeenEdit] = useState<string | null>(null);
+  if (autoEditId && products && autoEditId !== seenEdit) {
+    const p = products.find((x) => x.id === autoEditId);
+    setSeenEdit(autoEditId);
+    if (p) void edit(p);
+  }
 
   const run = async (fn: () => Promise<void>, ok: string) => {
     setBusy(true);

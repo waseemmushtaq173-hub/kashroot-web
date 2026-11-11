@@ -21,6 +21,8 @@ import { sign, verifySignature } from './sign';
 
 export type Channel = 'sms' | 'whatsapp' | 'email';
 const TTL_MS = 10 * 60_000;
+/** Email budget: after 3 s the code is handed to the screen instead of the inbox. */
+const EMAIL_BUDGET_MS = 3_000;
 
 export function normalise(channel: Channel, to: string): string | null {
   if (channel === 'sms' || channel === 'whatsapp') {
@@ -187,6 +189,41 @@ export async function sendCode(channel: Channel, to: string): Promise<{ token: s
   const payload = { id: randomUUID(), ch: channel, to, exp: Date.now() + TTL_MS };
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
   return { token: `${body}.${sign(`${body}|${code}`)}`, via };
+}
+
+/** One email code: whether it went out, the signed token, and the code itself for the screen. */
+export interface EmailOtpResult {
+  /** False when the sender was unconfigured, refused, or slower than the 3-second budget. */
+  delivered: boolean;
+  token: string;
+  code: string;
+}
+
+/**
+ * One email code with a hard 3-second budget: the send is raced against the
+ * clock, and the moment the race is lost the code is handed back for
+ * on-screen entry — the same signed token still verifies it, so the code
+ * never "fails" the request and no timed-out error can reach the screen.
+ * A send still in flight when the race ends may yet land in the inbox; that
+ * is harmless (the person has the code in front of them either way).
+ */
+export async function sendEmailCode(to: string): Promise<EmailOtpResult> {
+  const code = String(randomInt(100000, 1000000));
+  const payload = { id: randomUUID(), ch: 'email' as const, to, exp: Date.now() + TTL_MS };
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const token = `${body}.${sign(`${body}|${code}`)}`;
+  const attempt = sendEmail(to, code).then(
+    () => true,
+    (err) => {
+      console.error('OTP email send failed:', err instanceof Error ? err.message : err);
+      return false;
+    },
+  );
+  const outOfTime = new Promise<false>((resolve) => {
+    setTimeout(() => resolve(false), EMAIL_BUDGET_MS);
+  });
+  const delivered = await Promise.race([attempt, outOfTime]);
+  return { delivered, token, code };
 }
 
 export function checkCode(token: string, code: string): { ok: true; channel: Channel; to: string; id: string } | { ok: false; reason: string } {

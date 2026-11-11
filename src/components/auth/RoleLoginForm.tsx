@@ -48,6 +48,17 @@ import { forgetPerson, rememberedPerson, rememberSignedIn, restoreSession, signO
 
 const LEGACY_OK: PortalId[] = ['farmer', 'buyer'];
 
+/** The continue button on the one-time-code screen: words for the portal the
+ *  visitor actually opened — the page's own path decides, never a hardcoded
+ *  portal name. Anything else unlocks the current page in place. */
+function portalContinueLabel(pathname: string): string {
+  if (pathname.startsWith('/buyer')) return 'Continue to Buyer Portal →';
+  if (pathname.startsWith('/farmer')) return 'Continue to Farmer Portal →';
+  if (pathname.startsWith('/admin')) return 'Continue to Admin Portal →';
+  if (pathname.startsWith('/rental') || pathname.startsWith('/cold-storage')) return 'Continue to Cold Storage Portal →';
+  return 'Continue to Dashboard →';
+}
+
 type JoinRole = (typeof SELF_JOIN_ROLES)[number];
 const isJoinRole = (role: string | null): role is JoinRole => (SELF_JOIN_ROLES as readonly string[]).includes(role ?? '');
 
@@ -453,8 +464,14 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
           />
         </div>
         {codesDown && (
-          <button type="button" onClick={() => finish(step.session)} className={`mt-4 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-sm font-semibold shadow-lg ${theme.button} ${focusRing}`}>
-            Continue to {info.label} <ArrowRight className="h-4 w-4" aria-hidden />
+          // Completes the sign-in state (token, portal, remember-me, KYC) and
+          // dismisses the gate in place — the portal's own dashboard opens.
+          <button
+            type="button"
+            onClick={() => finish(step.session)}
+            className={`mt-4 inline-flex w-full cursor-pointer items-center justify-center rounded-xl px-5 py-3.5 text-sm font-semibold shadow-lg ${theme.button} ${focusRing}`}
+          >
+            {portalContinueLabel(typeof window === 'undefined' ? '' : window.location.pathname)}
           </button>
         )}
         <p className="mt-6 border-t border-slate-900/5 pt-3 text-sm text-slate-600">

@@ -18,15 +18,15 @@
 /** Reverse-geocode live coordinates via OpenStreetMap Nominatim. */
 export async function reverseGeocode(lat: number, lng: number): Promise<string> {
   try {
-    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16&accept-language=en`, {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=16&addressdetails=1`, {
       headers: { 'Accept-Language': 'en' },
     });
     if (!res.ok) return `${lat.toFixed(5)}° N, ${lng.toFixed(5)}° E`;
     const data = await res.json();
     const addr = data.address ?? {};
-    const parts = [addr.village || addr.town || addr.city, addr.subdistrict || addr.district, addr.state_district, addr.state, addr.country]
-      .filter(Boolean);
-    return parts.join(', ') || `${lat.toFixed(5)}° N, ${lng.toFixed(5)}° E`;
+    // The nearest named place first (a locality at zoom 16), then the city, state and country.
+    const parts = [addr.neighbourhood || addr.suburb || addr.village || addr.hamlet || addr.quarter, addr.city || addr.town || addr.municipality, addr.state, addr.country].filter(Boolean);
+    return [...new Set(parts)].join(', ') || `${lat.toFixed(5)}° N, ${lng.toFixed(5)}° E`;
   } catch {
     return `${lat.toFixed(5)}° N, ${lng.toFixed(5)}° E`;
   }

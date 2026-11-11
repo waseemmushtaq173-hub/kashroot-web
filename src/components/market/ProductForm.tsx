@@ -14,8 +14,8 @@ export const MAX_PHOTOS = 3;
 const PHOTO_MAX_CHARS = 590_000;
 /** The longest recorded video (data URL) that goes out with the listing. */
 const VIDEO_MAX_CHARS = 1_500_000;
-/** GPS lock budget: after this the pinned district fallback takes over. */
-const GPS_TIMEOUT_MS = 6_000;
+/** GPS lock budget: how long the receiver may think before "did not lock" shows. */
+const GPS_TIMEOUT_MS = 15_000;
 /// A recorded video runs at most this long, then stops itself.
 const VIDEO_MAX_MS = 30_000;
 
@@ -33,9 +33,6 @@ const LAYER_PRESETS: { label: string; value: string; hint: string }[] = [
   { label: '2 Layer (Half Box)', value: '2 Layer (Half Box)', hint: '~40–50 apples' },
   { label: 'Loose / Crate Packed', value: 'Loose / Crate Packed', hint: 'No fixed layer count' },
 ];
-
-/** Indoor / desktop GPS fallback: the pinned Shopian, J&K coordinates, so the farmer is never stuck waiting. */
-const FALLBACK_GEO: GeoResult = { lat: 33.7183, lng: 74.8342, accuracy: 0, address: 'Shopian (33.7183° N, 74.8342° E)' };
 
 /** The listing's photos: the list, or the single photo of an older listing. */
 export const photosOf = (v: Pick<ListingInput, 'photo' | 'photos'>): string[] => (v.photos?.length ? v.photos : v.photo ? [v.photo] : []);
@@ -67,7 +64,6 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
   const photos = photosOf(v);
   const [gps, setGps] = useState<GeoResult | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
-  const [gpsFallback, setGpsFallback] = useState(false);
   const [cameraBusy, setCameraBusy] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [facing, setFacing] = useState<'environment' | 'user'>('environment');
@@ -105,47 +101,62 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
   }, [cameraStream]);
 
   /**
-   * Step 1 — locks the live GPS: a high-accuracy fix with a 6-second budget,
-   * then the pinned Shopian fallback, so nothing here waits on a weak phone GPS.
+   * Step 1 — locks the live GPS. The moment the receiver answers with real
+   * coordinates the spinner stops and the pin is set; the human-readable
+   * place name (Nominatim reverse lookup) follows a moment later. There is
+   * no fake fallback: without a fix nothing is pinned, and the farmer is
+   * asked to press step 1 again — outdoors it locks in a few seconds.
    */
   const lockGps = async () => {
     setGpsLoading(true);
-    setGpsFallback(false);
-    // One of the two always resolves within ~6 s.
-    const got = await new Promise<{ geo: GeoResult; fallback: boolean }>((resolve) => {
-      let done = false;
-      const settle = (geo: GeoResult | null) => {
-        if (done) return;
-        done = true;
-        resolve(geo ? { geo, fallback: false } : { geo: FALLBACK_GEO, fallback: true });
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        if (typeof navigator === 'undefined' || !navigator.geolocation) return reject(new Error('This device has no location receiver.'));
+        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, maximumAge: 0, timeout: GPS_TIMEOUT_MS });
+      });
+      // Locked: the loading spinner stops at once and the real coordinates are set.
+      setGpsLoading(false);
+      const geo: GeoResult = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        accuracy: pos.coords.accuracy ?? 0,
+        // Coordinates are the lock itself; the place name arrives just below.
+        address: `${pos.coords.latitude.toFixed(5)}° N, ${pos.coords.longitude.toFixed(5)}° E`,
       };
-      if (typeof navigator !== 'undefined' && navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(async (pos) => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          const address = await reverseGeocode(lat, lng).catch(() => `${lat.toFixed(5)}° N, ${lng.toFixed(5)}° E`);
-          settle({ lat, lng, accuracy: pos.coords.accuracy ?? 0, address });
-        }, () => settle(null), { enableHighAccuracy: true, maximumAge: 0, timeout: GPS_TIMEOUT_MS });
-      } else settle(null);
-      window.setTimeout(() => settle(null), GPS_TIMEOUT_MS + 500);
-    });
-    setGps(got.geo);
-    setGpsFallback(got.fallback);
-    // The locked pin rides along in the listing's own saved fields.
-    patch({ seller_lat: got.geo.lat, seller_lng: got.geo.lng, seller_location_label: got.geo.address });
-    if (got.fallback) toast.info(`GPS fallback: pinned ${got.geo.address}. Re-lock outdoors for your exact orchard pin.`);
-    setGpsLoading(false);
+      setGps(geo);
+      // The locked pin rides along in the listing's own saved fields.
+      patch({ seller_lat: geo.lat, seller_lng: geo.lng, seller_location_label: geo.address });
+      // The real human-readable place (village, city, state) replaces the raw numbers.
+      const address = await reverseGeocode(geo.lat, geo.lng).catch(() => geo.address);
+      setGps((cur) => (cur && cur.lat === geo.lat && cur.lng === geo.lng ? { ...cur, address } : cur));
+      patch({ seller_lat: geo.lat, seller_lng: geo.lng, seller_location_label: address });
+    } catch (err) {
+      setGps(null);
+      setGpsLoading(false);
+      const why = err instanceof Error ? err.message : (err as GeolocationPositionError | undefined)?.message || 'no fix';
+      toast.error(`GPS did not lock (${why}). Press “📍 1. Lock Live GPS Location” again — outdoors it locks in a few seconds.`);
+    }
   };
 
-  /** Opens the camera (a farmer press unlocks the browser prompt) and shows the live feed. */
+  /**
+   * Opens the camera (a farmer press unlocks the browser prompt) and shows
+   * the live feed. The facing camera is asked for politely with the
+   * microphone off; when a device refuses any part of that (Windows laptop
+   * webcams, a busy mic, unusual phones), the plain camera — microphone
+   * still off — opens instead, so step 2 works on the very first press.
+   */
   const openCamera = async (mode: 'environment' | 'user' = facing) => {
     setCameraBusy(true);
     setCameraError(null);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: mode }, width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: true,
-      });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: mode } }, audio: false });
+      } catch {
+        // Any refusal (OverconstrainedError, NotFoundError, NotReadableError, a busy
+        // mic): open whatever camera this device has.
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
       // Flip from front to back (or the camera was re-opened): stop the old stream first.
       streamRef.current?.getTracks().forEach((t) => t.stop());
       recorderRef.current?.stop();
@@ -331,11 +342,11 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
               <button type="button" disabled={cameraBusy} onClick={() => void openCamera()} className={`relative z-10 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-4 text-sm font-bold ring-1 transition-colors ${cameraStream ? 'bg-sky-50 text-sky-900 ring-sky-400 hover:bg-sky-100' : 'bg-sky-700 text-white ring-sky-700 hover:bg-sky-800 disabled:opacity-50'}`}>
                 📷 2. Open Live Camera
               </button>
-              {gpsLoading && <span className="self-center text-xs font-bold text-amber-700">Locking GPS… (falls back to {FALLBACK_GEO.address} in 6 s)</span>}
+              {gpsLoading && <span className="self-center text-xs font-bold text-slate-600">Locking GPS… allow location access if the browser asks.</span>}
             </div>
             {gps && (
-              <p className={`mt-1.5 text-xs font-bold ${gpsFallback ? 'text-amber-700' : 'text-emerald-700'}`}>
-                ✓ GPS Locked: {gps.address}{gps.accuracy > 0 ? ` (±${Math.round(gps.accuracy)} m)` : ''}{gpsFallback ? ' — press step 1 again outdoors for your exact orchard pin' : ''}
+              <p className="mt-1.5 text-xs font-bold text-emerald-700">
+                ✓ GPS Locked: {gps.address} · {gps.lat.toFixed(5)}° N, {gps.lng.toFixed(5)}° E (±{Math.round(gps.accuracy)} m)
               </p>
             )}
             {cameraError && <p className="mt-1 rounded-xl bg-rose-50 p-3 text-sm text-rose-800 ring-1 ring-rose-200">{cameraError}</p>}

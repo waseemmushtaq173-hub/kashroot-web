@@ -78,6 +78,9 @@ const ListingCardInner = React.memo(function ListingCardInner({ listing: l, veri
           theme={theme}
           onClose={() => setOpen(false)}
           onOrder={() => { setOpen(false); onOrder(); }}
+          // “Manage / Edit My Listing”: the modal closes and the farmer's
+          // sell desk opens with this listing's editor.
+          onManageListing={() => { setOpen(false); window.location.href = `/farmer/dashboard?tab=sell&edit=${l.id}`; }}
         />
       )}
     </li>
