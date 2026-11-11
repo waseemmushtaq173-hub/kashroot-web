@@ -15,7 +15,6 @@ const ListingCardInner = React.memo(function ListingCardInner({ listing: l, veri
   const [open, setOpen] = useState(false);
 
   const totalWeightKg = useMemo(() => l.box_capacity_kg ? Number(l.quantity) * Number(l.box_capacity_kg) : null, [l.quantity, l.box_capacity_kg]);
-  const pricePerKg = useMemo(() => l.box_capacity_kg && Number(l.price) > 0 ? Number(l.price) / Number(l.box_capacity_kg) : null, [l.price, l.box_capacity_kg]);
 
   return (
     <li className="flex flex-col rounded-2xl bg-white/90 p-5 shadow-sm ring-1 ring-slate-900/5 border border-slate-900/5 transition hover:shadow-md hover:ring-slate-900/10 cursor-pointer [will-change:transform,box-shadow,ring-shadow][transform:translate3d(0,0,0)]" onClick={() => setOpen(true)}>
@@ -38,20 +37,20 @@ const ListingCardInner = React.memo(function ListingCardInner({ listing: l, veri
         {lowest && <Badge tone="green">Lowest price</Badge>}
         {isNewToday(l) && <Badge tone="amber"><Sparkles className="h-3 w-3" aria-hidden /> New today</Badge>}
       </div>
-      <h3 className="mt-1 font-display text-lg font-semibold text-slate-900 cursor-pointer" onClick={(e) => e.stopPropagation()}>{l.product}</h3>
+      <h3 className="mt-1 font-display text-lg font-semibold text-slate-900">{l.product}</h3>
       {(l.variety || l.grade || l.packing_layers) && <p className="text-sm text-slate-600">{[l.variety, l.grade && `Grade ${l.grade}`].filter(Boolean).join(l.packing_layers ? ` · ${l.packing_layers}` : ' · ')}</p>}
-      <p className="flex items-center gap-1.5 text-sm text-slate-700 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+      <p className="flex items-center gap-1.5 text-sm text-slate-700">
         {verified ? <ShieldCheck className="h-4 w-4 text-emerald-700" aria-hidden /> : <Store className="h-4 w-4 text-slate-400" aria-hidden />}
         {l.seller_name}
         {verified && <Badge tone="green">Verified seller</Badge>}
         {l.is_live_camera_verified && <Badge tone="green">🛡️ Live GPS Verified</Badge>}
       </p>
-      <p className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer" onClick={(e) => e.stopPropagation()}><MapPin className="h-4 w-4" aria-hidden /> {l.district}</p>
+      <p className="flex items-center gap-1.5 text-sm text-slate-600"><MapPin className="h-4 w-4" aria-hidden /> {l.district}</p>
       {l.details && <p className="mt-2 line-clamp-2 text-sm text-slate-600">{l.details}</p>}
       <div className="mt-auto flex items-end justify-between gap-2 border-t border-slate-900/5 pt-4">
         <div>
-          <p className="text-xl font-bold text-slate-900 cursor-pointer" onClick={(e) => e.stopPropagation()}>{inr(l.price)} <span className="text-sm font-normal text-slate-500">/ {l.unit}</span>{l.box_capacity_kg && <span className="text-xs text-emerald-600 font-semibold ml-1">({l.box_capacity_kg} kg/box)</span>}</p>
-          <p className="text-xs text-slate-500 cursor-pointer" onClick={(e) => e.stopPropagation()}>{amountOf(Number(l.quantity), l.unit)} in stock{l.box_capacity_kg && ` · ${totalWeightKg!.toLocaleString('en-IN')} kg`}</p>
+          <p className="text-xl font-bold text-slate-900">{inr(l.price)} <span className="text-sm font-normal text-slate-500">/ {l.unit}</span>{l.box_capacity_kg && <span className="text-xs text-emerald-600 font-semibold ml-1">({l.box_capacity_kg} kg/box)</span>}</p>
+          <p className="text-xs text-slate-500">{amountOf(Number(l.quantity), l.unit)} in stock{l.box_capacity_kg && ` · ${totalWeightKg!.toLocaleString('en-IN')} kg`}</p>
         </div>
         <div className="flex gap-2">
           {/* Signed out, the number is not sent at all (lib/db/phones). */}

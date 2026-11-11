@@ -53,9 +53,10 @@ const nextConfig: NextConfig = {
   // This folder is the app. Without this, a package-lock.json in a parent
   // folder (on a developer's computer) is taken as the root instead.
   // (`next build` runs from this folder, here and on Vercel.)
-  turbopack: {
-    root: process.cwd(),
-  },
+  // turbopack: {
+  //   root: process.cwd(),
+  // },
+  output: 'standalone',
   // Styles go inside each page instead of a separate file. On slow village
   // networks (or when a phone holds an old copy of a page) a separate style
   // file can fail to arrive, and the page then shows as plain unstyled text.

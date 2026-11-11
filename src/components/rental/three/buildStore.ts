@@ -169,9 +169,14 @@ export function makeKit(T: Three, phone: boolean, protos: ColdKitGeos | null = n
     return g;
   };
   const see = { transparent: true, depthWrite: false, side: T.DoubleSide } as const;
+  // Painted steel and galvanised racks read by their reflections. The
+  // environment map is a desktop thing, so on a phone metals stay low —
+  // without it they would sit dark under the two lights.
+  const galv = phone ? 0.25 : 0.55;
+  const paint = phone ? 0.06 : 0.14;
   const mats = {
     bin: new T.MeshStandardMaterial({ map: tex.bin, roughness: 0.82 }),
-    crate: new T.MeshStandardMaterial({ map: tex.crate, roughness: 0.55 }),
+    crate: new T.MeshStandardMaterial({ map: tex.crate, roughness: 0.5, metalness: 0.04 }),
     carton: new T.MeshStandardMaterial({ map: tex.carton, roughness: 0.9 }),
     // A place being chosen or waiting for payment: the outline of the stack that fits there (front faces only).
     ghostOn: new T.MeshBasicMaterial({ map: tex.ghost, ...see, side: T.FrontSide, opacity: 0.88 }),
@@ -183,28 +188,28 @@ export function makeKit(T: Three, phone: boolean, protos: ColdKitGeos | null = n
     passage: new T.MeshStandardMaterial({ color: '#fde68a', roughness: 1, transparent: true, opacity: 0.45, depthWrite: false }),
     stripe: new T.MeshStandardMaterial({ color: '#eab308', roughness: 0.8 }),
     chamberFloor: new T.MeshStandardMaterial({ map: tex.concrete, color: '#eef3f8', roughness: 0.85 }),
-    wall: new T.MeshStandardMaterial({ map: tex.panel, color: '#e2e8f0', roughness: 0.9 }),
-    wallNear: new T.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.9, ...see, opacity: 0.12 }),
-    chamberWall: new T.MeshStandardMaterial({ map: tex.panel, roughness: 0.6 }),
-    chamberNear: new T.MeshStandardMaterial({ map: tex.panel, roughness: 0.6, ...see, opacity: 0.22 }),
-    door: new T.MeshStandardMaterial({ color: '#f59e0b', roughness: 0.6 }),
-    leaf: new T.MeshStandardMaterial({ color: '#f1f5f9', roughness: 0.5 }),
-    deck: new T.MeshStandardMaterial({ map: tex.grating, roughness: 0.6, ...see, opacity: 1, metalness: 0.2 }),
-    beam: new T.MeshStandardMaterial({ color: '#1e5a8c', roughness: 0.5, metalness: 0.3 }),
+    wall: new T.MeshStandardMaterial({ map: tex.panel, color: '#e2e8f0', roughness: 0.78, metalness: 0.05 }),
+    wallNear: new T.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.78, metalness: 0.05, ...see, opacity: 0.12 }),
+    chamberWall: new T.MeshStandardMaterial({ map: tex.panel, roughness: 0.52, metalness: 0.05 }),
+    chamberNear: new T.MeshStandardMaterial({ map: tex.panel, roughness: 0.52, metalness: 0.05, ...see, opacity: 0.22 }),
+    door: new T.MeshStandardMaterial({ color: '#f59e0b', roughness: 0.45, metalness: paint }),
+    leaf: new T.MeshStandardMaterial({ color: '#f1f5f9', roughness: 0.42, metalness: 0.04 }),
+    deck: new T.MeshStandardMaterial({ map: tex.grating, roughness: 0.45, ...see, opacity: 1, metalness: phone ? 0.15 : 0.4 }),
+    beam: new T.MeshStandardMaterial({ color: '#1e5a8c', roughness: 0.42, metalness: galv }),
     glass: new T.MeshStandardMaterial({ color: '#38bdf8', emissive: '#0ea5e9', emissiveIntensity: 0.25, transparent: true, opacity: 0.7, roughness: 0.2 }),
     hit: new T.MeshBasicMaterial({ visible: false }),
-    shutter: new T.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.4, metalness: 0.5 }),
+    shutter: new T.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.35, metalness: phone ? 0.35 : 0.7 }),
     ceiling: new T.MeshStandardMaterial({ map: tex.panel, color: '#f8fafc', roughness: 0.7, side: T.DoubleSide }),
     roof: new T.MeshStandardMaterial({ color: '#c9d1da', roughness: 0.9, side: T.DoubleSide }),
     // LED lights glow: they are not lit by anything.
     lamp: new T.MeshBasicMaterial({ color: '#fbfdff' }),
-    cooler: new T.MeshStandardMaterial({ color: '#e8edf2', roughness: 0.45, metalness: 0.2 }),
-    fan: new T.MeshStandardMaterial({ map: tex.fan, roughness: 0.6 }),
-    guard: new T.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.35, metalness: 0.6 }),
+    cooler: new T.MeshStandardMaterial({ color: '#e8edf2', roughness: 0.35, metalness: phone ? 0.15 : 0.4 }),
+    fan: new T.MeshStandardMaterial({ map: tex.fan, roughness: 0.5 }),
+    guard: new T.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.3, metalness: phone ? 0.4 : 0.75 }),
     pipe: new T.MeshStandardMaterial({ color: '#1f2937', roughness: 0.95 }),
-    copper: new T.MeshStandardMaterial({ color: '#b87333', roughness: 0.35, metalness: 0.7 }),
+    copper: new T.MeshStandardMaterial({ color: '#b87333', roughness: 0.28, metalness: phone ? 0.5 : 0.75 }),
     curtain: new T.MeshStandardMaterial({ color: '#cbe8f6', transparent: true, opacity: 0.3, roughness: 0.15, depthWrite: false, side: T.DoubleSide }),
-    condenser: new T.MeshStandardMaterial({ color: '#d5dbe2', roughness: 0.5, metalness: 0.25 }),
+    condenser: new T.MeshStandardMaterial({ color: '#d5dbe2', roughness: 0.38, metalness: phone ? 0.2 : 0.5 }),
   };
   const edge = new T.LineBasicMaterial({ color: '#334155', transparent: true, opacity: 0.55 });
   const edgeOn = new T.LineBasicMaterial({ color: '#0284c7' });

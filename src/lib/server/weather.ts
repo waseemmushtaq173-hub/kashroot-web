@@ -13,9 +13,9 @@ export { geocode, type Place } from '@/lib/server/places';
 export interface Forecast {
   place: Place;
   timezone: string;
-  current: { time: string; temperature: number; humidity: number; precipitation: number; wind: number; code: number };
-  hourly: { time: string; temperature: number; precipitationProbability: number; code: number }[];
-  daily: { date: string; max: number; min: number; precipitation: number; code: number }[];
+  current: { time: string; temperature: number; humidity: number; precipitation: number; wind: number; windDirection: number; pressure: number; code: number };
+  hourly: { time: string; temperature: number; humidity: number; precipitationProbability: number; rainfall: number; wind: number; code: number }[];
+  daily: { date: string; max: number; min: number; precipitation: number; windMax: number; humidityMean: number; code: number }[];
   fetchedAt: string;
   source: string;
   /** Open-Meteo did not answer: this is the last good forecast, from fetchedAt. */
@@ -56,9 +56,9 @@ async function readForecast(place: Place): Promise<Forecast> {
   const params = new URLSearchParams({
     latitude: String(place.lat),
     longitude: String(place.lng),
-    current: 'temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,weather_code',
-    hourly: 'temperature_2m,precipitation_probability,weather_code',
-    daily: 'weather_code,precipitation_sum,temperature_2m_max,temperature_2m_min',
+    current: 'temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,wind_direction_10m,surface_pressure,weather_code',
+    hourly: 'temperature_2m,relative_humidity_2m,precipitation,precipitation_probability,wind_speed_10m,weather_code',
+    daily: 'weather_code,precipitation_sum,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,relative_humidity_2m_mean',
     timezone: 'auto',
     forecast_days: '7',
   });
@@ -77,12 +77,17 @@ async function readForecast(place: Place): Promise<Forecast> {
       humidity: now.relative_humidity_2m,
       precipitation: now.precipitation,
       wind: now.wind_speed_10m,
+      windDirection: now.wind_direction_10m,
+      pressure: now.surface_pressure,
       code: now.weather_code,
     },
     hourly: (j.hourly.time as string[]).slice(startHour, startHour + 24).map((time, i) => ({
       time,
       temperature: j.hourly.temperature_2m[startHour + i],
+      humidity: j.hourly.relative_humidity_2m?.[startHour + i] ?? now.relative_humidity_2m,
       precipitationProbability: j.hourly.precipitation_probability?.[startHour + i] ?? 0,
+      rainfall: j.hourly.precipitation?.[startHour + i] ?? 0,
+      wind: j.hourly.wind_speed_10m?.[startHour + i] ?? now.wind_speed_10m,
       code: j.hourly.weather_code[startHour + i],
     })),
     daily: (j.daily.time as string[]).map((date, i) => ({
@@ -90,6 +95,8 @@ async function readForecast(place: Place): Promise<Forecast> {
       max: j.daily.temperature_2m_max[i],
       min: j.daily.temperature_2m_min[i],
       precipitation: j.daily.precipitation_sum[i],
+      windMax: j.daily.wind_speed_10m_max?.[i] ?? now.wind_speed_10m,
+      humidityMean: j.daily.relative_humidity_2m_mean?.[i] ?? now.relative_humidity_2m,
       code: j.daily.weather_code[i],
     })),
     fetchedAt: new Date().toISOString(),

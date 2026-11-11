@@ -17,6 +17,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CalendarDays, CheckCircle2, Map as MapIcon, Navigation, ReceiptText, RefreshCw, Snowflake, Sparkles, Trash2, X } from 'lucide-react';
+import { z } from 'zod';
 import { toast } from '@/lib/client/toast';
 
 import { ColdStoreExplorer, type Look } from '@/components/rental/ColdStoreMap';
@@ -43,8 +44,114 @@ import {
   type PlaceInfo,
 } from '@/lib/db/coldMap';
 import { bookingById, bookingCode, type RentalListing } from '@/lib/db/rentals';
+import QRCode from 'qrcode';
+
+/**
+ * Gate Pass QR Code component for cold store entry
+ */
+/** What the gate pass QR carries — checked here so a bad payload can never reach the gate scanner. */
+const GATE_PASS = z.object({
+  bookingId: z.string().min(8),
+  bookingCode: z.string().min(1),
+  places: z.array(z.object({ chamber: z.string().min(1), slot: z.string().min(1), boxes: z.number().int().positive() })).min(1),
+  ownerName: z.string().min(1),
+  ownerPhone: z.string().min(10),
+  amount: z.number().nonnegative(),
+  timestamp: z.number().int().positive(),
+});
+
+function GatePassQR({
+  bookingId,
+  bookingCode: code,
+  places,
+  chambers,
+  ownerName,
+  ownerPhone,
+  amount,
+}: {
+  bookingId: string;
+  bookingCode: string;
+  places: Placed[];
+  chambers: ColdChamber[];
+  ownerName: string;
+  ownerPhone: string;
+  amount: number;
+}) {
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const generateQR = async () => {
+      try {
+        // Chamber names so the gate scanner shows where to go, not raw ids.
+        const payload = {
+          bookingId,
+          bookingCode: code,
+          places: places.map(p => ({ chamber: chambers.find(c => c.id === p.chamber_id)?.name ?? p.chamber_id, slot: p.slot, boxes: p.boxes })),
+          ownerName,
+          ownerPhone,
+          amount,
+          timestamp: Date.now(),
+        };
+        const checked = GATE_PASS.safeParse(payload);
+        if (!checked.success) throw new Error(checked.error.issues[0]?.message ?? 'Gate pass details are incomplete.');
+        const dataUrl = await QRCode.toDataURL(JSON.stringify(payload), {
+          errorCorrectionLevel: 'H',
+          margin: 1,
+          width: 256,
+        });
+        setQrDataUrl(dataUrl);
+      } catch (err) {
+        console.error('QR generation failed:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    generateQR();
+  }, [bookingId, code, places, chambers, ownerName, ownerPhone, amount]);
+
+  return (
+    <div className="rounded-xl bg-white p-4 ring-1 ring-slate-200 text-center">
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-chinar border-t-transparent" />
+          <span className="ml-2 text-sm text-slate-600">Generating Gate Pass...</span>
+        </div>
+      ) : qrDataUrl ? (
+        <>
+          <img
+            src={qrDataUrl}
+            alt="Gate Pass QR Code"
+            className="mx-auto w-48 h-48 rounded-lg bg-white p-2 ring-1 ring-slate-200"
+            onClick={() => navigator.clipboard.writeText(JSON.stringify({ bookingId, bookingCode: code, places }))}
+            title="Click to copy booking data"
+          />
+          <p className="mt-2 text-xs text-slate-500">Click to copy booking data</p>
+          <div className="mt-3 p-3 rounded-lg bg-emerald-50 ring-1 ring-emerald-200 text-left text-xs text-emerald-900">
+            <p className="font-semibold text-emerald-900 mb-1">Gate Pass: {code}</p>
+            <p className="text-xs text-emerald-800">Booking: {bookingId.slice(0, 8)}...</p>
+            <p className="text-xs text-emerald-800">Amount: ₹{amount.toLocaleString('en-IN')}</p>
+            <p className="text-xs text-emerald-800">Scan at gate for entry</p>
+          </div>
+        </>
+      ) : (
+        <p className="text-sm text-rose-600">Failed to generate QR code</p>
+      )}
+    </div>
+  );
+}
 
 const theme = PORTAL_THEMES.rental;
+
+/** A booking as it goes to the database — shape and minimums, checked before anything is written. */
+const BOOKING = z.object({
+  listingId: z.string().min(8),
+  places: z.array(z.object({ key: z.string().min(1), boxes: z.number().int().positive(), whole: z.boolean() })).min(1),
+  start: z.string().min(8),
+  months: z.number().int().min(1).max(36),
+  name: z.string().min(1).max(80),
+  phone: z.string().regex(/^\d{10}$/),
+});
 const today = () => new Date().toISOString().slice(0, 10);
 const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 18, 24];
 export const niceDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -289,7 +396,13 @@ export function ColdBooking({
     setBusy(true);
     try {
       const places = [...picked].map(([key, p]) => ({ key, boxes: p.boxes, whole: !taken?.has(key) && p.boxes === p.chamber.boxes_per_slot }));
-      const id = await bookPlaces({ listingId: l.id, places, start, months, name: form.name.trim(), phone: cleanMobile(form.phone) });
+      const payload = { listingId: l.id, places, start, months, name: form.name.trim(), phone: cleanMobile(form.phone) };
+      const checked = BOOKING.safeParse(payload);
+      if (!checked.success) {
+        const issue = checked.error.issues[0];
+        return toast.error(issue ? `Check the booking: ${issue.path.join('.')} ${issue.message}.` : 'Check the booking form — a detail is missing or wrong.');
+      }
+      const id = await bookPlaces(checked.data);
       // The price the database set (each chamber's own rent) is the one to pay.
       const saved = await bookingById(id).catch(() => null);
       setBooked({ id, amount: Number(saved?.amount ?? price.total), at: Date.now() });
@@ -498,7 +611,12 @@ export function ColdBooking({
           <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-amber-200">
             Booked: <strong>{chosenWords}</strong> in {l.title}. Your places are held until <strong>{heldUntil}</strong>. Pay the owner before then.
           </p>
-          <PayOwner bookingId={booked.id} amount={booked.amount} owner={{ name: l.owner_name, phone: l.phone }} onPaid={() => setStep('paid')} />
+          <div className="rounded-xl bg-white p-4 ring-1 ring-slate-200">
+            <p className="font-semibold text-slate-900 mb-2">Gate Pass QR Code</p>
+            <p className="text-sm text-slate-600 mb-3">Scan this QR code at the cold store gate for entry</p>
+            <GatePassQR bookingId={booked.id} bookingCode={bookingCode(booked.id)} places={asPlaced} chambers={chambers} ownerName={l.owner_name} ownerPhone={l.phone} amount={booked.amount} />
+            <PayOwner bookingId={booked.id} amount={booked.amount} owner={{ name: l.owner_name, phone: l.phone }} onPaid={() => setStep('paid')} />
+          </div>
         </div>
       ) : booked ? (
         <div className="space-y-4 text-center">

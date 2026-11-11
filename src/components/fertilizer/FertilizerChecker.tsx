@@ -8,7 +8,12 @@
  *      what is missing or suspicious; the registration number is looked up in
  *      the Government list and the batch in KashRoot's dealer records. Can be
  *      read aloud.
- *   2. Registration / batch → what is printed on the label:
+ *   2. QR code scan → scans the QR on the label, follows manufacturer's
+ *      verification page (domain allowlist, SSRF protection), outcome:
+ *      VERIFIED_BY_MANUFACTURER, REGISTERED_BATCH_UNVERIFIED, EXPIRED, BANNED,
+ *      NOT_FOUND, PENDING_MANUFACTURER. Offline: "checked against saved list",
+ *      never "genuine".
+ *   3. Registration / batch → what is printed on the label:
  *        • a CIB&RC registration number or a product name is looked up in the
  *          official lists the KashRoot admin imported (official_products via
  *          kr_registry_search) — every answer names its source and date, and
@@ -18,11 +23,13 @@
  *        • a batch number: the Government publishes no list of batch numbers,
  *          and the result says so; a KashRoot dealer record for the batch
  *          (fertilizer_batches via kr_check_batch) is shown as extra information.
- *   3. Lab report → Fertiliser (Control) Order, 1985 minimums.
+ *   4. Lab report → Fertiliser (Control) Order, 1985 minimums.
+ *   5. Bag-marking checklist → when no manufacturer record, check FCO Schedule I
+ *      mandatory label fields; fail → "Book lab test".
  * Anyone — signed in or not — can report a suspicious product to the KashRoot admin.
  */
 import { useEffect, useRef, useState } from 'react';
-import { BadgeCheck, Camera, CheckCircle2, CircleAlert, Copy, FileQuestion, Flag, FlaskConical, Loader2, ScanLine, ShieldCheck, XCircle } from 'lucide-react';
+import { BadgeCheck, Camera, CheckCircle2, CircleAlert, Copy, FileQuestion, Flag, FlaskConical, Loader2, QrCode, ScanLine, ShieldCheck, XCircle } from 'lucide-react';
 
 import { LangPicker, SpeakButton } from '@/components/voice/VoiceButtons';
 import { checkLabel, type LabelFacts, type RuleReport } from '@/lib/fertilizer/labelRules';
@@ -44,6 +51,9 @@ import {
 } from '@/lib/gov-agro-registry';
 import { reportBatch } from '@/lib/db/security';
 import { skuastLookup, skuastLookupAll, type SkuastRecommendation } from '@/lib/skuast-kashmir-recommendations';
+
+import { QRCodeScanner, QRCodeResult, type QRCodeVerificationResult } from './QRCodeScanner';
+import { BagMarkingChecklist } from './BagMarkingChecklist';
 
 interface BatchRow {
   batch_code: string;
@@ -197,7 +207,7 @@ async function scan(raw: string): Promise<Scan> {
 }
 
 export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
-  const [mode, setMode] = useState<'photo' | 'registry' | 'lab'>('photo');
+  const [mode, setMode] = useState<'photo' | 'qr' | 'registry' | 'lab' | 'bagChecklist'>('photo');
   const [account, setAccount] = useState<Account | null>(null);
   const [code, setCode] = useState('');
   const [result, setResult] = useState<Scan>({ state: 'idle' });
@@ -226,6 +236,12 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
   const [browseQuery, setBrowseQuery] = useState('');
   const [browseResults, setBrowseResults] = useState<SearchHit[] | null>(null);
   const [browseLoading, setBrowseLoading] = useState(false);
+  // QR code scanner state
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
+  const [qrResult, setQrResult] = useState<QRCodeVerificationResult | null>(null);
+  const [qrScanning, setQrScanning] = useState(false);
+  // Bag marking checklist state
+  const [bagChecklistProduct, setBagChecklistProduct] = useState<string>('');
 
   useEffect(() => {
     void loadAccount().then(setAccount).catch(() => setAccount(null));
@@ -246,6 +262,13 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
         const embedded = fcoLookupEmbedded('Diammonium phosphate (DAP)', '18:46:0');
         setFcoStandard(embedded ?? null);
       }
+    }
+    if (id === 'qr') {
+      setQrResult(null);
+      setQrScannerOpen(true);
+    }
+    if (id === 'bagChecklist') {
+      setBagChecklistProduct(code || fcoQuery || '');
     }
   };
   const check = async () => {
@@ -314,8 +337,10 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
       <div role="group" aria-label="Check type" className="inline-flex flex-wrap rounded-xl bg-slate-900/5 p-1">
         {([
           ['photo', 'Photo of the label', Camera],
+          ['qr', 'Scan QR code', QrCode],
           ['registry', 'Registration / batch', ScanLine],
           ['lab', 'Lab report vs FCO', FlaskConical],
+          ['bagChecklist', 'Bag-marking checklist', FileQuestion],
         ] as const).map(([id, label, Icon]) => (
           <button
             key={id}
@@ -330,6 +355,69 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
       </div>
 
       {mode === 'photo' && <LabelPhoto account={account} />}
+
+      {mode === 'qr' && (
+        <div className="mt-5">
+          <QRCodeScanner
+            onResult={async (qrText) => {
+              setQrScanning(true);
+              try {
+                const res = await fetch('/api/truescan/verify-qr', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    qrText,
+                    productName: code || fcoQuery,
+                    isOffline: !navigator.onLine,
+                  }),
+                });
+                const data = await res.json();
+                setQrResult(data);
+                setQrScannerOpen(false);
+              } catch (err) {
+                console.error('QR verification failed:', err);
+              } finally {
+                setQrScanning(false);
+              }
+            }}
+            onClose={() => {
+              setQrScannerOpen(false);
+              setMode('photo');
+            }}
+            isOffline={!navigator.onLine}
+          />
+          {qrResult && (
+            <QRCodeResult
+              key={qrResult.checkedAt}
+              result={qrResult}
+              onReportFake={() => {
+                void fetch('/api/truescan/report-fake', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    productType: qrResult.outcome === 'BANNED' ? 'pesticide' : 'fertilizer',
+                    productName: qrResult.productName,
+                    manufacturer: qrResult.manufacturer,
+                    batchNumber: qrResult.batchNumber,
+                    registrationNumber: qrResult.registrationNumber,
+                    expiryDate: qrResult.expiryDate,
+                    reason: qrResult.outcome === 'EXPIRED' ? 'expired' :
+                      qrResult.outcome === 'BANNED' ? 'not_in_list' : 'qr_fail',
+                    details: qrResult.details,
+                    anonymous: true,
+                  }),
+                });
+                alert('Report submitted. Thank you.');
+              }}
+              onLabTest={() => {
+                setBagChecklistProduct(qrResult.productName);
+                setMode('bagChecklist');
+              }}
+              onClose={() => setQrResult(null)}
+            />
+          )}
+        </div>
+      )}
 
       {mode === 'registry' && (
         <div className="mt-5">
@@ -465,6 +553,29 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
           )}
         </div>
       )}
+      {mode === 'bagChecklist' && (
+        <div className="mt-5">
+          <BagMarkingChecklist
+            productName={bagChecklistProduct}
+            onLabTest={() => {
+              void fetch('/api/lab-test/book', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  productType: 'fertilizer',
+                  productName: bagChecklistProduct,
+                  reason: 'bag_marking_fail',
+                  district: '',
+                  farmerName: '',
+                  farmerPhone: '',
+                }),
+              });
+            }}
+            onClose={() => setMode('photo')}
+          />
+        </div>
+      )}
+
       {!compact && <OfficialChecks />}
 
       {/* Browse official register panel */}

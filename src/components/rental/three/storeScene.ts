@@ -14,7 +14,7 @@
  * plan; with a building they are drawn beside it. Without a building the
  * chambers stand side by side along a corridor. Pure: no three.js, no React.
  */
-import { planOf, type ChamberPlan, type Wall } from '@/lib/coldLayout';
+import { ensureBuildingEnclosesChambers, planOf, type ChamberPlan, type Wall } from '@/lib/coldLayout';
 import { arrangeStore, doorLine, fromDoor, groupChambers, outlineOf, placeRect, type Building, type ChamberGroup, type PreviewRows, type Side, type Storage } from '@/lib/coldStore';
 import { placeName, type ColdChamber } from '@/lib/db/coldMap';
 
@@ -372,8 +372,12 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
   let hall: Rect;
   let passage: Rect | null = null;
   if (b) {
-    hall = { x: 0, y: 0, w: b.length, d: b.width };
-    const lay = arrangeStore(b, wizard.map((g) => ({ key: g.key, name: g.name, outline: outlineOf(g.size!), spot: g.size!.spot })));
+    // Every chamber inside the walls (lib/coldLayout): the owner's building
+    // grows a little where a chamber pokes out — its door and heights stay
+    // as measured — so the arrangement below never stands one outside.
+    const enclosed = ensureBuildingEnclosesChambers(b, wizard.map((g) => g.size!));
+    hall = { x: 0, y: 0, w: enclosed.length, d: enclosed.width };
+    const lay = arrangeStore(enclosed, wizard.map((g) => ({ key: g.key, name: g.name, outline: outlineOf(g.size!), spot: g.size!.spot })));
     passage = lay.passage.rect;
     // The owner's live preview brings where its top view puts each chamber (lib/coldStore previewChambers): the very same places.
     const pre = rows as PreviewRows;

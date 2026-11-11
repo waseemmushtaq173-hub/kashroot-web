@@ -29,6 +29,7 @@
  * the back wall with a walkway in from the door, and the grid cells left over
  * are `unused` — so the places always add up to the owner's count.
  */
+import type { Building } from '@/lib/coldStore';
 
 export type SizeUnit = 'ft' | 'm';
 
@@ -398,14 +399,37 @@ interface Way {
 }
 
 /**
- * A floor with an exact number of places (owner wizard): `places` stacks of
- * `boxes` bins or crates. The rows × stacks are chosen to fit the floor and
- * follow its shape, the stacks stand against the back wall with a walkway
- * straight in from the door, and the few grid cells left over (fewer than
- * one row, in the row by the door, next to the walkway) are `unused`. When
- * the places cannot all stand on the floor at their real size they are drawn
- * closer together and the plan says `crowded`.
+ * Grows the building just enough that every chamber stands inside its walls.
+ * The owner's door, heights, unit and sides stay exactly as they were: only
+ * the length (along the front) and the width (front to back) stretch when a
+ * chamber pokes out, by a small margin — never shrunk, never reset. Chambers
+ * without a spot of their own are placed along the passage by arrangeStore,
+ * so they say nothing here.
  */
+export function ensureBuildingEnclosesChambers(
+  building: Building,
+  chambers: Pick<ChamberSize, 'spot' | 'width' | 'length' | 'doorWall'>[],
+): Building {
+  if (!chambers.length) return building;
+  const MARGIN = 0.6;
+  let east = building.length;
+  let back = building.width;
+  for (const c of chambers) {
+    if (!c.spot) continue;
+    const wall = c.doorWall ?? 'front';
+    const along = wall === 'front' || wall === 'back';
+    // The chamber's own sizes are measured from its door: in the building's
+    // frame the width runs along the front, the length front to back.
+    const w = along ? c.width : c.length;
+    const d = along ? c.length : c.width;
+    east = Math.max(east, c.spot.x + w);
+    back = Math.max(back, c.spot.y + d);
+  }
+  const length = east > building.length ? round(east + MARGIN) : building.length;
+  const width = back > building.width ? round(back + MARGIN) : building.width;
+  if (length === building.length && width === building.width) return building;
+  return { ...building, length, width };
+}
 function planCounted(s: ChamberSize): ChamberPlan {
   const problems: string[] = [];
   const notes: string[] = [];

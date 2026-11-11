@@ -232,6 +232,7 @@ export function gratingTexture(T: Three) {
   const t = new T.CanvasTexture(c);
   t.colorSpace = T.SRGBColorSpace;
   t.wrapS = t.wrapT = T.RepeatWrapping;
+  t.anisotropy = 4;
   return t;
 }
 

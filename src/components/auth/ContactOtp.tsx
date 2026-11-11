@@ -92,7 +92,7 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
     try {
       const res = await fetch('/api/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel, to: value }), signal: AbortSignal.timeout(4_000) });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok && sms) onUnavailable?.();
+      if (!res.ok) onUnavailable?.();
       if (!res.ok) throw new Error(data.error ?? 'Could not send the OTP.');
       setToken(data.token);
       setSentVia(Array.isArray(data.via) ? data.via : []);
@@ -118,7 +118,8 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
           setError(err2 instanceof Error && err2.message !== 'Failed to fetch' ? err2.message : 'Could not send the OTP. Check your connection.');
         }
       } else {
-        if (sms) onUnavailable?.();
+        // The site cannot send this code right now — the sender is down, not the visitor's fault.
+        onUnavailable?.();
         setError(err instanceof Error && err.message !== 'Failed to fetch' ? err.message : 'Could not send the OTP. Check your connection.');
       }
     } finally {

@@ -445,9 +445,16 @@ export function ColdStore3D({
         setFailed(true);
         return;
       }
-      // No shadows needed in the industrial cold-store view: saves a full extra
-      // draw pass per light. Keep the renderer lean.
-      renderer.shadowMap.enabled = false;
+      // Filmic tone mapping and sRGB output: the same pixels, but light rolls
+      // off the way eyes expect, so steel, paint and apples read solid.
+      renderer.toneMapping = T.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.05;
+      renderer.outputColorSpace = T.SRGBColorSpace;
+      // Soft sun shadows on a laptop only: one extra draw pass per light is too
+      // much for a phone, which keeps the flat, even look.
+      const withShadows = !phone && !weak;
+      renderer.shadowMap.enabled = withShadows;
+      if (withShadows) renderer.shadowMap.type = T.PCFSoftShadowMap;
       renderer.localClippingEnabled = true;
       const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       // Sharp when still. On a slow phone, fewer pixels while something moves (see the loop).
@@ -477,15 +484,75 @@ export function ColdStore3D({
       world3.add(new T.HemisphereLight('#ffffff', '#94a3b8', 1.9));
       const sun = new T.DirectionalLight('#fff7ed', 1.6);
       sun.position.set(-40, 80, 55);
+      if (withShadows) {
+        sun.castShadow = true;
+        sun.shadow.mapSize.set(2048, 2048);
+        sun.shadow.bias = -0.0004;
+        sun.shadow.normalBias = 0.03;
+        const sc = sun.shadow.camera;
+        sc.left = -70;
+        sc.right = 70;
+        sc.top = 70;
+        sc.bottom = -70;
+        sc.near = 10;
+        sc.far = 240;
+      }
       world3.add(sun);
       const fill = new T.DirectionalLight('#dbeafe', 0.55);
       fill.position.set(50, 30, -40);
       world3.add(fill);
 
+      // Gentle studio reflections for the steel and painted panels (desktop
+      // only: the prefiltered map is memory a phone is short of). Kept faint —
+      // the lights stay in charge of the look.
+      if (withShadows) {
+        const { RoomEnvironment } = await import('three/examples/jsm/environments/RoomEnvironment.js');
+        const pmrem = new T.PMREMGenerator(renderer);
+        world3.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+        world3.environmentIntensity = 0.35;
+        pmrem.dispose();
+      }
+
       // The Blender kit: six real-world protos, loaded while the scene builds.
       // Anything short of a load leaves the hand-drawn kit below as it always was.
       const protos = await loadColdKitGeo(T);
+      // The kit used for all logic is the procedural one, dressed with the
+      // Blender protos when they answered.
       const kit = makeKit(T, phone, protos);
+
+      // A soft contact shadow under the building: a radial gradient on a disc,
+      // so the store sits on the yard instead of floating — cheaper than a
+      // shadow pass and there on phones too.
+      const contactTex = (() => {
+        const cv = document.createElement('canvas');
+        cv.width = 128;
+        cv.height = 128;
+        const g = cv.getContext('2d');
+        if (!g) return null;
+        const grad = g.createRadialGradient(64, 64, 10, 64, 64, 64);
+        grad.addColorStop(0, 'rgba(15,23,42,0.30)');
+        grad.addColorStop(0.55, 'rgba(15,23,42,0.13)');
+        grad.addColorStop(1, 'rgba(15,23,42,0)');
+        g.fillStyle = grad;
+        g.fillRect(0, 0, 128, 128);
+        const t = new T.CanvasTexture(cv);
+        t.colorSpace = T.SRGBColorSpace;
+        return t;
+      })();
+      const contactMat = contactTex ? new T.MeshBasicMaterial({ map: contactTex, transparent: true, depthWrite: false }) : null;
+      let contact: InstanceType<typeof T.Mesh> | null = null;
+      // Desktop only: the sun's shadow pass. Opaque lit meshes cast and
+      // receive; see-through things (gratings, glows, marks) stay out of it.
+      const dressShadows = (g: InstanceType<typeof T.Object3D>) => {
+        if (!withShadows) return;
+        g.traverse((o) => {
+          const m = o as unknown as { isMesh?: boolean; castShadow?: boolean; receiveShadow?: boolean; material?: { transparent?: boolean; isMeshStandardMaterial?: boolean } };
+          if (m.isMesh && m.material && m.material.isMeshStandardMaterial) {
+            m.castShadow = !m.material.transparent;
+            m.receiveShadow = true;
+          }
+        });
+      };
       // Walking: a light haze gives the long rooms their depth.
       const haze = new T.Fog('#e6edf3', 14, 70);
       const root = new T.Group();
@@ -939,7 +1006,20 @@ export function ColdStore3D({
           const b = s.bounds;
           origin = { ox: b.x + b.w / 2, oy: b.y + b.d / 2 };
           shell = buildShell(kit, s, origin);
+          dressShadows(shell.group);
           root.add(shell.group);
+          // The disc under the building, from its own footprint, just over the
+          // yard (the hall floor sits above it inside the walls).
+          if (contactMat) {
+            if (contact) {
+              root.remove(contact);
+              contact.geometry.dispose();
+            }
+            contact = new T.Mesh(new T.CircleGeometry(Math.max(b.w, b.d) * 0.62, 48), contactMat);
+            contact.rotation.x = -Math.PI / 2;
+            contact.position.set(0, -0.02, 0);
+            root.add(contact);
+          }
         }
         // A new store (or new measurements): the way is drawn again from its own numbers.
         if (fresh) {
@@ -951,6 +1031,7 @@ export function ColdStore3D({
           disposeGroup(T, kit, places.group);
         }
         places = buildPlaces(kit, s, cs, origin, (i) => freeBy[i] ?? 0, who);
+        dressShadows(places.group);
         root.add(places.group);
         labelsWalk = null;
         const stops = new Set<string>();
@@ -1298,6 +1379,9 @@ export function ColdStore3D({
         if (places) disposeGroup(T, kit, places.group);
         if (routeGroup) disposeGroup(T, kit, routeGroup);
         kit.dispose();
+        contactMat?.dispose();
+        contactTex?.dispose();
+        (world3.environment as InstanceType<typeof T.Texture> | null)?.dispose();
         renderer.dispose();
         renderer.forceContextLoss();
         cv.remove();

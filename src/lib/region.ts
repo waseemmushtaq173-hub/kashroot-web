@@ -121,7 +121,7 @@ export interface StateInfo {
 }
 
 export const STATES: StateInfo[] = [
-  { name: 'Jammu and Kashmir', aliases: ['jammu & kashmir', 'j&k', 'kashmir'], crops: ['Apple', 'Walnut', 'Saffron', 'Cherry'] },
+  { name: 'Jammu and Kashmir', aliases: ['jammu & kashmir', 'j&k', 'kashmir'], crops: ['Apple', 'Walnut', 'Saffron', 'Pear', 'Cherry', 'Almond'] },
   { name: 'Ladakh', aliases: [], crops: ['Apricot'] },
   { name: 'Himachal Pradesh', aliases: ['himachal'], crops: ['Apple', 'Cherry'] },
   { name: 'Uttarakhand', aliases: ['uttaranchal', 'uttrakhand'], crops: ['Rice', 'Litchi', 'Apple'] },
