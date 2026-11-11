@@ -126,6 +126,8 @@ export interface ChamberDraft {
   rate: string;
   /** How high they stack, if the owner says ('' = as high as fits). */
   stackHigh: string;
+  /** How many levels one rack holds (1 to 10); shown in the 3D twin and saved to cold_chambers.levels_count. */
+  rackLevels: string;
   /** Where it stands, if the owner says: from the building's left wall and front wall ('' = drawn in order). */
   spotX: string;
   spotY: string;
@@ -213,6 +215,7 @@ export const blankChamber = (no: number, storage: Packed = 'bins'): ChamberDraft
   door: blankDoor(),
   rate: '',
   stackHigh: '',
+  rackLevels: '4',
   spotX: '',
   spotY: '',
   unitL: '',
@@ -339,6 +342,8 @@ export interface ChamberRow {
   capacity_mt: number;
   rate: number;
   size: ChamberSize;
+  /** How many levels one rack holds (1 to 10) — the twin's rackLevels. */
+  levels_count: number;
 }
 
 /** One floor of a chamber: its share of the count, the stack height, the places, and its plan. */
@@ -1026,6 +1031,7 @@ function readChamber(c: ChamberDraft, numbers: Map<number, number>, u: SizeUnit,
         capacity_mt: Math.round(tonnes * 1000) / 1000,
         rate: rate ?? 0,
         size,
+        levels_count: Math.max(1, Math.min(10, Math.floor(readNumber(c.rackLevels) ?? 4) || 4)),
       },
     });
   }
@@ -1507,6 +1513,7 @@ export function draftFromSaved(
         door: o.door ? { wall: o.door.wall, from: t(o.door.from), width: t(o.door.width), height: t(o.door.height) } : blankDoor(),
         rate: g.rate !== null ? String(g.rate) : '',
         stackHigh: s.stackHigh ? String(s.stackHigh) : '',
+        rackLevels: String(Math.max(1, Math.min(10, Math.floor(g.floors[0]?.levels_count ?? 4) || 4))),
         spotX: s.spot ? t(s.spot.x) : '',
         spotY: s.spot ? t(s.spot.y) : '',
         // As saved, so saving again keeps the very same layout.

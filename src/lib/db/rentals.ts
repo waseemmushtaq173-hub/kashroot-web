@@ -42,6 +42,13 @@ export interface RentalListing {
   state: string;
   area: string | null;
   building: Building | null;
+  /** The 3D twin's facility layout and the owner's direct settlement account (20261111000002); null on stores saved before them. */
+  facility_code?: string | null;
+  corridor_layout?: string | null;
+  owner_payout_upi?: string | null;
+  owner_bank_account_name?: string | null;
+  owner_bank_account_no?: string | null;
+  owner_bank_ifsc?: string | null;
 }
 
 export interface RentalBooking {
@@ -108,15 +115,33 @@ const fail = (error: { message?: string; code?: string } | null, fallback: strin
 
 const BASE_LISTING_COLUMNS = 'id, owner_id, kind, title, owner_name, phone, district, address, unit, capacity, available, rate, min_units, temperature, details, active, updated_at';
 const LISTING_COLUMNS = `${BASE_LISTING_COLUMNS}, manager_name, manager_phone, state, area, building`;
+/** The 3D twin's facility layout and the owner's direct settlement account (20261111000002). */
+const TWIN_LISTING_COLUMNS = `${LISTING_COLUMNS}, facility_code, corridor_layout, owner_payout_upi, owner_bank_account_name, owner_bank_account_no, owner_bank_ifsc`;
 /** Before the cold store details SQL (20261025000000) is run the wizard's columns are missing. */
 const noStoreColumns = (m?: string) => /manager_|state|area|building/i.test(m ?? '') && /column|schema cache|does not exist/i.test(m ?? '');
+/** Before the 3D twin SQL (20261111000002) is run the twin and settlement columns are missing. */
+const noTwinColumns = (m?: string) => /facility_code|corridor_layout|owner_payout|owner_bank/i.test(m ?? '') && /column|schema cache|does not exist/i.test(m ?? '');
 const asListings = (rows: unknown[] | null): RentalListing[] =>
-  ((rows ?? []) as Partial<RentalListing>[]).map((l) => ({ ...l, manager_name: l.manager_name ?? null, manager_phone: l.manager_phone ?? null, state: l.state || 'Jammu & Kashmir', area: l.area ?? null, building: asBuilding(l.building) }) as RentalListing);
+  ((rows ?? []) as Partial<RentalListing>[]).map((l) => ({
+    ...l,
+    manager_name: l.manager_name ?? null,
+    manager_phone: l.manager_phone ?? null,
+    state: l.state || 'Jammu & Kashmir',
+    area: l.area ?? null,
+    building: asBuilding(l.building),
+    facility_code: l.facility_code ?? null,
+    corridor_layout: l.corridor_layout ?? null,
+    owner_payout_upi: l.owner_payout_upi ?? null,
+    owner_bank_account_name: l.owner_bank_account_name ?? null,
+    owner_bank_account_no: l.owner_bank_account_no ?? null,
+    owner_bank_ifsc: l.owner_bank_ifsc ?? null,
+  }) as RentalListing);
 
-/** Listings with the wizard's columns, or without them before that SQL is run. */
+/** Listings with the twin columns and the wizard's columns, or without them before those SQLs are run. */
 async function readListings(query: (cols: string) => PromiseLike<{ data: unknown[] | null; error: { message?: string; code?: string } | null }>, fallback: string): Promise<RentalListing[]> {
   // Signed out: no phone numbers (the database refuses them; the page says "Sign in to call").
-  let { data, error } = await query(await readableColumns(LISTING_COLUMNS));
+  let { data, error } = await query(await readableColumns(TWIN_LISTING_COLUMNS));
+  if (error && noTwinColumns(error.message)) ({ data, error } = await query(await readableColumns(LISTING_COLUMNS)));
   if (error && noStoreColumns(error.message)) ({ data, error } = await query(await readableColumns(BASE_LISTING_COLUMNS)));
   if (error) fail(error, fallback);
   return asListings(data);
@@ -158,10 +183,14 @@ export async function saveListing(input: ListingInput, id?: string): Promise<Ren
  * and vacancy are counted from its chambers once they are saved.
  */
 export async function saveStore(input: Partial<StoreRow>, id?: string): Promise<RentalListing> {
-  const q = id
-    ? supabase.from('rental_listings').update(input).eq('id', id)
-    : supabase.from('rental_listings').insert({ kind: 'cold_store', unit: 'box_month', capacity: 1, available: 0, rate: 0, min_units: 1, active: false, ...input });
-  const { data, error } = await q.select(LISTING_COLUMNS).single();
+  const run = (cols: string) => {
+    const q = id
+      ? supabase.from('rental_listings').update(input).eq('id', id)
+      : supabase.from('rental_listings').insert({ kind: 'cold_store', unit: 'box_month', capacity: 1, available: 0, rate: 0, min_units: 1, active: false, ...input });
+    return q.select(cols).single();
+  };
+  let { data, error } = await run(TWIN_LISTING_COLUMNS);
+  if (error && noTwinColumns(error.message)) ({ data, error } = await run(LISTING_COLUMNS));
   if (error && noStoreColumns(error.message)) throw new Error(SETUP_NEEDED);
   if (error) fail(error, 'Could not save your cold store.');
   return asListings([data])[0];

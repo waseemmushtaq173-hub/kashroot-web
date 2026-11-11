@@ -14,12 +14,12 @@ import { Box as BoxIcon, CheckCircle2, CircleAlert, Copy, DoorOpen, Layers, Map 
 
 import { Btn, PORTAL_THEMES } from '@/components/portal/kit';
 import { ChamberSide, floorText } from '@/components/rental/owner/ChamberSide';
-import { Counter, Problems, StoragePicker, WallPicker } from '@/components/rental/owner/fields';
+import { BIG, Counter, Problems, StoragePicker, WallPicker } from '@/components/rental/owner/fields';
 import { Preview3D } from '@/components/rental/owner/Preview3D';
 import { TwinCapacity } from '@/components/rental/owner/TwinCapacity';
 import { StoreDrawing } from '@/components/rental/owner/StoreDrawing';
 import { KitBox, type Kit } from '@/components/rental/owner/StoreSteps';
-import { blankChamber, copyChamber, countText, nextNumber, nice, readNumber, UNIT_WORDS, type ChamberDraft } from '@/lib/coldStore';
+import { blankChamber, copyChamber, countText, nextNumber, nice, readNumber, UNIT_WORDS, type ChamberDraft, type Packed } from '@/lib/coldStore';
 import type { ColdChamber } from '@/lib/db/coldMap';
 
 const theme = PORTAL_THEMES.rental;
@@ -195,6 +195,31 @@ function ChamberEditor({
         <div className="w-36"><KitBox kit={kit} field={`${k}.no`} label="Chamber number" number whole /></div>
       </div>
       <StoragePicker name={`${k}.storage`} value={c.storage} onChange={(v) => kit.set(`${k}.storage`, v)} />
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div>
+          <label htmlFor={`${k}-unit`} className="block text-sm font-semibold text-slate-800">3D twin unit type</label>
+          <select
+            id={`${k}-unit`}
+            className={`${BIG} mt-1.5`}
+            value={c.storage}
+            onChange={(e) => kit.set(`${k}.storage`, e.target.value as Packed)}
+          >
+            <option value="bins">Wooden bin</option>
+            <option value="crates">Blue plastic crate</option>
+          </select>
+          <p className="mt-1 text-xs text-slate-600">The same choice as above, drawn in the 3D view.</p>
+        </div>
+        <Counter
+          label="Levels in one rack"
+          name={`${k}.rackLevels`}
+          value={c.rackLevels || '4'}
+          min={1}
+          max={10}
+          onChange={(v) => kit.set(`${k}.rackLevels`, v)}
+          issues={kit.issuesOf(`${k}.rackLevels`)}
+          hint="How many levels one rack holds (1 to 10), saved with the chamber."
+        />
+      </div>
       <div className="grid gap-5 sm:grid-cols-2">
         <KitBox kit={kit} field={`${k}.count`} label={`How many ${W.many} does it hold?`} number whole />
         <KitBox kit={kit} field={`${k}.kg`} label={`Exact capacity of one ${W.one} (kg)`} number hint="Enter the owner's measured or certified capacity. KashRoot will not assume a standard weight." />

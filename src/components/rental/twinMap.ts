@@ -17,17 +17,22 @@ import { parsePlace, placeName, type ColdChamber } from '@/lib/db/coldMap';
 
 const pad3 = (n: number) => String(n).padStart(3, '0');
 
-/** One place's own size: the owner's measured box and stack gap when they gave them. */
-function unitOf(c: Pick<ColdChamber, 'storage' | 'size'>): { l: number; w: number; h: number; gap: number; type: StorageUnitMode } {
+/** One place's own size: the owner's measured box and stack gap when they gave them, then the unit columns the RPC saved (trusted only when storage_unit_type agrees with the row's own storage family — table defaults lie on rows saved before it), then the kit's own defaults. */
+function unitOf(
+  c: Pick<ColdChamber, 'storage' | 'size' | 'storage_unit_type' | 'unit_length_m' | 'unit_width_m' | 'unit_height_m' | 'unit_spacing_m'>,
+): { l: number; w: number; h: number; gap: number; type: StorageUnitMode } {
+  const type: StorageUnitMode = c.storage === 'bins' ? 'WOODEN_BIN' : 'PLASTIC_CRATE';
   const box = c.size?.box;
   if (box && box.l > 0 && box.w > 0 && box.h > 0) {
-    return {
-      l: box.l,
-      w: box.w,
-      h: box.h,
-      gap: Math.max(0, c.size?.stackGap ?? 0),
-      type: c.storage === 'bins' ? 'WOODEN_BIN' : 'PLASTIC_CRATE',
-    };
+    return { l: box.l, w: box.w, h: box.h, gap: Math.max(0, c.size?.stackGap ?? 0), type };
+  }
+  if (c.storage_unit_type === type) {
+    const l = c.unit_length_m ?? 0;
+    const w = c.unit_width_m ?? 0;
+    const h = c.unit_height_m ?? 0;
+    if (l > 0 && w > 0 && h > 0) {
+      return { l, w, h, gap: Math.max(0, c.unit_spacing_m ?? 0), type };
+    }
   }
   return c.storage === 'bins'
     ? { l: 1.2, w: 1.0, h: 0.78, gap: 0.12, type: 'WOODEN_BIN' }
@@ -67,6 +72,8 @@ export function twinPlanOf(chambers: ColdChamber[]): TwinPlan {
     seen.set(c.name, n);
     const code = (counts.get(c.name) ?? 1) > 1 ? `${c.name} (${n})` : c.name;
     const prefix = u.type === 'WOODEN_BIN' ? 'BIN' : 'CRATE';
+    // Kg per unit: what the owner typed (unit_kg); before the wizard had it, the RPC's unit_default_capacity_kg — trusted only when the unit kind agrees with the row's own storage family (table defaults lie on old rows).
+    const capacity = c.unit_kg ?? (c.storage_unit_type === u.type ? c.unit_default_capacity_kg ?? 0 : 0);
     configs.push({
       id: c.id,
       code,
@@ -77,7 +84,7 @@ export function twinPlanOf(chambers: ColdChamber[]): TwinPlan {
       heightM: Math.max(2.4, c.size?.height ?? 2.4),
       levels: 1,
       unitType: u.type,
-      unitCapacityKg: c.unit_kg ?? 0,
+      unitCapacityKg: capacity,
       unitLengthM: u.l,
       unitWidthM: u.w,
       unitHeightM: u.h,
