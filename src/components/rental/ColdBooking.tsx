@@ -15,6 +15,7 @@
  *      arrives, and the receipt is ready (components/rental/receipt).
  * Also MyPlaces: where a farmer's bins are, in the whole store.
  */
+import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CalendarDays, CheckCircle2, Map as MapIcon, Navigation, ReceiptText, RefreshCw, Snowflake, Sparkles, Trash2, X } from 'lucide-react';
 import { z } from 'zod';
@@ -35,6 +36,7 @@ import {
   placeKey,
   placeLabel,
   placeLines,
+  placeName,
   priceLines,
   roomOn,
   takenPlaces,
@@ -43,6 +45,8 @@ import {
   type ColdChamber,
   type PlaceInfo,
 } from '@/lib/db/coldMap';
+import { twinPlanOf } from '@/components/rental/twinMap';
+import type { IndustrialColdStoreTwinProps, StorageSlotRecord } from '@/components/rental/IndustrialColdStoreTwin3D';
 import { bookingById, bookingCode, type RentalListing } from '@/lib/db/rentals';
 import QRCode from 'qrcode';
 
@@ -142,6 +146,15 @@ function GatePassQR({
 }
 
 const theme = PORTAL_THEMES.rental;
+
+/** The industrial 3D twin (R3F + drei), loaded only when it is opened. */
+const IndustrialColdStoreTwin3D = dynamic(
+  () => import('@/components/rental/IndustrialColdStoreTwin3D').then((m) => m.IndustrialColdStoreTwin3D),
+  {
+    ssr: false,
+    loading: () => <div className="grid h-[420px] place-items-center rounded-3xl bg-slate-100 text-sm text-slate-500">Opening the 3D twin…</div>,
+  },
+);
 
 /** A booking as it goes to the database — shape and minimums, checked before anything is written. */
 const BOOKING = z.object({
@@ -348,6 +361,49 @@ export function ColdBooking({
     },
     [picked, roomFor, wanted, boxes, kind],
   );
+
+  // The industrial 3D twin: the very places of the drawing, drawn as bins or
+  // crates. Occupancy comes only from what the database says for these
+  // months (taken); a place with room left stays blue and a click shares it.
+  const [twinOpen, setTwinOpen] = useState(false);
+  const twin = useMemo(() => (twinOpen ? twinPlanOf(chambers) : null), [chambers, twinOpen]);
+  const twinAllocations = useMemo(() => {
+    if (!twin || !taken) return {};
+    const out: Record<string, NonNullable<IndustrialColdStoreTwinProps['occupiedAllocations']>[string]> = {};
+    for (const c of chambers) {
+      for (let r = 1; r <= c.rows; r++) {
+        for (let i = 0; i < c.cols; i++) {
+          const slot = placeName(r, i);
+          const key = twin.keyOf(c, slot);
+          if (c.blocked.includes(slot)) {
+            out[key] = { storedKg: 0, farmerName: 'Blocked by the owner' };
+            continue;
+          }
+          const info = taken.get(placeKey(c.id, slot));
+          if (!info) continue;
+          const kg = c.unit_kg ?? 0;
+          if (info.mine > 0) {
+            out[key] = { storedKg: kg * info.mine, farmerName: form.name || account.name, isCurrentFarmer: true };
+          } else if (info.state === 'held') {
+            out[key] = { storedKg: kg * (info.used ?? c.boxes_per_slot), farmerName: 'Held for payment' };
+          } else if (info.state === 'booked') {
+            out[key] = { storedKg: kg * (info.used ?? c.boxes_per_slot), farmerName: 'Booked by another farmer' };
+          }
+          // 'part': room left on a shared place — it stays blue here and a
+          // tap books only what still fits, exactly as on the drawing.
+        }
+      }
+    }
+    return out;
+  }, [twin, taken, chambers, form.name, account.name]);
+  const selectedTwinKeys = useMemo(() => (twin ? chosen.map((p) => twin.keyOf(p.chamber, p.slot)) : []), [twin, chosen]);
+  const onTwinSlot = useCallback(
+    (rec: StorageSlotRecord) => {
+      const hit = twin?.placeOf(rec);
+      if (hit) toggle(hit.chamber, hit.slot, stateOf(hit.chamber, hit.slot));
+    },
+    [twin, toggle, stateOf],
+  );
   const setBoxesOn = (key: string, value: string) =>
     setPicked((prev) => {
       const p = prev.get(key);
@@ -533,6 +589,35 @@ export function ColdBooking({
               legend={['free', 'part', 'selected', 'held', 'booked', 'mine', 'blocked']}
               mineName={form.name || account.name}
             />
+          )}
+          {taken && (
+            <section aria-label="3D digital twin" className="rounded-xl bg-white p-3 text-sm text-slate-800 ring-1 ring-slate-900/10">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="font-semibold">3D Digital Twin — the whole facility</p>
+                <button type="button" onClick={() => setTwinOpen((v) => !v)} aria-expanded={twinOpen} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-chinar hover:bg-ivory">
+                  {twinOpen ? 'Hide the 3D twin' : 'Open the 3D twin'}
+                </button>
+              </div>
+              {twinOpen && twin && (
+                <div className="mt-3">
+                  <p className="mb-2 text-xs text-slate-600">
+                    The same places as the drawing, drawn as {wordFor(kinds)}. Tap a bin or crate to choose that place; tap it again to take it off. Red places are booked, green ones are yours or chosen.
+                  </p>
+                  <IndustrialColdStoreTwin3D
+                    facilityCode={`KS-${l.id.slice(0, 6).toUpperCase()}`}
+                    facilityName={l.title}
+                    buildingLengthM={0}
+                    buildingWidthM={0}
+                    buildingHeightM={0}
+                    corridorLayout="BOTH_SIDES"
+                    chambers={twin.configs}
+                    occupiedAllocations={twinAllocations}
+                    selectedSlotKeys={selectedTwinKeys}
+                    onToggleSelectSlot={onTwinSlot}
+                  />
+                </div>
+              )}
+            </section>
           )}
           {picked.size > 0 && (
             <section aria-label="Your choice" className="rounded-xl bg-white p-3 text-sm text-slate-800 ring-1 ring-slate-900/10">

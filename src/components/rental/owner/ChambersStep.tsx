@@ -148,7 +148,7 @@ export function ChambersStep({
           </>
         ) : (
           <>
-            <p className="text-sm text-slate-700">Your store in 3D, exactly as farmers will see it. Drag to turn it.</p>
+            <p className="text-sm text-slate-700">Your store in 3D, exactly as farmers will see it. Drag to turn it — or switch to the industrial digital twin above the view.</p>
             <Preview3D model={shown} listingId={listingId} selected={open?.key ?? null} onPick={onSelect} />
           </>
         )}

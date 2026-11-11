@@ -1,213 +1,49 @@
 {
- "generator": "Blender 5.2.3 LTS",
- "blender_version": "5.2.3 LTS",
- "generated_at": "2026-11-11T06:34:22+00:00",
- "facility_name": "KashRoot Reference Cold Store - Sopore Apple CA Store",
- "capacity": {
-  "chambers_count": 4,
-  "levels_total": 48,
-  "total_crate_count": 8640,
-  "booked_crate_count": 6080,
-  "max_theoretical_capacity_kg": 172800.0,
-  "actual_usable_capacity_kg": 172800.0,
-  "occupied_capacity_kg": 121600.0,
-  "remaining_capacity_kg": 51200.0,
-  "occupancy_pct": 70.37,
-  "apples_modelled": 72960,
-  "appled_crate_nodes": 6080,
-  "interior_volume_m3": 6704.216,
-  "usable_volume_m3": 5459.348
- },
- "summary": {
-  "totals": {
-   "chambers_count": 4,
-   "levels_total": 48,
-   "total_crate_count": 8640,
-   "booked_crate_count": 6080,
-   "max_theoretical_capacity_kg": 172800.0,
-   "actual_usable_capacity_kg": 172800.0,
-   "occupied_capacity_kg": 121600.0,
-   "remaining_capacity_kg": 51200.0,
-   "occupancy_pct": 70.37,
-   "apples_modelled": 72960,
-   "appled_crate_nodes": 6080,
-   "interior_volume_m3": 6704.216,
-   "usable_volume_m3": 5459.348
+  "ok": true,
+  "generator": "Blender 5.2.3 LTS",
+  "blender_version": "5.2.3 LTS",
+  "generated_at": "2026-11-11T07:35:52+00:00",
+  "storageTypes": {
+    "WOODEN_BIN": {
+      "defaultCapacityKg": 200,
+      "dimensionsMeters": [
+        1.2,
+        1.0,
+        0.78
+      ]
+    },
+    "PLASTIC_CRATE": {
+      "defaultCapacityKg": 16.5,
+      "dimensionsMeters": [
+        0.54,
+        0.36,
+        0.29
+      ]
+    }
   },
-  "chambers": [
-   {
-    "id": "CH01",
-    "label": "CA Chamber 1",
-    "levels_per_chamber": 12,
-    "crates_per_level": 180,
-    "crate_count": 2160,
-    "booked_count": 1620,
-    "max_theoretical_capacity_kg": 43200.0,
-    "actual_usable_capacity_kg": 43200.0,
-    "occupied_capacity_kg": 32400.0,
-    "remaining_capacity_kg": 10800.0,
-    "interior_volume_m3": 1676.054,
-    "usable_volume_m3": 1364.837,
-    "deck_area_m2": 19.2,
-    "max_deck_kg": 28800.0
-   },
-   {
-    "id": "CH02",
-    "label": "CA Chamber 2",
-    "levels_per_chamber": 12,
-    "crates_per_level": 180,
-    "crate_count": 2160,
-    "booked_count": 2160,
-    "max_theoretical_capacity_kg": 43200.0,
-    "actual_usable_capacity_kg": 43200.0,
-    "occupied_capacity_kg": 43200.0,
-    "remaining_capacity_kg": 0.0,
-    "interior_volume_m3": 1676.054,
-    "usable_volume_m3": 1364.837,
-    "deck_area_m2": 19.2,
-    "max_deck_kg": 28800.0
-   },
-   {
-    "id": "CH03",
-    "label": "Cold Chamber 3",
-    "levels_per_chamber": 12,
-    "crates_per_level": 180,
-    "crate_count": 2160,
-    "booked_count": 1100,
-    "max_theoretical_capacity_kg": 43200.0,
-    "actual_usable_capacity_kg": 43200.0,
-    "occupied_capacity_kg": 22000.0,
-    "remaining_capacity_kg": 21200.0,
-    "interior_volume_m3": 1676.054,
-    "usable_volume_m3": 1364.837,
-    "deck_area_m2": 19.2,
-    "max_deck_kg": 28800.0
-   },
-   {
-    "id": "CH04",
-    "label": "Cold Chamber 4",
-    "levels_per_chamber": 12,
-    "crates_per_level": 180,
-    "crate_count": 2160,
-    "booked_count": 1200,
-    "max_theoretical_capacity_kg": 43200.0,
-    "actual_usable_capacity_kg": 43200.0,
-    "occupied_capacity_kg": 24000.0,
-    "remaining_capacity_kg": 19200.0,
-    "interior_volume_m3": 1676.054,
-    "usable_volume_m3": 1364.837,
-    "deck_area_m2": 19.2,
-    "max_deck_kg": 28800.0
-   }
-  ]
- },
- "scene": {
-  "collections": 6,
-  "objects": 35956,
-  "chambers": 4
- },
- "kit": [
-  {
-   "name": "Kit_Apples_Cluster",
-   "role": "apple crown per booked crate",
-   "materials": [
-    "apple_cosse_red",
-    "apple_gold",
-    "apple_stem"
-   ],
-   "size_m": {
-    "crate_length": 0.6,
-    "crate_width": 0.4,
-    "apple_diameter": 0.075
-   }
-  },
-  {
-   "name": "Kit_Crate_HDPE",
-   "role": "ventilated HDPE crate",
-   "materials": [
-    "hdpe_red"
-   ],
-   "size_m": {
-    "length": 0.6,
-    "width": 0.4,
-    "height": 0.33
-   }
-  },
-  {
-   "name": "Kit_Pallet_Bin",
-   "role": "wooden bulk bin on pallet skids",
-   "materials": [
-    "wood_bin"
-   ],
-   "size_m": {
-    "length": 1.2,
-    "width": 1.0,
-    "height": 0.835
-   }
-  },
-  {
-   "name": "Kit_Rack_Post",
-   "role": "galvanised C-profile upright",
-   "materials": [
-    "rack_steel"
-   ],
-   "size_m": {
-    "profile": 0.1,
-    "height": 7.0
-   }
-  },
-  {
-   "name": "Kit_Rack_Beam",
-   "role": "C-profile load beam (one bay)",
-   "materials": [
-    "rack_steel"
-   ],
-   "size_m": {
-    "span": 1.2,
-    "height": 0.063
-   }
-  },
-  {
-   "name": "Kit_Evaporator",
-   "role": "ceiling evaporator, triple fan shrouds",
-   "materials": [
-    "evap_body",
-    "fan_dark",
-    "wire_mesh"
-   ],
-   "size_m": {
-    "length": 1.4,
-    "width": 0.62,
-    "height": 0.99
-   }
-  }
- ],
- "files": {
   "kit": {
-   "filename": "coldstore_kit.glb",
-   "bytes": 92424,
-   "sha256": "ff1a3a2a12a41433e202230e3f4fb53a8c9d29481c08b6dba1e5bb7f6665f671",
-   "nodes": 6,
-   "meshes": 6,
-   "materials": 7
+    "file": "coldstore_kit.glb",
+    "nodes": [
+      "Kit_Apples_Cluster",
+      "Kit_Crate_HDPE",
+      "Kit_Evaporator",
+      "Kit_Pallet_Bin",
+      "Kit_Rack_Beam",
+      "Kit_Rack_Post"
+    ],
+    "bytes": 63592,
+    "sha256": "64b39fe30ed1f3c286e2eb2d7b5c55803e859ceff7d8ec1cd0c7c427381c4503"
   },
-  "facility_glb": {
-   "filename": "coldstore_facility_twin.glb",
-   "bytes": 10174800,
-   "sha256": "6e29b249439f196354bc79a06a0295d3443990b7523a0325b44fa94ac28f6642",
-   "nodes": 35952,
-   "meshes": 18,
-   "accessors": 39,
-   "materials": 3,
-   "instanced_nodes": 0
+  "facility": {
+    "file": "coldstore_facility_twin.glb",
+    "note": "generic reference facility; live capacity and occupancy come from the database",
+    "referenceLayout": {
+      "woodenBins": 104,
+      "blueCrates": 400,
+      "rackPosts": 70,
+      "rackBeams": 304
+    },
+    "bytes": 172060,
+    "sha256": "f91e112bbf27eb3738c13d48312983cb60bd7bf707ae5dbd1d554769cd6829c7"
   }
- },
- "kit_glb_nodes": [
-  "Kit_Apples_Cluster",
-  "Kit_Crate_HDPE",
-  "Kit_Pallet_Bin",
-  "Kit_Rack_Post",
-  "Kit_Rack_Beam",
-  "Kit_Evaporator"
- ]
 }

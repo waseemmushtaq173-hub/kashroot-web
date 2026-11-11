@@ -1,33 +1,30 @@
-"""Blender 5.2.3 LTS generator — the KashRoot cold-store kit + facility twin.
-
-Runs headless::
-
-    blender --background --python scripts/blender_generate_coldstore.py -- --out-dir public/models
-
-Writes three artifacts into the out directory (default ``public/models``):
-
-  * ``coldstore_kit.glb``               the six kit prototypes (real sizes):
-        Kit_Crate_HDPE                  ventilated HDPE crate (hdpe_red)
-        Kit_Pallet_Bin                  wooden bulk pallet bin (wood_bin)
-        Kit_Apples_Cluster              the booked-crate apple crown
-                                        (red / gold / stem, engine's own grid)
-        Kit_Rack_Post                   galvanised C-profile upright
-        Kit_Rack_Beam                   C-profile step-beam (one bay)
-        Kit_Evaporator                  triple-fan ceiling evaporator
-  * ``coldstore_facility_twin.glb``     the whole measured facility, built by
-                                        the package's own ``geometry_builder``
-  * ``coldstore_metadata.json``         generator identity + engine totals +
-                                        file bytes/sha256 for both GLBs
-
-Nothing invents a number: the kit sizes and all capacity totals come from the
-owner payload through the bridge (``blender_kashroot_bridge.materialize`` /
-``to_spec``) and the same capacity engine the API route reports. The scene
-build reuses the package plumbing (``geometry_builder.build_facility``,
-``produce_generator`` meshes, ``materials_pbr`` palette); the kit is exported
-separately so the web can instance each prototype itself. Machine-readable
-result: the last ``[bgen] RESULT {json}`` line; exit 0 only when both GLBs are
-written and self-verified.
-"""
+# scripts/blender_generate_coldstore.py
+# Blender 5.2.3 LTS generator — merged KashRoot cold-store generator.
+#
+# Runs headless:
+#   blender --background --python scripts/blender_generate_coldstore.py -- <out-dir>
+#
+# Writes three artifacts into the out directory (default public/models):
+#   coldstore_kit.glb              six kit prototypes (real sizes), node names
+#                                  that src/components/rental/three/coldKit.ts
+#                                  matches exactly:
+#       Kit_Crate_HDPE             blue ventilated HDPE crate (~16.5 kg)
+#       Kit_Pallet_Bin             wooden apple bulk bin (~200 kg)
+#       Kit_Apples_Cluster         the booked-unit apple crown
+#       Kit_Rack_Post              galvanised C-profile upright
+#       Kit_Rack_Beam              C-profile load beam (one bay)
+#       Kit_Evaporator             triple-fan ceiling evaporator
+#   coldstore_facility_twin.glb    a generic reference facility (corridor, one
+#                                  wooden-bin chamber, one blue-crate chamber,
+#                                  machinery bay, CA door) built from shared
+#                                  meshes so the GLB stays small
+#   coldstore_metadata.json        generator identity + storage types + file
+#                                  bytes/sha256 + the reference layout counts
+#
+# Nothing here invents live data: the web derives occupancy and temperatures
+# from the database; this GLB is only the 3D illustration. Machine-readable
+# result: the last "[bgen] RESULT {json}" line; exit 0 only when both GLBs are
+# written and the six kit nodes are verified.
 from __future__ import annotations
 
 import hashlib
@@ -36,410 +33,469 @@ import math
 import os
 import sys
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
-_ROOT = os.path.dirname(_HERE)                        # .../kashroot-web
-for _p in (os.path.join(_ROOT, "blender_digital_twin"), _HERE):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+import bpy
+import bmesh
+from mathutils import Matrix, Vector
 
-import bpy  # noqa: E402  (this script only ever runs inside Blender)
 
 KIT_GLB = "coldstore_kit.glb"
 FACILITY_GLB = "coldstore_facility_twin.glb"
 METADATA = "coldstore_metadata.json"
-KIT_COLL = "KRT_Kit"
+
+REQUIRED_KIT_NODES = (
+    "Kit_Crate_HDPE",
+    "Kit_Pallet_Bin",
+    "Kit_Apples_Cluster",
+    "Kit_Rack_Post",
+    "Kit_Rack_Beam",
+    "Kit_Evaporator",
+)
 
 
 # ---------------------------------------------------------------------- #
-# argv normalisation                                                      #
+# Materials                                                                #
 # ---------------------------------------------------------------------- #
-def _normalize_argv(argv: Sequence[str]) -> List[str]:
-    """Tokens after ``--`` into the words the bridge understands. A bare
-    existing directory is accepted as the out dir, a JSON file as the payload."""
-    chunks = list(argv)
-    if "--" in chunks:
-        chunks = chunks[chunks.index("--") + 1:]
-    out: List[str] = []
-    i = 0
-    while i < len(chunks):
-        tok = chunks[i]
-        if tok == "--out-dir" and i + 1 < len(chunks):
-            out += [tok, chunks[i + 1]]
-            i += 2
-            continue
-        if tok.startswith("--out-dir=") or tok.startswith("--"):
-            out.append(tok)
-            i += 1
-            continue
-        path = os.path.abspath(tok)
-        if os.path.isdir(path):
-            out += ["--out-dir", path]
-        elif os.path.isfile(path):
-            out.append(path)
-        else:
-            out.append(tok)   # the bridge's own wording for the error
-        i += 1
-    # Keep a '--' so the bridge slices the same way it does under the CLI.
-    return ["blender", "--"] + out
+def make_mat(name, rgba, metallic=0.0, roughness=0.5):
+    if name in bpy.data.materials:
+        return bpy.data.materials[name]
+    mat = bpy.data.materials.new(name=name)
+    mat.use_nodes = True
+    bsdf = mat.node_tree.nodes.get("Principled BSDF")
+    if bsdf:
+        bsdf.inputs["Base Color"].default_value = (*rgba, 1.0)
+        bsdf.inputs["Metallic"].default_value = metallic
+        bsdf.inputs["Roughness"].default_value = roughness
+    return mat
 
 
-# ---------------------------------------------------------------------- #
-# Geometry plumbing (same add-box pattern as produce_generator)            #
-# ---------------------------------------------------------------------- #
-Verts = List[Tuple[float, float, float]]
-Faces = List[Sequence[int]]
+def init_materials():
+    return {
+        "wood_bin": make_mat("Mat_Wooden_Apple_Bin_200kg", (0.64, 0.47, 0.28), 0.0, 0.82),
+        "blue_crate": make_mat("Mat_Blue_Plastic_Crate_17kg", (0.08, 0.42, 0.82), 0.05, 0.36),
+        "apple_red": make_mat("Mat_Kashmiri_Apple_Red", (0.76, 0.08, 0.11), 0.0, 0.24),
+        "steel_rack": make_mat("Mat_Galvanized_Rack", (0.26, 0.32, 0.38), 0.85, 0.28),
+        "evaporator": make_mat("Mat_Evaporator_Unit", (0.82, 0.85, 0.88), 0.72, 0.25),
+        "ca_door": make_mat("Mat_CA_Door_Industrial", (0.88, 0.58, 0.08), 0.45, 0.30),
+        "puf_wall": make_mat("Mat_PUF_Wall_Panel", (0.90, 0.92, 0.94), 0.18, 0.35),
+        "concrete": make_mat("Mat_Industrial_Floor", (0.58, 0.60, 0.59), 0.0, 0.78),
+        "machinery": make_mat("Mat_Grading_Washing_Line", (0.14, 0.48, 0.36), 0.65, 0.32),
+        "corridor_paint": make_mat("Mat_Corridor_Yellow", (0.92, 0.70, 0.03), 0.0, 0.5),
+        "bay_paint": make_mat("Mat_Bay_Teal", (0.06, 0.46, 0.43), 0.0, 0.6),
+    }
 
 
-def _add_box(verts: Verts, faces: Faces, slot_faces: List[List[int]], slot: int,
-             x0: float, y0: float, z0: float, sx: float, sy: float, sz: float) -> None:
-    """One axis-aligned engine-coords box; hexa-face order fixed and reliable."""
-    c = len(verts)
-    cx, cy, cz = x0 + sx / 2.0, y0 + sy / 2.0, z0 + sz / 2.0
-    hx, hy, hz = sx / 2.0, sy / 2.0, sz / 2.0
-    order = ((-hx, -hy, -hz), (hx, -hy, -hz), (hx, hy, -hz), (-hx, hy, -hz),
-             (-hx, -hy, hz), (hx, -hy, hz), (hx, hy, hz), (-hx, hy, hz))
-    for (dx, dy, dz) in order:
-        verts.append((cx + dx, cy + dy, cz + dz))
-    start = len(faces)
-    faces.extend([(c + 0, c + 3, c + 2, c + 1), (c + 4, c + 5, c + 6, c + 7),
-                  (c + 0, c + 1, c + 5, c + 4), (c + 2, c + 3, c + 7, c + 6),
-                  (c + 0, c + 4, c + 7, c + 3), (c + 1, c + 2, c + 6, c + 5)])
-    slot_faces[slot].extend(range(start, len(faces)))
-
-
-def _add_cyl_slot(verts: Verts, faces: Faces, slot_faces: List[List[int]], slot: int,
-                  cx: float, cy: float, cz: float, r: float, depth: float,
-                  axis: str = "y", segs: int = 24) -> None:
-    """An open-ended cylinder shroud (side walls only), normals outward."""
-    start_v = len(verts)
-    for sign in (-0.5, 0.5):
-        ring: List[int] = []
-        for s in range(segs):
-            ph = 2 * math.pi * s / segs
-            a = r * math.cos(ph)
-            b = r * math.sin(ph)
-            off = sign * depth
-            if axis == "y":
-                ring.append(len(verts)); verts.append((cx + a, cy + off, cz + b))
-            else:
-                ring.append(len(verts)); verts.append((cx + off, cy + a, cz + b))
-        for s in range(segs):
-            a0, a1 = ring[s], ring[(s + 1) % segs]
-            b0, b1 = start_v + s, start_v + (s + 1) % segs
-            faces.append((a0, a1, b1, b0) if sign > 0 else (a1, a0, b0, b1))
-    start = len(faces) - segs * 2
-    slot_faces[slot].extend(range(start, len(faces)))
+def _box(bm, sx, sy, sz, cx, cy, cz):
+    cube = bmesh.ops.create_cube(bm, size=1.0)
+    bmesh.ops.scale(bm, vec=(sx, sy, sz), verts=cube["verts"])
+    bmesh.ops.translate(bm, vec=(cx, cy, cz), verts=cube["verts"])
 
 
 # ---------------------------------------------------------------------- #
-# The kit                                                                  #
+# Kit prototypes (user-approved bmesh builders)                            #
 # ---------------------------------------------------------------------- #
-def _kit_collection() -> Any:
-    """A fresh top-level KRT_Kit collection (never inside the facility)."""
-    old = bpy.data.collections.get(KIT_COLL)
-    if old is not None:
-        for ob in [o for o in old.objects]:
-            bpy.data.objects.remove(ob, do_unlink=True)
-        bpy.data.collections.remove(old)
-    for ob in [o for o in bpy.data.objects if o.name.startswith("Kit_")]:
-        bpy.data.objects.remove(ob, do_unlink=True)
-    kit = bpy.data.collections.new(KIT_COLL)
-    bpy.context.scene.collection.children.link(kit)
-    return kit
+def build_wooden_apple_bin_200kg(name, l_m=1.20, w_m=1.00, h_m=0.78, mat=None):
+    """Wooden bulk apple bin on three fork skids, slatted walls, foot at z=0."""
+    mesh = bpy.data.meshes.new(name)
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    bm = bmesh.new()
+
+    fork_h = 0.10
+    post_t = 0.07
+    slat_t = 0.022
+    slat_count = 5
+    usable_h = h_m - fork_h
+
+    for sx in (-l_m / 2 + post_t / 2, 0.0, l_m / 2 - post_t / 2):
+        _box(bm, post_t, w_m, fork_h, sx, 0.0, fork_h / 2)
+
+    _box(bm, l_m, w_m, slat_t, 0.0, 0.0, fork_h + slat_t / 2)
+
+    for px in (-l_m / 2 + post_t / 2, l_m / 2 - post_t / 2):
+        for py in (-w_m / 2 + post_t / 2, w_m / 2 - post_t / 2):
+            _box(bm, post_t, post_t, usable_h, px, py, fork_h + usable_h / 2)
+
+    slat_h = (usable_h * 0.82) / slat_count
+    step_z = usable_h / slat_count
+    for s in range(slat_count):
+        z = fork_h + (s + 0.5) * step_z
+        for py in (-w_m / 2 + slat_t / 2, w_m / 2 - slat_t / 2):
+            _box(bm, l_m, slat_t, slat_h, 0.0, py, z)
+        for px in (-l_m / 2 + slat_t / 2, l_m / 2 - slat_t / 2):
+            _box(bm, slat_t, w_m, slat_h, px, 0.0, z)
+
+    bm.to_mesh(mesh)
+    bm.free()
+    if mat:
+        obj.data.materials.append(mat)
+    return obj
 
 
-def _kit_obj(name: str, me: Any, kit: Any, kit_key: str, unit_m: Sequence[float]) -> Any:
-    ob = bpy.data.objects.new(name, me)
-    ob.location = (0.0, 0.0, 0.0)
-    ob.rotation_euler = (0.0, 0.0, 0.0)
-    # First object slot mirrors the mesh's first material (kept "DATA" linked).
-    ob["krt"] = "kit"
-    ob["kit"] = kit_key
-    ob["size_m"] = [round(float(m), 4) for m in unit_m]
-    kit.objects.link(ob)
+def build_blue_plastic_crate_17kg(name, l_m=0.54, w_m=0.36, h_m=0.29, mat=None):
+    """Ventilated blue HDPE crate: base plate, corner pillars, rib rings."""
+    mesh = bpy.data.meshes.new(name)
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    bm = bmesh.new()
+    wall = 0.018
+    pillar = 0.035
+
+    _box(bm, l_m, w_m, wall, 0.0, 0.0, wall / 2)
+
+    for px in (-l_m / 2 + pillar / 2, l_m / 2 - pillar / 2):
+        for py in (-w_m / 2 + pillar / 2, w_m / 2 - pillar / 2):
+            _box(bm, pillar, pillar, h_m, px, py, h_m / 2)
+
+    for z_frac in (0.30, 0.62, 0.94):
+        rib_h = 0.038 if z_frac < 0.9 else 0.032
+        z = h_m * z_frac
+        for py in (-w_m / 2 + wall / 2, w_m / 2 - wall / 2):
+            _box(bm, l_m, wall, rib_h, 0.0, py, z)
+        for px in (-l_m / 2 + wall / 2, l_m / 2 - wall / 2):
+            _box(bm, wall, w_m, rib_h, px, 0.0, z)
+
+    bm.to_mesh(mesh)
+    bm.free()
+    if mat:
+        obj.data.materials.append(mat)
+    return obj
+
+
+def build_apple_cluster(name, l_m=0.46, w_m=0.28, z_base=0.14, mat=None):
+    """A tight 4x3 crown of Kashmiri apples, one smooth mesh."""
+    mesh = bpy.data.meshes.new(name)
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    bm = bmesh.new()
+    cols, rows = 4, 3
+    rad = min(l_m / (cols * 2.1), w_m / (rows * 2.1))
+    for r in range(rows):
+        for c in range(cols):
+            cx = -l_m / 2 + (c + 0.5) * (l_m / cols)
+            cy = -w_m / 2 + (r + 0.5) * (w_m / rows)
+            sp = bmesh.ops.create_uvsphere(bm, u_segments=8, v_segments=6, radius=rad)
+            bmesh.ops.translate(bm, vec=(cx, cy, z_base), verts=sp["verts"])
+    bm.to_mesh(mesh)
+    bm.free()
+    for p in mesh.polygons:
+        p.use_smooth = True
+    if mat:
+        obj.data.materials.append(mat)
+    return obj
+
+
+def build_evaporator_unit(name, mat):
+    """Ceiling evaporator: casing + three fan shrouds, centred on origin."""
+    mesh = bpy.data.meshes.new(name)
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    bm = bmesh.new()
+    _box(bm, 2.4, 0.65, 0.55, 0.0, 0.0, 0.0)
+    for fx in (-0.75, 0.0, 0.75):
+        cone = bmesh.ops.create_cone(
+            bm, cap_ends=True, segments=14, radius1=0.20, radius2=0.20, depth=0.10
+        )
+        bmesh.ops.rotate(
+            bm, verts=cone["verts"], cent=Vector((0.0, 0.0, 0.0)),
+            matrix=Matrix.Rotation(math.pi / 2, 3, 'X'),
+        )
+        bmesh.ops.translate(bm, verts=cone["verts"], vec=(fx, 0.36, 0.0))
+    bm.to_mesh(mesh)
+    bm.free()
+    obj.data.materials.append(mat)
+    return obj
+
+
+def build_rack_post(name, height_m=4.0, profile=0.075, mat=None):
+    """Galvanised C-profile upright: web plate + two flanges, foot at z=0."""
+    mesh = bpy.data.meshes.new(name)
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    bm = bmesh.new()
+    web_t = 0.008
+    flange_t = 0.006
+    flange_l = profile * 0.84
+    _box(bm, web_t, profile, height_m, 0.0, 0.0, height_m / 2)
+    _box(bm, flange_l, flange_t, height_m, -profile * 0.42, profile / 2 - flange_t / 2, height_m / 2)
+    _box(bm, flange_l, flange_t, height_m, -profile * 0.42, -profile / 2 + flange_t / 2, height_m / 2)
+    bm.to_mesh(mesh)
+    bm.free()
+    if mat:
+        obj.data.materials.append(mat)
+    return obj
+
+
+def build_rack_beam(name, span_m=1.32, height_m=0.063, mat=None):
+    """C-profile load beam spanning one bay, along X, base at z=0."""
+    mesh = bpy.data.meshes.new(name)
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    bm = bmesh.new()
+    web_t = 0.006
+    flange_w = 0.05
+    _box(bm, span_m, web_t, height_m, 0.0, 0.0, height_m / 2)
+    _box(bm, span_m, flange_w, web_t, 0.0, -flange_w / 2 + web_t / 2, height_m - web_t / 2)
+    _box(bm, span_m, flange_w, web_t, 0.0, -flange_w / 2 + web_t / 2, web_t / 2)
+    bm.to_mesh(mesh)
+    bm.free()
+    if mat:
+        obj.data.materials.append(mat)
+    return obj
+
+
+# ---------------------------------------------------------------------- #
+# GLB export                                                               #
+# ---------------------------------------------------------------------- #
+def _export_glb(path):
+    try:
+        bpy.ops.export_scene.gltf(filepath=path, export_format='GLB',
+                                  export_apply=False, export_materials='EXPORT')
+    except TypeError:
+        bpy.ops.export_scene.gltf(filepath=path, export_format='GLB')
+    with open(path, "rb") as fh:
+        data = fh.read()
+    return {"bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
+
+
+def _object_names():
+    return sorted(o.name for o in bpy.data.objects)
+
+
+# ---------------------------------------------------------------------- #
+# Phase 1 — the kit                                                        #
+# ---------------------------------------------------------------------- #
+def build_kit(mats):
+    crate = build_blue_plastic_crate_17kg("Kit_Crate_HDPE", 0.54, 0.36, 0.29, mats["blue_crate"])
+    apples = build_apple_cluster("Kit_Apples_Cluster", 0.46, 0.28, 0.15, mats["apple_red"])
+    bin_200 = build_wooden_apple_bin_200kg("Kit_Pallet_Bin", 1.20, 1.00, 0.78, mats["wood_bin"])
+    post = build_rack_post("Kit_Rack_Post", 4.0, 0.075, mats["steel_rack"])
+    beam = build_rack_beam("Kit_Rack_Beam", 1.32, 0.063, mats["steel_rack"])
+    evap = build_evaporator_unit("Kit_Evaporator", mats["evaporator"])
+
+    crate.location = (0.0, 0.0, 0.0)
+    apples.location = (0.0, 0.0, 0.0)      # the crown sits inside the crate
+    bin_200.location = (2.0, 0.0, 0.0)
+    post.location = (3.6, 0.0, 0.0)
+    beam.location = (5.2, 0.0, 0.0)
+    evap.location = (7.2, 0.0, 0.0)
+
+    got = [o.name for o in bpy.data.objects if o.name.startswith("Kit_")]
+    missing = [n for n in REQUIRED_KIT_NODES if n not in got]
+    if missing:
+        raise RuntimeError("kit missing required nodes: " + ", ".join(missing))
+    return sorted(got)
+
+
+# ---------------------------------------------------------------------- #
+# Phase 2 — the reference facility                                         #
+# ---------------------------------------------------------------------- #
+def _place(name, mesh, loc):
+    ob = bpy.data.objects.new(name, mesh)
+    ob.location = loc
+    bpy.context.collection.objects.link(ob)
     return ob
 
 
-def _build_kit(spec: Any, mats: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Any]:
-    """Six kit prototypes at real-world sizes from the owner's own spec."""
-    from kashroot_coldstore_twin.capacity_engine import (  # type: ignore
-        APPLE_DIAMETER_M, APPLES_PER_CRATE_TOP,
-    )
-    from kashroot_coldstore_twin.produce_generator import (  # type: ignore
-        apple_cluster_mesh, crate_boxes, mesh_from_faces,
-    )
+def _make_master(builder, name, *args, **kw):
+    """Build a prototype via its kit builder, keep only the mesh datablock.
 
-    cr = spec.chambers[0].crate
-    rk = spec.chambers[0].rack
-    L, W, H = float(cr.crate_length_m), float(cr.crate_width_m), float(cr.crate_height_m)
-    is_bin = str(cr.material_type) == "WOODEN_BIN"
-    wall = 0.012 if is_bin else 0.008
-    levels = max(1, int(rk.num_levels))
-    pitch = H + max(0.0, float(rk.level_clearance_m))
-    upright = max(0.04, float(rk.upright_width_m or 0.075))
-    post_h = max(float(rk.rack_height_m), levels * pitch + 0.10)
-    post_h = min(post_h, 16.0)
-    bay = 1.2
-
-    kit = _kit_collection()
-    pieces: List[Dict[str, Any]] = []
-
-    # -- Kit_Apples_Cluster: the booked-crate crown, red / gold / stem slots -- #
-    me = apple_cluster_mesh("Kit_Apples_Cluster", APPLES_PER_CRATE_TOP[0],
-                            APPLES_PER_CRATE_TOP[1], L, W, APPLE_DIAMETER_M)
-    assert me is not None
-    for key in ("apple_cosse_red", "apple_gold", "apple_stem"):
-        me.materials.append(mats[key])
-    _kit_obj("Kit_Apples_Cluster", me, kit, "apples", [L, W, APPLE_DIAMETER_M])
-    pieces.append({"name": "Kit_Apples_Cluster", "role": "apple crown per booked crate",
-                   "materials": ["apple_cosse_red", "apple_gold", "apple_stem"],
-                   "size_m": {"crate_length": L, "crate_width": W, "apple_diameter": APPLE_DIAMETER_M}})
-
-    # -- Kit_Crate_HDPE (the store's own ventilated unit) and Kit_Pallet_Bin -- #
-    box = crate_boxes(L, W, H, wall)          # centred, z-up, engine words
-    crate_verts: Verts = []
-    crate_faces: Faces = []
-    crate_slot: List[List[int]] = [[]]
-    for bx, by, bz, sx, sy, sz in box:
-        _add_box(crate_verts, crate_faces, crate_slot, 0, bx, by, bz, sx, sy, sz)
-    me = mesh_from_faces("Kit_Crate_HDPE", crate_verts, [tuple(f) for f in crate_faces])
-    assert me is not None
-    me.materials.append(mats["hdpe_red"])
-    _kit_obj("Kit_Crate_HDPE", me, kit, "crate", [L, W, H])
-    pieces.append({"name": "Kit_Crate_HDPE", "role": "ventilated HDPE crate",
-                   "materials": ["hdpe_red"],
-                   "size_m": {"length": L, "width": W, "height": H}})
-
-    bin_verts: Verts = []
-    bin_faces: Faces = []
-    bin_slot: List[List[int]] = [[]]
-    for bx, by, bz, sx, sy, sz in crate_boxes(1.2, 1.0, 0.75, 0.012):
-        _add_box(bin_verts, bin_faces, bin_slot, 0, bx, by, bz, sx, sy, sz)
-    for cx in (-0.42, 0.0, 0.42):                       # pallet skids under it
-        _add_box(bin_verts, bin_faces, bin_slot, 0, cx - 0.06, -0.45, -0.375 - 0.085, 0.12, 0.9, 0.085)
-    me = mesh_from_faces("Kit_Pallet_Bin", bin_verts, [tuple(f) for f in bin_faces])
-    assert me is not None
-    me.materials.append(mats["wood_bin"])
-    _kit_obj("Kit_Pallet_Bin", me, kit, "bin", [1.2, 1.0, 0.835])
-    pieces.append({"name": "Kit_Pallet_Bin", "role": "wooden bulk bin on pallet skids",
-                   "materials": ["wood_bin"],
-                   "size_m": {"length": 1.2, "width": 1.0, "height": 0.835}})
-
-    # -- Kit_Rack_Post: C-profile galvanised upright, full rack height ----- #
-    verts, faces, slots = [], [], [[]]
-    _add_box(verts, faces, slots, 0, -0.003, -upright / 2.0, -post_h / 2.0, 0.006, upright, post_h)
-    _add_box(verts, faces, slots, 0, -upright * 0.42, upright / 2.0 - 0.006, -post_h / 2.0, upright * 0.84, 0.006, post_h)
-    _add_box(verts, faces, slots, 0, -upright * 0.42, -upright / 2.0, -post_h / 2.0, upright * 0.84, 0.006, post_h)
-    me = mesh_from_faces("Kit_Rack_Post", verts, [tuple(f) for f in faces])
-    assert me is not None
-    me.materials.append(mats["rack_steel"])
-    _kit_obj("Kit_Rack_Post", me, kit, "post", [upright * 0.84, upright, post_h])
-    pieces.append({"name": "Kit_Rack_Post", "role": "galvanised C-profile upright",
-                   "materials": ["rack_steel"],
-                   "size_m": {"profile": upright, "height": post_h}})
-
-    # -- Kit_Rack_Beam: the C-step beam spanning one bay ------------------- #
-    verts, faces, slots = [], [], [[]]
-    bh = min(0.063, H * 0.2)
-    _add_box(verts, faces, slots, 0, -bay / 2.0, -0.025, -bh / 2.0, bay, 0.05, 0.006)
-    _add_box(verts, faces, slots, 0, -bay / 2.0, -0.025, -bh / 2.0, bay, 0.006, bh)
-    _add_box(verts, faces, slots, 0, -bay / 2.0, 0.019, -bh / 2.0, bay, 0.006, bh)
-    me = mesh_from_faces("Kit_Rack_Beam", verts, [tuple(f) for f in faces])
-    assert me is not None
-    me.materials.append(mats["rack_steel"])
-    _kit_obj("Kit_Rack_Beam", me, kit, "beam", [bay, 0.05, bh])
-    pieces.append({"name": "Kit_Rack_Beam", "role": "C-profile load beam (one bay)",
-                   "materials": ["rack_steel"],
-                   "size_m": {"span": bay, "height": bh}})
-
-    # -- Kit_Evaporator: ceiling unit, casing + triple fan shrouds + grille- #
-    verts, faces, slots = [], [], [[], [], []]  # 0 body 1 fans 2 grille
-    cl, cw, ch = 1.4, min(0.62, W * 1.8), min(1.0, H * 3.0)
-    _add_box(verts, faces, slots, 0, -cl / 2.0, -cw / 2.0, -ch / 2.0, cl, cw, ch)
-    fan_r = min(0.17, cw * 0.32)
-    for i in range(3):
-        fx = -cl / 2.0 + cl * (i + 0.5) / 3.0
-        _add_cyl_slot(verts, faces, slots, 1, fx, cw / 2.0 + 0.055, 0.08, fan_r, 0.11, "y")
-    _add_box(verts, faces, slots, 2, -cl / 2.0 + 0.02, cw / 2.0 - 0.055, -ch / 2.0 + 0.19, cl - 0.04, 0.02, ch - 0.22)
-    me = mesh_from_faces("Kit_Evaporator", verts, [tuple(f) for f in faces])
-    assert me is not None
-    for key in ("evap_body", "fan_dark", "wire_mesh"):
-        me.materials.append(mats[key])
-    _kit_obj("Kit_Evaporator", me, kit, "evap", [cl, cw, ch])
-    pieces.append({"name": "Kit_Evaporator", "role": "ceiling evaporator, triple fan shrouds",
-                   "materials": ["evap_body", "fan_dark", "wire_mesh"],
-                   "size_m": {"length": cl, "width": cw, "height": ch}})
-
-    return pieces, kit
+    Facility placements share the mesh; the temporary object is removed so
+    nothing hidden or unused ever reaches the GLB."""
+    ob = builder(name, *args, **kw)
+    me = ob.data
+    bpy.data.objects.remove(ob, do_unlink=True)
+    return me
 
 
-# ---------------------------------------------------------------------- #
-# Exporters                                                                #
-# ---------------------------------------------------------------------- #
-def _walk(coll: Any) -> List[Any]:
-    out: List[Any] = list(coll.objects)
-    for ch in coll.children:
-        out += _walk(ch)
-    return out
+def _simple_box_mesh(mat, sx, sy, sz, mesh_name):
+    mesh = bpy.data.meshes.new(mesh_name)
+    bm = bmesh.new()
+    _box(bm, sx, sy, sz, 0.0, 0.0, 0.0)
+    bm.to_mesh(mesh)
+    bm.free()
+    mesh.materials.append(mat)
+    return mesh
 
 
-def _facility_objects() -> List[Any]:
-    root = bpy.data.collections.get("KRT_Twin")
-    if root is None:
-        return []
-    return [ob for ob in _walk(root) if ob.type != "LIGHT"]
+def build_facility(mats):
+    counts = {"woodenBins": 0, "blueCrates": 0, "rackPosts": 0, "rackBeams": 0}
 
+    # masters share one mesh datablock; the GLB keeps one mesh, many nodes
+    bin_mesh = _make_master(build_wooden_apple_bin_200kg, "Ref_Bin_Master",
+                            1.20, 1.00, 0.78, mat=mats["wood_bin"])
+    crate_mesh = _make_master(build_blue_plastic_crate_17kg, "Ref_Crate_Master",
+                              0.54, 0.36, 0.29, mat=mats["blue_crate"])
+    post_mesh = _make_master(build_rack_post, "Ref_Post_Master",
+                             4.0, 0.075, mat=mats["steel_rack"])
+    short_post_mesh = _make_master(build_rack_post, "Ref_Post_Short_Master",
+                                   2.4, 0.075, mat=mats["steel_rack"])
+    beam_mesh = _make_master(build_rack_beam, "Ref_Beam_Master",
+                             1.32, 0.063, mat=mats["steel_rack"])
+    crate_beam_mesh = _make_master(build_rack_beam, "Ref_Beam_Small_Master",
+                                   0.62, 0.063, mat=mats["steel_rack"])
+    evap_mesh = _make_master(build_evaporator_unit, "Ref_Evap_Master",
+                             mat=mats["evaporator"])
 
-def _kit_objects(kit: Any) -> List[Any]:
-    return [ob for ob in _walk(kit) if ob.type != "LIGHT"]
+    # floor + perimeter PUF walls
+    _place("Fac_Floor", _simple_box_mesh(mats["concrete"], 30.6, 16.6, 0.3, "Fac_Floor_Mesh"), (0.0, 0.0, 0.15))
+    for name, loc, size in (
+        ("Fac_Wall_S", (0.0, -8.125, 4.3), (30.6, 0.25, 8.0)),
+        ("Fac_Wall_N", (0.0, 8.125, 4.3), (30.6, 0.25, 8.0)),
+        ("Fac_Wall_W", (-15.125, 0.0, 4.3), (0.25, 16.5, 8.0)),
+        ("Fac_Wall_E", (15.125, 0.0, 4.3), (0.25, 16.5, 8.0)),
+        ("Fac_Door_CA", (15.0, 0.0, 1.9), (0.35, 3.2, 3.2)),
+    ):
+        mat = mats["ca_door"] if name.endswith("CA") else mats["puf_wall"]
+        _place(name, _simple_box_mesh(mat, *size, name + "_Mesh"), loc)
 
+    # corridor + operational-bay floor paint
+    _place("Fac_Corridor", _simple_box_mesh(mats["corridor_paint"], 24.0, 4.0, 0.04, "Fac_Corridor_Mesh"), (2.0, 0.0, 0.32))
+    _place("Fac_Bay", _simple_box_mesh(mats["bay_paint"], 5.0, 16.0, 0.04, "Fac_Bay_Mesh"), (-12.5, 0.0, 0.32))
 
-def _apply_selection(objects: List[Any]) -> int:
-    for ob in bpy.context.view_layer.objects:
-        ob.select_set(False)
-    sel = 0
-    for ob in objects:
-        try:
-            ob.select_set(True)
-            sel += 1
-        except RuntimeError:
-            pass  # object is not in the view layer
-    return sel
+    # machinery / grading-washing line in the operational bay
+    for name, loc, size in (
+        ("Fac_Grading_Line_A", (-13.0, -3.0, 1.0), (3.0, 1.8, 1.4)),
+        ("Fac_Grading_Line_B", (-13.0, 3.0, 1.0), (3.0, 1.8, 1.4)),
+        ("Fac_Packing_Table", (-11.3, 0.0, 0.75), (2.0, 1.0, 0.9)),
+    ):
+        _place(name, _simple_box_mesh(mats["machinery"], *size, name + "_Mesh"), loc)
 
+    # chamber shells (PUF, open toward the corridor side is the LEFT chamber)
+    for name, loc, size in (
+        ("Fac_Chamber_L_Wall_Front", (0.0, -2.125, 2.8), (19.5, 0.25, 5.0)),
+        ("Fac_Chamber_L_Wall_Back", (0.0, -7.875, 2.8), (19.5, 0.25, 5.0)),
+        ("Fac_Chamber_L_Wall_West", (-9.625, -5.0, 2.8), (0.25, 5.5, 5.0)),
+        ("Fac_Chamber_L_Wall_East", (9.625, -5.0, 2.8), (0.25, 5.5, 5.0)),
+        ("Fac_Chamber_R_Wall_Front", (0.0, 2.125, 2.8), (19.5, 0.25, 5.0)),
+        ("Fac_Chamber_R_Wall_Back", (0.0, 7.875, 2.8), (19.5, 0.25, 5.0)),
+        ("Fac_Chamber_R_Wall_West", (-9.625, 5.0, 2.8), (0.25, 5.5, 5.0)),
+        ("Fac_Chamber_R_Wall_East", (9.625, 5.0, 2.8), (0.25, 5.5, 5.0)),
+    ):
+        _place(name, _simple_box_mesh(mats["puf_wall"], *size, name + "_Mesh"), loc)
 
-def _export_glb(path: str, objects: List[Any]) -> Dict[str, Any]:
-    from kashroot_coldstore_twin.glb_exporter import verify_glb  # type: ignore
+    # LEFT chamber: wooden pallet bins on racks (double-deep, 4 levels)
+    pitch_x, pitch_y, pitch_z = 1.32, 1.12, 0.92
+    cols, rows, levels = 13, 2, 4
+    beam_y = (-7.19, -2.81)
+    for i in range(cols + 1):
+        px = -8.58 + i * pitch_x
+        for py in beam_y:
+            _place("Fac_Post_L_%02d_%d" % (i, int(py > 0)), post_mesh, (px, py, 0.3))
+            counts["rackPosts"] += 1
+    for lvl in range(levels):
+        bz = 0.36 + lvl * pitch_z
+        for i in range(cols):
+            bx = -7.92 + i * pitch_x
+            for by in beam_y:
+                _place("Fac_Beam_L_%d_%02d_%d" % (lvl, i, int(by > 0)), beam_mesh, (bx, by, bz))
+                counts["rackBeams"] += 1
+        for r in range(rows):
+            by = (-6.69, -3.31)[r]
+            for i in range(cols):
+                bx = -7.92 + i * pitch_x
+                _place("Fac_Bin_L_%d_%02d_%d" % (lvl, r, i), bin_mesh, (bx, by, bz + 0.39))
+                counts["woodenBins"] += 1
 
-    sel = _apply_selection(objects)
-    if sel == 0:
-        raise RuntimeError(f"{os.path.basename(path)}: nothing selectable in the view layer")
-    try:
-        bpy.ops.export_scene.gltf(filepath=path, use_selection=True, export_format="GLB",
-                                  export_yup=True, export_materials="EXPORT", export_extras=True)
-    except TypeError:
-        bpy.ops.export_scene.gltf(filepath=path, use_selection=True, export_format="GLB")
-    got = verify_glb(path)
-    with open(path, "rb") as fh:
-        data = fh.read()
-    keep = ("nodes", "meshes", "accessors", "materials", "instanced_nodes", "extras_nodes")
-    return {"bytes": len(data), "sha256": hashlib.sha256(data).hexdigest(),
-            **{k: got[k] for k in keep if k in got}}
+    # RIGHT chamber: blue plastic crates on light racks (4 deep, 5 levels)
+    cp_x, cp_z = 0.62, 0.41
+    c_cols, c_rows, c_levels = 20, 4, 5
+    c_beam_y = (3.03, 6.47)
+    for i in range(c_cols + 1):
+        px = -6.2 + i * cp_x
+        for py in c_beam_y:
+            _place("Fac_Post_R_%02d_%d" % (i, int(py > 4)), short_post_mesh, (px, py, 0.3))
+            counts["rackPosts"] += 1
+    for lvl in range(c_levels):
+        bz = 0.36 + lvl * cp_z
+        for i in range(c_cols):
+            bx = -5.89 + i * cp_x
+            for by in c_beam_y:
+                _place("Fac_CBeam_R_%d_%02d_%d" % (lvl, i, int(by > 4)), crate_beam_mesh, (bx, by, bz))
+                counts["rackBeams"] += 1
+        for r in range(c_rows):
+            by = 3.3 + r * (6.2 - 3.3) / (c_rows - 1)
+            for i in range(c_cols):
+                bx = -5.89 + i * cp_x
+                _place("Fac_Crate_R_%d_%02d_%d" % (lvl, r, i), crate_mesh, (bx, by, bz + 0.145))
+                counts["blueCrates"] += 1
+
+    # ceiling evaporators, one per chamber
+    _place("Fac_Evap_L", evap_mesh, (-4.0, -5.0, 6.4))
+    _place("Fac_Evap_R", evap_mesh, (-4.0, 5.0, 6.4))
+
+    return counts
 
 
 # ---------------------------------------------------------------------- #
 # Main                                                                     #
 # ---------------------------------------------------------------------- #
-def main() -> int:
-    print(f"[bgen] Blender {bpy.app.version_string}", flush=True)
+def export_all(output_dir):
+    os.makedirs(output_dir, exist_ok=True)
 
-    def _coll(name: str, parent: Any = None) -> Any:
-        """The package's own collection helper: reuse-or-create and link."""
-        c = bpy.data.collections.get(name)
-        if c is None:
-            c = bpy.data.collections.new(name)
-        if parent is None:
-            parent = bpy.context.scene.collection
-        if name not in [ch.name for ch in parent.children]:
-            try:
-                parent.children.link(c)
-            except RuntimeError:
-                pass  # already linked here
-        return c
+    # Phase 1: the six-node kit
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    mats = init_materials()
+    kit_nodes = build_kit(mats)
+    kit_path = os.path.join(output_dir, KIT_GLB)
+    kit_stats = _export_glb(kit_path)
+    print("[bgen] kit written: %s" % json.dumps(kit_stats), flush=True)
 
-    import blender_kashroot_bridge as bridge  # type: ignore
-
-    payload_raw = bridge.load_payload(_normalize_argv(sys.argv))
-    out_dir = os.path.abspath(getattr(bridge, "_OUT", None) or os.environ.get("KASHROOT_BRIDGE_OUT")
-                              or os.path.join(_ROOT, "public", "models"))
-    os.makedirs(out_dir, exist_ok=True)
-
-    if payload_raw.get("$schema", "").startswith("kashroot_coldstore_twin") or "panel" in (payload_raw.get("building") or {}):
-        spec, _spec_dict = bridge.to_spec(payload_raw)
-    else:
-        spec, _spec_dict = bridge.to_spec(bridge.materialize(payload_raw))
-
-    from kashroot_coldstore_twin import geometry_builder as gb  # type: ignore
-    from kashroot_coldstore_twin.capacity_engine import build_model, capacity_summary  # type: ignore
-    from kashroot_coldstore_twin.geometry_builder import build_facility, clear_scene, _materials  # type: ignore
-
-    gb._coll = _coll  # the package calls its collection helper by module name
-
-    model = build_model(spec)
-
-    # geometry_builder reads the interior bounds as the engine's own
-    # 6-tuple (x0,y0,z0,x1,y1,z1); the export dict keeps only [x0,y0,z0]
-    # under "min" — hand the builder a copy it can walk endpoint to endpoint.
-    env = model["envelope"]
-    env6 = dict(env)
-    env6["min"] = [env["min"][0], env["min"][1], env["min"][2],
-                   env["max"][0], env["max"][1], env["max"][2]]
-    model_for_scene = dict(model)
-    model_for_scene["envelope"] = env6
-
-    clear_scene()
-    build_stats = build_facility(spec, model_for_scene)
-    mats = _materials()          # reuses the krt.* datablocks the build made
-
-    pieces, kit = _build_kit(spec, mats)
-
-    kit_path = os.path.join(out_dir, KIT_GLB)
-    facility_path = os.path.join(out_dir, FACILITY_GLB)
-    kit_stats = _export_glb(kit_path, _kit_objects(kit))
-    print(f"[bgen] kit written: {kit_stats}", flush=True)
-    facility_stats = _export_glb(facility_path, _facility_objects())
-    print(f"[bgen] facility written: {facility_stats}", flush=True)
-    # The .blend path exports one node per real object (the web instances the
-    # kit itself), so require a real scene, not glTF instancing.
-    if facility_stats.get("nodes", 0) < 40 or facility_stats.get("meshes", 0) < 10:
-        raise RuntimeError("facility GLB looks incomplete")
-    if len(pieces) != 6:
-        raise RuntimeError(f"kit must hold six prototypes, built {len(pieces)}")
+    # Phase 2: the reference facility
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    mats = init_materials()
+    counts = build_facility(mats)
+    facility_path = os.path.join(output_dir, FACILITY_GLB)
+    facility_stats = _export_glb(facility_path)
+    print("[bgen] facility written: %s" % json.dumps(facility_stats), flush=True)
 
     meta = {
+        "ok": True,
         "generator": "Blender 5.2.3 LTS",
         "blender_version": bpy.app.version_string,
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "facility_name": spec.facility_name,
-        "capacity": model["totals"],
-        "summary": capacity_summary(spec),
-        "scene": {"collections": build_stats.get("collections"), "objects": build_stats.get("objects"),
-                  "chambers": len(spec.chambers)},
-        "kit": pieces,
-        "files": {
-            "kit": {"filename": KIT_GLB, **{k: kit_stats[k] for k in ("bytes", "sha256", "nodes", "meshes", "materials")}},
-            "facility_glb": {"filename": FACILITY_GLB,
-                             **{k: facility_stats[k] for k in ("bytes", "sha256", "nodes", "meshes", "accessors",
-                                                               "materials", "instanced_nodes")}},
+        "storageTypes": {
+            "WOODEN_BIN": {"defaultCapacityKg": 200, "dimensionsMeters": [1.20, 1.00, 0.78]},
+            "PLASTIC_CRATE": {"defaultCapacityKg": 16.5, "dimensionsMeters": [0.54, 0.36, 0.29]},
         },
-        "kit_glb_nodes": [p["name"] for p in pieces],
+        "kit": {"file": KIT_GLB, "nodes": kit_nodes, **kit_stats},
+        "facility": {
+            "file": FACILITY_GLB,
+            "note": "generic reference facility; live capacity and occupancy come from the database",
+            "referenceLayout": counts,
+            **facility_stats,
+        },
     }
-    meta_path = os.path.join(out_dir, METADATA)
-    with open(meta_path, "w", encoding="utf-8", newline="\n") as fh:
-        json.dump(meta, fh, indent=1, ensure_ascii=False)
-        fh.write("\n")
+    meta_path = os.path.join(output_dir, METADATA)
+    with open(meta_path, "w", encoding="utf-8") as f:
+        json.dump(meta, f, indent=2)
+        f.write("\n")
 
     result = {
         "ok": True,
         "blender": bpy.app.version_string,
-        "facility_name": spec.facility_name,
-        "kit": pieces,
-        "files": meta["files"],
-        "totals": model["totals"],
-        "out_dir": out_dir,
+        "kitNodes": kit_nodes,
+        "files": {
+            KIT_GLB: kit_stats,
+            FACILITY_GLB: facility_stats,
+            METADATA: {"bytes": os.path.getsize(meta_path)},
+        },
+        "referenceLayout": counts,
+        "out_dir": output_dir,
     }
-    print("[bgen] RESULT " + json.dumps(result, ensure_ascii=False), flush=True)
+    print("[bgen] RESULT " + json.dumps(result), flush=True)
     return 0
 
 
 if __name__ == "__main__":
+    argv = sys.argv
+    args = argv[argv.index("--") + 1:] if "--" in argv else []
+    out = args[-1] if args else os.path.join(os.getcwd(), "public", "models")
     try:
-        raise SystemExit(main())
-    except SystemExit:
-        raise
+        code = export_all(out)
     except Exception as exc:  # noqa: BLE001 - one machine-readable line
         import traceback
         traceback.print_exc()
-        print("[bgen] RESULT " + json.dumps({"ok": False, "error": f"{type(exc).__name__}: {exc}"}, ensure_ascii=False))
-        raise SystemExit(1)
+        print("[bgen] RESULT " + json.dumps({"ok": False, "error": "%s: %s" % (type(exc).__name__, exc)}), flush=True)
+        code = 1
+    raise SystemExit(code)

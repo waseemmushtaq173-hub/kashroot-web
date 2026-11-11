@@ -25,7 +25,7 @@
  * closes. Without WebGL the Drawing is the way.
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { DoorOpen, Footprints, Layers, Maximize2, ScanEye, Volume2, X } from 'lucide-react';
+import { DoorOpen, Factory, Footprints, Layers, Maximize2, ScanEye, Volume2, X } from 'lucide-react';
 
 import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
 import { loadColdKitGeo } from '@/components/rental/three/coldKit';
@@ -283,6 +283,7 @@ export function ColdStore3D({
   onView,
   mineName,
   stackOf,
+  onOpenTwin,
 }: {
   chambers: ColdChamber[];
   stateOf: (c: ColdChamber, slot: string) => Look;
@@ -303,6 +304,8 @@ export function ColdStore3D({
   mineName?: string;
   /** Who holds one place (owner views): a sentence for the crate drawer read from the bookings, or null. */
   stackOf?: (c: ColdChamber, slot: string) => string | null;
+  /** Owner preview only: opens the industrial digital twin for the same store (Preview3D). */
+  onOpenTwin?: () => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const tip = useRef<HTMLDivElement>(null);
@@ -1523,6 +1526,11 @@ export function ColdStore3D({
             {walking ? `Go to ${c.name}` : c.name}
           </button>
         ))}
+        {onOpenTwin && (
+          <button type="button" onClick={onOpenTwin} className={chip(false)}>
+            <Factory className="h-4 w-4" aria-hidden /> Digital twin
+          </button>
+        )}
         <span aria-label="What the store holds" className="ml-auto inline-flex min-h-[36px] items-center rounded-xl bg-white px-3 text-xs font-semibold uppercase tracking-wide text-slate-600 ring-1 ring-slate-200">
           {kinds.size === 1 ? UNIT_MANY[[...kinds][0]] : 'Places'}
         </span>
