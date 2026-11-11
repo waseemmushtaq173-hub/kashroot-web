@@ -306,9 +306,9 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
           <Field label="Capacity of 1 box (kg)">
             <input type="number" inputMode="decimal" min={0.1} step="0.1" className={`${INPUT} min-h-11 cursor-pointer relative z-10`} value={v.box_capacity_kg ?? ''} placeholder="e.g. 18" onChange={(e) => set('box_capacity_kg', Number(e.target.value) || null)} />
             {/* The 6 quick presets directly below the input. */}
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
+            <div className="pointer-events-auto relative z-10 mt-1.5 flex flex-wrap gap-1.5">
               {CAPACITY_PRESETS.map((p) => (
-                <button key={p} type="button" aria-pressed={capacityKg === p} onClick={() => set('box_capacity_kg', p)} className={`relative z-10 min-h-9 cursor-pointer rounded-lg border px-3 text-sm font-bold transition-colors ${capacityKg === p ? 'bg-emerald-700 text-white border-emerald-700 font-semibold shadow-sm' : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-600 hover:text-emerald-800'}`}>
+                <button key={p} type="button" aria-pressed={capacityKg === p} onClick={(e) => { e.preventDefault(); e.stopPropagation(); set('box_capacity_kg', p); }} className={`relative z-10 min-h-9 cursor-pointer rounded-lg border px-3 text-sm font-bold transition-colors ${capacityKg === p ? 'bg-emerald-600 text-white border-emerald-600 shadow-md ring-2 ring-emerald-400' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>
                   {p} kg
                 </button>
               ))}
@@ -323,11 +323,11 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
             <p className="text-xs text-slate-500">Net weight of one box. Buyers see the rate per kg and total lot weight.</p>
           </Field>
           <Field label="Packing layers (per box)">
-            <div className="flex flex-wrap gap-1.5">
+            <div className="pointer-events-auto relative z-10 flex flex-wrap gap-1.5">
               {LAYER_PRESETS.map((preset) => (
-                <button key={preset.value} type="button" aria-pressed={v.packing_layers === preset.value} onClick={() => { set('packing_layers', preset.value); set('apples_per_box', preset.hint.split('·')[1]?.trim() ?? null); }} className={`relative z-10 min-h-10 cursor-pointer rounded-lg border-2 px-3 py-1 text-start text-xs leading-tight transition-colors ${v.packing_layers === preset.value ? 'bg-emerald-50 border-2 border-emerald-700 text-emerald-950 font-semibold shadow-sm' : 'bg-white text-slate-700 border-slate-200 hover:border-emerald-400'}`}>
-                  <span className="block">{v.packing_layers === preset.value ? '✓ ' : ''}{preset.label}</span>
-                  <span className={`block text-[10px] ${v.packing_layers === preset.value ? 'text-emerald-700' : 'text-slate-400'}`}>{preset.hint}</span>
+                <button key={preset.value} type="button" aria-pressed={v.packing_layers === preset.value} onClick={(e) => { e.preventDefault(); e.stopPropagation(); set('packing_layers', preset.value); set('apples_per_box', preset.hint.split('·')[1]?.trim() ?? null); }} className={`relative z-10 min-h-10 cursor-pointer rounded-lg border-2 px-3 py-1 text-start text-xs leading-tight transition-colors ${v.packing_layers === preset.value ? 'bg-emerald-600 text-white border-emerald-600 shadow-md ring-2 ring-emerald-400' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>
+                  <span className="block font-bold">{v.packing_layers === preset.value ? '✓ ' : ''}{preset.label}</span>
+                  <span className={`block text-[10px] ${v.packing_layers === preset.value ? 'text-white/85' : 'text-slate-400'}`}>{preset.hint}</span>
                 </button>
               ))}
             </div>
