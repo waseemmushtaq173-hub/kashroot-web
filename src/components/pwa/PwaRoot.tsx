@@ -6,7 +6,8 @@
  * - Real connectivity detection with health checks
  * - Signed data pack sync (ECDSA P-256 verified)
  * - Outbox with idempotency keys
- * - Offline banner: "No internet. Showing saved data from [time]"
+ * - Online-first banner (src/lib/connectivity.ts): shown only when the
+ *   browser is offline AND the live health probe fails; never a false claim
  * - Payment routes never cached; money actions blocked offline
  */
 
@@ -19,7 +20,7 @@ import { toast } from '@/lib/client/toast';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 
 import { onOutboxChange, outbox, type OutboxItem } from './idb';
-import { useConnectivity, checkConnectivity, startConnectivityChecks, formatLatency, isRecentlyOnline } from './connectivity';
+import { useOnlineFirst, startOnlineFirstChecks } from '@/lib/connectivity';
 import { currentUserId, flushOutbox } from './outboxSend';
 import { forgetSavedCopies, savedTime } from './savedCopies';
 import { loadDataPackPublicKey, startDataPackSync, getCachedDataPack, type DataPackPayload } from './dataPackSync';
@@ -104,7 +105,7 @@ async function savedPageTime(path: string): Promise<number | null> {
 
 export function PwaRoot() {
   const pathname = usePathname();
-  const connectivity = useConnectivity();
+  const connectivity = useOnlineFirst();
   const [userId, setUserId] = useState<string | null>(null);
   const [items, setItems] = useState<OutboxItem[]>([]);
   const [open, setOpen] = useState(false);
@@ -140,7 +141,7 @@ export function PwaRoot() {
 
   // Connectivity checks (real health checks, not just navigator.onLine)
   useEffect(() => {
-    connectivityCheckStop.current = startConnectivityChecks();
+    connectivityCheckStop.current = startOnlineFirstChecks();
     return () => connectivityCheckStop.current?.();
   }, []);
 
@@ -236,8 +237,10 @@ export function PwaRoot() {
 
   return (
     <>
-      {/* Offline banner */}
-      {!connectivity.online && (
+      {/* Offline banner — ONLY when the browser is offline AND the live health
+          probe failed. It never claims data is being shown unless a saved copy
+          with a real timestamp is actually on screen. */}
+      {!connectivity.online && connectivity.browserOnline === false && (
         <>
           <div aria-hidden className="h-32" />
           <div
@@ -250,13 +253,40 @@ export function PwaRoot() {
             <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-2">
               <WifiOff className="h-7 w-7 shrink-0 text-amber-300" aria-hidden />
               <p className="min-w-0 flex-1 text-base font-medium leading-snug">
-                No internet — showing saved data{shownAt ? ` from ${savedTime(shownAt)}` : ' on this phone'}.
-                {isMoneyPage && ' Payments, bookings and KYC need internet.'}
-                {!isMoneyPage && ' Your actions will be sent when you are back online.'}
+                No internet connection right now.{' '}
+                {shownAt ? `You are viewing a saved copy from ${savedTime(shownAt)}.` : 'Some pages may open from saved copies on this phone.'}
+                {isMoneyPage ? ' Payments, bookings and KYC need the internet — they are never done from saved copies.' : ' New actions are kept safely on this phone and sent when you are back online.'}
               </p>
               {waiting > 0 && (
                 <button type="button" onClick={() => setOpen(true)} className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-xl bg-amber-300 px-4 text-base font-bold text-slate-950 hover:bg-amber-200">
                   <CloudUpload className="h-5 w-5" aria-hidden /> {chipLabel}
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* KashRoot unreachable while the internet itself looks fine: an accurate,
+          service-specific notice — never a fake "No Internet Connection". */}
+      {!connectivity.online && connectivity.browserOnline !== false && (
+        <>
+          <div aria-hidden className="h-20" />
+          <div
+            ref={bannerRef}
+            role="status"
+            aria-live="polite"
+            className="fixed inset-x-0 bottom-0 z-[60] border-t-4 border-amber-300 bg-amber-50 px-4 py-2.5 text-amber-950 shadow-[0_-8px_30px_rgba(15,23,42,0.2)]"
+            style={{ paddingBottom: 'max(0.6rem, env(safe-area-inset-bottom))' }}
+          >
+            <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-3 gap-y-2">
+              <AlertCircle className="h-6 w-6 shrink-0 text-amber-600" aria-hidden />
+              <p className="min-w-0 flex-1 text-sm font-medium leading-snug">
+                KashRoot is not responding just now — your internet looks fine. Nothing new has been sent yet; it is kept safe and retried automatically.
+              </p>
+              {waiting > 0 && (
+                <button type="button" onClick={() => setOpen(true)} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-amber-400 px-3.5 text-sm font-bold text-amber-950 hover:bg-amber-300">
+                  <CloudUpload className="h-4 w-4" aria-hidden /> {chipLabel}
                 </button>
               )}
             </div>

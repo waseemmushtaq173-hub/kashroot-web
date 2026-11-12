@@ -8,7 +8,7 @@
  * under 100 ms with no hardware permission prompt. Once the camera is requested
  * the <video> element stays mounted the whole time (the spinner overlays it), so
  * `videoRef.current` is never null when the stream arrives. A 2-step constraint
- * request with a 2.5 s timeout guard falls back to the plainest laptop webcam,
+ * request with a 1.5 s timeout guard falls back to the plainest laptop webcam,
  * and decoding runs live via the browser's BarcodeDetector with bundled
  * ZXing-wasm / jsQR fallbacks (no CDN — the CSP blocks third-party scripts).
  * An "Upload QR / Label Image from Device" input sits next to the live feed so
@@ -90,7 +90,7 @@ async function decodeCanvas(canvas: HTMLCanvasElement, thorough = false): Promis
  * after `ms` the slow request is abandoned (its tracks are stopped if it ever
  * resolves) and the caller falls back to the plainest constraints.
  */
-function requestStreamWithTimeout(constraints: MediaStreamConstraints, ms = 2500): Promise<MediaStream> {
+function requestStreamWithTimeout(constraints: MediaStreamConstraints, ms = 1500): Promise<MediaStream> {
   return new Promise((resolve, reject) => {
     let settled = false;
     const request = navigator.mediaDevices.getUserMedia(constraints);
@@ -191,7 +191,7 @@ export function QRCodeScanner({ onResult, onClose, allowedDomains = [], isOfflin
   /**
    * 2-step constraint request: the rich constraints first (rear camera, 720p),
    * then — on OverconstrainedError / NotFoundError / NotReadableError or if it
-   * takes longer than 2.5 s (slow Windows laptop webcam) — the plainest
+   * takes longer than 1.5 s (slow Windows laptop webcam) — the plainest
    * `{ video: true }`. Resolves in well under a second on most devices, so
    * "Starting camera…" disappears almost immediately.
    */
