@@ -20,6 +20,7 @@ import { isOfflineError, NEEDS_INTERNET, offlineNow, useOnline } from '@/compone
 import { keepRate, OUTBOX_SENT } from '@/components/pwa/outboxSend';
 import { SavedAt } from '@/components/pwa/SavedAt';
 import { useSavedAt } from '@/components/pwa/savedCopies';
+import { MandiBars3D, type MandiBar } from '@/components/three/MandiBars3D';
 import { RoleApplicationForm } from '@/components/staff/RoleApplicationForm';
 import { AUTH_ROUTES, loginHref } from '@/lib/auth/roles';
 import { myRoleRequest } from '@/lib/db/advisory';
@@ -104,6 +105,18 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
     return { matching, byMandi: [...groups.entries()] };
   }, [rates, wanted]);
 
+  // One bar per mandi: the latest rate's modal price, per kg when the unit
+  // allows it — the 3D volume chart above the tables.
+  const bars: MandiBar[] = useMemo(
+    () =>
+      byMandi.map(([mandi, list]) => {
+        const r = list[0];
+        const kg = perKg(r, r.modal_price);
+        return { mandi, modal: kg ?? Number(r.modal_price) ?? 0, detail: r.commodity };
+      }),
+    [byMandi],
+  );
+
   const verify = async (r: MandiRate, correct: boolean, note?: string) => {
     try {
       const status = await checkRate(r.id, correct, note);
@@ -135,6 +148,8 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
     <Panel theme={theme} title="Today’s rates from the mandis" icon={Megaphone} action={action}>
       {savedAt && rates?.length ? <SavedAt at={savedAt} className="mb-3" /> : null}
       <p className="mb-4 text-sm text-slate-600">Posted on KashRoot by traders and commission agents at each mandi, approved by KashRoot. Each rate shows who posted it and when. <strong>Confirmed</strong> means another trader, a farmer or KashRoot checked it. Were you at the mandi? Press <em>Correct</em> or <em>Wrong</em>.</p>
+      {/* The 3D multi-mandi comparison chart. */}
+      {bars.length > 1 && <MandiBars3D bars={bars} className="mb-4" />}
       {rates === null ? (
         <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading rates…</p>
       ) : error ? (

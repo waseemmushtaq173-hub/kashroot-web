@@ -161,7 +161,7 @@ export function RequestThread({ requestId, account, asExpert, onBack }: { reques
             <li key={m.id} className={`rounded-2xl p-4 ring-1 ${m.sender_role === 'ai' ? 'bg-amber-50/80 ring-amber-200' : m.sender_role === 'expert' ? 'bg-emerald-50/80 ring-emerald-200' : 'bg-white/80 ring-slate-900/5'} ${mine ? 'ml-6' : 'mr-6'}`}>
               <p className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-600">
                 {m.sender_role === 'ai' ? <Sparkles className="h-3.5 w-3.5 text-amber-600" aria-hidden /> : <UserRound className="h-3.5 w-3.5" aria-hidden />}
-                {m.sender_role === 'ai' ? 'KashRoot AI — first suggestion (an expert will also check)' : m.sender_role === 'expert' ? `Expert · ${m.sender_name ?? 'Agronomist'}` : m.sender_name ?? 'Farmer'}
+                {m.sender_role === 'ai' ? '🤖 AI Agronomic Suggestion — verify doses with an agronomist' : m.sender_role === 'expert' ? `✅ Verified expert advisory · ${m.sender_name ?? 'Agronomist'}` : m.sender_name ?? 'Farmer'}
                 <span className="font-normal text-slate-400">{ago(m.created_at)}</span>
               </p>
               <p dir={isRtl(scriptLang(text, lang)) ? 'rtl' : undefined} className="mt-2 whitespace-pre-wrap text-sm text-slate-900">{text}</p>

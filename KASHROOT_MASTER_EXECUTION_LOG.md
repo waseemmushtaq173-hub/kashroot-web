@@ -50,7 +50,17 @@ Phase 0 checkpoint: commit `audit-map + log` (see git log).
 - **Admin separation** — re-verified: setup/seed panels exist only in `/admin/dashboard` (Phase 0 audit #2); no change needed.
 - **Guest tools** — Price Comparison, Mandi rates & weather, TrueScan all remain sign-in-free; hero tool cards unchanged apart from the identity strip.
 
-## PHASE 3 — (filled below when complete)
+## PHASE 3 — PER-PORTAL 3D TRANSFORMATION (✅ done this round)
+
+All scenes run through the shared `Portal3DScene` engine (lazy `ssr:false` canvas, error boundary → 2D fallback, low-power detection, manual toggle). Six new 3D modules, seven integration points:
+
+- **3.1 Farmer** — NEW `src/components/three/OrchardInspector3D.tsx`: interactive orchard & crop-health inspector (apple rows with healthy/watch/alert canopy zones, walnut trees, soil-moisture cutaway strata with sensor stakes, labelled callouts), embedded on `/farmer/dashboard` Overview after the action tiles. NEW `src/components/three/AppleBox3D.tsx`: slatted wooden box with per-layer apple trays (2–5 layers; fewer layers = larger fruit), corner posts + forklift skids + air-gap slats; wired into `ProductForm.tsx` directly under the packing-layer buttons + green confirmation bar (renders for "2/3/4/5 Layer", hidden for "Loose / Crate Packed").
+- **3.2 Buyer** — `ListingDetailModal.tsx` Box-specifications panel now includes the same `AppleBox3D` ("turn the box to see how the fruit is packed"), with grade/box-capacity/apples-per-box/rate-per-kg text beside it and the origin district under it.
+- **3.3 Kissan Tools** — NEW `src/components/three/EquipmentShowcase3D.tsx` on top of the Shop tab: 5 switchable rotatable procedural models (4WD compact tractor, air-blast sprayer, apple grading & harvesting line, drip/micro-sprinkler rig, power tiller) each with a real spec sheet in HTML (HP, tank, flow, SMAM/PMKSY subsidy, dealer price, Kashmir-specific note); spec sheet stays readable in 2D and to screen readers.
+- **3.6 Agro-Dealer** — NEW `src/components/three/InputPack3D.tsx` on the Inventory tab: switchable 3D urea/DAP bag with FCO 1985 label callout, pesticide canister with CIB&RC toxicity colour band, machinery crate — each with its compliance rule spelled out in HTML below.
+- **3.7 Advisory** — NEW `src/components/three/LeafPathology3D.tsx` on the Library tab: 3D leaf with 4 switchable stages (healthy / early apple scab lesions / advanced scab with yellowing / San Jose scale caps), plain-language note per stage, and the standing `🤖 AI Agronomic Suggestion — verify doses with an agronomist` badge. `RequestThread.tsx` message labels upgraded to the directive's exact wording: `🤖 AI Agronomic Suggestion — verify doses with an agronomist` vs `✅ Verified expert advisory · <name>`.
+- **3.8 Mandi Helpers** — NEW `src/components/three/MandiBars3D.tsx`: 3D volume bars, one per mandi, height = latest modal price (per-kg when the unit allows), labelled callouts + 2D bar-chart twin; wired into `PostedRates.tsx` above the per-mandi tables (shows on both `/trader/dashboard` and `/mandi-weather`, and inherits all their existing filters).
+- **3.4 / 3.5 Cold Storage & Tracking** — covered by Phase 4 and Phase 5 respectively.
 
 ## PHASE 4 — (filled below when complete)
 
