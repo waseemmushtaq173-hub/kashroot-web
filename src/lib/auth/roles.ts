@@ -43,18 +43,68 @@ export interface PortalInfo {
   segment: string;
   /** One line for menus and the sign-in chooser. */
   tagline: string;
+  /** The portal's own colour identity: a 3D-styled badge in menus and cards. */
+  theme: PortalTheme;
+}
+
+/** Each portal's colour, for the 3D-badged menus (Server-safe: plain strings). */
+export interface PortalTheme {
+  /** Tailwind gradient for the badge tile. */
+  badge: string;
+  /** Softer wash behind menu rows on hover. */
+  wash: string;
+  /** Ring accent for the badge and rows. */
+  ring: string;
+  /** Deep accent text colour. */
+  text: string;
 }
 
 export const PORTALS: Record<PortalId, PortalInfo> = {
-  farmer: { label: 'Farmer', requiredRole: 'FARMER', home: '/farmer/dashboard', segment: 'farmer', tagline: 'Sell produce & inputs, safe payment' },
-  buyer: { label: 'Buyer', requiredRole: 'BUYER', home: '/buyer/dashboard', segment: 'buyer', tagline: 'Your orders & safe payment' },
-  kissan: { label: 'Kissan Tools', requiredRole: null, home: '/kissan-tools/dashboard', segment: 'kissan-tools', tagline: 'Equipment & horti supplies' },
-  rental: { label: 'Cold Storage Booking', requiredRole: null, home: '/rental/dashboard', segment: 'rental', tagline: 'See the store in 3D, choose your place' },
-  tracking: { label: 'Tracking', requiredRole: null, home: '/tracking/dashboard', segment: 'tracking', tagline: 'Track any load by its code' },
-  dealer: { label: 'Agro-dealer', requiredRole: null, home: '/dealer/dashboard', segment: 'dealer', tagline: 'Batch-coded inputs & compliance' },
-  expert: { label: 'Advisory', requiredRole: null, home: '/expert', segment: 'expert', tagline: 'Ask agronomists, soil tests' },
-  trader: { label: 'Mandi Helpers', requiredRole: null, home: '/trader/dashboard', segment: 'trader', tagline: 'Post daily mandi rates for farmers' },
-  admin: { label: 'Admin', requiredRole: 'ADMIN', home: '/admin/dashboard', segment: 'admin', tagline: 'KYC, disputes & analytics' },
+  farmer: {
+    label: 'Farmer', requiredRole: 'FARMER', home: '/farmer/dashboard', segment: 'farmer',
+    tagline: 'Orchards, produce sales, escrow & season planner',
+    theme: { badge: 'from-emerald-800 to-emerald-500', wash: 'hover:bg-emerald-50', ring: 'ring-emerald-700/30', text: 'text-emerald-900' },
+  },
+  buyer: {
+    label: 'Buyer', requiredRole: 'BUYER', home: '/buyer/dashboard', segment: 'buyer',
+    tagline: 'Verified produce lots, 3D packaging & escrow checkout',
+    theme: { badge: 'from-amber-600 to-amber-400', wash: 'hover:bg-amber-50', ring: 'ring-amber-600/30', text: 'text-amber-900' },
+  },
+  kissan: {
+    label: 'Kissan Tools', requiredRole: null, home: '/kissan-tools/dashboard', segment: 'kissan-tools',
+    tagline: 'Interactive 3D tractors, sprayers & harvester specs',
+    theme: { badge: 'from-orange-700 to-orange-500', wash: 'hover:bg-orange-50', ring: 'ring-orange-700/30', text: 'text-orange-900' },
+  },
+  rental: {
+    label: 'Cold Storage Booking', requiredRole: null, home: '/rental/dashboard', segment: 'rental',
+    tagline: 'Industrial 2D/3D digital twin & crate/bin booking',
+    theme: { badge: 'from-cyan-600 to-sky-400', wash: 'hover:bg-cyan-50', ring: 'ring-cyan-600/30', text: 'text-cyan-900' },
+  },
+  tracking: {
+    label: 'Tracking', requiredRole: null, home: '/tracking/dashboard', segment: 'tracking',
+    tagline: 'Live truck GPS & route telemetry, app-style',
+    theme: { badge: 'from-indigo-700 to-indigo-400', wash: 'hover:bg-indigo-50', ring: 'ring-indigo-700/30', text: 'text-indigo-900' },
+  },
+  dealer: {
+    label: 'Agro-dealer', requiredRole: null, home: '/dealer/dashboard', segment: 'dealer',
+    tagline: '3D seeds, fertilizers, pesticides & dealer inventory',
+    theme: { badge: 'from-teal-600 to-lime-400', wash: 'hover:bg-teal-50', ring: 'ring-teal-600/30', text: 'text-teal-900' },
+  },
+  expert: {
+    label: 'Advisory', requiredRole: null, home: '/expert', segment: 'expert',
+    tagline: '3D plant pathology, soil health & verified advice',
+    theme: { badge: 'from-green-800 to-green-600', wash: 'hover:bg-green-50', ring: 'ring-green-800/30', text: 'text-green-900' },
+  },
+  trader: {
+    label: 'Mandi Helpers', requiredRole: null, home: '/trader/dashboard', segment: 'trader',
+    tagline: 'Live Agmarknet rates, trader connect & price charts',
+    theme: { badge: 'from-purple-700 to-fuchsia-500', wash: 'hover:bg-purple-50', ring: 'ring-purple-700/30', text: 'text-purple-900' },
+  },
+  admin: {
+    label: 'Admin', requiredRole: 'ADMIN', home: '/admin/dashboard', segment: 'admin',
+    tagline: 'KYC, disputes & analytics',
+    theme: { badge: 'from-slate-700 to-slate-500', wash: 'hover:bg-slate-100', ring: 'ring-slate-600/30', text: 'text-slate-800' },
+  },
 };
 
 export const PORTAL_IDS = Object.keys(PORTALS) as PortalId[];

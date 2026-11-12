@@ -39,7 +39,16 @@ Phase 0 checkpoint: commit `audit-map + log` (see git log).
 
 ---
 
-## PHASE 2 — (filled below when complete)
+## PHASE 2 — HOMEPAGE, NAV & 3D VISUAL IDENTITY (✅ done this round)
+
+- **Reusable 3D engine** — NEW `src/components/three/Portal3DScene.tsx` + `src/components/three/Portal3DCanvas.tsx`: lazy R3F canvas (`next/dynamic` `ssr:false`, so three.js never delays first paint or lands in the initial bundle), hard error boundary (a throwing scene silently falls back to 2D — no scary error text), automatic 2D start on low-power devices (prefers-reduced-motion, data saver, ≤4 cores, ≤2 GB RAM, no WebGL), and a manual 3D/2D toggle remembered in `localStorage`. Every scene must ship a real 2D twin — this engine is the base for all Phase 3 portal scenes and satisfies the Phase 10 lazy-load rule at the source.
+- **Homepage 3D Orchard & Cold-Chain Showcase** — NEW `src/components/three/OrchardShowcase.tsx`: interactive rotatable/zoomable scene (auto-rotate OrbitControls, clickable labels) with a low-poly apple orchard (fruiting trees), 2/3/4/5-layer packing stacks (5-layer highlighted saffron), and a cold-store chamber (PUF shell, gabled roof, arctic-cyan insulated door, steel racks with blue HDPE crates). Its 2D fallback is a real labelled SVG diagram. Placed as the first section of the homepage's lower band.
+- **Colourful Kashmiri identity** — deep emerald `#0A3D2E` showcase panel; emerald/crimson/saffron/sky colour-identity strip added to the hero panel. (Framer Motion is NOT installed — the repo has no motion dependency and the lockfile lives outside the git repo, so transitions stay on the existing CSS/`prefers-reduced-motion` transition system, which is also lighter on low-end phones.)
+- **Portals dropdown, 3D-badged** — `src/lib/auth/roles.ts`: every portal gained a `theme` (badge gradient, wash, ring, text) and the directive's 1-line descriptions (Farmer emerald, Buyer royal amber, Kissan terracotta, Cold Storage arctic cyan, Tracking indigo, Agro-dealer lime teal, Advisory forest green, Mandi saffron purple). `src/components/layout/SiteHeader.tsx`: desktop `PortalMenu` rows and mobile menu rows now show each portal's own 3D-styled gradient badge tile (perspective-tilted, lifts on hover) with its own lucide icon (Sprout/ShoppingBag/Tractor/Snowflake/MapPinned/Pill/Leaf/Scale).
+- **Dynamic active-portal button** — already shipped previously (`useMyPortal()` renders "My {label} portal" in the header); verified intact.
+- **Help & Support drawer** — `src/components/layout/HelpButton.tsx` rebuilt from a plain link into a drawer (native `<dialog>` via portal kit Modal): Kisan Call Centre helpline `1800-180-1551` (tel link, real Government of India number already used in-app), "Ask KashRoot" → `/support`, the multilingual voice guide (floating mic on every page), and the standing anti-fraud rule (`NEVER_ASKS`).
+- **Admin separation** — re-verified: setup/seed panels exist only in `/admin/dashboard` (Phase 0 audit #2); no change needed.
+- **Guest tools** — Price Comparison, Mandi rates & weather, TrueScan all remain sign-in-free; hero tool cards unchanged apart from the identity strip.
 
 ## PHASE 3 — (filled below when complete)
 

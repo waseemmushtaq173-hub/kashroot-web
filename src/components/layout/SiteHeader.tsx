@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { ArrowLeft, LayoutGrid, ChevronDown, Home, LogIn, LogOut, Menu, UserPlus, UserRound, X } from 'lucide-react';
+import { ArrowLeft, LayoutGrid, ChevronDown, Home, LogIn, LogOut, MapPinned, Menu, Leaf, Pill, Scale, ShoppingBag, Snowflake, Sprout, Tractor, UserPlus, UserRound, X } from 'lucide-react';
 import { BrandMark } from '@/components/brand/Shikara';
 import { MyDetailsPanel } from '@/components/portal/MyDetailsPanel';
 import { MY_DETAILS } from '@/components/portal/myDetailsConfig';
@@ -31,13 +31,28 @@ interface MenuItem {
   title: string;
   href: string;
   desc: string;
+  /** Set for portal rows: draws the portal's own 3D colour badge. */
+  portal?: PortalId;
 }
 export const TOOL_ITEMS: MenuItem[] = [
   { title: 'Price Comparison', href: '/compare-prices', desc: 'Compare offers and order, or list what you sell' },
   { title: 'Live mandi rates & weather', href: '/mandi-weather', desc: 'Today’s prices and the forecast' },
   { title: 'KashRoot TrueScan — is it genuine?', href: '/supplies/tester', desc: 'Check a fertiliser or pesticide against the Government lists' },
 ];
-const PORTAL_ITEMS: MenuItem[] = PUBLIC_PORTAL_IDS.map((id) => ({ title: PORTALS[id].label, href: PORTALS[id].home, desc: PORTALS[id].tagline }));
+const PORTAL_ITEMS: MenuItem[] = PUBLIC_PORTAL_IDS.map((id) => ({ title: PORTALS[id].label, href: PORTALS[id].home, desc: PORTALS[id].tagline, portal: id }));
+
+/** Each portal's own icon, for its 3D badge in the menus. */
+const PORTAL_ICONS: Record<PortalId, typeof Sprout> = {
+  farmer: Sprout,
+  buyer: ShoppingBag,
+  kissan: Tractor,
+  rental: Snowflake,
+  tracking: MapPinned,
+  dealer: Pill,
+  expert: Leaf,
+  trader: Scale,
+  admin: UserRound,
+};
 
 /** The menu groups, with Admin (last) only on an admin's own device. */
 function useMenuSections(): { heading: string; items: MenuItem[] }[] {
@@ -147,8 +162,17 @@ function MobileMenu({ showAuth }: { showAuth: boolean }) {
               <p className={heading}>{sec.heading}</p>
               {sec.items.map((p) => (
                 <Link key={p.href} href={p.href} onClick={close} className={item}>
-                  {p.title}
-                  <span className="block text-xs font-normal text-slate-500">{p.desc}</span>
+                  <span className="flex items-start gap-2.5">
+                    {p.portal && (
+                      <span aria-hidden className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br ${PORTALS[p.portal].theme.badge} text-white shadow-md ring-1 ${PORTALS[p.portal].theme.ring} [transform:perspective(400px)_rotateX(8deg)]`}>
+                        {(() => { const Icon = PORTAL_ICONS[p.portal]; return <Icon className="h-[18px] w-[18px]" aria-hidden />; })()}
+                      </span>
+                    )}
+                    <span className="min-w-0">
+                      {p.title}
+                      <span className="block text-xs font-normal text-slate-500">{p.desc}</span>
+                    </span>
+                  </span>
                 </Link>
               ))}
             </div>
@@ -208,18 +232,29 @@ function PortalMenu({ onOpenPortals, tone }: { onOpenPortals?: () => void; tone:
           {sections.map((sec, i) => (
             <div key={sec.heading} role="group" aria-label={sec.heading} className={`${i === 0 ? 'lg:row-span-2' : i === 1 ? 'mt-1 border-t pt-1 lg:mt-0 lg:border-l lg:border-t-0 lg:pl-2 lg:pt-0' : 'mt-1 border-t pt-1 lg:col-start-2 lg:border-l lg:pl-2'} ${light ? 'border-slate-900/10' : 'border-white/20'}`}>
               <p className={`px-3 pb-1 pt-2 text-[11px] font-bold uppercase tracking-[0.14em] ${light ? 'text-slate-500' : 'text-kr-text-secondary'}`}>{sec.heading}</p>
-              {sec.items.map((p) => (
-                <Link
-                  key={p.href}
-                  href={p.href}
-                  role="menuitem"
-                  onClick={() => setOpen(false)}
-                  className={`block rounded-xl px-3 py-2.5 no-underline transition-colors hover:no-underline ${light ? 'hover:bg-slate-900/5' : 'hover:bg-white/30'}`}
-                >
-                  <span className={`block text-sm font-semibold ${light ? 'text-slate-900' : 'text-kr-text-primary'}`}>{p.title}</span>
-                  <span className={`block text-xs ${light ? 'text-slate-600' : 'text-kr-text-secondary'}`}>{p.desc}</span>
-                </Link>
-              ))}
+              {sec.items.map((p) => {
+                const theme = p.portal ? PORTALS[p.portal].theme : null;
+                const Icon = p.portal ? PORTAL_ICONS[p.portal] : null;
+                return (
+                  <Link
+                    key={p.href}
+                    href={p.href}
+                    role="menuitem"
+                    onClick={() => setOpen(false)}
+                    className={`flex items-start gap-3 rounded-xl px-3 py-2.5 no-underline transition-colors hover:no-underline ${theme ? theme.wash : light ? 'hover:bg-slate-900/5' : 'hover:bg-white/30'}`}
+                  >
+                    {theme && Icon && (
+                      <span aria-hidden className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br ${theme.badge} text-white shadow-[0_6px_14px_rgba(15,23,42,0.25),inset_0_1px_0_rgba(255,255,255,0.35)] ring-1 ${theme.ring} transition-transform duration-200 [transform:perspective(500px)_rotateX(10deg)] hover:[transform:perspective(500px)_rotateX(0deg)_translateY(-2px)]`}>
+                        <Icon className="h-5 w-5" />
+                      </span>
+                    )}
+                    <span className="min-w-0">
+                      <span className={`block text-sm font-semibold ${theme ? theme.text : light ? 'text-slate-900' : 'text-kr-text-primary'}`}>{p.title}</span>
+                      <span className={`block text-xs ${light ? 'text-slate-600' : 'text-kr-text-secondary'}`}>{p.desc}</span>
+                    </span>
+                  </Link>
+                );
+              })}
             </div>
           ))}
         </div>

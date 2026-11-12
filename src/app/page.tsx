@@ -25,6 +25,7 @@ import { FertilizerChecker } from '@/components/fertilizer/FertilizerChecker';
 import { HeroShowcase } from '@/components/layout/HeroShowcase';
 import { PortalGrid } from '@/components/landing/PortalGrid';
 import { LATTICE_BG } from '@/components/portal/lattice';
+import { OrchardShowcase } from '@/components/three/OrchardShowcase';
 import { Tilt3D } from '@/components/three/Tilt3D';
 import { ValleyScene } from '@/components/three/ValleyScene';
 import { VoiceConcierge } from '@/components/voice/VoiceConcierge';
@@ -99,6 +100,12 @@ export default function HomePage() {
               <strong className="font-semibold text-slate-900">KashRoot</strong> brings pay-after-delivery trade, live mandi rates and
               transparent price comparison to growers, traders and buyers.
             </p>
+            {/* The valley's colour identity: emerald orchards, crimson fruit, saffron gold, sky blue. */}
+            <p aria-hidden className="mt-5 flex items-center gap-1.5">
+              {['#0A3D2E', '#C92A2A', '#E8A317', '#3B82F6', '#22B8CF'].map((c) => (
+                <span key={c} className="h-2.5 w-8 rounded-full shadow-sm" style={{ backgroundColor: c }} />
+              ))}
+            </p>
           </section>
 
           <section aria-label="KashRoot tools" className="mt-6 grid gap-5 sm:mt-8 md:grid-cols-3">
@@ -114,6 +121,8 @@ export default function HomePage() {
       <div className="relative isolate overflow-hidden bg-gradient-to-b from-ivory via-white to-emerald-50/70">
         <div aria-hidden className="pointer-events-none absolute inset-0 -z-10" style={LATTICE_BG} />
         <div className="mx-auto max-w-7xl space-y-10 px-4 pb-14 pt-8 sm:px-6 lg:px-8">
+          <OrchardShowcase />
+
           <section aria-label="Voice assistant">
             <VoiceConcierge />
           </section>
