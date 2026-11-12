@@ -130,10 +130,13 @@ ALTER TABLE public.shipment_telemetry_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.product_photo_verifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.universal_price_listings ENABLE ROW LEVEL SECURITY;
 
-REVOKE ALL ON public.shipment_tracking_trips FROM anon, authenticated;
-REVOKE ALL ON public.shipment_telemetry_events FROM anon, authenticated;
-REVOKE ALL ON public.product_photo_verifications FROM anon, authenticated;
-REVOKE ALL ON public.universal_price_listings FROM anon, authenticated;
+-- The API roles keep standard table privileges: row level security and the
+-- open policies below are what decide which rows they can touch. (Revoking
+-- the privileges outright would break the anon-key server routes.)
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.shipment_tracking_trips TO anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.shipment_telemetry_events TO anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.product_photo_verifications TO anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.universal_price_listings TO anon, authenticated, service_role;
 
 DO $$
 BEGIN
