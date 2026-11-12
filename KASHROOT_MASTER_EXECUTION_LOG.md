@@ -62,7 +62,19 @@ All scenes run through the shared `Portal3DScene` engine (lazy `ssr:false` canva
 - **3.8 Mandi Helpers** — NEW `src/components/three/MandiBars3D.tsx`: 3D volume bars, one per mandi, height = latest modal price (per-kg when the unit allows), labelled callouts + 2D bar-chart twin; wired into `PostedRates.tsx` above the per-mandi tables (shows on both `/trader/dashboard` and `/mandi-weather`, and inherits all their existing filters).
 - **3.4 / 3.5 Cold Storage & Tracking** — covered by Phase 4 and Phase 5 respectively.
 
-## PHASE 4 — (filled below when complete)
+## PHASE 4 — COLD-STORAGE DIGITAL TWIN — VERIFIED, NO CODE CHANGES NEEDED (✅ done this round)
+
+Verified against the real source files (grep on every claim; directive says verify, not trust):
+
+- **Instancing cap** — `src/components/rental/three/buildStore.ts` L795–833: `SLOT_CAP_TRIGGER = 2000`, `SLOT_CAP_SHOWN = 1000` (stride-sampled). Shown instances stay well under the 1800 budget; all rack posts/beams/plates also go through `InstancedMesh` (L883–966).
+- **GLB → procedural fallback** — `three/coldKit.ts`: loads `coldstore_kit.glb` (Kit_Crate_HDPE, Kit_Pallet_Bin, apple crown, Kit_Rack_Post, Kit_Rack_Beam, Kit_Evaporator), normalises to unit cube, and returns `null` on any failure or timeout (5 s budget enforced at the call site, `ColdStore3D.tsx` L601–604) — the 3D views then keep their procedural kit exactly as before. No CDN, no broken scene.
+- **Work zones with real equipment** — `buildStore.ts` L521–590: each `storeScene` work zone paints a tinted floor slab + sign, and builds zone-sized procedural equipment: washing trough with brush roller, grading conveyor, two packing tables, plant skid blocks, dock leveller. `fixtures.ts` adds evaporators, condensers, trusses, high-bay lights.
+- **Storage Unit Inspector + tap-to-book + walk mode** — `ColdStore3D.tsx`: inspector fields Facility/Chamber/Level/Row/Stack/Type/Max Capacity/Stored Quantity/Occupancy (L250–263), tap a place to choose it for booking or see whose it is; walk mode (W A S D / arrow keys) via `walk/walker.ts` with floor arrows (`walk/route.ts`) and minimap (`walk/miniMap.ts`).
+- **Al Noor scale** — `buildStore.ts` L790 comment + `IndustrialColdStoreTwin3D.tsx` batching tier for massive facilities; `Preview3D.tsx` lazy-loads (`ssr:false`) either `ColdStore3D` or the instanced twin based on `twinPlanOf(chambers)` size.
+- **Shared geometry source confirmed** — `three/storeScene.ts` `buildScene()` feeds 9 consumers: `buildStore.ts`, `fixtures.ts`, `StoreTopView.tsx`, `walk/{walker,route,miniMap}.ts`, `ColdStore3D.tsx`, `ColdStoreMap.tsx`, `owner/StoreDrawing.tsx` — the 3D view, top view, walk mode, minimap and owner drawing are all the same scene, so an owner's numbers can never disagree between views. `Preview3D`/`IndustrialColdStoreTwin3D` map the same real chambers through `twinMap.twinPlanOf` (slot keys map back to real "3B" place codes); `ChamberDiagram.tsx` draws per-chamber plans from `lib/coldLayout.planOf` on the same owner inputs.
+- **Honest finding (kept, not deleted)** — `src/lib/sharedFacilityEngine.ts` defines slot math (`UnitSpec`, `ChamberInput`, `ComputedStorageSlot`, FCO wooden-bin / HDPE-crate defaults) but currently has **no consumers** in the tree; the twin's slot grid comes from `twinMap.ts` instead. Left untouched and documented here.
+- **Test page** — `/test-pages/cold-store` renders the twin against sample chamber data (route exists in the build output).
+
 
 ## PHASE 5 — (filled below when complete)
 
