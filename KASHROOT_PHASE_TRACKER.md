@@ -21,7 +21,7 @@ Supabase project: `wmkjkdfigdlpdvvsqcig` (connection via `.env` `DATABASE_URL` �
 | 8 | Wire logistics API + LiveInteractiveMap into Tracking Portal | ✅ DONE | New "Live GPS trips" tab in `(dashboards)/tracking/dashboard/page.tsx` → `components/tracking/LiveGpsTrips.tsx`: trip create w/ consent (PlaceInput origins/destinations), driver geolocation watch → 15 s pings, telemetry grid (covered/remaining/speed/ETA/stale), LiveInteractiveMap with new `destLat`/`destLng`/`destLabel` props (route link, destination pin, straight-line km). Existing consignments untouched |
 | 9 | Wire price-comparison API into Price Comparison tool | ✅ DONE | New "Universal board" tab on `/compare-prices` → `components/market/UniversalPriceBoard.tsx`: 13-category chips, search + district filter, cheapest/dearest/newest sort, merged listing cards, verified-offer submit form. `?tab=universal` deep link works |
 | 10 | Security + mobile pass (rate limits on new public APIs, env-only keys) | ✅ DONE | `ipLimited` + `tooMany()` on all three new routes (logistics-track 30/min, logistics-track-post 60/min, price-comparison 60/min + post 20/min, photos-geo-verify 20/min + get 30/min); tables revoked from anon/authenticated (server-mediated); no keys hardcoded — only `process.env` names |
-| 11 | Build → commit → push `main` → Vercel prod → verify 5 URLs | ⏳ PENDING | Exact commit message per directive |
+| 11 | Build → commit → push `main` → Vercel prod → verify 5 URLs | ✅ DONE | `tsc --noEmit` exit 0; `next build` green (full route table); commit `04c4543` + grant fix `9716553` pushed to `main`; prod deploys `dpl_5Gckp3w4xKdGFkTqLrKWx8Ja2mYZ` (Ready) and `kashroot-ie0s2g3p0` (Ready, 35 s); all 5 URLs 200; APIs verified live |
 
 ## Phase 0 audit findings
 
@@ -31,8 +31,11 @@ Supabase project: `wmkjkdfigdlpdvvsqcig` (connection via `.env` `DATABASE_URL` �
 - Env keys referenced only by name (`NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `DATABASE_URL`); nothing hardcoded.
 - `.github/skills/gstack` stays unstaged/untouched (pre-existing working-tree change).
 
-## Final ship record (filled at Phase 11)
+## Final ship record
 
-- Commit: TBD
-- Deployment: TBD
-- Prod URL checks: TBD
+- Commits: `04c4543` — `feat(phases-0-11): execute full platform restoration, native live map, 3D cold store fix, live logistics tracker, and universal price engine` (11 files, +2138/−9); `9716553` — grant fix for the four phase tables (anon-key server routes need table privileges; RLS policies keep row control).
+- Push: `fe52b40..04c4543` and `04c4543..9716553` → `origin/main`.
+- Deployment: prod deploy `dpl_5Gckp3w4xKdGFkTqLrKWx8Ja2mYZ` Ready (first ship), then `kashroot-ie0s2g3p0-team-alpha-d0b5.vercel.app` Ready (35 s) after the grant fix. Production URL: `https://kashroot-web.vercel.app`.
+- Prod URL checks: `/` 200 · `/buyer/dashboard` 200 · `/farmer/dashboard` 200 · `/rental/dashboard` 200 · `/admin/dashboard` 200.
+- Live API checks (prod): `/api/price-comparison` ok=true, 13 categories, listings served; `/api/logistics/track` ok=true; end-to-end trip smoke test — CREATE_TRIP Shopian → Azadpur Mandi Delhi produced `KR-TRK-…`, total 598.97 km, status IN_TRANSIT_LIVE, GET by code found it (test row deleted after); `/api/photos/geo-verify` empty body → 400 (validation guard OK).
+- Database: `RUN_THIS_ONCE.sql` bundle (with sections 20261121, 20261122, 20261112000001 + registry rows 43–45) applied to remote project `wmkjkdfigdlpdvvsqcig`; `kr_setup_rows()` reports "yes" for all 45 steps, 0 "NO". `check-sql.mjs`: 373 passed, 0 failed.
