@@ -39,11 +39,27 @@ export interface LiveInteractiveMapProps {
   accuracy?: number | null;
   /** Words over the pin, e.g. "Your delivery pin". */
   label?: string;
+  /** Optional destination (e.g. the trip's delivery point): a second pin,
+   *  the straight-line distance to it, and a Google Maps route link. */
+  destLat?: number | null;
+  destLng?: number | null;
+  destLabel?: string;
   /** Tailwind classes for the whole box (default height 56). */
   className?: string;
 }
 
-export default function LiveInteractiveMap({ lat, lng, accuracy = null, label, className = '' }: LiveInteractiveMapProps) {
+/** Straight-line distance in km between two fixes (the Haversine formula). */
+export function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+export default function LiveInteractiveMap({ lat, lng, accuracy = null, label, destLat = null, destLng = null, destLabel, className = '' }: LiveInteractiveMapProps) {
   const box = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(16);
   const [center, setCenter] = useState({ lat, lng });
@@ -82,6 +98,15 @@ export default function LiveInteractiveMap({ lat, lng, accuracy = null, label, c
   const my = latToWorldY(clampLat(lat), zoom) - top;
   const mpp = metersPerPixel(clampLat(lat), zoom);
   const circleR = accuracy && accuracy > 0 ? Math.min(accuracy / mpp, 3000) : 0;
+
+  // The destination pin (when the caller passes one) and the distance to it.
+  const hasDest = destLat !== null && destLng !== null && Number.isFinite(destLat) && Number.isFinite(destLng);
+  const dx = hasDest ? lngToWorldX(destLat as number, zoom) - left : 0;
+  const dy = hasDest ? latToWorldY(clampLat(destLat as number), zoom) - top : 0;
+  const destKm = hasDest ? haversineKm(lat, lng, destLat as number, destLng as number) : 0;
+  const mapsUrl = hasDest
+    ? `https://www.google.com/maps/dir/?api=1&origin=${lat},${lng}&destination=${destLat},${destLng}&travelmode=driving`
+    : `https://www.google.com/maps?q=${lat},${lng}`;
 
   return (
     <figure className={`grid gap-1 ${className}`}>
@@ -145,6 +170,18 @@ export default function LiveInteractiveMap({ lat, lng, accuracy = null, label, c
               <path d="M14 1C7.4 1 2 6.4 2 13c0 9 12 22 12 22s12-13 12-22C26 6.4 20.6 1 14 1z" fill="#0284c7" stroke="#ffffff" strokeWidth="2" />
               <circle cx="14" cy="13" r="4.5" fill="#ffffff" />
             </svg>
+            {/* The destination pin and the straight-line distance to it. */}
+            {hasDest && (
+              <>
+                <svg aria-hidden className="pointer-events-none absolute" style={{ left: dx, top: dy, transform: 'translate(-50%, -100%)' }} width={28} height={36} viewBox="0 0 28 36">
+                  <path d="M14 1C7.4 1 2 6.4 2 13c0 9 12 22 12 22s12-13 12-22C26 6.4 20.6 1 14 1z" fill="#047857" stroke="#ffffff" strokeWidth="2" />
+                  <circle cx="14" cy="13" r="4.5" fill="#ffffff" />
+                </svg>
+                <span className="pointer-events-none absolute z-10 -translate-x-1/2 whitespace-nowrap rounded-md bg-emerald-700/90 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow" style={{ left: dx, top: dy, transform: 'translate(-50%, -100%) translateY(-38px)' }}>
+                  🏁 {destLabel || 'Destination'} · {destKm < 1 ? `${Math.round(destKm * 1000)} m` : `${destKm.toFixed(1)} km`}
+                </span>
+              </>
+            )}
           </>
         )}
 
@@ -169,14 +206,16 @@ export default function LiveInteractiveMap({ lat, lng, accuracy = null, label, c
       </div>
 
       <figcaption className="flex flex-wrap items-center justify-between gap-1 text-[11px] text-slate-500">
-        <span>📍 {label ?? 'Live pin'} — drag to pan, ± to zoom.</span>
+        <span>
+          📍 {label ?? 'Live pin'}{hasDest ? ` → 🏁 ${destLabel || 'destination'} (${destKm < 1 ? `${Math.round(destKm * 1000)} m` : `${destKm.toFixed(1)} km`} straight line)` : ''} — drag to pan, ± to zoom.
+        </span>
         <a
-          href={`https://www.google.com/maps?q=${lat},${lng}`}
+          href={mapsUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1 font-bold text-emerald-700 underline underline-offset-2"
         >
-          Open in Google Maps <ExternalLink className="h-3 w-3" aria-hidden /> ↗
+          {hasDest ? 'Open live route in Google Maps' : 'Open in Google Maps'} <ExternalLink className="h-3 w-3" aria-hidden /> ↗
         </a>
       </figcaption>
     </figure>

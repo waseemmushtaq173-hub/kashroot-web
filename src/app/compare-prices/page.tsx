@@ -18,7 +18,7 @@ import { Suspense, useCallback, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { LogIn, LogOut, Search, ShieldCheck, ShoppingCart, Store, UserRound } from 'lucide-react';
+import { LogIn, LogOut, Scale, Search, ShieldCheck, ShoppingCart, Store, UserRound } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import type { KycRole } from '@/components/auth/KYCPanel';
@@ -27,6 +27,7 @@ import { OrderCard } from '@/components/market/OrderCard';
 import { SellerDesk } from '@/components/market/SellerDesk';
 import { ListingBrowser } from '@/components/market/shop/ListingBrowser';
 import { OrderModal } from '@/components/market/shop/OrderModal';
+import { UniversalPriceBoard } from '@/components/market/UniversalPriceBoard';
 import type { ShopListing } from '@/components/market/shop/useLiveListings';
 import { Btn, EmptyState, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { ListProductsButton, PriceComparisonHeader } from '@/components/price-comparison/PriceComparisonHeader';
@@ -57,7 +58,7 @@ async function kycRoleFor(tab: Tab): Promise<KycRole> {
 }
 
 const theme = PORTAL_THEMES.buyer;
-type Tab = 'compare' | 'orders' | 'sell';
+type Tab = 'compare' | 'universal' | 'orders' | 'sell';
 
 export default function ComparePricesPage() {
   return (
@@ -70,7 +71,7 @@ export default function ComparePricesPage() {
 function ComparePrices() {
   const params = useSearchParams();
   const [account, setAccount] = useState<Account | null | undefined>(undefined);
-  const [tab, setTab] = useState<Tab>(params.get('tab') === 'orders' ? 'orders' : params.get('tab') === 'sell' ? 'sell' : 'compare');
+  const [tab, setTab] = useState<Tab>(['orders', 'sell', 'universal'].includes(params.get('tab') ?? '') ? (params.get('tab') as Tab) : 'compare');
   const [category, setCategory] = useState<MarketCategory>(params.get('category') === 'produce' ? 'produce' : 'supplies');
   // Came by an older "Produce" / "Supplies" link (the site's top bar had them): say where each now lives.
   const asked = params.get('category');
@@ -155,6 +156,7 @@ function ComparePrices() {
         <div role="tablist" aria-label="Price Comparison" className="inline-flex flex-wrap gap-1 rounded-2xl bg-white/80 p-1 shadow-sm ring-1 ring-slate-900/5">
           {([
             ['compare', 'Compare prices', Search],
+            ['universal', 'Universal board', Scale],
             ['orders', `My orders${openOrders ? ` (${openOrders})` : ''}`, ShoppingCart],
             ['sell', 'Sell here', Store],
           ] as const).map(([id, label, Icon]) => (
@@ -218,6 +220,8 @@ function ComparePrices() {
           />
         </div>
       )}
+
+      {tab === 'universal' && <UniversalPriceBoard account={account} />}
 
       {tab === 'orders' && (
         account ? (

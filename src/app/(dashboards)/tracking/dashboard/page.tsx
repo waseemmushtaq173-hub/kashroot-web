@@ -23,6 +23,7 @@ import { PortalShell } from '@/components/layout/PortalShell';
 import { Badge, Btn, EmptyState, Field, INPUT, Panel, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
 import { LiveTrack } from '@/components/tracking/LiveTrack';
 import { PlaceInput } from '@/components/tracking/PlaceInput';
+import { LiveGpsTrips } from '@/components/tracking/LiveGpsTrips';
 import { authFetch } from '@/lib/auth-fetch';
 import { loginHref } from '@/lib/auth/roles';
 import { useSignedIn } from '@/lib/auth/session';
@@ -202,7 +203,7 @@ function VehicleLookup({ onUseCode }: { onUseCode: () => void }) {
 
 /** A code as typed or as it arrives in a link: "kr-3f9a 1c7b" → "KR-3F9A1C7B". */
 const cleanCode = (raw: string | null | undefined) => (raw ?? '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 20);
-const TABS = ['track', 'mine', 'vehicle'];
+const TABS = ['track', 'mine', 'vehicle', 'gps'];
 
 export default function TrackingPage() {
   return (
@@ -281,6 +282,7 @@ function Tracking() {
         { id: 'track', label: 'Track by code', icon: MapPinned },
         { id: 'mine', label: 'My consignments', icon: Truck, count: moving || undefined },
         { id: 'vehicle', label: 'Vehicle number', icon: FileText },
+        { id: 'gps', label: 'Live GPS trips', icon: Navigation },
       ]}
       activeTab={tab}
       onTabChange={setTab}
@@ -306,6 +308,7 @@ function Tracking() {
         <SignInFirst tab="mine" keep={keep} what="Transporters sign in to create consignments, send the driver link and share tracking." />
       ))}
       {tab === 'vehicle' && (signedIn === false ? <SignInFirst tab="vehicle" what="Looking up a vehicle number uses Government records, so it needs an account." /> : <VehicleLookup onUseCode={() => setTab('track')} />)}
+      {tab === 'gps' && <LiveGpsTrips />}
     </PortalShell>
   );
 }
