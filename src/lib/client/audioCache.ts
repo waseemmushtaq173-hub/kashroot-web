@@ -121,7 +121,7 @@ export async function preloadHumanMessages(): Promise<void> {
   const messages = [
     // English
     { id: 'en:welcome', lang: 'en', text: 'Welcome to KashRoot. Ask me about mandi prices, weather, or crop advice.', audio: new Uint8Array(0) },
-    { id: 'en:offline', lang: 'en', text: 'No internet connection. Showing saved data from your phone.', audio: new Uint8Array(0) },
+    { id: 'en:offline', lang: 'en', text: 'No internet connection right now. Check your mobile data or Wi-Fi and try again.', audio: new Uint8Array(0) },
     { id: 'en:error', lang: 'en', text: 'Sorry, I cannot answer right now. Please try again in a little while.', audio: new Uint8Array(0) },
     { id: 'en:price', lang: 'en', text: 'Here are today\'s mandi prices.', audio: new Uint8Array(0) },
     { id: 'en:weather', lang: 'en', text: 'Here is the weather forecast for your area.', audio: new Uint8Array(0) },
@@ -129,7 +129,7 @@ export async function preloadHumanMessages(): Promise<void> {
     
     // Hindi
     { id: 'hi:welcome', lang: 'hi', text: 'कशरूट में आपका स्वागत है। मंडी भाव, मौसम या फसल सलाह के लिए पूछें।', audio: new Uint8Array(0) },
-    { id: 'hi:offline', lang: 'hi', text: 'इंटरनेट नहीं है। आपके फोन पर सेव डेटा दिखा रहा हूँ।', audio: new Uint8Array(0) },
+    { id: 'hi:offline', lang: 'hi', text: 'अभी इंटरनेट नहीं है। मोबाइल डेटा या वाई-फ़ाई जाँचें और फिर कोशिश करें।', audio: new Uint8Array(0) },
     { id: 'hi:error', lang: 'hi', text: 'माफ़ कीजिए, मैं अभी जवाब नहीं दे पा रहा हूँ। थोड़ी देर बाद फिर कोशिश करें।', audio: new Uint8Array(0) },
     { id: 'hi:price', lang: 'hi', text: 'ये हैं आज के मंडी भाव।', audio: new Uint8Array(0) },
     { id: 'hi:weather', lang: 'hi', text: 'आपके इलाके के लिए मौसम की जानकारी।', audio: new Uint8Array(0) },
@@ -137,7 +137,7 @@ export async function preloadHumanMessages(): Promise<void> {
     
     // Urdu
     { id: 'ur:welcome', lang: 'ur', text: 'کشروٹ میں آپ کا خیر مقدمید ہے۔ منڈی بھاؤ، موسم یا فصل کی مشورہ کے لئے پوچھیں۔', audio: new Uint8Array(0) },
-    { id: 'ur:offline', lang: 'ur', text: 'انٹرنیٹ نہیں ہے۔ آپ کے فون پر محفوظ ڈیٹا دکھا رہا ہوں۔', audio: new Uint8Array(0) },
+    { id: 'ur:offline', lang: 'ur', text: 'ابھی انٹرنیٹ نہیں ہے۔ موبائل ڈیٹا یا وائی فائی چیک کریں اور دوبارہ کوشش کریں۔', audio: new Uint8Array(0) },
     { id: 'ur:error', lang: 'ur', text: 'معاف کیجیے، میں ابھی جواب نہیں دے پا رہا۔ تھوڑی دیر بعد دوبارہ کوشش کریں۔', audio: new Uint8Array(0) },
     { id: 'ur:price', lang: 'ur', text: 'یہ ہیں آج کے منڈی بھاؤ۔', audio: new Uint8Array(0) },
     { id: 'ur:weather', lang: 'ur', text: 'آپ کے علاقے کے لئے موسم کی پیشگوئی۔', audio: new Uint8Array(0) },
@@ -145,7 +145,7 @@ export async function preloadHumanMessages(): Promise<void> {
     
     // Kashmiri (shown in Urdu script)
     { id: 'ks:welcome', lang: 'ks', text: 'کٲشروٹ چھِ تُہٕ وveux سوٗگٲت۔ منڈی بھاؤ، موسم یٔہ فصل مشوorah دےپوچھٕنٛ۔', audio: new Uint8Array(0) },
-    { id: 'ks:offline', lang: 'ks', text: 'انٛٹٕرنیٖٹ نی। تُہؠ پون چھِ محفوظ ڈیٖٹا دٲکھیوٗنٛ۔', audio: new Uint8Array(0) },
+    { id: 'ks:offline', lang: 'ks', text: 'انٛٹٕرنیٖٹ نی۔ موبائل ڈیٹا یأ وائی فائی چیک کٔریو تٕہ دوبارہ کوشش کٔریو۔', audio: new Uint8Array(0) },
     { id: 'ks:error', lang: 'ks', text: 'معاف کیجے، میہ ابھی جواب نی دیہ پïtہ۔ تھوڑی دیر باد دوبارہ کوشش کرو۔', audio: new Uint8Array(0) },
     { id: 'ks:price', lang: 'ks', text: 'یہ ہٕن آجہٕ منڈی بھاؤ۔', audio: new Uint8Array(0) },
     { id: 'ks:weather', lang: 'ks', text: 'تُہؠ علاقہ لئیٖ موسم خٕبر۔', audio: new Uint8Array(0) },

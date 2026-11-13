@@ -16,11 +16,23 @@ import { Badge, Btn, INPUT, PORTAL_THEMES } from '@/components/portal/kit';
 import { LangPicker, SpeakButton } from '@/components/voice/VoiceButtons';
 import { compressImage } from '@/lib/client/image';
 import { isRtl, type SpeechLang } from '@/lib/client/speech';
+import { classifyFetchError } from '@/lib/onlineFirstClient';
 import { createRequest, sendMessage } from '@/lib/db/advisory';
 import type { Account } from '@/lib/db/client';
 
 const theme = PORTAL_THEMES.farmer;
 const CROPS = ['Apple', 'Walnut', 'Almond', 'Cherry', 'Pear', 'Apricot', 'Saffron', 'Vegetables', 'Other'];
+
+/** One honest reason a check failed — never a blanket "offline" claim:
+ * the device only when the device says so, KashRoot when it could not be
+ * reached, otherwise the real error. */
+const describeError = (err: unknown) => {
+  const classified = classifyFetchError(err);
+  if (classified.kind === 'DEVICE_NETWORK_UNAVAILABLE') return classified.userMessage;
+  const m = err instanceof Error ? err.message : '';
+  if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Could not reach KashRoot. Check your internet and try again.';
+  return m || 'The photo could not be checked. Please try again.';
+};
 
 interface Diagnosis {
   plant_seen: string;
@@ -71,7 +83,7 @@ export function PhotoDiagnosis({ account }: { account: Account | null }) {
       if (!res.ok) throw new Error(data.error ?? 'The photo could not be checked.');
       setResult(data as Diagnosis);
     } catch (err) {
-      setError(err instanceof Error && err.message !== 'Failed to fetch' ? err.message : 'No internet connection. Please try again.');
+      setError(describeError(err));
     } finally {
       setBusy(false);
     }

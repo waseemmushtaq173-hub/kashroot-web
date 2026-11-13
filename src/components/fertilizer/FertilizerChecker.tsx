@@ -36,6 +36,7 @@ import { checkLabel, type LabelFacts, type RuleReport } from '@/lib/fertilizer/l
 import { readTyped, type Typed } from '@/lib/fertilizer/trueScan';
 import { compressImage } from '@/lib/client/image';
 import { isRtl, type SpeechLang } from '@/lib/client/speech';
+import { classifyFetchError } from '@/lib/onlineFirstClient';
 import { dbMessage, loadAccount, supabase, supabaseConfigured, type Account } from '@/lib/db/client';
 import { searchRegistry, type OfficialHit, type OfficialKind } from '@/lib/db/registry';
 import type { FcoStandard, CibrcProduct, CibrcBanned } from '@/lib/db/govRegistry';
@@ -102,7 +103,17 @@ const day = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDat
 const count = (n: number) => n.toLocaleString('en-IN');
 /** "1 product", "1,234 products" */
 const products = (n: number) => `${count(n)} product${n === 1 ? '' : 's'}`;
-const offline = (err: unknown) => (err instanceof Error && !/Failed to fetch|NetworkError|Load failed/i.test(err.message) ? err.message : 'No internet connection. Please try again.');
+/** One honest message for a failed request: names the device only when the
+ * device itself reports being offline, names KashRoot when it could not be
+ * reached, and otherwise passes the real error on — never a blanket
+ * "No internet connection" claim. */
+const offline = (err: unknown) => {
+  const classified = classifyFetchError(err);
+  if (classified.kind === 'DEVICE_NETWORK_UNAVAILABLE') return classified.userMessage;
+  const m = err instanceof Error ? err.message : '';
+  if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Could not reach KashRoot. Check your internet and try again.';
+  return m || 'The request could not be completed. Please try again.';
+};
 
 type FcoRow = { key: string; label: string; min: number | null; max: number | null; value: number | null; verdict: 'pass' | 'fail' | 'missing' };
 
@@ -1160,7 +1171,7 @@ function LabelPhoto({ account }: { account: Account | null }) {
       }
       await Promise.all(checks);
     } catch (err) {
-      setError(err instanceof Error && err.message !== 'Failed to fetch' ? err.message : 'No internet connection. Please try again.');
+      setError(offline(err));
     } finally {
       setBusy(false);
     }

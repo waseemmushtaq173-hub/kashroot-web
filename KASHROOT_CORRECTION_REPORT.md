@@ -60,4 +60,28 @@ Mandated search run (`Get-ChildItem -Recurse | Select-String` with the directive
 ### G. Route reality for the directive's portal-card hrefs
 `/farmer/dashboard` ✅ · `/buyer/dashboard` ✅ · `/tracking` ✅ (redirects to dashboard) · `/kissan-tools`, `/rental`, `/dealer`, `/advisory`, `/mandi` — **not real routes**; real homes are `/kissan-tools/dashboard`, `/rental/dashboard`, `/dealer/dashboard`, `/expert` (Advisory), `/trader/dashboard` (Mandi Helpers). The portal-cards config uses the real homes (documented in the config file).
 
-**Git checkpoint:** `docs(correction): phase 0 audit with exact file and line root cause map`
+**Git checkpoint:** `docs(correction): phase 0 audit with exact file and line root cause map` — committed `ab1ab07`.
+
+---
+
+## PHASE 1 — ONLINE-FIRST CONNECTIVITY RESTORATION (✅)
+
+**Created `src/lib/onlineFirstClient.ts`** with the directive's exact code: `ServiceErrorKind` / `ClassifiedServiceError` types, `clearLegacyOfflineStorage()` (removes every localStorage key containing `offline` / `saved_data` / `sync_queue` / `pending_actions`, unregisters all service workers) and `classifyFetchError(error, httpStatus?)` (AUTH_SESSION_EXPIRED on 401/403, BACKEND_API_UNAVAILABLE on 5xx, DEVICE_NETWORK_UNAVAILABLE only when `navigator.onLine === false`, REQUEST_ERROR otherwise).
+
+**Slimmed `src/components/pwa/PwaRoot.tsx`** (389 → 75 lines). Removed entirely: both global fixed bottom banners ("No internet connection right now… saved copy…" and "KashRoot is not responding just now…"), the floating outbox chip, the outbox modal, the "Back online. Sending N items…" toast, saved-page machinery (`registerWorker`, `askSavedPage`, `savedPageTime`, `shownAt`, controllerchange reload toast), signed data-pack sync, and the `--kr-bottom-bar` banner-height measuring (FloatingVoice reads the var with a `0px` fallback, so removal is safe). Kept: mount-time `clearLegacyOfflineStorage()`, the `startOnlineFirstChecks()` live probe, and the silent background outbox flush (user tracking via `currentUserId` + auth listener; flushes once per sign-in and on every online transition; per-item announcements come from `outboxSend`'s own toasts). The component now renders `null` — zero global UI.
+
+**Reworded the false-offline phrases** (all honest now, consistent with `classifyFetchError`):
+- `src/components/pwa/net.ts` — `NEEDS_INTERNET`: "Your device has no active internet connection. This needs the internet — try again when you have signal." (was "You are offline — …"); `isOfflineError` regex extended to also match the new "no active internet connection" phrasing (old phrasings from cached items still match).
+- `src/lib/db/client.ts` `dbMessage` — offline branch: "Your device reports no active internet connection. Check mobile data or Wi-Fi." (only when `navigator.onLine === false`; otherwise "Could not reach KashRoot…").
+- `src/lib/client/audioCache.ts` — the `en:`/`hi:`/`ur:`/`ks:` offline voice lines no longer say "Showing saved data from your phone"; they say to check mobile data or Wi-Fi and retry.
+
+**Wired `classifyFetchError` into every mislabeling site:**
+- `src/components/fertilizer/FertilizerChecker.tsx` — the `offline(err)` helper (used by `read()` label-photo catch, `checkLabel` catch, registration-lookup catch) now classifies: device-offline message only when the device is truly offline, "Could not reach KashRoot…" for network-type failures (backend down no longer claims "No internet connection"), real error text otherwise.
+- `src/components/orchard/PhotoDiagnosis.tsx` — new `describeError()` helper (same contract), wired into the `/api/diagnose` catch.
+- `src/components/support/SupportCenter.tsx` — `post()` catch now returns `describeError(err)` instead of the hardcoded "No internet connection…" claim.
+
+**Preserved (genuine offline data safety, silent):** `outboxSend.ts` (keepQuestion/keepRate/keepListingDraft + concurrency-safe `flushOutbox`), `idb.ts`, `offlineDb.ts`, and the per-page honest indicators `savedCopies.ts`/`SavedAt.tsx` (`Saved at` badge can no longer render after SW unregistration; `LastUpdated` is a legitimate "source not answering" service-specific notice). `/offline` route and `public/sw.js` untouched (never-delete); nothing registers or serves them any more.
+
+**Verification:** `npm run build` clean — 83 routes, zero TypeScript/bundle errors (pre-existing "Material undefined → corrugated" static-gen notice unchanged).
+
+**Git checkpoint:** `fix(correction): phase 1 online first restoration, remove offline banners and queue UI, reword false offline phrases`
