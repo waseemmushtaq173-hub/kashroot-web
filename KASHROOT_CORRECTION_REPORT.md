@@ -202,4 +202,21 @@ Mandated search run (`Get-ChildItem -Recurse | Select-String` with the directive
 
 **Verification:** `npm run build` clean — 83 routes, zero TypeScript/bundle errors, and the pre-existing "Material 'undefined' → corrugated" static-gen warnings are GONE (the studio params seed fixed them).
 
-**Git checkpoint:** `fix(correction): phase 6 cap twin instanced meshes at 1500 stacks, background kit load under 400ms, slot inspector coordinates`
+**Git checkpoint:** `fix(correction): phase 6 cap twin instanced meshes at 1500 stacks, background kit load under 400ms, slot inspector coordinates` — committed `da3f896`.
+
+---
+
+## PHASE 7 — TRACKING & LIVE GPS: VERIFIED + MAP LAYERS (✅)
+
+**Found already implemented and verified unchanged:**
+
+- **SIGNAL_STALE auto-detection + revival:** `/api/logistics/track/route.ts` derives the effective status server-side (SIGNAL_STALE when the last ping is old) and emits revival events when pings resume; `LiveGpsTrips.tsx` labels a stale trip "Signal stale — no ping recently" in red, with stale = `SIGNAL_STALE` status or `minutes_since_last_ping > 10` while `IN_TRANSIT_LIVE`. `LiveTrack.tsx` separately detects a lost consignment (5 min in-transit via db signal age; 30 min on older setups).
+- **Consent GPS on the driver's page** (`/drive/<token>` → `DriverShare.tsx`): the driver reads exactly what sharing means in EN/HI/UR and taps Start (agreement recorded through `driverStart`) — nothing is collected before that; wake-lock keeps the screen awake; `watchPosition` pings are throttled to 45 s; a ±100 m accuracy gate avoids junk fixes with a 2-min fallback so a standing-still phone still reports; PERMISSION_DENIED and timeout are reported honestly through `driverSignal` (the sender sees "Location lost" and gets the email); there is NO stop button — the trip ends only when the receiver's 6-digit delivery code is typed (or the sender ends it); the GPS accuracy ("±X m") and a last-sent clock are shown live.
+- **Accuracy + place context:** `LiveTrack.tsx` (30 s poll) shows the ± accuracy, the village/town the truck is near ("Near <place>"), distance remaining and the call button; `LiveLogisticsMap.tsx` shows the coordinates + ±m badge, accuracy circle, geofence status and route-deviation alert.
+- **Secondary GPS senders verified:** `src/components/shop/DriverTrip.tsx` (`/deliver/<token>`, Kissan Tools deliveries) — explicit Start button (consent), wake-lock, `watchPosition` high accuracy, immediate send on first fix then every 30 s, honest PERMISSION_DENIED stop. `src/components/shop/LiveShare.tsx` (seller side) — per-order sharing started only by the button, stops on Stop / leaving the orders page / sign-out / order-no-longer-on-way / location blocked, wake-lock re-acquired when the page becomes visible again. Both are genuine live-tracking sources (not pollers) and stay.
+
+**Added — Road / Satellite / Hybrid basemaps on `src/components/tracking/RouteMap.tsx`** (the toll-crossing map used by LiveTrack and the tracking dashboard's consignment history): pills above the map — Road (OpenStreetMap, default), Satellite (Esri World_Imagery) and Hybrid (imagery + Esri World_Boundaries_and_Places place labels as a second overlay TileLayer). Switching remounts the tile layer via `key={layer}` so it is instant and no pending tiles of the previous basemap linger; attribution switches with the basemap (Esri credit on imagery, OSM credit on streets). `next.config.ts` CSP `img-src` already allows `https://server.arcgisonline.com` and the OSM tile hosts — zero config changes. `LiveLogisticsMap.tsx` already shipped Street/Satellite/Hybrid (+ an optional Google Static basemap when the env key exists) — verified, unchanged; `LiveGpsTrips.tsx` renders that map.
+
+**Verification:** `npm run build` clean — 83 routes, zero TypeScript/bundle errors.
+
+**Git checkpoint:** `fix(correction): phase 7 add road satellite hybrid basemaps to route map, verify signal stale and consent gps flows`
