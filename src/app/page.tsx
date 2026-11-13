@@ -29,7 +29,7 @@ import { Tilt3D } from '@/components/three/Tilt3D';
 import { VoiceConcierge } from '@/components/voice/VoiceConcierge';
 import { SiteFooter, SiteHeader } from '@/components/layout/SiteHeader';
 import { loginHref } from '@/lib/auth/roles';
-import { supabase } from '@/lib/db/client';
+import { supabase } from '@/lib/supabase';
 import { seasonForDate } from '@/lib/seasons';
 import { SITE_URL, SOCIAL_LINKS } from '@/lib/site';
 import { GLASS, TOOL_ORDER, TOOLS, type ToolId } from '@/lib/tools';
@@ -84,9 +84,13 @@ const BUTTON_LINK = 'no-underline hover:no-underline';
 async function liveMetrics(): Promise<{ stores: number | null; lots: number | null; rates: number | null }> {
   const count = async (table: string, match: Record<string, string | boolean>): Promise<number | null> => {
     try {
-      const { count, error } = await supabase.from(table).select('*', { count: 'exact', head: true }).match(match);
+      // Count on id, not *: the anon SELECT grant is column-scoped, so
+      // select=* is denied (401) while an exact count on id is allowed.
+      const { count, error } = await supabase.from(table).select('id', { count: 'exact', head: true }).match(match);
+      if (error) console.error('[liveMetrics]', table, JSON.stringify(error));
       return error ? null : count ?? null;
-    } catch {
+    } catch (e) {
+      console.error('[liveMetrics]', table, 'threw:', e instanceof Error ? e.message : String(e));
       return null;
     }
   };
