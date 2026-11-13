@@ -111,4 +111,30 @@ Mandated search run (`Get-ChildItem -Recurse | Select-String` with the directive
 
 **Verification:** `npm run build` clean — 83 routes, zero TypeScript/bundle errors.
 
-**Git checkpoint:** `fix(correction): phase 2 fast true scan compression with staged progress and abort timeout, visibility gated polling`
+**Git checkpoint:** `fix(correction): phase 2 fast true scan compression with staged progress and abort timeout, visibility gated polling` — committed `757859a`.
+
+---
+
+## PHASE 3 — DECORATIVE 3D REMOVED, HOMEPAGE & FARMER PORTAL (✅)
+
+**Homepage (`src/app/page.tsx`):**
+- Removed the entire "KASHROOT IN 3D — From the orchard to the cold store" section: `<OrchardShowcase />` and its import (low-poly trees, ground plane, building, floating crates are gone with it).
+- Removed `<ValleyScene mood="autumn" … />` behind the "One valley, every trade" portals banner; the banner keeps a richer static 2D gradient (`from-sky-400 via-sky-300 to-amber-200` + the existing dark wash). The homepage now ships **zero three.js on first load**.
+- Added the **real live platform metrics** strip to the hero (the directive's retained-element list): server-side count queries against the public tables — "N cold stores listed · M produce lots on sale · K mandi rates today" (`rental_listings`, `market_listings`, `mandi_rates` for today IST; `head:true, count:'exact'`). Each count is shown only when its table answered; any failure silently drops that item — no invented numbers. Cached by the page's hourly `revalidate`.
+- Header comment updated (cards are described as coloured cards, not "3D cards").
+
+**Farmer portal (`src/app/(dashboards)/farmer/dashboard/page.tsx`):**
+- Removed `OrchardInspector3D` (the large green decorative 3D orchard canvas).
+- Built the replacement **`src/components/farmer/OrchardAnalyticsPanel.tsx`** — a fast 2D Orchard & Crop Health Analytics Panel using only real data:
+  - **Season stage** card (lib/seasons: Bud break to bloom / Fruit development / Harvest / Dormant) with the orchard work each stage calls for, colour-coded.
+  - **Apple scab risk for the next 4 days** from `/api/orchard/scab` (Mills leaf-wetness model on Open-Meteo hourly temperature/humidity/rain), colour-coded Low → Severe, with the next wet spell's timing, wet hours and mean temperature.
+  - **Top-soil moisture 0–7 cm** — NEW real data: `/api/orchard/scab` now also fetches Open-Meteo `soil_moisture_0_to_7cm` and returns `{ value, at }`; the panel shows a % with Dry / Moderate / Well-supplied colouring, or an honest "Not available" when the source has no reading. (No NPK numbers anywhere — no data source, no fake values.)
+  - **7-day precipitation SVG chart** — past 3 days (grey) and next 4 (green), bar height = rain mm, caption = leaf-wetness hours, tooltips included.
+  - Location logic mirrors the existing `TodayWeather` panel (own district → saved location → state town, honestly labelled "nearest station town" when approximate); per-answer state keyed to the query so a place change never shows stale data; links to `/farmer/orchard-health` (scab map & spray log) and `/farmer/season-planner`.
+- 100% of farmer functionality preserved: tiles, KPIs, SellerDesk (What I sell / farm inputs with the permanent green packing-layers fields), Orders, Escrow payments, TodayWeather spray window, assistant links all untouched.
+
+**Deliberately kept on disk (never-delete / still referenced):** `OrchardShowcase.tsx`, `ValleyScene.tsx`, `OrchardInspector3D.tsx` now have zero live usages (ValleyScene still exports the `SceneMood` type used by `portalLoginConfig.ts`); they are tree-shaken out of every bundle.
+
+**Verification:** `npm run build` clean — 83 routes, zero TypeScript/bundle errors.
+
+**Git checkpoint:** `fix(correction): phase 3 remove homepage and farmer decorative 3d, add 2d orchard analytics panel and live hero metrics`

@@ -12,8 +12,8 @@
  * the rates (posting them is the Mandi Helpers portal) — no card leads into
  * a portal it does not name.
  * Below the hero: the voice assistant, Orchard Health, KashRoot TrueScan
- * (is this fertiliser or pesticide genuine?) and
- * every portal as a coloured 3D card (each with its own sign-in).
+ * (is this fertiliser or pesticide genuine?) and every portal as a coloured
+ * card (each with its own sign-in).
  *
  * A server component; the interactive sections are client islands.
  */
@@ -25,12 +25,11 @@ import { FertilizerChecker } from '@/components/fertilizer/FertilizerChecker';
 import { HeroShowcase } from '@/components/layout/HeroShowcase';
 import { PortalGrid } from '@/components/landing/PortalGrid';
 import { LATTICE_BG } from '@/components/portal/lattice';
-import { OrchardShowcase } from '@/components/three/OrchardShowcase';
 import { Tilt3D } from '@/components/three/Tilt3D';
-import { ValleyScene } from '@/components/three/ValleyScene';
 import { VoiceConcierge } from '@/components/voice/VoiceConcierge';
 import { SiteFooter, SiteHeader } from '@/components/layout/SiteHeader';
 import { loginHref } from '@/lib/auth/roles';
+import { supabase } from '@/lib/db/client';
 import { seasonForDate } from '@/lib/seasons';
 import { SITE_URL, SOCIAL_LINKS } from '@/lib/site';
 import { GLASS, TOOL_ORDER, TOOLS, type ToolId } from '@/lib/tools';
@@ -77,7 +76,33 @@ const TOOL_ACTIONS: Record<ToolId, { primary: ToolAction; secondary: ToolAction 
 const FOCUS_RING = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2';
 const BUTTON_LINK = 'no-underline hover:no-underline';
 
-export default function HomePage() {
+/**
+ * Real live platform counts for the hero, straight from the database (the
+ * public, signed-out tables). Each count stands on its own: when one cannot
+ * be read it is simply not shown — no invented numbers, ever.
+ */
+async function liveMetrics(): Promise<{ stores: number | null; lots: number | null; rates: number | null }> {
+  const count = async (table: string, match: Record<string, string | boolean>): Promise<number | null> => {
+    try {
+      const { count, error } = await supabase.from(table).select('*', { count: 'exact', head: true }).match(match);
+      return error ? null : count ?? null;
+    } catch {
+      return null;
+    }
+  };
+  // Today in India (the database dates a rate in IST), as outboxSend does.
+  const indiaDay = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
+  const [stores, lots, rates] = await Promise.all([
+    count('rental_listings', { kind: 'cold_store', active: true }),
+    count('market_listings', { active: true }),
+    count('mandi_rates', { rate_date: indiaDay }),
+  ]);
+  return { stores, lots, rates };
+}
+
+export default async function HomePage() {
+  const metrics = await liveMetrics();
+  const fmt = (n: number) => n.toLocaleString('en-IN');
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: BRAND_JSON_LD }} />
@@ -106,6 +131,14 @@ export default function HomePage() {
                 <span key={c} className="h-2.5 w-8 rounded-full shadow-sm" style={{ backgroundColor: c }} />
               ))}
             </p>
+            {/* Real live platform counts — each shown only when its table answered. */}
+            {(metrics.stores != null || metrics.lots != null || metrics.rates != null) && (
+              <p className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm font-medium text-slate-700">
+                {metrics.stores != null && <span><strong className="font-semibold text-slate-900">{fmt(metrics.stores)}</strong> cold stores listed</span>}
+                {metrics.lots != null && <span><strong className="font-semibold text-slate-900">{fmt(metrics.lots)}</strong> produce lots on sale</span>}
+                {metrics.rates != null && <span><strong className="font-semibold text-slate-900">{fmt(metrics.rates)}</strong> mandi rates today</span>}
+              </p>
+            )}
           </section>
 
           <section aria-label="KashRoot tools" className="mt-6 grid gap-5 sm:mt-8 md:grid-cols-3">
@@ -121,8 +154,6 @@ export default function HomePage() {
       <div className="relative isolate overflow-hidden bg-gradient-to-b from-ivory via-white to-emerald-50/70">
         <div aria-hidden className="pointer-events-none absolute inset-0 -z-10" style={LATTICE_BG} />
         <div className="mx-auto max-w-7xl space-y-10 px-4 pb-14 pt-8 sm:px-6 lg:px-8">
-          <OrchardShowcase />
-
           <section aria-label="Voice assistant">
             <VoiceConcierge />
           </section>
@@ -144,8 +175,7 @@ export default function HomePage() {
 
           <section aria-labelledby="portals-heading">
             <div className="relative isolate mb-6 overflow-hidden rounded-[2rem] p-8 text-white shadow-[0_24px_60px_rgba(15,23,42,0.18)] sm:p-10">
-              <div aria-hidden className="absolute inset-0 -z-20 bg-gradient-to-br from-sky-300 to-amber-200" />
-              <ValleyScene mood="autumn" className="-z-20" particleCount={50} />
+              <div aria-hidden className="absolute inset-0 -z-20 bg-gradient-to-br from-sky-400 via-sky-300 to-amber-200" />
               <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-r from-slate-950/60 via-slate-900/20 to-transparent" />
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-200">Every portal</p>
               <h2 id="portals-heading" className="font-display mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">One valley, every trade</h2>

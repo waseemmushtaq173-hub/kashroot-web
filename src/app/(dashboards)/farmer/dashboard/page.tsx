@@ -38,7 +38,7 @@ import {
 } from 'lucide-react';
 
 import { PortalShell } from '@/components/layout/PortalShell';
-import { OrchardInspector3D } from '@/components/three/OrchardInspector3D';
+import { OrchardAnalyticsPanel } from '@/components/farmer/OrchardAnalyticsPanel';
 import { SellerDesk } from '@/components/market/SellerDesk';
 import { SafePayment } from '@/components/payments/SafePayment';
 import { Btn, Panel, PORTAL_THEMES, Skeleton, Tile } from '@/components/portal/kit';
@@ -137,8 +137,9 @@ function FarmerDashboard() {
               <Tile theme={theme} icon={MessageCircleQuestion} label="Ask an expert" hint="Agronomist answers" href="/farmer/ask-expert" />
             </div>
 
-            {/* The interactive 3D orchard & crop-health inspector. */}
-            <OrchardInspector3D />
+            {/* Orchard & crop health: fast 2D analytics (season stage, scab risk,
+                soil moisture, rain outlook) — replaced the decorative 3D scene. */}
+            <OrchardAnalyticsPanel district={account?.district} />
 
             <div className="relative isolate overflow-hidden rounded-3xl bg-gradient-to-r from-chinar via-chinar-hover to-[#04241D] p-7 text-white shadow-lg ring-1 ring-amber-300/40">
               <ChinarLeaf className="pointer-events-none absolute -bottom-8 -right-6 -z-10 h-40 w-40 -rotate-12 opacity-20" color="#FDE68A" />
