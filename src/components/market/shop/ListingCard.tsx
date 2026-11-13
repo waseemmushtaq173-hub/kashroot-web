@@ -38,7 +38,17 @@ const ListingCardInner = React.memo(function ListingCardInner({ listing: l, veri
         {isNewToday(l) && <Badge tone="amber"><Sparkles className="h-3 w-3" aria-hidden /> New today</Badge>}
       </div>
       <h3 className="mt-1 font-display text-lg font-semibold text-slate-900">{l.product}</h3>
-      {(l.variety || l.grade || l.packing_layers) && <p className="text-sm text-slate-600">{[l.variety, l.grade && `Grade ${l.grade}`].filter(Boolean).join(l.packing_layers ? ` · ${l.packing_layers}` : ' · ')}</p>}
+      {l.variety && <p className="text-sm text-slate-600">{l.variety}</p>}
+      {/* Grade / packing / box-size badges: the buyer reads the lot's quality and
+          pack at a glance (ListingDetailModal has the full breakdown). */}
+      {(l.grade || l.packing_layers || l.box_capacity_kg) && (
+        <p className="mt-1 flex flex-wrap gap-1.5">
+          {l.grade && <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-800 ring-1 ring-emerald-200">{/^grade /i.test(l.grade) ? l.grade : `Grade ${l.grade}`}</span>}
+          {l.packing_layers && <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-bold text-sky-800 ring-1 ring-sky-200">{l.packing_layers}</span>}
+          {l.box_capacity_kg && <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-800 ring-1 ring-amber-200">{l.box_capacity_kg} kg box</span>}
+          {l.apples_per_box && <span className="rounded-full bg-slate-50 px-2.5 py-0.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">{l.apples_per_box}</span>}
+        </p>
+      )}
       <p className="flex items-center gap-1.5 text-sm text-slate-700">
         {verified ? <ShieldCheck className="h-4 w-4 text-emerald-700" aria-hidden /> : <Store className="h-4 w-4 text-slate-400" aria-hidden />}
         {l.seller_name}
@@ -49,8 +59,18 @@ const ListingCardInner = React.memo(function ListingCardInner({ listing: l, veri
       {l.details && <p className="mt-2 line-clamp-2 text-sm text-slate-600">{l.details}</p>}
       <div className="mt-auto flex items-end justify-between gap-2 border-t border-slate-900/5 pt-4">
         <div>
-          <p className="text-xl font-bold text-slate-900">{inr(l.price)} <span className="text-sm font-normal text-slate-500">/ {l.unit}</span>{l.box_capacity_kg && <span className="text-xs text-emerald-600 font-semibold ml-1">({l.box_capacity_kg} kg/box)</span>}</p>
-          <p className="text-xs text-slate-500">{amountOf(Number(l.quantity), l.unit)} in stock{l.box_capacity_kg && ` · ${totalWeightKg!.toLocaleString('en-IN')} kg`}</p>
+          <p className="text-xl font-bold text-slate-900">{inr(l.price)} <span className="text-sm font-normal text-slate-500">/ {l.unit}</span></p>
+          {/* Both readings of the price: per box and, when the box size is given,
+              the same price per kg — no mental arithmetic for the buyer. */}
+          {l.box_capacity_kg && Number(l.price) > 0 ? (
+            <p className="text-xs text-slate-600">
+              <span className="font-semibold text-emerald-700">≈ {inr(Number(l.price) / Number(l.box_capacity_kg))} / kg</span>
+              <span className="text-slate-400"> · </span>
+              {l.box_capacity_kg} kg × {amountOf(Number(l.quantity), l.unit)} = {totalWeightKg!.toLocaleString('en-IN')} kg
+            </p>
+          ) : (
+            <p className="text-xs text-slate-500">{amountOf(Number(l.quantity), l.unit)} in stock</p>
+          )}
         </div>
         <div className="flex gap-2">
           {/* Signed out, the number is not sent at all (lib/db/phones). */}

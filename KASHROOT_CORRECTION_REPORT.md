@@ -162,4 +162,26 @@ Mandated search run (`Get-ChildItem -Recurse | Select-String` with the directive
 
 **Verification:** `npm run build` clean — 83 routes, zero TypeScript/bundle errors (one type-narrowing fix in `useRecentPortal` along the way).
 
-**Git checkpoint:** `fix(correction): phase 4 redesign eight portal cards and navigation from portal cards config, dynamic my portal button`
+**Git checkpoint:** `fix(correction): phase 4 redesign eight portal cards and navigation from portal cards config, dynamic my portal button` — committed `ec7e28d`.
+
+---
+
+## PHASE 5 — INTERNAL DASHBOARD UPGRADES, 2D EVERYWHERE (✅)
+
+**Mandi Helpers portal** (`src/components/mandi/PostedRates.tsx`): the 3D volume bars replaced with **`src/components/mandi/MandiBars.tsx`** — a 2D multi-mandi comparison chart (labelled horizontal bars, length = latest modal price per mandi, top 8, commodity named under each; same `MandiBar` data contract so no call-site logic changed).
+
+**Kissan Tools portal** (`src/app/(dashboards)/kissan-tools/dashboard/page.tsx`): the 3D equipment showroom replaced with **`src/components/kissan/EquipmentSpecTables.tsx`** — structured spec-sheet tables in five synchronous tabs (Tractors / Harvesters / Sprayers / Irrigation / Horticultural tools), rows for engine HP, PTO power, tank capacity, nozzle flow, indicative dealer price and the applicable subsidy scheme (SMAM / PMKSY / horticulture dept), with an honest "indicative ranges" footnote.
+
+**Agro-dealer portal** (`src/app/(dashboards)/dealer/dashboard/page.tsx`): the 3D packaging viewer replaced with **`src/components/dealer/InputCompliancePanel.tsx`** — a 2D stock & label compliance board driven by the dealer's REAL batch list (localStorage `kr_dealer_batches_v2`): live stock gauges per product type (fertilisers / pesticides / seeds / other, with out-of-stock honestly flagged), registry + expiry watch (registered vs unregistered, expired and ≤60-day batches named), and what a genuine label must carry per pack — FCO 1985 badge, CIB&RC badge with the full toxicity colour-band legend (blue/yellow/red/green), Legal Metrology badge. Zero invented numbers.
+
+**Advisory portal** (`src/components/advisory/AdvisoryDesk.tsx` library tab): the 3D leaf viewer replaced with **`src/components/advisory/PhenologyPanel.tsx`** — a 2D apple phenology timeline (Dormant → Silver tip → Pink bud → Petal fall → Fruit development → Harvest) with the current window computed from today's date on a typical Kashmir calendar (labelled as typical, altitude shifts it), per-stage severity indicators and what to watch; below it a leaf-pathology selector (healthy / scab early / scab advanced / San Jose scale) with a labelled pure-SVG leaf diagram, and every recommendation badged **✅ Verified by agronomists** or **🤖 AI suggestion — verify doses with an agronomist**.
+
+**Buyer portal shop cards** (`src/components/market/shop/ListingCard.tsx`): grade / packing / box-size now render as distinct badges — `Grade A` (emerald), `4 Layer` (sky), `18 kg box` (amber), apples-per-box (slate) — and the price row shows BOTH readings: the per-box price and `≈ ₹X / kg` plus `18 kg × 24 boxes = 432 kg` arithmetic. ListingDetailModal keeps its full packaging breakdown and the AppleBox3D preview (directive keeps the genuine 3D packaging preview); ProductForm keeps AppleBox3D on the sell form.
+
+**Checkout map verified:** the buyer order flow (`OrderModal.tsx`) uses `LiveInteractiveMap` (native OpenStreetMap raster tiles loaded as plain `<img>` elements — no iframe, no map library; CSP `img-src` explicitly allows `https://*.tile.openstreetmap.org`), so zero CSP blocks. Same map backs ListingDetailModal's delivery pin and ProductForm's orchard capture spot.
+
+**Deliberately kept on disk (never-delete, now unused):** `MandiBars3D.tsx`, `EquipmentShowcase3D.tsx`, `InputPack3D.tsx`, `LeafPathology3D.tsx` — tree-shaken out of every bundle.
+
+**Verification:** `npm run build` clean — 83 routes, zero TypeScript/bundle errors (pre-existing "Material undefined → corrugated" static-gen notice unchanged).
+
+**Git checkpoint:** `fix(correction): phase 5 replace portal 3d modules with 2d analytics compliance and phenology panels, buyer shop badges and price breakdown`

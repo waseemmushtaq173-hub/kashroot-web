@@ -34,7 +34,7 @@ import { toast } from '@/lib/client/toast';
 
 import { PortalShell } from '@/components/layout/PortalShell';
 import { SellerDesk } from '@/components/market/SellerDesk';
-import { InputPack3D } from '@/components/three/InputPack3D';
+import { InputCompliancePanel } from '@/components/dealer/InputCompliancePanel';
 import { PayoutForm } from '@/components/payments/PayoutForm';
 import { Badge, Btn, EmptyState, Field, INPUT, Modal, PORTAL_THEMES, Panel, Tile, Skeleton } from '@/components/portal/kit';
 import { myRoleRequest, requestStaffRole } from '@/lib/db/advisory';
@@ -266,8 +266,8 @@ export default function DealerDashboardPage() {
 
       {tab === 'inventory' && (
         <div className="space-y-6">
-          {/* The 3D input-packaging & FCO/CIB&RC compliance label viewer. */}
-          <InputPack3D />
+          {/* The 2D stock & label compliance board (FCO / CIB&RC), live from the batch list. */}
+          <InputCompliancePanel batches={batches} />
           {unregistered.length > 0 && (
             <div className="flex flex-col gap-3 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200 sm:flex-row sm:items-center sm:justify-between">
               <p className="flex items-start gap-2 text-sm text-amber-900">
