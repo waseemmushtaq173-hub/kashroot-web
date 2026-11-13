@@ -28,7 +28,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { DoorOpen, Factory, Footprints, Layers, Maximize2, ScanEye, Volume2, X } from 'lucide-react';
 
 import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
-import { loadColdKitGeo } from '@/components/rental/three/coldKit';
+import { loadColdKitGeo, type ColdKitGeos } from '@/components/rental/three/coldKit';
 import { buildPlaces, buildRoute, buildShell, disposeGroup, faceWalls, makeKit, sizeLabels, wx, wz, type Cell, type InstSummary, type Origin, type Places, type PlacesState, type Shell } from '@/components/rental/three/buildStore';
 import { routeTo, type Route, type RouteLang } from '@/components/rental/walk/route';
 import { speak, stopSpeaking } from '@/lib/client/speech';
@@ -351,6 +351,23 @@ export function ColdStore3D({
   const [measure, setMeasure] = useState<Measure | null>(null);
   // The digital-twin controls (in addition to the camera pills and the place filters).
   const [xrayWalls, setXrayWalls] = useState(false);
+  // The Blender kit's real geometries, loaded in the BACKGROUND: the 3D world
+  // always mounts with its own procedural kit first (well under 400 ms, never
+  // waiting on a network), and rebuilds once with the real shapes when the
+  // kit GLB has arrived. A missing or slow GLB simply never arrives: the
+  // procedural shapes stay — nothing waits, nothing breaks.
+  const [kitProtos, setKitProtos] = useState<ColdKitGeos | null>(null);
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      const T = await import('three');
+      const protos = await loadColdKitGeo(T, '/models/coldstore_kit.glb', 8000);
+      if (live && protos) setKitProtos(protos);
+    })();
+    return () => {
+      live = false;
+    };
+  }, []);
   const [myHighlight, setMyHighlight] = useState(false);
   /** The crate stack the drawer is open for: one tap on a booked (or the farmer's own) stack. */
   const [stackCell, setStackCell] = useState<Cell | null>(null);
@@ -596,14 +613,11 @@ export function ColdStore3D({
         pmrem.dispose();
       }
 
-      // The Blender kit: six real-world protos, loaded while the scene builds.
-      // Anything short of a load leaves the hand-drawn kit below as it always
-      // was. A five-second budget: a big chamber falls back to the procedural
-      // kit instead of staring at a spinner while the GLB crawls in.
-      const protos = await loadColdKitGeo(T, '/models/coldstore_kit.glb', 5000);
       // The kit used for all logic is the procedural one, dressed with the
-      // Blender protos when they answered.
-      const kit = makeKit(T, phone, protos);
+      // Blender protos when they have answered in the background (or kept
+      // plain when they never do). Nothing here waits on the network: the
+      // first mount always draws the procedural kit at once.
+      const kit = makeKit(T, phone, kitProtos);
 
       // A soft contact shadow under the building: a radial gradient on a disc,
       // so the store sits on the yard instead of floating — cheaper than a
@@ -1487,9 +1501,10 @@ export function ColdStore3D({
       disposed = true;
       cleanup();
     };
-    // Rebuilt from scratch per attempt (the retry counter); textId never
-    // changes, and data and callbacks reach the scene through `latest`/`api`.
-  }, [textId, mounted, attempt]);
+    // Rebuilt from scratch per attempt (the retry counter) and once more when
+    // the Blender kit arrives in the background; textId never changes, and
+    // data and callbacks reach the scene through `latest`/`api`.
+  }, [textId, mounted, attempt, kitProtos]);
 
   if (failed) {
     return <p className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-950 ring-1 ring-amber-200">This phone or browser cannot show 3D. Use the Drawing — it shows the same chambers and places.</p>;

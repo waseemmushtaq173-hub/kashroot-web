@@ -55,12 +55,14 @@ export interface Chamber3DConfig {
 
 /**
  * The batching tier for massive facilities (Al Noor generates tens of
- * thousands of unit slots): past 2,000 units the twin draws 1,000 evenly
+ * thousands of unit slots): past 1,500 units the twin draws 1,000 evenly
  * spread representative units instead — one procedural THREE.BoxGeometry
- * instanced mesh either way, so the WebGL context never drowns — and an
- * honest badge over the canvas says exactly how many the store really holds.
+ * instanced mesh either way, so the WebGL context never drowns (the
+ * directive's hard ceiling: an InstancedMesh never holds more than 1,500
+ * stacks) — and an honest badge over the canvas says exactly how many the
+ * store really holds.
  */
-const SLOT_CAP_TRIGGER = 2000;
+const SLOT_CAP_TRIGGER = 1500;
 const SLOT_CAP_SHOWN = 1000;
 
 export interface IndustrialColdStoreTwinProps {
@@ -405,6 +407,12 @@ export function IndustrialColdStoreTwin3D({
                     <span className="text-slate-400">Level / Unit:</span>
                     <span className="font-semibold">
                       {inspectedSlot.levelCode} · {inspectedSlot.unitCode}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Position:</span>
+                    <span>
+                      Row {inspectedSlot.row}, Column {inspectedSlot.col} · level {inspectedSlot.levelIndex} of {inspectedChamber?.levels ?? inspectedSlot.levelIndex}
                     </span>
                   </div>
                   <div className="flex justify-between">

@@ -31,7 +31,9 @@ const DESIGN_TYPES: { type: DesignType; label: string; icon: React.ReactNode }[]
 
 export default function StudioPage() {
   const [designType, setDesignType] = useState<DesignType>('carton');
-  const [params, setParams] = useState<Record<string, unknown>>({});
+  // Seeded with the initial design's defaults (never {}): the first render
+  // builds a real design, so getMaterial never sees an undefined key.
+  const [params, setParams] = useState<Record<string, unknown>>(() => getDefaultsForDesignType('carton') as Record<string, unknown>);
   const [savedDesigns, setSavedDesigns] = useState<Array<{ id: string; type: string; name: string; updated_at: string; created_at: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);

@@ -789,10 +789,12 @@ const APPLE_COUNT = 3; // a crown of apples across the top crate: two corners an
 /**
  * The safety cap for massive stores (Al Noor: 1,556 places over five levels —
  * tens of thousands of rack posts, rails and stack instances at once, beyond
- * what a phone's WebGL context survives). Past 2,000 slots the view draws
+ * what a phone's WebGL context survives). Past 1,500 slots the view draws
  * 1,000 evenly spread representative places instead and says so honestly.
+ * The directive's hard ceiling: an InstancedMesh never holds more than
+ * 1,500 stacks.
  */
-const SLOT_CAP_TRIGGER = 2000;
+const SLOT_CAP_TRIGGER = 1500;
 const SLOT_CAP_SHOWN = 1000;
 
 /**
