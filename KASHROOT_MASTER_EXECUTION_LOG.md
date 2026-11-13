@@ -161,3 +161,128 @@ Verified against the real source files (grep on every claim; directive says veri
 - `.github/skills/gstack` untouched (an external tool modified it locally; it is deliberately left out of every commit this round).
 - Final commit + push + production deploy below; live verification follows in the Final Deliverable Report.
 
+
+---
+
+# KASHROOT MASTER DIRECTIVE — FINAL 12-PART DELIVERABLE REPORT
+
+**Scope executed:** Phases 0→11, strictly sequential with a gated git checkpoint commit per phase. Production: **https://kashroot-web.vercel.app** (deployment `dpl_5JCHXzoS7tHqPxtFtZtF3po6GL7r`, READY, aliased). Date: 13 Nov 2026.
+
+---
+
+## PART 1 — EXECUTIVE SUMMARY
+
+The master directive is **complete**: the site is online-first again (PWA connectivity manager + honest offline banner), the homepage, navigation and **all 8 portals** carry 3D scenes through one shared lazy engine with a 2D fallback and a kill switch, the cold-storage 3D twin is verified, live GPS logistics runs on a v2 schema with RTO fleet verification + consent + geofences + deviation alerts + a live route map + a driver fleet console, every farmer capture reports to a privacy-first 5-state photo audit with a server-computed SHA-256, and the universal price engine now covers 14 categories with landed pricing, sparklines, seller filters and escrow-protected ordering. All new writes go to BOTH column sets (v1+v2) so nothing existing broke. Build clean (83 routes), security gate 375/0, remote DB fully probed green, production live-verified endpoint by endpoint (Part 6).
+
+## PART 2 — PHASE-BY-PHASE EXECUTION STATUS
+
+| Phase | Scope | Result | Commit |
+|---|---|---|---|
+| 0 | Full audit, real route map | ✅ 83 routes mapped; dirty-file inventory | `8b6e0f3` |
+| 1 | Online-first connectivity | ✅ PWA manager, honest offline banner, 1.5 s camera guard | `0e56704` |
+| 2 | Homepage + nav 3D | ✅ 3D orchard & cold-chain showcase, 3D-badged portals dropdown, help drawer | `dc616ad` |
+| 3 | 8 portals 3D | ✅ orchard inspector, apple box, equipment showroom, input packs, leaf pathology, mandi bars (+2 already covered) | `df60af7` |
+| 4 | Cold-store twin verification | ✅ twin verified against real facilities | `dd421db` |
+| 5 | Live GPS logistics | ✅ schema v2 + tracking API v2 + live map + driver console | `7f92af6` |
+| 6 | Photo-verification privacy | ✅ verify-photo v2 + capture wiring | `9408b68` |
+| 7 | Universal price engine | ✅ 14 categories, landed price, sparklines, filters, escrow link | `3b24184` |
+| 8 | Zod validation | ✅ schemas on track / verify-photo / price-comparison | `b847fd7` |
+| 9 | RBAC / privacy re-check | ✅ RLS gate 375/0, secret scan clean, leak check clean | `b847fd7` |
+| 10 | Lazy-load check | ✅ zero `three` imports outside the lazy engine; map dynamic `ssr:false` | `b847fd7` |
+| 11 | Final ship + this report | ✅ exact-message commit, push, prod deploy, live verification | `c4c4a9f` (+ report commit) |
+
+## PART 3 — GIT COMMIT RECORD (this round, in order)
+
+`8b6e0f3` → `0e56704` → `dc616ad` → `df60af7` → `dd421db` → `7f92af6` → `9408b68` → `3b24184` → `b847fd7` → `c4c4a9f` (final ship, **exact directive message**) → report commit. Pushed `HEAD:main` (origin `waseemmushtaq173-hub/kashroot-web`); second push lands origin at the report commit. `.github/skills/gstack` left modified & uncommitted (external tooling; directive forbids touching it).
+
+## PART 4 — DATABASE STATE (remote project `wmkjkdfigdlpdvvsqcig`)
+
+- Migration `supabase/migrations/20261112000002_kashroot_master_upgrade.sql` applied via apply.mjs (2.3 s); mirrored in `supabase/RUN_THIS_ONCE.sql` (4.6 s), registry row **46** in `kr_setup_rows`.
+- Directive CREATEs were re-declarations of existing tables → outcomes layered as **idempotent ALTERs** (documented in the migration header; nothing dropped or narrowed).
+- Final probe, all green: master trips v2 cols **8/8**; trip_status CHECK with **ARRIVED** ✓; telemetry CHECK with **SIGNAL_STALE** ✓; **authorized_fleet** ✓ with **2** INSERT grants; photo v2 cols **8/8**; price v2 cols **6/6**; **OTHER_INPUTS** CHECK ✓; setup rows 42–46 all registered; **NO rows: 0** (no statements failed).
+- Security gate `node scripts/check-sql.mjs` → **375 passed, 0 failed** (was 373; +2 for `authorized_fleet` RLS/policy).
+- Env-var names only (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `GEMINI_API_KEY`) — no keys hardcoded anywhere (scanned).
+
+## PART 5 — FEATURE INVENTORY (what shipped this round)
+
+1. **Online-first** — connectivity manager detects real reachability (not just navigator.onLine), honest offline banner, camera guard shortened to 1.5 s so a cold GPS/camera boot doesn't strand farmers offline.
+2. **Homepage + nav 3D** — 3D orchard & cold-chain showcase; portals dropdown badges each portal with its live 3D module; help drawer. All through the shared lazy `Portal3DScene` engine (2D fallback + `kr_portal_3d_off` localStorage toggle).
+3. **8 portals 3D** — orchard inspector (Farmer), apple box (Shop), equipment showroom (Rental), input packs (Supplies), leaf pathology (Diagnostics), mandi bars (Prices/Mandi), plus tracking & admin modules — every portal got its scene.
+4. **Cold-store twin** — verified the 3D facility twin against real `rental_listings` facilities (chambers, levels, bay positions render from the DB rows, not mock data).
+5. **Live GPS logistics v2** — consent-first tracking; RTO verification against `authorized_fleet`; Haversine step accumulation; route_history (cap 500) feeding the live map; geofence ladder ARRIVED ≤ 0.15 km / INSIDE_GEOFENCE ≤ 0.5 / APPROACHING ≤ 5; deviation alert > 15 km off the origin→destination segment; SIGNAL_STALE detection with revival events; ARRIVED terminal status; RTO CSV fleet import (≤ 500/call) with a driver console tab.
+6. **Photo-verification privacy** — server-side SHA-256; 5-state lifecycle (`GPS_VERIFIED_ORCHARD`, `DEVICE_GPS_RECORDED`, `GPS_ACCURACY_LOW`, `DUPLICATE_SUSPECTED`, `PRIVACY_MASKED`); raw coordinates private-only, public twin masked to ~1.1 km; farmer privacy checkbox; fire-and-forget reporting in ProductForm.
+7. **Universal price engine** — 14th category OTHER_INPUTS (alias-pooled with EQUIPMENT); landed price = price + transport per unit; `price_history` seeded on POST; variety/grade/sellerType filters; pictorial chips; SVG sparklines; escrow order link for marketplace rows.
+8. **Hardening** — zod 4 schemas (safeParse → 400 with `error.flatten()`) on the three new/rewritten routes; rate limits on all of them; both column sets written everywhere; v1 endpoints (`/api/photos/geo-verify`, old trips reader) untouched.
+
+## PART 6 — LIVE PRODUCTION VERIFICATION (all run against https://kashroot-web.vercel.app)
+
+| Endpoint / page | Method | Status | Verdict |
+|---|---|---|---|
+| `/` | GET | **200** | ✅ homepage (3D) live |
+| `/api/health` | GET | **200** | ✅ |
+| `/api/logistics/track` | GET | **200** | ✅ trips v2 |
+| `/api/logistics/track?fleet=1` | GET | **200** | ✅ fleet registry |
+| `/api/price-comparison` | GET | **200** | ✅ 14-category board |
+| `/api/geo/reverse?lat=33.77&lng=74.68` | GET | **200** | ✅ |
+| `/api/products/verify-photo` | GET, no params | **400** | ✅ expected guard (pass listingId/farmerId) |
+| `/api/products/verify-photo?listingId=<uuid>` | GET | **200** | ✅ public-only columns |
+| `/api/logistics/track` | POST `{}` | **400** | ✅ zod/action guard ("Missing action") |
+| `/tracking/dashboard` | GET | **200** | ✅ incl. driver console tab |
+| `/rental/dashboard` | GET | **200** | ✅ |
+| `/farmer/dashboard` | GET | **200** | ✅ |
+| `/buyer/dashboard` | GET | **200** | ✅ |
+| `/compare-prices` | GET | **200** | ✅ universal board |
+| `/admin/dashboard` | GET | **307 → 200** at `/team/unlock?next=%2Fadmin%2Fdashboard` | ✅ two-step team-pass guard working |
+| `/tracking` | GET | **307 → 200** at `/tracking/dashboard` | ✅ old-page redirect working |
+| `/test-pages/cold-store` | GET | **404** | ✅ **by design** — see Part 10.1 |
+| `/test-pages/kit` | GET | **404** | ✅ same by-design guard |
+
+**Production DB-backed responses verified live**: the tracking and price endpoints returned data-shaped JSON (the deployments run against the same remote Supabase project probed in Part 4).
+
+## PART 7 — API SURFACE CHANGES
+
+- **New**: `/api/products/verify-photo` (POST RECORD / ATTACH_PHOTO, GET public-only), zod-validated, rate-limited 20/min POST + 30/min GET.
+- **Rewritten**: `/api/logistics/track` — v2 (GET code/fleet/fleetCheck; POST CREATE_TRIP, DRIVER_CONSENT, DRIVER_GPS_PING, FLEET_IMPORT), zod-validated, rate-limited 30/min GET + 60/min POST.
+- **Upgraded**: `/api/price-comparison` — 14 categories + alias, new filters (variety/grade/sellerType), landed sort, zod `OfferSchema` on POST, rate-limited 60/20 per min.
+- **Untouched (compatibility)**: `/api/photos/geo-verify` (v1 photo audit), all other routes; every write fills v1+v2 columns.
+
+## PART 8 — SECURITY & PRIVACY POSTURE
+
+- RLS on every table incl. the new `authorized_fleet` (gate 375/0); server-mediated model — Vercel has no service-role key, so endpoints run on the anon key through the policies.
+- Photo privacy: raw device coordinates never appear in any verify-photo response (fixed public column list); masked public twin ≈ 1.1 km; farmer opt-out drops the private copy entirely.
+- Driver consent enforced server-side before any ping is accepted (403 without it); consent timestamped on both column sets.
+- Rate limits on every new endpoint; zod bounds on coordinates, accuracy, payload sizes (data URL ≤ 1.2 M chars, photo URL ≤ 500 chars, fleet rows ≤ 500/call).
+- No secrets in code (scanned); CSP extended only for the tile/static-map hosts actually used.
+
+## PART 9 — BUILD & DEPLOYMENT RECORD
+
+- Next **16.4.3** (Turbopack), `npm run build` clean — **83 routes**, TypeScript 0 errors. Recurring "Material 'undefined' not found, falling back to corrugated" is a pre-existing three.js static-generation notice, not an error.
+- Vercel production deploy `dpl_5JCHXzoS7tHqPxtFtZtF3po6GL7r` → **READY**, aliased to `https://kashroot-web.vercel.app` (inspector: vercel.com/team-alpha-d0b5/kashroot-web/5JCHXzoS7tHqPxtFtZtF3po6GL7r).
+
+## PART 10 — HONEST FINDINGS & KNOWN LIMITATIONS
+
+1. **`/test-pages/*` 404 on production — resolved as by-design, not a defect.** The routes build (`ƒ /test-pages/cold-store`, `ƒ /test-pages/kit`) and the response header `X-Matched-Path: /test-pages/cold-store` proves the route matched — then the page itself calls `notFound()` because both pages guard on `process.env.KR_TEST_PAGES !== '1'` ("Exists only when the server starts with KR_TEST_PAGES=1; everywhere else it is not found"). The Playwright specs skip gracefully on 404 for exactly this reason. No fix was forced: exposing internal test pages on the live site would be a regression, not an improvement. They run on a dev server started with `KR_TEST_PAGES=1`.
+2. **`sharedFacilityEngine.ts` orphan untouched** — a pre-existing unreferenced file discovered in Phase 0; left in place per the never-delete rule (no route imports it).
+3. **Vercel env has no `SUPABASE_SERVICE_ROLE_KEY`** → server routes fall back to the anon key (RLS-mediated, working, verified live). Adding the service-role key would let the tracking/photo endpoints bypass RLS where policies are the actual control; left as-is deliberately.
+4. **No `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` on Vercel** → the Google Static basemap auto-hides; OSM street + Esri satellite/hybrid serve the live map. Drop the key in and the basemap appears with zero code changes.
+5. **Driver phone rides in trip rows** — v1 design (the trip share link's audience); unchanged this round, noted for a future hardening pass.
+6. **`.github/skills/gstack` left modified** — an external tool changed it locally; the directive forbids touching it, so it is excluded from every commit.
+7. **pre-existing three.js notice** during static generation (see Part 9) — cosmetic, not addressed this round.
+
+## PART 11 — COMPATIBILITY / NEVER-DELETED GUARANTEES
+
+- All 5 directive-touched tables keep RLS + policies; nothing was dropped or narrowed (the directive's re-declared CREATE TABLEs became documented idempotent ALTERs).
+- Every write fills BOTH v1 and v2 column sets — consent, distance, photo, price — so every pre-existing reader keeps working.
+- `/api/photos/geo-verify`, the old trips reader shape, all dashboards and all 83 routes survived the round; only additions and rewrites-with-same-contract occurred.
+- Setup registry rows 42–46 intact; `kr_setup_rows` NO rows: 0.
+
+## PART 12 — RECOMMENDED NEXT STEPS (post-directive, optional)
+
+1. Add `SUPABASE_SERVICE_ROLE_KEY` to Vercel only if/when server-side RLS bypass is actually needed (photo duplicate scan across farmers) — with a policy review first.
+2. Add `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` to light up the Google basemap (auto-detected, no code change).
+3. A hardening pass on driver-phone exposure in trip rows (Part 10.5) — e.g. mask in list responses, keep full value on the share-token route only.
+4. Wire `ATTACH_PHOTO` when a flow starts producing real photo URLs (object storage), so `original_photo_url` stops staying null for in-app captures.
+5. The `sharedFacilityEngine.ts` orphan can be deleted or adopted in a later cleanup round with explicit approval.
+
+**End of report.** Directive complete: Phases 0–11 executed, shipped, live-verified, and documented.
+
