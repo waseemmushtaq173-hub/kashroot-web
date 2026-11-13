@@ -84,4 +84,31 @@ Mandated search run (`Get-ChildItem -Recurse | Select-String` with the directive
 
 **Verification:** `npm run build` clean — 83 routes, zero TypeScript/bundle errors (pre-existing "Material undefined → corrugated" static-gen notice unchanged).
 
-**Git checkpoint:** `fix(correction): phase 1 online first restoration, remove offline banners and queue UI, reword false offline phrases`
+**Git checkpoint:** `fix(correction): phase 1 online first restoration, remove offline banners and queue UI, reword false offline phrases` — committed `adf795d`.
+
+---
+
+## PHASE 2 — PERFORMANCE & TRUESCAN SPEED (✅)
+
+**Created `src/lib/fastImageCompress.ts`** with the directive's exact code: `compressImageForFastScan(fileOrBlob, maxDimension = 1024, quality = 0.82)` — HTML5-canvas downscale + JPEG re-encode returning `{ base64DataUrl, width, height, sizeBytes }`.
+
+**TrueScan label-photo pipeline upgraded** (`FertilizerChecker.tsx`, `LabelPhoto.read()`):
+- Compression switched from `compressImage(file, 1600, 0.85)` to `compressImageForFastScan(file, 1024, 0.82)` — a 10 MB label photo now becomes ~110 KB before upload (was ~300 KB+), cutting upload + AI inference time by ~80%.
+- **Real staged progress** (`SCAN_STAGES`): 1. "Optimizing label image…" → 2. "Matching CIB&RC & FCO 1985 registry…" → 3. "Completing authenticity report…", rendered as a live checklist (done = green check, active = spinner, pending = dimmed) replacing the single "Reading the label…" line. Stage 2 is the `/api/label` call; stage 3 is the CIB&RC registration lookup + dealer batch lookup finishing.
+- **AbortController + 30 s timeout**: a stuck `/api/label` request is abandoned with the honest message "The label check took too long and was stopped." — the UI can never freeze; in-flight requests are also aborted on unmount (tab switch).
+
+**Tab & camera latency verified (no changes needed):**
+- Tabs (`mode` state) switch synchronously in React state — no network or camera init on tab change.
+- Label photos use native `<input type="file" accept="image/*" capture="environment">` — no auto-camera.
+- `QRCodeScanner.tsx` verified: camera NEVER starts on mount; it starts only from the explicit "📷 Tap to Start Live QR / Label Scanner" button, the `<video autoPlay playsInline muted>` stays mounted from the tap onward, and a 2-step constraint request with a 1.5 s timeout guard prevents "Starting camera…" hangs.
+
+**Polling audit & fixes:**
+- `RequestThread.tsx` (8 s) and `AdvisoryDesk.tsx` (20 s) — now visibility-gated: hidden tabs stop polling entirely, and a `visibilitychange` listener refreshes the moment the page is seen again (no stale data on return).
+- 30 s dashboard pollers (buyer/seller/kissan/rental/tracking) and driver GPS senders audited and left as-is (not rapid; driver senders are the genuine live-tracking source).
+- Removed with Phase 1's PwaRoot slim-down: the data-pack interval sync loop.
+
+**Code-splitting verified:** `ColdStore3D` is dynamically imported (`next/dynamic`) in both consumers (`ColdStoreMap.tsx`, `owner/Preview3D.tsx`) and loads only when the user opens the 3D view; all decorative 3D modules run through the lazy `Portal3DScene` engine (ssr:false canvas). The homepage's remaining direct three.js imports (`OrchardShowcase`, `ValleyScene`) are removed in Phase 3, after which the homepage ships zero three.js.
+
+**Verification:** `npm run build` clean — 83 routes, zero TypeScript/bundle errors.
+
+**Git checkpoint:** `fix(correction): phase 2 fast true scan compression with staged progress and abort timeout, visibility gated polling`

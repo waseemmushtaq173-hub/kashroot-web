@@ -34,7 +34,7 @@ import { BadgeCheck, Camera, CheckCircle2, CircleAlert, Copy, FileQuestion, Flag
 import { LangPicker, SpeakButton } from '@/components/voice/VoiceButtons';
 import { checkLabel, type LabelFacts, type RuleReport } from '@/lib/fertilizer/labelRules';
 import { readTyped, type Typed } from '@/lib/fertilizer/trueScan';
-import { compressImage } from '@/lib/client/image';
+import { compressImageForFastScan } from '@/lib/fastImageCompress';
 import { isRtl, type SpeechLang } from '@/lib/client/speech';
 import { classifyFetchError } from '@/lib/onlineFirstClient';
 import { dbMessage, loadAccount, supabase, supabaseConfigured, type Account } from '@/lib/db/client';
@@ -1121,6 +1121,13 @@ function ReportBatch({ code, account }: { code: string; account: Account | null 
   );
 }
 
+/** The real steps of a label scan, shown as live progress while the backend works. */
+const SCAN_STAGES = [
+  'Optimizing label image…',
+  'Matching CIB&RC & FCO 1985 registry…',
+  'Completing authenticity report…',
+] as const;
+
 function LabelPhoto({ account }: { account: Account | null }) {
   const [lang, setLang] = useState<SpeechLang>('en');
   const [photo, setPhoto] = useState<string | null>(null);
@@ -1129,6 +1136,11 @@ function LabelPhoto({ account }: { account: Account | null }) {
   const [lookup, setLookup] = useState<Lookup>({ state: 'idle' });
   const [regCheck, setRegCheck] = useState<RegCheck>({ state: 'idle' });
   const [error, setError] = useState<string | null>(null);
+  // Real step-by-step scan progress: 1..3 (SCAN_STAGES); 0 = idle.
+  const [stage, setStage] = useState(0);
+  // Aborts a stuck /api/label request so the UI can never freeze.
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   const [langFrom, setLangFrom] = useState<Account | null>(null);
   if (account !== langFrom) {
@@ -1153,15 +1165,26 @@ function LabelPhoto({ account }: { account: Account | null }) {
     setReading(null);
     setLookup({ state: 'idle' });
     setRegCheck({ state: 'idle' });
+    setBusy(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    // The UI never freezes: if the backend has not answered within 30 s the
+    // request is abandoned with an honest message (slow-network safe).
+    const timeout = window.setTimeout(() => controller.abort(), 30_000);
     try {
-      const image = await compressImage(file, 1600, 0.85);
+      setStage(1);
+      // Client-side downscale first: a 10 MB phone photo becomes ~110 KB here,
+      // before any upload — the single biggest latency win.
+      const fast = await compressImageForFastScan(file, 1024, 0.82);
+      const image = fast.base64DataUrl;
       setPhoto(image);
-      setBusy(true);
-      const res = await fetch('/api/label', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ photo: image, lang }) });
+      setStage(2);
+      const res = await fetch('/api/label', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ photo: image, lang }), signal: controller.signal });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? 'The label could not be read.');
       const r = data as LabelReading;
       setReading(r);
+      setStage(3);
       const reg = r.registration_no?.trim();
       const checks: Promise<void>[] = [];
       if (reg && reg.length >= 3 && (r.product_type === 'pesticide' || /cir/i.test(reg))) checks.push(checkRegistration(reg));
@@ -1171,9 +1194,13 @@ function LabelPhoto({ account }: { account: Account | null }) {
       }
       await Promise.all(checks);
     } catch (err) {
-      setError(offline(err));
+      if (controller.signal.aborted) setError('The label check took too long and was stopped. Please try again.');
+      else setError(offline(err));
     } finally {
+      clearTimeout(timeout);
+      abortRef.current = null;
       setBusy(false);
+      setStage(0);
     }
   };
 
@@ -1195,7 +1222,29 @@ function LabelPhoto({ account }: { account: Account | null }) {
         <span className="text-xs text-emerald-800">The side with the batch number, dates and registration number</span>
         <input type="file" accept="image/*" capture="environment" className="sr-only" disabled={busy} onChange={(e) => void read(e.target.files?.[0])} />
       </label>
-      {busy && <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Reading the label…</p>}
+      {busy && (
+        <div role="status" aria-live="polite" className="rounded-2xl bg-white p-4 ring-1 ring-slate-200">
+          <ol className="space-y-2 text-sm">
+            {SCAN_STAGES.map((label, i) => {
+              const n = i + 1;
+              const done = stage > n;
+              const active = stage === n;
+              return (
+                <li key={label} className={`flex items-center gap-2 ${done ? 'text-emerald-700' : active ? 'font-semibold text-slate-900' : 'text-slate-400'}`}>
+                  {done ? (
+                    <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden />
+                  ) : active ? (
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                  ) : (
+                    <CircleAlert className="h-4 w-4 shrink-0 opacity-40" aria-hidden />
+                  )}
+                  {n}. {label}
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      )}
       {error && <p role="alert" className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">{error}</p>}
       {reading && (
         <div className="space-y-3 rounded-2xl bg-white p-4 ring-1 ring-slate-200">

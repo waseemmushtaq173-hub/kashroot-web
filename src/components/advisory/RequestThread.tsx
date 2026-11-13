@@ -53,12 +53,17 @@ export function RequestThread({ requestId, account, asExpert, onBack }: { reques
   useEffect(() => {
     let live = true;
     const tick = async () => {
-      if (live) await refresh();
+      // Background tabs do not poll — refresh the moment the page is seen again.
+      if (!live || document.visibilityState !== 'visible') return;
+      await refresh();
     };
+    const onVisible = () => { if (document.visibilityState === 'visible') void refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
     void tick();
     const id = window.setInterval(() => void tick(), 8000);
     return () => {
       live = false;
+      document.removeEventListener('visibilitychange', onVisible);
       window.clearInterval(id);
     };
   }, [refresh]);
