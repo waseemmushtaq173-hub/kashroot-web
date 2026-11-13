@@ -153,4 +153,11 @@ Verified against the real source files (grep on every claim; directive says veri
 - `npm run build` clean — all 83 routes.
 
 
-## PHASE 11 — FINAL DELIVERABLE REPORT — (filled at the end)
+## PHASE 11 — FINAL SHIP (✅ done this round)
+
+- **Final build** — `npm run build` clean: 83 routes, TypeScript finished with no errors (the recurring "Material undefined → corrugated" line is a pre-existing three.js notice from static generation, not an error).
+- **Git record this round** — `8b6e0f3` (P0 audit) → `0e56704` (P1 online-first) → `dc616ad` (P2 homepage/nav 3D) → `df60af7` (P3 six portal 3D modules) → `dd421db` (P4 cold-store twin verification) → `7f92af6` (P5 live GPS v2) → `9408b68` (P6 photo audit v2) → `3b24184` (P7 price engine v2) → `b847fd7` (P8/9/10 hardening).
+- **Database** — migration `20261112000002_kashroot_master_upgrade.sql` + the refreshed `RUN_THIS_ONCE.sql` (registry row 46) applied to the remote project and verified by probe: trips v2 cols 8/8, ARRIVED ✓, SIGNAL_STALE ✓, `authorized_fleet` ✓ with 2 INSERT grants, photo v2 cols 8/8, price v2 cols 6/6, OTHER_INPUTS ✓, rows 42–46 registered, NO rows: 0. Security gate 375/0.
+- `.github/skills/gstack` untouched (an external tool modified it locally; it is deliberately left out of every commit this round).
+- Final commit + push + production deploy below; live verification follows in the Final Deliverable Report.
+
