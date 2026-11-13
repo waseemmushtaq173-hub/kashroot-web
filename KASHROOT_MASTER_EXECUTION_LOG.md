@@ -102,7 +102,19 @@ Verified against the real source files (grep on every claim; directive says veri
 **Build** — `npm run build` clean, all 83 routes (one pre-existing three.js "Material undefined" warning from static generation, not an error).
 
 
-## PHASE 6 — (filled below when complete)
+## PHASE 6 — PHOTO-VERIFICATION PRIVACY (✅ done this round)
+
+**New route** — `src/app/api/products/verify-photo/route.ts` (v2 of the audit; the v1 `/api/photos/geo-verify` stays untouched for compatibility):
+- The server — never the client — computes the image's **SHA-256** with `crypto.subtle.digest` over the real bytes (data URL base64-decoded, or an https photo URL fetched, both capped at 8 MB), and stores it in `image_sha256` beside the v1 `photo_hash_sha256`.
+- **5-state verification lifecycle** in `verification_state`: `GPS_VERIFIED_ORCHARD` (fix ≤ 500 m AND within 2 km of the listing's stored farm location), `DEVICE_GPS_RECORDED` (default), `GPS_ACCURACY_LOW` (> 1 km fix, flagged), `DUPLICATE_SUSPECTED` (same SHA-256 already verified for a different farmer/listing), `PRIVACY_MASKED` (farmer opted out of the private raw copy). The v1 `verification_status` is always also written with the closest of its three values so older readers keep working.
+- **Privacy**: raw coordinates go to `private_raw_lat/lng` only (dropped entirely when the farmer ticks the privacy box); the public twin `public_masked_lat/lng` is `Math.round(v * 100) / 100` (≈ 1.1 km) — and **no response of this API ever includes the raw coordinates** (GET selects only the public columns; the legacy v1 GET is the only reader that still returns device coords).
+- `gps_accuracy_m` mirrors the fix accuracy; `original_photo_url` accepts an optional reference (external/mobile flows) or `ATTACH_PHOTO` fills it afterwards (in-app live captures store photos inline in the listing row, so the reference stays null until a caller has a real URL — documented honestly).
+- Rows written with BOTH column sets; rate-limited (20/min POST, 30/min GET).
+
+**ProductForm wiring** — `src/components/market/ProductForm.tsx`: every live capture now reports to the audit fire-and-forget (`reportVerification` — data URL, live GPS fix, locality label, privacy choice, `market_listings:{id}` reference when editing); a duplicate-suspect result surfaces as an advisory toast. New optional props `farmerId` / `listingId` passed from `SellerDesk.tsx` (`account.id`, `editing.id`). A "Privacy" checkbox in the GPS & Camera box opts the raw copy out of the audit; masking is applied publicly regardless.
+
+**Build** — `npm run build` clean, all 83 routes + the new one.
+
 
 ## PHASE 7 — (filled below when complete)
 

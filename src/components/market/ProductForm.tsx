@@ -63,7 +63,7 @@ const coordsText = (g: GeoResult) => `${g.lat.toFixed(5)}° N, ${g.lng.toFixed(5
 const addressIsCoords = (a: string) => a.includes('° N,');
 
 /** Produce listings require live camera + GPS — no gallery uploads. Every control is a button the farmer presses. */
-export function ProductForm({ value: v, onChange, isNew = false, payout, onPayoutChange }: {
+export function ProductForm({ value: v, onChange, isNew = false, payout, onPayoutChange, farmerId, listingId }: {
   value: ListingInput;
   onChange: (v: ListingInput) => void;
   /** A new listing (a farm input then needs a photo). */
@@ -72,6 +72,10 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
   payout?: PayoutAccount | null;
   /** Fired on every payout field edit. */
   onPayoutChange?: (p: PayoutAccount) => void;
+  /** The signed-in farmer — the photo audit row's owner (Phase 6). */
+  farmerId?: string;
+  /** The listing being edited, when the capture belongs to one. */
+  listingId?: string | null;
 }) {
   const produce = v.category === 'produce';
   const photos = photosOf(v);
@@ -83,6 +87,8 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [captured, setCaptured] = useState<CapturedMedia[]>([]);
   const [recording, setRecording] = useState(false);
+  /** Phase 6: keep even the private raw copy of the capture location out of the audit. */
+  const [privacyMasked, setPrivacyMasked] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -210,8 +216,41 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
         captured_lat: gps.lat, captured_lng: gps.lng,
         captured_accuracy_m: gps.accuracy, captured_address: gps.address, captured_at_iso: new Date().toISOString(),
       });
+      // Phase 6: the photo audit — the server computes the SHA-256 over the
+      // real bytes, keeps the raw location private and answers with the
+      // masked public twin. Fire-and-forget: it never blocks the capture.
+      void reportVerification(dataUrl, gps);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not capture the verified photo.');
+    }
+  };
+
+  /** Reports one captured photo to /api/products/verify-photo (Phase 6). */
+  const reportVerification = async (photoDataUrl: string, geo: GeoResult) => {
+    try {
+      const res = await fetch('/api/products/verify-photo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'RECORD',
+          farmerId: farmerId || undefined,
+          listingId: listingId || undefined,
+          deviceLat: geo.lat,
+          deviceLng: geo.lng,
+          accuracyM: geo.accuracy,
+          publicLocalityLabel: addressIsCoords(geo.address) ? '' : geo.address,
+          capturedAt: new Date().toISOString(),
+          photoDataUrl,
+          privacyMasked: privacyMasked,
+          originalPhotoUrl: listingId ? `market_listings:${listingId}` : undefined,
+        }),
+      });
+      const data = (await res.json()) as { ok: boolean; verification?: { verification_state?: string }; note?: string };
+      if (data.ok && data.verification?.verification_state === 'DUPLICATE_SUSPECTED') {
+        toast.info('Photo audit: this exact photo was verified before on another listing — a fresh capture keeps the listing verified.');
+      }
+    } catch {
+      /* the audit never blocks the capture */
     }
   };
 
@@ -363,6 +402,16 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
           <div className="sm:col-span-2 rounded-2xl bg-white/90 p-3 ring-1 ring-slate-200">
             <p className="text-sm font-bold text-slate-900">📍 Live GPS &amp; Camera (verified capture)</p>
             <p className="text-xs text-slate-500">{isNew ? 'New listing — ' : ''}press step 1, then step 2; every capture gets the GPS stamp burned into it. Nothing auto-starts: pressing the buttons is what opens them.</p>
+
+            {/* Phase 6 privacy choice: masking is always applied to anything public;
+                this keeps even the private raw copy out of the audit row. */}
+            <label className="mt-2 flex cursor-pointer items-start gap-2.5 rounded-xl bg-slate-50 p-3 text-xs text-slate-700 ring-1 ring-slate-200">
+              <input type="checkbox" checked={privacyMasked} onChange={(e) => setPrivacyMasked(e.target.checked)} className="mt-0.5 h-4 w-4 cursor-pointer accent-emerald-700" />
+              <span>
+                <strong>Privacy:</strong> keep my exact orchard coordinates out of the photo audit. Buyers only ever see the
+                masked location (about 1 km) either way — this also drops the private copy the audit keeps for verification.
+              </span>
+            </label>
 
             {/* Top status & action bar — always visible. */}
             <div className="mt-2 flex flex-wrap gap-2">

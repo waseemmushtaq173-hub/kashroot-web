@@ -202,7 +202,7 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
         </>
       }
     >
-      <ProductForm value={editing.data} isNew={!editing.id} onChange={(data) => setEditing({ ...editing, data })} payout={payout ?? null} onPayoutChange={(p) => setPayout(p)} />
+      <ProductForm value={editing.data} isNew={!editing.id} onChange={(data) => setEditing({ ...editing, data })} payout={payout ?? null} onPayoutChange={(p) => setPayout(p)} farmerId={account.id} listingId={editing.id ?? null} />
     </Modal>
   );
 
