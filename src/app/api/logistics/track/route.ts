@@ -16,6 +16,7 @@
 //
 // The server routes mediate all access: the tables' rows are open to the
 // anon-key server client by policy, and these endpoints are IP rate-limited.
+// Request bodies are validated with zod (Phase 8).
 //
 //   GET  ?code=KR-TRK-…    → one trip (or the 25 newest), with the effective
 //                            status (SIGNAL_STALE when the last ping is old).
@@ -27,9 +28,76 @@
 //   POST { action: 'FLEET_IMPORT', rows: […] } → RTO fleet CSV upsert.
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { z } from 'zod';
 import { ipLimited, tooMany } from '@/lib/server/sign';
 
 export const dynamic = 'force-dynamic';
+
+/** GPS coordinates, accepted as numbers or numeric strings. */
+const LatSchema = z.coerce.number().min(-90).max(90);
+const LngSchema = z.coerce.number().min(-180).max(180);
+
+const CreateTripSchema = z.object({
+  action: z.literal('CREATE_TRIP'),
+  driverName: z.string().trim().min(1).max(80),
+  driverPhone: z.string().trim().min(3).max(20),
+  vehicleRegistrationNo: z.string().trim().min(4).max(20),
+  originName: z.string().trim().min(1).max(160),
+  destinationName: z.string().trim().min(1).max(160),
+  originLat: LatSchema,
+  originLng: LngSchema,
+  destinationLat: LatSchema,
+  destinationLng: LngSchema,
+  consentGranted: z.boolean().optional(),
+  driverConsentGranted: z.boolean().optional(),
+  shipmentCode: z.string().trim().max(40).optional(),
+  orderId: z.string().uuid().nullish(),
+  sellerId: z.string().uuid().nullish(),
+  buyerId: z.string().uuid().nullish(),
+  driverId: z.string().uuid().nullish(),
+  vehicleType: z.string().trim().max(40).optional(),
+  trackingSource: z.string().trim().max(40).optional(),
+  rtoVerifiedStatus: z.string().trim().max(40).optional(),
+});
+
+const DriverConsentSchema = z.object({
+  action: z.literal('DRIVER_CONSENT'),
+  tripId: z.string().uuid(),
+  consentGranted: z.boolean(),
+});
+
+const DriverPingSchema = z.object({
+  action: z.literal('DRIVER_GPS_PING'),
+  tripId: z.string().uuid(),
+  lat: LatSchema,
+  lng: LngSchema,
+  accuracyM: z.coerce.number().min(0).max(100_000).optional(),
+  speedKmh: z.coerce.number().min(0).max(160).optional(),
+  consentGranted: z.boolean().optional(),
+  notes: z.string().trim().max(300).nullish(),
+});
+
+const FleetRowSchema = z.object({
+  vehicleRegistrationNo: z.string().trim().min(1).max(20),
+  vehicleType: z.string().trim().max(60).optional(),
+  ownerName: z.string().trim().max(120).optional(),
+  rtoOffice: z.string().trim().max(120).optional(),
+  rtoCode: z.string().trim().max(20).optional(),
+  fitnessValidUpto: z.string().trim().max(40).optional(),
+  permitType: z.string().trim().max(60).optional(),
+  permitValidUpto: z.string().trim().max(40).optional(),
+  insuranceValidUpto: z.string().trim().max(40).optional(),
+  fuelType: z.string().trim().max(40).optional(),
+});
+
+const FleetImportSchema = z.object({
+  action: z.literal('FLEET_IMPORT'),
+  rows: z.array(FleetRowSchema).min(1).max(500),
+  importedBy: z.string().uuid().nullish(),
+});
+
+const badBody = (error: z.ZodError) =>
+  NextResponse.json({ ok: false, error: 'Validation failed', issues: error.flatten() }, { status: 400 });
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -78,10 +146,6 @@ function offRouteKm(
   const cx = ax + t * abx, cy = ay + t * aby;
   return Math.hypot(px - cx, py - cy);
 }
-
-/** A number that is truly a finite number (else NaN / null stay out). */
-const num = (v: unknown): number | null =>
-  v === null || v === undefined || v === '' ? null : Number.isFinite(Number(v)) ? Number(v) : null;
 
 const STALE_MS = 10 * 60 * 1000;
 const GEOFENCE_KM = 0.5;
@@ -185,22 +249,12 @@ export async function POST(request: Request) {
   const supabase = getSupabase();
 
   if (body.action === 'CREATE_TRIP') {
-    const required = ['driverName', 'driverPhone', 'vehicleRegistrationNo', 'originName', 'destinationName'];
-    for (const f of required) {
-      if (!String(body[f] ?? '').trim()) {
-        return NextResponse.json({ ok: false, error: `Missing ${f}` }, { status: 400 });
-      }
-    }
-    const originLat = num(body.originLat);
-    const originLng = num(body.originLng);
-    const destLat = num(body.destinationLat);
-    const destLng = num(body.destinationLng);
-    if (originLat === null || originLng === null || destLat === null || destLng === null) {
-      return NextResponse.json({ ok: false, error: 'Missing origin / destination coordinates' }, { status: 400 });
-    }
+    const parsed = CreateTripSchema.safeParse(body);
+    if (!parsed.success) return badBody(parsed.error);
+    const q = parsed.data;
 
     // RTO verification against the authorized_fleet registry.
-    const regNo = String(body.vehicleRegistrationNo || '').toUpperCase().trim();
+    const regNo = q.vehicleRegistrationNo.toUpperCase();
     const fleetRow = await fleetLookup(supabase, regNo);
     const rtoMetadata = fleetRow
       ? {
@@ -218,22 +272,22 @@ export async function POST(request: Request) {
         }
       : null;
 
-    const totalKm = haversineKm(originLat, originLng, destLat, destLng);
-    const shipmentCode = body.shipmentCode || `KR-TRK-${Date.now().toString().slice(-6)}`;
-    const consent = Boolean(body.consentGranted) || Boolean(body.driverConsentGranted);
+    const totalKm = haversineKm(q.originLat, q.originLng, q.destinationLat, q.destinationLng);
+    const shipmentCode = q.shipmentCode || `KR-TRK-${Date.now().toString().slice(-6)}`;
+    const consent = Boolean(q.consentGranted) || Boolean(q.driverConsentGranted);
     const nowIso = new Date().toISOString();
     const { data, error } = await supabase
       .from('shipment_tracking_trips')
       .insert({
-        order_id: body.orderId ?? null,
+        order_id: q.orderId ?? null,
         shipment_code: shipmentCode,
-        seller_id: body.sellerId ?? null,
-        buyer_id: body.buyerId ?? null,
-        driver_name: body.driverName,
-        driver_phone: body.driverPhone,
-        driver_id: body.driverId ?? null,
+        seller_id: q.sellerId ?? null,
+        buyer_id: q.buyerId ?? null,
+        driver_name: q.driverName,
+        driver_phone: q.driverPhone,
+        driver_id: q.driverId ?? null,
         vehicle_registration_no: regNo,
-        tracking_source: body.trackingSource || 'DRIVER_APP_GPS',
+        tracking_source: q.trackingSource || 'DRIVER_APP_GPS',
         consent_granted: consent,
         consent_granted_at: consent ? nowIso : null,
         // v2 columns (both column sets are always written):
@@ -242,18 +296,18 @@ export async function POST(request: Request) {
         rto_metadata: rtoMetadata,
         route_deviation_alert: false,
         geofence_status: geofenceStatus(totalKm),
-        route_history: pushHistory([], originLat, originLng, null),
+        route_history: pushHistory([], q.originLat, q.originLng, null),
         distance_travelled_km: 0,
-        vehicle_type: body.vehicleType || 'REFRIGERATED_TRUCK',
-        rto_verified_status: fleetRow ? 'VERIFIED_RTO_RECORD' : body.rtoVerifiedStatus || 'UNVERIFIED',
-        origin_name: body.originName,
-        origin_lat: originLat,
-        origin_lng: originLng,
-        destination_name: body.destinationName,
-        destination_lat: destLat,
-        destination_lng: destLng,
-        current_lat: originLat,
-        current_lng: originLng,
+        vehicle_type: q.vehicleType || 'REFRIGERATED_TRUCK',
+        rto_verified_status: fleetRow ? 'VERIFIED_RTO_RECORD' : q.rtoVerifiedStatus || 'UNVERIFIED',
+        origin_name: q.originName,
+        origin_lat: q.originLat,
+        origin_lng: q.originLng,
+        destination_name: q.destinationName,
+        destination_lat: q.destinationLat,
+        destination_lng: q.destinationLng,
+        current_lat: q.originLat,
+        current_lng: q.originLng,
         total_distance_km: Number(totalKm.toFixed(2)),
         covered_distance_km: 0,
         remaining_distance_km: Number(totalKm.toFixed(2)),
@@ -271,8 +325,8 @@ export async function POST(request: Request) {
       await supabase.from('shipment_telemetry_events').insert({
         trip_id: data.id,
         event_type: 'CONSENT_GRANTED',
-        lat: originLat,
-        lng: originLng,
+        lat: q.originLat,
+        lng: q.originLng,
         notes: 'Driver agreed to share live GPS at trip start.',
       });
     }
@@ -281,18 +335,22 @@ export async function POST(request: Request) {
   }
 
   if (body.action === 'DRIVER_CONSENT') {
+    const parsed = DriverConsentSchema.safeParse(body);
+    if (!parsed.success) return badBody(parsed.error);
+    const q = parsed.data;
+    if (!q.consentGranted) {
+      return NextResponse.json({ ok: false, error: 'Consent must be explicitly granted' }, { status: 400 });
+    }
+
     // The driver's explicit consent, recorded on its own (the consent screen
     // calls this before the first ping when the trip was created without it).
     const { data: trip, error: findErr } = await supabase
       .from('shipment_tracking_trips')
       .select('*')
-      .eq('id', body.tripId)
+      .eq('id', q.tripId)
       .single();
     if (findErr || !trip) {
       return NextResponse.json({ ok: false, error: 'Shipment trip not found' }, { status: 404 });
-    }
-    if (!body.consentGranted) {
-      return NextResponse.json({ ok: false, error: 'Consent must be explicitly granted' }, { status: 400 });
     }
     const nowIso = new Date().toISOString();
     const { data: updated, error: upErr } = await supabase
@@ -319,10 +377,14 @@ export async function POST(request: Request) {
   }
 
   if (body.action === 'DRIVER_GPS_PING') {
+    const parsed = DriverPingSchema.safeParse(body);
+    if (!parsed.success) return badBody(parsed.error);
+    const q = parsed.data;
+
     const { data: trip, error: findErr } = await supabase
       .from('shipment_tracking_trips')
       .select('*')
-      .eq('id', body.tripId)
+      .eq('id', q.tripId)
       .single();
 
     if (findErr || !trip) {
@@ -331,7 +393,7 @@ export async function POST(request: Request) {
     if (trip.trip_status === 'DELIVERED' || trip.trip_status === 'CANCELLED' || trip.trip_status === 'ARRIVED') {
       return NextResponse.json({ ok: false, error: 'This trip is closed' }, { status: 409 });
     }
-    const consentNow = Boolean(trip.consent_granted) || Boolean(body.consentGranted);
+    const consentNow = Boolean(trip.consent_granted) || Boolean(q.consentGranted);
     if (!consentNow) {
       return NextResponse.json(
         { ok: false, error: 'Driver location consent is required before sharing live GPS.' },
@@ -339,12 +401,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const lat = num(body.lat);
-    const lng = num(body.lng);
-    if (lat === null || lng === null || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      return NextResponse.json({ ok: false, error: 'Bad GPS coordinates' }, { status: 400 });
-    }
-    const speedKmh = Math.max(0, Math.min(160, Number(body.speedKmh ?? 45)));
+    const lat = q.lat;
+    const lng = q.lng;
+    const speedKmh = q.speedKmh ?? 45;
+    const accuracyM = q.accuracyM ?? 25;
     const nowIso = new Date().toISOString();
     const nowMs = Date.now();
     const lastPingMs = trip.last_ping_at ? new Date(trip.last_ping_at).getTime() : 0;
@@ -383,7 +443,7 @@ export async function POST(request: Request) {
         current_lat: lat,
         current_lng: lng,
         current_speed_kmh: speedKmh,
-        current_accuracy_m: num(body.accuracyM) ?? 25,
+        current_accuracy_m: accuracyM,
         covered_distance_km: Number(coveredKm.toFixed(2)),
         distance_travelled_km: Number(travelledKm.toFixed(2)),
         remaining_distance_km: Number(remainingKm.toFixed(2)),
@@ -407,7 +467,7 @@ export async function POST(request: Request) {
     // being back on route).
     const wasInGeofence = trip.geofence_status === 'INSIDE_GEOFENCE' || trip.geofence_status === 'ARRIVED';
     const events: { event_type: string; notes: string | null }[] = [
-      { event_type: 'GPS_PING', notes: body.notes ?? null },
+      { event_type: 'GPS_PING', notes: q.notes ?? null },
     ];
     if (inGeofence && !wasInGeofence) {
       events.push({ event_type: 'GEOFENCE_ARRIVAL', notes: `Inside the ${GEOFENCE_KM} km geofence of ${trip.destination_name}.` });
@@ -425,7 +485,7 @@ export async function POST(request: Request) {
         lat,
         lng,
         speed_kmh: speedKmh,
-        accuracy_m: num(body.accuracyM) ?? 25,
+        accuracy_m: accuracyM,
         notes: ev.notes,
       });
     }
@@ -436,30 +496,29 @@ export async function POST(request: Request) {
   if (body.action === 'FLEET_IMPORT') {
     // RTO fleet CSV import: rows come from the tracking dashboard's CSV
     // parser. Upsert on the registration number, capped at 500 rows a call.
-    const rows: unknown[] = Array.isArray(body.rows) ? body.rows : [];
-    if (!rows.length) return NextResponse.json({ ok: false, error: 'No rows to import' }, { status: 400 });
-    if (rows.length > 500) return NextResponse.json({ ok: false, error: 'Import at most 500 rows per call' }, { status: 400 });
+    const parsed = FleetImportSchema.safeParse(body);
+    if (!parsed.success) return badBody(parsed.error);
+    const q = parsed.data;
 
     const seen = new Set<string>();
     const payload: Record<string, unknown>[] = [];
-    for (const raw of rows) {
-      const r = (raw ?? {}) as Record<string, unknown>;
-      const reg = String(r.vehicleRegistrationNo ?? '').toUpperCase().trim();
+    for (const r of q.rows) {
+      const reg = r.vehicleRegistrationNo.toUpperCase();
       if (!reg || seen.has(reg)) continue;
       seen.add(reg);
       payload.push({
         vehicle_registration_no: reg,
-        vehicle_type: String(r.vehicleType ?? '').trim() || null,
-        owner_name: String(r.ownerName ?? '').trim() || null,
-        rto_office: String(r.rtoOffice ?? '').trim() || null,
-        rto_code: String(r.rtoCode ?? '').trim() || null,
-        fitness_valid_upto: String(r.fitnessValidUpto ?? '').trim() || null,
-        permit_type: String(r.permitType ?? '').trim() || null,
-        permit_valid_upto: String(r.permitValidUpto ?? '').trim() || null,
-        insurance_valid_upto: String(r.insuranceValidUpto ?? '').trim() || null,
-        fuel_type: String(r.fuelType ?? '').trim() || null,
+        vehicle_type: r.vehicleType || null,
+        owner_name: r.ownerName || null,
+        rto_office: r.rtoOffice || null,
+        rto_code: r.rtoCode || null,
+        fitness_valid_upto: r.fitnessValidUpto || null,
+        permit_type: r.permitType || null,
+        permit_valid_upto: r.permitValidUpto || null,
+        insurance_valid_upto: r.insuranceValidUpto || null,
+        fuel_type: r.fuelType || null,
         source: 'RTO_CSV_IMPORT',
-        imported_by: body.importedBy ?? null,
+        imported_by: q.importedBy ?? null,
         updated_at: new Date().toISOString(),
       });
     }

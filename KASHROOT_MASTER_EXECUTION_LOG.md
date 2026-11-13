@@ -136,6 +136,21 @@ Verified against the real source files (grep on every claim; directive says veri
 **Build** — `npm run build` clean, all 83 routes.
 
 
-## PHASE 8/9/10 — (filled below when complete)
+## PHASE 8/9/10 — VALIDATION, RBAC RE-CHECK, LAZY-LOAD CHECK (✅ done this round)
+
+**Phase 8 — zod validation** on every route created or rewritten this round (schema-style follows the existing `/api/cold-storage/book-units` pattern: `safeParse` → 400 with `issues: error.flatten()`):
+- `/api/logistics/track` — `CreateTripSchema`, `DriverConsentSchema`, `DriverPingSchema`, `FleetRowSchema` + `FleetImportSchema` (rows ≤ 500). Coordinates accept numbers or numeric strings (`z.coerce.number()` with range bounds); manual per-field checks replaced by the schemas, business rules (consent required, closed trips, RTO lookup) stay.
+- `/api/products/verify-photo` — `RecordSchema` (uuid farmer/listing, coordinate/accuracy bounds, data URL ≤ 1.2 M chars, https photo URL, ≤ 500-char photo reference) and `AttachSchema`.
+- `/api/price-comparison` — `OfferSchema` with `category: z.enum(CATEGORIES)` (declared after the const to avoid TDZ) and positive `priceInr`.
+
+**Phase 9 — RBAC / privacy re-verification** (greps + gate):
+- `node scripts/check-sql.mjs` → **375 passed, 0 failed** — every table including the five this round touches is RLS-on with policy; security-definer functions keep `set search_path = public`.
+- Secret scan of all API routes: no keys, no JWTs, no provider URLs hardcoded — Google basemap reads `process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` only (name, not value).
+- Data-leak check on the new endpoints: `/api/products/verify-photo` GET selects a fixed PUBLIC column list — raw device coordinates (`device_lat/lng`, `private_raw_lat/lng`) are never returned; `/api/price-comparison` market select excludes the seller's phone; `/api/logistics/track` returns trip rows whose driver phone is the trip link's shareable content (v1 design, unchanged).
+
+**Phase 10 — lazy-load check**:
+- New components verified: `LiveLogisticsMap` loads via `next/dynamic` + `ssr:false` in `LiveGpsTrips`; `DriverConsole` pulls only the portal kit; zero `three` imports in the tracking components — all 3D still runs exclusively through the shared lazy `Portal3DScene` engine from Phase 2/3 (with the 2D fallback and the `kr_portal_3d_off` toggle).
+- `npm run build` clean — all 83 routes.
+
 
 ## PHASE 11 — FINAL DELIVERABLE REPORT — (filled at the end)

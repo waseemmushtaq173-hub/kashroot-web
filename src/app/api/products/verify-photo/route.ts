@@ -30,9 +30,35 @@
 // The raw device coordinates are never part of any response.
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { z } from 'zod';
 import { ipLimited, tooMany } from '@/lib/server/sign';
 
 export const dynamic = 'force-dynamic';
+
+/** Request schemas (Phase 8): bodies are validated before anything runs. */
+const RecordSchema = z.object({
+  action: z.literal('RECORD'),
+  farmerId: z.string().uuid().optional(),
+  listingId: z.string().uuid().optional(),
+  deviceLat: z.coerce.number().min(-90).max(90),
+  deviceLng: z.coerce.number().min(-180).max(180),
+  accuracyM: z.coerce.number().min(0).max(100_000),
+  publicLocalityLabel: z.string().max(200).optional(),
+  capturedAt: z.string().optional(),
+  photoDataUrl: z.string().max(1_200_000).optional(),
+  photoUrl: z.string().url().optional(),
+  privacyMasked: z.boolean().optional(),
+  originalPhotoUrl: z.string().max(500).optional(),
+});
+
+const AttachSchema = z.object({
+  action: z.literal('ATTACH_PHOTO'),
+  verificationId: z.string().uuid(),
+  originalPhotoUrl: z.string().min(1).max(500),
+});
+
+const badBody = (error: z.ZodError) =>
+  NextResponse.json({ ok: false, error: 'Validation failed', issues: error.flatten() }, { status: 400 });
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -134,26 +160,25 @@ export async function POST(request: Request) {
   const supabase = getSupabase();
 
   if (body.action === 'RECORD') {
-    const farmerId = typeof body.farmerId === 'string' && /^[0-9a-f-]{36}$/i.test(body.farmerId) ? body.farmerId : null;
-    const listingId = typeof body.listingId === 'string' && /^[0-9a-f-]{36}$/i.test(body.listingId) ? body.listingId : null;
+    const parsed = RecordSchema.safeParse(body);
+    if (!parsed.success) return badBody(parsed.error);
+    const q = parsed.data;
+    const farmerId = q.farmerId ?? null;
+    const listingId = q.listingId ?? null;
     if (!farmerId && !listingId) {
       return NextResponse.json({ ok: false, error: 'Pass farmerId or listingId' }, { status: 400 });
     }
-    const deviceLat = Number(body.deviceLat);
-    const deviceLng = Number(body.deviceLng);
-    const accuracyM = Number(body.accuracyM);
-    if (!Number.isFinite(deviceLat) || deviceLat < -90 || deviceLat > 90 || !Number.isFinite(deviceLng) || deviceLng < -180 || deviceLng > 180) {
-      return NextResponse.json({ ok: false, error: 'Bad device GPS coordinates' }, { status: 400 });
-    }
-    if (!Number.isFinite(accuracyM) || accuracyM < 0 || accuracyM > 100_000) {
-      return NextResponse.json({ ok: false, error: 'Bad GPS accuracy' }, { status: 400 });
-    }
-    const locality = typeof body.publicLocalityLabel === 'string' ? body.publicLocalityLabel.trim().slice(0, 200) : '';
-    const capturedAt = typeof body.capturedAt === 'string' && !Number.isNaN(new Date(body.capturedAt).getTime()) ? new Date(body.capturedAt).toISOString() : new Date().toISOString();
+    const deviceLat = q.deviceLat;
+    const deviceLng = q.deviceLng;
+    const accuracyM = q.accuracyM;
+    const locality = (q.publicLocalityLabel ?? '').trim().slice(0, 200);
+    const capturedAt =
+      q.capturedAt && !Number.isNaN(new Date(q.capturedAt).getTime())
+        ? new Date(q.capturedAt).toISOString()
+        : new Date().toISOString();
 
     // The hash over the real bytes — data URL or an https photo URL.
-    const bytes =
-      typeof body.photoDataUrl === 'string' ? dataUrlBytes(body.photoDataUrl) : typeof body.photoUrl === 'string' ? await urlBytes(body.photoUrl) : null;
+    const bytes = q.photoDataUrl ? dataUrlBytes(q.photoDataUrl) : q.photoUrl ? await urlBytes(q.photoUrl) : null;
     const imageSha = bytes ? await sha256Hex(bytes) : null;
 
     // Duplicate check: the same image verified before under a different farmer / listing.
@@ -169,7 +194,7 @@ export async function POST(request: Request) {
     // The state, in precedence order.
     let state: State = 'DEVICE_GPS_RECORDED';
     if (duplicateOf) state = 'DUPLICATE_SUSPECTED';
-    else if (body.privacyMasked === true) state = 'PRIVACY_MASKED';
+    else if (q.privacyMasked === true) state = 'PRIVACY_MASKED';
     else if (accuracyM > LOW_ACCURACY_M) state = 'GPS_ACCURACY_LOW';
     else {
       // Verified-at-orchard: a good fix that matches the listing's own farm location.
@@ -190,7 +215,7 @@ export async function POST(request: Request) {
     // Raw location stays private; the public twin is the masked one.
     const publicMaskedLat = masked(deviceLat);
     const publicMaskedLng = masked(deviceLng);
-    const originalPhotoUrl = typeof body.originalPhotoUrl === 'string' && body.originalPhotoUrl.length <= 500 ? body.originalPhotoUrl : null;
+    const originalPhotoUrl = q.originalPhotoUrl ?? null;
 
     const { data, error } = await supabase
       .from('product_photo_verifications')
@@ -208,8 +233,8 @@ export async function POST(request: Request) {
         // v2 columns:
         image_sha256: imageSha,
         verification_state: state,
-        private_raw_lat: body.privacyMasked === true ? null : deviceLat,
-        private_raw_lng: body.privacyMasked === true ? null : deviceLng,
+        private_raw_lat: q.privacyMasked === true ? null : deviceLat,
+        private_raw_lng: q.privacyMasked === true ? null : deviceLng,
         public_masked_lat: publicMaskedLat,
         public_masked_lng: publicMaskedLng,
         gps_accuracy_m: accuracyM,
@@ -233,13 +258,13 @@ export async function POST(request: Request) {
   }
 
   if (body.action === 'ATTACH_PHOTO') {
-    const verificationId = typeof body.verificationId === 'string' && /^[0-9a-f-]{36}$/i.test(body.verificationId) ? body.verificationId : null;
-    const photoUrl = typeof body.originalPhotoUrl === 'string' && body.originalPhotoUrl.length > 0 && body.originalPhotoUrl.length <= 500 ? body.originalPhotoUrl : null;
-    if (!verificationId || !photoUrl) return NextResponse.json({ ok: false, error: 'Pass verificationId and originalPhotoUrl' }, { status: 400 });
+    const parsed = AttachSchema.safeParse(body);
+    if (!parsed.success) return badBody(parsed.error);
+    const q = parsed.data;
     const { error } = await supabase
       .from('product_photo_verifications')
-      .update({ original_photo_url: photoUrl })
-      .eq('id', verificationId);
+      .update({ original_photo_url: q.originalPhotoUrl })
+      .eq('id', q.verificationId);
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
   }

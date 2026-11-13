@@ -21,6 +21,7 @@
 //   POST { … } → submit a verified seller offer.
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { z } from 'zod';
 import { ipLimited, tooMany } from '@/lib/server/sign';
 
 export const dynamic = 'force-dynamic';
@@ -48,6 +49,30 @@ const ALIAS: Partial<Record<Category, Category>> = {
   EQUIPMENT: 'OTHER_INPUTS',
   OTHER_INPUTS: 'EQUIPMENT',
 };
+
+/** The offer-submission schema (Phase 8). */
+const OfferSchema = z.object({
+  sellerId: z.string().uuid().nullish(),
+  sellerName: z.string().max(80).optional(),
+  sellerRole: z.string().max(40).optional(),
+  sellerType: z.string().max(40).optional(),
+  productName: z.string().trim().min(1).max(80),
+  category: z.enum(CATEGORIES),
+  variety: z.string().max(60).optional(),
+  grade: z.string().max(40).optional(),
+  district: z.string().max(80).optional(),
+  marketOrVillage: z.string().max(80).optional(),
+  priceInr: z.coerce.number().positive(),
+  unitLabel: z.string().max(40).optional(),
+  availableQuantity: z.coerce.number().min(0).optional(),
+  transportCostPerUnitInr: z.coerce.number().min(0).optional(),
+  deliveryCostInr: z.coerce.number().min(0).optional(),
+  sourceLabel: z.string().max(60).optional(),
+  sourceName: z.string().max(60).optional(),
+});
+
+const badBody = (error: z.ZodError) =>
+  NextResponse.json({ ok: false, error: 'Validation failed', issues: error.flatten() }, { status: 400 });
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -220,21 +245,18 @@ export async function POST(request: Request) {
   if (ipLimited(request, 'price-comparison-post', 20)) return tooMany();
 
   const body = await request.json().catch(() => null);
-  if (!body || !body.productName || !body.priceInr || !body.category) {
-    return NextResponse.json({ ok: false, error: 'Missing required price listing fields' }, { status: 400 });
-  }
-  if (!CATEGORIES.includes(body.category)) {
-    return NextResponse.json({ ok: false, error: 'Unknown category' }, { status: 400 });
-  }
-  const priceInr = Number(body.priceInr);
-  if (!Number.isFinite(priceInr) || priceInr <= 0) {
-    return NextResponse.json({ ok: false, error: 'Price must be a positive number' }, { status: 400 });
-  }
-  const transport = Number(body.transportCostPerUnitInr ?? body.deliveryCostInr ?? 0);
-  const sellerRole = String(body.sellerRole || body.sellerType || 'farmer').toLowerCase();
-  const sellerType = String(body.sellerType || sellerRole).toLowerCase();
-  const districtLabel = String(body.district || 'Shopian').slice(0, 80);
-  const villageLabel = String(body.marketOrVillage || body.district || 'Shopian').slice(0, 80);
+  if (!body) return NextResponse.json({ ok: false, error: 'Bad request body' }, { status: 400 });
+
+  const parsed = OfferSchema.safeParse(body);
+  if (!parsed.success) return badBody(parsed.error);
+  const q = parsed.data;
+
+  const priceInr = q.priceInr;
+  const transport = q.transportCostPerUnitInr ?? q.deliveryCostInr ?? 0;
+  const sellerRole = (q.sellerRole || q.sellerType || 'farmer').toLowerCase();
+  const sellerType = (q.sellerType || sellerRole).toLowerCase();
+  const districtLabel = (q.district || 'Shopian').slice(0, 80);
+  const villageLabel = (q.marketOrVillage || q.district || 'Shopian').slice(0, 80);
   const nowIso = new Date().toISOString();
 
   const supabase = getSupabase();
@@ -242,25 +264,25 @@ export async function POST(request: Request) {
     .from('universal_price_listings')
     .insert({
       // v1 columns (kept for older readers):
-      seller_id: body.sellerId ?? null,
-      seller_name: String(body.sellerName || 'Verified Seller').slice(0, 80),
+      seller_id: q.sellerId ?? null,
+      seller_name: String(q.sellerName || 'Verified Seller').slice(0, 80),
       seller_role: sellerRole,
-      category: body.category,
-      product_name: String(body.productName).slice(0, 80),
-      variety: body.variety ? String(body.variety).slice(0, 60) : null,
-      grade: body.grade || 'Grade A',
+      category: q.category,
+      product_name: q.productName.slice(0, 80),
+      variety: q.variety ? q.variety.slice(0, 60) : null,
+      grade: q.grade || 'Grade A',
       district: districtLabel,
       market_or_village: villageLabel,
       price_inr: priceInr,
-      unit_label: String(body.unitLabel || '18 kg Box').slice(0, 40),
-      available_quantity: Number(body.availableQuantity || 1),
+      unit_label: String(q.unitLabel || '18 kg Box').slice(0, 40),
+      available_quantity: q.availableQuantity ?? 1,
       delivery_cost_inr: transport,
-      source_label: String(body.sourceLabel || 'Verified Seller Submission').slice(0, 60),
+      source_label: String(q.sourceLabel || 'Verified Seller Submission').slice(0, 60),
       // v2 columns (both column sets are always written):
       seller_type: sellerType,
       location_label: villageLabel,
       transport_cost_per_unit_inr: Number.isFinite(transport) && transport >= 0 ? transport : 0,
-      source_name: String(body.sourceName || body.sourceLabel || 'Verified Seller Submission').slice(0, 60),
+      source_name: String(q.sourceName || q.sourceLabel || 'Verified Seller Submission').slice(0, 60),
       price_history: [{ p: priceInr, t: nowIso }],
       last_updated_at: nowIso,
     })
