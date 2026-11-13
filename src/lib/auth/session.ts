@@ -21,6 +21,7 @@
  *     stays in their account.
  */
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { isAuthRetryableFetchError, type Session } from '@supabase/supabase-js';
 
 import { authApi, rolesOf, tokenStore } from '@/lib/api/auth';
@@ -38,7 +39,7 @@ import {
   USE_STEP_MS,
 } from '@/lib/auth/portalAccess';
 import { forgetStaffRoles, staffRolesOf } from '@/lib/auth/staffRoles';
-import { isPortalId, type PortalId } from '@/lib/auth/roles';
+import { isPortalId, PORTALS, PUBLIC_PORTAL_IDS, type PortalId } from '@/lib/auth/roles';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 
 const REMEMBER_KEY = 'kr_remember';
@@ -244,6 +245,38 @@ export function useMyPortal(): PortalId | null {
     };
   }, []);
   return portal;
+}
+
+const RECENT_PORTAL_KEY = 'kr_recent_portal';
+
+/**
+ * The public portal most recently visited on this device (no sign-in
+ * needed): the header's "My … portal" button falls back to it when no
+ * account is signed in, so the button always points where the person last
+ * worked. Visiting any portal's pages here updates it at once.
+ */
+export function useRecentPortal(): PortalId | null {
+  const pathname = usePathname();
+  const [recent, setRecent] = useState<PortalId | null>(null);
+  useEffect(() => {
+    try {
+      const kept = localStorage.getItem(RECENT_PORTAL_KEY);
+      if (kept && isPortalId(kept) && (PUBLIC_PORTAL_IDS as readonly string[]).includes(kept)) setRecent(kept);
+    } catch {
+      /* private mode: nothing kept */
+    }
+  }, []);
+  useEffect(() => {
+    const hit = PUBLIC_PORTAL_IDS.find((id) => pathname === PORTALS[id].home || pathname.startsWith(`/${PORTALS[id].segment}/`));
+    if (!hit) return;
+    try {
+      localStorage.setItem(RECENT_PORTAL_KEY, hit);
+    } catch {
+      /* private mode */
+    }
+    setRecent(hit);
+  }, [pathname]);
+  return recent;
 }
 
 /**

@@ -137,4 +137,29 @@ Mandated search run (`Get-ChildItem -Recurse | Select-String` with the directive
 
 **Verification:** `npm run build` clean — 83 routes, zero TypeScript/bundle errors.
 
-**Git checkpoint:** `fix(correction): phase 3 remove homepage and farmer decorative 3d, add 2d orchard analytics panel and live hero metrics`
+**Git checkpoint:** `fix(correction): phase 3 remove homepage and farmer decorative 3d, add 2d orchard analytics panel and live hero metrics` — committed `1094b8b`.
+
+---
+
+## PHASE 4 — EIGHT PORTAL CARDS & GLOBAL NAVIGATION REDESIGNED (✅)
+
+**Created `src/lib/portalCardsConfig.ts`** with the directive's exact `EIGHT_PORTALS_CONFIG` spec (id, name, purpose, actionLabel, iconName, emoji, gradientClass, borderClass, badgeBgClass, buttonClass, lucide icon). Every card: portal name + short description of its ACTUAL purpose + recognisable icon + distinctive colour identity (rich gradient, border, accent badge) + direct action route. Zero "3D" wording. Href mapping to the app's real routes documented in the file header: `/kissan-tools/dashboard`, `/rental/dashboard`, `/dealer/dashboard`, `/expert` (Advisory), `/trader/dashboard` (Mandi Helpers); `/farmer/dashboard`, `/buyer/dashboard`, `/tracking` as written. Added `PORTAL_CARD_BY_ID` and an explicit `PORTAL_CARD_FOR` bridge from auth portal ids to cards.
+
+**`src/lib/auth/roles.ts` taglines rewritten (de-3D)** — fixes the header dropdown, mobile menu and sign-in chooser everywhere at once:
+- Buyer: "Verified produce lots, box grades & escrow checkout" (was "3D packaging &…")
+- Kissan Tools: "Orchard tractors, sprayers & harvester specs" (was "Interactive 3D tractors…")
+- Cold Storage Booking: "Inspect chambers, live crate capacity & online booking" (was "Industrial 2D/3D digital twin…")
+- Tracking: "Live shipment routes, vehicle location & delivery ETA" (was "…route telemetry, app-style")
+- Agro-dealer: "Certified seeds, fertilizers, pesticides & inventory" (was "3D seeds…")
+- Advisory: "Crop advisories, soil health & verified expert advice" (was "3D plant pathology…")
+- Farmer / Mandi Helpers / Admin taglines already purpose-copy, unchanged.
+
+**`src/components/landing/PortalGrid.tsx` rewritten** to render the eight cards straight from `EIGHT_PORTALS_CONFIG`: each card = config gradient + border + badge tile + purpose line + solid action button (`Open Farmer Portal`, `Book Cold Storage`, …), keeping the `Tilt3D` subtle card depth. The admin console card (admin devices only) follows the same card language.
+
+**`src/components/layout/SiteHeader.tsx`**:
+- The Portals dropdown + mobile menu now describe each portal with the card config's purpose copy (`PORTAL_CARD_FOR[id].purpose`) — the same wording everywhere.
+- The **My portal** button is now dynamic: signed-in portal first, else the **most recently visited portal on this device** (new `useRecentPortal()` in `lib/auth/session.ts` — records the public portal whose home/segment pages the person opens, in `kr_recent_portal` localStorage), else "Sign in". Signed-in users land directly on the portal; signed-out users land on that portal's own sign-in with `next` set to its home — all existing routes and auth flows preserved.
+
+**Verification:** `npm run build` clean — 83 routes, zero TypeScript/bundle errors (one type-narrowing fix in `useRecentPortal` along the way).
+
+**Git checkpoint:** `fix(correction): phase 4 redesign eight portal cards and navigation from portal cards config, dynamic my portal button`

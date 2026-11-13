@@ -67,32 +67,32 @@ export const PORTALS: Record<PortalId, PortalInfo> = {
   },
   buyer: {
     label: 'Buyer', requiredRole: 'BUYER', home: '/buyer/dashboard', segment: 'buyer',
-    tagline: 'Verified produce lots, 3D packaging & escrow checkout',
+    tagline: 'Verified produce lots, box grades & escrow checkout',
     theme: { badge: 'from-amber-600 to-amber-400', wash: 'hover:bg-amber-50', ring: 'ring-amber-600/30', text: 'text-amber-900' },
   },
   kissan: {
     label: 'Kissan Tools', requiredRole: null, home: '/kissan-tools/dashboard', segment: 'kissan-tools',
-    tagline: 'Interactive 3D tractors, sprayers & harvester specs',
+    tagline: 'Orchard tractors, sprayers & harvester specs',
     theme: { badge: 'from-orange-700 to-orange-500', wash: 'hover:bg-orange-50', ring: 'ring-orange-700/30', text: 'text-orange-900' },
   },
   rental: {
     label: 'Cold Storage Booking', requiredRole: null, home: '/rental/dashboard', segment: 'rental',
-    tagline: 'Industrial 2D/3D digital twin & crate/bin booking',
+    tagline: 'Inspect chambers, live crate capacity & online booking',
     theme: { badge: 'from-cyan-600 to-sky-400', wash: 'hover:bg-cyan-50', ring: 'ring-cyan-600/30', text: 'text-cyan-900' },
   },
   tracking: {
     label: 'Tracking', requiredRole: null, home: '/tracking/dashboard', segment: 'tracking',
-    tagline: 'Live truck GPS & route telemetry, app-style',
+    tagline: 'Live shipment routes, vehicle location & delivery ETA',
     theme: { badge: 'from-indigo-700 to-indigo-400', wash: 'hover:bg-indigo-50', ring: 'ring-indigo-700/30', text: 'text-indigo-900' },
   },
   dealer: {
     label: 'Agro-dealer', requiredRole: null, home: '/dealer/dashboard', segment: 'dealer',
-    tagline: '3D seeds, fertilizers, pesticides & dealer inventory',
+    tagline: 'Certified seeds, fertilizers, pesticides & inventory',
     theme: { badge: 'from-teal-600 to-lime-400', wash: 'hover:bg-teal-50', ring: 'ring-teal-600/30', text: 'text-teal-900' },
   },
   expert: {
     label: 'Advisory', requiredRole: null, home: '/expert', segment: 'expert',
-    tagline: '3D plant pathology, soil health & verified advice',
+    tagline: 'Crop advisories, soil health & verified expert advice',
     theme: { badge: 'from-green-800 to-green-600', wash: 'hover:bg-green-50', ring: 'ring-green-800/30', text: 'text-green-900' },
   },
   trader: {

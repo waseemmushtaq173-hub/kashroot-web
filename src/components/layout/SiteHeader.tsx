@@ -9,8 +9,9 @@ import { MyDetailsPanel } from '@/components/portal/MyDetailsPanel';
 import { MY_DETAILS } from '@/components/portal/myDetailsConfig';
 import { FloatingVoice } from '@/components/voice/FloatingVoice';
 import { loginHref, PORTALS, PUBLIC_PORTAL_IDS, type PortalId } from '@/lib/auth/roles';
+import { PORTAL_CARD_FOR } from '@/lib/portalCardsConfig';
 import { useSecretAdminTap, useShowAdmin } from '@/lib/client/adminDevice';
-import { signOutOfPortal, useMyPortal, useSignedIn } from '@/lib/auth/session';
+import { signOutOfPortal, useMyPortal, useRecentPortal, useSignedIn } from '@/lib/auth/session';
 import { HelpButton } from '@/components/layout/HelpButton';
 import { SocialIcons } from '@/components/layout/SocialIcons';
 
@@ -39,7 +40,14 @@ export const TOOL_ITEMS: MenuItem[] = [
   { title: 'Live mandi rates & weather', href: '/mandi-weather', desc: 'Today’s prices and the forecast' },
   { title: 'KashRoot TrueScan — is it genuine?', href: '/supplies/tester', desc: 'Check a fertiliser or pesticide against the Government lists' },
 ];
-const PORTAL_ITEMS: MenuItem[] = PUBLIC_PORTAL_IDS.map((id) => ({ title: PORTALS[id].label, href: PORTALS[id].home, desc: PORTALS[id].tagline, portal: id }));
+const PORTAL_ITEMS: MenuItem[] = PUBLIC_PORTAL_IDS.map((id) => ({
+  title: PORTALS[id].label,
+  href: PORTALS[id].home,
+  // The menu says the portal's real purpose — the same copy the homepage
+  // cards use (lib/portalCardsConfig), never a "3D" promotional line.
+  desc: PORTAL_CARD_FOR[id]?.purpose ?? PORTALS[id].tagline,
+  portal: id,
+}));
 
 /** Each portal's own icon, for its 3D badge in the menus. */
 const PORTAL_ICONS: Record<PortalId, typeof Sprout> = {
@@ -100,6 +108,8 @@ function BackButton({ light }: { light: boolean }) {
 function MobileMenu({ showAuth }: { showAuth: boolean }) {
   const sections = useMenuSections();
   const myPortal = useMyPortal();
+  const recentPortal = useRecentPortal();
+  const portal = myPortal ?? recentPortal;
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -140,10 +150,10 @@ function MobileMenu({ showAuth }: { showAuth: boolean }) {
           id="mobile-menu"
           className="absolute inset-x-0 top-full z-50 max-h-[calc(100svh-4.5rem)] overflow-y-auto border-b border-slate-900/10 bg-white px-3 pb-4 pt-2 shadow-[0_24px_60px_-20px_rgba(15,23,42,0.35)]"
         >
-          {showAuth && myPortal && (
+          {showAuth && portal && (
             <div className="p-1">
-              <Link href={PORTALS[myPortal].home} onClick={close} className="flex items-center justify-center gap-2 rounded-xl bg-chinar px-3 py-3 text-sm font-semibold text-white no-underline shadow-sm hover:bg-chinar-hover hover:no-underline">
-                <UserRound className="h-4 w-4" aria-hidden /> Open my {PORTALS[myPortal].label} portal
+              <Link href={myPortal ? PORTALS[portal].home : loginHref(portal, PORTALS[portal].home)} onClick={close} className="flex items-center justify-center gap-2 rounded-xl bg-chinar px-3 py-3 text-sm font-semibold text-white no-underline shadow-sm hover:bg-chinar-hover hover:no-underline">
+                <UserRound className="h-4 w-4" aria-hidden /> {myPortal ? `Open my ${PORTALS[portal].label} portal` : `${PORTALS[portal].label} portal sign-in`}
               </Link>
             </div>
           )}
@@ -280,7 +290,11 @@ export function SiteHeader({
 }) {
   const light = tone === 'light';
   const secretTap = useSecretAdminTap();
+  // The button shows the signed-in portal, else the portal last visited on
+  // this device — always labelled and routed honestly.
   const myPortal = useMyPortal();
+  const recentPortal = useRecentPortal();
+  const shownPortal = myPortal ?? recentPortal;
 
   if (portal) {
     return <PortalHeader portal={portal} />;
@@ -318,11 +332,15 @@ export function SiteHeader({
           <HelpButton />
           {light && showRoleSignIn && !hideSignIn && (
             // Next to Help & support on every screen; on a phone "My portal" keeps it short.
-            <Link href={myPortal ? PORTALS[myPortal].home : '/login'} className={`${navLink} inline-flex whitespace-nowrap`} data-signin-link>
-              {myPortal ? (
+            <Link
+              href={shownPortal ? (myPortal ? PORTALS[shownPortal].home : loginHref(shownPortal, PORTALS[shownPortal].home)) : '/login'}
+              className={`${navLink} inline-flex whitespace-nowrap`}
+              data-signin-link
+            >
+              {shownPortal ? (
                 <>
                   <span className="md:hidden">My portal</span>
-                  <span className="hidden md:inline">My {PORTALS[myPortal].label} portal</span>
+                  <span className="hidden md:inline">My {PORTALS[shownPortal].label} portal</span>
                 </>
               ) : (
                 'Sign in'
