@@ -127,6 +127,12 @@ Shared helpers live in src/lib/, not in route files.
   history): one ASCII checkpoint commit per phase, all preserved; the two
   prescribed ship commits capture the final build-verified slices; separate
   `git add` and `git commit` calls; `.github/skills/gstack` untouched.
+- D8 Directive SQL bug fixed before apply: cold_chambers.defrost_method
+  DEFAULT 'WATER_OR_HOT_GAS_AUTOMATIC' was not in its own CHECK value list,
+  so Postgres rejected the column on the 2 existing chamber rows. The CHECK
+  now also allows 'WATER_OR_HOT_GAS_AUTOMATIC' (the intended automatic
+  water/hot-gas defrost default from Leaflet 427); every other statement is
+  applied verbatim.
 - D7 Apple-vs-fish engineering rule is enforced in the engine: no frozen
   parameters (0..-40F rooms, latent fusion L = 115 Btu/lb) ever apply to
   apples; apples are cooled above freezing (31-36F, 90-95% RH, controlled
