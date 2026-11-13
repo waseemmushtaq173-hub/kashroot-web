@@ -14,8 +14,9 @@
  *
  * Deviations from the master directive (documented in
  * KASHROOT_GPS_TRACKING_AUDIT.md): PIN verified on existing-driver sign-in;
- * admin and device-registration actions gated behind the team pass; per-IP
- * rate limits; LOCATION_STALE_DETECTED logged once per staleness period.
+ * admin approval actions gated behind the team pass and device registration
+ * proven by vehicle ownership; per-IP rate limits; LOCATION_STALE_DETECTED
+ * logged once per staleness period.
  */
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
@@ -244,9 +245,8 @@ export async function POST(request: Request) {
 
   const supabase = getSupabase();
 
-  // Admin-gated actions first: the team pass protects fleet approval and the
-  // AIS-140 device registry.
-  if (body.action === 'ADMIN_APPROVE_VEHICLE' || body.action === 'REGISTER_GPS_DEVICE') {
+  // Admin-gated actions first: the team pass protects fleet approval.
+  if (body.action === 'ADMIN_APPROVE_VEHICLE' || body.action === 'ADMIN_VERIFY_GPS_DEVICE') {
     if (!hasTeamPass(request.headers.get('cookie'), request.headers.get('user-agent'))) {
       return NextResponse.json({ ok: false, error: 'Super Admin team pass required.' }, { status: 403 });
     }
@@ -482,14 +482,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, shipment });
   }
 
-  // ACTION 4: register an AIS-140 / external GPS device (team pass checked above)
+  // ACTION 4: register an AIS-140 / external GPS device. The driver must be a
+  // registered operator of the vehicle they pair it to (ownership proof).
   if (body.action === 'REGISTER_GPS_DEVICE') {
     const imei = clampText(body.deviceImei, 32);
     const rawSecret = String(body.apiSecretToken || `ais140_${Date.now()}`).slice(0, 64);
-    if (!imei || !body.vehicleId) {
+    if (!imei || !body.vehicleId || !body.driverId) {
       return NextResponse.json(
-        { ok: false, error: 'Device IMEI/Serial and Vehicle ID required' },
+        { ok: false, error: 'Device IMEI/Serial, Vehicle ID and Driver ID are required' },
         { status: 400 },
+      );
+    }
+
+    const { data: link } = await supabase
+      .from('driver_vehicles')
+      .select('id')
+      .eq('driver_id', body.driverId)
+      .eq('vehicle_id', body.vehicleId)
+      .maybeSingle();
+    if (!link) {
+      return NextResponse.json(
+        { ok: false, error: 'Only a registered operator of this vehicle can pair a device to it.' },
+        { status: 403 },
       );
     }
 
@@ -534,6 +548,23 @@ export async function POST(request: Request) {
 
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, vehicle: updated });
+  }
+
+  // ACTION 6: Super Admin AIS-140 device certification (team pass checked above)
+  if (body.action === 'ADMIN_VERIFY_GPS_DEVICE' && body.deviceId) {
+    const status = String(body.status || 'AIS140_VERIFIED_BY_ADMIN');
+    if (!['AIS140_VERIFIED_BY_ADMIN', 'UNVERIFIED'].includes(status)) {
+      return NextResponse.json({ ok: false, error: 'Unsupported device certification status.' }, { status: 400 });
+    }
+    const { data: updated, error } = await supabase
+      .from('gps_devices')
+      .update({ ais140_certification_status: status })
+      .eq('id', body.deviceId)
+      .select('*')
+      .single();
+
+    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, device: updated });
   }
 
   return NextResponse.json({ ok: false, error: 'Unsupported action' }, { status: 400 });
