@@ -27,7 +27,7 @@
  * Admin lock, removed from the team), the page closes.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BarChart3, Building2, Crown, DatabaseZap, GraduationCap, LifeBuoy, ListChecks, LockKeyhole, PackageX, Settings, Snowflake, Truck, UserCog, Users, Wallet } from 'lucide-react';
+import { BarChart3, Building2, Crown, DatabaseZap, GraduationCap, LifeBuoy, ListChecks, LockKeyhole, PackageX, Satellite, Settings, Snowflake, Truck, UserCog, Users, Wallet } from 'lucide-react';
 
 import { AccountsPanel } from '@/components/admin/AccountsPanel';
 import { AdminLock } from '@/components/admin/AdminLock';
@@ -36,6 +36,7 @@ import { ApprovalsPanel } from '@/components/admin/ApprovalsPanel';
 import { ColdDirectoryPanel } from '@/components/admin/ColdDirectoryPanel';
 import { ContributorsPanel } from '@/components/admin/ContributorsPanel';
 import { DatabaseUpdateNeeded } from '@/components/admin/DatabaseUpdateNeeded';
+import { GpsFleetPanel } from '@/components/admin/GpsFleetPanel';
 import { HelpDeskPanel } from '@/components/admin/HelpDeskPanel';
 import { PlatformNumbers, loadAdminStats } from '@/components/admin/PlatformNumbers';
 import { RegistryPanel } from '@/components/admin/RegistryPanel';
@@ -48,7 +49,7 @@ import { authFetch } from '@/lib/auth-fetch';
 import { functionMissing } from '@/lib/client/teamCheck';
 import { supabase } from '@/lib/db/client';
 
-type Tab = 'super' | 'orders' | 'approvals' | 'accounts' | 'problems' | 'help' | 'contributors' | 'coldstores' | 'registry' | 'numbers' | 'security' | 'setup' | 'team' | 'businesses' | 'settings';
+type Tab = 'super' | 'gpsfleet' | 'orders' | 'approvals' | 'accounts' | 'problems' | 'help' | 'contributors' | 'coldstores' | 'registry' | 'numbers' | 'security' | 'setup' | 'team' | 'businesses' | 'settings';
 
 interface Counts {
   waiting: number;
@@ -214,8 +215,14 @@ function Console({ sections }: { sections: string[] }) {
           : []),
       ]}
       tabs={[
-        // The one Super Admin only (the database checks it again for every call).
-        ...(superAdmin ? [{ id: 'super', label: 'Super Admin', icon: Crown }] : []),
+        // The Super Admin only: the governance console and the live GPS fleet
+        // oversight (the database and the API re-check the pass on every call).
+        ...(superAdmin
+          ? [
+              { id: 'super', label: 'Super Admin', icon: Crown },
+              { id: 'gpsfleet', label: 'Live GPS fleet', icon: Satellite },
+            ]
+          : []),
         ...allTabs.map((t) => ({
           id: t.id,
           label: t.label,
@@ -227,6 +234,7 @@ function Console({ sections }: { sections: string[] }) {
       onTabChange={(id) => show(id as Tab)}
     >
       {tab === 'super' && superAdmin && <SuperAdminPanel />}
+      {tab === 'gpsfleet' && superAdmin && <GpsFleetPanel />}
       {tab === 'orders' && can('orders') && <AdminOrdersPanel canRelease={superAdmin} />}
       {tab === 'approvals' && can('approvals') && <ApprovalsPanel />}
       {tab === 'accounts' && can('accounts') && <AccountsPanel onRefreshed={load} />}

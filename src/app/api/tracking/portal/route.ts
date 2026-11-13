@@ -536,7 +536,7 @@ export async function POST(request: Request) {
   // ACTION 5: Super Admin vehicle approval (team pass checked above)
   if (body.action === 'ADMIN_APPROVE_VEHICLE' && body.vehicleId) {
     const status = String(body.status || 'ADMIN_APPROVED');
-    if (!['ADMIN_APPROVED', 'REJECTED'].includes(status)) {
+    if (!['ADMIN_APPROVED', 'REJECTED', 'SELF_DECLARED'].includes(status)) {
       return NextResponse.json({ ok: false, error: 'Unsupported approval status.' }, { status: 400 });
     }
     const { data: updated, error } = await supabase
