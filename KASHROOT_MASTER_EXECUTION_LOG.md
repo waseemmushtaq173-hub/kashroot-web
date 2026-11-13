@@ -76,7 +76,31 @@ Verified against the real source files (grep on every claim; directive says veri
 - **Test page** — `/test-pages/cold-store` renders the twin against sample chamber data (route exists in the build output).
 
 
-## PHASE 5 — (filled below when complete)
+## PHASE 5 — LIVE GPS LOGISTICS — SCHEMA v2, TRACKING API, LIVE MAP, DRIVER CONSOLE (✅ done this round)
+
+**Schema** — `supabase/migrations/20261112000002_kashroot_master_upgrade.sql`, applied to the remote project (apply.mjs, 2.3 s) and mirrored into `supabase/RUN_THIS_ONCE.sql` (applied remotely, 4.6 s) with registry row 46. The directive's CREATE TABLEs were re-declared tables that already exist from the ecosystem migration with a different column set, so the outcomes arrive as idempotent ALTERs (documented honestly in the migration header; nothing existing is dropped or narrowed):
+- `shipment_tracking_trips` += `driver_id`, `driver_consent_granted` / `driver_consent_timestamp`, `rto_metadata` (JSONB), `route_deviation_alert`, `geofence_status`, `route_history` (JSONB, capped at 500 points), `distance_travelled_km`; trip_status CHECK extended with **ARRIVED** (drop/re-add guarded by `pg_get_constraintdef LIKE '%ARRIVED%'`).
+- `shipment_telemetry_events` event_type CHECK extended with **SIGNAL_STALE**.
+- New `authorized_fleet` — the RTO fleet registry (`vehicle_registration_no` unique, vehicle/owner/RTO/fitness/permit/insurance/fuel, source `MANUAL` | `RTO_CSV_IMPORT` | `VAHAN_LOOKUP`), RLS + open policy + grants (server-mediated model, no service-role key on Vercel).
+- Remote probe verified: trips v2 cols 8/8, ARRIVED ✓, SIGNAL_STALE ✓, `authorized_fleet` ✓, fleet INSERT grants (2), photo v2 cols 8/8, price v2 cols 6/6, OTHER_INPUTS ✓, registry row 46 in `kr_setup_rows` ✓, NO rows: 0.
+- `node scripts/check-sql.mjs` → **375 passed, 0 failed** (baseline 373 + the new `authorized_fleet` table).
+
+**Tracking API** — `src/app/api/logistics/track/route.ts` rewritten (v2, writes BOTH column sets so old readers keep working):
+- `GET ?code=` / default → trips with effective status (SIGNAL_STALE when the last ping is >10 min old) and minutes-since-ping.
+- `GET ?fleet=1` → the registry (500, A→Z). `GET ?fleetCheck=REGNO` → one RTO record.
+- `POST CREATE_TRIP` — verifies the registration against `authorized_fleet`, sets `rto_verified_status` = `VERIFIED_RTO_RECORD` | `UNVERIFIED` and fills `rto_metadata` (checked_at stamped); seeds route_history with the origin.
+- `POST DRIVER_CONSENT` — the explicit consent moment (both column sets + CONSENT_GRANTED event).
+- `POST DRIVER_GPS_PING` — Haversine km-step accumulation into `distance_travelled_km`, `route_history` append (cap 500), geofence status (ARRIVED ≤ 0.15 km, INSIDE_GEOFENCE ≤ 0.5, APPROACHING ≤ 5), deviation alert when > 15 km off the origin→destination segment, ARRIVED trip status, and events: GPS_PING, GEOFENCE_ARRIVAL (newly entered), SIGNAL_STALE (ping reviving a stale trip), ROUTE_DEVIATION (first firing).
+- `POST FLEET_IMPORT` — RTO CSV upsert on the registration number, ≤ 500 rows per call, `source='RTO_CSV_IMPORT'`.
+
+**Live map** — `src/components/tracking/LiveLogisticsMap.tsx` (new): draggable slippy map, plain `<img>` raster tiles (zero iframes), street / satellite / hybrid basemaps (OSM + Esri World Imagery + labels), a fourth **Google** basemap drawn from the Maps Static API only when `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` exists (never loads Google JS; hidden without the key), truck marker + accuracy circle, driven-route polyline from route_history, dashed origin→destination line, 0.5 km geofence circles at both ends, route-deviation alert strip, follow mode, live coordinate/geofence badges. CSP `img-src` extended with `https://server.arcgisonline.com https://maps.googleapis.com https://maps.gstatic.com` (next.config.ts).
+
+**Portal UI** — `LiveGpsTrips.tsx` extended with the v2 fields (Trip interface), ARRIVED status label/tone, RTO-verified badge + registry details line, driven-path stat (`distance_travelled_km`), and the old `LiveInteractiveMap` panel replaced by `LiveLogisticsMap`.
+
+**Driver console** — new tab in the Tracking dashboard (`tracking/dashboard?tab=driver`, sign-in required): `src/components/tracking/DriverConsole.tsx` — fleet CSV import (file picker or paste, browser-side CSV parse honouring quoted commas, flexible header aliases, template shown), rows upserted through `FLEET_IMPORT` (500/batch); per-vehicle registry check (`?fleetCheck=`) with the full RTO record; registered-vehicles table.
+
+**Build** — `npm run build` clean, all 83 routes (one pre-existing three.js "Material undefined" warning from static generation, not an error).
+
 
 ## PHASE 6 — (filled below when complete)
 

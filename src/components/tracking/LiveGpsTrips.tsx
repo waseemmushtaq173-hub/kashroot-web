@@ -1,28 +1,33 @@
 'use client';
 
 /**
- * LiveGpsTrips — Phase 8: the "Live GPS trips" tab of the Tracking portal.
+ * LiveGpsTrips — the "Live GPS trips" tab of the Tracking portal.
  *
- * Consent-based live shipment trips (shipment_tracking_trips, the Phase 5
- * schema): create a trip with the driver's consent, share the tracking
- * link / code, and stream live GPS pings from the driver's phone on THIS
- * device. The trip card shows distance covered, distance remaining, speed,
- * ETA and the stale-signal alert (no ping for 10 minutes), with the live
- * position and destination on the native LiveInteractiveMap.
+ * Consent-based live shipment trips (shipment_tracking_trips): create a trip
+ * with the driver's consent, share the tracking link / code, and stream live
+ * GPS pings from the driver's phone on THIS device. The trip card shows
+ * distance covered, distance remaining, speed, ETA and the stale-signal alert
+ * (no ping for 10 minutes), with the truck, its driven route, the geofence
+ * and a route-deviation alert on the native LiveLogisticsMap.
+ *
+ * Master-upgrade v2 fields (20261112000002): the trip keeps a route_history
+ * polyline, geofence_status, route_deviation_alert, distance_travelled_km
+ * and the vehicle's RTO verification (rto_verified_status + rto_metadata
+ * from the authorized_fleet registry).
  *
  * The older consignment system (Track by code / My consignments) is
  * untouched — this is the additional trip tracker.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import dynamic from 'next/dynamic';
-import { CheckCircle2, Copy, Loader2, MapPin, MapPinned, Navigation, Radio, Share2, TriangleAlert, Truck } from 'lucide-react';
+import { CheckCircle2, Copy, Loader2, MapPin, MapPinned, Navigation, Radio, Share2, ShieldCheck, TriangleAlert, Truck } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 import { Badge, Btn, EmptyState, Field, INPUT, Panel } from '@/components/portal/kit';
 import { PORTAL_THEMES } from '@/components/portal/kit';
 import { PlaceInput } from '@/components/tracking/PlaceInput';
 import type { PlacePoint } from '@/lib/db/consignments';
 
-const LiveInteractiveMap = dynamic(() => import('@/components/common/LiveInteractiveMap'), {
+const LiveLogisticsMap = dynamic(() => import('@/components/tracking/LiveLogisticsMap'), {
   ssr: false,
   loading: () => <div className="h-56 animate-pulse rounded-xl bg-slate-100" />,
 });
@@ -57,6 +62,27 @@ interface Trip {
   updated_at: string;
   effective_status?: string;
   minutes_since_last_ping?: number | null;
+  // Master-upgrade v2 columns (20261112000002_kashroot_master_upgrade.sql).
+  driver_consent_granted?: boolean | null;
+  driver_consent_timestamp?: string | null;
+  rto_verified_status?: string | null;
+  rto_metadata?: {
+    vehicle_type?: string | null;
+    owner_name?: string | null;
+    rto_office?: string | null;
+    rto_code?: string | null;
+    fitness_valid_upto?: string | null;
+    permit_type?: string | null;
+    permit_valid_upto?: string | null;
+    insurance_valid_upto?: string | null;
+    fuel_type?: string | null;
+    source?: string | null;
+    checked_at?: string;
+  } | null;
+  route_deviation_alert?: boolean | null;
+  geofence_status?: string | null;
+  route_history?: { lat: number; lng: number; t?: string; km?: number }[] | null;
+  distance_travelled_km?: string | number | null;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -64,6 +90,7 @@ const STATUS_LABEL: Record<string, string> = {
   IN_TRANSIT_LIVE: 'On the way — live GPS',
   SIGNAL_STALE: 'Signal stale — no ping recently',
   ARRIVED_GEOFENCE: 'Arrived at the destination',
+  ARRIVED: 'Arrived — at the destination',
   DELIVERED: 'Delivered',
   CANCELLED: 'Cancelled',
 };
@@ -73,6 +100,7 @@ const STATUS_TONE: Record<string, 'green' | 'amber' | 'red' | 'blue' | 'slate'> 
   ASSIGNED: 'blue',
   SIGNAL_STALE: 'red',
   ARRIVED_GEOFENCE: 'amber',
+  ARRIVED: 'green',
   DELIVERED: 'slate',
   CANCELLED: 'slate',
 };
@@ -386,6 +414,11 @@ function TripCard({ trip, onBack, onChange }: { trip: Trip; onBack: () => void; 
               <CheckCircle2 className="h-3 w-3" aria-hidden /> Driver consent given
             </Badge>
           )}
+          {t.rto_verified_status === 'VERIFIED_RTO_RECORD' && (
+            <Badge tone="green">
+              <ShieldCheck className="h-3 w-3" aria-hidden /> RTO-verified vehicle
+            </Badge>
+          )}
         </div>
         <p className="mt-3 flex items-center gap-1 text-sm font-semibold text-slate-900">
           <MapPinned className="h-4 w-4 text-slate-400" aria-hidden /> {t.origin_name} → {t.destination_name}
@@ -394,10 +427,17 @@ function TripCard({ trip, onBack, onChange }: { trip: Trip; onBack: () => void; 
           <Truck className="mr-1 inline h-3.5 w-3.5" aria-hidden />
           {t.vehicle_registration_no} · {t.driver_name} · <a href={`tel:${t.driver_phone}`} className="font-semibold text-emerald-700 underline underline-offset-2">{t.driver_phone}</a>
         </p>
+        {t.rto_verified_status === 'VERIFIED_RTO_RECORD' && t.rto_metadata && (t.rto_metadata.owner_name || t.rto_metadata.rto_office) && (
+          <p className="mt-1 text-xs text-slate-500">
+            RTO record: {t.rto_metadata.owner_name ?? 'owner on file'}
+            {t.rto_metadata.rto_office ? ` · ${t.rto_metadata.rto_office}` : ''}
+            {t.rto_metadata.fitness_valid_upto ? ` · fitness till ${t.rto_metadata.fitness_valid_upto}` : ''}
+          </p>
+        )}
 
         <dl className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-5">
           {[
-            { k: 'Distance covered', v: km(t.covered_distance_km) },
+            { k: 'Distance covered', v: km(t.distance_travelled_km ?? t.covered_distance_km) },
             { k: 'Distance remaining', v: km(t.remaining_distance_km) },
             { k: 'Speed now', v: speed !== null ? `${speed.toFixed(0)} km/h` : '—' },
             { k: 'ETA', v: etaH !== null ? (etaH >= 60 ? `${Math.round(etaH / 60)} h ${etaH % 60} min` : `${etaH} min`) : '—' },
@@ -412,21 +452,12 @@ function TripCard({ trip, onBack, onChange }: { trip: Trip; onBack: () => void; 
       </Panel>
 
       <Panel theme={theme} title="Live position" icon={MapPinned}>
-        {t.current_lat !== null && t.current_lng !== null ? (
-          <LiveInteractiveMap
-            lat={t.current_lat}
-            lng={t.current_lng}
-            accuracy={N(t.current_accuracy_m)}
-            label="Driver's live position"
-            destLat={t.destination_lat}
-            destLng={t.destination_lng}
-            destLabel={t.destination_name}
-            className="text-slate-900"
-          />
-        ) : (
-          <p className="text-sm text-slate-600">No position yet — the driver&rsquo;s first ping puts the truck on the map.</p>
-        )}
-        <p className="mt-2 text-xs text-slate-500">The truck&rsquo;s live pin (blue) and the destination (green) with the straight-line distance. Pings stream while the driver shares GPS.</p>
+        <LiveLogisticsMap trip={t} className="text-slate-900" />
+        <p className="mt-2 text-xs text-slate-500">
+          The truck&rsquo;s live pin, its driven route (green), the dashed line to the destination and the 0.5 km geofence —
+          street, satellite or hybrid basemap. Pings stream while the driver shares GPS; a red strip warns when the truck
+          leaves the direct route by more than 15 km.
+        </p>
       </Panel>
 
       <Panel theme={theme} title="Driver's phone on this device" icon={Navigation}>

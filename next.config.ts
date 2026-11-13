@@ -30,7 +30,7 @@ const CSP = [
   // hCaptcha: the "I am human" check (components/security/HumanCheck) — its script, puzzle frame, styles and API.
   `script-src 'self' 'unsafe-inline' ${HCAPTCHA} ${RECAPTCHA}${dev ? " 'unsafe-eval'" : ''}`,
   `style-src 'self' 'unsafe-inline' ${HCAPTCHA} ${RECAPTCHA}`,
-  `img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://images.unsplash.com https://upload.wikimedia.org ${supabase}`.trim(),
+  `img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://server.arcgisonline.com https://maps.googleapis.com https://maps.gstatic.com https://images.unsplash.com https://upload.wikimedia.org ${supabase}`.trim(),
   "font-src 'self' data:",
   ['connect-src', "'self'", 'https://api.data.gov.in', HCAPTCHA, RECAPTCHA, supabase, originOf(supabase, true), dev ? 'ws: http://localhost:* http://127.0.0.1:*' : ''].filter(Boolean).join(' '),
   "media-src 'self' blob: data:",

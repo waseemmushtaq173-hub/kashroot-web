@@ -4079,7 +4079,8 @@ language sql stable security definer set search_path = public as $$
     (42, 'Tracking: trips that cannot be stopped', '20261120000000_trip_lock.sql',  public.kr_setup_has_function('kr_driver_start')),
     (43, 'Shop: packing layers & live capture',    '20261121000000_listing_packing_layers.sql',     public.kr_setup_has_column('market_listings', 'packing_layers')),
     (44, 'Orders: live GPS & escrow',              '20261122000000_order_live_gps_escrow.sql',      public.kr_setup_has_column('market_orders', 'escrow_status')),
-    (45, 'Ecosystem: trips, photo audit, universal prices', '20261112000001_kashroot_ecosystem_phases.sql', to_regclass('public.shipment_tracking_trips') is not null)
+    (45, 'Ecosystem: trips, photo audit, universal prices', '20261112000001_kashroot_ecosystem_phases.sql', to_regclass('public.shipment_tracking_trips') is not null),
+    (46, 'Master upgrade: GPS fleet, photo audit v2, prices v2', '20261112000002_kashroot_master_upgrade.sql', public.kr_setup_has_column('shipment_tracking_trips', 'route_history') and to_regclass('public.authorized_fleet') is not null)
   ) as s(step, part, file, ok)
   order by s.step
 $$;
@@ -8110,6 +8111,191 @@ END $$;
 CREATE INDEX IF NOT EXISTS shipment_trips_updated_at ON public.shipment_tracking_trips (updated_at);
 CREATE INDEX IF NOT EXISTS shipment_events_trip_id ON public.shipment_telemetry_events (trip_id, recorded_at);
 CREATE INDEX IF NOT EXISTS universal_price_active ON public.universal_price_listings (is_active, category, price_inr);
+
+notify pgrst, 'reload schema';
+
+-- ════════ 20261112000002_kashroot_master_upgrade.sql ════════
+-- KashRoot: master upgrade (Phases 5, 6, 7). Directive schema outcomes
+-- layered onto the existing tables as idempotent ALTERs — the four tables
+-- already exist (from 20261112000001 above) with a slightly different column
+-- set, so nothing is dropped or narrowed and this is safe to run again.
+--
+--   Phase 5  shipment_tracking_trips: driver identity + consent, RTO
+--            metadata, route deviation alert, geofence status, route
+--            history, distance travelled, ARRIVED status; telemetry events
+--            gain SIGNAL_STALE; new authorized_fleet (RTO registry).
+--   Phase 6  product_photo_verifications: SHA-256 image hash, 5-state
+--            verification lifecycle, private raw location + public masked
+--            twin, GPS accuracy, original photo URL.
+--   Phase 7  universal_price_listings: seller type, location label,
+--            transport cost per unit, source name, price history,
+--            last-updated stamp, OTHER_INPUTS category beside EQUIPMENT.
+
+ALTER TABLE IF EXISTS public.shipment_tracking_trips
+  ADD COLUMN IF NOT EXISTS driver_id UUID,
+  ADD COLUMN IF NOT EXISTS driver_consent_granted BOOLEAN,
+  ADD COLUMN IF NOT EXISTS driver_consent_timestamp TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS rto_metadata JSONB,
+  ADD COLUMN IF NOT EXISTS route_deviation_alert BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS geofence_status TEXT,
+  ADD COLUMN IF NOT EXISTS route_history JSONB NOT NULL DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS distance_travelled_km NUMERIC(8,2) DEFAULT 0;
+
+DO $$
+DECLARE con text;
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint c
+     WHERE c.conrelid = 'public.shipment_tracking_trips'::regclass
+       AND c.contype = 'c'
+       AND pg_get_constraintdef(c.oid) LIKE '%trip_status%'
+       AND pg_get_constraintdef(c.oid) LIKE '%ARRIVED%'
+  ) THEN
+    SELECT c.conname INTO con
+      FROM pg_constraint c
+     WHERE c.conrelid = 'public.shipment_tracking_trips'::regclass
+       AND c.contype = 'c'
+       AND pg_get_constraintdef(c.oid) LIKE '%trip_status%';
+    IF con IS NOT NULL THEN
+      EXECUTE format('ALTER TABLE public.shipment_tracking_trips DROP CONSTRAINT %I', con);
+    END IF;
+    ALTER TABLE public.shipment_tracking_trips
+      ADD CONSTRAINT shipment_tracking_trips_trip_status_check
+      CHECK (trip_status IN ('ASSIGNED', 'IN_TRANSIT_LIVE', 'SIGNAL_STALE', 'ARRIVED_GEOFENCE', 'ARRIVED', 'DELIVERED', 'CANCELLED'));
+  END IF;
+END $$;
+
+DO $$
+DECLARE con text;
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint c
+     WHERE c.conrelid = 'public.shipment_telemetry_events'::regclass
+       AND c.contype = 'c'
+       AND pg_get_constraintdef(c.oid) LIKE '%event_type%'
+       AND pg_get_constraintdef(c.oid) LIKE '%SIGNAL_STALE%'
+  ) THEN
+    SELECT c.conname INTO con
+      FROM pg_constraint c
+     WHERE c.conrelid = 'public.shipment_telemetry_events'::regclass
+       AND c.contype = 'c'
+       AND pg_get_constraintdef(c.oid) LIKE '%event_type%';
+    IF con IS NOT NULL THEN
+      EXECUTE format('ALTER TABLE public.shipment_telemetry_events DROP CONSTRAINT %I', con);
+    END IF;
+    ALTER TABLE public.shipment_telemetry_events
+      ADD CONSTRAINT shipment_telemetry_events_event_type_check
+      CHECK (event_type IN ('CONSENT_GRANTED', 'GPS_PING', 'SIGNAL_LOST', 'SIGNAL_STALE', 'ROUTE_DEVIATION', 'GEOFENCE_ARRIVAL', 'DELIVERY_CONFIRMED'));
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS public.authorized_fleet (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  vehicle_registration_no TEXT NOT NULL UNIQUE,
+  vehicle_type TEXT,
+  owner_name TEXT,
+  rto_office TEXT,
+  rto_code TEXT,
+  fitness_valid_upto DATE,
+  permit_type TEXT,
+  permit_valid_upto DATE,
+  insurance_valid_upto DATE,
+  fuel_type TEXT,
+  source TEXT NOT NULL DEFAULT 'MANUAL' CHECK (source IN ('MANUAL', 'RTO_CSV_IMPORT', 'VAHAN_LOOKUP')),
+  imported_by UUID,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE IF EXISTS public.product_photo_verifications
+  ADD COLUMN IF NOT EXISTS image_sha256 TEXT,
+  ADD COLUMN IF NOT EXISTS verification_state TEXT,
+  ADD COLUMN IF NOT EXISTS private_raw_lat DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS private_raw_lng DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS public_masked_lat DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS public_masked_lng DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS gps_accuracy_m NUMERIC(8,2),
+  ADD COLUMN IF NOT EXISTS original_photo_url TEXT;
+
+UPDATE public.product_photo_verifications
+   SET verification_state = verification_status
+ WHERE verification_state IS NULL;
+
+ALTER TABLE IF EXISTS public.universal_price_listings
+  ADD COLUMN IF NOT EXISTS seller_type TEXT,
+  ADD COLUMN IF NOT EXISTS location_label TEXT,
+  ADD COLUMN IF NOT EXISTS transport_cost_per_unit_inr NUMERIC(10,2) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS source_name TEXT,
+  ADD COLUMN IF NOT EXISTS price_history JSONB NOT NULL DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS last_updated_at TIMESTAMPTZ DEFAULT now();
+
+UPDATE public.universal_price_listings
+   SET seller_type = seller_role,
+       location_label = market_or_village,
+       source_name = source_label,
+       last_updated_at = updated_at
+ WHERE seller_type IS NULL;
+
+DO $$
+DECLARE con text;
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint c
+     WHERE c.conrelid = 'public.universal_price_listings'::regclass
+       AND c.contype = 'c'
+       AND pg_get_constraintdef(c.oid) LIKE '%category%'
+       AND pg_get_constraintdef(c.oid) LIKE '%OTHER_INPUTS%'
+  ) THEN
+    SELECT c.conname INTO con
+      FROM pg_constraint c
+     WHERE c.conrelid = 'public.universal_price_listings'::regclass
+       AND c.contype = 'c'
+       AND pg_get_constraintdef(c.oid) LIKE '%category%';
+    IF con IS NOT NULL THEN
+      EXECUTE format('ALTER TABLE public.universal_price_listings DROP CONSTRAINT %I', con);
+    END IF;
+    ALTER TABLE public.universal_price_listings
+      ADD CONSTRAINT universal_price_listings_category_check
+      CHECK (category IN ('APPLES', 'WALNUTS', 'ALMONDS', 'SAFFRON', 'FRUITS', 'VEGETABLES', 'DRY_FRUITS', 'SEEDS', 'FERTILIZERS', 'PESTICIDES', 'MACHINERY', 'IRRIGATION', 'EQUIPMENT', 'OTHER_INPUTS'));
+  END IF;
+END $$;
+
+ALTER TABLE public.shipment_tracking_trips ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.shipment_telemetry_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_photo_verifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.universal_price_listings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.authorized_fleet ENABLE ROW LEVEL SECURITY;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.shipment_tracking_trips TO anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.shipment_telemetry_events TO anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.product_photo_verifications TO anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.universal_price_listings TO anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.authorized_fleet TO anon, authenticated, service_role;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'shipment_tracking_trips' AND policyname = 'Read write shipment trips') THEN
+    CREATE POLICY "Read write shipment trips" ON public.shipment_tracking_trips FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'shipment_telemetry_events' AND policyname = 'Read write shipment events') THEN
+    CREATE POLICY "Read write shipment events" ON public.shipment_telemetry_events FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'product_photo_verifications' AND policyname = 'Read write photo verifications') THEN
+    CREATE POLICY "Read write photo verifications" ON public.product_photo_verifications FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'universal_price_listings' AND policyname = 'Read write universal prices') THEN
+    CREATE POLICY "Read write universal prices" ON public.universal_price_listings FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'authorized_fleet' AND policyname = 'Read write authorized fleet') THEN
+    CREATE POLICY "Read write authorized fleet" ON public.authorized_fleet FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS shipment_trips_updated_at ON public.shipment_tracking_trips (updated_at);
+CREATE INDEX IF NOT EXISTS shipment_trips_driver_id ON public.shipment_tracking_trips (driver_id) WHERE driver_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS shipment_events_trip_id ON public.shipment_telemetry_events (trip_id, recorded_at);
+CREATE INDEX IF NOT EXISTS universal_price_active ON public.universal_price_listings (is_active, category, price_inr);
+CREATE INDEX IF NOT EXISTS universal_price_updated ON public.universal_price_listings (last_updated_at) WHERE last_updated_at IS NOT NULL;
 
 notify pgrst, 'reload schema';
 

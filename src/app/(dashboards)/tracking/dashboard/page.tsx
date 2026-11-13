@@ -10,13 +10,18 @@
  *   Vehicle number (signed in): official details from VAHAN and FASTag toll
  *     crossings through ULIP (Govt. of India) via /api/vehicle — needs ULIP
  *     access; FASTag is not live GPS, so "last seen" is the latest toll plaza.
+ *   Live GPS trips: consent-based shipment trips (shipment_tracking_trips)
+ *     with the live route map, geofence, deviation alerts and RTO-verified
+ *     vehicles (master-upgrade v2 columns).
+ *   Driver console (signed in): the RTO authorized-fleet registry — CSV
+ *     import, fleet list and per-vehicle checks via /api/logistics/track.
  * The old /track pages send people here (next.config.ts).
  */
 import { Suspense, useCallback, useEffect, useState, type FormEvent } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { CheckCircle2, Clock, Copy, FileText, History, KeyRound, Loader2, LogIn, MapPin, MapPinned, MessageCircle, Navigation, PlusCircle, Search, Share2, TriangleAlert, Truck, XCircle } from 'lucide-react';
+import { CheckCircle2, ClipboardList, Clock, Copy, FileText, History, KeyRound, Loader2, LogIn, MapPin, MapPinned, MessageCircle, Navigation, PlusCircle, Search, Share2, TriangleAlert, Truck, XCircle } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { PortalShell } from '@/components/layout/PortalShell';
@@ -24,6 +29,7 @@ import { Badge, Btn, EmptyState, Field, INPUT, Panel, PORTAL_THEMES, Skeleton } 
 import { LiveTrack } from '@/components/tracking/LiveTrack';
 import { PlaceInput } from '@/components/tracking/PlaceInput';
 import { LiveGpsTrips } from '@/components/tracking/LiveGpsTrips';
+import { DriverConsole } from '@/components/tracking/DriverConsole';
 import { authFetch } from '@/lib/auth-fetch';
 import { loginHref } from '@/lib/auth/roles';
 import { useSignedIn } from '@/lib/auth/session';
@@ -203,7 +209,7 @@ function VehicleLookup({ onUseCode }: { onUseCode: () => void }) {
 
 /** A code as typed or as it arrives in a link: "kr-3f9a 1c7b" → "KR-3F9A1C7B". */
 const cleanCode = (raw: string | null | undefined) => (raw ?? '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 20);
-const TABS = ['track', 'mine', 'vehicle', 'gps'];
+const TABS = ['track', 'mine', 'vehicle', 'gps', 'driver'];
 
 export default function TrackingPage() {
   return (
@@ -283,6 +289,7 @@ function Tracking() {
         { id: 'mine', label: 'My consignments', icon: Truck, count: moving || undefined },
         { id: 'vehicle', label: 'Vehicle number', icon: FileText },
         { id: 'gps', label: 'Live GPS trips', icon: Navigation },
+        { id: 'driver', label: 'Driver console', icon: ClipboardList },
       ]}
       activeTab={tab}
       onTabChange={setTab}
@@ -309,6 +316,13 @@ function Tracking() {
       ))}
       {tab === 'vehicle' && (signedIn === false ? <SignInFirst tab="vehicle" what="Looking up a vehicle number uses Government records, so it needs an account." /> : <VehicleLookup onUseCode={() => setTab('track')} />)}
       {tab === 'gps' && <LiveGpsTrips />}
+      {tab === 'driver' && (signedIn === null ? (
+        <Skeleton label="Loading…" />
+      ) : signedIn ? (
+        <DriverConsole />
+      ) : (
+        <SignInFirst tab="driver" what="The RTO fleet registry and its CSV import are for signed-in transporters." />
+      ))}
     </PortalShell>
   );
 }
