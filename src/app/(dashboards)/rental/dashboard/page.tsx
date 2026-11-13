@@ -18,7 +18,7 @@
  * Data: rental_listings, rental_bookings, payout_accounts (shared database).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Apple, ArrowRight, Boxes, CalendarDays, Camera, CheckCircle2, ClipboardCheck, IndianRupee, Landmark, Map as MapIcon, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, ReceiptText, Search, Snowflake, Sparkles, Store, Trash2, Warehouse, XCircle } from 'lucide-react';
+import { Apple, ArrowRight, Boxes, CalendarDays, Camera, CheckCircle2, ClipboardCheck, Factory, IndianRupee, Landmark, Map as MapIcon, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, ReceiptText, Search, Snowflake, Sparkles, Store, Trash2, Warehouse, XCircle } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { IdentityStatus } from '@/components/auth/IdentityStatus';
@@ -28,6 +28,7 @@ import { PayOwner } from '@/components/rental/receipt/PayOwner';
 import { ColdMapEditor } from '@/components/rental/ColdMapEditor';
 import { TwinPeek } from '@/components/rental/twin/TwinPeek';
 import { OwnerWizard, type Step } from '@/components/rental/owner/OwnerWizard';
+import { FarmerStoredApplesDesk, OwnerSharedBinDesk } from '@/components/rental/owner/SharedBinAndEngineeringDesk';
 import { StorePhotosEditor } from '@/components/rental/StorePhotos';
 import { PaymentDetails } from '@/components/rental/owner/PaymentStep';
 import { ColdStoreDirectory, useColdDirectory } from '@/components/rental/ColdStoreDirectory';
@@ -66,7 +67,7 @@ const anyOf = (kinds: Storage[]) => unitsText(kinds).replace(/ and (?=\S+$)/, ' 
 /** A booking that holds or held space: it has a receipt to show. */
 const hasReceipt = (b: RentalBooking) => b.status === 'paid' || b.status === 'confirmed' || b.status === 'completed';
 /** Tabs a link may open (?tab=…), on each side. */
-const TABS: Record<Side, string[]> = { farmer: ['cold', 'bookings'], owner: ['stores', 'requests', 'payments'] };
+const TABS: Record<Side, string[]> = { farmer: ['cold', 'mystore', 'bookings'], owner: ['stores', 'operations', 'requests', 'payments'] };
 
 export default function RentalPage() {
   const [account, setAccount] = useState<Account | null | undefined>(undefined);
@@ -221,10 +222,12 @@ export default function RentalPage() {
         side === 'farmer'
           ? [
               { id: 'cold', label: 'Find a cold store', icon: Snowflake },
+              { id: 'mystore', label: 'My stored apples', icon: Boxes },
               { id: 'bookings', label: 'My bookings', icon: CalendarDays, count: mine.filter((b) => b.status === 'requested').length || undefined },
             ]
           : [
               { id: 'stores', label: 'My cold stores', icon: Warehouse },
+              { id: 'operations', label: 'Shared bins & CA desk', icon: Factory },
               { id: 'requests', label: 'Bookings to confirm', icon: ClipboardCheck, count: waiting || undefined },
               { id: 'payments', label: 'Payment details', icon: Landmark },
             ]
@@ -297,6 +300,8 @@ export default function RentalPage() {
           </>
           )}
         </div>
+      ) : tab === 'mystore' && side === 'farmer' ? (
+        <FarmerStoredApplesDesk account={account} theme={theme} />
       ) : tab === 'bookings' ? (
         <Panel theme={theme} title="My bookings" icon={CalendarDays}>
           {mine.length === 0 ? (
@@ -311,7 +316,7 @@ export default function RentalPage() {
         </Panel>
       ) : side === 'owner' ? (
         <OwnerPanel
-          section={tab === 'requests' || tab === 'payments' ? tab : 'stores'}
+          section={tab === 'requests' || tab === 'payments' || tab === 'operations' ? (tab as 'requests' | 'payments' | 'operations') : 'stores'}
           account={account}
           owned={owned}
           incoming={incoming}
@@ -629,8 +634,8 @@ function OwnerPanel({
   prefill,
   onChange,
 }: {
-  /** The owner's tab: their stores (plan & 3D), bookings to confirm, or where farmers pay them. */
-  section: 'stores' | 'requests' | 'payments';
+  /** The owner's tab: their stores (plan & 3D), the shared bin & CA desk, bookings to confirm, or where farmers pay them. */
+  section: 'stores' | 'operations' | 'requests' | 'payments';
   account: Account;
   owned: RentalListing[];
   incoming: RentalBooking[];
@@ -679,6 +684,12 @@ function OwnerPanel({
       <div className="lg:col-span-2">
         <IdentityStatus account={account} theme={theme} purpose="list your cold store and take bookings" />
       </div>
+      {section === 'operations' && (
+        <div className="lg:col-span-2">
+          <OwnerSharedBinDesk account={account} owned={owned} theme={theme} />
+        </div>
+      )}
+
       {section === 'requests' && (
       <Panel theme={theme} title="Bookings to confirm" icon={CheckCircle2} className="lg:col-span-2">
         {pending.length === 0 ? (
