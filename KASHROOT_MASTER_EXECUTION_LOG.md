@@ -116,7 +116,25 @@ Verified against the real source files (grep on every claim; directive says veri
 **Build** — `npm run build` clean, all 83 routes + the new one.
 
 
-## PHASE 7 — (filled below when complete)
+## PHASE 7 — UNIVERSAL PRICE ENGINE UPGRADE (✅ done this round)
+
+**API v2** — `src/app/api/price-comparison/route.ts`:
+- 14th category **OTHER_INPUTS** added (the CHECK union already admits it); **OTHER_INPUTS ↔ EQUIPMENT alias** — filtering either returns both pools (marketplace "supplies" rows classify as EQUIPMENT), applied to the SQL `in()` filter and the merged-row filter alike.
+- New GET filters: `variety` (ilike), `grade` (ilike), `sellerType` (exact on universal rows; matched against `seller_type`/`seller_role` on mapped marketplace rows).
+- Transport cost per unit: universal rows carry `transport_cost_per_unit_inr`; the mapped marketplace rows expose it as null (the listing has no per-unit transport field — documented in the code). New sort `landed_asc` = price + transport per unit, cheapest landed first.
+- Sparklines: `price_history` passes through from the DB (`[{p, t}]`); `last_updated_at` drives the "newest" sort.
+- POST writes BOTH column sets: v1 (`seller_role`, `market_or_village`, `delivery_cost_inr`, `source_label`) and v2 (`seller_type`, `location_label`, `transport_cost_per_unit_inr`, `source_name`, `price_history` seeded with the first price point, `last_updated_at`). `sellerType` is accepted and drives both role fields.
+
+**Board UI v2** — `src/components/market/UniversalPriceBoard.tsx`:
+- Pictorial chips: an emoji mark per category (🍎 🌰 🥜 🌺 🍑 🥕 🍇 🌻 🧪 🐛 🚜 💦 🧰 📦) + 🌐 for All.
+- Variety / grade / seller-type filter controls under the search row.
+- **Landed price**: "+ ₹X transport per unit → landed ₹Y" line when a row carries transport; "Cheapest landed first" sort option.
+- **Sparklines**: `Sparkline` renders the row's own `price_history` (last 12 points) as a tiny SVG line with an up/down % badge; hidden when fewer than 2 points.
+- **Escrow order link**: marketplace rows get "🛒 Order with escrow protection ↗" → `/buyer/dashboard?tab=shop` (where the escrow-protected OrderModal lives); non-marketplace rows are labelled price references.
+- OfferSubmit: seller-type select + transport-cost-per-unit input; category select gains "Other inputs".
+
+**Build** — `npm run build` clean, all 83 routes.
+
 
 ## PHASE 8/9/10 — (filled below when complete)
 

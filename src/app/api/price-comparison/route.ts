@@ -1,16 +1,24 @@
 // src/app/api/price-comparison/route.ts
-// Phase 7.1 — Universal Agricultural Price Comparison API.
+// Phase 7.1 — Universal Agricultural Price Comparison API (master-upgrade v2).
 //
 // Merges the real marketplace listings (market_listings — the actual
 // listings table in KashRoot) with the universal price board rows
-// (universal_price_listings) across all 13 agricultural & input
-// categories. Every marketplace row is classified into one of the 13
-// categories by product keywords (English + Hindi / Urdu / Kashmiri),
-// so Apples, Walnuts, Saffron, Fertilizers, Pesticides, Machinery,
-// Irrigation and Equipment all compare on one board.
+// (universal_price_listings) across all 14 agricultural & input
+// categories. Every marketplace row is classified into one of the board
+// categories by product keywords (English + Hindi / Urdu / Kashmiri), so
+// Apples, Walnuts, Saffron, Fertilizers, Pesticides, Machinery,
+// Irrigation, Equipment and Other inputs all compare on one board.
 //
-//   GET  ?category=&district=&q=&sort= → merged, sorted listings.
-//   POST { … }                          → submit a verified seller offer.
+// v2 columns (20261112000002_kashroot_master_upgrade.sql): seller_type,
+// location_label, transport_cost_per_unit_inr (the landed price is the
+// board's honest price), source_name, price_history (the sparklines) and
+// last_updated_at — every POST writes BOTH the v1 and v2 column sets.
+// OTHER_INPUTS and EQUIPMENT are aliases: filtering either returns both
+// (the marketplace's "supplies" rows are classified EQUIPMENT).
+//
+//   GET  ?category=&district=&q=&sort=&variety=&grade=&sellerType=
+//        → merged, sorted listings.
+//   POST { … } → submit a verified seller offer.
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { ipLimited, tooMany } from '@/lib/server/sign';
@@ -31,8 +39,15 @@ const CATEGORIES = [
   'MACHINERY',
   'IRRIGATION',
   'EQUIPMENT',
+  'OTHER_INPUTS',
 ] as const;
 type Category = (typeof CATEGORIES)[number];
+
+/** OTHER_INPUTS and EQUIPMENT are one pool on the board. */
+const ALIAS: Partial<Record<Category, Category>> = {
+  EQUIPMENT: 'OTHER_INPUTS',
+  OTHER_INPUTS: 'EQUIPMENT',
+};
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -60,7 +75,7 @@ const KEYWORDS: ReadonlyArray<readonly [Category, readonly string[]]> = [
   ['FRUITS', ['fruit', 'pear', 'nashpati', 'plum', 'aloo bukhara', 'peach', 'shalta', 'apricot', 'khubani', 'cherry', 'cherries', 'grape', 'angur', 'strawberry', 'quince', 'blemished']],
 ];
 
-/** Classify a marketplace row into one of the 13 board categories. */
+/** Classify a marketplace row into one of the board categories. */
 function classify(product: string, subcategory: string | null, category: string): Category {
   const hay = `${subcategory ?? ''} ${product}`.toLowerCase();
   for (const [cat, words] of KEYWORDS) {
@@ -68,6 +83,10 @@ function classify(product: string, subcategory: string | null, category: string)
   }
   return category === 'supplies' ? 'EQUIPMENT' : 'FRUITS';
 }
+
+/** Landed price: what one unit really costs the buyer at the farm gate. */
+const landed = (row: Record<string, unknown>): number =>
+  Number(row.price_inr ?? 0) + Number(row.transport_cost_per_unit_inr ?? row.delivery_cost_inr ?? 0);
 
 export async function GET(request: Request) {
   if (ipLimited(request, 'price-comparison', 60)) return tooMany();
@@ -77,8 +96,14 @@ export async function GET(request: Request) {
   const district = searchParams.get('district');
   const sort = searchParams.get('sort') || 'price_asc';
   const search = (searchParams.get('q') || '').trim().toLowerCase();
+  const variety = (searchParams.get('variety') || '').trim();
+  const grade = (searchParams.get('grade') || '').trim();
+  const sellerType = (searchParams.get('sellerType') || '').trim();
 
   const supabase = getSupabase();
+
+  // OTHER_INPUTS and EQUIPMENT always come back together (the alias).
+  const cats: string[] | null = category && category !== 'ALL' ? [category, ALIAS[category as Category] ?? category] : null;
 
   const universalQuery = supabase
     .from('universal_price_listings')
@@ -87,8 +112,11 @@ export async function GET(request: Request) {
     .order('price_inr', { ascending: sort !== 'price_desc' })
     .limit(150);
 
-  if (category && category !== 'ALL') universalQuery.eq('category', category);
+  if (cats) universalQuery.in('category', cats);
   if (district && district !== 'ALL') universalQuery.ilike('district', `%${district}%`);
+  if (variety) universalQuery.ilike('variety', `%${variety}%`);
+  if (grade) universalQuery.ilike('grade', `%${grade}%`);
+  if (sellerType) universalQuery.eq('seller_type', sellerType);
 
   const { data: universalRows, error: uErr } = await universalQuery;
   if (uErr) {
@@ -128,7 +156,9 @@ export async function GET(request: Request) {
               : unit === 'piece'
                 ? '1 Piece'
                 : '1 kg';
+    const village = p.district || 'Kashmir';
     return {
+      // v1 columns:
       id: p.id,
       seller_name: p.seller_name || 'Verified Grower',
       seller_role: 'farmer',
@@ -137,7 +167,7 @@ export async function GET(request: Request) {
       variety: p.variety || 'Standard',
       grade: p.grade || 'Grade A',
       district: p.district || 'Shopian',
-      market_or_village: p.district || 'Kashmir',
+      market_or_village: village,
       price_inr: Number(p.price ?? 0),
       unit_label: unitLabel,
       packing_layers: p.packing_layers ?? null,
@@ -145,11 +175,21 @@ export async function GET(request: Request) {
       delivery_cost_inr: 0,
       source_label: 'Verified Farmer Marketplace Listing',
       updated_at: p.updated_at ?? null,
+      // v2 columns (the marketplace has no per-unit transport row of its own):
+      seller_type: 'farmer',
+      location_label: village,
+      transport_cost_per_unit_inr: null,
+      source_name: 'Verified Farmer Marketplace Listing',
+      price_history: null,
+      last_updated_at: p.updated_at ?? null,
     };
   });
 
   const combined = [...(universalRows ?? []), ...mappedProduce].filter((item) => {
-    if (category && category !== 'ALL' && item.category !== category) return false;
+    if (cats && !cats.includes(item.category)) return false;
+    if (variety && !String(item.variety ?? '').toLowerCase().includes(variety.toLowerCase())) return false;
+    if (grade && !String(item.grade ?? '').toLowerCase().includes(grade.toLowerCase())) return false;
+    if (sellerType && String(item.seller_type ?? item.seller_role ?? '').toLowerCase() !== sellerType.toLowerCase()) return false;
     if (!search) return true;
     return (
       String(item.product_name ?? '').toLowerCase().includes(search) ||
@@ -159,9 +199,12 @@ export async function GET(request: Request) {
   });
 
   if (sort === 'price_desc') combined.sort((a, b) => Number(b.price_inr) - Number(a.price_inr));
+  else if (sort === 'landed_asc') combined.sort((a, b) => landed(a as Record<string, unknown>) - landed(b as Record<string, unknown>));
   else if (sort === 'newest')
     combined.sort(
-      (a, b) => new Date(String(b.updated_at ?? 0)).getTime() - new Date(String(a.updated_at ?? 0)).getTime()
+      (a, b) =>
+        new Date(String(b.last_updated_at ?? b.updated_at ?? 0)).getTime() -
+        new Date(String(a.last_updated_at ?? a.updated_at ?? 0)).getTime()
     );
   else combined.sort((a, b) => Number(a.price_inr) - Number(b.price_inr));
 
@@ -187,25 +230,39 @@ export async function POST(request: Request) {
   if (!Number.isFinite(priceInr) || priceInr <= 0) {
     return NextResponse.json({ ok: false, error: 'Price must be a positive number' }, { status: 400 });
   }
+  const transport = Number(body.transportCostPerUnitInr ?? body.deliveryCostInr ?? 0);
+  const sellerRole = String(body.sellerRole || body.sellerType || 'farmer').toLowerCase();
+  const sellerType = String(body.sellerType || sellerRole).toLowerCase();
+  const districtLabel = String(body.district || 'Shopian').slice(0, 80);
+  const villageLabel = String(body.marketOrVillage || body.district || 'Shopian').slice(0, 80);
+  const nowIso = new Date().toISOString();
 
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('universal_price_listings')
     .insert({
+      // v1 columns (kept for older readers):
       seller_id: body.sellerId ?? null,
       seller_name: String(body.sellerName || 'Verified Seller').slice(0, 80),
-      seller_role: body.sellerRole || 'farmer',
+      seller_role: sellerRole,
       category: body.category,
       product_name: String(body.productName).slice(0, 80),
       variety: body.variety ? String(body.variety).slice(0, 60) : null,
       grade: body.grade || 'Grade A',
-      district: String(body.district || 'Shopian').slice(0, 80),
-      market_or_village: String(body.marketOrVillage || body.district || 'Shopian').slice(0, 80),
+      district: districtLabel,
+      market_or_village: villageLabel,
       price_inr: priceInr,
       unit_label: String(body.unitLabel || '18 kg Box').slice(0, 40),
       available_quantity: Number(body.availableQuantity || 1),
-      delivery_cost_inr: Number(body.deliveryCostInr || 0),
+      delivery_cost_inr: transport,
       source_label: String(body.sourceLabel || 'Verified Seller Submission').slice(0, 60),
+      // v2 columns (both column sets are always written):
+      seller_type: sellerType,
+      location_label: villageLabel,
+      transport_cost_per_unit_inr: Number.isFinite(transport) && transport >= 0 ? transport : 0,
+      source_name: String(body.sourceName || body.sourceLabel || 'Verified Seller Submission').slice(0, 60),
+      price_history: [{ p: priceInr, t: nowIso }],
+      last_updated_at: nowIso,
     })
     .select('*')
     .single();
