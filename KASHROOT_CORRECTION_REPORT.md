@@ -220,3 +220,23 @@ Mandated search run (`Get-ChildItem -Recurse | Select-String` with the directive
 **Verification:** `npm run build` clean — 83 routes, zero TypeScript/bundle errors.
 
 **Git checkpoint:** `fix(correction): phase 7 add road satellite hybrid basemaps to route map, verify signal stale and consent gps flows`
+
+---
+
+## PHASE 8 — ROLE SEPARATION & DATABASE PERSISTENCE VERIFIED (✅)
+
+**Role separation — setup controls live only in `/admin/dashboard`.** The Setup check panel (`SetupCheckPanel.tsx`, which DB setup files ran and which to run), the Official lists importer (`RegistryPanel.tsx`), the Super Admin / Team / Gate settings, Security, Accounts, Approvals and Platform numbers panels are all rendered only by `src/app/(dashboards)/admin/dashboard/page.tsx`, behind `AdminLock` (the admin's own code) + the team pass renewed every 5 minutes + per-section database gating (`kr_team_sections`; every query re-checked section by section). No other portal imports any admin panel — the only non-admin imports of `components/admin/*` are `AdminLock` on the `/team/unlock` entry gate and the `isSuperAdmin` helper inside `PortalShell` (which shows the admin console card to super admins only, per Phase 4). A grep of every portal dashboard confirms zero setup controls outside the admin console.
+
+**Database persistence verified live on Supabase (31 probes, every table answered).** Real rows persist where the platform has data:
+- **Listings:** `market_listings` 1 active listing (packing_layers / box_capacity_kg columns live in the schema; the current listing carries no packing data yet — honestly empty), `rental_listings` 2 cold stores, `cold_chambers` 2.
+- **Bookings:** `rental_bookings` 3, `cold_slot_bookings` 14 (per-slot unit bookings), `cold_storage_unit_allocations` table live (0 rows yet — no twin-unit booking made).
+- **Escrow:** `market_orders` 1 order with `escrow_status` set.
+- **Tracking:** `consignments` 1 (with `delivery_code` — the delivery-code lock is armed), `consignment_events` live; `shipment_tracking_trips` / `shipment_telemetry_events` live-but-empty (no consent GPS trip has run yet), including driver-consent and route-history columns.
+- **TrueScan official lists:** `gov_cibrc_products` 16 registered products, `gov_fco_standards` 33 FCO Schedule I standards, `gov_cibrc_banned` 7 banned/restricted — all with source + publication date.
+- **Others live-but-empty (no data generated yet, honestly):** `product_photo_verifications`, `universal_price_listings` (price comparison), `mandi_rates` (0 for today IST), `cold_store_directory`, `advisory_requests`, `authorized_fleet`.
+
+**Fixed — the TrueScan cron mirror wrote to tables that do not exist.** `/api/cron/sync-gov-registry` upserted into `gov_cibrc_registry` / `gov_fco_registry` — names that were never in the schema (the real tables are `gov_cibrc_products` / `gov_fco_standards` from `20261120000000_gov_fco_cibrc.sql`), and without a conflict key its PostgREST upserts could never dedupe; every write failed silently into the per-row catch and the cron reported `errors: N` forever. The route now: uses the same service-role client pattern as the other server routes (`SUPABASE_SERVICE_ROLE_KEY` first — the import policies are admin-only and the cron has no user session); writes to the real tables with the exact columns they define (brand/category-only fields dropped — the registry mirror is per CIR+molecule+formulation, the brand catalog stays in the embedded file TrueScan checks against); and passes `onConflict` matching each table's unique index (`cir_no,formulation` / `active_molecule,status` / `fertiliser_type,grade,fco_schedule_clause`), so a re-run updates instead of failing.
+
+**Verification:** `npm run build` clean — 83 routes, zero TypeScript/bundle errors.
+
+**Git checkpoint:** `fix(correction): phase 8 verify role separation and database persistence, fix true scan cron mirror tables`
