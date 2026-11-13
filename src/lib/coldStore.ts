@@ -40,6 +40,10 @@ export { WALLS, type Wall, type SizeUnit };
 /** Where the chambers are, as you walk in through the main door: left of the passage, right of it, or both sides. */
 export type Sides = 'left' | 'right' | 'both';
 export type Side = Exclude<Sides, 'both'>;
+/** A chamber's bank along a building wall: a passage side, or across the far ('back') or entrance ('front') wall. */
+export type WallSide = Side | 'back' | 'front';
+/** The wall opposite this one (front ↔ back, left ↔ right). */
+export const oppositeWall = (w: Wall): Wall => ({ front: 'back', back: 'front', left: 'right', right: 'left' } as const)[w];
 export const SIDES: Sides[] = ['left', 'right', 'both'];
 /** The side of the passage for the n-th chamber placed in order (from 0): all on one side, or 1 left, 2 right, 3 left … */
 export const sideOrder = (sides: Sides, n: number): Side => (sides === 'both' ? (n % 2 ? 'right' : 'left') : sides);
@@ -455,7 +459,7 @@ export interface ModelChamber {
   /** In the building's frame, its door in the wall facing the passage when it stands along it. */
   outline: Outline;
   /** The side of the passage it stands on (null: where the owner said, or the building is not known yet). */
-  side: Side | null;
+  side: WallSide | null;
   /** Where the owner said it stands (metres from the building's left wall and front wall). */
   spot?: { x: number; y: number };
   /** The floors, laid out (empty until the count, floors and door are right). */
@@ -498,7 +502,7 @@ export interface StoreModel {
    * wall facing the passage, whatever wall is in the draft. Known as soon as
    * the building is, even before the chamber's size is typed.
    */
-  along: Record<string, { side: Side; wall: Wall }>;
+  along: Record<string, { side: WallSide; wall: Wall }>;
   issues: Issue[];
   totals: { bins: number; crates: number; tonnes: number; places: number };
 }
@@ -713,15 +717,28 @@ export function storeModel(draft: StoreDraft): StoreModel {
   // In number order from the main door inward, the chambers the owner did not place stand
   // on their side of the passage, each with its door in the wall that faces the passage.
   const byNumber = (n: number | null) => (n !== null && Number.isFinite(n) ? n : Infinity);
-  const along = new Map<string, { side: Side; wall: Wall }>();
+  const along = new Map<string, { side: WallSide; wall: Wall }>();
   if (building) {
     d.chambers
       .map((c, i) => ({ c, i, no: byNumber(readNumber(c.no)) }))
       .filter(({ c }) => !spotOf(c))
       .sort((a, b) => a.no - b.no || a.i - b.i)
       .forEach(({ c }, n) => {
-        const side = sideOrder(building.sides, n);
-        along.set(c.key, { side, wall: passageWall(building.door.wall, side) });
+        // The chamber's wall (step 3) leads: LEFT / RIGHT stand on that side
+        // of the passage; BACK / FRONT stand across the far or entrance wall
+        // with their doors opening into the hall — the owner-diagram banks
+        // (1..4 along the left wall, 5..N along the back wall) without
+        // measuring every spot by hand. Unsaid chambers alternate as before.
+        const wp = (c.wallPosition || '').trim().toUpperCase();
+        if (wp === 'LEFT' || wp === 'RIGHT') {
+          const side = wp.toLowerCase() as Side;
+          along.set(c.key, { side, wall: passageWall(building.door.wall, side) });
+        } else if (wp === 'BACK' || wp === 'FRONT') {
+          along.set(c.key, { side: wp.toLowerCase() as 'back' | 'front', wall: wp === 'BACK' ? building.door.wall : oppositeWall(building.door.wall) });
+        } else {
+          const side = sideOrder(building.sides, n);
+          along.set(c.key, { side, wall: passageWall(building.door.wall, side) });
+        }
       });
   }
   const chambers: ModelChamber[] = [];
@@ -828,7 +845,7 @@ function spotOf(c: Pick<ChamberDraft, 'spotX' | 'spotY'>, u?: SizeUnit): { x: nu
  * One chamber as typed → its outline, floors and rows (null until its length, width and height are right).
  * `onPassage`: it stands on this side of the passage, its door in this wall (the one facing the passage).
  */
-function readChamber(c: ChamberDraft, numbers: Map<number, number>, u: SizeUnit, add: Add, onPassage?: { side: Side; wall: Wall }): ModelChamber | null {
+function readChamber(c: ChamberDraft, numbers: Map<number, number>, u: SizeUnit, add: Add, onPassage?: { side: WallSide; wall: Wall }): ModelChamber | null {
   const k = c.key;
   const P = PACKING[c.storage];
   const W = UNIT_WORDS[c.storage];
@@ -1251,8 +1268,8 @@ export interface Spot {
   fits: boolean;
   /** The owner said where it stands (else it stands along the passage). */
   byOwner: boolean;
-  /** The side of the passage it stands on (not when the owner said where). */
-  side?: Side;
+  /** The side of the passage it stands on, or the wall bank it lines (not when the owner said where). */
+  side?: WallSide;
 }
 
 /**
@@ -1321,7 +1338,7 @@ const SIDE_TEXT: Record<Side, string> = { left: 'Left side', right: 'Right side'
  */
 export function arrangeStore(
   b: Pick<Building, 'length' | 'width' | 'height' | 'unit'> & { door?: DoorAt | null; sides?: Sides },
-  chambers: { key: string; name: string; outline: Outline; spot?: { x: number; y: number }; side?: Side }[],
+  chambers: { key: string; name: string; outline: Outline; spot?: { x: number; y: number }; side?: WallSide }[],
 ): Arrangement {
   const spots: Record<string, Spot> = {};
   const problems: { key: string; message: string }[] = [];
@@ -1329,12 +1346,15 @@ export function arrangeStore(
   const show = (m: number) => say(m / (u === 'ft' ? FOOT : 1), u);
   const slack = 0.02;
   const sides = b.sides ?? 'both';
-  const pass = passageOf(b);
+  let pass = passageOf(b);
   const alongFront = pass.wall === 'front' || pass.wall === 'back';
   const room = { length: b.length, width: b.width };
   const roomOn: Record<Side, number> = { left: pass.u0, right: pass.across - pass.u1 };
   // How far in from the main door's wall each side is taken.
   const taken: Record<Side, number> = { left: 0, right: 0 };
+  // The wall banks (back / front): how far along the wall the row has grown, and how deep into the building its deepest chamber reaches.
+  const rowAt: Record<'back' | 'front', number> = { back: 0, front: 0 };
+  const rowInto: Record<'back' | 'front', number> = { back: 0, front: 0 };
   const sized = new Set<string>();
   const inPassage = new Set<string>();
   let n = 0;
@@ -1353,6 +1373,34 @@ export function arrangeStore(
     // Across the passage (out from it to the wall) and along it.
     const out = alongFront ? w : d;
     const deep = alongFront ? d : w;
+    if (side === 'back' || side === 'front') {
+      // A bank across a wall (the owner diagram: chambers 5..N along the far
+      // wall, doors opening into the hall): lined from the wall's near
+      // corner, each its own length plus a gap. outlineOf has already turned
+      // the chamber — its outline.length runs along the building's front, its
+      // outline.width front to back — so in the passage's own measure (u
+      // along the wall, v in from it) the run and the depth swap when the
+      // main door is in a side wall. A front-bank chamber starts past the
+      // passage, so the way in from the main door stays clear.
+      const run = alongFront ? w : d;
+      const into = alongFront ? d : w;
+      const at = rowAt[side];
+      rowAt[side] = at + run + 0.6;
+      const uu = (side === 'front' ? Math.min(pass.u1 + 0.6, pass.across) : 0) + at;
+      const v = side === 'back' ? Math.max(0, pass.depth - into) : 0;
+      const p = fromDoor(pass.wall, room, uu, v);
+      const q = fromDoor(pass.wall, room, uu + run, v + into);
+      spots[c.key] = { x: Math.min(p.x, q.x), y: Math.min(p.y, q.y), w, d, fits: true, byOwner: false, side };
+      rowInto[side] = Math.max(rowInto[side], into);
+      if (uu + run > pass.across + slack) {
+        spots[c.key].fits = false;
+        problems.push({
+          key: c.key,
+          message: `${c.name} is ${show(run)} long along the ${side === 'back' ? 'far wall' : 'entrance wall'}, but the chambers there reach ${show(uu + run)} and the building is only ${show(pass.across)} that way. Check the sizes, or say where it stands (More details).`,
+        });
+      }
+      continue;
+    }
     const ua = side === 'left' ? 0 : pass.across - out;
     const va = taken[side];
     taken[side] += deep;
@@ -1376,6 +1424,16 @@ export function arrangeStore(
         key: c.key,
         message: `${c.name} needs ${show(out)} on the ${side} of the passage (as you walk in), but there are only ${show(roomOn[side])} between the passage and the wall on that side, so it stands in the passage. Check the sizes,${swap} or check where the main door is.`,
       });
+    }
+  }
+  // A back bank shortens the passage: the way in from the main door ends
+  // where those chambers stand (their doors open into the hall).
+  if (rowInto.back > 0) {
+    const deep = pass.depth - rowInto.back;
+    if (deep >= 1.2) {
+      const p = fromDoor(pass.wall, room, pass.u0, 0);
+      const q = fromDoor(pass.wall, room, pass.u1, deep);
+      pass = { ...pass, rect: { x: Math.min(p.x, q.x), y: Math.min(p.y, q.y), w: Math.abs(p.x - q.x), d: Math.abs(p.y - q.y) } };
     }
   }
   // Placed by the owner: inside the building, and clear of each other and of the passage.

@@ -15,7 +15,7 @@
  * chambers stand side by side along a corridor. Pure: no three.js, no React.
  */
 import { ensureBuildingEnclosesChambers, planOf, type ChamberPlan, type Wall } from '@/lib/coldLayout';
-import { arrangeStore, doorLine, fromDoor, groupChambers, outlineOf, placeRect, type Building, type ChamberGroup, type PreviewRows, type Side, type Storage, type WorkSpaces } from '@/lib/coldStore';
+import { arrangeStore, doorLine, fromDoor, groupChambers, oppositeWall, outlineOf, placeRect, type Building, type ChamberGroup, type PreviewRows, type Storage, type WallSide, type WorkSpaces } from '@/lib/coldStore';
 import { placeName, type ColdChamber } from '@/lib/db/coldMap';
 
 export interface Vec {
@@ -38,6 +38,16 @@ export interface Seg {
 
 /** What one stack is made of: wooden bins, plastic crates, or apple boxes (older stores). */
 export type Kind = 'bin' | 'crate' | 'carton';
+
+/**
+ * The 3D view draws a stack as at most this many levels. A wizard store can
+ * keep hundreds of bins on one place (Al Noor: 300 on each of 1,556 places);
+ * drawing a steel rail for every level of every drawn place ran a phone's
+ * WebGL context out of memory before the first frame. The place still holds
+ * every bin — only the drawn levels are capped, evenly filling the floor
+ * height, and the places-near cap badge says the view is representative.
+ */
+export const DRAW_LEVEL_CAP = 24;
 
 export interface ScenePlace {
   row: number;
@@ -85,7 +95,7 @@ export interface SceneChamber {
   /** Inside the building, clear of the others. */
   fits: boolean;
   /** The side of the passage it stands on (null: where the owner said, or no building). */
-  side: Side | null;
+  side: WallSide | null;
   doorWall: Wall;
   /** The door as a line on its wall, its height, and the way in (a unit vector into the chamber). */
   door: Seg | null;
@@ -220,7 +230,7 @@ export const midOf = (s: Seg): Vec => ({ x: (s.x1 + s.x2) / 2, y: (s.y1 + s.y2) 
 export const segLength = (s: Seg) => Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
 
 /** A wizard chamber (its floors), standing with its front-left corner at `at`. */
-function wizardChamber(g: ChamberGroup, index: number, at: { x: number; y: number; w: number; d: number; fits: boolean; side?: Side }): SceneChamber {
+function wizardChamber(g: ChamberGroup, index: number, at: { x: number; y: number; w: number; d: number; fits: boolean; side?: WallSide }): SceneChamber {
   const size = g.size!;
   const o = outlineOf(size);
   const rect: Rect = { x: at.x, y: at.y, w: at.w, d: at.d };
@@ -249,13 +259,14 @@ function wizardChamber(g: ChamberGroup, index: number, at: { x: number; y: numbe
     }
     const h = plan.floorH || s.height;
     const k = Math.max(1, row.boxes_per_slot);
+    const layers = Math.max(1, Math.min(k, DRAW_LEVEL_CAP));
     floors.push({
       row,
       floor: row.floor,
       z0: plan.floorZ ?? 0,
       h,
       k,
-      layers: k,
+      layers,
       // A stack never goes through the floor above (only when the owner's count needed taller stacks).
       stackH: Math.min(k * s.box.h, h * 0.97),
       places,
@@ -328,7 +339,7 @@ function olderChamber(g: ChamberGroup, index: number, at: Vec, beside = false, s
       windows.push({ seg, sill: win.sill, height: win.height, wall: win.wall });
     }
     const walkway = plan.aisleX ? { x: at.x + plan.aisleX[0], y: at.y, w: plan.aisleX[1] - plan.aisleX[0], d } : null;
-    floor = { row, floor: 1, z0: 0, h: s.height, k: row.boxes_per_slot, layers: Math.max(1, plan.layers), stackH: Math.max(0.2, plan.stackHeight), places, walkway, crowded: false, plan };
+    floor = { row, floor: 1, z0: 0, h: s.height, k: row.boxes_per_slot, layers: Math.max(1, Math.min(plan.layers, DRAW_LEVEL_CAP)), stackH: Math.max(0.2, Math.min(plan.stackHeight, plan.floorH || plan.stackHeight)), places, walkway, crowded: false, plan };
   } else {
     // Rows × stacks without a measured size: the places stand inside the
     // chamber's own rectangle. When there are more rows than 1.2 m steps
@@ -424,8 +435,8 @@ function biggestFreeRect(hall: Rect, taken: Rect[]): Rect | null {
 /** The four lines of work, in the order they follow the fruit through the store. */
 const ZONE_LINES: [SceneZone['key'], string][] = [
   ['cleaning', 'Cleaning & washing line'],
-  ['grading', 'Grading & sorting line'],
-  ['packing', 'Packing section'],
+  ['grading', 'Grading line & sorting'],
+  ['packing', 'Packaging'],
   ['machinery', 'Refrigeration plant'],
 ];
 
@@ -511,7 +522,7 @@ export function workZones(hall: Rect, chamberRects: Rect[], passage: Rect | null
       const frontEnd = doorWall === 'front' || doorWall === 'left' ? touchesNear : touchesFar;
       const lo = horiz ? passage.y : passage.x;
       const at = frontEnd ? lo : lo + size - depth;
-      zones.push({ key: 'dock', label: 'Loading & unloading dock', rect: horiz ? { x: passage.x, y: at, w: passage.w, d: depth } : { x: at, y: passage.y, w: depth, d: passage.d } });
+      zones.push({ key: 'dock', label: 'Receiving & dispatch', rect: horiz ? { x: passage.x, y: at, w: passage.w, d: depth } : { x: at, y: passage.y, w: depth, d: passage.d } });
     }
   }
   return zones;
@@ -541,14 +552,29 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
     // past the walls. A chamber wider than the passage leaves room for is
     // beyond growing: it keeps its fits = false and the hall stretches
     // around it below.
-    let enclosed = ensureBuildingEnclosesChambers(b, wizard.map((g) => g.size!));
-    const arranged = (cur: Building) => arrangeStore(cur, wizard.map((g) => ({ key: g.key, name: g.name, outline: outlineOf(g.size!), spot: g.size!.spot })));
+    // The saved wall of each chamber (step 3: LEFT / BACK / RIGHT / FRONT)
+    // forms the owner-diagram banks: 1..4 along the left wall with doors
+    // facing the hall, 5..N along the far wall with doors at their bottom.
+    // A back / front bank chamber is turned — its door wall becomes the face
+    // towards the hall — so its outline, door and places land the right way
+    // even when an older save measured it for a passage side.
+    const bankOf = (g: ChamberGroup): WallSide | undefined => {
+      const wp = (g.sidePosition ?? '').trim().toUpperCase();
+      return wp === 'LEFT' ? 'left' : wp === 'RIGHT' ? 'right' : wp === 'BACK' ? 'back' : wp === 'FRONT' ? 'front' : undefined;
+    };
+    const banked = wizard.map((g) => {
+      const side = bankOf(g);
+      if (side !== 'back' && side !== 'front') return g;
+      return { ...g, size: { ...g.size!, doorWall: side === 'back' ? b.door.wall : oppositeWall(b.door.wall) } };
+    });
+    let enclosed = ensureBuildingEnclosesChambers(b, banked.map((g) => g.size!));
+    const arranged = (cur: Building) => arrangeStore(cur, banked.map((g) => ({ key: g.key, name: g.name, outline: outlineOf(g.size!), spot: g.size!.spot, side: bankOf(g) })));
     let lay = arranged(enclosed);
     const round2 = (n: number) => Math.round(n * 100) / 100;
     for (let grown = 0; grown < 3; grown++) {
       let east = enclosed.length;
       let back = enclosed.width;
-      for (const g of wizard) {
+      for (const g of banked) {
         const spot = lay.spots[g.key];
         if (!spot || spot.fits) continue;
         east = Math.max(east, spot.x + spot.w);
@@ -563,7 +589,7 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
     // The owner's live preview brings where its top view puts each chamber (lib/coldStore previewChambers): the very same places.
     const pre = rows as PreviewRows;
     for (const p of pre.spots ? (pre.problems ?? []) : lay.problems.map((x) => x.message)) if (!problems.includes(p)) problems.push(p);
-    for (const g of wizard) chambers.push(wizardChamber(g, chambers.length, pre.spots?.[g.floors[0].id] ?? lay.spots[g.key]));
+    for (const g of banked) chambers.push(wizardChamber(g, chambers.length, pre.spots?.[g.floors[0].id] ?? lay.spots[g.key]));
     // Older chambers: never outside the walls. The building stretches to
     // wrap them, east of the measured chambers, passage still in front —
     // Chamber 1 every chamber sits inside the insulated perimeter.
@@ -710,12 +736,13 @@ export function zonesForViewer(zones: SceneZone[], mode: 'book' | 'owner' | 'vie
 export function sceneText(scene: StoreScene): string {
   const out: string[] = [];
   if (scene.mainDoor) out.push(`The main door is in the ${scene.mainDoor.wall} wall; a passage runs straight in from it.`);
-  const seen: Record<Side, number> = { left: 0, right: 0 };
+  const seen: Record<WallSide, number> = { left: 0, right: 0, back: 0, front: 0 };
   for (const c of scene.chambers) {
     const floors = c.floors.length > 1 ? ` It has ${c.floors.length} floors.` : '';
     if (c.side) {
       const n = ++seen[c.side];
-      out.push(`${c.name} stands on the ${c.side} of the passage, the ${ORD[n - 1] ?? `${n}th`} from the main door, its door facing the passage.${floors}`);
+      const where = c.side === 'back' ? 'along the far wall' : c.side === 'front' ? 'along the entrance wall' : `on the ${c.side} of the passage`;
+      out.push(`${c.name} stands ${where}, the ${ORD[n - 1] ?? `${n}th`} banked there, its door facing the hall.${floors}`);
     } else if (c.beside) out.push(`${c.name} is drawn beside the building.`);
     else if (scene.building) out.push(`${c.name} stands where the owner said.${floors}`);
     else out.push(`${c.name} is number ${c.index + 1} along the corridor.${floors}`);

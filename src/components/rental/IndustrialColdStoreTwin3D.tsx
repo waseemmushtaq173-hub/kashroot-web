@@ -62,7 +62,9 @@ export interface Chamber3DConfig {
  * stacks) — and an honest badge over the canvas says exactly how many the
  * store really holds.
  */
-const SLOT_CAP_TRIGGER = 1500;
+// The directive's hard ceiling: never more than 1,200 visible stacks
+// (1,000 are drawn past the trigger, the rest stay representative).
+const SLOT_CAP_TRIGGER = 1200;
 const SLOT_CAP_SHOWN = 1000;
 
 export interface IndustrialColdStoreTwinProps {

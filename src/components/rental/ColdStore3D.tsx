@@ -439,7 +439,16 @@ export function ColdStore3D({
   }, [cells, mineLook, scene]);
   // The way to the farmer's place, and the guided walk along it: the step reached (null: not
   // guiding), whether they have arrived, and the language the steps are said in.
-  const route = useMemo(() => routeFor(scene, cells, mode), [scene, cells, mode]);
+  // Guarded: an odd store must not take the page down to the error guard —
+  // the view opens without a route, and the Drawing beside it still works.
+  const route = useMemo(() => {
+    try {
+      return routeFor(scene, cells, mode);
+    } catch (err) {
+      console.error('The way could not be worked out:', err instanceof Error ? err.message : err);
+      return null;
+    }
+  }, [scene, cells, mode]);
   const [guideAt, setGuideAt] = useState<number | null>(null);
   const [guideDone, setGuideDone] = useState(false);
   const [guideLang, setGuideLang] = useState<RouteLang>('en');
@@ -452,12 +461,23 @@ export function ColdStore3D({
   // Opening the crate drawer from inside the scene (a tap on a booked / own stack).
   const onStack = useCallback((c: Cell) => setStackCell(c), []);
 
+  // An api hiccup (a scene the 3D code cannot draw, a WebGL hiccup) must never
+  // take the page down to the error guard: the failure is logged, the view
+  // keeps its last good frame, and the next data change retries.
+  const safe = useCallback((fn: () => void) => {
+    try {
+      fn();
+    } catch (err) {
+      console.error('3D update failed:', err instanceof Error ? err.message : err);
+    }
+  }, []);
+
   // The latest data and callbacks, for the scene (which is set up once).
   const latest = useRef({ scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName, route, onStep, onStack, chambers, stackOf });
   useEffect(() => {
     latest.current = { scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName, route, onStep, onStack, chambers, stackOf };
   }, [scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName, route, onStep, onStack, chambers, stackOf]);
-  useEffect(() => api.current?.setRoute(route), [route]);
+  useEffect(() => safe(() => api.current?.setRoute(route)), [safe, route]);
   // Each step said aloud as the walk reaches it, in the person's language.
   useEffect(() => {
     if (guideAt === null || !route) return;
@@ -473,9 +493,9 @@ export function ColdStore3D({
   }, [view]);
   useEffect(() => () => stopSpeaking(), []);
   // The places are built again only when the store or what its places are changes (not when the page around it redraws).
-  useEffect(() => api.current?.setData(scene, shownCells, free, mineName), [scene, shownCells, free, mineName]);
-  useEffect(() => api.current?.setActive(activeIndex), [activeIndex]);
-  useEffect(() => api.current?.setView(view), [view]);
+  useEffect(() => safe(() => api.current?.setData(scene, shownCells, free, mineName)), [safe, scene, shownCells, free, mineName]);
+  useEffect(() => safe(() => api.current?.setActive(activeIndex)), [safe, activeIndex]);
+  useEffect(() => safe(() => api.current?.setView(view)), [safe, view]);
   // The small map is drawn into the walk's buttons, which appear once the view is ready.
   useEffect(() => {
     if (view === 'walk' && ready) api.current?.showWhere();
@@ -491,8 +511,8 @@ export function ColdStore3D({
   }, []);
 
   // Floor slice and grower highlight, also without building the places again.
-  useEffect(() => api.current?.world({ floor: floorShown ?? 'all', mine: myHighlight }), [floorShown, myHighlight, shownCells]);
-  useEffect(() => api.current?.xray(xrayWalls), [xrayWalls]);
+  useEffect(() => safe(() => api.current?.world({ floor: floorShown ?? 'all', mine: myHighlight })), [safe, floorShown, myHighlight, shownCells]);
+  useEffect(() => safe(() => api.current?.xray(xrayWalls)), [safe, xrayWalls]);
 
   useEffect(() => {
     const el = host.current;
