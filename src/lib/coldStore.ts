@@ -128,6 +128,8 @@ export interface ChamberDraft {
   stackHigh: string;
   /** How many levels one rack holds (1 to 10); shown in the 3D twin and saved to cold_chambers.levels_count. */
   rackLevels: string;
+  /** Where it stands in the building ('' = drawn in order): which wall it is against (LEFT / BACK / RIGHT / FRONT). */
+  wallPosition: '' | 'LEFT' | 'BACK' | 'RIGHT' | 'FRONT';
   /** Where it stands, if the owner says: from the building's left wall and front wall ('' = drawn in order). */
   spotX: string;
   spotY: string;
@@ -147,6 +149,10 @@ export interface ChamberDraft {
   ca: '' | 'yes' | 'no';
   temperature: string;
   humidity: string;
+  /** The chamber door's build ('' = the CA default sliding overlap). */
+  doorType: '' | 'INFITTING_PLUG' | 'OVERLAP_HEATED_GASKET' | 'SLIDING_OVERLAP_CA';
+  /** How many crates one shared bin holds (the chamber's default for cold_storage_bins.max_crates). */
+  cratesPerBin: string;
 }
 
 /** The whole store as typed. */
@@ -242,6 +248,7 @@ export const blankChamber = (no: number, storage: Packed = 'bins'): ChamberDraft
   rate: '',
   stackHigh: '',
   rackLevels: '4',
+  wallPosition: '',
   spotX: '',
   spotY: '',
   unitL: '',
@@ -256,13 +263,15 @@ export const blankChamber = (no: number, storage: Packed = 'bins'): ChamberDraft
   ca: '',
   temperature: '',
   humidity: '',
+  doorType: '',
+  cratesPerBin: '100',
 });
 
 /** The next free chamber number. */
 export const nextNumber = (chambers: Pick<ChamberDraft, 'no'>[], taken = 0) => Math.max(taken, 0, ...chambers.map((c) => Math.floor(Number(c.no)) || 0)) + 1;
 
-/** A copy of a chamber with a new number (where it stands is not copied). */
-export const copyChamber = (c: ChamberDraft, no: number): ChamberDraft => ({ ...c, door: { ...c.door }, key: newKey(), no: String(no), spotX: '', spotY: '' });
+/** A copy of a chamber with a new number (where it stands is not copied: neither the spot nor the wall it is against). */
+export const copyChamber = (c: ChamberDraft, no: number): ChamberDraft => ({ ...c, door: { ...c.door }, key: newKey(), no: String(no), spotX: '', spotY: '', wallPosition: '' });
 
 export const blankPayout = (name = ''): PayoutDraft => ({ name, account: '', account2: '', ifsc: '', bank: '', upi: '' });
 
@@ -407,6 +416,12 @@ export interface ChamberRow {
   size: ChamberSize;
   /** How many levels one rack holds (1 to 10) — the twin's rackLevels. */
   levels_count: number;
+  /** Where the chamber stands in the building (null = drawn in order; the twin alternates the walls). */
+  side_position: string | null;
+  /** The chamber door's build. */
+  door_type: string;
+  /** How many crates one shared bin holds (the chamber's default for cold_storage_bins.max_crates). */
+  crates_per_bin: number;
 }
 
 /** One floor of a chamber: its share of the count, the stack height, the places, and its plan. */
@@ -1119,6 +1134,9 @@ function readChamber(c: ChamberDraft, numbers: Map<number, number>, u: SizeUnit,
         rate: rate ?? 0,
         size,
         levels_count: Math.max(1, Math.min(10, Math.floor(readNumber(c.rackLevels) ?? 4) || 4)),
+        side_position: c.wallPosition || null,
+        door_type: c.doorType || 'SLIDING_OVERLAP_CA',
+        crates_per_bin: Math.max(1, Math.min(1000, Math.floor(readNumber(c.cratesPerBin) ?? 100) || 100)),
       },
     });
   }
@@ -1514,6 +1532,10 @@ export interface ChamberGroup {
   count: number;
   /** The lowest floor's size (all floors share the chamber's size and door), or null. */
   size: ChamberSize | null;
+  /** Where the chamber stands (null = drawn in order), how its door is built, and how many crates one shared bin holds (20261113000007). */
+  sidePosition?: string | null;
+  doorType?: string | null;
+  cratesPerBin?: number | null;
 }
 
 /** Saved rows grouped into chambers, in order (wizard chambers by number, then older ones). */
@@ -1524,7 +1546,7 @@ export function groupChambers(rows: ColdChamber[]): ChamberGroup[] {
     const key = r.chamber_no !== null ? `${r.listing_id}:no:${r.chamber_no}` : r.id;
     let g = groups.get(key);
     if (!g) {
-      g = { key, no: r.chamber_no, name: r.chamber_no !== null ? `Chamber ${r.chamber_no}` : r.name, storage: r.storage, unitKg: r.unit_kg, capacityMt: r.capacity_mt, rate: r.rate, floors: [], count: 0, size: r.size };
+      g = { key, no: r.chamber_no, name: r.chamber_no !== null ? `Chamber ${r.chamber_no}` : r.name, storage: r.storage, unitKg: r.unit_kg, capacityMt: r.capacity_mt, rate: r.rate, floors: [], count: 0, size: r.size, sidePosition: r.side_position ?? null, doorType: r.door_type ?? null, cratesPerBin: r.crates_per_bin ?? null };
       groups.set(key, g);
     }
     g.floors.push(r);
@@ -1566,6 +1588,9 @@ export function previewChambers(m: Pick<StoreModel, 'chambers'> & { building?: B
       unit_kg: f.row.unit_kg,
       capacity_mt: f.row.capacity_mt,
       rate: f.row.rate,
+      side_position: f.row.side_position,
+      door_type: f.row.door_type,
+      crates_per_bin: f.row.crates_per_bin,
     })),
   );
   rows.building = m.building ?? null;
@@ -1641,6 +1666,7 @@ export function draftFromSaved(
         rate: g.rate !== null ? String(g.rate) : '',
         stackHigh: s.stackHigh ? String(s.stackHigh) : '',
         rackLevels: String(Math.max(1, Math.min(10, Math.floor(g.floors[0]?.levels_count ?? 4) || 4))),
+        wallPosition: g.sidePosition === 'LEFT' || g.sidePosition === 'BACK' || g.sidePosition === 'RIGHT' || g.sidePosition === 'FRONT' ? g.sidePosition : '',
         spotX: s.spot ? t(s.spot.x) : '',
         spotY: s.spot ? t(s.spot.y) : '',
         // As saved, so saving again keeps the very same layout.
@@ -1656,6 +1682,8 @@ export function draftFromSaved(
         ca: s.cooling?.ca === undefined ? '' : s.cooling.ca ? 'yes' : 'no',
         temperature: s.cooling?.temperature ?? '',
         humidity: s.cooling?.humidity !== undefined ? String(s.cooling.humidity) : '',
+        doorType: g.doorType === 'INFITTING_PLUG' || g.doorType === 'OVERLAP_HEATED_GASKET' || g.doorType === 'SLIDING_OVERLAP_CA' ? g.doorType : '',
+        cratesPerBin: String(g.cratesPerBin ?? 100),
       };
     }),
   };

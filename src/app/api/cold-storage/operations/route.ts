@@ -419,7 +419,22 @@ export async function POST(request: Request) {
     ).data;
 
     if (!bin) {
-      const maxCrates = Number(body.binMaxCrates || 100);
+      // The bin's crate limit: what the owner's desk sent, else the chamber's
+      // own "crates one shared bin holds" (the owner wizard, cold_chambers
+      // .crates_per_bin), else 100.
+      let maxCrates = Number(body.binMaxCrates || 0);
+      if (!Number.isFinite(maxCrates) || maxCrates < 1) {
+        const chamberRef = body.chamberId || booking.chamber_id || null;
+        if (chamberRef) {
+          const { data: ch } = await supabase
+            .from('cold_chambers')
+            .select('crates_per_bin')
+            .eq('id', chamberRef)
+            .maybeSingle();
+          maxCrates = Number(ch?.crates_per_bin) || 0;
+        }
+        maxCrates = Math.max(1, Math.min(1000, maxCrates || 100));
+      }
       const { data: createdBin, error: createBinErr } = await supabase
         .from('cold_storage_bins')
         .insert({

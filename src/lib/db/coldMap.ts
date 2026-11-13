@@ -49,6 +49,9 @@ export interface ColdChamber {
   unit_height_m?: number | null;
   unit_spacing_m?: number | null;
   levels_count?: number | null;
+  /** The chamber door's build (20261113000006) and how many crates one shared bin holds (20261113000007). */
+  door_type?: string | null;
+  crates_per_bin?: number | null;
 }
 
 /** What a place is for the months being looked at ("part": some boxes booked, room left). */
@@ -114,14 +117,14 @@ export function periodEnd(start: string, months: number): string {
 const BASE_COLUMNS = 'id, listing_id, name, position, rows, cols, boxes_per_slot, blocked, note';
 const SIZE_COLUMNS = `${BASE_COLUMNS}, size`;
 const COLUMNS = `${SIZE_COLUMNS}, chamber_no, floor, storage, unit_kg, capacity_mt, rate`;
-/** The 3D twin's unit config (20261111000002). */
-const UNIT_COLUMNS = `${COLUMNS}, chamber_code, side_position, storage_unit_type, unit_default_capacity_kg, unit_length_m, unit_width_m, unit_height_m, unit_spacing_m, levels_count`;
+/** The 3D twin's unit config (20261111000002), plus the door build and shared-bin size (20261113000007). */
+const UNIT_COLUMNS = `${COLUMNS}, chamber_code, side_position, storage_unit_type, unit_default_capacity_kg, unit_length_m, unit_width_m, unit_height_m, unit_spacing_m, levels_count, door_type, crates_per_bin`;
 /** Before the chamber-size SQL (20261021000000) is run the size column is missing. */
 const noSizeColumn = (m?: string) => /size/i.test(m ?? '') && /column|schema cache|does not exist/i.test(m ?? '');
 /** Before the cold store details SQL (20261025000000) is run the wizard's columns are missing. */
 const noWizardColumns = (m?: string) => /chamber_no|floor|storage|unit_kg|capacity_mt|rate/i.test(m ?? '') && /column|schema cache|does not exist/i.test(m ?? '');
 /** Before the 3D twin SQL (20261111000002) is run the unit columns are missing. */
-const noUnitColumns = (m?: string) => /chamber_code|side_position|storage_unit_type|unit_default_capacity_kg|unit_length_m|unit_width_m|unit_height_m|unit_spacing_m|levels_count/i.test(m ?? '') && /column|schema cache|does not exist/i.test(m ?? '');
+const noUnitColumns = (m?: string) => /chamber_code|side_position|storage_unit_type|unit_default_capacity_kg|unit_length_m|unit_width_m|unit_height_m|unit_spacing_m|levels_count|door_type|crates_per_bin/i.test(m ?? '') && /column|schema cache|does not exist/i.test(m ?? '');
 const STORAGES: Storage[] = ['bins', 'crates', 'boxes'];
 const asNumber = (v: unknown) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
 const withSize = (rows: unknown[]): ColdChamber[] =>
@@ -143,6 +146,8 @@ const withSize = (rows: unknown[]): ColdChamber[] =>
     unit_height_m: asNumber(c.unit_height_m),
     unit_spacing_m: asNumber(c.unit_spacing_m),
     levels_count: asNumber(c.levels_count),
+    door_type: typeof c.door_type === 'string' && c.door_type ? c.door_type : null,
+    crates_per_bin: asNumber(c.crates_per_bin),
   }));
 
 /** Store ids a few dozen at a time: every id goes into the request address, which has a size limit. */

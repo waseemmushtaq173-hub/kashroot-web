@@ -224,6 +224,15 @@ function ChamberEditor({
         <KitBox kit={kit} field={`${k}.count`} label={`How many ${W.many} does it hold?`} number whole />
         <KitBox kit={kit} field={`${k}.kg`} label={`Exact capacity of one ${W.one} (kg)`} number hint="Enter the owner's measured or certified capacity. KashRoot will not assume a standard weight." />
       </div>
+      <Counter
+        label="Crates one shared bin holds"
+        name={`${k}.cratesPerBin`}
+        value={c.cratesPerBin || '100'}
+        min={1}
+        max={1000}
+        onChange={(v) => kit.set(`${k}.cratesPerBin`, v)}
+        hint="When farmers share a big wooden bin (e.g. Bin B-102), this is the most crates it holds. Default 100."
+      />
       <KitBox
         kit={kit}
         field={`${k}.tonnes`}
@@ -257,6 +266,13 @@ function ChamberEditor({
         <legend className="sr-only">The chamber’s door</legend>
         <p className="flex items-center gap-2 text-base font-semibold text-amber-950"><DoorOpen className="h-5 w-5" aria-hidden /> The door of {name}</p>
         <WallPicker label={`Which wall is the door of ${name} in?`} name={`${k}.door.wall`} value={c.door.wall} onChange={(w) => kit.set(`${k}.door.wall`, w)} />
+        <Pick
+          label="How is the door built?"
+          name={`${k}.doorType`}
+          value={c.doorType}
+          options={[['', 'Not said (CA sliding overlap)'], ['SLIDING_OVERLAP_CA', 'Sliding overlap (CA)'], ['OVERLAP_HEATED_GASKET', 'Overlap · heated gasket'], ['INFITTING_PLUG', 'Infitting plug']]}
+          onChange={(v) => kit.set(`${k}.doorType`, v)}
+        />
         <KitBox kit={kit} field={`${k}.door.from`} label={`Door: distance from the left corner (${u})`} number hint={`Stand outside the chamber, facing its ${c.door.wall} wall. Measure from the corner on your left to the door. At the corner: write 0.`} />
         <div className="grid gap-5 sm:grid-cols-2">
           <KitBox kit={kit} field={`${k}.door.width`} label={`Door: width (${u})`} number />
@@ -307,9 +323,16 @@ function ChamberEditor({
         <summary className="min-h-[44px] cursor-pointer list-none py-2 text-sm font-semibold text-slate-800">More details (optional) — where the chamber stands, its cooling</summary>
         <div className="mt-3 space-y-5">
           <p className="text-sm text-slate-700">Where {name} stands inside the building (leave empty and it is drawn in order along the back wall):</p>
+          <Pick
+            label="Which wall is the chamber against?"
+            name={`${k}.wallPosition`}
+            value={c.wallPosition}
+            options={[['', 'Drawn in order'], ['LEFT', 'Left wall'], ['BACK', 'Back wall'], ['RIGHT', 'Right wall'], ['FRONT', 'Front wall']]}
+            onChange={(v) => kit.set(`${k}.wallPosition`, v)}
+          />
           <div className="grid gap-5 sm:grid-cols-2">
-            <KitBox kit={kit} field={`${k}.spotX`} label={`From the building’s left wall (${u})`} number />
-            <KitBox kit={kit} field={`${k}.spotY`} label={`From the building’s front wall (${u})`} number />
+            <KitBox kit={kit} field={`${k}.spotX`} label={`From the building's left wall (${u})`} number />
+            <KitBox kit={kit} field={`${k}.spotY`} label={`From the building's front wall (${u})`} number />
           </div>
           <p className="flex items-center gap-2 pt-2 text-sm font-semibold text-slate-900"><Snowflake className="h-4 w-4 text-sky-700" aria-hidden /> Cooling (optional — shown to farmers when you fill it in)</p>
           <Pick
