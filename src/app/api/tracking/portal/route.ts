@@ -206,14 +206,24 @@ export async function GET(request: Request) {
           new Date(ev.created_at).toISOString() > lastUpdate,
       );
       if (!alreadyLogged) {
-        await supabase.from('tracking_events').insert({
-          shipment_id: shipment.id,
-          session_id: session.id,
-          vehicle_id: session.vehicle_id,
-          driver_id: session.driver_id,
-          event_type: 'LOCATION_STALE_DETECTED',
-          event_message: `No GPS ping for ${secondsSinceLastUpdate} seconds. Last known position preserved.`,
-        });
+        const { data: staleEvent } = await supabase
+          .from('tracking_events')
+          .insert({
+            shipment_id: shipment.id,
+            session_id: session.id,
+            vehicle_id: session.vehicle_id,
+            driver_id: session.driver_id,
+            event_type: 'LOCATION_STALE_DETECTED',
+            event_message: `No GPS ping for ${secondsSinceLastUpdate} seconds. Last known position preserved.`,
+          })
+          .select('*')
+          .single();
+        // The events list was fetched before this insert; include the new
+        // event in this same response so buyers see it on the poll that
+        // first reports STALE.
+        if (staleEvent && Array.isArray(events)) {
+          events.unshift(staleEvent);
+        }
       }
     }
   }

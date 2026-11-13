@@ -124,7 +124,7 @@ export function GpsFleetPanel() {
     void load();
   }, [load]);
 
-  const approveVehicle = async (vehicleId: string, status: 'ADMIN_APPROVED' | 'REJECTED') => {
+  const approveVehicle = async (vehicleId: string, status: 'ADMIN_APPROVED' | 'REJECTED' | 'SELF_DECLARED') => {
     setMsg(null);
     try {
       const res = await fetch('/api/tracking/portal', {

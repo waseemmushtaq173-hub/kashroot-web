@@ -54,6 +54,21 @@ function latLngToTileXY(lat: number, lng: number, zoom: number) {
 
 const MAP_TYPE_IDS: Record<MapLayerMode, string> = { ROAD: 'roadmap', SATELLITE: 'satellite', HYBRID: 'hybrid' };
 
+/** Minimal structural types for the Google Maps JS SDK objects we use. */
+interface GMapInstance {
+  setCenter: (position: unknown) => void;
+  setOptions: (options: Record<string, unknown>) => void;
+}
+interface GOverlay {
+  setMap: (map: GMapInstance | null) => void;
+}
+interface GMapsCtors {
+  Map?: new (el: HTMLElement, opts: Record<string, unknown>) => GMapInstance;
+  Marker?: new (opts: Record<string, unknown>) => GOverlay;
+  Polyline?: new (opts: Record<string, unknown>) => GOverlay;
+  LatLng?: new (lat: number, lng: number) => unknown;
+}
+
 export default function GoogleOrTileLiveMap({
   originLat,
   originLng,
@@ -76,8 +91,8 @@ export default function GoogleOrTileLiveMap({
 
   const googleMapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
   const gmapDivRef = useRef<HTMLDivElement | null>(null);
-  const gmapRef = useRef<unknown>(null);
-  const gOverlaysRef = useRef<Array<unknown>>([]);
+  const gmapRef = useRef<GMapInstance | null>(null);
+  const gOverlaysRef = useRef<Array<GOverlay>>([]);
 
   const hasVehicle = Number.isFinite(vehicleLat) && Number.isFinite(vehicleLng);
   const activeLat = centerOnVehicle && hasVehicle ? Number(vehicleLat) : (originLat + destLat) / 2;
@@ -127,23 +142,17 @@ export default function GoogleOrTileLiveMap({
   // ---- Official Google map path (only with a configured key) ---------------
   useEffect(() => {
     if (!googleMapReady || typeof window === 'undefined') return;
-    const win = window as unknown as {
-      google?: {
-        maps?: {
-          Map?: new (el: HTMLElement, opts: Record<string, unknown>) => Record<string, (...a: unknown[]) => void>;
-          Marker?: new (opts: Record<string, unknown>) => { setMap: (m: unknown) => void; setPosition: (p: unknown) => void };
-          Polyline?: new (opts: Record<string, unknown>) => { setMap: (m: unknown) => void; setPath: (p: unknown) => void };
-          LatLng?: new (lat: number, lng: number) => unknown;
-        };
-      };
-    };
-    const maps = win.google?.maps;
+    const maps = ((window as unknown as { google?: { maps?: GMapsCtors } }).google?.maps ?? null) as GMapsCtors | null;
     const div = gmapDivRef.current;
-    if (!maps || !div || !maps.Map || !maps.LatLng) return;
+    const MapCtor = maps?.Map;
+    const LatLngCtor = maps?.LatLng;
+    const MarkerCtor = maps?.Marker;
+    const PolylineCtor = maps?.Polyline;
+    if (!maps || !div || !MapCtor || !LatLngCtor) return;
 
     if (!gmapRef.current) {
-      gmapRef.current = new maps.Map(div, {
-        center: new maps.LatLng(activeLat, activeLng),
+      gmapRef.current = new MapCtor(div, {
+        center: new LatLngCtor(activeLat, activeLng),
         zoom: 5,
         mapTypeId: MAP_TYPE_IDS[layer],
         streetViewControl: false,
@@ -153,32 +162,30 @@ export default function GoogleOrTileLiveMap({
     const map = gmapRef.current;
     if (!map) return;
     if (centerOnVehicle && hasVehicle) {
-      map.setCenter?.(new maps.LatLng(Number(vehicleLat), Number(vehicleLng)));
+      map.setCenter(new LatLngCtor(Number(vehicleLat), Number(vehicleLng)));
     }
-    map.setOptions?.({ mapTypeId: MAP_TYPE_IDS[layer] });
+    map.setOptions({ mapTypeId: MAP_TYPE_IDS[layer] });
 
     for (const o of gOverlaysRef.current) {
-      (o as { setMap: (m: unknown) => void }).setMap(null);
+      o.setMap(null);
     }
     gOverlaysRef.current = [];
 
-    const putMarker = (lat: number, lng: number, label: string, color: string) => {
-      if (!maps.Marker) return null;
-      const m = new maps.Marker({
-        position: new maps.LatLng(lat, lng),
+    const putMarker = (lat: number, lng: number, label: string) => {
+      if (!MarkerCtor) return;
+      const m = new MarkerCtor({
+        position: new LatLngCtor(lat, lng),
         map,
         title: label,
         label: { text: label.slice(0, 1), color: '#ffffff', fontSize: '11px' },
       });
-      void color;
       gOverlaysRef.current.push(m);
-      return m;
     };
-    putMarker(originLat, originLng, `O ${originName}`, '#16a34a');
-    putMarker(destLat, destLng, `D ${destName}`, '#ef4444');
-    if (maps.Polyline) {
-      const trail = new maps.Polyline({
-        path: routeHistory.map((p) => new maps.LatLng(p.latitude, p.longitude)),
+    putMarker(originLat, originLng, `O ${originName}`);
+    putMarker(destLat, destLng, `D ${destName}`);
+    if (PolylineCtor) {
+      const trail = new PolylineCtor({
+        path: routeHistory.map((p) => new LatLngCtor(p.latitude, p.longitude)),
         map,
         strokeColor: '#10b981',
         strokeWeight: 4,
@@ -186,9 +193,9 @@ export default function GoogleOrTileLiveMap({
       });
       gOverlaysRef.current.push(trail);
     }
-    if (hasVehicle && maps.Marker) {
-      const vm = new maps.Marker({
-        position: new maps.LatLng(Number(vehicleLat), Number(vehicleLng)),
+    if (hasVehicle && MarkerCtor) {
+      const vm = new MarkerCtor({
+        position: new LatLngCtor(Number(vehicleLat), Number(vehicleLng)),
         map,
         title: `${vehicleRegNo} - ${trackingStatus}`,
         label: { text: 'T', color: '#ffffff', fontSize: '11px' },
