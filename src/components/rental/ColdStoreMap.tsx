@@ -40,7 +40,7 @@ import { ChamberDiagram } from '@/components/rental/ChamberDiagram';
 import { StorePhotosView } from '@/components/rental/StorePhotos';
 import { lookLabel, PLACE_LOOK, placesOf, type Look } from '@/components/rental/placeLook';
 import { StoreTopView, type ChamberCount } from '@/components/rental/three/StoreTopView';
-import { buildScene } from '@/components/rental/three/storeScene';
+import { buildScene, zonesForViewer } from '@/components/rental/three/storeScene';
 import { Guard3D } from '@/components/rental/three/SceneGuard';
 import { layersText, planOf, showLength } from '@/lib/coldLayout';
 import { asBuilding, countText, unitsText, unitWord, type Building, type Storage } from '@/lib/coldStore';
@@ -363,7 +363,11 @@ export function ColdStoreExplorer({
   const chamber = chambers.find((c) => c.id === active) ?? chambers[0];
   const byLook = useMemo(() => roomByLook(stateOf), [stateOf]);
   const roomOf = roomOfProp ?? byLook;
-  const scene = useMemo(() => buildScene(chambers, building), [chambers, building]);
+  const scene = useMemo(() => {
+    const built = buildScene(chambers, building);
+    // Farmer-facing top views never show the machinery bay.
+    return { ...built, zones: zonesForViewer(built.zones, mode) };
+  }, [chambers, building, mode]);
   // What each chamber (all its floors) holds and has free.
   const counts = useMemo<ChamberCount[]>(
     () =>

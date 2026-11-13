@@ -36,7 +36,7 @@ export interface Chamber3DConfig {
   id: string;
   code: string;
   name: string;
-  side: 'LEFT' | 'RIGHT';
+  side: 'LEFT' | 'RIGHT' | 'BACK' | 'FRONT';
   lengthM: number;
   widthM: number;
   heightM: number;
@@ -101,42 +101,81 @@ export function IndustrialColdStoreTwin3D({
   const operationalBayDepthM = 8.0;
   const corridorWidthM = 4.0;
 
-  const { safeLengthM, safeWidthM, safeHeightM, chamberPlacements, allSlots } = useMemo(() => {
+  const { safeLengthM, safeWidthM, safeHeightM, chamberPlacements, allSlots, corridorCenterX, corridorLenX, bayCenterX } = useMemo(() => {
     const leftChambers = chambers.filter((c) => c.side === 'LEFT');
     const rightChambers = chambers.filter((c) => c.side === 'RIGHT');
+    const backChambers = chambers.filter((c) => c.side === 'BACK');
+    const frontChambers = chambers.filter((c) => c.side === 'FRONT');
 
     const sumLen = (arr: Chamber3DConfig[]) =>
       arr.reduce((acc, c) => acc + c.lengthM + 0.6, 0);
 
+    // Dynamic multi-wall banks (supplementary directive): a BACK or FRONT
+    // chamber stands across the far or entrance wall — its own widthM is the
+    // depth into the building and its lengthM runs along that wall, so the
+    // bank stacks along Z and the corridor between the walls stays clear.
+    const frontDepthM = frontChambers.reduce((m, c) => Math.max(m, c.widthM), 0);
+    const backDepthM = backChambers.reduce((m, c) => Math.max(m, c.widthM), 0);
+    const runSpanM = Math.max(sumLen(leftChambers), sumLen(rightChambers));
+
     const neededLength = Math.max(
       buildingLengthM,
-      Math.max(sumLen(leftChambers), sumLen(rightChambers)) + operationalBayDepthM + 4
+      runSpanM + operationalBayDepthM + 4,
+      frontDepthM + operationalBayDepthM + runSpanM + backDepthM + 8,
+      frontDepthM + backDepthM + 14
     );
     const maxLeftW = leftChambers.reduce((m, c) => Math.max(m, c.widthM), 0);
     const maxRightW = rightChambers.reduce((m, c) => Math.max(m, c.widthM), 0);
-    const neededWidth = Math.max(buildingWidthM, maxLeftW + maxRightW + corridorWidthM + 3);
+    const neededWidth = Math.max(
+      buildingWidthM,
+      maxLeftW + maxRightW + corridorWidthM + 3,
+      sumLen(backChambers) + 2,
+      sumLen(frontChambers) + 2
+    );
     const neededHeight = Math.max(
       buildingHeightM,
       chambers.reduce((m, c) => Math.max(m, c.heightM), 7) + 1.2
     );
 
-    const placements: Array<Chamber3DConfig & { centerX: number; centerZ: number }> = [];
+    const placements: Array<Chamber3DConfig & { centerX: number; centerZ: number; rotated: boolean }> = [];
     const generatedSlots: StorageSlotRecord[] = [];
 
-    let cursorLeftX = -neededLength / 2 + operationalBayDepthM + 1.5;
-    let cursorRightX = -neededLength / 2 + operationalBayDepthM + 1.5;
+    // The run the left/right banks occupy: after the front bank and the hall
+    // bay, and stopping short of the back bank.
+    const frontInnerX = -neededLength / 2 + frontDepthM;
+    const backInnerX = neededLength / 2 - backDepthM;
+    const runStartX = frontInnerX + operationalBayDepthM + 1.5;
+
+    let cursorLeftX = runStartX;
+    let cursorRightX = runStartX;
+    let cursorBackZ = -neededWidth / 2 + 1.0;
+    let cursorFrontZ = -neededWidth / 2 + 1.0;
 
     chambers.forEach((ch) => {
-      const isLeft = ch.side === 'LEFT';
-      const cx = (isLeft ? cursorLeftX : cursorRightX) + ch.lengthM / 2;
-      const cz = isLeft
-        ? -(corridorWidthM / 2 + ch.widthM / 2)
-        : corridorWidthM / 2 + ch.widthM / 2;
+      const rotated = ch.side === 'BACK' || ch.side === 'FRONT';
+      let cx: number;
+      let cz: number;
+      if (ch.side === 'BACK') {
+        // Along the far wall: the length runs along Z, the depth hugs the +X wall.
+        cz = cursorBackZ + ch.lengthM / 2;
+        cx = neededLength / 2 - 0.3 - ch.widthM / 2;
+        cursorBackZ += ch.lengthM + 0.6;
+      } else if (ch.side === 'FRONT') {
+        // Along the entrance wall: the length runs along Z, the depth hugs the −X wall.
+        cz = cursorFrontZ + ch.lengthM / 2;
+        cx = -neededLength / 2 + 0.3 + ch.widthM / 2;
+        cursorFrontZ += ch.lengthM + 0.6;
+      } else {
+        const isLeft = ch.side === 'LEFT';
+        cx = (isLeft ? cursorLeftX : cursorRightX) + ch.lengthM / 2;
+        cz = isLeft
+          ? -(corridorWidthM / 2 + ch.widthM / 2)
+          : corridorWidthM / 2 + ch.widthM / 2;
+        if (isLeft) cursorLeftX += ch.lengthM + 0.6;
+        else cursorRightX += ch.lengthM + 0.6;
+      }
 
-      if (isLeft) cursorLeftX += ch.lengthM + 0.6;
-      else cursorRightX += ch.lengthM + 0.6;
-
-      placements.push({ ...ch, centerX: cx, centerZ: cz });
+      placements.push({ ...ch, centerX: cx, centerZ: cz, rotated });
 
       const stepX = ch.unitLengthM + ch.spacingM;
       const stepZ = ch.unitWidthM + ch.spacingM;
@@ -155,8 +194,13 @@ export function IndustrialColdStoreTwin3D({
             const levelCode = `LEVEL-${String(lvl).padStart(2, '0')}`;
             const slotKey = `${ch.code}:${levelCode}:${unitCode}`;
 
-            const wx = cx - ch.lengthM / 2 + 0.9 + (c - 0.5) * stepX;
-            const wz = cz - ch.widthM / 2 + 0.9 + (r - 0.5) * stepZ;
+            // Local grid coordinates; BACK/FRONT chambers turn them with the
+            // shell (length along Z, depth along X) while the slot keys stay
+            // per-chamber, so the "3B" place identity is untouched.
+            const lx = -ch.lengthM / 2 + 0.9 + (c - 0.5) * stepX;
+            const lz = -ch.widthM / 2 + 0.9 + (r - 0.5) * stepZ;
+            const wx = rotated ? (ch.side === 'BACK' ? cx - lz : cx + lz) : cx + lx;
+            const wz = rotated ? cz + lx : cz + lz;
             const wy = (lvl - 0.5) * stepY + 0.08;
 
             const alloc = occupiedAllocations[slotKey];
@@ -192,12 +236,22 @@ export function IndustrialColdStoreTwin3D({
       }
     });
 
+    // The corridor strip runs between the front bank's inner face and the
+    // back bank's inner face (the whole span when neither bank exists).
+    const corridorStartX = Math.max(frontInnerX, -neededLength / 2) + 6;
+    const corridorEndX = Math.min(backInnerX, neededLength / 2) - 2;
+
     return {
       safeLengthM: neededLength,
       safeWidthM: neededWidth,
       safeHeightM: neededHeight,
       chamberPlacements: placements,
       allSlots: generatedSlots,
+      corridorCenterX: (corridorStartX + corridorEndX) / 2,
+      corridorLenX: Math.max(4, corridorEndX - corridorStartX),
+      // The receiving bay floor sits right after the front bank (at the
+      // entrance wall when there is none).
+      bayCenterX: frontInnerX + 4,
     };
   }, [
     buildingLengthM,
@@ -337,13 +391,13 @@ export function IndustrialColdStoreTwin3D({
             <meshStandardMaterial color="#475569" roughness={0.85} />
           </mesh>
 
-          <mesh position={[-safeLengthM / 2 + 4, 0.02, 0]} receiveShadow>
+          <mesh position={[bayCenterX, 0.02, 0]} receiveShadow>
             <boxGeometry args={[7.5, 0.04, safeWidthM - 1]} />
             <meshStandardMaterial color="#0f766e" roughness={0.6} />
           </mesh>
 
-          <mesh position={[2, 0.02, 0]} receiveShadow>
-            <boxGeometry args={[safeLengthM - 8, 0.03, corridorWidthM]} />
+          <mesh position={[corridorCenterX, 0.02, 0]} receiveShadow>
+            <boxGeometry args={[corridorLenX, 0.03, corridorWidthM]} />
             <meshStandardMaterial color="#eab308" roughness={0.5} />
           </mesh>
 
@@ -353,7 +407,9 @@ export function IndustrialColdStoreTwin3D({
             return (
               <group key={ch.id} position={[ch.centerX, ch.heightM / 2, ch.centerZ]}>
                 <mesh>
-                  <boxGeometry args={[ch.lengthM, ch.heightM, ch.widthM]} />
+                  <boxGeometry
+                    args={ch.rotated ? [ch.widthM, ch.heightM, ch.lengthM] : [ch.lengthM, ch.heightM, ch.widthM]}
+                  />
                   <meshStandardMaterial
                     color="#e2e8f0"
                     transparent={wallMode === 'TRANSPARENT'}
@@ -364,6 +420,41 @@ export function IndustrialColdStoreTwin3D({
               </group>
             );
           })}
+
+          {/* Ceiling LED strip luminaires — two per chamber and the corridor
+              hall (visual requirement #6: lights in, fans out; CA blower unit
+              coolers stay on the corridor wall, out of the fruit airspace). */}
+          {chamberPlacements.map((ch) => (
+            <group key={`led-${ch.id}`} position={[ch.centerX, ch.heightM - 0.22, ch.centerZ]}>
+              {[-0.22, 0.22].map((off) => (
+                <mesh
+                  key={off}
+                  position={ch.rotated ? [off * ch.widthM, 0, 0] : [0, 0, off * ch.widthM]}
+                >
+                  <boxGeometry
+                    args={ch.rotated ? [0.15, 0.06, ch.lengthM * 0.6] : [ch.lengthM * 0.6, 0.06, 0.15]}
+                  />
+                  <meshStandardMaterial
+                    color="#fffbe8"
+                    emissive="#fff1b8"
+                    emissiveIntensity={1.4}
+                    roughness={0.4}
+                  />
+                </mesh>
+              ))}
+            </group>
+          ))}
+          {[-corridorWidthM / 4, corridorWidthM / 4].map((off) => (
+            <mesh key={`led-hall-${off}`} position={[corridorCenterX, safeHeightM - 0.3, off]}>
+              <boxGeometry args={[Math.max(6, corridorLenX * 0.7), 0.06, 0.15]} />
+              <meshStandardMaterial
+                color="#fffbe8"
+                emissive="#fff1b8"
+                emissiveIntensity={1.4}
+                roughness={0.4}
+              />
+            </mesh>
+          ))}
 
           <InstancedStorageUnits
             slots={capped.slots}

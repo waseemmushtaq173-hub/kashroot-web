@@ -691,6 +691,17 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
 }
 
 const ORD = ['1st', '2nd', '3rd'];
+
+/**
+ * The zones a viewer may see. Farmer-facing views (book / view) never show
+ * the machinery bay — the supplementary directive keeps the refrigeration
+ * plant room, CA/CS gas room, electrical room, office and laboratory out of
+ * farmer 2D/3D; the owner's own view keeps the plant bay they sized.
+ */
+export function zonesForViewer(zones: SceneZone[], mode: 'book' | 'owner' | 'view'): SceneZone[] {
+  return mode === 'owner' ? zones : zones.filter((z) => z.key !== 'machinery');
+}
+
 /**
  * The store in words, for people who cannot see the 3D view: "The main door
  * is in the front wall. Chamber 1 stands on the left of the passage, the 1st

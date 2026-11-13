@@ -132,19 +132,19 @@ export function buildFixtures(kit: Kit, scene: StoreScene, o: Origin): Fixtures 
     const ud = 0.75;
     const cy = H - 0.3 - uh / 2;
     const far = alongX ? (to.y > 0 ? r.y + r.d : r.y) : to.x > 0 ? r.x + r.w : r.x;
-    // The unit's front (fans) faces away from its wall: -to in the plan; world z is the plan's y reversed.
+    // The unit's front faces away from its wall: -to in the plan; world z is the plan's y reversed.
     const nx = -to.x;
     const nz = to.y;
-    const fansEach = Math.max(1, Math.round(uw / 0.75));
-    const fr = Math.min(0.27, uh * 0.38);
     for (let i = 0; i < n; i++) {
       const a = (alongX ? r.x : r.y) + (wallLen * (i + 0.5)) / n;
       const off = ud / 2 + 0.1;
       const px = alongX ? a : far - to.x * off;
       const py = alongX ? far - to.y * off : a;
-      // The Blender kit's own evaporator when it is in: casing, triple fan
-      // shrouds, grille — one shared proto, turned so its fans blow into the
-      // room (shrouds point local −Z, so the turn is atan2(−nx, −nz)).
+      // The Blender kit's own evaporator when it is in: casing and grille —
+      // one shared proto, turned to blow into the room (shrouds point local
+      // −Z, so the turn is atan2(−nx, −nz)). No fan discs: the visual rule
+      // keeps rotating fan meshes out of the stored-fruit airspace — the
+      // blower unit cooler stays a closed housing over the aisle / wall.
       const evapProto = kit.protos?.evap;
       if (evapProto) {
         const m = new T.Mesh(evapProto, [mats.cooler, mats.fan, mats.guard]);
@@ -157,12 +157,6 @@ export function buildFixtures(kit: Kit, scene: StoreScene, o: Origin): Fixtures 
       }
       // The drip tray under it.
       box(alongX ? uw + 0.1 : ud + 0.1, 0.05, alongX ? ud + 0.1 : uw + 0.1, X(px), cy - uh / 2 - 0.03, Z(py), mats.guard);
-      for (let k = 0; k < fansEach; k++) {
-        const s = ((k + 0.5) / fansEach - 0.5) * uw;
-        const fx = (alongX ? px + s : px) - to.x * (ud / 2 + 0.012);
-        const fy = (alongX ? py : py + s) - to.y * (ud / 2 + 0.012);
-        fans.push({ x: X(fx), y: cy + 0.03, z: Z(fy), nx, ny: 0, nz, r: fr });
-      }
     }
     // The refrigerant lines along that wall, under the ceiling.
     const lineAt = (off: number) => {
@@ -196,6 +190,17 @@ export function buildFixtures(kit: Kit, scene: StoreScene, o: Origin): Fixtures 
         const py = hall.y + ((j + 0.5) / rows) * hall.d;
         if (!under(px, py)) bays.push({ x: X(px), y: H - 0.7, z: Z(py) });
       }
+    }
+    // LED strip luminaires in rows under the hall roof too (visual
+    // requirement #6: the grading / packaging hall is lit with strip
+    // battens, as the chambers are — lights in, no fans in the fruit air).
+    const stripAlongX = hall.w >= hall.d;
+    const stripRows = clamp(Math.round((stripAlongX ? hall.d : hall.w) / 8), 1, 5);
+    const stripLen = Math.min((stripAlongX ? hall.w : hall.d) * 0.86, 30);
+    for (let i = 0; i < stripRows; i++) {
+      const a = (stripAlongX ? hall.y : hall.x) + ((i + 0.5) / stripRows) * (stripAlongX ? hall.d : hall.w);
+      const b = (stripAlongX ? hall.x : hall.y) + (stripAlongX ? hall.w : hall.d) / 2;
+      lamps.push({ x: X(stripAlongX ? b : a), y: H - 0.5, z: Z(stripAlongX ? a : b), len: stripLen, alongX: stripAlongX });
     }
     // Condensing units on the ground behind the building, fans on top, lines into the wall.
     const units = clamp(scene.chambers.filter((c) => c.toScale).length, 1, 6);

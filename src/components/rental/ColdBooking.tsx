@@ -488,7 +488,9 @@ export function ColdBooking({
       if (!code) continue;
       out[`${code}:LEVEL-01:${a.unit_code}`] = {
         storedKg: Number(a.stored_quantity_kg) || 0,
-        farmerName: a.farmer_id === account.id ? form.name || account.name : a.farmer_name,
+        // Role isolation (supplementary directive): a farmer sees only their
+        // own name on a twin click card — anyone else's stays anonymous.
+        farmerName: a.farmer_id === account.id ? form.name || account.name : 'Booked by another farmer',
         isCurrentFarmer: a.farmer_id === account.id,
         bookingDate: a.created_at,
       };

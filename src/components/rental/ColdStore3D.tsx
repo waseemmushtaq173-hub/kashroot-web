@@ -33,7 +33,7 @@ import { buildPlaces, buildRoute, buildShell, disposeGroup, faceWalls, makeKit, 
 import { routeTo, type Route, type RouteLang } from '@/components/rental/walk/route';
 import { speak, stopSpeaking } from '@/lib/client/speech';
 import { rememberedLang, rememberLang } from '@/lib/langDetect';
-import { buildScene, chamberAt, EYE, insideDoor, midOf, sceneText, startPoint, type SceneChamber, type StoreScene } from '@/components/rental/three/storeScene';
+import { buildScene, chamberAt, EYE, insideDoor, midOf, sceneText, startPoint, zonesForViewer, type SceneChamber, type StoreScene } from '@/components/rental/three/storeScene';
 import { drawMiniMap } from '@/components/rental/walk/miniMap';
 import { noInput, usePageZoom, WalkHud, type Measure, type Press, type Target, type WalkInput, type Where } from '@/components/rental/walk/WalkHud';
 import { aheadOf, canStand, walk, WALK_SPEED, walkWorld, type Walker, type WalkWorld } from '@/components/rental/walk/walker';
@@ -382,12 +382,15 @@ export function ColdStore3D({
   // it still shows the store.
   const scene = useMemo(() => {
     try {
-      return buildScene(chambers, shownBuilding);
+      const built = buildScene(chambers, shownBuilding);
+      // The machinery bay stays out of farmer-facing views (book / view);
+      // the owner's own view keeps the plant bay they sized.
+      return { ...built, zones: zonesForViewer(built.zones, mode) };
     } catch (err) {
       console.error('The store scene failed to build:', err instanceof Error ? err.message : err);
       return buildScene([], null);
     }
-  }, [chambers, shownBuilding]);
+  }, [chambers, shownBuilding, mode]);
   const cells = useMemo(() => {
     try {
       return cellsOf(scene, stateOf, roomOf);
@@ -1738,7 +1741,9 @@ export function ColdStore3D({
           cell={stackCell}
           scene={scene}
           chambers={chambers}
-          stackOf={stackOf}
+          // Role isolation: only the owner's view reads who holds a place;
+          // farmer-facing cards never name another farmer.
+          stackOf={mode === 'owner' ? stackOf : undefined}
           mineName={mineName}
           facilityName={facilityName}
           facilityId={facilityId}
