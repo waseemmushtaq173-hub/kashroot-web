@@ -102,7 +102,7 @@ function Hold({ press, k, label, size, children }: { press: Press; k: keyof Walk
       }}
       onKeyUp={() => set(false)}
       onBlur={() => set(false)}
-      className="pointer-events-auto grid cursor-pointer touch-none select-none place-items-center rounded-2xl bg-white/90 text-slate-900 shadow-lg ring-1 ring-slate-900/15 backdrop-blur transition active:scale-95 active:bg-emerald-100"
+      className="pointer-events-auto grid cursor-pointer touch-none select-none place-items-center rounded-2xl bg-white/90 text-slate-900 shadow-lg ring-1 ring-slate-900/15 backdrop-blur transition active:scale-95 active:bg-sky-100"
     >
       {children}
     </button>
@@ -200,7 +200,7 @@ export function WalkHud({
                 onClick={() => onFloor(n)}
                 aria-pressed={where.level === n}
                 style={{ minHeight: Math.round(44 * z), fontSize: Math.round(14 * z) }}
-                className={`pointer-events-auto cursor-pointer rounded-xl px-3 font-bold shadow-lg ring-1 transition ${where.level === n ? 'bg-chinar text-white ring-chinar' : 'bg-white/90 text-slate-900 ring-slate-900/15 hover:bg-emerald-50'}`}
+                className={`pointer-events-auto cursor-pointer rounded-xl px-3 font-bold shadow-lg ring-1 transition ${where.level === n ? 'bg-sky-800 text-white ring-sky-800' : 'bg-white/90 text-slate-900 ring-slate-900/15 hover:bg-sky-50'}`}
               >
                 {where.level === n ? `Floor ${n} · here` : `Go to floor ${n}`}
               </button>
@@ -236,7 +236,7 @@ export function WalkHud({
             type="button"
             onClick={onChoose}
             style={{ minHeight: btn, fontSize: Math.round(14 * z) }}
-            className={`pointer-events-auto inline-flex cursor-pointer items-center gap-2 rounded-2xl px-4 font-bold text-white shadow-lg transition active:scale-95 ${target.chosen ? 'bg-slate-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+            className={`pointer-events-auto inline-flex cursor-pointer items-center gap-2 rounded-2xl px-4 font-bold text-white shadow-lg transition active:scale-95 ${target.chosen ? 'bg-slate-700' : 'bg-sky-700 hover:bg-sky-800'}`}
           >
             <Check style={icon} aria-hidden />
             {mode === 'owner' ? 'Who is on this place?' : target.chosen ? 'Remove from my choice' : 'Choose this place'}

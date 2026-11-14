@@ -23,7 +23,7 @@ import type { ColdChamber } from '@/lib/db/coldMap';
 const SpinBox = ({ text }: { text: string }) => (
   <div className="grid h-[420px] place-items-center rounded-3xl bg-slate-100" role="status" aria-live="polite">
     <div className="flex flex-col items-center gap-3">
-      <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-emerald-200 border-t-emerald-600" aria-hidden />
+      <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-sky-200 border-t-sky-600" aria-hidden />
       <p className="text-sm font-semibold text-slate-600">{text}</p>
     </div>
   </div>

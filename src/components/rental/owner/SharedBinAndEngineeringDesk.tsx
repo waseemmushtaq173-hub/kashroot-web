@@ -341,7 +341,7 @@ export function OwnerSharedBinDesk({
                       {b.farmer_name} · {b.requested_crates} crates of {b.apple_variety}
                       <span className="ml-2 font-mono text-xs font-normal text-slate-500">{b.booking_reference}</span>
                     </p>
-                    <span className="text-sm font-semibold text-emerald-900">{inr(b.total_estimated_charge_inr)}</span>
+                    <span className="text-sm font-semibold text-sky-900">{inr(b.total_estimated_charge_inr)}</span>
                   </div>
                   <p className="mt-0.5 text-sm text-slate-600">
                     {b.farmer_phone} · {b.duration_months} month{b.duration_months === 1 ? '' : 's'} · {b.crate_weight_kg} kg per crate · {b.total_weight_kg} kg total
@@ -646,9 +646,9 @@ function EngineeringCalculator({
 
 function CalcCard({ label, value, hint, strong }: { label: string; value: string; hint?: string; strong?: boolean }) {
   return (
-    <div className={`rounded-2xl p-4 ring-1 ${strong ? 'bg-emerald-50 ring-emerald-200' : 'bg-white/85 ring-slate-900/5'}`}>
+    <div className={`rounded-2xl p-4 ring-1 ${strong ? 'bg-sky-50 ring-sky-200' : 'bg-white/85 ring-slate-900/5'}`}>
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className={`mt-1 font-display ${strong ? 'text-xl font-bold text-emerald-900' : 'text-lg font-semibold text-slate-900'}`}>{value}</p>
+      <p className={`mt-1 font-display ${strong ? 'text-xl font-bold text-sky-900' : 'text-lg font-semibold text-slate-900'}`}>{value}</p>
       {hint && <p className="mt-0.5 text-xs text-slate-500">{hint}</p>}
     </div>
   );
@@ -917,7 +917,7 @@ export function FarmerStoredApplesDesk({
                         {mine.map((a) => {
                           const draft = releaseFor[a.id] ?? String(a.active_crates);
                           return (
-                            <li key={a.id} className="flex flex-col gap-2 rounded-xl bg-emerald-50/70 px-3 py-2 ring-1 ring-emerald-100 lg:flex-row lg:items-center lg:justify-between">
+                            <li key={a.id} className="flex flex-col gap-2 rounded-xl bg-sky-50/70 px-3 py-2 ring-1 ring-sky-100 lg:flex-row lg:items-center lg:justify-between">
                               <p className="text-sm text-slate-800">
                                 <strong>Your allocation: {a.active_crates} crates</strong> ({a.active_weight_kg} kg) · {a.apple_variety} · since {niceDate(a.received_at)} · {a.released_crates} already dispatched
                               </p>

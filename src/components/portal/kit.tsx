@@ -7,9 +7,11 @@
  *
  * The look carries the valley without naming it: season photographs in each
  * hero, a khatamband (carved-ceiling) lattice woven faintly into the canvas, a
- * chinar leaf as the ornament, and a palette of saffron, chinar amber, lake
- * teal, crocus violet and walnut. Everything sits on frosted white glass with
- * slate-900 text, so contrast holds on every theme.
+ * chinar leaf as the ornament, and every portal in its own season's colours —
+ * chinar green, lake teal, harvest amber, glacier blue, Pir Panjal navy, crocus
+ * violet. Everything sits on frosted white glass with slate-900 text and
+ * saffron-gold hairlines tying the portals together, so contrast holds on
+ * every theme.
  *
  * Every class is a complete literal string so Tailwind keeps it.
  */
@@ -66,18 +68,19 @@ export interface PortalTheme {
 const T = (t: PortalTheme) => t;
 
 /**
- * One KashRoot look for every portal: deep chinar-green and saffron gold on
- * ivory, with the copper chinar leaf. Portals differ only by their season
- * photograph and the valley's mood, so the whole app reads as one.
+ * One KashRoot frame for every portal — ivory canvas, saffron-gold hairlines,
+ * the copper chinar leaf — and each portal speaks in its own season's colours:
+ * the farmer keeps the deep chinar green, the buyer the lake's teal, the cold
+ * store its glacier blue, the admin console the Pir Panjal navy.
  */
 const BRAND = {
-  canvas: 'bg-gradient-to-br from-ivory via-ivory-deep to-[#EAF3EE]',
+  canvas: 'bg-gradient-to-br from-ivory via-ivory-deep to-[#E3F0E7]',
   heroTint: 'from-[#052E26]/80 via-emerald-950/45 to-transparent',
   eyebrow: 'bg-white/15 text-amber-100 ring-1 ring-amber-200/50',
-  tile: 'bg-gradient-to-br from-emerald-700 to-chinar-deep text-amber-200 shadow-lg shadow-emerald-950/25 ring-1 ring-amber-300/40',
+  tile: 'bg-gradient-to-br from-emerald-700 to-chinar-deep text-emerald-50 shadow-lg shadow-emerald-950/25 ring-1 ring-amber-300/40',
   solid: 'bg-chinar text-white hover:bg-chinar-hover',
   soft: 'bg-chinar-soft text-chinar-hover ring-1 ring-chinar-line hover:bg-emerald-100',
-  accent: 'text-chinar',
+  accent: 'text-emerald-800',
   outline: 'focus-visible:outline-emerald-700',
   leaf: '#B4532A', // copper
   tabActive: 'bg-white text-emerald-900 shadow-sm ring-1 ring-amber-300',
@@ -85,16 +88,138 @@ const BRAND = {
 
 export const PORTAL_THEMES = {
   farmer: T({ ...BRAND, mood: 'spring', photo: '/seasons/spring-meadow.jpg', focus: '50% 30%' }),
-  buyer: T({ ...BRAND, mood: 'summer', photo: '/seasons/summer-lake.jpg', focus: '50% 50%' }),
-  seller: T({ ...BRAND, mood: 'autumn', photo: '/seasons/autumn-garden.jpg', focus: '50% 55%' }),
-  kissan: T({ ...BRAND, mood: 'autumn', photo: '/seasons/autumn-garden.jpg', focus: '50% 40%' }),
-  rental: T({ ...BRAND, mood: 'dusk', photo: '/seasons/winter-road.jpg', focus: '50% 20%' }),
-  provider: T({ ...BRAND, mood: 'winter', photo: '/seasons/winter-lake.jpg', focus: '50% 40%' }),
-  dealer: T({ ...BRAND, mood: 'autumn', photo: '/seasons/autumn-garden.jpg', focus: '50% 70%' }),
-  admin: T({ ...BRAND, mood: 'dawn', photo: '/seasons/winter-lake.jpg', focus: '50% 30%' }),
-  tracking: T({ ...BRAND, mood: 'winter', photo: '/seasons/winter-road.jpg', focus: '50% 15%' }),
-  trader: T({ ...BRAND, mood: 'autumn', photo: '/seasons/autumn-garden.jpg', focus: '50% 45%' }),
-  expert: T({ ...BRAND, mood: 'dusk', photo: '/seasons/summer-lake.jpg', focus: '50% 30%' }),
+  buyer: T({
+    ...BRAND,
+    mood: 'summer', photo: '/seasons/summer-lake.jpg', focus: '50% 50%',
+    canvas: 'bg-gradient-to-br from-ivory via-ivory-deep to-[#E3F1F1]',
+    heroTint: 'from-[#04211E]/80 via-teal-900/45 to-transparent',
+    eyebrow: 'bg-white/15 text-teal-100 ring-1 ring-teal-200/50',
+    tile: 'bg-gradient-to-br from-teal-700 to-teal-900 text-teal-50 shadow-lg shadow-teal-950/25 ring-1 ring-teal-300/40',
+    solid: 'bg-teal-800 text-white hover:bg-teal-900',
+    soft: 'bg-teal-50 text-teal-800 ring-1 ring-teal-200 hover:bg-teal-100',
+    accent: 'text-teal-800',
+    outline: 'focus-visible:outline-teal-700',
+    tabActive: 'bg-white text-teal-900 shadow-sm ring-1 ring-teal-300',
+  }),
+  seller: T({
+    ...BRAND,
+    mood: 'autumn', photo: '/seasons/autumn-garden.jpg', focus: '50% 55%',
+    canvas: 'bg-gradient-to-br from-ivory via-ivory-deep to-[#F6ECD9]',
+    heroTint: 'from-[#2B1503]/80 via-amber-900/45 to-transparent',
+    eyebrow: 'bg-white/15 text-amber-100 ring-1 ring-amber-200/50',
+    tile: 'bg-gradient-to-br from-amber-700 to-amber-900 text-amber-50 shadow-lg shadow-amber-950/25 ring-1 ring-amber-300/40',
+    solid: 'bg-amber-800 text-white hover:bg-amber-900',
+    soft: 'bg-amber-50 text-amber-900 ring-1 ring-amber-200 hover:bg-amber-100',
+    accent: 'text-amber-800',
+    outline: 'focus-visible:outline-amber-700',
+    tabActive: 'bg-white text-amber-900 shadow-sm ring-1 ring-amber-400',
+  }),
+  kissan: T({
+    ...BRAND,
+    mood: 'autumn', photo: '/seasons/autumn-garden.jpg', focus: '50% 40%',
+    canvas: 'bg-gradient-to-br from-ivory via-ivory-deep to-[#E9F3E6]',
+    heroTint: 'from-[#0B2413]/80 via-green-900/45 to-transparent',
+    eyebrow: 'bg-white/15 text-green-100 ring-1 ring-green-200/50',
+    tile: 'bg-gradient-to-br from-green-800 to-green-950 text-green-50 shadow-lg shadow-green-950/25 ring-1 ring-green-300/40',
+    solid: 'bg-green-800 text-white hover:bg-green-900',
+    soft: 'bg-green-50 text-green-800 ring-1 ring-green-200 hover:bg-green-100',
+    accent: 'text-green-800',
+    outline: 'focus-visible:outline-green-700',
+    tabActive: 'bg-white text-green-900 shadow-sm ring-1 ring-green-300',
+  }),
+  // Cold storage booking: glacier blue — ice chambers under a winter sky, with
+  // the saffron hairline kept so it still reads as KashRoot.
+  rental: T({
+    ...BRAND,
+    mood: 'dusk', photo: '/seasons/winter-road.jpg', focus: '50% 20%',
+    canvas: 'bg-gradient-to-br from-[#F5FAFD] via-[#EDF5FB] to-[#DDEBF7]',
+    heroTint: 'from-[#031E30]/80 via-sky-900/45 to-transparent',
+    eyebrow: 'bg-white/15 text-sky-100 ring-1 ring-sky-200/50',
+    tile: 'bg-gradient-to-br from-sky-700 to-sky-950 text-sky-50 shadow-lg shadow-sky-950/25 ring-1 ring-sky-300/40',
+    solid: 'bg-sky-800 text-white hover:bg-sky-900',
+    soft: 'bg-sky-50 text-sky-900 ring-1 ring-sky-200 hover:bg-sky-100',
+    accent: 'text-sky-800',
+    outline: 'focus-visible:outline-sky-700',
+    tabActive: 'bg-white text-sky-900 shadow-sm ring-1 ring-sky-300',
+  }),
+  provider: T({
+    ...BRAND,
+    mood: 'winter', photo: '/seasons/winter-lake.jpg', focus: '50% 40%',
+    canvas: 'bg-gradient-to-br from-ivory via-ivory-deep to-[#E7EAF8]',
+    heroTint: 'from-[#13103A]/80 via-indigo-900/45 to-transparent',
+    eyebrow: 'bg-white/15 text-indigo-100 ring-1 ring-indigo-200/50',
+    tile: 'bg-gradient-to-br from-indigo-700 to-indigo-950 text-indigo-50 shadow-lg shadow-indigo-950/25 ring-1 ring-indigo-300/40',
+    solid: 'bg-indigo-800 text-white hover:bg-indigo-900',
+    soft: 'bg-indigo-50 text-indigo-900 ring-1 ring-indigo-200 hover:bg-indigo-100',
+    accent: 'text-indigo-800',
+    outline: 'focus-visible:outline-indigo-700',
+    tabActive: 'bg-white text-indigo-900 shadow-sm ring-1 ring-indigo-300',
+  }),
+  dealer: T({
+    ...BRAND,
+    mood: 'autumn', photo: '/seasons/autumn-garden.jpg', focus: '50% 70%',
+    canvas: 'bg-gradient-to-br from-ivory via-ivory-deep to-[#F1E9DC]',
+    heroTint: 'from-[#221203]/80 via-amber-900/45 to-transparent',
+    eyebrow: 'bg-white/15 text-amber-100 ring-1 ring-amber-200/50',
+    tile: 'bg-gradient-to-br from-amber-800 to-stone-900 text-amber-50 shadow-lg shadow-stone-950/25 ring-1 ring-amber-300/40',
+    solid: 'bg-amber-900 text-white hover:bg-stone-900',
+    soft: 'bg-stone-100 text-stone-800 ring-1 ring-stone-300 hover:bg-stone-200',
+    accent: 'text-amber-800',
+    outline: 'focus-visible:outline-amber-800',
+    tabActive: 'bg-white text-stone-900 shadow-sm ring-1 ring-amber-400',
+  }),
+  admin: T({
+    ...BRAND,
+    mood: 'dawn', photo: '/seasons/winter-lake.jpg', focus: '50% 30%',
+    canvas: 'bg-gradient-to-br from-ivory via-ivory-deep to-[#E3E8F4]',
+    heroTint: 'from-[#050E22]/80 via-blue-900/50 to-transparent',
+    eyebrow: 'bg-white/15 text-blue-100 ring-1 ring-blue-200/50',
+    tile: 'bg-gradient-to-br from-blue-800 to-[#0B1F3A] text-blue-50 shadow-lg shadow-blue-950/25 ring-1 ring-blue-300/40',
+    solid: 'bg-blue-900 text-white hover:bg-[#0B1F3A]',
+    soft: 'bg-blue-50 text-blue-900 ring-1 ring-blue-200 hover:bg-blue-100',
+    accent: 'text-blue-900',
+    outline: 'focus-visible:outline-blue-800',
+    tabActive: 'bg-white text-blue-900 shadow-sm ring-1 ring-blue-300',
+  }),
+  tracking: T({
+    ...BRAND,
+    mood: 'winter', photo: '/seasons/winter-road.jpg', focus: '50% 15%',
+    canvas: 'bg-gradient-to-br from-ivory via-ivory-deep to-[#E0EFF9]',
+    heroTint: 'from-[#031E30]/80 via-sky-900/45 to-transparent',
+    eyebrow: 'bg-white/15 text-sky-100 ring-1 ring-sky-200/50',
+    tile: 'bg-gradient-to-br from-sky-700 to-sky-900 text-sky-50 shadow-lg shadow-sky-950/25 ring-1 ring-sky-300/40',
+    solid: 'bg-sky-700 text-white hover:bg-sky-800',
+    soft: 'bg-sky-50 text-sky-800 ring-1 ring-sky-200 hover:bg-sky-100',
+    accent: 'text-sky-800',
+    outline: 'focus-visible:outline-sky-700',
+    tabActive: 'bg-white text-sky-900 shadow-sm ring-1 ring-sky-300',
+  }),
+  trader: T({
+    ...BRAND,
+    mood: 'autumn', photo: '/seasons/autumn-garden.jpg', focus: '50% 45%',
+    canvas: 'bg-gradient-to-br from-ivory via-ivory-deep to-[#EFEAF9]',
+    heroTint: 'from-[#1E0B33]/80 via-violet-900/45 to-transparent',
+    eyebrow: 'bg-white/15 text-violet-100 ring-1 ring-violet-200/50',
+    tile: 'bg-gradient-to-br from-violet-700 to-violet-950 text-violet-50 shadow-lg shadow-violet-950/25 ring-1 ring-violet-300/40',
+    solid: 'bg-violet-800 text-white hover:bg-violet-900',
+    soft: 'bg-violet-50 text-violet-900 ring-1 ring-violet-200 hover:bg-violet-100',
+    accent: 'text-violet-800',
+    outline: 'focus-visible:outline-violet-700',
+    tabActive: 'bg-white text-violet-900 shadow-sm ring-1 ring-violet-300',
+  }),
+  expert: T({
+    ...BRAND,
+    mood: 'dusk', photo: '/seasons/summer-lake.jpg', focus: '50% 30%',
+    canvas: 'bg-gradient-to-br from-ivory via-ivory-deep to-[#F9EBEF]',
+    heroTint: 'from-[#330713]/80 via-rose-900/45 to-transparent',
+    eyebrow: 'bg-white/15 text-rose-100 ring-1 ring-rose-200/50',
+    tile: 'bg-gradient-to-br from-rose-700 to-rose-950 text-rose-50 shadow-lg shadow-rose-950/25 ring-1 ring-rose-300/40',
+    solid: 'bg-rose-700 text-white hover:bg-rose-800',
+    soft: 'bg-rose-50 text-rose-900 ring-1 ring-rose-200 hover:bg-rose-100',
+    accent: 'text-rose-800',
+    outline: 'focus-visible:outline-rose-700',
+    tabActive: 'bg-white text-rose-900 shadow-sm ring-1 ring-rose-300',
+  }),
 } satisfies Record<string, PortalTheme>;
 
 export type PortalThemeId = keyof typeof PORTAL_THEMES;
@@ -118,9 +243,9 @@ export function btnClass(theme: PortalTheme, variant: BtnVariant, size: 'sm' | '
   const base = `inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl font-semibold no-underline transition duration-200 hover:no-underline active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 disabled:active:translate-y-0 motion-reduce:transition-none motion-reduce:active:translate-y-0 ${FOCUS} ${theme.outline}`;
   const pad = size === 'sm' ? 'min-h-11 px-3 py-1.5 text-xs' : 'min-h-11 px-4 py-2.5 text-sm';
   const look = {
-    solid: `${theme.solid} shadow-sm shadow-emerald-950/15`,
+    solid: `${theme.solid} shadow-sm shadow-slate-900/15`,
     soft: theme.soft,
-    outline: 'bg-white text-chinar ring-1 ring-[#E8A317]/50 hover:bg-ivory hover:ring-[#E8A317]',
+    outline: `bg-white ${theme.accent} ring-1 ring-[#E8A317]/50 hover:bg-ivory hover:ring-[#E8A317]`,
     ghost: 'text-slate-700 hover:bg-slate-900/5',
     danger: 'bg-white text-rose-700 ring-1 ring-rose-200 hover:bg-rose-50',
     white: 'bg-white/90 text-slate-900 shadow-sm ring-1 ring-white hover:bg-white',

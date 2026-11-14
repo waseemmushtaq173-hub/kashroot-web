@@ -15,7 +15,7 @@ export const PLACE_LOOK: Record<Look, { label: string; cell: string; swatch: str
     mini: '#7dd3fc',
     hex: '#67e8f9',
   },
-  selected: { label: 'Your choice', cell: 'bg-emerald-500 text-white ring-2 ring-emerald-700 shadow-md', swatch: 'bg-emerald-500', mini: '#10b981', hex: '#10b981' },
+  selected: { label: 'Your choice', cell: 'bg-sky-700 text-white ring-2 ring-sky-900 shadow-md', swatch: 'bg-sky-700', mini: '#0369a1', hex: '#0369a1' },
   held: { label: 'Waiting for payment', cell: 'bg-amber-300 text-amber-950', swatch: 'bg-amber-300', mini: '#fcd34d', hex: '#fbbf24' },
   booked: { label: 'Booked', cell: 'bg-slate-400 text-white', swatch: 'bg-slate-400', mini: '#94a3b8', hex: '#94a3b8' },
   mine: { label: 'Your boxes', cell: 'bg-violet-600 text-white shadow-sm', swatch: 'bg-violet-600', mini: '#7c3aed', hex: '#7c3aed' },

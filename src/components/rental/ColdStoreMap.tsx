@@ -57,7 +57,7 @@ const ColdStore3D = dynamic(() => import('@/components/rental/ColdStore3D').then
   loading: () => (
     <div className="grid h-[420px] place-items-center rounded-3xl bg-slate-100" role="status" aria-live="polite">
       <div className="flex flex-col items-center gap-3">
-        <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-emerald-200 border-t-emerald-600" aria-hidden />
+        <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-sky-200 border-t-sky-600" aria-hidden />
         <p className="text-sm font-semibold text-slate-600">Initializing the 3D cold store...</p>
       </div>
     </div>
@@ -97,10 +97,10 @@ export function ChamberFacts({ chamber: c, roomOf, mode }: { chamber: ColdChambe
   const floors = size?.floors ?? 1;
   const counted = Boolean(size?.places);
   const fact = (label: string, value: string, sub?: string, strong = false) => (
-    <div className={`rounded-2xl p-3 ring-1 ${strong ? 'bg-chinar text-white ring-chinar' : 'bg-white ring-slate-900/5'}`}>
-      <dt className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${strong ? 'text-emerald-100' : 'text-slate-500'}`}>{label}</dt>
+    <div className={`rounded-2xl p-3 ring-1 ${strong ? 'bg-sky-800 text-white ring-sky-800' : 'bg-white ring-slate-900/5'}`}>
+      <dt className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${strong ? 'text-sky-100' : 'text-slate-500'}`}>{label}</dt>
       <dd className={`mt-0.5 text-lg font-bold tabular-nums ${strong ? 'text-white' : 'text-slate-900'}`}>{value}</dd>
-      {sub && <dd className={`text-xs ${strong ? 'text-emerald-100' : 'text-slate-600'}`}>{sub}</dd>}
+      {sub && <dd className={`text-xs ${strong ? 'text-sky-100' : 'text-slate-600'}`}>{sub}</dd>}
     </div>
   );
   const sizeFact = () => {
@@ -118,7 +118,7 @@ export function ChamberFacts({ chamber: c, roomOf, mode }: { chamber: ColdChambe
         {fact(floors > 1 ? `Floor ${size?.floor ?? 1} holds` : 'Chamber holds', countText(b.holds, st), mode === 'view' ? undefined : `${boxes(b.free)} free · room on ${b.open} of ${b.places} places`, true)}
       </dl>
       {mode === 'book' && (
-        <p className="flex items-start gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-950 ring-1 ring-emerald-200">
+        <p className="flex items-start gap-2 rounded-xl bg-sky-50 px-3 py-2 text-sm text-sky-950 ring-1 ring-sky-200">
           <Hand className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           <span>
             You choose: tap any place with room where you want your {unitWord(st)} — any number, small or big. A place in {c.name} takes up to {countText(c.boxes_per_slot, st)}; a part-filled place takes the rest, and you pay only for your own {unitWord(st)}.
@@ -410,7 +410,7 @@ export function ColdStoreExplorer({
       role="tab"
       aria-selected={view === id}
       onClick={() => setView(id)}
-      className={`inline-flex min-h-[44px] flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition sm:flex-none sm:px-4 ${view === id ? 'bg-chinar text-white shadow' : 'text-emerald-900 hover:bg-emerald-100'}`}
+      className={`inline-flex min-h-[44px] flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition sm:flex-none sm:px-4 ${view === id ? 'bg-sky-800 text-white shadow' : 'text-sky-900 hover:bg-sky-100'}`}
     >
       <Icon className="h-4 w-4 shrink-0" aria-hidden /> {label}
     </button>
@@ -429,7 +429,7 @@ export function ColdStoreExplorer({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div role="tablist" aria-label="How to see the store" className={`${realStore ? 'grid grid-cols-2 sm:flex' : 'flex'} w-full gap-1 rounded-2xl bg-emerald-50 p-1 ring-1 ring-emerald-200 sm:w-auto`}>
+        <div role="tablist" aria-label="How to see the store" className={`${realStore ? 'grid grid-cols-2 sm:flex' : 'flex'} w-full gap-1 rounded-2xl bg-sky-50 p-1 ring-1 ring-sky-200 sm:w-auto`}>
           {tab('drawing', 'Drawing', MapIcon)}
           {tab('3d', '3D view', Layers)}
           {tab('walk', 'Walk inside', Footprints)}
@@ -501,7 +501,7 @@ export function ColdStoreExplorer({
                       role="radio"
                       aria-checked={floor === n}
                       onClick={() => toFloor(n)}
-                      className={`min-h-[44px] min-w-[44px] cursor-pointer rounded-xl px-4 text-sm font-bold transition ${floor === n ? 'bg-chinar text-white shadow' : 'bg-white text-emerald-900 ring-1 ring-emerald-200 hover:bg-emerald-50'}`}
+                      className={`min-h-[44px] min-w-[44px] cursor-pointer rounded-xl px-4 text-sm font-bold transition ${floor === n ? 'bg-sky-800 text-white shadow' : 'bg-white text-sky-900 ring-1 ring-sky-200 hover:bg-sky-50'}`}
                     >
                       {`Floor ${n}`}
                     </button>

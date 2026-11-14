@@ -182,7 +182,7 @@ function InfoCard({ c, free, rate, unit, onClose, onWalk, zoom }: { c: SceneCham
         )}
       </dl>
       {onWalk && (
-        <button type="button" onClick={onWalk} className="mt-2 inline-flex min-h-[44px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-chinar px-3 font-semibold text-white hover:bg-chinar-hover">
+        <button type="button" onClick={onWalk} className="mt-2 inline-flex min-h-[44px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-sky-800 px-3 font-semibold text-white hover:bg-sky-900">
           <Footprints className="h-4 w-4" aria-hidden /> Walk in here
         </button>
       )}
@@ -1588,7 +1588,7 @@ export function ColdStore3D({
             : 'You have not chosen a place yet.'
         : '';
   const ww = WAY_WORDS[guideLang];
-  const chip = (on: boolean) => `inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition ${on ? 'bg-chinar text-white' : 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200 hover:bg-emerald-100'}`;
+  const chip = (on: boolean) => `inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition ${on ? 'bg-sky-800 text-white' : 'bg-sky-50 text-sky-900 ring-1 ring-sky-200 hover:bg-sky-100'}`;
   const shownInfo = info !== null ? scene.chambers[info] : null;
   const note = scene.problems.length ? (mode === 'owner' ? scene.problems.slice(0, 2).join(' ') : 'As the owner measured them, some chambers do not fit inside the building, so they are drawn outside it.') : '';
   const big = zoom > 1.3;
@@ -1616,7 +1616,7 @@ export function ColdStore3D({
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2" role="group" aria-label={walking ? 'Walk to' : 'Look at'}>
         {route && onView && (
-          <button type="button" onClick={showWay} className={`${chip(true)} shadow-sm hover:bg-chinar-hover`}>
+          <button type="button" onClick={showWay} className={`${chip(true)} shadow-sm hover:bg-sky-900`}>
             <Footprints className="h-4 w-4" aria-hidden /> {wayLabel}
           </button>
         )}
@@ -1725,7 +1725,7 @@ export function ColdStore3D({
         {!ready && (
           <div className="absolute inset-0 grid place-items-center rounded-3xl bg-slate-100/80" role="status" aria-live="polite">
             <div className="flex flex-col items-center gap-3">
-              <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-emerald-200 border-t-emerald-600" aria-hidden />
+              <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-sky-200 border-t-sky-600" aria-hidden />
               <p className="text-sm font-semibold text-slate-600">Initializing the 3D cold store...</p>
             </div>
           </div>
@@ -1771,11 +1771,11 @@ export function ColdStore3D({
         />
       )}
       {route && guideAt !== null && (
-        <section aria-label="The way to your place" className="rounded-2xl bg-emerald-50 p-3 ring-1 ring-emerald-200">
+        <section aria-label="The way to your place" className="rounded-2xl bg-sky-50 p-3 ring-1 ring-sky-200">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h4 dir={rtl} className="font-semibold text-emerald-900">{guideDone ? ww.here : ww.follow}</h4>
+            <h4 dir={rtl} className="font-semibold text-sky-900">{guideDone ? ww.here : ww.follow}</h4>
             <div className="flex gap-2">
-              <button type="button" onClick={() => void speak(route.steps[guideAt]?.text[guideLang] ?? '', guideLang)} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-emerald-900 ring-1 ring-emerald-200 hover:bg-emerald-100">
+              <button type="button" onClick={() => void speak(route.steps[guideAt]?.text[guideLang] ?? '', guideLang)} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-sky-900 ring-1 ring-sky-200 hover:bg-sky-100">
                 <Volume2 className="h-4 w-4" aria-hidden /> {ww.again}
               </button>
               <button type="button" onClick={stopWay} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100">
@@ -1785,14 +1785,14 @@ export function ColdStore3D({
           </div>
           <div role="radiogroup" aria-label="Language of the steps" className="mt-2 flex flex-wrap gap-1.5">
             {GUIDE_LANGS.map(([l, name]) => (
-              <button key={l} type="button" role="radio" aria-checked={guideLang === l} onClick={() => sayIn(l)} className={`min-h-[44px] cursor-pointer rounded-xl px-3 text-sm font-semibold ring-1 ${guideLang === l ? 'bg-chinar text-white ring-chinar' : 'bg-white text-emerald-900 ring-emerald-200 hover:bg-emerald-100'}`}>
+              <button key={l} type="button" role="radio" aria-checked={guideLang === l} onClick={() => sayIn(l)} className={`min-h-[44px] cursor-pointer rounded-xl px-3 text-sm font-semibold ring-1 ${guideLang === l ? 'bg-sky-800 text-white ring-sky-800' : 'bg-white text-sky-900 ring-sky-200 hover:bg-sky-100'}`}>
                 {name}
               </button>
             ))}
           </div>
           <ol dir={rtl} aria-live="polite" className="mt-2 space-y-1 text-sm">
             {route.steps.map((s, k) => (
-              <li key={k} className={`rounded-lg px-2 py-1 ${k === guideAt ? 'bg-chinar font-semibold text-white' : k < guideAt ? 'text-emerald-800' : 'text-slate-600'}`}>
+              <li key={k} className={`rounded-lg px-2 py-1 ${k === guideAt ? 'bg-sky-800 font-semibold text-white' : k < guideAt ? 'text-sky-800' : 'text-slate-600'}`}>
                 {k + 1}. {s.text[guideLang]}
               </li>
             ))}

@@ -89,8 +89,8 @@ export const TwinPeek = function TwinPeek({ store }: TwinPeekProps) {
             </div>
 
             {growers.length > 0 && (
-              <div className="rounded-2xl bg-emerald-50/70 p-3 ring-1 ring-emerald-200">
-                <p className="text-sm font-semibold text-emerald-900">Light up a grower&apos;s crates</p>
+              <div className="rounded-2xl bg-sky-50/70 p-3 ring-1 ring-sky-200">
+                <p className="text-sm font-semibold text-sky-900">Light up a grower&apos;s crates</p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {growers.map((g) => (
                     <button
@@ -98,7 +98,7 @@ export const TwinPeek = function TwinPeek({ store }: TwinPeekProps) {
                       type="button"
                       aria-pressed={grower === g.grower_id}
                       onClick={() => setGrower(grower === g.grower_id ? null : g.grower_id)}
-                      className={`min-h-[40px] cursor-pointer rounded-xl px-3 text-xs font-semibold ring-2 transition ${grower === g.grower_id ? 'bg-emerald-700 text-white ring-emerald-700' : 'bg-white text-emerald-900 ring-emerald-200 hover:bg-emerald-100'}`}
+                      className={`min-h-[40px] cursor-pointer rounded-xl px-3 text-xs font-semibold ring-2 transition ${grower === g.grower_id ? 'bg-sky-700 text-white ring-sky-700' : 'bg-white text-sky-900 ring-sky-200 hover:bg-sky-100'}`}
                     >
                       {g.name.split(' - ')[0]} · {g.product_type}
                     </button>

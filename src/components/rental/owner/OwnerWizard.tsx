@@ -309,8 +309,8 @@ export function OwnerWizard({
         </div>
 
         <nav aria-label="Steps">
-          <div className="h-2.5 overflow-hidden rounded-full bg-emerald-100" role="progressbar" aria-valuemin={1} aria-valuemax={5} aria-valuenow={step} aria-label={`Step ${step} of 5`}>
-            <div className="h-full rounded-full bg-emerald-700 transition-all" style={{ width: `${(step / 5) * 100}%` }} />
+          <div className="h-2.5 overflow-hidden rounded-full bg-sky-100" role="progressbar" aria-valuemin={1} aria-valuemax={5} aria-valuenow={step} aria-label={`Step ${step} of 5`}>
+            <div className="h-full rounded-full bg-sky-700 transition-all" style={{ width: `${(step / 5) * 100}%` }} />
           </div>
           <ol className="mt-3 grid grid-cols-5 gap-1 text-center">
             {STEPS.map(({ n, title: t }) => {
@@ -322,9 +322,9 @@ export function OwnerWizard({
                     disabled={!can || busy}
                     aria-current={n === step ? 'step' : undefined}
                     onClick={() => go(n)}
-                    className={`flex min-h-[44px] w-full flex-col items-center gap-1 rounded-xl px-1 py-1.5 text-[11px] font-semibold leading-tight transition sm:text-xs ${n === step ? 'bg-chinar text-white' : can ? 'cursor-pointer text-emerald-900 hover:bg-emerald-50' : 'cursor-not-allowed text-slate-400'}`}
+                    className={`flex min-h-[44px] w-full flex-col items-center gap-1 rounded-xl px-1 py-1.5 text-[11px] font-semibold leading-tight transition sm:text-xs ${n === step ? 'bg-sky-800 text-white' : can ? 'cursor-pointer text-sky-900 hover:bg-sky-50' : 'cursor-not-allowed text-slate-400'}`}
                   >
-                    <span className={`grid h-6 w-6 place-items-center rounded-full text-xs ${n === step ? 'bg-white text-emerald-800' : n < step || (n === 5 && done.published) ? 'bg-chinar text-white' : 'bg-slate-200 text-slate-700'}`}>{n < step ? '✓' : n}</span>
+                    <span className={`grid h-6 w-6 place-items-center rounded-full text-xs ${n === step ? 'bg-white text-sky-800' : n < step || (n === 5 && done.published) ? 'bg-sky-800 text-white' : 'bg-slate-200 text-slate-700'}`}>{n < step ? '✓' : n}</span>
                     <span className="hidden sm:block">{t}</span>
                   </button>
                 </li>

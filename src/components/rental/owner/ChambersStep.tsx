@@ -76,7 +76,7 @@ export function ChambersStep({
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
       <div className="min-w-0 space-y-5">
         <p className="flex items-start gap-2 text-base text-slate-700">
-          <BoxIcon className="mt-1 h-5 w-5 shrink-0 text-emerald-700" aria-hidden /> Add each chamber: what it holds, its floors, its size and its door. KashRoot lays out the stacks — always exactly your count.
+          <BoxIcon className="mt-1 h-5 w-5 shrink-0 text-sky-700" aria-hidden /> Add each chamber: what it holds, its floors, its size and its door. KashRoot lays out the stacks — always exactly your count.
         </p>
         <div role="tablist" aria-label="Your chambers" className="flex flex-wrap gap-2">
           {draft.chambers.map((c) => {
@@ -84,14 +84,14 @@ export function ChambersStep({
             const on = open?.key === c.key;
             const mc = model.chambers.find((x) => x.key === c.key);
             return (
-              <button key={c.key} type="button" role="tab" aria-selected={on} onClick={() => onSelect(c.key)} className={`inline-flex min-h-[48px] cursor-pointer items-center gap-2 rounded-xl px-3.5 text-sm font-semibold ring-2 transition ${on ? 'bg-chinar text-white ring-chinar' : 'bg-white text-slate-800 ring-slate-200 hover:ring-emerald-300'}`}>
+              <button key={c.key} type="button" role="tab" aria-selected={on} onClick={() => onSelect(c.key)} className={`inline-flex min-h-[48px] cursor-pointer items-center gap-2 rounded-xl px-3.5 text-sm font-semibold ring-2 transition ${on ? 'bg-sky-800 text-white ring-sky-800' : 'bg-white text-slate-800 ring-slate-200 hover:ring-sky-300'}`}>
                 {st === 'ok' ? <CheckCircle2 className={`h-4 w-4 ${on ? 'text-white' : 'text-emerald-700'}`} aria-label="ready" /> : st === 'warn' ? <TriangleAlert className={`h-4 w-4 ${on ? 'text-amber-200' : 'text-amber-600'}`} aria-label="please check" /> : <CircleAlert className={`h-4 w-4 ${on ? 'text-rose-200' : 'text-rose-600'}`} aria-label="needs fixing" />}
                 Chamber {c.no || '?'}
-                {mc?.count ? <span className={`font-normal ${on ? 'text-emerald-100' : 'text-slate-500'}`}>· {countText(mc.count, c.storage)}</span> : null}
+                {mc?.count ? <span className={`font-normal ${on ? 'text-sky-100' : 'text-slate-500'}`}>· {countText(mc.count, c.storage)}</span> : null}
               </button>
             );
           })}
-          <button type="button" onClick={add} className="inline-flex min-h-[48px] cursor-pointer items-center gap-1.5 rounded-xl bg-emerald-50 px-3.5 text-sm font-semibold text-emerald-800 ring-2 ring-emerald-200 hover:bg-emerald-100">
+          <button type="button" onClick={add} className="inline-flex min-h-[48px] cursor-pointer items-center gap-1.5 rounded-xl bg-sky-50 px-3.5 text-sm font-semibold text-sky-800 ring-2 ring-sky-200 hover:bg-sky-100">
             <Plus className="h-4 w-4" aria-hidden /> Add a chamber
           </button>
         </div>
@@ -254,7 +254,7 @@ function ChamberEditor({
 
       <fieldset className="space-y-4 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-900/5">
         <legend className="sr-only">Size</legend>
-        <p className="flex items-center gap-2 text-base font-semibold text-slate-900"><Ruler className="h-5 w-5 text-emerald-700" aria-hidden /> Size inside the chamber</p>
+        <p className="flex items-center gap-2 text-base font-semibold text-slate-900"><Ruler className="h-5 w-5 text-sky-700" aria-hidden /> Size inside the chamber</p>
         <div className="grid gap-5 sm:grid-cols-3">
           <KitBox kit={kit} field={`${k}.length`} label={`Length, along the front (${u})`} number />
           <KitBox kit={kit} field={`${k}.width`} label={`Width, front to back (${u})`} number />
@@ -309,12 +309,12 @@ function ChamberEditor({
       <KitBox kit={kit} field={`${k}.rate`} label={`Rent for one ${W.one} for one month (₹)`} number hint={`Farmers pay this for each ${W.one} they keep here, each month.`} />
 
       {done && done.floors.length > 0 && (
-        <div className="rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-950 ring-1 ring-emerald-200" aria-live="polite">
+        <div className="rounded-2xl bg-sky-50 p-4 text-sm text-sky-950 ring-1 ring-sky-200" aria-live="polite">
           <p className="font-semibold">How {name} is laid out</p>
           <ul className="mt-1 space-y-0.5">
             {done.floors.map((f) => <li key={f.floor}>{floorText(done, f)}</li>)}
           </ul>
-          <p className="mt-1 text-emerald-900">Farmers book any number of {W.many}; a stack can be shared.</p>
+          <p className="mt-1 text-sky-900">Farmers book any number of {W.many}; a stack can be shared.</p>
         </div>
       )}
       <Problems issues={[...kit.issuesOf(`${k}.fit`), ...kit.issuesOf(`${k}.spot`)]} onFix={kit.fix} />
@@ -358,7 +358,7 @@ function ChamberEditor({
         <div className="flex items-end gap-2">
           <label className="block">
             <span className="block text-sm font-semibold text-slate-800">How many more chambers like this?</span>
-            <input className="mt-1.5 block min-h-[48px] w-20 rounded-xl border-0 bg-white px-3 text-center text-base font-bold text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-700" inputMode="numeric" value={more} onChange={(e) => setMore(e.target.value.replace(/\D/g, '').slice(0, 2))} />
+            <input className="mt-1.5 block min-h-[48px] w-20 rounded-xl border-0 bg-white px-3 text-center text-base font-bold text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-700" inputMode="numeric" value={more} onChange={(e) => setMore(e.target.value.replace(/\D/g, '').slice(0, 2))} />
           </label>
           <Btn theme={theme} variant="soft" className="min-h-[48px]" icon={Plus} onClick={onMore}>Add {Math.min(50, Math.max(1, Math.floor(Number(more)) || 1))} more like this</Btn>
         </div>
@@ -383,14 +383,14 @@ function FloorHeights({ kit, c, floors }: { kit: Kit; c: ChamberDraft; floors: n
   return (
     <fieldset data-field={field} className="space-y-3 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-900/5">
       <legend className="sr-only">Height of each floor</legend>
-      <p className="flex items-center gap-2 text-base font-semibold text-slate-900"><Layers className="h-5 w-5 text-emerald-700" aria-hidden /> Height of each floor ({u})</p>
+      <p className="flex items-center gap-2 text-base font-semibold text-slate-900"><Layers className="h-5 w-5 text-sky-700" aria-hidden /> Height of each floor ({u})</p>
       <p className="text-sm text-slate-700">Enter the measured usable stacking height from the floor or grating to the next grating, or to the ceiling for the top floor.</p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {values.map((v, i) => (
           <label key={i} className="block">
             <span className="block text-sm font-semibold text-slate-800">Floor {i + 1}</span>
             <input
-              className="mt-1.5 block min-h-[48px] w-full rounded-xl border-0 bg-white px-3 text-base text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-700"
+              className="mt-1.5 block min-h-[48px] w-full rounded-xl border-0 bg-white px-3 text-base text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-700"
               inputMode="decimal"
               value={v === '?' ? '' : v}
               onChange={(e) => put(i, e.target.value.replace(/[^\d.]/g, ''))}
@@ -411,7 +411,7 @@ function Pick<V extends string>({ label, name, value, options, onChange }: { lab
       <p className="text-sm font-semibold text-slate-800">{label}</p>
       <div className="mt-1.5 flex flex-wrap gap-2">
         {options.map(([v, text]) => (
-          <button key={v || 'none'} type="button" role="radio" aria-checked={value === v} onClick={() => onChange(v)} className={`min-h-[44px] cursor-pointer rounded-xl px-3 text-sm font-semibold ring-2 transition ${value === v ? 'bg-chinar text-white ring-chinar' : 'bg-white text-slate-800 ring-slate-200 hover:ring-emerald-300'}`}>
+          <button key={v || 'none'} type="button" role="radio" aria-checked={value === v} onClick={() => onChange(v)} className={`min-h-[44px] cursor-pointer rounded-xl px-3 text-sm font-semibold ring-2 transition ${value === v ? 'bg-sky-800 text-white ring-sky-800' : 'bg-white text-slate-800 ring-slate-200 hover:ring-sky-300'}`}>
             {text}
           </button>
         ))}

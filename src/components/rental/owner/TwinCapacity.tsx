@@ -71,7 +71,7 @@ export const TwinCapacity = function TwinCapacity({ drafts, unit }: TwinCapacity
                 <th scope="row" className="py-1.5 pr-2 font-semibold text-slate-900">{d.no || '?'}</th>
                 <td className="py-1.5 pr-2">{fit!.crates_per_level.toLocaleString('en-IN')}</td>
                 <td className="py-1.5 pr-2">{fit!.levels_per_chamber}</td>
-                <td className="py-1.5 pr-2 font-semibold text-emerald-800">{fit!.crate_count.toLocaleString('en-IN')}</td>
+                <td className="py-1.5 pr-2 font-semibold text-sky-800">{fit!.crate_count.toLocaleString('en-IN')}</td>
                 <td className="py-1.5 pr-2">{asked({ d, fit }) ? `${asked({ d, fit })} t of crates` : '—'}</td>
                 <td className="py-1.5">{tonnesOf(fit!.actual_usable_capacity_kg)} t</td>
               </tr>

@@ -191,7 +191,7 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
               type="button"
               onClick={() => setFacilityId(f.id)}
               aria-pressed={facilityId === f.id}
-              className={`cursor-pointer rounded-xl px-4 py-2.5 text-sm font-semibold transition ring-1 ${facilityId === f.id ? 'bg-chinar text-white ring-chinar shadow' : 'bg-white text-slate-800 ring-slate-300 hover:bg-emerald-50'}`}
+              className={`cursor-pointer rounded-xl px-4 py-2.5 text-sm font-semibold transition ring-1 ${facilityId === f.id ? 'bg-sky-800 text-white ring-sky-800 shadow' : 'bg-white text-slate-800 ring-slate-300 hover:bg-sky-50'}`}
             >
               {f.title}
               <span className="ml-2 text-[11px] font-medium opacity-80">{f.district ?? ''}</span>
@@ -664,7 +664,7 @@ function StaffModal({ open, staff, organizationId, facilities, onClose, onDone }
         {(Object.keys(ROLE_DEFAULT_PERMISSIONS.COLD_STORAGE_OWNER) as (keyof StaffPermissionsMatrix)[]).map((perm) => (
           <label key={perm} className="flex items-center justify-between gap-2 rounded-xl bg-white/80 px-3 py-2 text-sm text-slate-800 ring-1 ring-slate-200">
             {titleCase(perm)}
-            <input type="checkbox" className="h-4 w-4 accent-emerald-700" checked={Boolean(perms[perm])} onChange={(e) => setPerms((p) => ({ ...p, [perm]: e.target.checked }))} />
+            <input type="checkbox" className="h-4 w-4 accent-sky-700" checked={Boolean(perms[perm])} onChange={(e) => setPerms((p) => ({ ...p, [perm]: e.target.checked }))} />
           </label>
         ))}
       </div>

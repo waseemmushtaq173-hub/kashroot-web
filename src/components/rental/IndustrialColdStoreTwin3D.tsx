@@ -296,10 +296,10 @@ export function IndustrialColdStoreTwin3D({
   const inspectedChamber = inspectedSlot ? chambers.find((ch) => ch.code === inspectedSlot.chamberCode) ?? null : null;
 
   return (
-    <div className="w-full rounded-2xl border border-emerald-900/15 bg-slate-950 text-white overflow-hidden shadow-xl">
-      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-emerald-950/90 border-b border-emerald-800/40 text-xs">
+    <div className="w-full rounded-2xl border border-sky-900/15 bg-slate-950 text-white overflow-hidden shadow-xl">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-sky-950/90 border-b border-sky-800/40 text-xs">
         <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Which chamber to show">
-          <span className="font-semibold text-emerald-300 mr-1">
+          <span className="font-semibold text-sky-300 mr-1">
             {facilityCode ? `${facilityCode} · ` : ''}{facilityName}:
           </span>
           <button
@@ -308,7 +308,7 @@ export function IndustrialColdStoreTwin3D({
             onClick={() => setActiveChamberId('ALL')}
             className={`px-2.5 py-1 rounded-full transition ${
               activeChamberId === 'ALL'
-                ? 'bg-emerald-500 text-slate-950 font-semibold'
+                ? 'bg-sky-500 text-slate-950 font-semibold'
                 : 'bg-white/10 hover:bg-white/20 text-white'
             }`}
           >
@@ -322,7 +322,7 @@ export function IndustrialColdStoreTwin3D({
               onClick={() => setActiveChamberId(ch.code)}
               className={`px-2.5 py-1 rounded-full transition ${
                 activeChamberId === ch.code
-                  ? 'bg-emerald-500 text-slate-950 font-semibold'
+                  ? 'bg-sky-500 text-slate-950 font-semibold'
                   : 'bg-white/10 hover:bg-white/20 text-white'
               }`}
             >
@@ -332,7 +332,7 @@ export function IndustrialColdStoreTwin3D({
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Which level to show">
-          <span className="text-emerald-300">Level:</span>
+          <span className="text-sky-300">Level:</span>
           <button
             type="button"
             aria-pressed={activeLevel === 'ALL'}
@@ -357,7 +357,7 @@ export function IndustrialColdStoreTwin3D({
             </button>
           ))}
 
-          <span className="mx-1 text-emerald-700">|</span>
+          <span className="mx-1 text-sky-700">|</span>
 
           <div role="group" aria-label="Wall view" className="flex flex-wrap items-center gap-1.5">
           {(['SOLID', 'TRANSPARENT', 'CUTAWAY'] as const).map((mode) => (
@@ -476,9 +476,9 @@ export function IndustrialColdStoreTwin3D({
               ]}
               center
             >
-              <div className="w-64 rounded-xl bg-slate-950/95 border border-emerald-400/60 p-3 text-xs text-white shadow-2xl pointer-events-auto">
+              <div className="w-64 rounded-xl bg-slate-950/95 border border-sky-400/60 p-3 text-xs text-white shadow-2xl pointer-events-auto">
                 <div className="flex items-center justify-between border-b border-white/10 pb-1.5 mb-1.5">
-                  <span className="font-bold text-emerald-400">
+                  <span className="font-bold text-sky-400">
                     {inspectedSlot.facilityCode} → {inspectedSlot.chamberCode}
                   </span>
                   <button
@@ -551,7 +551,7 @@ export function IndustrialColdStoreTwin3D({
           <OrbitControls makeDefault maxPolarAngle={Math.PI / 2 - 0.04} />
         </Canvas>
         {capped.summary && (
-          <p role="status" className="pointer-events-none absolute inset-x-3 top-3 z-10 mx-auto w-fit max-w-full rounded-full bg-slate-950/80 px-3.5 py-1.5 text-center text-[11px] font-semibold text-emerald-200 shadow-lg ring-1 ring-emerald-500/30">
+          <p role="status" className="pointer-events-none absolute inset-x-3 top-3 z-10 mx-auto w-fit max-w-full rounded-full bg-slate-950/80 px-3.5 py-1.5 text-center text-[11px] font-semibold text-sky-200 shadow-lg ring-1 ring-sky-500/30">
             Showing optimized 3D instanced view of {capped.summary.total.toLocaleString('en-IN')} storage units · {capped.summary.kg.toLocaleString('en-IN')} kg total capacity
           </p>
         )}
@@ -564,9 +564,9 @@ export function IndustrialColdStoreTwin3D({
       <section
         role="region"
         aria-label="Quick unit and level selector"
-        className="max-h-64 overflow-y-auto border-t border-emerald-800/40 bg-emerald-950/70 px-4 py-3"
+        className="max-h-64 overflow-y-auto border-t border-sky-800/40 bg-sky-950/70 px-4 py-3"
       >
-        <p className="text-xs font-semibold text-emerald-300">
+        <p className="text-xs font-semibold text-sky-300">
           Select units — Tab / Enter / Space or tap: {Math.min(capped.slots.length, 200)} of {capped.summary ? capped.summary.total.toLocaleString('en-IN') : capped.slots.length} shown in 3D
         </p>
         <div className="mt-2 flex flex-wrap gap-1.5">
@@ -593,7 +593,7 @@ export function IndustrialColdStoreTwin3D({
                 }}
                 className={`min-h-[36px] rounded-lg px-2.5 py-1 text-xs font-semibold tabular-nums transition ${
                   selected
-                    ? 'bg-emerald-500 text-slate-950 ring-2 ring-emerald-300'
+                    ? 'bg-sky-500 text-slate-950 ring-2 ring-sky-300'
                     : s.status === 'OCCUPIED'
                       ? 'bg-rose-950/70 text-rose-300 ring-1 ring-rose-500/40 hover:bg-rose-900/70'
                       : 'bg-white/10 text-white ring-1 ring-white/15 hover:bg-white/20'

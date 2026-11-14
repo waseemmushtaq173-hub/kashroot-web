@@ -120,7 +120,7 @@ function GatePassQR({
     <div className="rounded-xl bg-white p-4 ring-1 ring-slate-200 text-center">
       {loading ? (
         <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-chinar border-t-transparent" />
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-sky-800 border-t-transparent" />
           <span className="ml-2 text-sm text-slate-600">Generating Gate Pass...</span>
         </div>
       ) : qrDataUrl ? (
@@ -157,7 +157,7 @@ const IndustrialColdStoreTwin3D = dynamic(
     loading: () => (
       <div className="grid h-[420px] place-items-center rounded-3xl bg-slate-100" role="status" aria-live="polite">
         <div className="flex flex-col items-center gap-3">
-          <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-emerald-200 border-t-emerald-600" aria-hidden />
+          <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-sky-200 border-t-sky-600" aria-hidden />
           <p className="text-sm font-semibold text-slate-600">Initializing Industrial 3D Digital Twin...</p>
         </div>
       </div>
@@ -231,7 +231,7 @@ export function PlaceDirections({ places, chambers }: { places: Placed[]; chambe
   const first = items[0];
   const kinds = [...new Set(items.map((x) => x.c.storage))];
   return (
-    <div className="mt-2 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-950 ring-1 ring-emerald-200">
+    <div className="mt-2 rounded-xl bg-sky-50 p-3 text-sm text-sky-950 ring-1 ring-sky-200">
       <p className="flex items-center gap-1.5 font-semibold"><Navigation className="h-4 w-4" aria-hidden /> Where to put your {wordFor(kinds)}</p>
       <ul className="mt-1 space-y-0.5">
         {items.map(({ c, p, size, plan, row, stack }) => (
@@ -241,7 +241,7 @@ export function PlaceDirections({ places, chambers }: { places: Placed[]; chambe
           </li>
         ))}
       </ul>
-      <p className="mt-1 text-xs text-emerald-900/80">
+      <p className="mt-1 text-xs text-sky-900/80">
         A full place takes {countText(first.c.boxes_per_slot, first.c.storage)}: {layersText(first.plan)} ({showLength(first.plan.stackHeight, first.size.unit)} high).
       </p>
     </div>
@@ -718,13 +718,13 @@ export function ColdBooking({
           </div>
           <p className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
             <span>Showing which places are free from {niceDate(start)} to {niceDate(lastDay(start, months))}.</span>
-            <button type="button" onClick={() => void load()} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1 rounded-lg px-2 text-sm font-semibold text-chinar hover:bg-ivory"><RefreshCw className="h-4 w-4" aria-hidden /> Refresh</button>
+            <button type="button" onClick={() => void load()} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1 rounded-lg px-2 text-sm font-semibold text-sky-800 hover:bg-ivory"><RefreshCw className="h-4 w-4" aria-hidden /> Refresh</button>
           </p>
-          <div className="flex flex-wrap items-end gap-2 rounded-2xl bg-emerald-50 p-3 ring-1 ring-emerald-200">
+          <div className="flex flex-wrap items-end gap-2 rounded-2xl bg-sky-50 p-3 ring-1 ring-sky-200">
             {kinds.length > 1 && (
               <div role="radiogroup" aria-label="What will you bring?" className="flex basis-full gap-2">
                 {kinds.map((k) => (
-                  <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className={`min-h-[48px] flex-1 cursor-pointer rounded-xl px-4 text-base font-semibold ring-2 ${kind === k ? 'bg-chinar text-white ring-chinar' : 'bg-white text-emerald-900 ring-emerald-200 hover:ring-emerald-400'}`}>
+                  <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className={`min-h-[48px] flex-1 cursor-pointer rounded-xl px-4 text-base font-semibold ring-2 ${kind === k ? 'bg-sky-800 text-white ring-sky-800' : 'bg-white text-sky-900 ring-sky-200 hover:ring-sky-400'}`}>
                     {UNIT_WORDS[k].title}
                   </button>
                 ))}
@@ -737,7 +737,7 @@ export function ColdBooking({
             </div>
             <Btn theme={theme} className="min-h-[44px]" icon={Sparkles} disabled={!taken} onClick={chooseForMe}>Choose places for me</Btn>
             {picked.size > 0 && <Btn theme={theme} variant="ghost" className="min-h-[44px]" icon={X} onClick={() => setPicked(new Map())}>Clear my choice</Btn>}
-            <p className="basis-full text-xs text-emerald-900">
+            <p className="basis-full text-xs text-sky-900">
               Any number of {word}{l.min_units > 1 ? ` from ${l.min_units.toLocaleString('en-IN')}` : ''} — 50 or 5,000. A small lot shares a place with others, and you pay only for your own {word}.
             </p>
           </div>
@@ -762,7 +762,7 @@ export function ColdBooking({
             <section aria-label="3D digital twin" className="rounded-xl bg-white p-3 text-sm text-slate-800 ring-1 ring-slate-900/10">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-semibold">3D Digital Twin — the whole facility</p>
-                <button type="button" onClick={() => setTwinOpen((v) => !v)} aria-expanded={twinOpen} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-chinar hover:bg-ivory">
+                <button type="button" onClick={() => setTwinOpen((v) => !v)} aria-expanded={twinOpen} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-sky-800 hover:bg-ivory">
                   {twinOpen ? 'Hide the 3D twin' : 'Open the 3D twin'}
                 </button>
               </div>
@@ -935,7 +935,7 @@ export function MyPlaces({ places, chambers, listingId, start, months, name }: {
       )}
       <PlaceDirections places={places} chambers={chambers} />
       {chambers.length > 0 && (
-        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="mt-1 inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 text-sm font-semibold text-emerald-700 hover:underline">
+        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="mt-1 inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 text-sm font-semibold text-sky-800 hover:underline">
           <MapIcon className="h-4 w-4" aria-hidden /> {open ? 'Hide the cold store' : `See where your ${wordFor(kinds.length ? kinds : ['boxes'])} are (drawing & 3D)`}
         </button>
       )}

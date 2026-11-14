@@ -16,21 +16,19 @@ export interface ShellLook {
   feature: string;
 }
 
-/** Every portal shares the KashRoot look (see BRAND in components/portal/kit). */
-const BRAND_LOOK: ShellLook = { ink: '#0B4D3B', feature: 'bg-gradient-to-br from-emerald-800 via-emerald-900 to-[#04241D] ring-1 ring-amber-300/40' };
-
+/** Each portal's own season colours, over the one KashRoot frame (see BRAND in components/portal/kit). */
 export const SHELL_LOOK: Record<PortalThemeId, ShellLook> = {
-  farmer: BRAND_LOOK,
-  buyer: BRAND_LOOK,
-  seller: BRAND_LOOK,
-  kissan: BRAND_LOOK,
-  rental: BRAND_LOOK,
-  provider: BRAND_LOOK,
-  dealer: BRAND_LOOK,
-  admin: BRAND_LOOK,
-  tracking: BRAND_LOOK,
-  trader: BRAND_LOOK,
-  expert: BRAND_LOOK,
+  farmer: { ink: '#0B4D3B', feature: 'bg-gradient-to-br from-emerald-800 via-emerald-900 to-[#04241D] ring-1 ring-amber-300/40' },
+  buyer: { ink: '#134E4A', feature: 'bg-gradient-to-br from-teal-800 via-teal-900 to-[#04211E] ring-1 ring-teal-300/40' },
+  seller: { ink: '#78350F', feature: 'bg-gradient-to-br from-amber-800 via-amber-900 to-[#2B1503] ring-1 ring-amber-300/40' },
+  kissan: { ink: '#14532A', feature: 'bg-gradient-to-br from-green-800 via-green-900 to-[#0B2413] ring-1 ring-green-300/40' },
+  rental: { ink: '#0C4A6E', feature: 'bg-gradient-to-br from-sky-800 via-sky-950 to-[#031E30] ring-1 ring-sky-300/40' },
+  provider: { ink: '#312E81', feature: 'bg-gradient-to-br from-indigo-800 via-indigo-950 to-[#13103A] ring-1 ring-indigo-300/40' },
+  dealer: { ink: '#451A03', feature: 'bg-gradient-to-br from-amber-900 via-stone-900 to-[#221203] ring-1 ring-amber-300/40' },
+  admin: { ink: '#172554', feature: 'bg-gradient-to-br from-blue-900 via-[#0B1F3A] to-[#050E22] ring-1 ring-blue-300/40' },
+  tracking: { ink: '#075985', feature: 'bg-gradient-to-br from-sky-800 via-sky-900 to-[#031E30] ring-1 ring-sky-300/40' },
+  trader: { ink: '#3B0764', feature: 'bg-gradient-to-br from-violet-800 via-violet-950 to-[#1E0B33] ring-1 ring-violet-300/40' },
+  expert: { ink: '#881337', feature: 'bg-gradient-to-br from-rose-800 via-rose-950 to-[#330713] ring-1 ring-rose-300/40' },
 };
 
 /** The look for a theme name as pages pass it (unknown names fall back like resolveTheme). */

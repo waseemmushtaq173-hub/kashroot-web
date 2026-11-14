@@ -61,7 +61,7 @@ export function CopyRow({ label, value, mono = true }: { label: string; value: s
         type="button"
         onClick={() => void copy()}
         aria-label={`Copy ${label.toLowerCase()}`}
-        className="inline-flex min-h-[44px] shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-emerald-50 px-3 text-sm font-semibold text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-100 print:hidden"
+        className="inline-flex min-h-[44px] shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-sky-50 px-3 text-sm font-semibold text-sky-800 ring-1 ring-sky-200 hover:bg-sky-100 print:hidden"
       >
         <Copy className="h-4 w-4" aria-hidden /> Copy
       </button>
@@ -133,28 +133,28 @@ export function PayOwner({
 
   return (
     <section aria-label="Pay the owner" className="space-y-4">
-      <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
-        <p className="text-sm font-semibold text-emerald-950">Pay the owner directly. KashRoot does not hold your money.</p>
+      <div className="rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-200">
+        <p className="text-sm font-semibold text-sky-950">Pay the owner directly. KashRoot does not hold your money.</p>
         <div className="mt-2 flex flex-wrap items-end justify-between gap-2">
           <div>
-            <p className="text-xs font-medium text-emerald-900">Amount to pay</p>
+            <p className="text-xs font-medium text-sky-900">Amount to pay</p>
             <p className="text-3xl font-bold tabular-nums text-slate-900" data-testid="pay-amount">{inr(amount)}</p>
           </div>
           <button
             type="button"
             onClick={() => void copyText(String(Math.round(amount * 100) / 100)).then((done) => (done ? toast.success('Amount copied') : toast.error('Could not copy the amount.')))}
-            className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-emerald-900 ring-1 ring-emerald-300 hover:bg-emerald-100"
+            className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-sky-900 ring-1 ring-sky-300 hover:bg-sky-100"
           >
             <Copy className="h-4 w-4" aria-hidden /> Copy amount
           </button>
         </div>
-        <p className="mt-2 text-sm text-emerald-950">Booking number: <strong className="font-mono">{code}</strong>. Write it in the payment note, so the owner knows the money is for you.</p>
+        <p className="mt-2 text-sm text-sky-950">Booking number: <strong className="font-mono">{code}</strong>. Write it in the payment note, so the owner knows the money is for you.</p>
       </div>
 
       {!details ? (
         <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-950 ring-1 ring-amber-200">
           <p>The owner has not added a bank account or UPI ID yet. Call the owner and ask where to pay.</p>
-          <a href={`tel:${owner.phone}`} className="mt-2 inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-white px-4 font-semibold text-emerald-800 ring-1 ring-emerald-200">
+          <a href={`tel:${owner.phone}`} className="mt-2 inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-white px-4 font-semibold text-sky-800 ring-1 ring-sky-200">
             <Phone className="h-4 w-4" aria-hidden /> Call {owner.name}
           </a>
         </div>
@@ -162,7 +162,7 @@ export function PayOwner({
         <>
           {details.account_number && (
             <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-200">
-              <p className="flex items-center gap-2 font-semibold text-slate-900"><Landmark className="h-5 w-5 text-emerald-700" aria-hidden /> Pay to the bank account (NEFT, IMPS or at the bank)</p>
+              <p className="flex items-center gap-2 font-semibold text-slate-900"><Landmark className="h-5 w-5 text-sky-700" aria-hidden /> Pay to the bank account (NEFT, IMPS or at the bank)</p>
               <div className="mt-1 divide-y divide-slate-100">
                 <CopyRow label="Account holder name" value={details.account_name} mono={false} />
                 <CopyRow label="Account number" value={details.account_number} />
@@ -173,7 +173,7 @@ export function PayOwner({
           )}
           {upi && link && (
             <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-200">
-              <p className="flex items-center gap-2 font-semibold text-slate-900"><Smartphone className="h-5 w-5 text-emerald-700" aria-hidden /> {details.account_number ? 'Or pay by UPI' : 'Pay by UPI'}</p>
+              <p className="flex items-center gap-2 font-semibold text-slate-900"><Smartphone className="h-5 w-5 text-sky-700" aria-hidden /> {details.account_number ? 'Or pay by UPI' : 'Pay by UPI'}</p>
               <div className="mt-1 divide-y divide-slate-100">
                 {!details.account_number && <CopyRow label="Name" value={details.account_name} mono={false} />}
                 <CopyRow label="UPI ID" value={upi} />
@@ -213,7 +213,7 @@ export function PayOwner({
             <p className="text-xs text-slate-600">Your bank or UPI app shows it after you pay. A UPI reference has 12 digits, like 412345678901.</p>
             <input
               id={`ref-${bookingId}`}
-              className="block min-h-[48px] w-full rounded-xl border-0 bg-white px-3 font-mono text-base tracking-wide text-slate-900 ring-1 ring-slate-300 focus:ring-2 focus:ring-emerald-700"
+              className="block min-h-[48px] w-full rounded-xl border-0 bg-white px-3 font-mono text-base tracking-wide text-slate-900 ring-1 ring-slate-300 focus:ring-2 focus:ring-sky-700"
               inputMode="text"
               autoCapitalize="characters"
               autoComplete="off"

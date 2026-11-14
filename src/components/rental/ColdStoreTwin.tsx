@@ -464,7 +464,7 @@ export function ColdStoreTwin({ grower = null }: ColdStoreTwinProps) {
       </div>
 
       {(picked || enteredChamber) && (
-        <div className={picked ? 'rounded-2xl bg-white/95 p-4 text-sm ring-1 ring-amber-200' : 'rounded-2xl bg-white/95 p-4 text-sm ring-1 ring-emerald-200'}>
+        <div className={picked ? 'rounded-2xl bg-white/95 p-4 text-sm ring-1 ring-amber-200' : 'rounded-2xl bg-white/95 p-4 text-sm ring-1 ring-sky-200'}>
           {picked ? (
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0 space-y-1">
@@ -474,7 +474,7 @@ export function ColdStoreTwin({ grower = null }: ColdStoreTwinProps) {
                 </p>
                 {picked.grower ? (
                   <p className="text-slate-800">
-                    <span className="font-semibold text-emerald-800">{picked.grower.name}</span> ({picked.grower.grower_id}) · {picked.grower.product_type}
+                    <span className="font-semibold text-sky-800">{picked.grower.name}</span> ({picked.grower.grower_id}) · {picked.grower.product_type}
                   </p>
                 ) : (
                   <p className="text-slate-600">An empty place — nobody has booked this crate yet.</p>

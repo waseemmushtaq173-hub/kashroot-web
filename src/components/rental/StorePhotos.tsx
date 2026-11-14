@@ -123,7 +123,7 @@ export function StorePhotosEditor({ listingId, title, theme, onClose }: { listin
                           Show first
                         </button>
                       )}
-                      {i === 0 && photos.length > 1 && <span className="inline-flex min-h-[40px] items-center rounded-lg bg-emerald-50 px-3 text-xs font-semibold text-emerald-800">Shown first</span>}
+                      {i === 0 && photos.length > 1 && <span className="inline-flex min-h-[40px] items-center rounded-lg bg-sky-50 px-3 text-xs font-semibold text-sky-800">Shown first</span>}
                       <button type="button" aria-label={`Remove photo ${i + 1}`} onClick={() => set(photos.filter((_, j) => j !== i))} className="inline-flex min-h-[40px] cursor-pointer items-center gap-1 rounded-lg bg-rose-50 px-3 text-xs font-semibold text-rose-800 hover:bg-rose-100">
                         <X className="h-3.5 w-3.5" aria-hidden /> Remove
                       </button>
@@ -183,7 +183,7 @@ export function StorePhotosView({ listingId }: { listingId: string }) {
       {photos.length > 1 && (
         <div role="group" aria-label="All photos" className="flex gap-2 overflow-x-auto pb-1">
           {photos.map((x, j) => (
-            <button key={j} type="button" aria-label={`Show photo ${j + 1}${x.note ? `: ${x.note}` : ''}`} aria-pressed={j === i} onClick={() => setAt(j)} className={`shrink-0 cursor-pointer overflow-hidden rounded-xl ring-2 ${j === i ? 'ring-emerald-600' : 'ring-transparent hover:ring-slate-300'}`}>
+            <button key={j} type="button" aria-label={`Show photo ${j + 1}${x.note ? `: ${x.note}` : ''}`} aria-pressed={j === i} onClick={() => setAt(j)} className={`shrink-0 cursor-pointer overflow-hidden rounded-xl ring-2 ${j === i ? 'ring-sky-600' : 'ring-transparent hover:ring-slate-300'}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={x.src} alt="" className="h-16 w-20 object-cover" />
             </button>
