@@ -19,7 +19,7 @@
  * (fans, lights, strips) are instanced, so phones stay smooth.
  */
 import type { Kit, Origin } from '@/components/rental/three/buildStore';
-import type { Rect, SceneChamber, StoreScene } from '@/components/rental/three/storeScene';
+import { BEAM_DEPTH, BEAM_FLANGE, COLUMN, type Rect, type SceneChamber, type StoreScene } from '@/components/rental/three/storeScene';
 
 type Three = typeof import('three');
 type Obj = InstanceType<Three['Object3D']>;
@@ -78,6 +78,11 @@ export function buildFixtures(kit: Kit, scene: StoreScene, o: Origin): Fixtures 
   const lamps: { x: number; y: number; z: number; len: number; alongX: boolean }[] = [];
   const bays: { x: number; y: number; z: number }[] = [];
   const strips: { x: number; y: number; z: number; h: number; alongX: boolean }[] = [];
+  // Structural steel: column centres (world x, z), beams, and the heights they stand to.
+  const cols: { x: number; z: number }[] = [];
+  const beamList: { x: number; z: number; len: number; alongX: boolean }[] = [];
+  let structTop = 0;
+  let structH = 0;
 
   /** LED battens in rows under a ceiling at height `top` over the plan rectangle `r`. */
   const lightRows = (r: Rect, top: number) => {
@@ -177,17 +182,22 @@ export function buildFixtures(kit: Kit, scene: StoreScene, o: Origin): Fixtures 
     const hall = scene.hall;
     const H = scene.building.height;
     ceiling(hall, H, mats.roof, 3);
-    const trusses = clamp(Math.round(hall.d / 6), 1, 20);
-    for (let i = 0; i < trusses; i++) {
-      const py = hall.y + ((i + 0.5) / trusses) * hall.d;
-      box(hall.w, 0.32, 0.14, X(hall.x + hall.w / 2), H - 0.2, Z(py), mats.beam, walkOnly);
-    }
+    // Structural steel on the building's own grid (storeScene structureOf): H-columns stand with their
+    // yellow base guards against the outer walls and at the chambers' outer corners — never in a door
+    // opening, the passage, an aisle or a bin slot — and I-beams (0.8 ft deep, 0.5 ft flanges) span the
+    // roof between them. The columns show from outside too; the beams, like the roof, only when walking.
+    const st = scene.structure;
+    const colTop = H - BEAM_DEPTH;
+    for (const p of st.pillars) cols.push({ x: X(p.x + p.w / 2), z: Z(p.y + p.d / 2) });
+    for (const b of st.beams) beamList.push({ x: X((b.x1 + b.x2) / 2), z: Z((b.y1 + b.y2) / 2), len: Math.hypot(b.x2 - b.x1, b.y2 - b.y1), alongX: Math.abs(b.y2 - b.y1) < 1e-6 });
+    structTop = colTop;
+    structH = H;
     const under = (px: number, py: number) => scene.chambers.some((c) => px > c.rect.x - 0.3 && px < c.rect.x + c.rect.w + 0.3 && py > c.rect.y - 0.3 && py < c.rect.y + c.rect.d + 0.3);
-    const cols = clamp(Math.round(hall.w / 6), 1, 20);
+    const bayCols = clamp(Math.round(hall.w / 6), 1, 20);
     const rows = clamp(Math.round(hall.d / 6), 1, 20);
-    for (let i = 0; i < cols; i++) {
+    for (let i = 0; i < bayCols; i++) {
       for (let j = 0; j < rows; j++) {
-        const px = hall.x + ((i + 0.5) / cols) * hall.w;
+        const px = hall.x + ((i + 0.5) / bayCols) * hall.w;
         const py = hall.y + ((j + 0.5) / rows) * hall.d;
         if (!under(px, py)) bays.push({ x: X(px), y: H - 0.7, z: Z(py) });
       }
@@ -269,6 +279,34 @@ export function buildFixtures(kit: Kit, scene: StoreScene, o: Origin): Fixtures 
     m4.compose(pos.set(s.x, s.y, s.z), q, s.alongX ? scl.set(0.2, s.h, 0.006) : scl.set(0.006, s.h, 0.2));
   });
   if (curtain) curtain.renderOrder = 2;
+
+  // H-columns: two flanges and a web up to the beams, on a yellow-and-black base guard.
+  const unit = () => new T.BoxGeometry(1, 1, 1);
+  const FL = 0.3;
+  add(unit(), mats.steel, cols.length * 2, (i) => {
+    const c = cols[i >> 1];
+    q.identity();
+    m4.compose(pos.set(c.x, structTop / 2, c.z + (i % 2 ? 1 : -1) * (FL / 2 - 0.016)), q, scl.set(FL, structTop, 0.032));
+  });
+  add(unit(), mats.steel, cols.length, (i) => {
+    q.identity();
+    m4.compose(pos.set(cols[i].x, structTop / 2, cols[i].z), q, scl.set(0.026, structTop, FL - 0.06));
+  });
+  add(unit(), mats.stripe, cols.length, (i) => {
+    q.identity();
+    m4.compose(pos.set(cols[i].x, 0.45, cols[i].z), q, scl.set(COLUMN, 0.9, COLUMN));
+  });
+  // Ceiling I-beams: top and bottom flange and the web, one draw each; walking only (like the roof).
+  const FLANGE_T = 0.02;
+  const beamPart = (y: number, h: number, across: number, mat: Mat) =>
+    add(unit(), mat, beamList.length, (i) => {
+      const b = beamList[i];
+      q.identity();
+      m4.compose(pos.set(b.x, y, b.z), q, b.alongX ? scl.set(b.len, h, across) : scl.set(across, h, b.len));
+    }, walkOnly);
+  beamPart(structH - FLANGE_T / 2, FLANGE_T, BEAM_FLANGE, mats.steel);
+  beamPart(structH - BEAM_DEPTH + FLANGE_T / 2, FLANGE_T, BEAM_FLANGE, mats.steel);
+  beamPart(structH - BEAM_DEPTH / 2, BEAM_DEPTH - 2 * FLANGE_T, 0.012, mats.steel);
 
   return { group, walkOnly };
 }

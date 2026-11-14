@@ -25,7 +25,7 @@
  * closes. Without WebGL the Drawing is the way.
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { DoorOpen, Factory, Footprints, Layers, Maximize2, ScanEye, Volume2, X } from 'lucide-react';
+import { DoorOpen, Factory, Footprints, Layers, Maximize2, ScanEye, ShoppingCart, Volume2, X } from 'lucide-react';
 
 import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
 import { loadColdKitGeo, type ColdKitGeos } from '@/components/rental/three/coldKit';
@@ -219,6 +219,7 @@ function CrateCard({
   scene,
   chambers,
   mode,
+  onPlace,
   stackOf,
   holdersOf,
   mineOf,
@@ -231,6 +232,8 @@ function CrateCard({
   scene: StoreScene;
   chambers: ColdChamber[];
   mode: 'book' | 'owner' | 'view';
+  /** Booking flow: choose this place — or take it off — right from the card, the same choose a map tap makes; the choice flows into the booking's confirm and payment. */
+  onPlace?: (c: ColdChamber, slot: string, look: Look) => void;
   stackOf?: (c: ColdChamber, slot: string) => string | null;
   holdersOf?: (c: ColdChamber, slot: string) => PlaceHolder[];
   mineOf?: (c: ColdChamber, slot: string) => number | null;
@@ -254,6 +257,14 @@ function CrateCard({
   const mineUnits = !owner && row ? mineOf?.(row, cell.slot) ?? null : null;
   const whose = owner ? allocation : cell.look === 'mine' ? (mineName?.trim() ? `${mineName.trim()} (you)` : 'You') : null;
   const unitType = st === 'bins' ? 'Wooden bins' : st === 'crates' ? 'Plastic crates' : 'Paper cartons';
+  // The unit's own measured size, only what the owner's save holds (never invented; — without).
+  const dims = row && (row.unit_length_m != null || row.unit_width_m != null || row.unit_height_m != null)
+    ? `${nice(Number(row.unit_length_m ?? 0))} × ${nice(Number(row.unit_width_m ?? 0))} × ${nice(Number(row.unit_height_m ?? 0))} m`
+    : null;
+  // This place can be chosen from the card itself (booking only): free, shared with room left,
+  // or already this farmer's choice (the button then takes it off).
+  const chosen = cell.look === 'selected';
+  const bookable = mode === 'book' && Boolean(onPlace && row) && (chosen || cell.look === 'free' || cell.look === 'part');
   return (
     <section aria-label={`${c?.name ?? 'Place'}: what is on place ${cell.slot}`} className="rounded-2xl bg-white/95 p-3 text-sm text-slate-800 shadow-xl ring-1 ring-slate-900/10 backdrop-blur">
       <div className="flex items-start justify-between gap-2">
@@ -279,6 +290,12 @@ function CrateCard({
         <dd>{unitType}</dd>
         <dt className="text-slate-500">Maximum Capacity</dt>
         <dd className="font-semibold">{countText(maxUnits, st)} · {kg(maxUnits)}</dd>
+        {dims && (
+          <>
+            <dt className="text-slate-500">Unit size (L×W×H)</dt>
+            <dd>{dims}</dd>
+          </>
+        )}
         {owner ? (
           <>
             <dt className="text-slate-500">Stored Quantity</dt>
@@ -290,6 +307,8 @@ function CrateCard({
             <dd className={mineUnits ? 'font-semibold text-violet-800' : ''}>
               {mineUnits ? `${mineUnits.toLocaleString('en-IN')} ${unitWord(st, mineUnits)} · ${kg(mineUnits)}` : cell.look === 'mine' ? 'Yours' : 'None'}
             </dd>
+            <dt className="text-slate-500">Occupied now</dt>
+            <dd>{countText(standing, st)} · {kg(standing)}</dd>
           </>
         )}
         <dt className="text-slate-500">{owner ? 'Available Capacity' : 'Free in this place'}</dt>
@@ -321,6 +340,17 @@ function CrateCard({
             {holders.reduce((n, h) => n + (h.units ?? 0), 0).toLocaleString('en-IN')} of {maxUnits.toLocaleString('en-IN')} {unitWord(st, maxUnits)} held · {cell.free.toLocaleString('en-IN')} free
           </p>
         </div>
+      )}
+      {bookable && (
+        <button
+          type="button"
+          data-testid="select-and-book-bin"
+          onClick={() => onPlace?.(row!, cell.slot, cell.look)}
+          className={`mt-3 w-full ${chosen ? 'kr-btn-secondary' : 'kr-btn-primary'}`}
+        >
+          {chosen ? <X className="h-4 w-4" aria-hidden /> : <ShoppingCart className="h-4 w-4" aria-hidden />}
+          {chosen ? 'Remove from my selection' : 'Select & Book This Bin'}
+        </button>
       )}
     </section>
   );
@@ -468,6 +498,13 @@ export function ColdStore3D({
     for (const c of cells) out[c.chamber] += c.free;
     return out;
   }, [scene, cells]);
+  // The drawer's place, as it is right now: a choice made from the card (or the
+  // map) re-labels the card at once — its look, room and the book button state
+  // — instead of repeating the snapshot taken when it was opened.
+  const liveCell = useMemo(
+    () => (stackCell ? cells.find((x) => x.chamber === stackCell.chamber && x.floor === stackCell.floor && x.place === stackCell.place) ?? stackCell : null),
+    [stackCell, cells],
+  );
   const activeIndex = useMemo(() => scene.chambers.findIndex((c) => c.group.floors.some((r) => r.id === active)), [scene, active]);
   // From outside, the person can show only the places with room, only their own, and one floor at a
   // time (the upper floors hide the lower ones). Walking always shows everything, as it stands.
@@ -1843,12 +1880,15 @@ export function ColdStore3D({
         {!big && card}
       </div>
       {big && card}
-      {stackCell && (
+      {stackCell && liveCell && (
         <CrateCard
-          cell={stackCell}
+          cell={liveCell}
           scene={scene}
           chambers={chambers}
           mode={mode}
+          // Booking flow: the card's own "Select & Book This Bin" — the same
+          // choose a map tap makes, so the choice flows into confirm & payment.
+          onPlace={mode === 'book' ? onPlace : undefined}
           // Role isolation: only the owner's view reads who holds a place;
           // farmer-facing cards never name another farmer and carry only the
           // viewer's own units plus what is still free.

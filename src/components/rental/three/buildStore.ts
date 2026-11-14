@@ -16,7 +16,7 @@
  * loaded only when the 3D view opens.
  */
 import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
-import { binTexture, cartonTexture, concreteTexture, crateTexture, fanTexture, ghostTexture, gratingTexture, labelCanvas, panelTexture, plateTexture } from '@/components/rental/three/textures';
+import { binTexture, cartonTexture, concreteTexture, crateTexture, diamondTexture, fanTexture, ghostTexture, gratingTexture, labelCanvas, panelTexture, plaqueCanvas, plateTexture } from '@/components/rental/three/textures';
 import type { Route } from '@/components/rental/walk/route';
 import { buildFixtures } from '@/components/rental/three/fixtures';
 import type { ColdKitGeos } from '@/components/rental/three/coldKit';
@@ -67,9 +67,11 @@ export interface Kit {
   protos: ColdKitGeos | null;
   /** `wall` / `chamberWall` solid, `wallNear` / `chamberNear` see-through (the walls between the camera and the inside). */
   mats: Record<
-    | 'bin' | 'crate' | 'carton' | 'ghostOn' | 'tile' | 'hall' | 'yard' | 'apron' | 'walk' | 'passage' | 'stripe' | 'chamberFloor' | 'wall' | 'wallNear' | 'chamberWall' | 'chamberNear' | 'door' | 'leaf' | 'deck' | 'beam' | 'glass' | 'hit' | 'shutter'
+    | 'bin' | 'crate' | 'binEmpty' | 'crateEmpty' | 'carton' | 'ghostOn' | 'tile' | 'hall' | 'yard' | 'apron' | 'walk' | 'passage' | 'stripe' | 'chamberFloor' | 'wall' | 'wallNear' | 'chamberWall' | 'chamberNear' | 'door' | 'leaf' | 'deck' | 'beam' | 'glass' | 'hit' | 'shutter'
     // The machines and fittings (three/fixtures).
-    | 'ceiling' | 'roof' | 'lamp' | 'cooler' | 'fan' | 'guard' | 'pipe' | 'copper' | 'curtain' | 'condenser',
+    | 'ceiling' | 'roof' | 'lamp' | 'cooler' | 'fan' | 'guard' | 'pipe' | 'copper' | 'curtain' | 'condenser'
+    // Structure and finishes: structural steel, galvanised kick-plate, black rubber (gaskets, floor coving).
+    | 'steel' | 'plate' | 'rubber',
     Mat
   >;
   edge: InstanceType<Three['LineBasicMaterial']>;
@@ -153,7 +155,7 @@ function slattedStackGeo(T: Three, units: number, proto: Geo): Geo {
 }
 
 export function makeKit(T: Three, phone: boolean, protos: ColdKitGeos | null = null): Kit {
-  const tex = { bin: binTexture(T), crate: crateTexture(T), carton: cartonTexture(T), ghost: ghostTexture(T), concrete: concreteTexture(T), grating: gratingTexture(T), panel: panelTexture(T), fan: fanTexture(T) };
+  const tex = { bin: binTexture(T), binEmpty: binTexture(T, false), crate: crateTexture(T), crateEmpty: crateTexture(T, false), carton: cartonTexture(T), ghost: ghostTexture(T), concrete: concreteTexture(T), grating: gratingTexture(T), panel: panelTexture(T), fan: fanTexture(T), diamond: diamondTexture(T) };
   if (phone) for (const t of Object.values(tex)) t.anisotropy = 1;
   const unitBox = new T.BoxGeometry(1, 1, 1);
   unitBox.translate(0, 0.5, 0);
@@ -178,21 +180,26 @@ export function makeKit(T: Three, phone: boolean, protos: ColdKitGeos | null = n
   const mats = {
     bin: new T.MeshStandardMaterial({ map: tex.bin, roughness: 0.82 }),
     crate: new T.MeshStandardMaterial({ map: tex.crate, roughness: 0.5, metalness: 0.04 }),
+    // Vacant: the same bins and crates, empty — no apples between the slats or on top.
+    binEmpty: new T.MeshStandardMaterial({ map: tex.binEmpty, roughness: 0.82 }),
+    crateEmpty: new T.MeshStandardMaterial({ map: tex.crateEmpty, roughness: 0.5, metalness: 0.04 }),
     carton: new T.MeshStandardMaterial({ map: tex.carton, roughness: 0.9 }),
     // A place being chosen or waiting for payment: the outline of the stack that fits there (front faces only).
     ghostOn: new T.MeshBasicMaterial({ map: tex.ghost, ...see, side: T.FrontSide, opacity: 0.88 }),
     tile: new T.MeshBasicMaterial({ color: '#ffffff' }),
-    hall: new T.MeshStandardMaterial({ map: tex.concrete, roughness: 0.95 }),
+    // Sealed, power-trowelled concrete.
+    hall: new T.MeshStandardMaterial({ map: tex.concrete, roughness: 0.62, metalness: 0.08 }),
     yard: new T.MeshStandardMaterial({ color: '#d9e4d3', roughness: 1 }),
     apron: new T.MeshStandardMaterial({ color: '#b8c0c8', roughness: 1 }),
     walk: new T.MeshStandardMaterial({ color: '#fcd34d', roughness: 1, transparent: true, opacity: 0.55, depthWrite: false }),
     passage: new T.MeshStandardMaterial({ color: '#fde68a', roughness: 1, transparent: true, opacity: 0.45, depthWrite: false }),
     stripe: new T.MeshStandardMaterial({ color: '#eab308', roughness: 0.8 }),
-    chamberFloor: new T.MeshStandardMaterial({ map: tex.concrete, color: '#eef3f8', roughness: 0.85 }),
-    wall: new T.MeshStandardMaterial({ map: tex.panel, color: '#e2e8f0', roughness: 0.78, metalness: 0.05 }),
-    wallNear: new T.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.78, metalness: 0.05, ...see, opacity: 0.12 }),
-    chamberWall: new T.MeshStandardMaterial({ map: tex.panel, roughness: 0.52, metalness: 0.05 }),
-    chamberNear: new T.MeshStandardMaterial({ map: tex.panel, roughness: 0.52, metalness: 0.05, ...see, opacity: 0.22 }),
+    chamberFloor: new T.MeshStandardMaterial({ map: tex.concrete, color: '#eef3f8', roughness: 0.62, metalness: 0.08 }),
+    // Insulated PUF panels: matte off-white / cool grey, a seam every 4 ft (the wall's UV repeat is one panel).
+    wall: new T.MeshStandardMaterial({ map: tex.panel, color: '#e2e8f0', roughness: 0.45, metalness: 0.15 }),
+    wallNear: new T.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.45, metalness: 0.15, ...see, opacity: 0.12 }),
+    chamberWall: new T.MeshStandardMaterial({ map: tex.panel, roughness: 0.45, metalness: 0.15 }),
+    chamberNear: new T.MeshStandardMaterial({ map: tex.panel, roughness: 0.45, metalness: 0.15, ...see, opacity: 0.22 }),
     door: new T.MeshStandardMaterial({ color: '#f59e0b', roughness: 0.45, metalness: paint }),
     leaf: new T.MeshStandardMaterial({ color: '#f1f5f9', roughness: 0.42, metalness: 0.04 }),
     deck: new T.MeshStandardMaterial({ map: tex.grating, roughness: 0.45, ...see, opacity: 1, metalness: phone ? 0.15 : 0.4 }),
@@ -211,6 +218,9 @@ export function makeKit(T: Three, phone: boolean, protos: ColdKitGeos | null = n
     copper: new T.MeshStandardMaterial({ color: '#b87333', roughness: 0.28, metalness: phone ? 0.5 : 0.75 }),
     curtain: new T.MeshStandardMaterial({ color: '#cbe8f6', transparent: true, opacity: 0.3, roughness: 0.15, depthWrite: false, side: T.DoubleSide }),
     condenser: new T.MeshStandardMaterial({ color: '#d5dbe2', roughness: 0.38, metalness: phone ? 0.2 : 0.5 }),
+    steel: new T.MeshStandardMaterial({ color: '#6b7a89', roughness: 0.42, metalness: phone ? 0.3 : 0.62 }),
+    plate: new T.MeshStandardMaterial({ map: tex.diamond, color: '#d4dbe3', roughness: 0.38, metalness: phone ? 0.3 : 0.65 }),
+    rubber: new T.MeshStandardMaterial({ color: '#15191f', roughness: 0.92, metalness: 0 }),
   };
   const edge = new T.LineBasicMaterial({ color: '#334155', transparent: true, opacity: 0.55 });
   const edgeOn = new T.LineBasicMaterial({ color: '#0284c7' });
@@ -355,8 +365,31 @@ export interface Shell {
   walls: Mesh[];
   /** Labels kept readable at any distance. */
   labels: InstanceType<Three['Sprite']>[];
-  /** Ceilings, the roof and the lights under them: shown only when walking (from outside the roof is off). */
+  /** Ceilings, the roof, structural beams and the wall kick-plates: shown only when walking (from outside the roof is off). */
   walkOnly: Obj;
+  /** Each chamber's status plaque beside its door: filled from the database's real readings (see ColdStore3D). */
+  plaques: Plaque[];
+}
+
+/** A chamber's last logged temperature, exactly as the database holds it. */
+export interface ChamberReading {
+  temperatureC: number;
+  /** When it was recorded (ISO). */
+  recordedAt: string;
+}
+
+export interface Plaque {
+  chamber: number;
+  /** The saved rows (one per floor) whose readings count for this chamber. */
+  rowIds: string[];
+  /** Redraw the plaque: with a reading, or null for "Sensor not connected". */
+  apply: (reading: ChamberReading | null) => void;
+}
+
+/** "logged 14 Nov, 06:20 pm" from the reading's own recorded_at. */
+function whenText(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : `logged ${d.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`;
 }
 
 /** Make the walls between the camera and the inside see-through (orbit), or every wall solid (walk). In x-ray mode every wall turns glass at once, whatever the eye does. */
@@ -383,6 +416,7 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
   const outlines: Shell['outlines'] = [];
   const walls: Mesh[] = [];
   const labels: Shell['labels'] = [];
+  const plaques: Plaque[] = [];
   const add = (m: Obj) => (group.add(m), m);
   // Every row's number plate (storeScene rowPlates): a yellow plate on a slim steel post at the row's aisle end.
   const plates = rowPlates(scene);
@@ -418,7 +452,7 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
   };
   /** A wall of the room `r` (hall or chamber): it faces out, away from the room's middle. */
   const roomWall = (s: Seg, y0: number, y1: number, t: number, r: Rect, of: 'hall' | 'chamber') => {
-    const m = wallOn(s, y0, y1, t, of === 'hall' ? mats.wall : mats.chamberWall, of === 'hall' ? 2.4 : 1.15);
+    const m = wallOn(s, y0, y1, t, of === 'hall' ? mats.wall : mats.chamberWall, of === 'hall' ? 2.44 : 1.22);
     if (!m) return null;
     const c = midOf(s);
     const along = Math.abs(s.y2 - s.y1) < 1e-6;
@@ -682,14 +716,33 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
       const wallLen = along ? r.w : r.d;
       const startAlong = along ? Math.min(c.door.x1, c.door.x2) - r.x : Math.min(c.door.y1, c.door.y2) - r.y;
       const room = { before: startAlong, after: wallLen - startAlong - dw };
+      /** A piece on the door's wall: `a` along the wall from the door's middle, `out` away from the chamber (outside), `l` along × `d` across. */
+      const onDoor = (a: number, out: number, y: number, l: number, h: number, d: number, mat: Mat) => {
+        const px = dm.x + (along ? a : 0) - c.inward.x * out;
+        const py = dm.y + (along ? 0 : a) - c.inward.y * out;
+        return box(along ? l : d, h, along ? d : l, wx(o, px), y, wz(o, py), mat);
+      };
+      // The perimeter rubber gasket inside the frame: both jambs and the head, so the closed leaf seals on it.
+      for (const sgn of [-1, 1]) onDoor(sgn * (dw / 2 - 0.1), 0, (c.doorH - 0.15) / 2, 0.05, c.doorH - 0.15, 0.17, mats.rubber);
+      onDoor(0, 0, c.doorH - 0.11, Math.max(0.1, dw - 0.2), 0.05, 0.17, mats.rubber);
+      let leafSide = 0;
       if (c.toScale && Math.max(room.before, room.after) >= dw * 0.9) {
         const side = room.after >= room.before ? 1 : -1;
+        leafSide = side;
         const shiftBy = side * (dw + 0.05);
         const out = 0.16;
         const lx = dm.x + (along ? shiftBy : 0) - c.inward.x * out;
         const ly = dm.y + (along ? 0 : shiftBy) - c.inward.y * out;
         box(along ? dw : 0.1, c.doorH, along ? 0.1 : dw, wx(o, lx), c.doorH / 2, wz(o, ly), mats.leaf);
+        // The acrylic CA viewing window port in the leaf, in a black rubber surround.
+        const wy = Math.min(1.6, c.doorH * 0.62);
+        onDoor(shiftBy, out, wy, 0.46, 0.56, 0.115, mats.rubber);
+        const glass = onDoor(shiftBy, out, wy, 0.38, 0.48, 0.13, mats.glass);
+        glass.renderOrder = 2;
       }
+      // The stainless-steel track rail over the lintel, running out the way the leaf slides.
+      const railLen = leafSide ? 2 * dw + 0.15 : dw + 0.3;
+      onDoor(leafSide * (dw / 2 + 0.025), 0.16, c.doorH + 0.12, railLen, 0.07, 0.07, mats.shutter);
       // Its name on a sign over the door, flat on the wall outside (as stores paint them): read
       // from the passage, so a farmer finds "Chamber 2" without counting doors.
       const signW = Math.min(1.8, Math.max(1.1, dw * 0.9));
@@ -705,6 +758,38 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
         sign.position.set(wx(o, dm.x - c.inward.x * 0.09), up, wz(o, dm.y - c.inward.y * 0.09));
         sign.rotation.y = Math.atan2(-c.inward.x, c.inward.y);
         add(sign);
+      }
+      // The digital status plaque beside the door, at eye height: chamber ID and the last logged temperature
+      // (ColdStore3D fills it from the database; until then, and without a reading, it says so honestly).
+      const pSide = leafSide ? -leafSide : room.after >= room.before ? 1 : -1;
+      const roomP = pSide > 0 ? room.after : room.before;
+      const pw = 0.52;
+      const ph = 0.34;
+      const code = c.floors[0]?.row.chamber_code?.trim() || c.name;
+      const plaqueMat = new T.MeshBasicMaterial({ map: null });
+      const plaque = new T.Mesh(new T.PlaneGeometry(pw, ph), plaqueMat);
+      const placeP = (a: number, y: number) => {
+        plaque.position.set(wx(o, dm.x + (along ? a : 0) - c.inward.x * 0.1), y, wz(o, dm.y + (along ? 0 : a) - c.inward.y * 0.1));
+        plaque.rotation.y = Math.atan2(-c.inward.x, c.inward.y);
+        onDoor(a, 0.085, y, pw + 0.06, ph + 0.06, 0.03, mats.steel);
+        add(plaque);
+      };
+      if (roomP >= pw + 0.4) placeP(pSide * (dw / 2 + 0.07 + pw / 2 + 0.12), Math.min(1.55, c.doorH * 0.7));
+      else if (overDoor > signH + 0.75) placeP(0, c.doorH + 0.2 + signH + 0.4);
+      if (plaque.parent) {
+        const draw = (r: { text: string; when: string } | null | 'loading') => {
+          const t = new T.CanvasTexture(plaqueCanvas(code, r));
+          t.colorSpace = T.SRGBColorSpace;
+          plaqueMat.map?.dispose();
+          plaqueMat.map = t;
+          plaqueMat.needsUpdate = true;
+        };
+        draw('loading');
+        plaques.push({
+          chamber: c.index,
+          rowIds: c.floors.map((f) => f.row.id),
+          apply: (reading) => draw(reading ? { text: `${reading.temperatureC.toFixed(1)} °C`, when: whenText(reading.recordedAt) } : null),
+        });
       }
     } else {
       // No measured door, no painted sign: the chamber's name floats over
@@ -793,7 +878,26 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
   // Cooling units, pipes, strip curtains, condensers; ceilings and lights for walking.
   const fixtures = buildFixtures(kit, scene, o);
   group.add(fixtures.group);
-  return { group, hits, outlines, walls, labels, walkOnly: fixtures.walkOnly };
+  // Walking only: the diamond-plate kick-plate along the foot of every chamber wall (the bottom 3 ft, both
+  // faces, against forklift knocks) and the black rubber coving where the wall meets the floor.
+  for (const c of scene.chambers) {
+    if (!c.toScale) continue;
+    for (const s of c.walls) {
+      const len = segLength(s);
+      if (len < 0.3) continue;
+      const alongX = Math.abs(s.y2 - s.y1) < 1e-6;
+      const m = midOf(s);
+      const plateGeo = new T.BoxGeometry(alongX ? len : 0.18, 0.91, alongX ? 0.18 : len);
+      tile(plateGeo, len / 0.6, 0.91 / 0.6);
+      const plate = new T.Mesh(plateGeo, mats.plate);
+      plate.position.set(wx(o, m.x), 0.455, wz(o, m.y));
+      fixtures.walkOnly.add(plate);
+      const cove = new T.Mesh(new T.BoxGeometry(alongX ? len : 0.24, 0.08, alongX ? 0.24 : len), mats.rubber);
+      cove.position.set(wx(o, m.x), 0.04, wz(o, m.y));
+      fixtures.walkOnly.add(cove);
+    }
+  }
+  return { group, hits, outlines, walls, labels, walkOnly: fixtures.walkOnly, plaques };
 }
 
 /** What a place's mark on the floor looks like, and how strongly its bins are tinted. */

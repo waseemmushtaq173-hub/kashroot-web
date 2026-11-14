@@ -35,6 +35,15 @@ export interface Walker {
 /** The world to walk in; `stops(chamber, floorIndex, placeIndex)` says which places have a stack on them. */
 export function walkWorld(scene: StoreScene, stops: (chamber: number, floor: number, place: number) => boolean): WalkWorld {
   const walls = [...scene.walls, ...(scene.vestibule?.walls ?? []), ...scene.chambers.flatMap((c) => c.walls)];
+  // Structural columns are solid: each footprint's four edges stop a walker (and the measure tool) like a wall.
+  for (const p of scene.structure.pillars) {
+    walls.push(
+      { x1: p.x, y1: p.y, x2: p.x + p.w, y2: p.y },
+      { x1: p.x, y1: p.y + p.d, x2: p.x + p.w, y2: p.y + p.d },
+      { x1: p.x, y1: p.y, x2: p.x, y2: p.y + p.d },
+      { x1: p.x + p.w, y1: p.y, x2: p.x + p.w, y2: p.y + p.d },
+    );
+  }
   const closed = scene.chambers.map((c) => {
     const r = c.rect;
     return [

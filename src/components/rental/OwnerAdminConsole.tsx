@@ -1,10 +1,14 @@
 'use client';
 
 /**
- * OwnerAdminConsole — the Cold Storage Owner's complete business administration
- * portal (Tier 2 of the administrative hierarchy), one tab inside
- * /rental/dashboard ("Business admin"), plus the separate owner onboarding
- * application for businesses that are not registered yet:
+ * OwnerAdminConsole — the business owner's complete administration portal
+ * (Tier 2 of the administrative hierarchy), one tab inside /rental/dashboard
+ * ("Business admin"), plus the separate owner onboarding application for
+ * businesses that are not registered yet.
+ *
+ * Category-aware: the organization's business_category decides which modules
+ * show (CATEGORY_MODULES in lib/multiTenantAuth). A cold storage business has
+ * all ten:
  *
  *   1. Business overview KPIs        6. Booking management (live queue)
  *   2. Facility management           7. Farmer & inventory traceability
@@ -12,20 +16,31 @@
  *   4. Chamber management            9. Financial ledger + CSV report
  *   5. Bin & shared-bin management  10. Staff & employee RBAC (8 roles)
  *
+ * Warehouses and packhouses keep facilities, inventory, bookings, staff and
+ * finance (no twin, chambers or CA telemetry); logistics, agro-dealers and
+ * mandis get overview, their own orders/fleet module, staff and finance.
+ * A module whose data source does not exist for a category shows an honest
+ * "none recorded yet" state — never invented figures.
+ *
  * Tenant isolation: every query is scoped by organization_id — Owner A never
  * sees Owner B's facilities, bookings, farmers, staff or financials. When the
  * Platform Superadmin opens this console with ?oversightOrgId=…&oversight=1,
- * a gold oversight banner shows and the inspection itself is audit-logged.
+ * a gold oversight banner shows and the inspection itself is audit-logged; the
+ * console opens in that owner's own category.
  * Data: GET/POST /api/admin/hierarchy (scope=COLD_STORAGE_OWNER_ADMIN).
  */
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Boxes, Building2, CalendarCheck, ClipboardList, CloudSun, Eye, Landmark, Layers, PackageSearch, PlusCircle, ShieldCheck, ThermometerSnowflake, UserCog, Users, Warehouse,
+  Boxes, Building2, CalendarCheck, ClipboardList, CloudSun, Eye, Handshake, Landmark, Layers, PackageSearch, PlusCircle, Route, ShieldCheck, ShoppingCart, ThermometerSnowflake, Truck, UserCog, Users, Warehouse,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 import { Badge, Btn, EmptyState, Field, INPUT, Modal, Panel, Skeleton } from '@/components/portal/kit';
 import { PORTAL_THEMES } from '@/components/portal/kit';
-import { OWNER_STAFF_ROLES, ROLE_DEFAULT_PERMISSIONS, type StaffPermissionsMatrix } from '@/lib/multiTenantAuth';
+import {
+  BUSINESS_CATEGORIES, BUSINESS_CATEGORY_LABEL, DEFAULT_BUSINESS_CATEGORY, OWNER_STAFF_ROLES, ROLE_DEFAULT_PERMISSIONS, categoryHasModule, normalizeBusinessCategory, permissionAppliesTo,
+  type BusinessCategory, type OwnerModule, type StaffPermissionsMatrix,
+} from '@/lib/multiTenantAuth';
 
 const theme = PORTAL_THEMES.rental;
 
@@ -33,6 +48,7 @@ interface Organization {
   id: string;
   organization_code: string;
   business_name: string;
+  business_category?: string | null;
   owner_full_name: string;
   owner_email: string;
   owner_phone: string;
@@ -62,7 +78,8 @@ interface Payload {
   error?: string;
   isSuperadminOversight: boolean;
   organization: Organization | null;
-  availableOrganizationsForSwitcher: { id: string; organization_code: string; business_name: string; district: string; onboarding_status: string }[];
+  businessCategory?: BusinessCategory;
+  availableOrganizationsForSwitcher: { id: string; organization_code: string; business_name: string; district: string; onboarding_status: string; business_category?: string }[];
   activeFacilityId: string | null;
   facilities: Facility[];
   floors: FloorRow[];
@@ -107,6 +124,17 @@ const when = (iso: string | null) => {
   }
 };
 const titleCase = (s: string) => s.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+
+/** Modules with no per-organization data source yet: an honest "none recorded yet" state, never invented rows. */
+const NOT_RECORDED: Partial<Record<OwnerModule, { icon: LucideIcon; title: string; empty: string; text: string }>> = {
+  fleet: { icon: Truck, title: 'Fleet & vehicles', empty: 'No vehicles recorded yet', text: 'Vehicles of this business — registration, driver and live trip status — are listed here once they are recorded. Nothing is shown until then.' },
+  shipments: { icon: Route, title: 'Shipments & orders', empty: 'No shipments recorded yet', text: 'Shipments and delivery orders handled by this business are listed here once they are recorded.' },
+  orders: { icon: ShoppingCart, title: 'Orders', empty: 'No orders recorded yet', text: 'Customer orders taken by this business are listed here once they are recorded.' },
+  trades: { icon: Handshake, title: 'Orders & trades', empty: 'No trades recorded yet', text: 'Mandi trades and orders handled by this business are listed here once they are recorded.' },
+};
+
+/** Orders-style modules a category shows, in console order. */
+const NOT_RECORDED_ORDER: OwnerModule[] = ['fleet', 'shipments', 'orders', 'trades'];
 
 export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { oversightOrgId?: string | null; onAddFacility?: () => void }) {
   const [data, setData] = useState<Payload | null>(null);
@@ -153,9 +181,9 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
         <EmptyState
           theme={theme}
           icon={Warehouse}
-          title="Register your cold storage business"
-          text="Your business is the tenant of everything here — facilities, chambers, bins, bookings, farmers, staff and financials. Register it once; the Platform Superadmin verifies it, and then this portal becomes your complete business administration desk."
-          action={<Btn theme={theme} icon={PlusCircle} onClick={() => setShowRegister(true)}>Register a cold storage business</Btn>}
+          title="Register your business"
+          text="Your business is the tenant of everything here — facilities, inventory, bookings and orders, staff and financials. Choose its category (cold storage, warehouse, packhouse, logistics, agro-dealer or mandi) and register it once; the Platform Superadmin verifies it, and then this portal becomes your complete business administration desk."
+          action={<Btn theme={theme} icon={PlusCircle} onClick={() => setShowRegister(true)}>Register your business</Btn>}
         />
         <RegistrationModal open={showRegister} onClose={() => setShowRegister(false)} onDone={(msg) => { setShowRegister(false); setNote(msg); void load(); }} />
         {note && <p className="mt-4 rounded-xl bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800 ring-1 ring-emerald-200">{note}</p>}
@@ -164,65 +192,108 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
   }
 
   const org = data.organization;
+  // An organization from before the category column existed is a cold storage business.
+  const category = normalizeBusinessCategory(org.business_category ?? data.businessCategory);
+  const categoryLabel = BUSINESS_CATEGORY_LABEL[category];
+  const isCold = category === 'COLD_STORAGE';
+  const has = (module: OwnerModule) => categoryHasModule(category, module);
   const k = data.ownerKpis;
   const facilities = data.facilities ?? [];
   const chamberList = (data.chambers ?? []).filter((c) => !facilityId || c.facility_id === facilityId);
   const binList = (data.bins ?? []).filter((b) => !facilityId || b.facility_id === facilityId);
   const readingList = (data.caReadings ?? []).filter((r) => !facilityId || r.facility_id === facilityId);
   const bookingList = data.bookings ?? [];
+  const movementList = data.movements ?? [];
+  const txnList = data.financialTransactions ?? [];
+  const staffList = data.staffMembers ?? [];
   const activeFacility = facilities.find((f) => f.id === facilityId) ?? null;
+  const hasSwitcher = data.availableOrganizationsForSwitcher.length > 1;
+
+  const moneyTiles = [
+    { label: 'Revenue collected', value: inr(k.totalRevenueCollectedInr), hint: 'Paid & verified' },
+    { label: 'Outstanding', value: inr(k.totalOutstandingInr), hint: 'Awaiting payment' },
+  ];
+  const staffTile = { label: 'Staff', value: num(staffList.filter((s) => s.employment_status === 'ACTIVE').length), hint: `${num(staffList.length)} on the roster` };
+  const transactionsTile = { label: 'Ledger entries', value: num(txnList.length), hint: 'Recorded transactions' };
+  const stockTile = { label: 'Stock movements', value: num(movementList.length), hint: 'Latest recorded in the inventory ledger' };
+  const bookingTiles = [
+    { label: 'Active bookings', value: num(k.activeBookings), hint: `${num(k.pendingBookings)} pending approval` },
+    { label: 'Customers served', value: num(k.totalFarmersCount), hint: 'Distinct customers in the booking ledger' },
+  ];
+  const gradingTxns = txnList.filter((t) => t.transaction_type === 'HANDLING_AND_GRADING_CHARGE');
+  const gradingCharges = gradingTxns.length;
+  // Only figures the database really holds for this category.
+  const overviewTiles: { label: string; value: string; hint: string }[] = isCold
+    ? [
+        { label: 'Facilities · Floors · Chambers', value: `${k.totalFacilities} · ${k.totalFloors} · ${k.totalChambers}`, hint: 'Measured spaces in this business' },
+        { label: 'Bins', value: num(k.totalBins), hint: 'Physical storage units' },
+        { label: 'Capacity', value: `${num(k.totalCapacityCrates)} crates`, hint: `${num(k.occupiedCapacityCrates)} occupied · ${num(k.availableCapacityCrates)} available` },
+        { label: 'Farmers served', value: num(k.totalFarmersCount), hint: 'Distinct farmers in the ledger' },
+        { label: 'Active bookings', value: num(k.activeBookings), hint: `${num(k.pendingBookings)} pending approval` },
+        { label: 'Release requests', value: num(k.pendingReleaseRequests), hint: 'Farmers waiting for dispatch' },
+        ...moneyTiles,
+      ]
+    : category === 'WAREHOUSE'
+      ? [
+          { label: 'Facilities', value: num(facilities.length), hint: 'Linked to this business' },
+          { label: 'Listed capacity', value: `${num(facilities.reduce((s, f) => s + Number(f.capacity || 0), 0))} units`, hint: `${num(facilities.reduce((s, f) => s + Number(f.available || 0), 0))} free` },
+          ...bookingTiles, stockTile, staffTile, ...moneyTiles,
+        ]
+      : category === 'PACKHOUSE'
+        ? [
+            { label: 'Facilities', value: num(facilities.length), hint: 'Linked to this business' },
+            ...bookingTiles, stockTile,
+            { label: 'Grading & handling billed', value: inr(gradingTxns.reduce((s, t) => s + Number(t.gross_amount_inr || 0), 0)), hint: 'Handling & grading charges in the ledger' },
+            staffTile, ...moneyTiles,
+          ]
+        : [...(has('inventory') ? [stockTile] : []), staffTile, transactionsTile, ...moneyTiles];
 
   return (
     <div className="space-y-5">
       {data.isSuperadminOversight && (
         <p className="flex flex-wrap items-center gap-2 rounded-2xl bg-amber-100 px-4 py-3 text-sm font-semibold text-amber-950 ring-1 ring-amber-400">
           <Eye className="h-4 w-4" aria-hidden />
-          👑 PLATFORM SUPERADMIN OVERSIGHT MODE — Inspecting {org.business_name} (All actions are audit-logged; Owner retains full independent access)
+          👑 PLATFORM SUPERADMIN OVERSIGHT MODE — Inspecting {org.business_name} ({categoryLabel}) (All actions are audit-logged; Owner retains full independent access)
         </p>
       )}
 
       {/* Facility switcher (module 2 entry): an owner with several facilities switches from one account. */}
-      <Panel theme={theme} title="Facilities" icon={Warehouse} action={onAddFacility && <Btn theme={theme} variant="soft" size="sm" icon={PlusCircle} onClick={onAddFacility}>Add facility</Btn>}>
-        <div className="flex flex-wrap gap-2">
-          {facilities.length === 0 && <p className="text-sm text-slate-600">No facility linked to this business yet — add one with the owner wizard.</p>}
-          {facilities.map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              onClick={() => setFacilityId(f.id)}
-              aria-pressed={facilityId === f.id}
-              className={`cursor-pointer rounded-xl px-4 py-2.5 text-sm font-semibold transition ring-1 ${facilityId === f.id ? 'bg-sky-800 text-white ring-sky-800 shadow' : 'bg-white text-slate-800 ring-slate-300 hover:bg-sky-50'}`}
-            >
-              {f.title}
-              <span className="ml-2 text-[11px] font-medium opacity-80">{f.district ?? ''}</span>
-            </button>
-          ))}
-        </div>
-        {data.availableOrganizationsForSwitcher.length > 1 && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-            <span className="font-semibold">Business:</span>
-            {data.availableOrganizationsForSwitcher.map((o) => (
-              <button key={o.id} type="button" onClick={() => { setOrgId(o.id); setFacilityId(null); }} className={`cursor-pointer rounded-lg px-2.5 py-1.5 ring-1 transition ${o.id === org.id ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white text-slate-700 ring-slate-300 hover:bg-slate-50'}`}>
-                {o.business_name}
-              </button>
-            ))}
-          </div>
-        )}
-      </Panel>
+      {(has('facilities') || hasSwitcher) && (
+        <Panel theme={theme} title={has('facilities') ? 'Facilities' : 'Business'} icon={Warehouse} action={has('facilities') && onAddFacility && <Btn theme={theme} variant="soft" size="sm" icon={PlusCircle} onClick={onAddFacility}>Add facility</Btn>}>
+          {has('facilities') && (
+            <div className="flex flex-wrap gap-2">
+              {facilities.length === 0 && <p className="text-sm text-slate-600">No facility linked to this business yet — add one with the owner wizard.</p>}
+              {facilities.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setFacilityId(f.id)}
+                  aria-pressed={facilityId === f.id}
+                  className={`cursor-pointer rounded-xl px-4 py-2.5 text-sm font-semibold transition ring-1 ${facilityId === f.id ? 'bg-sky-800 text-white ring-sky-800 shadow' : 'bg-white text-slate-800 ring-slate-300 hover:bg-sky-50'}`}
+                >
+                  {f.title}
+                  <span className="ml-2 text-[11px] font-medium opacity-80">{f.district ?? ''}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {hasSwitcher && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+              <span className="font-semibold">Business:</span>
+              {data.availableOrganizationsForSwitcher.map((o) => (
+                <button key={o.id} type="button" onClick={() => { setOrgId(o.id); setFacilityId(null); }} className={`cursor-pointer rounded-lg px-2.5 py-1.5 ring-1 transition ${o.id === org.id ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white text-slate-700 ring-slate-300 hover:bg-slate-50'}`}>
+                  {o.business_name} · {BUSINESS_CATEGORY_LABEL[normalizeBusinessCategory(o.business_category)]}
+                </button>
+              ))}
+            </div>
+          )}
+        </Panel>
+      )}
 
       {/* 1. Business overview KPIs */}
-      <Panel theme={theme} title="Business overview" icon={Building2}>
+      <Panel theme={theme} title="Business overview" icon={Building2} action={<Badge tone="blue">{categoryLabel}</Badge>}>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {[
-            { label: 'Facilities · Floors · Chambers', value: `${k.totalFacilities} · ${k.totalFloors} · ${k.totalChambers}`, hint: 'Measured spaces in this business' },
-            { label: 'Bins', value: num(k.totalBins), hint: 'Physical storage units' },
-            { label: 'Capacity', value: `${num(k.totalCapacityCrates)} crates`, hint: `${num(k.occupiedCapacityCrates)} occupied · ${num(k.availableCapacityCrates)} available` },
-            { label: 'Farmers served', value: num(k.totalFarmersCount), hint: 'Distinct farmers in the ledger' },
-            { label: 'Active bookings', value: num(k.activeBookings), hint: `${num(k.pendingBookings)} pending approval` },
-            { label: 'Release requests', value: num(k.pendingReleaseRequests), hint: 'Farmers waiting for dispatch' },
-            { label: 'Revenue collected', value: inr(k.totalRevenueCollectedInr), hint: 'Paid & verified' },
-            { label: 'Outstanding', value: inr(k.totalOutstandingInr), hint: 'Awaiting payment' },
-          ].map((t) => (
+          {overviewTiles.map((t) => (
             <div key={t.label} className="rounded-2xl bg-white/80 p-4 ring-1 ring-[#E8A317]/25">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{t.label}</p>
               <p className="mt-1 font-display text-lg font-bold text-slate-900">{t.value}</p>
@@ -230,10 +301,18 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
             </div>
           ))}
         </div>
+        {category === 'PACKHOUSE' && (
+          <p className="mt-3 text-sm text-slate-600">
+            {gradingCharges > 0 || movementList.length > 0
+              ? `Grading & packing: ${num(gradingCharges)} grading/handling charge${gradingCharges === 1 ? '' : 's'} billed and ${num(movementList.length)} stock movement${movementList.length === 1 ? '' : 's'} recorded for this packhouse.`
+              : 'No grading, packing or stock movement recorded yet for this packhouse.'}
+          </p>
+        )}
         {note && <p className="mt-3 rounded-xl bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800 ring-1 ring-emerald-200">{note}</p>}
       </Panel>
 
       {/* 2. Facility management */}
+      {has('facilities') && (
       <Panel theme={theme} title="Facility management" icon={Layers}>
         {activeFacility ? (
           <ul className="space-y-3 text-sm text-slate-700">
@@ -249,14 +328,16 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
                 Floor {fl.floor_number}: <strong>{fl.floor_name}</strong> · {titleCase(fl.floor_type)} · ceiling {num(fl.ceiling_height_ft)} ft
               </li>
             ))}
-            <li className="text-xs text-slate-500">Building dimensions, floors and operational areas (receiving, grading, sorting, packaging, dispatch, dock) are configured in the owner wizard — open “My cold stores”.</li>
+            {isCold && <li className="text-xs text-slate-500">Building dimensions, floors and operational areas (receiving, grading, sorting, packaging, dispatch, dock) are configured in the owner wizard — open “My cold stores”.</li>}
           </ul>
         ) : (
           <p className="text-sm text-slate-600">Pick a facility above to see its floors and publication status.</p>
         )}
       </Panel>
+      )}
 
       {/* 3. 3D digital twin architect */}
+      {has('twin') && (
       <Panel theme={theme} title="3D digital twin architect" icon={Boxes}>
         <p className="text-sm text-slate-600">
           {chamberList.length} chamber{chamberList.length === 1 ? '' : 's'} drawn for {activeFacility?.title ?? 'this business'}: dynamic L-bank / perimeter placement from each chamber's saved wall, doors facing the hall, stacked bins and crates, chamber lighting — the same twin farmers see.
@@ -273,8 +354,10 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
           ))}
         </ul>
       </Panel>
+      )}
 
       {/* 4. Chamber management */}
+      {has('chambers') && (
       <Panel theme={theme} title="Chamber management" icon={ThermometerSnowflake}>
         {chamberList.length === 0 ? (
           <p className="text-sm text-slate-600">No chambers yet for this facility.</p>
@@ -302,8 +385,10 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
           </div>
         )}
       </Panel>
+      )}
 
       {/* 5. Bin & shared-bin management */}
+      {has('bins') && (
       <Panel theme={theme} title="Bins & shared-bin allocation" icon={PackageSearch}>
         {binList.length === 0 ? (
           <p className="text-sm text-slate-600">No bins configured yet for this facility.</p>
@@ -330,8 +415,10 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
         )}
         <p className="mt-3 text-xs text-slate-500">Farmers sharing one bin see only their own crates; the owner sees every farmer's slice of the bin.</p>
       </Panel>
+      )}
 
       {/* 6. Booking management */}
+      {has('bookings') && (
       <Panel theme={theme} title="Booking management" icon={CalendarCheck}>
         {bookingList.length === 0 ? (
           <p className="text-sm text-slate-600">No bookings in this business yet.</p>
@@ -340,7 +427,7 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
-                  <th className="py-2 pr-3">Reference</th><th className="py-2 pr-3">Farmer</th><th className="py-2 pr-3">Variety</th><th className="py-2 pr-3">Crates</th><th className="py-2 pr-3">Charge</th><th className="py-2 pr-3">Status</th><th className="py-2">Received</th>
+                  <th className="py-2 pr-3">Reference</th><th className="py-2 pr-3">{isCold ? 'Farmer' : 'Customer'}</th><th className="py-2 pr-3">Variety</th><th className="py-2 pr-3">Crates</th><th className="py-2 pr-3">Charge</th><th className="py-2 pr-3">Status</th><th className="py-2">Received</th>
                 </tr>
               </thead>
               <tbody>
@@ -359,23 +446,35 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
             </table>
           </div>
         )}
-        <p className="mt-3 text-xs text-slate-500">Accept / reject, gate receiving and dispatch run from the owner's own “Bookings to confirm” and “Shared bins & CA desk” tabs, where payment reference checks live. This console shows the whole business queue; {data.isSuperadminOversight ? 'oversight inspection is read-only.' : 'decisions made there are audit-logged.'}</p>
+        <p className="mt-3 text-xs text-slate-500">{isCold ? 'Accept / reject, gate receiving and dispatch run from the owner\'s own “Bookings to confirm” and “Shared bins & CA desk” tabs, where payment reference checks live.' : 'Accept / reject decisions run from the owner\'s own “Bookings to confirm” tab, where payment reference checks live.'} This console shows the whole business queue; {data.isSuperadminOversight ? 'oversight inspection is read-only.' : 'decisions made there are audit-logged.'}</p>
       </Panel>
+      )}
+
+      {/* Orders-style modules (fleet, shipments, orders, trades) have no per-organization data source yet */}
+      {NOT_RECORDED_ORDER.filter(has).map((m) => {
+        const n = NOT_RECORDED[m];
+        return n && (
+          <Panel key={m} theme={theme} title={n.title} icon={n.icon}>
+            <EmptyState theme={theme} icon={n.icon} title={n.empty} text={n.text} />
+          </Panel>
+        );
+      })}
 
       {/* 7. Farmer & inventory traceability ledger */}
-      <Panel theme={theme} title="Farmer & inventory traceability" icon={Users}>
-        {(data.movements ?? []).length === 0 ? (
-          <p className="text-sm text-slate-600">No inventory movements recorded yet. Every booking, receiving, allocation and dispatch lands here, immutable.</p>
+      {has('inventory') && (
+      <Panel theme={theme} title={isCold ? 'Farmer & inventory traceability' : 'Inventory & stock movements'} icon={Users}>
+        {movementList.length === 0 ? (
+          <p className="text-sm text-slate-600">{isCold ? 'No inventory movements recorded yet. Every booking, receiving, allocation and dispatch lands here, immutable.' : 'No stock movements recorded yet. Receiving, allocation and dispatch entries for this business land here once they are recorded.'}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
-                  <th className="py-2 pr-3">When</th><th className="py-2 pr-3">Farmer</th><th className="py-2 pr-3">Movement</th><th className="py-2 pr-3">Place</th><th className="py-2 pr-3">Crates</th><th className="py-2">Balance</th>
+                  <th className="py-2 pr-3">When</th><th className="py-2 pr-3">{isCold ? 'Farmer' : 'Customer'}</th><th className="py-2 pr-3">Movement</th><th className="py-2 pr-3">Place</th><th className="py-2 pr-3">Crates</th><th className="py-2">Balance</th>
                 </tr>
               </thead>
               <tbody>
-                {(data.movements ?? []).slice(0, 30).map((m) => (
+                {movementList.slice(0, 30).map((m) => (
                   <tr key={m.id} className="border-b border-slate-100">
                     <td className="py-2.5 pr-3 whitespace-nowrap text-xs text-slate-500">{when(m.recorded_at)}</td>
                     <td className="py-2.5 pr-3 text-slate-800">{m.farmer_name}<span className="block text-xs text-slate-500">{m.apple_variety}</span></td>
@@ -390,8 +489,10 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
           </div>
         )}
       </Panel>
+      )}
 
       {/* 8. Temperature & environmental monitoring */}
+      {has('telemetry') && (
       <Panel theme={theme} title="Chamber temperature & CA monitoring" icon={CloudSun}>
         {readingList.length === 0 ? (
           <p className="text-sm text-slate-600">No sensor or operator readings yet for this facility.</p>
@@ -420,8 +521,10 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
           </div>
         )}
       </Panel>
+      )}
 
       {/* 9. Financial & transaction management */}
+      {has('financial') && (
       <Panel
         theme={theme}
         title="Financial ledger"
@@ -440,7 +543,7 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
             <table className="w-full min-w-[780px] text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
-                  <th className="py-2 pr-3">Reference</th><th className="py-2 pr-3">Farmer</th><th className="py-2 pr-3">Type</th><th className="py-2 pr-3">Gross</th><th className="py-2 pr-3">Paid</th><th className="py-2 pr-3">Outstanding</th><th className="py-2 pr-3">Status</th><th className="py-2">When</th>
+                  <th className="py-2 pr-3">Reference</th><th className="py-2 pr-3">{isCold ? 'Farmer' : 'Customer'}</th><th className="py-2 pr-3">Type</th><th className="py-2 pr-3">Gross</th><th className="py-2 pr-3">Paid</th><th className="py-2 pr-3">Outstanding</th><th className="py-2 pr-3">Status</th><th className="py-2">When</th>
                 </tr>
               </thead>
               <tbody>
@@ -461,19 +564,21 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
           </div>
         )}
       </Panel>
+      )}
 
       {/* 10. Staff & employee RBAC management */}
+      {has('staff') && (
       <Panel
         theme={theme}
         title="Staff & employee roles"
         icon={UserCog}
         action={<Btn theme={theme} variant="soft" size="sm" icon={PlusCircle} onClick={() => { setEditStaff(null); setShowStaff(true); }}>Add staff member</Btn>}
       >
-        {(data.staffMembers ?? []).length === 0 ? (
+        {staffList.length === 0 ? (
           <p className="text-sm text-slate-600">No staff yet. Add your facility, operations, booking, inventory, accounts and technical managers — each gets exactly the permissions their role needs.</p>
         ) : (
           <ul className="space-y-3">
-            {(data.staffMembers ?? []).map((s) => (
+            {staffList.map((s) => (
               <li key={s.id} className="rounded-xl bg-white/70 p-3 ring-1 ring-slate-200">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span>
@@ -487,7 +592,7 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
                   </span>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {Object.entries(s.permissions_matrix ?? {}).filter(([, on]) => on).map(([perm]) => (
+                  {Object.entries(s.permissions_matrix ?? {}).filter(([perm, on]) => on && permissionAppliesTo(perm, category)).map(([perm]) => (
                     <Badge key={perm} tone="slate">{titleCase(perm)}</Badge>
                   ))}
                 </div>
@@ -497,6 +602,7 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
           </ul>
         )}
       </Panel>
+      )}
 
       {/* Organization-scoped audit trail */}
       <Panel theme={theme} title="Business audit trail" icon={ShieldCheck}>
@@ -519,6 +625,7 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
         open={showStaff}
         staff={editStaff}
         organizationId={org.id}
+        category={category}
         facilities={facilities}
         onClose={() => setShowStaff(false)}
         onDone={(msg) => { setShowStaff(false); setNote(msg); void load(); }}
@@ -526,6 +633,7 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
       <TxnModal
         open={showTxn}
         organizationId={org.id}
+        category={category}
         facilities={facilities}
         defaultFacilityId={facilityId}
         bookings={bookingList}
@@ -559,7 +667,7 @@ function downloadCsv(txns: TxnRow[], businessName: string) {
 
 /** The separate owner onboarding application (never touches the Superadmin login). */
 function RegistrationModal({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: (message: string) => void }) {
-  const [form, setForm] = useState({ businessName: '', legalEntityType: 'PRIVATE_LIMITED', ownerFullName: '', ownerEmail: '', ownerPhone: '', headquartersAddress: '', district: 'Shopian', stateUt: 'Jammu & Kashmir', gstinOrRegNo: '', panNumber: '', upiId: '', bankName: 'J&K Bank', verificationNotes: '' });
+  const [form, setForm] = useState({ businessName: '', businessCategory: DEFAULT_BUSINESS_CATEGORY as BusinessCategory, legalEntityType: 'PRIVATE_LIMITED', ownerFullName: '', ownerEmail: '', ownerPhone: '', headquartersAddress: '', district: 'Shopian', stateUt: 'Jammu & Kashmir', gstinOrRegNo: '', panNumber: '', upiId: '', bankName: 'J&K Bank', verificationNotes: '' });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -571,7 +679,8 @@ function RegistrationModal({ open, onClose, onDone }: { open: boolean; onClose: 
       const res = await fetch('/api/admin/hierarchy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'REGISTER_OWNER_ORGANIZATION', ...form }) });
       const body = await res.json();
       if (!body.ok) throw new Error(body.error || 'Registration failed.');
-      onDone(`Application submitted: ${body.organization.business_name} (${body.organization.organization_code}) is now PENDING_VERIFICATION with the Platform Superadmin.`);
+      const pendingCategory = body.categoryPersisted === false && form.businessCategory !== DEFAULT_BUSINESS_CATEGORY;
+      onDone(`Application submitted: ${body.organization.business_name} (${body.organization.organization_code}) is now PENDING_VERIFICATION with the Platform Superadmin.${pendingCategory ? ` Your ${BUSINESS_CATEGORY_LABEL[form.businessCategory]} category is in your notes; it is applied once the latest database update is run.` : ''}`);
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Registration failed.');
     } finally {
@@ -580,9 +689,14 @@ function RegistrationModal({ open, onClose, onDone }: { open: boolean; onClose: 
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Register a cold storage business" wide>
+    <Modal open={open} onClose={onClose} title="Register your business" wide>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Business name"><input className={INPUT} value={form.businessName} onChange={set('businessName')} placeholder="e.g. Al Noor Agri Fresh Pvt. Ltd." /></Field>
+        <Field label="Business category" hint="Decides which admin modules your console shows">
+          <select className={INPUT} value={form.businessCategory} onChange={set('businessCategory')}>
+            {BUSINESS_CATEGORIES.map((c) => <option key={c} value={c}>{BUSINESS_CATEGORY_LABEL[c]}</option>)}
+          </select>
+        </Field>
         <Field label="Legal entity type">
           <select className={INPUT} value={form.legalEntityType} onChange={set('legalEntityType')}>
             {['PRIVATE_LIMITED', 'LLP', 'PARTNERSHIP', 'PROPRIETORSHIP', 'COOPERATIVE'].map((t) => <option key={t} value={t}>{titleCase(t)}</option>)}
@@ -591,15 +705,15 @@ function RegistrationModal({ open, onClose, onDone }: { open: boolean; onClose: 
         <Field label="Owner full name"><input className={INPUT} value={form.ownerFullName} onChange={set('ownerFullName')} /></Field>
         <Field label="Owner email"><input className={INPUT} type="email" value={form.ownerEmail} onChange={set('ownerEmail')} /></Field>
         <Field label="Owner phone"><input className={INPUT} value={form.ownerPhone} onChange={set('ownerPhone')} placeholder="+91…" /></Field>
-        <Field label="Headquarters address"><input className={INPUT} value={form.headquartersAddress} onChange={set('headquartersAddress')} /></Field>
+        <Field label="Headquarters address" hint="Required"><input className={INPUT} value={form.headquartersAddress} onChange={set('headquartersAddress')} /></Field>
         <Field label="District"><input className={INPUT} value={form.district} onChange={set('district')} /></Field>
         <Field label="State / UT"><input className={INPUT} value={form.stateUt} onChange={set('stateUt')} /></Field>
         <Field label="GSTIN / registration no." hint="Optional"><input className={INPUT} value={form.gstinOrRegNo} onChange={set('gstinOrRegNo')} /></Field>
         <Field label="PAN number" hint="Optional"><input className={INPUT} value={form.panNumber} onChange={set('panNumber')} /></Field>
-        <Field label="UPI ID for farmer payments" hint="Optional now"><input className={INPUT} value={form.upiId} onChange={set('upiId')} /></Field>
+        <Field label="UPI ID for payments" hint="Optional now"><input className={INPUT} value={form.upiId} onChange={set('upiId')} /></Field>
         <Field label="Bank"><input className={INPUT} value={form.bankName} onChange={set('bankName')} /></Field>
         <div className="sm:col-span-2">
-          <Field label="Verification notes"><textarea className={INPUT} rows={2} value={form.verificationNotes} onChange={set('verificationNotes')} placeholder="Tell the Platform Superadmin about your facility and licence" /></Field>
+          <Field label="Verification notes"><textarea className={INPUT} rows={2} value={form.verificationNotes} onChange={set('verificationNotes')} placeholder="Tell the Platform Superadmin about your business and licence" /></Field>
         </div>
       </div>
       {err && <p role="alert" className="mt-3 rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-800 ring-1 ring-rose-200">{err}</p>}
@@ -612,7 +726,7 @@ function RegistrationModal({ open, onClose, onDone }: { open: boolean; onClose: 
 }
 
 /** Staff & employee RBAC: 8 business roles, granular permission toggles. */
-function StaffModal({ open, staff, organizationId, facilities, onClose, onDone }: { open: boolean; staff: StaffRow | null; organizationId: string; facilities: Facility[]; onClose: () => void; onDone: (message: string) => void }) {
+function StaffModal({ open, staff, organizationId, category, facilities, onClose, onDone }: { open: boolean; staff: StaffRow | null; organizationId: string; category: BusinessCategory; facilities: Facility[]; onClose: () => void; onDone: (message: string) => void }) {
   const role = staff?.staff_role ?? 'FACILITY_MANAGER';
   const [form, setForm] = useState({ fullName: staff?.full_name ?? '', email: staff?.email ?? '', phone: staff?.phone ?? '', staffRole: role, assignedFacilityId: staff?.assigned_facility_id ?? '', employmentStatus: staff?.employment_status ?? 'ACTIVE' });
   const [perms, setPerms] = useState<StaffPermissionsMatrix>({ ...ROLE_DEFAULT_PERMISSIONS[role as keyof typeof ROLE_DEFAULT_PERMISSIONS], ...(staff?.permissions_matrix ?? {}) });
@@ -626,7 +740,9 @@ function StaffModal({ open, staff, organizationId, facilities, onClose, onDone }
     setBusy(true);
     setErr(null);
     try {
-      const res = await fetch('/api/admin/hierarchy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'UPSERT_OWNER_STAFF', organizationId, ...form, permissionsMatrix: perms }) });
+      // Permissions for modules this category does not have are saved switched off.
+      const scopedPerms = Object.fromEntries(Object.entries(perms).map(([perm, on]) => [perm, permissionAppliesTo(perm, category) && Boolean(on)]));
+      const res = await fetch('/api/admin/hierarchy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'UPSERT_OWNER_STAFF', organizationId, ...form, permissionsMatrix: scopedPerms }) });
       const body = await res.json();
       if (!body.ok) throw new Error(body.error || 'Could not save the staff member.');
       onDone(`${body.staff.full_name} saved as ${titleCase(body.staff.staff_role)} (audit-logged).`);
@@ -647,12 +763,14 @@ function StaffModal({ open, staff, organizationId, facilities, onClose, onDone }
             {OWNER_STAFF_ROLES.map((r) => <option key={r} value={r}>{titleCase(r)}</option>)}
           </select>
         </Field>
-        <Field label="Assigned facility" hint="Empty: authorized across all facilities of this business">
-          <select className={INPUT} value={form.assignedFacilityId} onChange={(e) => setForm((f) => ({ ...f, assignedFacilityId: e.target.value }))}>
-            <option value="">All facilities</option>
-            {(facilities ?? []).map((f) => <option key={f.id} value={f.id}>{f.title}</option>)}
-          </select>
-        </Field>
+        {categoryHasModule(category, 'facilities') && (
+          <Field label="Assigned facility" hint="Empty: authorized across all facilities of this business">
+            <select className={INPUT} value={form.assignedFacilityId} onChange={(e) => setForm((f) => ({ ...f, assignedFacilityId: e.target.value }))}>
+              <option value="">All facilities</option>
+              {(facilities ?? []).map((f) => <option key={f.id} value={f.id}>{f.title}</option>)}
+            </select>
+          </Field>
+        )}
         <Field label="Employment status">
           <select className={INPUT} value={form.employmentStatus} onChange={(e) => setForm((f) => ({ ...f, employmentStatus: e.target.value }))}>
             {['ACTIVE', 'INACTIVE', 'SUSPENDED'].map((s) => <option key={s} value={s}>{titleCase(s)}</option>)}
@@ -661,7 +779,7 @@ function StaffModal({ open, staff, organizationId, facilities, onClose, onDone }
       </div>
       <p className="mt-4 mb-2 text-sm font-semibold text-slate-800">Permissions</p>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        {(Object.keys(ROLE_DEFAULT_PERMISSIONS.COLD_STORAGE_OWNER) as (keyof StaffPermissionsMatrix)[]).map((perm) => (
+        {(Object.keys(ROLE_DEFAULT_PERMISSIONS.COLD_STORAGE_OWNER) as (keyof StaffPermissionsMatrix)[]).filter((perm) => permissionAppliesTo(perm, category)).map((perm) => (
           <label key={perm} className="flex items-center justify-between gap-2 rounded-xl bg-white/80 px-3 py-2 text-sm text-slate-800 ring-1 ring-slate-200">
             {titleCase(perm)}
             <input type="checkbox" className="h-4 w-4 accent-sky-700" checked={Boolean(perms[perm])} onChange={(e) => setPerms((p) => ({ ...p, [perm]: e.target.checked }))} />
@@ -677,8 +795,11 @@ function StaffModal({ open, staff, organizationId, facilities, onClose, onDone }
   );
 }
 
-/** Record a business financial transaction against a farmer (module 9). */
-function TxnModal({ open, organizationId, facilities, defaultFacilityId, bookings, onClose, onDone }: { open: boolean; organizationId: string; facilities: Facility[]; defaultFacilityId: string | null; bookings: BookingRow[]; onClose: () => void; onDone: (message: string) => void }) {
+/** Record a business financial transaction against a farmer or customer (module 9). */
+function TxnModal({ open, organizationId, category, facilities, defaultFacilityId, bookings, onClose, onDone }: { open: boolean; organizationId: string; category: BusinessCategory; facilities: Facility[]; defaultFacilityId: string | null; bookings: BookingRow[]; onClose: () => void; onDone: (message: string) => void }) {
+  const partyLabel = category === 'COLD_STORAGE' ? 'Farmer' : 'Customer';
+  const hasFacilities = categoryHasModule(category, 'facilities');
+  const hasBookings = categoryHasModule(category, 'bookings');
   const [form, setForm] = useState({ facilityId: defaultFacilityId ?? facilities[0]?.id ?? '', farmerName: '', bookingId: '', transactionType: 'STORAGE_BOOKING_CHARGE', grossAmountInr: '', paidAmountInr: '', paymentMethod: 'UPI_OR_NEFT', notes: '' });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -703,18 +824,22 @@ function TxnModal({ open, organizationId, facilities, defaultFacilityId, booking
   return (
     <Modal open={open} onClose={onClose} title="Record a financial transaction" wide>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="Facility">
-          <select className={INPUT} value={form.facilityId} onChange={(e) => setForm((f) => ({ ...f, facilityId: e.target.value }))}>
-            {(facilities ?? []).map((f) => <option key={f.id} value={f.id}>{f.title}</option>)}
-          </select>
-        </Field>
-        <Field label="Link a booking" hint="Optional — fills the farmer and reference">
-          <select className={INPUT} value={form.bookingId} onChange={(e) => setForm((f) => ({ ...f, bookingId: e.target.value, farmerName: (bookings ?? []).find((b) => b.id === e.target.value)?.farmer_name ?? f.farmerName }))}>
-            <option value="">No booking link</option>
-            {(bookings ?? []).slice(0, 30).map((b) => <option key={b.id} value={b.id}>{b.booking_reference} · {b.farmer_name}</option>)}
-          </select>
-        </Field>
-        <Field label="Farmer name"><input className={INPUT} value={form.farmerName} onChange={(e) => setForm((f) => ({ ...f, farmerName: e.target.value }))} /></Field>
+        {hasFacilities && facilities.length > 0 && (
+          <Field label="Facility">
+            <select className={INPUT} value={form.facilityId} onChange={(e) => setForm((f) => ({ ...f, facilityId: e.target.value }))}>
+              {(facilities ?? []).map((f) => <option key={f.id} value={f.id}>{f.title}</option>)}
+            </select>
+          </Field>
+        )}
+        {hasBookings && (
+          <Field label="Link a booking" hint={`Optional — fills the ${partyLabel.toLowerCase()} and reference`}>
+            <select className={INPUT} value={form.bookingId} onChange={(e) => setForm((f) => ({ ...f, bookingId: e.target.value, farmerName: (bookings ?? []).find((b) => b.id === e.target.value)?.farmer_name ?? f.farmerName }))}>
+              <option value="">No booking link</option>
+              {(bookings ?? []).slice(0, 30).map((b) => <option key={b.id} value={b.id}>{b.booking_reference} · {b.farmer_name}</option>)}
+            </select>
+          </Field>
+        )}
+        <Field label={`${partyLabel} name`}><input className={INPUT} value={form.farmerName} onChange={(e) => setForm((f) => ({ ...f, farmerName: e.target.value }))} /></Field>
         <Field label="Transaction type">
           <select className={INPUT} value={form.transactionType} onChange={(e) => setForm((f) => ({ ...f, transactionType: e.target.value }))}>
             {['STORAGE_BOOKING_CHARGE', 'HANDLING_AND_GRADING_CHARGE', 'PARTIAL_ADVANCE_PAYMENT', 'FINAL_SETTLEMENT', 'REFUND'].map((t) => <option key={t} value={t}>{titleCase(t)}</option>)}

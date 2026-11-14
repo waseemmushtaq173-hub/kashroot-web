@@ -145,6 +145,32 @@ export interface Vestibule {
   door: Seg;
 }
 
+/**
+ * The building's structural steel, worked out from its own grid: H-columns
+ * standing against the inner faces of the outer walls and at the outer
+ * corners of the chambers (every 20–25 ft along a wall), and overhead
+ * I-beams on the same grid. `pillars` are floor footprints (they stop a
+ * walker); `beams` are centre lines at the roof. A column is only ever
+ * placed where it clears every door, the main passage, the airlock, the
+ * chamber walkways and the work zones — see structureOf.
+ */
+export interface Structure {
+  pillars: Rect[];
+  beams: Seg[];
+}
+
+/** A column's footprint (its yellow base guard), metres, square. */
+export const COLUMN = 0.38;
+/** Ceiling I-beam: 0.8 ft deep, flanges 0.5 ft wide. */
+export const BEAM_DEPTH = 0.244;
+export const BEAM_FLANGE = 0.152;
+/** The structural grid: a column at least every 25 ft along a wall. */
+const GRID_MAX = 7.62;
+/** Keep a column 2.5 ft clear of any door opening. */
+const DOOR_CLEAR = 0.762;
+/** The forklift's way up to a chamber door, metres out from it. */
+const DOOR_APPROACH = 3;
+
 export interface StoreScene {
   /** The owner's building as the drawing encloses it — grown where a chamber poked out (null: not given). */
   building: Building | null;
@@ -161,6 +187,8 @@ export interface StoreScene {
   passage: Rect | null;
   /** The airlock vestibule inside the main door (null when the passage has no room for one). */
   vestibule: Vestibule | null;
+  /** Structural columns and ceiling I-beams on the building's grid (empty without a building). */
+  structure: Structure;
   /** Work zones painted on the floor (none without a building, and only where free floor has room). */
   zones: SceneZone[];
   chambers: SceneChamber[];
@@ -748,7 +776,8 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
     floors = Math.max(floors, c.floors.length);
   }
   const vestibule = vestibuleOf(mainDoor, passage, chambers, hall);
-  return { building: effBuilding, hall, bounds: { x: x0, y: y0, w: x1 - x0, d: y1 - y0 }, height: Math.max(height, 1), mainDoor, walls, passage, vestibule, zones, chambers, problems, beside: false, floors, unit };
+  const structure = effBuilding ? structureOf({ hall, wallT: effBuilding.wallThickness ?? 0.25, mainDoor, passage, vestibule, chambers, zones }) : { pillars: [], beams: [] };
+  return { building: effBuilding, hall, bounds: { x: x0, y: y0, w: x1 - x0, d: y1 - y0 }, height: Math.max(height, 1), mainDoor, walls, passage, vestibule, structure, zones, chambers, problems, beside: false, floors, unit };
 }
 
 const ORD = ['1st', '2nd', '3rd'];
@@ -800,6 +829,144 @@ export function vestibuleOf(md: MainDoor | null, passage: Rect | null, chambers:
   if (a1 - g1 > 0.05) walls.push(line(g1, end, a1, end));
   const rect: Rect = vertical ? { x: a0, y: lo, w: a1 - a0, d: depth } : { x: lo, y: a0, w: depth, d: a1 - a0 };
   return { rect, walls, door: line(g0, end, g1, end) };
+}
+
+const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w - 1e-6 && a.x + a.w > b.x + 1e-6 && a.y < b.y + b.d - 1e-6 && a.y + a.d > b.y + 1e-6;
+const columnAt = (x: number, y: number): Rect => ({ x: x - COLUMN / 2, y: y - COLUMN / 2, w: COLUMN, d: COLUMN });
+
+/** The floor in front of a door that must stay open: the opening 2.5 ft each side, and `reach` out from its wall. */
+function doorZone(s: Seg, out: Vec, reach: number): Rect {
+  const horiz = Math.abs(s.y2 - s.y1) < 1e-6;
+  const a0 = Math.min(horiz ? s.x1 : s.y1, horiz ? s.x2 : s.y2) - DOOR_CLEAR;
+  const a1 = Math.max(horiz ? s.x1 : s.y1, horiz ? s.x2 : s.y2) + DOOR_CLEAR;
+  const wall = horiz ? s.y1 : s.x1;
+  const dir = (horiz ? out.y : out.x) >= 0 ? 1 : -1;
+  const lo = dir > 0 ? wall - DOOR_CLEAR : wall - reach;
+  const hi = dir > 0 ? wall + reach : wall + DOOR_CLEAR;
+  return horiz ? { x: a0, y: lo, w: a1 - a0, d: hi - lo } : { x: lo, y: a0, w: hi - lo, d: a1 - a0 };
+}
+
+/**
+ * The structural grid. Deterministic: the same building, chambers and doors
+ * always give the same columns and beams.
+ *
+ *  • Perimeter columns stand against the inner face of the outer walls, at
+ *    most 25 ft apart (corners included).
+ *  • Partition columns stand just outside each chamber's outer corners.
+ *  • Before any column is kept it is checked against every door opening
+ *    (2.5 ft each side, and the forklift's way up to it), the main passage,
+ *    the airlock, the chambers themselves (walkways and bin slots are inside
+ *    them) and — for the partition ones — the work zones. A blocked
+ *    perimeter column slides along its wall towards the nearest corner; if
+ *    nothing clear is found it is left out. A column therefore never blocks a
+ *    door, the corridor or a bin slot.
+ *  • Ceiling I-beams span the shorter way across the building on the grid
+ *    lines of the long walls' columns (on the real column where it was moved).
+ */
+export function structureOf(a: {
+  hall: Rect;
+  wallT: number;
+  mainDoor: MainDoor | null;
+  passage: Rect | null;
+  vestibule: Vestibule | null;
+  chambers: SceneChamber[];
+  zones: SceneZone[];
+}): Structure {
+  const { hall } = a;
+  const inset = a.wallT / 2 + COLUMN / 2 + 0.01;
+  const inner: Rect = { x: hall.x + inset - COLUMN / 2, y: hall.y + inset - COLUMN / 2, w: hall.w - 2 * inset + COLUMN, d: hall.d - 2 * inset + COLUMN };
+  if (inner.w < COLUMN * 2 || inner.d < COLUMN * 2) return { pillars: [], beams: [] };
+
+  const clear: Rect[] = [];
+  if (a.mainDoor) clear.push(doorZone(a.mainDoor.seg, { x: -a.mainDoor.inward.x, y: -a.mainDoor.inward.y }, DOOR_APPROACH));
+  if (a.passage) clear.push({ x: a.passage.x - 0.05, y: a.passage.y - 0.05, w: a.passage.w + 0.1, d: a.passage.d + 0.1 });
+  if (a.vestibule) clear.push(a.vestibule.rect);
+  for (const c of a.chambers) {
+    clear.push(c.rect);
+    if (c.door) clear.push(doorZone(c.door, { x: -c.inward.x, y: -c.inward.y }, DOOR_APPROACH));
+  }
+  const zoneRects = a.zones.map((z) => z.rect);
+  const free = (r: Rect, withZones: boolean) => !clear.some((k) => overlaps(r, k)) && (!withZones || !zoneRects.some((z) => overlaps(r, z)));
+  const inside = (r: Rect) => r.x >= inner.x - 1e-6 && r.y >= inner.y - 1e-6 && r.x + r.w <= inner.x + inner.w + 1e-6 && r.y + r.d <= inner.y + inner.d + 1e-6;
+
+  const pillars: Rect[] = [];
+  const apart = (r: Rect, gap: number) => !pillars.some((p) => Math.hypot(p.x - r.x, p.y - r.y) < gap);
+  const round = (n: number) => Math.round(n * 100) / 100;
+
+  // Grid lines along each wall: evenly spread, never further apart than 25 ft.
+  const lines = (from: number, to: number) => {
+    const n = Math.max(1, Math.ceil((to - from) / GRID_MAX - 1e-9));
+    return Array.from({ length: n + 1 }, (_, i) => from + ((to - from) * i) / n);
+  };
+  const xs = lines(inner.x + COLUMN / 2, inner.x + inner.w - COLUMN / 2);
+  const ys = lines(inner.y + COLUMN / 2, inner.y + inner.d - COLUMN / 2);
+  const along: 'x' | 'y' = hall.w >= hall.d ? 'x' : 'y';
+
+  type Wall4 = { fixed: number; list: number[]; horiz: boolean };
+  const walls4: Wall4[] = [
+    { fixed: inner.y + COLUMN / 2, list: xs, horiz: true }, // front wall (low y)
+    { fixed: inner.y + inner.d - COLUMN / 2, list: xs, horiz: true }, // back wall
+    { fixed: inner.x + COLUMN / 2, list: ys.slice(1, -1), horiz: false }, // left wall (corners belong to front/back)
+    { fixed: inner.x + inner.w - COLUMN / 2, list: ys.slice(1, -1), horiz: false }, // right wall
+  ];
+  // Where each long-wall grid line's column really stands (null: none), for the beams to land on.
+  const landed = new Map<string, number | null>();
+  walls4.forEach((w, wi) => {
+    w.list.forEach((t, li) => {
+      const at = (s: number) => (w.horiz ? columnAt(s, w.fixed) : columnAt(w.fixed, s));
+      // Sliding order: where it is, then outwards in 0.5 m steps — towards the nearer end of the wall first.
+      const lo = w.list[0];
+      const hi = w.list[w.list.length - 1];
+      const towardEnd = t - lo <= hi - t ? -1 : 1;
+      let kept: number | null = null;
+      for (let d = 0; d <= GRID_MAX / 2 && kept === null; d += 0.5) {
+        for (const s of d === 0 ? [0] : [towardEnd, -towardEnd]) {
+          const pos = t + s * d;
+          const r = at(pos);
+          if (pos < (w.horiz ? inner.x : inner.y) + COLUMN / 2 - 1e-6 || pos > (w.horiz ? inner.x + inner.w : inner.y + inner.d) - COLUMN / 2 + 1e-6) continue;
+          if (inside(r) && free(r, false) && apart(r, COLUMN * 3)) {
+            kept = pos;
+            pillars.push({ x: round(r.x), y: round(r.y), w: COLUMN, d: COLUMN });
+            break;
+          }
+        }
+      }
+      landed.set(`${wi}:${li}`, kept);
+    });
+  });
+
+  // Partition columns just outside each chamber's outer corners.
+  for (const c of a.chambers) {
+    const r = c.rect;
+    for (const [cx, cy, sx, sy] of [
+      [r.x, r.y, -1, -1],
+      [r.x + r.w, r.y, 1, -1],
+      [r.x, r.y + r.d, -1, 1],
+      [r.x + r.w, r.y + r.d, 1, 1],
+    ] as const) {
+      const p = columnAt(cx + sx * (COLUMN / 2 + 0.02), cy + sy * (COLUMN / 2 + 0.02));
+      if (inside(p) && free(p, true) && apart(p, COLUMN * 3)) pillars.push({ x: round(p.x), y: round(p.y), w: COLUMN, d: COLUMN });
+    }
+  }
+
+  // Beams: across the shorter span, on the long walls' grid lines.
+  const beams: Seg[] = [];
+  const e = a.wallT / 2;
+  const spanA = along === 'x' ? { from: hall.y + e, to: hall.y + hall.d - e } : { from: hall.x + e, to: hall.x + hall.w - e };
+  const longWalls = along === 'x' ? [0, 1] : [2, 3];
+  const gridLines = along === 'x' ? xs : ys;
+  const interior = gridLines.slice(1, -1);
+  const marks = interior.length ? interior.map((t, i) => {
+    // The column's real spot on the first long wall where it stands, else the second's, else the grid line.
+    const li = along === 'x' ? i + 1 : i;
+    for (const wi of longWalls) {
+      const k = landed.get(`${wi}:${li}`);
+      if (k !== undefined && k !== null) return k;
+    }
+    return t;
+  }) : [along === 'x' ? hall.x + hall.w / 2 : hall.y + hall.d / 2];
+  for (const t of marks) beams.push(along === 'x' ? { x1: t, y1: spanA.from, x2: t, y2: spanA.to } : { x1: spanA.from, y1: t, x2: spanA.to, y2: t });
+  return { pillars, beams };
 }
 
 /**

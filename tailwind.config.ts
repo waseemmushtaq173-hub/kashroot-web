@@ -56,6 +56,14 @@ const config: Config = {
         ivory: { DEFAULT: '#FBF8F0', deep: '#F6F1E3' },
         copper: '#B4532A',
         saffron: '#E05A3E',
+        // The unified KashRoot identity (same values as the --kr-* tokens in globals.css): forest greens for
+        // headers, sidebars and primary actions, soft green panels, champagne gold accents, a cool mist page.
+        // Gold is for lines, dots and badges (2.2:1 on white); its text pair is champagne-deep.
+        // ink-soft is #718078 darkened to 5.3:1 on white so small secondary text keeps WCAG AA.
+        forest: { DEFAULT: '#174C3C', mid: '#286B54', deep: '#12382E', soft: '#EAF3EE', line: '#E2EAE5' },
+        champagne: { DEFAULT: '#C6A45B', soft: '#F6EFDC', deep: '#6B5421' },
+        mist: '#F4F7F8',
+        ink: { DEFAULT: '#25332F', soft: '#5B6B63' },
         // Raw palette scales (accessible as bg-kr-primary-500, etc.)
         'kr-primary':   colors.primary,
         'kr-secondary': colors.secondary,
@@ -218,12 +226,10 @@ const config: Config = {
  * states are defined. No per-page ad hoc state styles.
  *
  * Classes defined:
- *   .kr-btn-primary    .kr-btn-secondary    .kr-btn-ghost    .kr-btn-danger
- *   .kr-btn-inverse
+ *   .kr-btn-ghost      .kr-btn-danger       .kr-btn-inverse
  *   .kr-btn-loading    .kr-btn-sm           .kr-btn-lg
  *   .kr-input          .kr-input-error
  *   .kr-label          .kr-hint             .kr-error-msg
- *   .kr-card           .kr-card-interactive
  *   .kr-badge-draft    .kr-badge-published  .kr-badge-pending  .kr-badge-rejected
  *   .kr-badge-customs  .kr-badge-cross-border
  *   .kr-focus-ring
@@ -273,22 +279,8 @@ function componentStatesPlugin() {
           pointerEvents: 'none',
         },
       },
-      '.kr-btn-primary': {
-        '@apply kr-btn-base': {},
-        backgroundColor: 'var(--kr-fill-brand)',
-        color: '#FFFFFF',
-        border: '1px solid transparent',
-        '&:hover:not(:disabled)': { backgroundColor: 'var(--kr-fill-brand-hover)' },
-        '&:active:not(:disabled)': { backgroundColor: 'var(--kr-fill-brand-active)' },
-      },
-      '.kr-btn-secondary': {
-        '@apply kr-btn-base': {},
-        backgroundColor: 'transparent',
-        color: 'var(--kr-fill-brand)',
-        border: '1px solid var(--kr-border-brand)',
-        '&:hover:not(:disabled)': { backgroundColor: 'var(--kr-fill-brand-subtle)' },
-        '&:active:not(:disabled)': { opacity: '0.85' },
-      },
+      // .kr-btn-primary / .kr-btn-secondary (tactile 2.5D) and .kr-card / .kr-card-interactive are
+      // defined once, in globals.css (@layer components), from the --kr-btn-* and --kr-card-* tokens.
       '.kr-btn-inverse': {
         '@apply kr-btn-base': {},
         backgroundColor: 'transparent',
@@ -373,33 +365,6 @@ function componentStatesPlugin() {
         display: 'flex',
         alignItems: 'center',
         gap: '0.25rem',
-      },
-
-      // ── Cards ──────────────────────────────────────────────────────────────
-      '.kr-card': {
-        backgroundColor: 'var(--kr-bg-surface)',
-        backdropFilter: 'blur(18px) saturate(1.35)',
-        WebkitBackdropFilter: 'blur(18px) saturate(1.35)',
-        border: '1px solid rgba(255,255,255,0.45)',
-        borderRadius: borderRadius.md,
-        padding: spacing['card-p'],
-        boxShadow: boxShadow.card,
-        color: 'var(--kr-text-primary)',
-      },
-      '.kr-card-interactive': {
-        '@apply kr-card': {},
-        cursor: 'pointer',
-        transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
-        '&:hover': {
-          borderColor: 'var(--kr-border-brand)',
-          boxShadow: boxShadow['card-md'],
-          transform: 'translateY(-2px)',
-        },
-        '&:active': { boxShadow: boxShadow.card },
-        '&:focus-visible': {
-          outline: 'none',
-          boxShadow: '0 0 0 3px var(--kr-border-focus)',
-        },
       },
 
       // ── Badges ─────────────────────────────────────────────────────────────

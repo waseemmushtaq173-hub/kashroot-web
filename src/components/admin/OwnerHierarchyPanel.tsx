@@ -3,11 +3,13 @@
 /**
  * Owner hierarchy panel — the Platform Superadmin's (Founder's) multi-level
  * administration view inside /admin/dashboard:
- *   - Platform-wide KPIs across every cold storage business.
+ *   - Platform-wide KPIs across every business, of every category.
  *   - The owner onboarding & approval queue: approve, request info, suspend,
- *     reject (every decision is written to platform_audit_logs).
+ *     reject (every decision is written to platform_audit_logs). Each business
+ *     shows its category as a badge and the queue filters by category.
  *   - 1-click Authorized Oversight Mode: opens that owner's complete business
- *     dashboard at /rental/dashboard?oversightOrgId=…&oversight=1.
+ *     dashboard at /rental/dashboard?oversightOrgId=…&oversight=1 — the console
+ *     of that owner's own category.
  *   - The global audit trail.
  * Data: GET /api/admin/hierarchy?scope=PLATFORM_SUPERADMIN.
  */
@@ -16,6 +18,7 @@ import { Building2, ClipboardList, Crown, Eye, ShieldCheck, Snowflake, ThumbsUp,
 
 import { Badge, Btn, EmptyState, Panel, Skeleton } from '@/components/portal/kit';
 import { PORTAL_THEMES } from '@/components/portal/kit';
+import { BUSINESS_CATEGORIES, BUSINESS_CATEGORY_LABEL, normalizeBusinessCategory, type BusinessCategory } from '@/lib/multiTenantAuth';
 
 const theme = PORTAL_THEMES.admin;
 
@@ -23,6 +26,7 @@ interface Org {
   id: string;
   organization_code: string;
   business_name: string;
+  business_category?: string | null;
   owner_full_name: string;
   owner_email: string;
   owner_phone: string;
@@ -98,6 +102,7 @@ export function OwnerHierarchyPanel() {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<'ALL' | BusinessCategory>('ALL');
 
   const load = useCallback(async () => {
     try {
@@ -142,8 +147,12 @@ export function OwnerHierarchyPanel() {
   }
 
   const s = data.summary;
+  const orgs = data.organizations ?? [];
+  const categoryOf = (org: Org) => normalizeBusinessCategory(org.business_category);
+  const countFor = (c: BusinessCategory) => orgs.filter((o) => categoryOf(o) === c).length;
+  const shownOrgs = categoryFilter === 'ALL' ? orgs : orgs.filter((o) => categoryOf(o) === categoryFilter);
   const kpis: { label: string; value: string; hint: string }[] = [
-    { label: 'Cold storage businesses', value: String(s.totalOrganizations), hint: `${s.approvedOrganizations} approved · ${s.pendingApplications} pending` },
+    { label: 'Businesses', value: String(s.totalOrganizations), hint: `${s.approvedOrganizations} approved · ${s.pendingApplications} pending` },
     { label: 'Facilities · Chambers · Bins', value: `${s.totalFacilities} · ${s.totalChambers} · ${s.totalBins}`, hint: 'Across every owner organization' },
     { label: 'Storage capacity', value: `${s.totalCapacityCrates.toLocaleString('en-IN')} crates`, hint: `${s.occupiedCapacityCrates.toLocaleString('en-IN')} occupied · ${s.availableCapacityCrates.toLocaleString('en-IN')} available` },
     { label: 'Bookings', value: String(s.totalBookings), hint: 'Latest 100 on the platform' },
@@ -169,25 +178,47 @@ export function OwnerHierarchyPanel() {
 
       <Panel
         theme={theme}
-        title="Cold storage owner onboarding & approval queue"
+        title="Owner onboarding & approval queue"
         icon={ShieldCheck}
         action={<Btn theme={theme} variant="soft" size="sm" icon={ClipboardList} href="/rental/dashboard?as=owner&tab=bizadmin">Owner onboarding & business admin</Btn>}
       >
         <p className="mb-4 text-sm text-slate-600">
-          Every registered cold storage business. Approve, request information, suspend or reject —
-          each decision is written to the immutable platform audit log. Open any owner's complete
-          business dashboard in Authorized Oversight Mode; every action you take there is audit-logged too.
+          Every registered business, of every category. Approve, request information, suspend or
+          reject — each decision is written to the immutable platform audit log. Open any complete
+          business dashboard in Authorized Oversight Mode; it opens the console that matches the
+          business category, and every action you take there is audit-logged too.
         </p>
-        {(data.organizations ?? []).length === 0 ? (
-          <EmptyState theme={theme} icon={Building2} title="No owner business registered yet" text="Cold storage owners register from the rental portal's Business admin tab; their application lands in this queue for your decision." />
+        {orgs.length > 0 && (
+          <div className="mb-4 flex flex-wrap items-center gap-2" role="group" aria-label="Filter businesses by category">
+            {(['ALL', ...BUSINESS_CATEGORIES] as const).map((c) => {
+              const active = categoryFilter === c;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setCategoryFilter(c)}
+                  className={`cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold ring-1 transition ${active ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white text-slate-700 ring-slate-300 hover:bg-slate-50'}`}
+                >
+                  {c === 'ALL' ? 'All categories' : BUSINESS_CATEGORY_LABEL[c]} · {c === 'ALL' ? orgs.length : countFor(c)}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {orgs.length === 0 ? (
+          <EmptyState theme={theme} icon={Building2} title="No owner business registered yet" text="Business owners register from the rental portal's Business admin tab, choosing their category; their application lands in this queue for your decision." />
+        ) : shownOrgs.length === 0 ? (
+          <EmptyState theme={theme} icon={Building2} title={`No ${categoryFilter === 'ALL' ? '' : BUSINESS_CATEGORY_LABEL[categoryFilter].toLowerCase() + ' '}business registered yet`} text="Pick another category above to see the other businesses." />
         ) : (
           <ul className="space-y-4">
-            {(data.organizations ?? []).map((org) => (
+            {shownOrgs.map((org) => (
               <li key={org.id} className="rounded-2xl bg-white/80 p-4 ring-1 ring-slate-200">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-semibold text-slate-900">{org.business_name}</h3>
+                      <Badge tone="blue">{BUSINESS_CATEGORY_LABEL[categoryOf(org)]}</Badge>
                       <Badge tone={STATUS_TONE[org.onboarding_status] ?? 'slate'}>{STATUS_TEXT[org.onboarding_status] ?? org.onboarding_status}</Badge>
                       <Badge tone="slate">{org.organization_code}</Badge>
                     </div>

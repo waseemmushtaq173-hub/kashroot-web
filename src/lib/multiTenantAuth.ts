@@ -144,6 +144,82 @@ export const OWNER_STAFF_ROLES: BusinessStaffRole[] = [
   'SOFTWARE_ENGINEER',
 ];
 
+/** The kind of business an owner organization runs (cold_storage_organizations.business_category). */
+export type BusinessCategory = 'COLD_STORAGE' | 'WAREHOUSE' | 'LOGISTICS' | 'AGRO_DEALER' | 'MANDI' | 'PACKHOUSE';
+
+export const BUSINESS_CATEGORIES: BusinessCategory[] = ['COLD_STORAGE', 'WAREHOUSE', 'PACKHOUSE', 'LOGISTICS', 'AGRO_DEALER', 'MANDI'];
+
+/** Organizations created before the category column existed are cold storage businesses. */
+export const DEFAULT_BUSINESS_CATEGORY: BusinessCategory = 'COLD_STORAGE';
+
+export const BUSINESS_CATEGORY_LABEL: Record<BusinessCategory, string> = {
+  COLD_STORAGE: 'Cold storage',
+  WAREHOUSE: 'Warehouse',
+  PACKHOUSE: 'Packhouse',
+  LOGISTICS: 'Logistics',
+  AGRO_DEALER: 'Agro-dealer',
+  MANDI: 'Mandi',
+};
+
+/** The modules of the Owner Admin Console. */
+export type OwnerModule =
+  | 'overview'
+  | 'facilities'
+  | 'twin'
+  | 'chambers'
+  | 'bins'
+  | 'bookings'
+  | 'inventory'
+  | 'telemetry'
+  | 'fleet'
+  | 'shipments'
+  | 'orders'
+  | 'trades'
+  | 'financial'
+  | 'staff';
+
+/** Which modules each category's console shows — a category sees only what its business uses. */
+export const CATEGORY_MODULES: Record<BusinessCategory, OwnerModule[]> = {
+  COLD_STORAGE: ['overview', 'facilities', 'twin', 'chambers', 'bins', 'bookings', 'inventory', 'telemetry', 'financial', 'staff'],
+  WAREHOUSE: ['overview', 'facilities', 'inventory', 'bookings', 'staff', 'financial'],
+  PACKHOUSE: ['overview', 'facilities', 'inventory', 'bookings', 'staff', 'financial'],
+  LOGISTICS: ['overview', 'fleet', 'shipments', 'staff', 'financial'],
+  AGRO_DEALER: ['overview', 'inventory', 'orders', 'staff', 'financial'],
+  MANDI: ['overview', 'trades', 'staff', 'financial'],
+};
+
+export function isBusinessCategory(value: unknown): value is BusinessCategory {
+  return typeof value === 'string' && (BUSINESS_CATEGORIES as string[]).includes(value);
+}
+
+/** Upper-cases and checks a category; anything missing or unknown (column not added yet) is cold storage. */
+export function normalizeBusinessCategory(value: unknown): BusinessCategory {
+  const key = typeof value === 'string' ? value.trim().toUpperCase() : '';
+  return isBusinessCategory(key) ? key : DEFAULT_BUSINESS_CATEGORY;
+}
+
+export const categoryHasModule = (category: BusinessCategory, module: OwnerModule) => CATEGORY_MODULES[category].includes(module);
+
+/** The modules each staff permission toggle governs, so a category lists only the toggles it can use. */
+const PERMISSION_MODULES: Record<keyof StaffPermissionsMatrix, OwnerModule[]> = {
+  manage_facilities: ['facilities'],
+  configure_3d_twin: ['twin'],
+  manage_chambers: ['chambers'],
+  manage_bins: ['bins'],
+  manage_bookings: ['bookings', 'shipments', 'orders', 'trades'],
+  manage_inventory: ['inventory'],
+  view_temperature_telemetry: ['telemetry'],
+  manage_financials: ['financial'],
+  manage_staff: ['staff'],
+};
+
+export const permissionAppliesTo = (permission: string, category: BusinessCategory) =>
+  (PERMISSION_MODULES[permission as keyof StaffPermissionsMatrix] ?? []).some((m) => categoryHasModule(category, m));
+
+/** Before 20261123000000_org_business_category.sql is run the business_category column is missing. */
+export const noBusinessCategoryColumn = (message?: string) =>
+  /business_category/i.test(message ?? '') && /column|schema cache|does not exist/i.test(message ?? '');
+
 export async function recordAdministrativeAuditLog(
   supabase: SupabaseClient,
   entry: {

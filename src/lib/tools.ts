@@ -1,10 +1,13 @@
 /**
- * The three Kashroot tools and their bright glass palettes — the single source
+ * The three Kashroot tools and their bright glass surfaces — the single source
  * of truth for the landing-page cards, the tool shell and its header.
  *
- *   escrow           Emerald Trust   — teal/emerald, "money is safe"
- *   mandi            Saffron Gold    — amber/orange, warm as harvest
- *   priceComparison  Lake Azure      — sky/indigo, calm and analytical
+ *   escrow           Pay After Delivery
+ *   mandi            Live Mandi Rates
+ *   priceComparison  Price Comparison Engine
+ *
+ * All three wear the one KashRoot look (forest green, champagne gold, mist
+ * page, tactile .kr-btn-* buttons and .kr-card cards from globals.css).
  *
  * Every class below is a complete literal string. Tailwind only generates
  * classes it can find verbatim in source, so never assemble these from
@@ -14,7 +17,7 @@
  * darker than *-50/white, and every solid button clears WCAG AA (4.5:1).
  *
  * NOTE: these are the *tools*. The role portals (farmer/buyer/seller dashboards)
- * keep their own themes in src/app/(dashboards).
+ * share the same look through components/portal/kit.
  */
 import { Scale, ShieldCheck, TrendingUp, type LucideIcon } from 'lucide-react';
 
@@ -53,21 +56,21 @@ export interface Tool {
 export const GLASS = {
   /** Large frosted panel over a photograph or colour field. */
   panel:
-    'bg-white/85 backdrop-blur-xl ring-1 ring-[#E8A317]/25 shadow-[0_8px_40px_rgba(15,23,42,0.10)]',
+    'bg-white/90 backdrop-blur-xl border border-forest-line [box-shadow:inset_0_1px_0_#fff,0_1px_2px_rgba(18,56,46,0.05),0_10px_36px_-8px_rgba(18,56,46,0.22)]',
   /** Content card inside a tool — pair with text-slate-900 / text-slate-600. */
-  card: 'rounded-3xl bg-white/70 backdrop-blur-xl ring-1 ring-[#E8A317]/25 shadow-[0_8px_30px_rgba(15,23,42,0.06)]',
+  card: 'kr-card kr-card-flat rounded-3xl bg-white/90 backdrop-blur-xl',
 } as const;
 
 /** The one KashRoot look (as the portals: components/portal/kit BRAND) — chinar green, saffron gold, ivory. */
 const TOOL_BRAND: ToolTheme = {
-  canvas: 'bg-gradient-to-br from-ivory via-ivory-deep to-[#EAF3EE]',
-  glowA: 'bg-emerald-300/30',
-  glowB: 'bg-amber-200/40',
-  header: 'bg-gradient-to-r from-[#FBF8F0]/95 via-white/85 to-emerald-50/90 border-b border-amber-200/70',
-  eyebrow: 'bg-amber-50 text-amber-900 ring-1 ring-amber-300/70',
-  iconTile: 'bg-gradient-to-br from-emerald-700 to-chinar-deep text-amber-200 shadow-lg shadow-emerald-950/25 ring-1 ring-amber-300/40',
-  primaryButton: 'bg-chinar text-white hover:bg-chinar-hover focus-visible:outline-emerald-700',
-  secondaryButton: 'bg-white/85 text-emerald-900 ring-1 ring-amber-300/80 hover:bg-white focus-visible:outline-emerald-700',
+  canvas: 'bg-mist',
+  glowA: 'bg-forest-soft',
+  glowB: 'bg-champagne/15',
+  header: 'bg-white/90 border-b border-forest-line',
+  eyebrow: 'bg-champagne-soft text-champagne-deep ring-1 ring-champagne/60',
+  iconTile: 'bg-forest-soft text-forest ring-1 ring-forest-line shadow-[inset_0_1px_0_#fff,0_1px_2px_rgba(18,56,46,0.08)]',
+  primaryButton: 'kr-btn-primary',
+  secondaryButton: 'kr-btn-secondary',
 };
 
 export const TOOLS: Record<ToolId, Tool> = {

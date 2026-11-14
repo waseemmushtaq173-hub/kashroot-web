@@ -12,8 +12,9 @@
  * the rates (posting them is the Mandi Helpers portal) — no card leads into
  * a portal it does not name.
  * Below the hero: the voice assistant, Orchard Health, KashRoot TrueScan
- * (is this fertiliser or pesticide genuine?) and every portal as a coloured
- * card (each with its own sign-in).
+ * (is this fertiliser or pesticide genuine?) and every portal as a white card
+ * (each with its own sign-in). The whole page wears the one KashRoot look:
+ * forest green, champagne gold, tactile .kr-btn-* buttons and .kr-card cards.
  *
  * A server component; the interactive sections are client islands.
  */
@@ -73,7 +74,6 @@ const TOOL_ACTIONS: Record<ToolId, { primary: ToolAction; secondary: ToolAction 
   },
 };
 
-const FOCUS_RING = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2';
 const BUTTON_LINK = 'no-underline hover:no-underline';
 
 /**
@@ -116,31 +116,31 @@ export default async function HomePage() {
         {/* Bottom padding leaves room for the season badge (no more). */}
         <main id="main-content" className="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-6 sm:pt-12 lg:px-8">
           <section className={`max-w-2xl rounded-[2rem] p-6 sm:p-9 ${GLASS.panel}`}>
-            <p className="inline-flex rounded-full bg-ivory px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-chinar ring-1 ring-[#E8A317]/50">
+            <p className="inline-flex rounded-full bg-forest-soft px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-forest ring-1 ring-champagne/60">
               KashRoot · The agri-business ecosystem
             </p>
-            <h1 className="font-display mt-5 text-4xl font-semibold tracking-tight text-slate-900 [text-wrap:balance] sm:text-5xl lg:text-6xl">
+            <h1 className="font-display mt-5 text-4xl font-semibold tracking-tight text-ink [text-wrap:balance] sm:text-5xl lg:text-6xl">
               Every harvest,{' '}
-              <span className="bg-gradient-to-r from-chinar to-emerald-700 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-forest to-forest-mid bg-clip-text text-transparent">
                 traded with trust.
               </span>
             </h1>
-            <p className="mt-4 max-w-xl text-base leading-relaxed text-slate-700 sm:text-lg">
-              <strong className="font-semibold text-slate-900">KashRoot</strong> brings pay-after-delivery trade, live mandi rates and
+            <p className="mt-4 max-w-xl text-base leading-relaxed text-ink-soft sm:text-lg">
+              <strong className="font-semibold text-ink">KashRoot</strong> brings pay-after-delivery trade, live mandi rates and
               transparent price comparison to growers, traders and buyers.
             </p>
-            {/* The valley's colour identity: emerald orchards, crimson fruit, saffron gold, sky blue. */}
+            {/* The KashRoot identity: forest greens, soft green and champagne gold. */}
             <p aria-hidden className="mt-5 flex items-center gap-1.5">
-              {['#0A3D2E', '#C92A2A', '#E8A317', '#3B82F6', '#22B8CF'].map((c) => (
-                <span key={c} className="h-2.5 w-8 rounded-full shadow-sm" style={{ backgroundColor: c }} />
+              {['#12382E', '#174C3C', '#286B54', '#EAF3EE', '#C6A45B'].map((c) => (
+                <span key={c} className="h-2.5 w-8 rounded-full ring-1 ring-forest-line" style={{ backgroundColor: c }} />
               ))}
             </p>
             {/* Real live platform counts — each shown only when its table answered. */}
             {(metrics.stores != null || metrics.lots != null || metrics.rates != null) && (
-              <p className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm font-medium text-slate-700">
-                {metrics.stores != null && <span><strong className="font-semibold text-slate-900">{fmt(metrics.stores)}</strong> cold stores listed</span>}
-                {metrics.lots != null && <span><strong className="font-semibold text-slate-900">{fmt(metrics.lots)}</strong> produce lots on sale</span>}
-                {metrics.rates != null && <span><strong className="font-semibold text-slate-900">{fmt(metrics.rates)}</strong> mandi rates today</span>}
+              <p className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm font-medium text-ink-soft">
+                {metrics.stores != null && <span><strong className="font-semibold text-ink">{fmt(metrics.stores)}</strong> cold stores listed</span>}
+                {metrics.lots != null && <span><strong className="font-semibold text-ink">{fmt(metrics.lots)}</strong> produce lots on sale</span>}
+                {metrics.rates != null && <span><strong className="font-semibold text-ink">{fmt(metrics.rates)}</strong> mandi rates today</span>}
               </p>
             )}
           </section>
@@ -155,7 +155,7 @@ export default async function HomePage() {
         </main>
       </HeroShowcase>
 
-      <div className="relative isolate overflow-hidden bg-gradient-to-b from-ivory via-white to-emerald-50/70">
+      <div className="relative isolate overflow-hidden bg-gradient-to-b from-mist via-white to-forest-soft/60">
         <div aria-hidden className="pointer-events-none absolute inset-0 -z-10" style={LATTICE_BG} />
         <div className="mx-auto max-w-7xl space-y-10 px-4 pb-14 pt-8 sm:px-6 lg:px-8">
           <section aria-label="Voice assistant">
@@ -164,13 +164,13 @@ export default async function HomePage() {
 
           <section aria-labelledby="fertilizer-heading" className="grid gap-6 lg:grid-cols-[1fr_1.6fr] lg:items-start">
             <div className="pt-2 lg:sticky lg:top-24">
-              <p className="inline-flex rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900 ring-1 ring-amber-300/70">Fertilisers and pesticides</p>
-              <h2 id="fertilizer-heading" className="font-display mt-3 text-3xl font-semibold tracking-tight text-slate-900">KashRoot TrueScan — is it genuine?</h2>
-              <p className="mt-3 leading-relaxed text-slate-600">
+              <p className="inline-flex rounded-full bg-champagne-soft px-3 py-1 text-xs font-semibold text-champagne-deep ring-1 ring-champagne/60">Fertilisers and pesticides</p>
+              <h2 id="fertilizer-heading" className="font-display mt-3 text-3xl font-semibold tracking-tight text-ink">KashRoot TrueScan — is it genuine?</h2>
+              <p className="mt-3 leading-relaxed text-ink-soft">
                 Type the registration number or the name from the label: it is checked against the Government list of registered
                 products. Or photograph the label, or compare a lab report with the official Fertiliser (Control) Order standards.
               </p>
-              <Link href="/supplies/tester" className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-chinar no-underline shadow-sm ring-1 ring-[#E8A317]/50 transition hover:bg-ivory hover:no-underline hover:ring-[#E8A317] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">
+              <Link href="/supplies/tester" className="kr-btn-secondary mt-4 min-h-11 gap-1.5 no-underline hover:no-underline">
                 Open TrueScan <ArrowRight className="h-4 w-4" aria-hidden />
               </Link>
             </div>
@@ -178,10 +178,10 @@ export default async function HomePage() {
           </section>
 
           <section aria-labelledby="portals-heading">
-            <div className="relative isolate mb-6 overflow-hidden rounded-[2rem] p-8 text-white shadow-[0_24px_60px_rgba(15,23,42,0.18)] sm:p-10">
-              <div aria-hidden className="absolute inset-0 -z-20 bg-gradient-to-br from-sky-400 via-sky-300 to-amber-200" />
-              <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-r from-slate-950/60 via-slate-900/20 to-transparent" />
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-200">Every portal</p>
+            <div className="relative isolate mb-6 overflow-hidden rounded-[2rem] border border-forest-deep p-8 text-white [box-shadow:inset_0_1px_0_rgba(255,255,255,0.14),0_2px_0_#0C2A22,0_18px_40px_-14px_rgba(18,56,46,0.45)] sm:p-10">
+              <div aria-hidden className="absolute inset-0 -z-20 bg-gradient-to-br from-forest-deep via-forest to-forest" />
+              <div aria-hidden className="absolute inset-x-8 top-0 -z-10 h-px bg-gradient-to-r from-transparent via-champagne to-transparent" />
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-champagne">Every portal</p>
               <h2 id="portals-heading" className="font-display mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">One valley, every trade</h2>
               <p className="mt-2 max-w-xl text-white/90">Each portal has its own sign-in. Pick yours.</p>
             </div>
@@ -202,11 +202,11 @@ function ToolCard({ id }: { id: ToolId }) {
 
   return (
     <article
-      className={`group relative flex h-full flex-col overflow-hidden rounded-3xl p-6 ${GLASS.panel} transition duration-300 [transform-style:preserve-3d] hover:-translate-y-1 hover:bg-white/80 hover:shadow-[0_24px_60px_rgba(15,23,42,0.18)] motion-reduce:transition-none motion-reduce:hover:translate-y-0`}
+      className={`group relative flex h-full flex-col overflow-hidden rounded-3xl p-6 ${GLASS.panel} transition duration-300 [transform-style:preserve-3d] hover:-translate-y-1 hover:bg-white hover:[box-shadow:var(--kr-card-hover-shadow),0_24px_48px_-12px_rgba(18,56,46,0.25)] motion-reduce:transition-none motion-reduce:hover:translate-y-0`}
     >
       <div
         aria-hidden
-        className={`pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full opacity-50 blur-3xl transition-opacity duration-300 group-hover:opacity-100 ${theme.glowA}`}
+        className={`pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full opacity-70 blur-3xl transition-opacity duration-300 group-hover:opacity-100 ${theme.glowA}`}
       />
 
       <div className="relative flex items-start justify-between gap-3">
@@ -216,13 +216,13 @@ function ToolCard({ id }: { id: ToolId }) {
         <span className={`rounded-full px-3 py-1 text-xs font-semibold ${theme.eyebrow}`}>{tool.eyebrow}</span>
       </div>
 
-      <h2 className="relative mt-5 font-display text-2xl font-semibold tracking-tight text-slate-900">{tool.title}</h2>
-      <p className="relative mt-2 text-sm leading-relaxed text-slate-600">{tool.description}</p>
+      <h2 className="relative mt-5 font-display text-2xl font-semibold tracking-tight text-ink">{tool.title}</h2>
+      <p className="relative mt-2 text-sm leading-relaxed text-ink-soft">{tool.description}</p>
 
       <div className="relative mt-auto flex flex-wrap gap-2 pt-6">
         <Link
           href={primary.href}
-          className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold shadow-sm transition ${BUTTON_LINK} ${FOCUS_RING} ${theme.primaryButton}`}
+          className={`min-h-11 gap-1.5 ${BUTTON_LINK} ${theme.primaryButton}`}
         >
           {primary.label}
           <ArrowRight
@@ -232,7 +232,7 @@ function ToolCard({ id }: { id: ToolId }) {
         </Link>
         <Link
           href={secondary.href}
-          className={`inline-flex min-h-11 items-center rounded-xl px-4 py-2.5 text-sm font-semibold transition ${BUTTON_LINK} ${FOCUS_RING} ${theme.secondaryButton}`}
+          className={`min-h-11 ${BUTTON_LINK} ${theme.secondaryButton}`}
         >
           {secondary.label}
         </Link>

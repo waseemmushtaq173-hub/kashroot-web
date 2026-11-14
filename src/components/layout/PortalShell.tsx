@@ -2,8 +2,9 @@
 
 /**
  * PortalShell — the frame every role portal renders inside, laid out like a
- * work dashboard:
- *   - on large screens a white sidebar: the KashRoot logo and the portal's
+ * work dashboard, in the one KashRoot look (forest green sidebar and top bar,
+ * mist page, white tactile cards, champagne gold accents):
+ *   - on large screens a deep green sidebar: the KashRoot logo and the portal's
  *     name, its sections as the MENU (counts as badges), GENERAL (My details,
  *     Help, Home, Sign out) and the "Install the KashRoot app" card;
  *   - a top bar: search (jumps to a section or button by name, ⌘K) and who is
@@ -14,8 +15,8 @@
  * sidebar opens as a drawer from the Menu button, Sign out stays in the top
  * bar, and the sections are pills that scroll sideways.
  *
- * Behind it, faintly and in the portal's own colours, the valley: chinar
- * leaves, the Zabarwan ridge and a shikara on Dal Lake (portal/KashmirBackdrop).
+ * Behind it, faintly, the valley: chinar leaves, the Zabarwan ridge and a
+ * shikara on Dal Lake (portal/KashmirBackdrop).
  *
  * Same props as before, so every portal keeps working:
  *   - `tabs` / `activeTab` / `onTabChange` for in-page sections;
@@ -247,7 +248,7 @@ export function PortalShell({
                 href={href}
                 aria-current={active ? 'page' : undefined}
                 className={`inline-flex min-h-12 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-5 text-base font-semibold no-underline ring-1 transition hover:no-underline ${FOCUS} ${theme.outline} ${
-                  active ? `${theme.solid} ring-transparent` : 'bg-white/90 text-slate-700 ring-slate-900/10 hover:bg-white'
+                  active ? theme.solid : 'bg-white text-ink ring-forest-line shadow-sm hover:bg-forest-soft'
                 }`}
               >
                 <Icon className="h-[18px] w-[18px]" aria-hidden />
@@ -275,7 +276,7 @@ export function PortalShell({
 
   if (standalone) {
     return (
-      <div data-kr-shell="standalone" className={`kr-light relative isolate min-h-screen text-slate-900 ${theme.canvas}`}>
+      <div data-kr-shell="standalone" className={`kr-light relative isolate min-h-screen text-ink ${theme.canvas}`}>
         <KashmirBackdrop ink={look.ink} leaf={theme.leaf} />
         <SiteHeader tone="light" />
         <main id="main-content" className="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-6 lg:px-8">
@@ -317,12 +318,12 @@ export function PortalShell({
   );
 
   return (
-    <div data-kr-shell="portal" className={`kr-light relative isolate min-h-screen text-slate-900 ${theme.canvas}`}>
+    <div data-kr-shell="portal" className={`kr-light relative isolate min-h-screen text-ink ${theme.canvas}`}>
       <KashmirBackdrop ink={look.ink} leaf={theme.leaf} valley={skin.valley} />
       <div className="lg:flex">
         <aside
           aria-label={portalLabel ?? title}
-          className="sticky top-0 hidden h-svh w-60 shrink-0 self-start overflow-y-auto border-r border-slate-900/5 bg-white/90 shadow-[10px_0_40px_-28px_rgba(15,23,42,0.35)] backdrop-blur-xl lg:block xl:w-64"
+          className="sticky top-0 hidden h-svh w-60 shrink-0 self-start overflow-y-auto border-r border-forest-deep bg-forest-deep text-white shadow-[10px_0_40px_-28px_rgba(18,56,46,0.6)] lg:block xl:w-64"
         >
           {sidebar(`${ids}-side`)}
         </aside>

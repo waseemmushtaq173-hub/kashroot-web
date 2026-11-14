@@ -2,9 +2,17 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import {
+  BUSINESS_CATEGORIES,
+  BUSINESS_CATEGORY_LABEL,
   BusinessStaffRole,
+  DEFAULT_BUSINESS_CATEGORY,
   ROLE_DEFAULT_PERMISSIONS,
+  categoryHasModule,
+  isBusinessCategory,
+  noBusinessCategoryColumn,
+  normalizeBusinessCategory,
   recordAdministrativeAuditLog,
+  type OwnerModule,
 } from '@/lib/multiTenantAuth';
 
 export const dynamic = 'force-dynamic';
@@ -71,7 +79,11 @@ export async function GET(request: Request) {
         .limit(100),
     ]);
 
-    const orgs = orgsRes.data ?? [];
+    // business_category is absent until its migration is run: every organization then reads as cold storage.
+    const orgs = (orgsRes.data ?? []).map((o) => ({
+      ...o,
+      business_category: normalizeBusinessCategory(o.business_category),
+    }));
     const facilities = facilitiesRes.data ?? [];
     const chambers = chambersRes.data ?? [];
     const bins = binsRes.data ?? [];
@@ -130,7 +142,7 @@ export async function GET(request: Request) {
   }
 
   // ============================================================================
-  // LEVEL 2: COLD STORAGE OWNER ADMIN (MULTI-TENANT SCOPED BY organizationId)
+  // LEVEL 2: OWNER ADMIN (MULTI-TENANT SCOPED BY organizationId, MODULES BY BUSINESS CATEGORY)
   // ============================================================================
   let targetOrgId = organizationId;
   if (!targetOrgId) {
@@ -152,6 +164,16 @@ export async function GET(request: Request) {
     });
   }
 
+  // The category decides which modules (and so which tables) this console reads.
+  const orgRes = await supabase
+    .from('cold_storage_organizations')
+    .select('*')
+    .eq('id', targetOrgId)
+    .maybeSingle();
+  const businessCategory = normalizeBusinessCategory(orgRes.data?.business_category);
+  const has = (module: OwnerModule) => categoryHasModule(businessCategory, module);
+  const skipped = { data: [] as never[] };
+
   if (isSuperadminOversight) {
     await recordAdministrativeAuditLog(supabase, {
       actorName: 'Waseem Mushtaq Mir (Platform Superadmin)',
@@ -159,12 +181,11 @@ export async function GET(request: Request) {
       isSuperadminOversightAction: true,
       organizationId: targetOrgId,
       actionCategory: 'SUPERADMIN_OVERSIGHT_INSPECTION',
-      actionSummary: `Platform Superadmin opened Owner Admin Portal in authorized oversight mode for organization ${targetOrgId}.`,
+      actionSummary: `Platform Superadmin opened Owner Admin Portal (${BUSINESS_CATEGORY_LABEL[businessCategory]}) in authorized oversight mode for organization ${targetOrgId}.`,
     });
   }
 
   const [
-    orgRes,
     allApprovedOrgsRes,
     facilitiesRes,
     floorsRes,
@@ -178,45 +199,60 @@ export async function GET(request: Request) {
     staffRes,
     auditRes,
   ] = await Promise.all([
-    supabase.from('cold_storage_organizations').select('*').eq('id', targetOrgId).maybeSingle(),
     supabase
       .from('cold_storage_organizations')
-      .select('id, organization_code, business_name, district, onboarding_status')
+      .select('*')
       .order('created_at', { ascending: true }),
-    supabase
-      .from('rental_listings')
-      .select('*')
-      .eq('organization_id', targetOrgId)
-      .order('created_at', { ascending: true }),
-    supabase.from('cold_storage_floors').select('*').eq('organization_id', targetOrgId),
-    supabase.from('cold_chambers').select('*').eq('organization_id', targetOrgId),
-    supabase
-      .from('cold_storage_bins')
-      .select('*')
-      .eq('organization_id', targetOrgId)
-      .order('bin_code', { ascending: true }),
-    supabase
-      .from('shared_bin_allocations')
-      .select('*')
-      .eq('organization_id', targetOrgId)
-      .order('received_at', { ascending: false }),
-    supabase
-      .from('cold_storage_bookings')
-      .select('*')
-      .eq('organization_id', targetOrgId)
-      .order('created_at', { ascending: false }),
-    supabase
-      .from('apple_inventory_movements')
-      .select('*')
-      .eq('organization_id', targetOrgId)
-      .order('recorded_at', { ascending: false })
-      .limit(100),
-    supabase
-      .from('ca_chamber_environment_readings')
-      .select('*')
-      .eq('organization_id', targetOrgId)
-      .order('recorded_at', { ascending: false })
-      .limit(50),
+    has('facilities')
+      ? supabase
+          .from('rental_listings')
+          .select('*')
+          .eq('organization_id', targetOrgId)
+          .order('created_at', { ascending: true })
+      : skipped,
+    has('facilities')
+      ? supabase.from('cold_storage_floors').select('*').eq('organization_id', targetOrgId)
+      : skipped,
+    has('chambers')
+      ? supabase.from('cold_chambers').select('*').eq('organization_id', targetOrgId)
+      : skipped,
+    has('bins')
+      ? supabase
+          .from('cold_storage_bins')
+          .select('*')
+          .eq('organization_id', targetOrgId)
+          .order('bin_code', { ascending: true })
+      : skipped,
+    has('bins')
+      ? supabase
+          .from('shared_bin_allocations')
+          .select('*')
+          .eq('organization_id', targetOrgId)
+          .order('received_at', { ascending: false })
+      : skipped,
+    has('bookings')
+      ? supabase
+          .from('cold_storage_bookings')
+          .select('*')
+          .eq('organization_id', targetOrgId)
+          .order('created_at', { ascending: false })
+      : skipped,
+    has('inventory')
+      ? supabase
+          .from('apple_inventory_movements')
+          .select('*')
+          .eq('organization_id', targetOrgId)
+          .order('recorded_at', { ascending: false })
+          .limit(100)
+      : skipped,
+    has('telemetry')
+      ? supabase
+          .from('ca_chamber_environment_readings')
+          .select('*')
+          .eq('organization_id', targetOrgId)
+          .order('recorded_at', { ascending: false })
+          .limit(50)
+      : skipped,
     supabase
       .from('facility_financial_transactions')
       .select('*')
@@ -257,8 +293,16 @@ export async function GET(request: Request) {
     ok: true,
     scope: 'COLD_STORAGE_OWNER_ADMIN',
     isSuperadminOversight,
-    organization: orgRes.data,
-    availableOrganizationsForSwitcher: allApprovedOrgsRes.data ?? [],
+    organization: orgRes.data ? { ...orgRes.data, business_category: businessCategory } : null,
+    businessCategory,
+    availableOrganizationsForSwitcher: (allApprovedOrgsRes.data ?? []).map((o) => ({
+      id: o.id,
+      organization_code: o.organization_code,
+      business_name: o.business_name,
+      district: o.district,
+      onboarding_status: o.onboarding_status,
+      business_category: normalizeBusinessCategory(o.business_category),
+    })),
     activeFacilityId,
     facilities,
     floors: floorsRes.data ?? [],
@@ -308,38 +352,79 @@ export async function POST(request: Request) {
   const nowIso = new Date().toISOString();
 
   // ============================================================================
-  // ACTION 1: SEPARATE COLD STORAGE OWNER ONBOARDING APPLICATION
+  // ACTION 1: SEPARATE OWNER ONBOARDING APPLICATION (ANY BUSINESS CATEGORY)
   // ============================================================================
   if (body.action === 'REGISTER_OWNER_ORGANIZATION') {
-    if (!body.businessName || !body.ownerFullName || !body.ownerEmail || !body.ownerPhone) {
+    if (
+      !body.businessName ||
+      !body.ownerFullName ||
+      !body.ownerEmail ||
+      !body.ownerPhone ||
+      !String(body.headquartersAddress ?? '').trim()
+    ) {
       return NextResponse.json(
-        { ok: false, error: 'Business Name, Owner Name, Email, and Phone are required.' },
+        {
+          ok: false,
+          error: 'Business Name, Owner Name, Email, Phone and Headquarters Address are required.',
+        },
+        { status: 400 }
+      );
+    }
+
+    const rawCategory = body.businessCategory ?? body.business_category;
+    const businessCategory =
+      rawCategory == null || String(rawCategory).trim() === ''
+        ? DEFAULT_BUSINESS_CATEGORY
+        : String(rawCategory).trim().toUpperCase();
+    if (!isBusinessCategory(businessCategory)) {
+      return NextResponse.json(
+        { ok: false, error: `Business category must be one of: ${BUSINESS_CATEGORIES.join(', ')}.` },
         { status: 400 }
       );
     }
 
     const orgCode = `KR-ORG-${Date.now().toString().slice(-6)}`;
-    const { data: org, error } = await supabase
+    const orgRow = {
+      organization_code: orgCode,
+      business_name: String(body.businessName).trim(),
+      legal_entity_type: body.legalEntityType || 'PRIVATE_LIMITED',
+      gstin_or_reg_no: body.gstinOrRegNo || null,
+      pan_number: body.panNumber || null,
+      owner_full_name: String(body.ownerFullName).trim(),
+      owner_email: String(body.ownerEmail).trim().toLowerCase(),
+      owner_phone: String(body.ownerPhone).trim(),
+      headquarters_address: String(body.headquartersAddress).trim(),
+      district: body.district || 'Shopian',
+      state_ut: body.stateUt || 'Jammu & Kashmir',
+      verification_notes: body.verificationNotes || 'Submitted via Owner Onboarding Portal',
+      onboarding_status: 'PENDING_VERIFICATION',
+      upi_id: body.upiId || null,
+      bank_name: body.bankName || 'J&K Bank',
+    };
+
+    let insertRes = await supabase
       .from('cold_storage_organizations')
-      .insert({
-        organization_code: orgCode,
-        business_name: String(body.businessName).trim(),
-        legal_entity_type: body.legalEntityType || 'PRIVATE_LIMITED',
-        gstin_or_reg_no: body.gstinOrRegNo || null,
-        pan_number: body.panNumber || null,
-        owner_full_name: String(body.ownerFullName).trim(),
-        owner_email: String(body.ownerEmail).trim().toLowerCase(),
-        owner_phone: String(body.ownerPhone).trim(),
-        headquarters_address: body.headquartersAddress || 'Industrial Growth Centre, Lassipora',
-        district: body.district || 'Shopian',
-        state_ut: body.stateUt || 'Jammu & Kashmir',
-        verification_notes: body.verificationNotes || 'Submitted via Owner Onboarding Portal',
-        onboarding_status: 'PENDING_VERIFICATION',
-        upi_id: body.upiId || null,
-        bank_name: body.bankName || 'J&K Bank',
-      })
+      .insert({ ...orgRow, business_category: businessCategory })
       .select('*')
       .single();
+    let categoryPersisted = true;
+    if (insertRes.error && noBusinessCategoryColumn(insertRes.error.message)) {
+      // The category column is not in the database yet: register without it and keep the
+      // requested category in the notes the Platform Superadmin reads while reviewing.
+      categoryPersisted = false;
+      insertRes = await supabase
+        .from('cold_storage_organizations')
+        .insert({
+          ...orgRow,
+          verification_notes:
+            businessCategory === DEFAULT_BUSINESS_CATEGORY
+              ? orgRow.verification_notes
+              : `Business category: ${BUSINESS_CATEGORY_LABEL[businessCategory]}. ${orgRow.verification_notes}`,
+        })
+        .select('*')
+        .single();
+    }
+    const { data: org, error } = insertRes;
 
     if (error || !org) {
       return NextResponse.json(
@@ -350,16 +435,20 @@ export async function POST(request: Request) {
 
     await recordAdministrativeAuditLog(supabase, {
       actorName: org.owner_full_name,
-      actorRole: 'COLD_STORAGE_OWNER_APPLICANT',
+      actorRole: `${businessCategory}_OWNER_APPLICANT`,
       organizationId: org.id,
       actionCategory: 'OWNER_ONBOARDING',
-      actionSummary: `New Cold Storage Owner business "${org.business_name}" (${org.organization_code}) submitted onboarding application (Status: PENDING_VERIFICATION).`,
+      actionSummary: `New ${BUSINESS_CATEGORY_LABEL[businessCategory]} business "${org.business_name}" (${org.organization_code}) submitted onboarding application (Status: PENDING_VERIFICATION).`,
       targetTable: 'cold_storage_organizations',
       targetRecordId: org.id,
       afterValues: org,
     });
 
-    return NextResponse.json({ ok: true, organization: org });
+    return NextResponse.json({
+      ok: true,
+      categoryPersisted,
+      organization: { ...org, business_category: normalizeBusinessCategory(org.business_category) },
+    });
   }
 
   // ============================================================================
@@ -477,11 +566,28 @@ export async function POST(request: Request) {
   // ACTION 4: OWNER RECORDS OR UPDATES BUSINESS FINANCIAL TRANSACTION
   // ============================================================================
   if (body.action === 'RECORD_FINANCIAL_TRANSACTION') {
-    if (!body.organizationId || !body.facilityId || !body.farmerName) {
+    if (!body.organizationId || !body.farmerName) {
       return NextResponse.json(
-        { ok: false, error: 'organizationId, facilityId, and farmerName required' },
+        { ok: false, error: 'organizationId and the farmer / customer name are required' },
         { status: 400 }
       );
+    }
+
+    // Businesses with no facility (logistics, agro-dealer, mandi) keep their ledger
+    // against the business itself: the ledger needs a facility id and name.
+    let ledgerFacilityId: string = body.facilityId;
+    let ledgerFacilityName: string = body.facilityName || 'Authorized CA Facility';
+    if (!ledgerFacilityId) {
+      const { data: ownerOrg } = await supabase
+        .from('cold_storage_organizations')
+        .select('business_name')
+        .eq('id', body.organizationId)
+        .maybeSingle();
+      if (!ownerOrg) {
+        return NextResponse.json({ ok: false, error: 'Organization not found' }, { status: 404 });
+      }
+      ledgerFacilityId = body.organizationId;
+      ledgerFacilityName = ownerOrg.business_name;
     }
 
     const gross = Number(body.grossAmountInr || 0);
@@ -496,8 +602,8 @@ export async function POST(request: Request) {
       .insert({
         transaction_reference: txnRef,
         organization_id: body.organizationId,
-        facility_id: body.facilityId,
-        facility_name: body.facilityName || 'Authorized CA Facility',
+        facility_id: ledgerFacilityId,
+        facility_name: ledgerFacilityName,
         booking_id: body.bookingId || null,
         booking_reference: body.bookingReference || null,
         farmer_name: body.farmerName,
