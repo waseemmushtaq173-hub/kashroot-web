@@ -261,6 +261,12 @@ BEGIN
   WHERE organization_id IS NULL;
 END $$;
 
+-- Public browsing grant: the "Anyone browses active listings" RLS policy covers
+-- the anon role, but the table grant for SELECT was missing from creation, so
+-- anonymous requests (the server-side hierarchy API among them) saw zero
+-- facilities. Grant SELECT; RLS still limits anon to active rows only.
+GRANT SELECT ON public.rental_listings TO anon;
+
 -- Enable Row Level Security (RLS)
 ALTER TABLE public.cold_storage_organizations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.owner_staff_members ENABLE ROW LEVEL SECURITY;
