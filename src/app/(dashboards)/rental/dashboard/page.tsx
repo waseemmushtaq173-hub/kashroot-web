@@ -14,11 +14,15 @@
  *   (bins or crates, floors, size, its own door, rent), where farmers pay
  *   them — drawn and in 3D as they type; then confirm the money arrived.
  *   (components/rental, components/rental/owner)
+ *   Business admin: the owner's complete business administration console —
+ *   facilities, chambers, bins, bookings, staff RBAC and financials — also
+ *   opened by the Platform Superadmin in Authorized Oversight Mode
+ *   (?oversightOrgId=…&oversight=1, gold banner, audit-logged).
  * Payments go straight to the owner — KashRoot does not hold them.
  * Data: rental_listings, rental_bookings, payout_accounts (shared database).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Apple, ArrowRight, Boxes, CalendarDays, Camera, CheckCircle2, ClipboardCheck, Factory, IndianRupee, Landmark, Map as MapIcon, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, ReceiptText, Search, Snowflake, Sparkles, Store, Trash2, Warehouse, XCircle } from 'lucide-react';
+import { Apple, ArrowRight, Boxes, Building2, CalendarDays, Camera, CheckCircle2, ClipboardCheck, Factory, IndianRupee, Landmark, Map as MapIcon, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, ReceiptText, Search, Snowflake, Sparkles, Store, Trash2, Warehouse, XCircle } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { IdentityStatus } from '@/components/auth/IdentityStatus';
@@ -32,6 +36,7 @@ import { FarmerStoredApplesDesk, OwnerSharedBinDesk } from '@/components/rental/
 import { StorePhotosEditor } from '@/components/rental/StorePhotos';
 import { PaymentDetails } from '@/components/rental/owner/PaymentStep';
 import { ColdStoreDirectory, useColdDirectory } from '@/components/rental/ColdStoreDirectory';
+import { OwnerAdminConsole } from '@/components/rental/OwnerAdminConsole';
 import { Badge, Btn, EmptyState, Field, INPUT, Modal, Panel, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
 import { inr, loadAccount, type Account } from '@/lib/db/client';
 import { coldWantFromLink } from '@/lib/navIntent';
@@ -67,14 +72,27 @@ const anyOf = (kinds: Storage[]) => unitsText(kinds).replace(/ and (?=\S+$)/, ' 
 /** A booking that holds or held space: it has a receipt to show. */
 const hasReceipt = (b: RentalBooking) => b.status === 'paid' || b.status === 'confirmed' || b.status === 'completed';
 /** Tabs a link may open (?tab=…), on each side. */
-const TABS: Record<Side, string[]> = { farmer: ['cold', 'mystore', 'bookings'], owner: ['stores', 'operations', 'requests', 'payments'] };
+const TABS: Record<Side, string[]> = { farmer: ['cold', 'mystore', 'bookings'], owner: ['stores', 'bizadmin', 'operations', 'requests', 'payments'] };
 
 export default function RentalPage() {
   const [account, setAccount] = useState<Account | null | undefined>(undefined);
+  // Platform Superadmin oversight: ?oversightOrgId=<id>&oversight=1 opens that
+  // owner's complete Business admin console in Authorized Oversight Mode — the
+  // gold banner; the inspection itself is audit-logged in platform_audit_logs.
+  const [oversightOrgId] = useState<string | null>(() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      return p.get('oversight') === '1' && p.get('oversightOrgId') ? p.get('oversightOrgId') : null;
+    } catch {
+      return null;
+    }
+  });
   // Two sides of the portal: farmers who store apples, and owners who run a cold store.
   const [side, setSideState] = useState<Side>(() => {
     try {
-      const asked = new URLSearchParams(window.location.search).get('as');
+      const p = new URLSearchParams(window.location.search);
+      if (p.get('oversight') === '1' && p.get('oversightOrgId')) return 'owner';
+      const asked = p.get('as');
       if (asked === 'owner' || asked === 'farmer') return asked;
       return localStorage.getItem(SIDE_KEY) === 'owner' ? 'owner' : 'farmer';
     } catch {
@@ -84,8 +102,11 @@ export default function RentalPage() {
   const [tab, setTab] = useState(() => {
     // A link back from a receipt opens My bookings or Bookings to confirm.
     try {
-      const asked = new URLSearchParams(window.location.search).get('tab');
+      const p = new URLSearchParams(window.location.search);
+      const asked = p.get('tab');
       if (asked && TABS[side].includes(asked)) return asked;
+      // Oversight opens on the Business admin console unless a tab is named.
+      if (p.get('oversight') === '1' && p.get('oversightOrgId')) return 'bizadmin';
     } catch {
       /* no address to read */
     }
@@ -227,6 +248,7 @@ export default function RentalPage() {
             ]
           : [
               { id: 'stores', label: 'My cold stores', icon: Warehouse },
+              { id: 'bizadmin', label: 'Business admin', icon: Building2 },
               { id: 'operations', label: 'Shared bins & CA desk', icon: Factory },
               { id: 'requests', label: 'Bookings to confirm', icon: ClipboardCheck, count: waiting || undefined },
               { id: 'payments', label: 'Payment details', icon: Landmark },
@@ -314,6 +336,11 @@ export default function RentalPage() {
             </ul>
           )}
         </Panel>
+      ) : tab === 'bizadmin' ? (
+        <OwnerAdminConsole
+          oversightOrgId={oversightOrgId}
+          onAddFacility={oversightOrgId ? undefined : () => setTab('stores')}
+        />
       ) : side === 'owner' ? (
         <OwnerPanel
           section={tab === 'requests' || tab === 'payments' || tab === 'operations' ? (tab as 'requests' | 'payments' | 'operations') : 'stores'}

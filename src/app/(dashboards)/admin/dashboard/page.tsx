@@ -17,6 +17,9 @@
  *                     orders, cold-store bookings, expert requests…
  *   Setup check:      which database setup files have been run in Supabase
  *                     (kr_setup_status), and how to run a missing one.
+ *   Owner businesses: the multi-tenant cold storage hierarchy — owner
+ *                     onboarding queue, Authorized Oversight Mode, global
+ *                     audit trail (cold_storage_organizations).
  *
  * Who may enter: the Super Admin and the KashRoot team they add
  * (20261117000000_kashroot_team.sql). The page itself is served only with the
@@ -38,6 +41,7 @@ import { ContributorsPanel } from '@/components/admin/ContributorsPanel';
 import { DatabaseUpdateNeeded } from '@/components/admin/DatabaseUpdateNeeded';
 import { GpsFleetPanel } from '@/components/admin/GpsFleetPanel';
 import { HelpDeskPanel } from '@/components/admin/HelpDeskPanel';
+import { OwnerHierarchyPanel } from '@/components/admin/OwnerHierarchyPanel';
 import { PlatformNumbers, loadAdminStats } from '@/components/admin/PlatformNumbers';
 import { RegistryPanel } from '@/components/admin/RegistryPanel';
 import { ReportedOrders, loadReportedOrders } from '@/components/admin/ReportedOrders';
@@ -49,7 +53,7 @@ import { authFetch } from '@/lib/auth-fetch';
 import { functionMissing } from '@/lib/client/teamCheck';
 import { supabase } from '@/lib/db/client';
 
-type Tab = 'super' | 'gpsfleet' | 'orders' | 'approvals' | 'accounts' | 'problems' | 'help' | 'contributors' | 'coldstores' | 'registry' | 'numbers' | 'security' | 'setup' | 'team' | 'businesses' | 'settings';
+type Tab = 'super' | 'gpsfleet' | 'orders' | 'approvals' | 'accounts' | 'problems' | 'help' | 'contributors' | 'coldstores' | 'hierarchy' | 'registry' | 'numbers' | 'security' | 'setup' | 'team' | 'businesses' | 'settings';
 
 interface Counts {
   waiting: number;
@@ -137,6 +141,7 @@ function Console({ sections }: { sections: string[] }) {
     { id: 'help', label: 'Help desk', icon: LifeBuoy, section: 'help' },
     { id: 'contributors', label: 'Contributors', icon: Wallet, section: 'contributors' },
     { id: 'coldstores', label: 'Cold stores', icon: Snowflake, section: 'coldstores' },
+    { id: 'hierarchy', label: 'Owner businesses', icon: Building2, section: 'hierarchy' },
     { id: 'registry', label: 'Official lists', icon: ListChecks, section: 'registry' },
     { id: 'numbers', label: 'Platform numbers', icon: BarChart3, section: 'numbers' },
     { id: 'security', label: 'Security', icon: LockKeyhole, section: 'security' },
@@ -242,6 +247,7 @@ function Console({ sections }: { sections: string[] }) {
       {tab === 'help' && can('help') && <HelpDeskPanel />}
       {tab === 'contributors' && can('contributors') && <ContributorsPanel />}
       {tab === 'coldstores' && can('coldstores') && <ColdDirectoryPanel />}
+      {tab === 'hierarchy' && can('hierarchy') && <OwnerHierarchyPanel />}
       {tab === 'registry' && can('registry') && <RegistryPanel />}
       {tab === 'numbers' && can('numbers') && <PlatformNumbers onRefreshed={load} />}
       {tab === 'security' && can('security') && <SecurityPanel />}
