@@ -308,6 +308,8 @@ export function ColdStoreExplorer({
   rate: rateProp,
   mineName,
   stackOf,
+  holdersOf,
+  mineOf,
   facilityName,
   facilityId,
 }: {
@@ -331,7 +333,10 @@ export function ColdStoreExplorer({
   mineName?: string;
   /** Who holds one place (owner flow): a drawer sentence from the bookings, or null when nothing says. */
   stackOf?: (c: ColdChamber, slot: string) => string | null;
-  /** The facility's name, shown in the 3D place inspector (Facility → Chamber → …). */
+  /** Owner flow: every farmer sharing one place (units, booking reference), for the 3D place card. */
+  holdersOf?: (c: ColdChamber, slot: string) => import('@/components/rental/ColdStore3D').PlaceHolder[];
+  /** Farmer flow: the viewer's own units on one place (null: not known), for the 3D place card. */
+  mineOf?: (c: ColdChamber, slot: string) => number | null;
   facilityName?: string;
   /** The facility's database id, shown in the 3D place inspector (Facility ID row). */
   facilityId?: string;
@@ -473,6 +478,8 @@ export function ColdStoreExplorer({
                 rate={rate}
                 mineName={mineName}
                 stackOf={stackOf}
+                holdersOf={holdersOf}
+                mineOf={mineOf}
                 facilityName={facilityName}
                 facilityId={facilityId}
                 view={view === 'walk' ? 'walk' : 'orbit'}

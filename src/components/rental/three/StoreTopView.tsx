@@ -37,6 +37,7 @@ const fitFont = (text: string, room: number, max: number, min: number) => Math.m
 const ZONE_FILL: Record<SceneZone['key'], string> = {
   cleaning: '#ecfeff',
   grading: '#f0fdf4',
+  sorting: '#ecfccb',
   packing: '#fef9c3',
   machinery: '#f1f5f9',
   dock: '#ffedd5',
@@ -275,6 +276,29 @@ export const StoreTopView = memo(function StoreTopView({
               );
             })}
           {scene.chambers.map(chamber)}
+          {scene.vestibule && (
+            // The airlock vestibule inside the main door: its side walls where they are open hall, and the inner door across the passage.
+            <g data-vestibule aria-hidden>
+              {scene.vestibule.walls.map((s, i) => (
+                <line key={i} {...seg({ x: s.x1, y: s.y1 }, { x: s.x2, y: s.y2 })} stroke="#475569" strokeWidth={4} strokeLinecap="round" />
+              ))}
+              <line {...seg({ x: scene.vestibule.door.x1, y: scene.vestibule.door.y1 }, { x: scene.vestibule.door.x2, y: scene.vestibule.door.y2 })} stroke="#d97706" strokeWidth={6} strokeDasharray="9 4" />
+              {(() => {
+                const r = scene.vestibule.rect;
+                const vw = r.w * k;
+                const vd = r.d * k;
+                if (Math.max(vw, vd) < 44 || Math.min(vw, vd) < 11) return null;
+                const upright = vd > vw;
+                const cx = X(r.x + r.w / 2);
+                const cy = Y(r.y + r.d / 2);
+                return (
+                  <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={Math.min(font - 3, Math.min(vw, vd) * 0.55)} fontWeight={800} letterSpacing={1} fill="#475569" transform={upright ? `rotate(-90 ${cx} ${cy})` : undefined}>
+                    AIRLOCK
+                  </text>
+                );
+              })()}
+            </g>
+          )}
           {md && (
             <g>
               <line {...seg({ x: md.seg.x1, y: md.seg.y1 }, { x: md.seg.x2, y: md.seg.y2 })} stroke="#d97706" strokeWidth={10} />

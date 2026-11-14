@@ -512,6 +512,42 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
       tag.position.set(wx(o, md.mid.x - md.inward.x * 1.2), md.height + 1.4, wz(o, md.mid.y - md.inward.y * 1.2));
       add(tag);
       labels.push(tag);
+      // The exterior truck bay: a dispatch truck parked along the wall beside the door (never in the way of the way in).
+      const ux = along ? 1 : 0;
+      const uy = along ? 0 : 1;
+      const truck = (l: number, w: number, h: number, y: number, offAlong: number, offOut: number, mat: Mat) => {
+        const px = md.mid.x + ux * offAlong - md.inward.x * offOut;
+        const py = md.mid.y + uy * offAlong - md.inward.y * offOut;
+        return box(along ? l : w, h, along ? w : l, wx(o, px), y, wz(o, py), mat);
+      };
+      const start = md.width / 2 + 1.1;
+      const out = 1.7;
+      truck(4.6, 2.4, 2.6, 1.85, start + 2.3, out, mats.leaf);
+      truck(1.6, 2.3, 2.0, 1.55, start + 5.4, out, mats.beam);
+      truck(0.12, 2.2, 0.8, 1.9, start + 6.2, out, mats.glass);
+      for (const a of [start + 0.9, start + 3.6, start + 5.4]) for (const s of [-1, 1]) truck(0.9, 0.3, 1, 0.5, a, out + s * 1.1, mats.pipe);
+      const bay = label(T, 'Truck loading / unloading bay', 'dispatch · outside the main door', 4.2, true, 22, 52);
+      bay.position.set(wx(o, md.mid.x + ux * (start + 2.8) - md.inward.x * out), 3.8, wz(o, md.mid.y + uy * (start + 2.8) - md.inward.y * out));
+      add(bay);
+      labels.push(bay);
+    }
+    // The airlock vestibule inside the main door (Leaflet 427 anteroom): its walls where the side is open hall, the
+    // inner door across the passage with a PVC strip curtain hung in it, so warm outside air never reaches the hall.
+    const ves = scene.vestibule;
+    if (ves) {
+      const vh = Math.min(H, 3.6);
+      for (const s of ves.walls) roomWall(s, 0, vh, 0.14, scene.hall, 'hall');
+      const dm = midOf(ves.door);
+      const dl = segLength(ves.door);
+      const dAlong = Math.abs(ves.door.y2 - ves.door.y1) < 1e-6;
+      const dh = Math.min(vh - 0.2, md ? md.height : 3);
+      for (const end of [{ x: ves.door.x1, y: ves.door.y1 }, { x: ves.door.x2, y: ves.door.y2 }]) box(0.16, dh, 0.16, wx(o, end.x), dh / 2, wz(o, end.y), mats.door);
+      box(dAlong ? dl + 0.16 : 0.16, 0.16, dAlong ? 0.16 : dl + 0.16, wx(o, dm.x), dh + 0.08, wz(o, dm.y), mats.door);
+      box(dAlong ? dl : 0.03, dh - 0.1, dAlong ? 0.03 : dl, wx(o, dm.x), (dh - 0.1) / 2, wz(o, dm.y), mats.curtain);
+      const vtag = label(T, 'Airlock vestibule', 'inner door keeps warm air out', Math.min(4, Math.max(2.4, dl)), true, 22, 52);
+      vtag.position.set(wx(o, ves.rect.x + ves.rect.w / 2), dh + 1, wz(o, ves.rect.y + ves.rect.d / 2));
+      add(vtag);
+      labels.push(vtag);
     }
     // The passage in from the main door, named on the drawing like on the floor.
     if (pass) {
@@ -546,30 +582,66 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
       if (len < 1 || cross < 0.5) return;
       const midX = wx(o, r.x + r.w / 2);
       const midZ = wz(o, r.y + r.d / 2);
-      /** One piece: `l` along the zone's line, `w` across it, `off` along the line from its middle. */
-      const piece = (l: number, w: number, h: number, y: number, off: number, mat: Mat) =>
-        alongX ? box(l, h, w, midX + off, y, midZ, mat) : box(w, h, l, midX, y, midZ + off, mat);
+      /** One piece: `l` along the zone's line, `w` across it, `off` along the line from its middle, `cx` across it from its middle. */
+      const piece = (l: number, w: number, h: number, y: number, off: number, mat: Mat, cx = 0) =>
+        alongX ? box(l, h, w, midX + off, y, midZ + cx, mat) : box(w, h, l, midX + cx, y, midZ + off, mat);
       switch (z.key) {
         case 'cleaning': {
-          // The washing trough in stainless, a brush roller over it.
-          piece(Math.min(len, cross * 3), Math.min(0.9, cross), 0.65, 0.33, 0, mats.condenser);
-          piece(Math.min(len * 0.8, cross * 2.4), 0.22, 0.22, 0.85, 0, mats.guard);
+          // Receiving & weighing: a floor weighing platform with its display post, and crates of arriving fruit waiting beside it.
+          const plat = Math.min(len * 0.5, 2.6);
+          piece(plat, Math.min(cross * 0.8, 2), 0.1, 0.05, -len / 4, mats.shutter);
+          piece(0.1, 0.1, 1.1, 0.55, -len / 4 + plat / 2, mats.beam, Math.min(cross * 0.4, 1));
+          for (const at of [len / 8, len / 3]) piece(0.9, Math.min(0.9, cross * 0.8), 0.75, 0.42, at, mats.crate);
           break;
         }
         case 'grading': {
-          // A roller conveyor at waist height on slim steel legs.
+          // The automated line: a roller conveyor at waist height on steel legs, an optical sizer hood over its middle,
+          // and the sorting lanes (three grade chutes with a crate at the end of each) along its downstream half.
           const belt = Math.min(len, cross * 3);
-          piece(belt, Math.min(0.8, cross), 0.07, 0.78, 0, mats.guard);
-          piece(0.07, Math.max(0.2, Math.min(0.7, cross - 0.2)), 0.75, 0.38, -belt / 2 + 0.1, mats.beam);
-          piece(0.07, Math.max(0.2, Math.min(0.7, cross - 0.2)), 0.75, 0.38, belt / 2 - 0.1, mats.beam);
+          const lane = Math.min(0.8, cross);
+          piece(belt, lane, 0.08, 0.74, 0, mats.guard);
+          const rollers = Math.min(48, Math.floor(belt / 0.24));
+          for (let i = 0; i < rollers; i++) piece(0.09, lane - 0.04, 0.09, 0.82, -belt / 2 + 0.2 + (i * (belt - 0.4)) / Math.max(1, rollers - 1), mats.shutter);
+          for (const s of [-1, 1]) piece(0.07, lane, 0.75, 0.38, (s * belt) / 2 - s * 0.1, mats.beam);
+          if (belt >= 3) {
+            const hood = Math.min(belt * 0.22, 1.6);
+            piece(hood, lane + 0.3, 0.5, 1.45, -belt * 0.1, mats.cooler);
+            piece(hood * 0.8, lane, 0.03, 1.18, -belt * 0.1, mats.lamp);
+            for (const s of [-1, 1]) piece(0.08, 0.08, 0.7, 1.1, -belt * 0.1 + (s * hood) / 2, mats.beam, (s * (lane + 0.2)) / 2);
+          }
+          if (cross >= 1.8 && belt >= 4) {
+            for (const cx of [-0.55, 0, 0.55].map((c) => c * Math.min(1.4, cross / 2))) {
+              piece(belt * 0.3, 0.07, 0.12, 0.7, belt * 0.32, mats.stripe, cx);
+              piece(0.5, 0.45, 0.4, 0.22, belt * 0.5 - 0.3, mats.crate, cx);
+            }
+          }
+          break;
+        }
+        case 'sorting': {
+          // The sorting area: inspection tables with a crate of rejects under each, and a crate stage at the end.
+          const tw = Math.min(1.6, len / 2 - 0.2);
+          if (tw >= 0.6) {
+            for (const at of [-len / 4, len / 4]) {
+              piece(tw, Math.min(0.9, cross * 0.7), 0.06, 0.85, at, mats.leaf);
+              piece(0.06, Math.min(0.9, cross * 0.7), 0.8, 0.42, at - tw / 2 + 0.05, mats.beam);
+              piece(0.06, Math.min(0.9, cross * 0.7), 0.8, 0.42, at + tw / 2 - 0.05, mats.beam);
+              piece(0.5, 0.4, 0.3, 0.2, at, mats.crate);
+            }
+          }
           break;
         }
         case 'packing': {
-          // Two packing tables along the line.
+          // Packaging space: two packing tables, a pallet of packed cartons (2–5 layers high) and a strapping arch at the line's end.
           const tw = Math.min(1.5, len / 2 - 0.2);
           if (tw >= 0.6) {
             piece(tw, Math.min(0.8, cross), 0.06, 0.85, -len / 4, mats.leaf);
             piece(tw, Math.min(0.8, cross), 0.06, 0.85, len / 4, mats.leaf);
+          }
+          if (len >= 4 && cross >= 1.2) {
+            const layers = 5;
+            for (let i = 0; i < layers; i++) piece(0.8, Math.min(0.6, cross * 0.6), 0.14, 0.12 + i * 0.15, 0, mats.carton, Math.min(0.7, cross * 0.3));
+            for (const s of [-1, 1]) piece(0.08, 0.08, 1.1, 0.55, len / 2 - 0.3, mats.beam, (s * Math.min(0.55, cross * 0.4)));
+            piece(0.08, Math.min(1.1, cross * 0.9), 0.08, 1.12, len / 2 - 0.3, mats.beam);
           }
           break;
         }
@@ -580,7 +652,7 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
           break;
         }
         case 'dock': {
-          // The dock leveller: a plate across the passage, tipped a little.
+          // Dispatch & truck bay: the dock leveller, a plate across the passage, tipped a little.
           const plate = piece(Math.min(2.2, len), cross, 0.06, 0.42, 0, mats.shutter);
           if (alongX) plate.rotation.z = 0.09; else plate.rotation.x = 0.09;
           break;

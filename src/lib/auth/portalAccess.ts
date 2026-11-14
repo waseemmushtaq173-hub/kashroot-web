@@ -40,6 +40,8 @@ const KEY = 'kr_portal_signins';
 const SINCE = 'kr_portal_signins_since';
 /** When KashRoot was last used on this device (ms). */
 const DEVICE_KEY = 'kr_last_active';
+/** The person (user id) who finished the email-code step on this device: the other portals do not ask again. */
+const VERIFIED_KEY = 'kashroot_email_verified_bypass';
 
 type MetaUser = { id: string; user_metadata?: Record<string, unknown> };
 type Uses = Partial<Record<PortalId, number>>;
@@ -133,10 +135,29 @@ export function markPortalSignedOut(userId: string, portal: PortalId): PortalId[
   return Object.keys(mine) as PortalId[];
 }
 
+/** This person finished (or continued past) the email-code step: the other portals' sign-ins skip it on this device. */
+export function markEmailVerified(userId: string) {
+  try {
+    localStorage.setItem(VERIFIED_KEY, userId);
+  } catch {
+    /* private mode: the code step is simply asked again */
+  }
+}
+
+/** Did this person already finish the email-code step on this device? */
+export function isEmailVerified(userId: string): boolean {
+  try {
+    return localStorage.getItem(VERIFIED_KEY) === userId;
+  } catch {
+    return false;
+  }
+}
+
 /** The session ended on this device (Sign out, another account, expired): no portal stays signed in. */
 export function forgetPortalSignIns() {
   try {
     localStorage.removeItem(KEY);
+    localStorage.removeItem(VERIFIED_KEY);
   } catch {
     /* nothing kept */
   }

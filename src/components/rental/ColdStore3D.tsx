@@ -43,6 +43,21 @@ import { placeLabel, type ColdChamber } from '@/lib/db/coldMap';
 
 export type View3D = 'orbit' | 'walk';
 
+/**
+ * One farmer's share of a shared place, for the owner's card only: the 3D
+ * view never receives holders in a farmer-facing mode, so no other farmer's
+ * name, quantity or booking reference can reach a farmer's screen.
+ */
+export interface PlaceHolder {
+  name: string;
+  /** Units (bins / crates / boxes) this farmer holds on the place; null when the records do not say. */
+  units: number | null;
+  /** The booking's reference. */
+  ref: string | null;
+  /** The apple variety, only when the records say (never invented). */
+  variety?: string | null;
+}
+
 /** A place in words: "Chamber 2 · Floor 1 · Row 3, stack 4 · 4 bins free". */
 export function placeText(c: SceneChamber, cell: Cell): string {
   const f = c.floors[cell.floor];
@@ -203,7 +218,10 @@ function CrateCard({
   cell,
   scene,
   chambers,
+  mode,
   stackOf,
+  holdersOf,
+  mineOf,
   mineName,
   facilityName,
   facilityId,
@@ -212,7 +230,10 @@ function CrateCard({
   cell: Cell;
   scene: StoreScene;
   chambers: ColdChamber[];
+  mode: 'book' | 'owner' | 'view';
   stackOf?: (c: ColdChamber, slot: string) => string | null;
+  holdersOf?: (c: ColdChamber, slot: string) => PlaceHolder[];
+  mineOf?: (c: ColdChamber, slot: string) => number | null;
   mineName?: string;
   facilityName?: string;
   facilityId?: string;
@@ -226,8 +247,12 @@ function CrateCard({
   const maxUnits = f?.k ?? 0;
   const standing = Math.max(0, maxUnits - cell.free);
   const kg = (units: number) => (per != null ? `${nice(units * per)} kg` : '—');
-  const allocation = row ? stackOf?.(row, cell.slot) ?? null : null;
-  const whose = allocation ?? (cell.look === 'mine' ? (mineName?.trim() ? `${mineName.trim()} (you)` : 'You') : null);
+  const owner = mode === 'owner';
+  // Role isolation: the owner reads every farmer sharing a place; a farmer's card holds only their own units and what is still free.
+  const allocation = owner && row ? stackOf?.(row, cell.slot) ?? null : null;
+  const holders = owner && row ? holdersOf?.(row, cell.slot) ?? [] : [];
+  const mineUnits = !owner && row ? mineOf?.(row, cell.slot) ?? null : null;
+  const whose = owner ? allocation : cell.look === 'mine' ? (mineName?.trim() ? `${mineName.trim()} (you)` : 'You') : null;
   const unitType = st === 'bins' ? 'Wooden bins' : st === 'crates' ? 'Plastic crates' : 'Paper cartons';
   return (
     <section aria-label={`${c?.name ?? 'Place'}: what is on place ${cell.slot}`} className="rounded-2xl bg-white/95 p-3 text-sm text-slate-800 shadow-xl ring-1 ring-slate-900/10 backdrop-blur">
@@ -254,15 +279,49 @@ function CrateCard({
         <dd>{unitType}</dd>
         <dt className="text-slate-500">Maximum Capacity</dt>
         <dd className="font-semibold">{countText(maxUnits, st)} · {kg(maxUnits)}</dd>
-        <dt className="text-slate-500">Stored Quantity</dt>
-        <dd className={standing ? 'font-semibold text-emerald-800' : ''}>{standing.toLocaleString('en-IN')} {unitWord(st, standing)} · {kg(standing)}</dd>
-        <dt className="text-slate-500">Available Capacity</dt>
-        <dd>{cell.free.toLocaleString('en-IN')} {unitWord(st, cell.free)} · {kg(cell.free)}</dd>
+        {owner ? (
+          <>
+            <dt className="text-slate-500">Stored Quantity</dt>
+            <dd className={standing ? 'font-semibold text-emerald-800' : ''}>{standing.toLocaleString('en-IN')} {unitWord(st, standing)} · {kg(standing)}</dd>
+          </>
+        ) : (
+          <>
+            <dt className="text-slate-500">Your {unitWord(st, 2)}</dt>
+            <dd className={mineUnits ? 'font-semibold text-violet-800' : ''}>
+              {mineUnits ? `${mineUnits.toLocaleString('en-IN')} ${unitWord(st, mineUnits)} · ${kg(mineUnits)}` : cell.look === 'mine' ? 'Yours' : 'None'}
+            </dd>
+          </>
+        )}
+        <dt className="text-slate-500">{owner ? 'Available Capacity' : 'Free in this place'}</dt>
+        <dd className={!owner ? 'font-semibold text-sky-800' : ''}>{cell.free.toLocaleString('en-IN')} {unitWord(st, cell.free)} · {kg(cell.free)}</dd>
         <dt className="text-slate-500">Occupancy Status</dt>
-        <dd>{PLACE_LOOK[cell.look].label}{whose ? ` · ${whose}` : ''}</dd>
-        <dt className="text-slate-500">Grower allocation</dt>
-        <dd>{whose ?? '—'}</dd>
+        <dd>{PLACE_LOOK[cell.look].label}{owner && whose ? ` · ${whose}` : ''}</dd>
+        {!owner && cell.look === 'mine' && whose && (
+          <>
+            <dt className="text-slate-500">Grower allocation</dt>
+            <dd>{whose}</dd>
+          </>
+        )}
       </dl>
+      {owner && holders.length > 0 && (
+        <div className="mt-2 rounded-xl bg-slate-50 p-2 ring-1 ring-slate-200">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Shared by {holders.length} {holders.length === 1 ? 'farmer' : 'farmers'}</p>
+          <ul className="mt-1 space-y-1">
+            {holders.map((h, i) => (
+              <li key={`${h.ref ?? h.name}-${i}`}>
+                <span className="font-semibold">{h.name}</span>
+                {' — '}
+                {h.units != null ? `${h.units.toLocaleString('en-IN')} ${unitWord(st, h.units)} · ${kg(h.units)}` : 'quantity not recorded'}
+                {h.variety ? ` · ${h.variety}` : ''}
+                {h.ref ? <span className="ml-1 font-mono text-xs text-slate-500">ref {h.ref}</span> : null}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 text-xs text-slate-600">
+            {holders.reduce((n, h) => n + (h.units ?? 0), 0).toLocaleString('en-IN')} of {maxUnits.toLocaleString('en-IN')} {unitWord(st, maxUnits)} held · {cell.free.toLocaleString('en-IN')} free
+          </p>
+        </div>
+      )}
     </section>
   );
 }
@@ -295,6 +354,8 @@ export function ColdStore3D({
   onView,
   mineName,
   stackOf,
+  holdersOf,
+  mineOf,
   onOpenTwin,
   facilityName,
   facilityId,
@@ -318,7 +379,10 @@ export function ColdStore3D({
   mineName?: string;
   /** Who holds one place (owner views): a sentence for the crate drawer read from the bookings, or null. */
   stackOf?: (c: ColdChamber, slot: string) => string | null;
-  /** Owner preview only: opens the industrial digital twin for the same store (Preview3D). */
+  /** Owner views: every farmer sharing one place, with units and booking references. */
+  holdersOf?: (c: ColdChamber, slot: string) => PlaceHolder[];
+  /** Farmer views: how many units the viewer themselves hold on one place (null: not known). */
+  mineOf?: (c: ColdChamber, slot: string) => number | null;
   onOpenTwin?: () => void;
   /** The facility's name, shown in the place inspector (Facility → Chamber → …). */
   facilityName?: string;
@@ -624,6 +688,15 @@ export function ColdStore3D({
       const fill = new T.DirectionalLight('#dbeafe', 0.55);
       fill.position.set(50, 30, -40);
       world3.add(fill);
+      // Real interior lights for walking (the LED strips are emissive meshes, not light sources): two
+      // point lights that follow the walker, hung under the ceiling of the room they stand in — a
+      // chamber or the grading / packaging hall — so every chamber is brightly lit where you are.
+      // The count never changes (no shader recompiles); both stay dark outside the walk.
+      const walkLamps = [0, 1].map(() => {
+        const l = new T.PointLight('#f5faff', 0, 18, 1.5);
+        world3.add(l);
+        return l;
+      });
 
       // Gentle studio reflections for the steel and painted panels (desktop
       // only: the prefiltered map is memory a phone is short of). Kept faint —
@@ -1197,6 +1270,20 @@ export function ColdStore3D({
         // Ceilings, roof and lights only when walking: from outside the roof is off so you can look in.
         if (shell) shell.walkOnly.visible = mode3 === 'walk';
         world3.fog = mode3 === 'walk' ? haze : null;
+        if (mode3 === 'walk' && shown) {
+          // The room the walker is in sets how high the luminaires hang: under its ceiling, or under the deck above.
+          const ci = me.inside >= 0 ? me.inside : chamberAt(shown, me);
+          const ch = ci >= 0 ? shown.chambers[ci] : null;
+          const room = ch ? ch.h : shown.building?.height ?? shown.height;
+          const base = ch && me.inside >= 0 && me.level > 1 ? ch.floors[me.level - 1]?.z0 ?? 0 : 0;
+          const hang = Math.max(EYE + 0.6, Math.min(room - 0.35, base + 4.2));
+          // One over the walker, one a few metres ahead, as a row of strips would light the way.
+          [0, 1].forEach((i) => {
+            const reach = i * 5;
+            walkLamps[i].position.set(wx(origin, me.x + Math.cos(me.heading) * reach), hang, wz(origin, me.y + Math.sin(me.heading) * reach));
+            walkLamps[i].intensity = i === 0 ? 40 : 28;
+          });
+        } else for (const l of walkLamps) l.intensity = 0;
         if (labelsWalk !== (mode3 === 'walk')) {
           labelsWalk = mode3 === 'walk';
           root.traverse((o) => {
@@ -1761,9 +1848,13 @@ export function ColdStore3D({
           cell={stackCell}
           scene={scene}
           chambers={chambers}
+          mode={mode}
           // Role isolation: only the owner's view reads who holds a place;
-          // farmer-facing cards never name another farmer.
+          // farmer-facing cards never name another farmer and carry only the
+          // viewer's own units plus what is still free.
           stackOf={mode === 'owner' ? stackOf : undefined}
+          holdersOf={mode === 'owner' ? holdersOf : undefined}
+          mineOf={mode === 'owner' ? undefined : mineOf}
           mineName={mineName}
           facilityName={facilityName}
           facilityId={facilityId}

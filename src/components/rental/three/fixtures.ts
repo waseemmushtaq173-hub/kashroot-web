@@ -144,10 +144,11 @@ export function buildFixtures(kit: Kit, scene: StoreScene, o: Origin): Fixtures 
       // one shared proto, turned to blow into the room (shrouds point local
       // −Z, so the turn is atan2(−nx, −nz)). No fan discs: the visual rule
       // keeps rotating fan meshes out of the stored-fruit airspace — the
-      // blower unit cooler stays a closed housing over the aisle / wall.
+      // blower unit cooler stays a closed housing over the aisle / wall, and
+      // the kit's fan-face slot gets the plain grille (never the blade texture).
       const evapProto = kit.protos?.evap;
       if (evapProto) {
-        const m = new T.Mesh(evapProto, [mats.cooler, mats.fan, mats.guard]);
+        const m = new T.Mesh(evapProto, [mats.cooler, mats.guard, mats.guard]);
         m.scale.set(uw, uh, ud);
         m.rotation.y = Math.atan2(-nx, -nz);
         m.position.set(X(px), cy - uh / 2, Z(py));

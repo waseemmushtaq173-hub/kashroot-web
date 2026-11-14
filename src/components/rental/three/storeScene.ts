@@ -15,7 +15,7 @@
  * chambers stand side by side along a corridor. Pure: no three.js, no React.
  */
 import { ensureBuildingEnclosesChambers, planOf, type ChamberPlan, type Wall } from '@/lib/coldLayout';
-import { arrangeStore, doorLine, fromDoor, groupChambers, oppositeWall, outlineOf, placeRect, type Building, type ChamberGroup, type PreviewRows, type Storage, type WallSide, type WorkSpaces } from '@/lib/coldStore';
+import { arrangeStore, doorLine, fromDoor, groupChambers, oppositeWall, outlineOf, placeRect, type Building, type ChamberGroup, type PreviewRows, type SpaceKey, type Storage, type WallSide, type WorkSpaces } from '@/lib/coldStore';
 import { placeName, type ColdChamber } from '@/lib/db/coldMap';
 
 export interface Vec {
@@ -126,9 +126,23 @@ export interface MainDoor {
 
 /** A work zone painted on the real floor: the dock at the main door, or a line of work set out on free floor. */
 export interface SceneZone {
-  key: 'cleaning' | 'grading' | 'packing' | 'machinery' | 'dock';
+  key: 'cleaning' | 'grading' | 'sorting' | 'packing' | 'machinery' | 'dock';
   label: string;
   rect: Rect;
+}
+
+/**
+ * The airlock vestibule just inside the main door (Fishery Leaflet 427
+ * anteroom principle: warm outside air must not reach the working hall or the
+ * chambers). The main door is its outer door; `door` is the inner airlock
+ * door across the passage. `walls` are only the sides that are open hall and
+ * the stubs beside the inner door — a chamber wall alongside the passage
+ * already closes its side.
+ */
+export interface Vestibule {
+  rect: Rect;
+  walls: Seg[];
+  door: Seg;
 }
 
 export interface StoreScene {
@@ -145,6 +159,8 @@ export interface StoreScene {
   walls: Seg[];
   /** The passage straight in from the main door (null without a building). */
   passage: Rect | null;
+  /** The airlock vestibule inside the main door (null when the passage has no room for one). */
+  vestibule: Vestibule | null;
   /** Work zones painted on the floor (none without a building, and only where free floor has room). */
   zones: SceneZone[];
   chambers: SceneChamber[];
@@ -432,18 +448,21 @@ function biggestFreeRect(hall: Rect, taken: Rect[]): Rect | null {
   return best;
 }
 
-/** The four lines of work, in the order they follow the fruit through the store. */
-const ZONE_LINES: [SceneZone['key'], string][] = [
-  ['cleaning', 'Cleaning & washing line'],
-  ['grading', 'Grading line & sorting'],
-  ['packing', 'Packaging'],
+/** The lines of work, in the order they follow the fruit through the store (the sorting area is carved from the grading lane). */
+const ZONE_LINES: [SpaceKey, string][] = [
+  ['cleaning', 'Receiving & weighing area'],
+  ['grading', 'Automated grading line'],
+  ['packing', 'Packaging space'],
   ['machinery', 'Refrigeration plant'],
 ];
+/** The grading lane's share that stays the machine line; the rest, beside it, is the sorting area. */
+const GRADING_SHARE = 0.62;
 
 /** The colour a work zone is painted in — the same hue in the 2D drawing and on the 3D floor. */
 export const ZONE_LOOK: Record<SceneZone['key'], string> = {
   cleaning: '#0e7490',
   grading: '#15803d',
+  sorting: '#4d7c0f',
   packing: '#a16207',
   machinery: '#475569',
   dock: '#c2410c',
@@ -509,6 +528,21 @@ export function workZones(hall: Rect, chamberRects: Rect[], passage: Rect | null
       ZONE_LINES.slice(0, n).forEach(([key, label], i) => put(key, label, lane - 2 * ZONE_GAP, cross - 2 * ZONE_GAP, i * lane + ZONE_GAP));
     }
   }
+  // The grading lane holds the machine line and, beside it along the same run, the sorting area.
+  const gi = zones.findIndex((z) => z.key === 'grading');
+  if (gi >= 0) {
+    const g = zones[gi].rect;
+    const along = g.w >= g.d;
+    const run = along ? g.w : g.d;
+    if (run >= ZONE_MIN_LANE * 2) {
+      const lineLen = Math.max(ZONE_MIN_LANE, (run - ZONE_GAP) * GRADING_SHARE);
+      const sortLen = run - ZONE_GAP - lineLen;
+      if (sortLen >= 1.5) {
+        zones[gi] = { ...zones[gi], rect: along ? { ...g, w: lineLen } : { ...g, d: lineLen } };
+        zones.splice(gi + 1, 0, { key: 'sorting', label: 'Sorting area', rect: along ? { ...g, x: g.x + lineLen + ZONE_GAP, w: sortLen } : { ...g, y: g.y + lineLen + ZONE_GAP, d: sortLen } });
+      }
+    }
+  }
   if (passage) {
     // The dock is the strip of the passage at the main door: the passage
     // runs from it, clear of every chamber, to the wall opposite. An
@@ -522,7 +556,7 @@ export function workZones(hall: Rect, chamberRects: Rect[], passage: Rect | null
       const frontEnd = doorWall === 'front' || doorWall === 'left' ? touchesNear : touchesFar;
       const lo = horiz ? passage.y : passage.x;
       const at = frontEnd ? lo : lo + size - depth;
-      zones.push({ key: 'dock', label: 'Receiving & dispatch', rect: horiz ? { x: passage.x, y: at, w: passage.w, d: depth } : { x: at, y: passage.y, w: depth, d: passage.d } });
+      zones.push({ key: 'dock', label: 'Dispatch & truck bay', rect: horiz ? { x: passage.x, y: at, w: passage.w, d: depth } : { x: at, y: passage.y, w: depth, d: passage.d } });
     }
   }
   return zones;
@@ -713,10 +747,60 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
     height = Math.max(height, c.h);
     floors = Math.max(floors, c.floors.length);
   }
-  return { building: effBuilding, hall, bounds: { x: x0, y: y0, w: x1 - x0, d: y1 - y0 }, height: Math.max(height, 1), mainDoor, walls, passage, zones, chambers, problems, beside: false, floors, unit };
+  const vestibule = vestibuleOf(mainDoor, passage, chambers, hall);
+  return { building: effBuilding, hall, bounds: { x: x0, y: y0, w: x1 - x0, d: y1 - y0 }, height: Math.max(height, 1), mainDoor, walls, passage, vestibule, zones, chambers, problems, beside: false, floors, unit };
 }
 
 const ORD = ['1st', '2nd', '3rd'];
+
+/** How deep the airlock vestibule is, metres in from the main door. */
+const VESTIBULE_DEPTH = 2.4;
+
+/**
+ * The airlock vestibule in the passage just inside the main door: its inner
+ * door across the passage, a wall on each side that is open hall (a chamber
+ * standing alongside already closes its own side) and stubs either side of
+ * the inner door. Null when the passage is too short or narrow for one.
+ */
+export function vestibuleOf(md: MainDoor | null, passage: Rect | null, chambers: { rect: Rect }[], hall: Rect): Vestibule | null {
+  if (!md || !passage) return null;
+  const vertical = md.inward.y !== 0;
+  const a0 = vertical ? passage.x : passage.y;
+  const a1 = vertical ? passage.x + passage.w : passage.y + passage.d;
+  const room = vertical ? passage.d : passage.w;
+  const depth = Math.min(VESTIBULE_DEPTH, room * 0.4);
+  if (depth < 1.6 || a1 - a0 < 1.6) return null;
+  const sign = vertical ? md.inward.y : md.inward.x;
+  const start = vertical ? md.mid.y : md.mid.x;
+  const end = start + sign * depth;
+  const lo = Math.min(start, end);
+  const mid = vertical ? md.mid.x : md.mid.y;
+  const half = Math.min(md.width, a1 - a0) / 2;
+  const g0 = Math.max(a0, mid - half);
+  const g1 = Math.min(a1, mid + half);
+  const at = (a: number, d: number): Vec => (vertical ? { x: a, y: d } : { x: d, y: a });
+  const line = (aa: number, dd: number, bb: number, ee: number): Seg => {
+    const p = at(aa, dd);
+    const q = at(bb, ee);
+    return { x1: p.x, y1: p.y, x2: q.x, y2: q.y };
+  };
+  // The building's own wall, or a chamber standing against this edge of the passage along the vestibule's depth, is its side wall already.
+  const onHall = (edge: number) => (vertical ? [hall.x, hall.x + hall.w] : [hall.y, hall.y + hall.d]).some((e) => Math.abs(e - edge) < 0.3);
+  const closed = (edge: number) =>
+    onHall(edge) ||
+    chambers.some(({ rect: r }) => {
+      const near = vertical ? [r.x, r.x + r.w] : [r.y, r.y + r.d];
+      const span = vertical ? [r.y, r.y + r.d] : [r.x, r.x + r.w];
+      return near.some((e) => Math.abs(e - edge) < 0.3) && Math.min(span[1], lo + depth) - Math.max(span[0], lo) > 0.5;
+    });
+  const walls: Seg[] = [];
+  if (!closed(a0)) walls.push(line(a0, start, a0, end));
+  if (!closed(a1)) walls.push(line(a1, start, a1, end));
+  if (g0 - a0 > 0.05) walls.push(line(a0, end, g0, end));
+  if (a1 - g1 > 0.05) walls.push(line(g1, end, a1, end));
+  const rect: Rect = vertical ? { x: a0, y: lo, w: a1 - a0, d: depth } : { x: lo, y: a0, w: depth, d: a1 - a0 };
+  return { rect, walls, door: line(g0, end, g1, end) };
+}
 
 /**
  * The zones a viewer may see. Farmer-facing views (book / view) never show

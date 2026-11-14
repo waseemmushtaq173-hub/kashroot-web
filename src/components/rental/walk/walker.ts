@@ -34,7 +34,7 @@ export interface Walker {
 
 /** The world to walk in; `stops(chamber, floorIndex, placeIndex)` says which places have a stack on them. */
 export function walkWorld(scene: StoreScene, stops: (chamber: number, floor: number, place: number) => boolean): WalkWorld {
-  const walls = [...scene.walls, ...scene.chambers.flatMap((c) => c.walls)];
+  const walls = [...scene.walls, ...(scene.vestibule?.walls ?? []), ...scene.chambers.flatMap((c) => c.walls)];
   const closed = scene.chambers.map((c) => {
     const r = c.rect;
     return [

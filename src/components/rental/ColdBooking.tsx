@@ -365,6 +365,8 @@ export function ColdBooking({
   );
   // Room left on each place once this farmer's chosen bins are on it.
   const roomOf = useCallback((c: ColdChamber, slot: string) => Math.max(0, roomFor(c, slot) - (picked.get(placeKey(c.id, slot))?.boxes ?? 0)), [roomFor, picked]);
+  // The farmer's own units on one place — all a farmer-facing place card may say about who holds it.
+  const mineOf = useCallback((c: ColdChamber, slot: string) => taken?.get(placeKey(c.id, slot))?.mine ?? 0, [taken]);
 
   // Tap a place: it takes as many of the farmer's bins as still need a place
   // (all that fit when no number is written); tap again to take it off.
@@ -754,6 +756,7 @@ export function ColdBooking({
               onActive={setActive}
               legend={['free', 'part', 'selected', 'held', 'booked', 'mine', 'blocked']}
               mineName={form.name || account.name}
+              mineOf={mineOf}
               facilityName={l.title}
               facilityId={l.id}
             />
@@ -916,6 +919,14 @@ export function MyPlaces({ places, chambers, listingId, start, months, name }: {
     [mine, taken],
   );
   const roomOf = useCallback((c: ColdChamber, slot: string) => (c.blocked.includes(slot) ? 0 : roomOn(c, taken.get(placeKey(c.id, slot)))), [taken]);
+  // The farmer's own units on a place they hold (a booking with no count holds the whole place).
+  const mineOf = useCallback(
+    (c: ColdChamber, slot: string) => {
+      const p = places.find((x) => x.chamber_id === c.id && x.slot === slot);
+      return p ? p.boxes ?? c.boxes_per_slot : taken.get(placeKey(c.id, slot))?.mine ?? 0;
+    },
+    [places, taken],
+  );
 
   if (!places.length) return null;
   const lines = placeLines(places, chambers);
@@ -941,7 +952,7 @@ export function MyPlaces({ places, chambers, listingId, start, months, name }: {
       )}
       {open && chambers.length > 0 && (
         <div className="mt-3">
-          <ColdStoreExplorer chambers={chambers} stateOf={stateOf} roomOf={roomOf} mode="view" active={active} onActive={setActive} legend={['mine', 'free', 'part', 'held', 'booked', 'blocked']} mineName={name} facilityId={listingId} />
+          <ColdStoreExplorer chambers={chambers} stateOf={stateOf} roomOf={roomOf} mode="view" active={active} onActive={setActive} legend={['mine', 'free', 'part', 'held', 'booked', 'blocked']} mineName={name} mineOf={mineOf} facilityId={listingId} />
         </div>
       )}
     </div>

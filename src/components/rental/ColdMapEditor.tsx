@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pencil, Phone } from 'lucide-react';
 
 import { ColdStoreExplorer, type Look } from '@/components/rental/ColdStoreMap';
+import type { PlaceHolder } from '@/components/rental/ColdStore3D';
 import { niceDate, placesText } from '@/components/rental/ColdBooking';
 import { Badge, Btn, Field, INPUT, Modal, PORTAL_THEMES } from '@/components/portal/kit';
 import { unitWord } from '@/lib/coldStore';
@@ -117,6 +118,17 @@ export function ColdMapEditor({
     },
     [holder],
   );
+  // Every farmer sharing one place, for the 3D place card (units from the bookings; the booking's
+  // reference is its payment reference or short id; no variety is invented — bookings do not hold one).
+  const holdersOf = useCallback(
+    (c: ColdChamber, slot: string): PlaceHolder[] =>
+      (holder.get(placeKey(c.id, slot)) ?? []).map(({ booking, boxes }) => ({
+        name: booking.renter_name,
+        units: boxes != null && boxes > 0 ? boxes : null,
+        ref: booking.payment_ref || booking.id.slice(0, 8).toUpperCase(),
+      })),
+    [holder],
+  );
 
   const who = picked ? holder.get(picked) ?? [] : [];
   const unit = chambers.find((c) => picked?.startsWith(`${c.id}:`))?.storage ?? 'boxes';
@@ -149,6 +161,7 @@ export function ColdMapEditor({
               onPlace={onStore}
               labelOf={initialsOf}
               stackOf={stackOf}
+              holdersOf={holdersOf}
               active={viewing}
               onActive={setViewing}
               legend={['free', 'part', 'held', 'booked', 'blocked']}

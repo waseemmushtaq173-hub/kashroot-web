@@ -75,25 +75,31 @@ const SIDE_TEXT: Record<Sides, { title: string; text: string }> = {
   left: { title: 'Left side', text: 'Chambers on your left' },
   right: { title: 'Right side', text: 'Chambers on your right' },
   both: { title: 'Both sides', text: 'Chambers left and right' },
+  lbank: { title: 'L-bank', text: 'Chambers 1–4 down the left wall, 5+ along the back wall' },
 };
 
-/** The store from above as you walk in: the main door at the bottom, the passage up from it, chambers on one side or both. */
+/** The store from above as you walk in: the main door at the bottom, the passage up from it, chambers on one side, both, or the L-bank. */
 function SidesIcon({ sides, on }: { sides: Sides; on: boolean }) {
-  const room = (x: number, y: number, door: 'l' | 'r') => (
+  const room = (x: number, y: number, door: 'l' | 'r' | 'b') => (
     <g key={`${x}-${y}`}>
       <rect x={x} y={y} width="22" height="17" rx="1.5" fill={on ? '#c4b5fd' : '#bfdbfe'} stroke={on ? '#5b21b6' : '#1d4ed8'} strokeWidth="1.5" />
-      <line x1={door === 'r' ? x + 22 : x} y1={y + 5} x2={door === 'r' ? x + 22 : x} y2={y + 12} stroke="#d97706" strokeWidth="3" />
+      {door === 'b' ? (
+        <line x1={x + 5} y1={y + 17} x2={x + 17} y2={y + 17} stroke="#d97706" strokeWidth="3" />
+      ) : (
+        <line x1={door === 'r' ? x + 22 : x} y1={y + 5} x2={door === 'r' ? x + 22 : x} y2={y + 12} stroke="#d97706" strokeWidth="3" />
+      )}
     </g>
   );
+  const lbank = sides === 'lbank';
   const left = sides !== 'right';
-  const right = sides !== 'left';
+  const right = sides !== 'left' && !lbank;
   return (
     <svg aria-hidden width="84" height="72" viewBox="0 0 84 72">
       <rect x="4" y="3" width="76" height="60" rx="3" fill="#ffffff" stroke="#64748b" strokeWidth="2" />
-      <rect x="35" y="3" width="14" height="60" fill="#fef3c7" />
-      <line x1="42" y1="58" x2="42" y2="12" stroke="#b45309" strokeWidth="1.5" strokeDasharray="3 3" />
-      <path d="M38 17 L42 11 L46 17" fill="none" stroke="#b45309" strokeWidth="1.5" />
-      {left && [room(7, 6, 'r'), room(7, 25, 'r'), room(7, 44, 'r')]}
+      <rect x="35" y={lbank ? 24 : 3} width="14" height={lbank ? 39 : 60} fill="#fef3c7" />
+      <line x1="42" y1="58" x2="42" y2={lbank ? 30 : 12} stroke="#b45309" strokeWidth="1.5" strokeDasharray="3 3" />
+      <path d={lbank ? 'M38 35 L42 29 L46 35' : 'M38 17 L42 11 L46 17'} fill="none" stroke="#b45309" strokeWidth="1.5" />
+      {lbank ? [room(7, 25, 'r'), room(7, 44, 'r'), room(7, 6, 'b'), room(31, 6, 'b'), room(55, 6, 'b')] : left && [room(7, 6, 'r'), room(7, 25, 'r'), room(7, 44, 'r')]}
       {right && [room(55, 6, 'l'), room(55, 25, 'l'), room(55, 44, 'l')]}
       <line x1="34" y1="63" x2="50" y2="63" stroke="#d97706" strokeWidth="5" />
       <text x="42" y="71.5" textAnchor="middle" fontSize="7" fontWeight="700" fill="#b45309">MAIN DOOR</text>
@@ -101,16 +107,16 @@ function SidesIcon({ sides, on }: { sides: Sides; on: boolean }) {
   );
 }
 
-/** Where the chambers are along the passage from the main door: three big picture buttons. */
+/** Where the chambers are along the passage from the main door: big picture buttons. */
 function SidesPicker({ value, onChange, issues }: { value: Sides | ''; onChange: (v: Sides) => void; issues: Issue[] }) {
   const label = 'Where are the chambers?';
   return (
     <fieldset data-field="building.sides" className="space-y-2 rounded-2xl bg-sky-50/70 p-4 ring-1 ring-sky-200">
       <legend className="sr-only">{label}</legend>
       <p className="flex items-center gap-2 text-base font-semibold text-sky-950"><Warehouse className="h-5 w-5" aria-hidden /> {label}</p>
-      <p className="text-sm text-slate-700">Stand in the main door and look in. The passage starts at the main door. Are the chambers on its left, on its right, or on both sides?</p>
-      <div role="radiogroup" aria-label={label} className="grid grid-cols-3 gap-2">
-        {(['left', 'right', 'both'] as const).map((s) => (
+      <p className="text-sm text-slate-700">Stand in the main door and look in. The passage starts at the main door. Are the chambers on its left, on its right, on both sides, or in an L — down the left wall and then along the back wall?</p>
+      <div role="radiogroup" aria-label={label} className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {(['left', 'right', 'both', 'lbank'] as const).map((s) => (
           <button
             key={s}
             type="button"
@@ -126,7 +132,7 @@ function SidesPicker({ value, onChange, issues }: { value: Sides | ''; onChange:
           </button>
         ))}
       </div>
-      <p className="text-xs text-slate-600">KashRoot puts the chambers in number order from the main door inward{value === 'both' ? ' — Chamber 1 on the left, 2 on the right, 3 on the left and so on' : ''}, each with its door facing the passage. To put a chamber somewhere else, say where it stands in step 3 (More details).</p>
+      <p className="text-xs text-slate-600">KashRoot puts the chambers in number order from the main door inward{value === 'both' ? ' — Chamber 1 on the left, 2 on the right, 3 on the left and so on' : value === 'lbank' ? ' — Chambers 1 to 4 down the left wall, front to rear, then 5 and on along the back wall from left to right' : ''}, each with its door facing the passage or the hall. To put a chamber somewhere else, say where it stands in step 3 (More details).</p>
       <Problems issues={issues} />
     </fieldset>
   );

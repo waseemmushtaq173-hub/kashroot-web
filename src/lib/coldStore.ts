@@ -37,16 +37,21 @@ import type { ColdChamber } from '@/lib/db/coldMap';
 
 export { WALLS, type Wall, type SizeUnit };
 
-/** Where the chambers are, as you walk in through the main door: left of the passage, right of it, or both sides. */
-export type Sides = 'left' | 'right' | 'both';
-export type Side = Exclude<Sides, 'both'>;
+/**
+ * Where the chambers are, as you walk in through the main door: left of the passage, right of it, both sides,
+ * or the L-bank of the architectural diagram — Chambers 1..4 down the left wall (front to rear), 5..N along the back wall (left to right).
+ */
+export type Side = 'left' | 'right';
+export type Sides = Side | 'both' | 'lbank';
 /** A chamber's bank along a building wall: a passage side, or across the far ('back') or entrance ('front') wall. */
 export type WallSide = Side | 'back' | 'front';
 /** The wall opposite this one (front ↔ back, left ↔ right). */
 export const oppositeWall = (w: Wall): Wall => ({ front: 'back', back: 'front', left: 'right', right: 'left' } as const)[w];
-export const SIDES: Sides[] = ['left', 'right', 'both'];
-/** The side of the passage for the n-th chamber placed in order (from 0): all on one side, or 1 left, 2 right, 3 left … */
-export const sideOrder = (sides: Sides, n: number): Side => (sides === 'both' ? (n % 2 ? 'right' : 'left') : sides);
+export const SIDES: Sides[] = ['left', 'right', 'both', 'lbank'];
+/** The L-bank: this many chambers stand down the left wall before the back wall's row begins. */
+export const L_BANK_LEFT = 4;
+/** The bank for the n-th chamber placed in order (from 0): all on one side, 1 left, 2 right, 3 left … or the L-bank (1..4 left, then along the back wall). */
+export const sideOrder = (sides: Sides, n: number): WallSide => (sides === 'lbank' ? (n < L_BANK_LEFT ? 'left' : 'back') : sides === 'both' ? (n % 2 ? 'right' : 'left') : sides);
 
 // ───────────────────────── what a chamber stores ─────────────────────────
 
@@ -684,7 +689,7 @@ export function storeModel(draft: StoreDraft): StoreModel {
   }
   const mainDoor = readDoor(d.building.door, 'building.door', 'the main door', 'the building', 2, bL !== null && bW !== null && bH !== null ? { length: bL, width: bW, height: bH } : null, u, add);
   const sides = SIDES.includes(d.building.sides as Sides) ? (d.building.sides as Sides) : null;
-  if (!sides) add('error', 2, 'building.sides', 'Choose where the chambers are, as you walk in through the main door: on the left side of the passage, on the right side, or on both sides.');
+  if (!sides) add('error', 2, 'building.sides', 'Choose where the chambers are, as you walk in through the main door: on the left side of the passage, on the right side, on both sides, or in the L-bank (left wall, then the back wall).');
   // The owner's extra architecture: wall thickness, the passage width, how
   // the main door opens, and the five work spaces. Anything left empty falls
   // back to the drawing's own sensible choice; anything typed is clamped.
@@ -736,8 +741,13 @@ export function storeModel(draft: StoreDraft): StoreModel {
         } else if (wp === 'BACK' || wp === 'FRONT') {
           along.set(c.key, { side: wp.toLowerCase() as 'back' | 'front', wall: wp === 'BACK' ? building.door.wall : oppositeWall(building.door.wall) });
         } else {
+          // Unsaid: follows the building's bank setting — alternating, one side, or the L-bank (1..4 left, then the back wall).
           const side = sideOrder(building.sides, n);
-          along.set(c.key, { side, wall: passageWall(building.door.wall, side) });
+          if (side === 'back' || side === 'front') {
+            along.set(c.key, { side, wall: side === 'back' ? building.door.wall : oppositeWall(building.door.wall) });
+          } else {
+            along.set(c.key, { side, wall: passageWall(building.door.wall, side) });
+          }
         }
       });
   }
@@ -1412,14 +1422,14 @@ export function arrangeStore(
       spots[c.key].fits = false;
       problems.push({
         key: c.key,
-        message: `${c.name} does not fit: the chambers on the ${side} of the passage need ${show(va + deep)} from the main door’s wall inward, but the building is only ${show(pass.depth)} deep that way. ${sides === 'both' ? 'Check the sizes, or say where each chamber stands (More details).' : 'Check the sizes, or choose “Both sides” in step 2 (The building).'}`,
+        message: `${c.name} does not fit: the chambers on the ${side} of the passage need ${show(va + deep)} from the main door’s wall inward, but the building is only ${show(pass.depth)} deep that way. ${sides === 'both' || sides === 'lbank' ? 'Check the sizes, or say where each chamber stands (More details).' : 'Check the sizes, or choose “Both sides” in step 2 (The building).'}`,
       });
     }
     if (out > roomOn[side] + slack) {
       spots[c.key].fits = false;
       inPassage.add(c.key);
       const other: Side = side === 'left' ? 'right' : 'left';
-      const swap = sides !== 'both' && out <= roomOn[other] + slack ? ` or choose “${SIDE_TEXT[other]}” in step 2 (The building),` : '';
+      const swap = (sides === 'left' || sides === 'right') && out <= roomOn[other] + slack ? ` or choose “${SIDE_TEXT[other]}” in step 2 (The building),` : '';
       problems.push({
         key: c.key,
         message: `${c.name} needs ${show(out)} on the ${side} of the passage (as you walk in), but there are only ${show(roomOn[side])} between the passage and the wall on that side, so it stands in the passage. Check the sizes,${swap} or check where the main door is.`,

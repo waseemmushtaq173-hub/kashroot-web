@@ -37,6 +37,7 @@ const fitFont = (text: string, room: number, max: number, min: number) => Math.m
 const ZONE_FILL: Record<import('@/components/rental/three/storeScene').SceneZone['key'], string> = {
   cleaning: '#ecfeff',
   grading: '#f0fdf4',
+  sorting: '#ecfccb',
   packing: '#fef9c3',
   machinery: '#f1f5f9',
   dock: '#ffedd5',
@@ -47,6 +48,7 @@ export const SIDES_TEXT: Record<Sides, string> = {
   left: 'on the left side of the passage from the main door',
   right: 'on the right side of the passage from the main door',
   both: 'on both sides of the passage from the main door',
+  lbank: 'in an L: 1 to 4 down the left wall, the rest along the back wall',
 };
 
 /** "Building 120 ft long, 60 ft wide, 30 ft high; main door in the front wall, 10 ft from the left corner, 10 ft wide; chambers on both sides of the passage from the main door." */
@@ -192,7 +194,7 @@ export const StoreDrawing = memo(function StoreDrawing({ model, selected, onPick
                     PASSAGE
                   </text>
                 )}
-                {!items.length && (b.sides === 'both' ? [zone('left'), zone('right')] : [zone(b.sides)])}
+                {!items.length && (b.sides === 'both' ? [zone('left'), zone('right')] : b.sides === 'lbank' ? [zone('left')] : [zone(b.sides)])}
               </g>
             );
           })()}

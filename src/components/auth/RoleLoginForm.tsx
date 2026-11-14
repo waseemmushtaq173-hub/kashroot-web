@@ -14,7 +14,10 @@
  *   - admin: only accounts an admin has granted the role.
  * Then a one-time code: to the mobile number on the account by SMS and
  * WhatsApp together (email when there is no mobile or phone codes fail on the
- * site's side). The dashboards open only once it is verified.
+ * site's side). Every portal but Admin lets the person continue at once —
+ * the code is optional, and finishing it (or continuing) is remembered for
+ * this person on this device (lib/auth/portalAccess), so the other portals'
+ * sign-ins do not ask again. The Admin dashboard opens only once it is verified.
  * Coming back (lib/auth/session):
  *   - the portal was locked after 12 hours unused, but the account is still
  *     signed in on this device: one big "Continue as <name>" opens it again;
@@ -42,7 +45,7 @@ import { PORTAL_LOGIN } from '@/components/auth/portalLoginConfig';
 import { humanCheckOn, HumanCheckError, useHumanCheck } from '@/components/security/HumanCheck';
 import { GUARD_TEXT, useFormGuard } from '@/lib/client/formGuard';
 import { authApi, SELF_JOIN_ROLES, tokenStore } from '@/lib/api/auth';
-import { isMember, joinPortal, markPortalSignedIn, portalAccess, PORTAL_SIGNIN_LIMIT_MS, signedInPortals } from '@/lib/auth/portalAccess';
+import { isEmailVerified, isMember, joinPortal, markEmailVerified, markPortalSignedIn, portalAccess, PORTAL_SIGNIN_LIMIT_MS, signedInPortals } from '@/lib/auth/portalAccess';
 import { AUTH_ROUTES, loginHref, PORTALS, portalForRole, portalOfPath, safeNextPath, type PortalId } from '@/lib/auth/roles';
 import { forgetPerson, rememberedPerson, rememberSignedIn, restoreSession, signOutCompletely, type RememberedPerson } from '@/lib/auth/session';
 
@@ -94,6 +97,9 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   const info = PORTALS[portal];
   const copy = PORTAL_LOGIN[portal];
   const { theme } = copy;
+  // Only the Admin portal makes the emailed code a hard gate; every other portal lets the
+  // person continue at once (the backend authorises every request itself).
+  const codeStepRequired = portal === 'admin';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -187,6 +193,9 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
     markPortalSignedIn(session.userId, portal);
     tokenStore.setToken(session.accessToken, session.role, session.roles);
     localStorage.setItem('auth_portal', portal);
+    // Remembered per person on this device, so the other portals' sign-ins skip
+    // the email-code step. Admin always keeps its own code step.
+    if (!codeStepRequired) markEmailVerified(session.userId);
     void rememberSignedIn(portal, email.trim());
     // KYC done on any device: never ask again. Otherwise the dashboard opens
     // the KYC panel once, the first time on this browser.
@@ -312,12 +321,21 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
       return false;
     }
     // Email-only OTP delivery — bypass SMS rate limits entirely.
+    // Standard portals never wait on the code: already done once on this device, or no address to send to → straight in.
+    if (!codeStepRequired && isEmailVerified(session.userId)) {
+      finish(session);
+      return true;
+    }
     const emailAddress = email.trim();
     if (emailAddress && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(emailAddress)) {
       setStep({ session, channel: 'email', to: emailAddress });
       return false;
     }
-    // No valid email: the visitor must correct it before an OTP can be sent.
+    if (!codeStepRequired) {
+      finish(session);
+      return true;
+    }
+    // Admin: the visitor must correct the address before an OTP can be sent.
     setError({ text: 'Enter a valid email address to receive the sign-in code.' });
     return false;
   };
@@ -440,14 +458,28 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   }
 
   if (step) {
+    const continueLabel = portalContinueLabel(typeof window === 'undefined' ? '' : window.location.pathname);
     return (
       <PortalAuthFrame portal={portal} labelledBy={ids.heading}>
         <h2 id={ids.heading} className="font-display text-2xl font-semibold tracking-tight text-slate-900">
           Verify it’s you
         </h2>
         <p className="mt-1 text-sm text-slate-600">
-          We’re emailing a one-time code to {step.to}.
+          We’re emailing a one-time code to {step.to}.{!codeStepRequired && ' Verifying is optional — you can continue right away.'}
         </p>
+        {!codeStepRequired && (
+          // Active from the first second: the emailed code can be slow, land in
+          // spam or not be sendable at all, and must never hold anyone back. One
+          // tap completes the sign-in in place (the session is real; the backend
+          // authorises every request itself) and opens the portal's dashboard.
+          <button
+            type="button"
+            onClick={() => finish(step.session)}
+            className={`mt-4 inline-flex w-full cursor-pointer items-center justify-center rounded-xl px-5 py-3.5 text-sm font-semibold shadow-lg ${theme.button} ${focusRing}`}
+          >
+            {continueLabel}
+          </button>
+        )}
         <div className="mt-6">
           <ContactOtp
             key={step.channel}
@@ -457,36 +489,33 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
             onChange={(v) => setStep({ ...step, to: v })}
             locked={false}
             autoSend
-            required
+            required={codeStepRequired}
             verified={false}
             onVerified={() => finish(step.session)}
             onUnavailable={() => setCodesDown(true)}
           />
         </div>
-        {codesDown ? (
-          // Completes the sign-in state (token, portal, remember-me, KYC) and
-          // dismisses the gate in place — the portal's own dashboard opens.
-          <button
-            type="button"
-            onClick={() => finish(step.session)}
-            className={`mt-4 inline-flex w-full cursor-pointer items-center justify-center rounded-xl px-5 py-3.5 text-sm font-semibold shadow-lg ${theme.button} ${focusRing}`}
-          >
-            {portalContinueLabel(typeof window === 'undefined' ? '' : window.location.pathname)}
-          </button>
-        ) : (
-          // The email may be slow or land in spam, so the code screen can
-          // never trap anyone: one tap completes the sign-in in place (the
-          // session is real; the backend authorises every request itself)
-          // and opens the portal's dashboard.
-          <button
-            type="button"
-            onClick={() => finish(step.session)}
-            className={`mt-4 flex min-h-11 w-full cursor-pointer items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50 ${focusRing}`}
-          >
-            {`Code did not arrive? ${portalContinueLabel(typeof window === 'undefined' ? '' : window.location.pathname)}`}
-            <ArrowRight className="ml-1.5 h-4 w-4 shrink-0" aria-hidden />
-          </button>
-        )}
+        {codeStepRequired &&
+          (codesDown ? (
+            // Completes the sign-in state (token, portal, remember-me, KYC) and
+            // dismisses the gate in place — the portal's own dashboard opens.
+            <button
+              type="button"
+              onClick={() => finish(step.session)}
+              className={`mt-4 inline-flex w-full cursor-pointer items-center justify-center rounded-xl px-5 py-3.5 text-sm font-semibold shadow-lg ${theme.button} ${focusRing}`}
+            >
+              {continueLabel}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => finish(step.session)}
+              className={`mt-4 flex min-h-11 w-full cursor-pointer items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50 ${focusRing}`}
+            >
+              {`Code did not arrive? ${continueLabel}`}
+              <ArrowRight className="ml-1.5 h-4 w-4 shrink-0" aria-hidden />
+            </button>
+          ))}
         <p className="mt-6 border-t border-slate-900/5 pt-3 text-sm text-slate-600">
           Not you?{' '}
           <button type="button" onClick={() => void cancelStep(true)} className={`cursor-pointer rounded font-semibold text-slate-800 underline-offset-4 hover:underline ${focusRing}`}>

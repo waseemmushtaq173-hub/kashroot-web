@@ -273,8 +273,9 @@ export function buildSharedFacilityModel(params: {
 
   // Assign wall positions dynamically. An owner-specified wallPosition (or the
   // legacy side) is honoured; otherwise the chambers arrange themselves into
-  // the L-bank of the architectural diagram: the first half down the LEFT wall
-  // (front-to-back), the rest along the BACK wall (left-to-right).
+  // the L-bank of the architectural diagram: Chambers 1..4 down the LEFT wall
+  // (front-to-back), Chambers 5..N along the BACK wall (left-to-right).
+  const L_BANK_LEFT_CHAMBERS = 4;
   const normalizedChambers = params.chambers.map((c, i) => {
     let wp: ChamberWallPosition = c.wallPosition || 'LEFT';
     if (!c.wallPosition) {
@@ -283,7 +284,7 @@ export function buildSharedFacilityModel(params: {
       else if (c.side === 'FRONT') wp = 'FRONT';
       else if (c.side === 'CENTER') wp = 'CUSTOM';
       else if (c.customXFt !== undefined || c.customZFt !== undefined) wp = 'CUSTOM';
-      else if (params.chambers.length >= 4 && i >= Math.ceil(params.chambers.length / 2)) {
+      else if (i >= L_BANK_LEFT_CHAMBERS) {
         wp = 'BACK';
       } else {
         wp = 'LEFT';
