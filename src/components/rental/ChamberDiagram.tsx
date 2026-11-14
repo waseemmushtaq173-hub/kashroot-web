@@ -284,3 +284,6 @@ export function ChamberDiagram({
     </div>
   );
 }
+
+/** The default export too: either import style works. */
+export default ChamberDiagram;

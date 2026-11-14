@@ -590,3 +590,6 @@ export function productProblem(v: ListingInput, opts: { isNew?: boolean } = {}):
   if (v.category === 'produce' && !v.is_live_camera_verified) return 'Capture at least one live camera photo/video with GPS lock before listing produce.';
   return null;
 }
+
+/** The default export too: either import style works. */
+export default ProductForm;

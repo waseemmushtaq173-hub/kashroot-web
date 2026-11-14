@@ -221,3 +221,6 @@ export default function LiveInteractiveMap({ lat, lng, accuracy = null, label, d
     </figure>
   );
 }
+
+/** Also by name: either import style works. */
+export { LiveInteractiveMap };

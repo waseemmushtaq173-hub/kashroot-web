@@ -404,3 +404,6 @@ export default function GoogleOrTileLiveMap({
     </div>
   );
 }
+
+/** Also by name: either import style works. */
+export { GoogleOrTileLiveMap };

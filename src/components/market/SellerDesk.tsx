@@ -339,3 +339,6 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
     </div>
   );
 }
+
+/** The default export too: either import style works. */
+export default SellerDesk;

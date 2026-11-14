@@ -1809,3 +1809,6 @@ export function ColdStore3D({
     </div>
   );
 }
+
+/** The default export too: either import style works. */
+export default ColdStore3D;
