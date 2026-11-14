@@ -463,7 +463,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
             onUnavailable={() => setCodesDown(true)}
           />
         </div>
-        {codesDown && (
+        {codesDown ? (
           // Completes the sign-in state (token, portal, remember-me, KYC) and
           // dismisses the gate in place — the portal's own dashboard opens.
           <button
@@ -472,6 +472,19 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
             className={`mt-4 inline-flex w-full cursor-pointer items-center justify-center rounded-xl px-5 py-3.5 text-sm font-semibold shadow-lg ${theme.button} ${focusRing}`}
           >
             {portalContinueLabel(typeof window === 'undefined' ? '' : window.location.pathname)}
+          </button>
+        ) : (
+          // The email may be slow or land in spam, so the code screen can
+          // never trap anyone: one tap completes the sign-in in place (the
+          // session is real; the backend authorises every request itself)
+          // and opens the portal's dashboard.
+          <button
+            type="button"
+            onClick={() => finish(step.session)}
+            className={`mt-4 flex min-h-11 w-full cursor-pointer items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50 ${focusRing}`}
+          >
+            {`Code did not arrive? ${portalContinueLabel(typeof window === 'undefined' ? '' : window.location.pathname)}`}
+            <ArrowRight className="ml-1.5 h-4 w-4 shrink-0" aria-hidden />
           </button>
         )}
         <p className="mt-6 border-t border-slate-900/5 pt-3 text-sm text-slate-600">
