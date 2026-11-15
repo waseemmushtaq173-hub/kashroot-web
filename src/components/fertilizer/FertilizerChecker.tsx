@@ -356,7 +356,7 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
                     : 'Below FCO standard. Keep the bag and bill, and take the lab report to your district agriculture office.'}
                 </p>
               )}
-              <p className="mt-3 text-xs text-slate-500">Standard: {standard.fco_schedule_clause} — Fertiliser (Control) Order, 1985, Schedule I. Source: {standard.source}, published {new Date(standard.published_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}. A state fertiliser quality control lab report is the legal test.</p>
+              <p className="mt-3 text-xs text-slate-500">Standard: {standard.fco_schedule_clause ? `${standard.fco_schedule_clause} — ` : ''}Fertiliser (Control) Order, 1985, Schedule I{standard.reference ? ' (typed by KashRoot — check the gazette)' : ''}. Source: {standard.source}, published {new Date(standard.published_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}. A state fertiliser quality control lab report is the legal test.</p>
             </>
           ) : (
             <p className="mt-3 text-sm text-slate-500">Type a fertiliser type (e.g. DAP, Urea, MOP) to load its FCO Schedule I standard.</p>
@@ -398,13 +398,13 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
             </div>
             <div>
               {browseResults === null ? (
-                <p className="text-sm text-slate-500">Type above to search the official CIBRC registered pesticides, banned chemicals, and FCO 1985 fertiliser standards.</p>
+                <p className="text-sm text-slate-500">Type above to search pesticides, banned chemicals and FCO 1985 fertiliser grades. Records marked “reference” were typed by KashRoot and are not yet checked against the official register.</p>
               ) : browseResults.length === 0 ? (
-                <p className="text-sm text-slate-500">No official records match your search.</p>
+                <p className="text-sm text-slate-500">Nothing matches your search.</p>
               ) : (
                 <>
                   <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                    {browseResults.length} official record{browseResults.length === 1 ? '' : 's'}
+                    {browseResults.length} record{browseResults.length === 1 ? '' : 's'}{browseResults.some((h) => h.reference) ? ' · “reference” = typed by KashRoot, not yet checked' : ''}
                   </p>
                   <div className="space-y-2">
                     {browseResults.map((h, i) => (
@@ -412,7 +412,7 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
                         {h.kind === 'registered' && (
                           <>
                             <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-emerald-700">
-                              CIB&RC Registered
+                              {h.reference ? 'Reference (not yet checked)' : 'CIB&RC Registered'}
                             </p>
                             <p className="text-sm font-semibold text-slate-900">{h.active_molecule}</p>
                             {h.cir_no && <p className="text-xs text-slate-600">{h.cir_no}</p>}
@@ -432,7 +432,7 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
                         {h.kind === 'banned' && (
                           <>
                             <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-rose-700">
-                              CIB&RC Banned / Restricted
+                              {h.reference ? 'Banned / restricted (reference)' : 'CIB&RC Banned / Restricted'}
                             </p>
                             <p className="text-sm font-semibold text-slate-900">{h.active_molecule}</p>
                             <p className="text-xs text-rose-600">Status: {h.status}</p>
@@ -443,7 +443,7 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
                         {h.kind === 'fco' && (
                           <>
                             <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-sky-700">
-                              FCO 1985 Schedule I
+                              {h.reference ? 'FCO 1985 grade (reference)' : 'FCO 1985 Schedule I'}
                             </p>
                             <p className="text-sm font-semibold text-slate-900">{h.fertiliser_type}</p>
                             <p className="text-xs text-slate-600">Grade: {h.grade}</p>
@@ -650,7 +650,7 @@ function ScanResult({ result, account, onPhoto, onLab, standard, cibrcResult, sk
             {standard.moisture_max !== undefined && <li key="moisture">{`Moisture: at most ${standard.moisture_max}%`}</li>}
             {standard.biuret_max !== undefined && <li key="biuret">{`Biuret: at most ${standard.biuret_max}%`}</li>}
           </ul>
-          <p className="mt-2 text-xs text-slate-600">Fertiliser (Control) Order, 1985, Schedule I — {standard.fco_schedule_clause}. Source: {standard.source}, published {new Date(standard.published_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}. The type being in the Order does not prove a bag is genuine — the label must show it, and only a Government lab test proves what is inside.</p>
+          <p className="mt-2 text-xs text-slate-600">Fertiliser (Control) Order, 1985, Schedule I{standard.fco_schedule_clause ? ` — ${standard.fco_schedule_clause}` : ''}{standard.reference ? ' (grade typed by KashRoot — check the gazette)' : ''}. Source: {standard.source}, published {new Date(standard.published_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}. The type being in the Order does not prove a bag is genuine — the label must show it, and only a Government lab test proves what is inside.</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" onClick={onPhoto} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-sky-800 px-4 py-2 font-semibold text-white hover:bg-sky-900">
               <Camera className="h-4 w-4" aria-hidden /> Check the label photo
@@ -664,10 +664,15 @@ function ScanResult({ result, account, onPhoto, onLab, standard, cibrcResult, sk
 
       {cibrcResult && cibrcResult.products && cibrcResult.products.length > 0 && (
         <section aria-label="CIB&RC registered product" className="rounded-2xl bg-emerald-50 p-4 text-slate-800 ring-1 ring-emerald-200">
-          <p className="flex items-center gap-2 text-base font-semibold text-emerald-900"><BadgeCheck className="h-5 w-5 shrink-0" aria-hidden /> Registered with the Government (CIB&RC, ppqs.gov.in)</p>
+          {cibrcResult.products.every((p) => p.reference) ? (
+            <p className="flex items-center gap-2 text-base font-semibold text-slate-900"><FileQuestion className="h-5 w-5 shrink-0 text-amber-700" aria-hidden /> In KashRoot’s reference list — not yet checked against the official register</p>
+          ) : (
+            <p className="flex items-center gap-2 text-base font-semibold text-emerald-900"><BadgeCheck className="h-5 w-5 shrink-0" aria-hidden /> Registered with the Government (CIB&RC, ppqs.gov.in)</p>
+          )}
           {cibrcResult.products.map((p) => {
             const brand = (p.brandNames ?? [])[0] ?? p.active_molecule;
             const legal = p.legalManufacturer ?? p.manufacturer ?? '';
+            if (p.reference) return <ReferenceProduct key={p.id} p={p} brand={brand} company={legal} onPhoto={onPhoto} />;
             return (
               <div key={p.id} className="mt-2 rounded-xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
                 {/* Anti-scam manufacturer & CIR ID verification header */}
@@ -733,11 +738,11 @@ function ScanResult({ result, account, onPhoto, onLab, standard, cibrcResult, sk
         <section aria-label="SKUAST-Kashmir official recommendation" className="rounded-2xl bg-indigo-50 p-4 text-slate-800 ring-1 ring-indigo-200">
           <p className="flex items-center gap-2 text-base font-semibold text-indigo-900">
             <ShieldCheck className="h-5 w-5 shrink-0" aria-hidden />
-            SKUAST-Kashmir Official University Recommendation & Spray Schedule
+            SKUAST-Kashmir spray schedule (as typed by KashRoot)
           </p>
           <p className="mt-1 text-slate-600 text-sm">
-            Local dosages per 100 L of water and application timing for Kashmir orchards —
-            Directorate of Extension, SKUAST-Kashmir.
+            Doses per 100 L of water and timing for Kashmir orchards, typed from the SKUAST-Kashmir spray schedule.
+            Doses change from year to year: check this year’s schedule from the SKUAST-K Directorate of Extension or your Horticulture Development Officer before you spray.
           </p>
           <div className="mt-3 space-y-3">
             {skuastResult.map((r) => (
@@ -1100,5 +1105,36 @@ function RuleChecks({ report }: { report: RuleReport }) {
       )}
       <p className="mt-2 text-xs opacity-80">A label can be copied — only a Government lab test proves what is inside. If something is wrong, keep the bag and bill and tell your district agriculture officer.</p>
     </section>
+  );
+}
+
+/**
+ * A pesticide from KashRoot's hand-typed reference list: its brand, molecule,
+ * crops and advice, but no registration number and no "counterfeit" warning —
+ * that list was never checked against CIB&RC, so a real bottle's number must
+ * never be called wrong because of it.
+ */
+function ReferenceProduct({ p, brand, company, onPhoto }: { p: CibrcProduct; brand: string; company: string; onPhoto: () => void }) {
+  return (
+    <div className="mt-2 rounded-xl bg-white p-4 ring-1 ring-slate-200">
+      <p className="text-sm font-semibold text-slate-900">{brand}</p>
+      <p className="text-xs font-semibold uppercase tracking-wider text-slate-600">{p.active_molecule}{p.formulation ? ` — ${p.formulation}` : ''}</p>
+      {company && <p className="mt-1 text-xs text-slate-700">Company named in KashRoot’s list: {company}</p>}
+      {p.approved_crops.length > 0 && <p className="text-xs text-slate-600">Crops: {p.approved_crops.join(', ')}</p>}
+      {p.target_pests.length > 0 && <p className="text-xs text-slate-600">For: {p.target_pests.join(', ')}</p>}
+      {p.waiting_period_days !== null && <p className="text-xs text-slate-600">Waiting period: {p.waiting_period_days} days (check the label)</p>}
+      {p.skuast_kashmir_dosage && <p className="text-xs text-slate-600">SKUAST-Kashmir dose (as typed): {p.skuast_kashmir_dosage}</p>}
+      <div className="mt-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-950 ring-1 ring-amber-200">
+        <p className="font-semibold">How to check that your bottle is genuine</p>
+        <ul className="mt-1 list-disc space-y-0.5 ps-4">
+          <li>The label must show a registration number that starts with <strong>CIR</strong> and the company that made it.</li>
+          <li>Check that number on the official CIB&RC list at <a href="https://ppqs.gov.in" target="_blank" rel="noopener noreferrer" className="font-semibold underline">ppqs.gov.in</a>, or show the bottle to your Agriculture Extension Officer.</li>
+          <li>Buy only from a licensed dealer, and always take a bill.</li>
+        </ul>
+        <button type="button" onClick={onPhoto} className="mt-2 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-white px-3 font-semibold text-amber-900 ring-1 ring-amber-300 hover:bg-amber-100">
+          <Camera className="h-4 w-4" aria-hidden /> Check the label photo
+        </button>
+      </div>
+    </div>
   );
 }

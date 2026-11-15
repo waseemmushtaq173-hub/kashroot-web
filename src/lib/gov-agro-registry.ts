@@ -4134,6 +4134,21 @@ export function agroRegistryStats(): AgroRegistryStats {
   };
 }
 
+// ── Reference, not verified ───────────────────────────────────────────────
+// These lists were typed into KashRoot by hand — not downloaded from CIB&RC,
+// the Ministry's banned list or the FCO gazette. Their registration,
+// notification and clause numbers were never checked, so they are blanked:
+// a farmer must never be told a genuine bottle is fake because its real
+// number differs from one typed here. Brands, molecules, crops, fertiliser
+// grades and advice stay, every record marked `reference`. Verified records
+// come only from an official import (Admin → Registry, from the CIB&RC list).
+export const REFERENCE_SOURCE = 'KashRoot reference list — not checked against the official register';
+for (const p of EMBEDDED_CIBRC_REGISTERED) {
+  Object.assign(p, { cir_no: '', cirNumber: '', manufacturerLicense: '', dosage_per_ha: null, dosage_per_acre: null, source: REFERENCE_SOURCE, source_url: 'https://ppqs.gov.in', reference: true });
+}
+for (const b of EMBEDDED_CIBRC_BANNED) Object.assign(b, { ban_notification: null, ban_date: null, source: REFERENCE_SOURCE, source_url: 'https://ppqs.gov.in', reference: true });
+for (const f of EMBEDDED_FCO_STANDARDS) Object.assign(f, { fco_schedule_clause: '', source: 'Fertiliser (Control) Order, 1985 — Schedule I grade, typed by KashRoot (check the gazette)', reference: true });
+
 // ════════════════════════════════════════════════════════════════════════════
 // EMBEDDED LOOKUPS — always available, no database needed
 // ════════════════════════════════════════════════════════════════════════════
@@ -4234,6 +4249,8 @@ export interface SearchHit {
   biuret_max?: number | null;
   source: string;
   source_url: string;
+  /** Typed by hand into KashRoot, not checked against the official register. */
+  reference?: boolean;
 }
 
 function tokenize(q: string): string[] {
@@ -4283,6 +4300,7 @@ export function searchAllEmbedded(q: string): SearchHit[] {
         toxicity_class: p.toxicity_class,
         source: p.source,
         source_url: p.source_url,
+        reference: p.reference,
       });
     }
   }
@@ -4303,6 +4321,7 @@ export function searchAllEmbedded(q: string): SearchHit[] {
         reason_summary: b.reason_summary,
         source: b.source,
         source_url: b.source_url,
+        reference: b.reference,
       });
     }
   }
@@ -4321,6 +4340,7 @@ export function searchAllEmbedded(q: string): SearchHit[] {
         biuret_max: f.biuret_max,
         source: f.source,
         source_url: f.source_url,
+        reference: f.reference,
       });
     }
   }

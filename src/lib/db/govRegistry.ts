@@ -32,6 +32,8 @@ export type FcoStandard = {
   source: string;
   source_url: string;
   published_at: string;
+  /** Typed by hand into KashRoot, not checked against the official register (never shown as verified). */
+  reference?: boolean;
 };
 
 export type CibrcProduct = {
@@ -85,6 +87,8 @@ export type CibrcProduct = {
   source: string;
   source_url: string;
   published_at: string;
+  /** Typed by hand into KashRoot, not checked against the official register (never shown as verified). */
+  reference?: boolean;
   /** FCO 1985 Schedule-I clause (fertilisers only). */
   fco_schedule_clause?: string | null;
   fcoScheduleClause?: string | null;
@@ -113,6 +117,8 @@ export type CibrcBanned = {
   source: string;
   source_url: string;
   published_at: string;
+  /** Typed by hand into KashRoot, not checked against the official register (never shown as verified). */
+  reference?: boolean;
 };
 
 const missing = (e: { code?: string; message?: string }) =>
@@ -652,6 +658,8 @@ export const EMBEDDED_FCO_STANDARDS: FcoStandard[] = [
     published_at: '2026-01-01T00:00:00Z',
   },
 ];
+// Typed by hand from Schedule I: shown as reference (the clause numbers were not checked).
+for (const f of EMBEDDED_FCO_STANDARDS) Object.assign(f, { fco_schedule_clause: '', reference: true });
 
 
 /**
