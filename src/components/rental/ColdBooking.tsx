@@ -24,6 +24,7 @@ import { toast } from '@/lib/client/toast';
 import { ColdStoreExplorer, type Look } from '@/components/rental/ColdStoreMap';
 import { Guard3D } from '@/components/rental/three/SceneGuard';
 import { PayOwner } from '@/components/rental/receipt/PayOwner';
+import { SelectedBinPanel } from '@/components/rental/SelectedBinPanel';
 import { Btn, Field, INPUT, Modal, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
 import { inr, type Account } from '@/lib/db/client';
 import { layersText, placeDirections, planOf, showLength } from '@/lib/coldLayout';
@@ -120,7 +121,7 @@ function GatePassQR({
     <div className="rounded-xl bg-white p-4 ring-1 ring-slate-200 text-center">
       {loading ? (
         <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-sky-800 border-t-transparent" />
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#174C3C] border-t-transparent" />
           <span className="ml-2 text-sm text-slate-600">Generating Gate Pass...</span>
         </div>
       ) : qrDataUrl ? (
@@ -157,7 +158,7 @@ const IndustrialColdStoreTwin3D = dynamic(
     loading: () => (
       <div className="grid h-[420px] place-items-center rounded-3xl bg-slate-100" role="status" aria-live="polite">
         <div className="flex flex-col items-center gap-3">
-          <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-sky-200 border-t-sky-600" aria-hidden />
+          <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#CFE0D6] border-t-[#286B54]" aria-hidden />
           <p className="text-sm font-semibold text-slate-600">Initializing Industrial 3D Digital Twin...</p>
         </div>
       </div>
@@ -231,7 +232,7 @@ export function PlaceDirections({ places, chambers }: { places: Placed[]; chambe
   const first = items[0];
   const kinds = [...new Set(items.map((x) => x.c.storage))];
   return (
-    <div className="mt-2 rounded-xl bg-sky-50 p-3 text-sm text-sky-950 ring-1 ring-sky-200">
+    <div className="mt-2 rounded-xl bg-[#EAF3EE] p-3 text-sm text-[#25332F] ring-1 ring-[#CFE0D6]">
       <p className="flex items-center gap-1.5 font-semibold"><Navigation className="h-4 w-4" aria-hidden /> Where to put your {wordFor(kinds)}</p>
       <ul className="mt-1 space-y-0.5">
         {items.map(({ c, p, size, plan, row, stack }) => (
@@ -241,7 +242,7 @@ export function PlaceDirections({ places, chambers }: { places: Placed[]; chambe
           </li>
         ))}
       </ul>
-      <p className="mt-1 text-xs text-sky-900/80">
+      <p className="mt-1 text-xs text-[#12382E]/80">
         A full place takes {countText(first.c.boxes_per_slot, first.c.storage)}: {layersText(first.plan)} ({showLength(first.plan.stackHeight, first.size.unit)} high).
       </p>
     </div>
@@ -273,6 +274,8 @@ export function ColdBooking({
   const [active, setActive] = useState<string | null>(chambers[0]?.id ?? null);
   // Chosen places, each with how many of the farmer's bins go on it.
   const [picked, setPicked] = useState<Map<string, ChosenPlace>>(new Map());
+  // The place tapped last (drawing, 3D or walk): the one the selected-bin panel shows.
+  const [focus, setFocus] = useState<string | null>(null);
   const [want, setWant] = useState(quick ? String(quick.want) : '');
   const kinds = useMemo(() => [...new Set(chambers.map((c) => c.storage))], [chambers]);
   // What the farmer brings, when the store holds both bins and crates.
@@ -390,13 +393,14 @@ export function ColdBooking({
         return;
       }
       setPicked((prev) => new Map(prev).set(key, { chamber: c, slot, boxes: Math.min(room, left) }));
+      setFocus(key);
     },
     [picked, roomFor, wanted, boxes, kind],
   );
 
   // The industrial 3D twin: the very places of the drawing, drawn as bins or
   // crates. Occupancy comes only from what the database says for these
-  // months (taken); a place with room left stays blue and a click shares it.
+  // months (taken); a place with room left stays light green and a click shares it.
   const [twinOpen, setTwinOpen] = useState(false);
   const twin = useMemo(() => (twinOpen ? twinPlanOf(chambers) : null), [chambers, twinOpen]);
   // The unit-level bookings and the recorded temperatures, read from the real
@@ -475,7 +479,7 @@ export function ColdBooking({
           } else if (info.state === 'booked') {
             out[key] = { storedKg: kg * (info.used ?? c.boxes_per_slot), farmerName: 'Booked by another farmer' };
           }
-          // 'part': room left on a shared place — it stays blue here and a
+          // 'part': room left on a shared place — it stays light green here and a
           // tap books only what still fits, exactly as on the drawing.
         }
       }
@@ -540,6 +544,13 @@ export function ColdBooking({
     if (placed < wanted) toast.error(`There is room for only ${countText(placed, kind ?? kinds[0] ?? 'boxes')} from ${niceDate(start)} for ${months} month${months === 1 ? '' : 's'}. Write fewer, or choose other months.`);
     else toast.success(`${places} place${places === 1 ? '' : 's'} chosen for your ${countText(placed, kind ?? kinds[0] ?? 'boxes')}, nearest the door. Change any by tapping it.`);
   };
+
+  // The selected-bin panel: the place tapped last while it is still chosen, else the newest choice.
+  const shownBin = useMemo(() => {
+    const key = focus && picked.has(focus) ? focus : [...picked.keys()].at(-1);
+    const p = key ? picked.get(key) : undefined;
+    return key && p ? { key, p } : null;
+  }, [focus, picked]);
 
   const toConfirm = () => {
     if (chosen.some((p) => p.boxes < 1)) return toast.error(`Write how many ${word} go on each chosen place, or take the place off.`);
@@ -665,9 +676,9 @@ export function ColdBooking({
           <strong className="text-lg text-slate-900">{inr(price.total)}</strong>
         </>
       ) : wanted > 0 ? (
-        `Tap free (blue) places for your ${wanted.toLocaleString('en-IN')} ${word}, or let KashRoot choose.`
+        `Tap free (light green) places for your ${wanted.toLocaleString('en-IN')} ${word}, or let KashRoot choose.`
       ) : (
-        'Tap the free (blue) places you want, or let KashRoot choose.'
+        'Tap the free (light green) places you want, or let KashRoot choose.'
       )}
     </p>
   );
@@ -720,13 +731,13 @@ export function ColdBooking({
           </div>
           <p className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
             <span>Showing which places are free from {niceDate(start)} to {niceDate(lastDay(start, months))}.</span>
-            <button type="button" onClick={() => void load()} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1 rounded-lg px-2 text-sm font-semibold text-sky-800 hover:bg-ivory"><RefreshCw className="h-4 w-4" aria-hidden /> Refresh</button>
+            <button type="button" onClick={() => void load()} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1 rounded-lg px-2 text-sm font-semibold text-[#174C3C] hover:bg-ivory"><RefreshCw className="h-4 w-4" aria-hidden /> Refresh</button>
           </p>
-          <div className="flex flex-wrap items-end gap-2 rounded-2xl bg-sky-50 p-3 ring-1 ring-sky-200">
+          <div className="flex flex-wrap items-end gap-2 rounded-2xl bg-[#EAF3EE] p-3 ring-1 ring-[#CFE0D6]">
             {kinds.length > 1 && (
               <div role="radiogroup" aria-label="What will you bring?" className="flex basis-full gap-2">
                 {kinds.map((k) => (
-                  <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className={`min-h-[48px] flex-1 cursor-pointer rounded-xl px-4 text-base font-semibold ring-2 ${kind === k ? 'bg-sky-800 text-white ring-sky-800' : 'bg-white text-sky-900 ring-sky-200 hover:ring-sky-400'}`}>
+                  <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className={`min-h-[48px] flex-1 cursor-pointer rounded-xl px-4 text-base font-semibold ring-2 ${kind === k ? 'bg-[#174C3C] text-white ring-[#174C3C]' : 'bg-white text-[#12382E] ring-[#CFE0D6] hover:ring-[#CFE0D6]'}`}>
                     {UNIT_WORDS[k].title}
                   </button>
                 ))}
@@ -739,7 +750,7 @@ export function ColdBooking({
             </div>
             <Btn theme={theme} className="min-h-[44px]" icon={Sparkles} disabled={!taken} onClick={chooseForMe}>Choose places for me</Btn>
             {picked.size > 0 && <Btn theme={theme} variant="ghost" className="min-h-[44px]" icon={X} onClick={() => setPicked(new Map())}>Clear my choice</Btn>}
-            <p className="basis-full text-xs text-sky-900">
+            <p className="basis-full text-xs text-[#12382E]">
               Any number of {word}{l.min_units > 1 ? ` from ${l.min_units.toLocaleString('en-IN')}` : ''} — 50 or 5,000. A small lot shares a place with others, and you pay only for your own {word}.
             </p>
           </div>
@@ -765,14 +776,14 @@ export function ColdBooking({
             <section aria-label="3D digital twin" className="rounded-xl bg-white p-3 text-sm text-slate-800 ring-1 ring-slate-900/10">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-semibold">3D Digital Twin — the whole facility</p>
-                <button type="button" onClick={() => setTwinOpen((v) => !v)} aria-expanded={twinOpen} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-sky-800 hover:bg-ivory">
+                <button type="button" onClick={() => setTwinOpen((v) => !v)} aria-expanded={twinOpen} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-[#174C3C] hover:bg-ivory">
                   {twinOpen ? 'Hide the 3D twin' : 'Open the 3D twin'}
                 </button>
               </div>
               {twinOpen && twin && (
                 <div className="mt-3">
                   <p className="mb-2 text-xs text-slate-600">
-                    The same places as the drawing, drawn as {wordFor(kinds)}. Tap a bin or crate to choose that place; tap it again to take it off. Red places are booked, green ones are yours or chosen.
+                    The same places as the drawing, drawn as {wordFor(kinds)}. Tap a bin or crate to choose that place; tap it again to take it off. Grey places are booked, dark green ones are yours or chosen.
                   </p>
                   <Guard3D>
                     <IndustrialColdStoreTwin3D
@@ -791,6 +802,23 @@ export function ColdBooking({
                 </div>
               )}
             </section>
+          )}
+          {shownBin && (
+            <SelectedBinPanel
+              facility={l.title}
+              chamber={shownBin.p.chamber}
+              slot={shownBin.p.slot}
+              room={roomFor(shownBin.p.chamber, shownBin.p.slot)}
+              mineStored={mineOf(shownBin.p.chamber, shownBin.p.slot)}
+              boxes={shownBin.p.boxes}
+              rate={Number(shownBin.p.chamber.rate ?? l.rate) || 0}
+              months={months}
+              minUnits={l.min_units}
+              totalChosen={boxes}
+              onBoxes={(n) => setBoxesOn(shownBin.key, String(n))}
+              onRemove={() => toggle(shownBin.p.chamber, shownBin.p.slot, 'selected')}
+              onBook={toConfirm}
+            />
           )}
           {picked.size > 0 && (
             <section aria-label="Your choice" className="rounded-xl bg-white p-3 text-sm text-slate-800 ring-1 ring-slate-900/10">
@@ -831,7 +859,7 @@ export function ColdBooking({
               ))}
             </ul>
             <table className="mt-3 w-full text-sm">
-              <tbody className="divide-y divide-sky-200">
+              <tbody className="divide-y divide-[#CFE0D6]">
                 {price.lines.map((p) => (
                   <tr key={p.key}>
                     <td className="py-1 pr-2">{p.name}: {countText(p.count, p.storage)} × {inr(p.rate)} a month × {months}</td>
@@ -890,7 +918,7 @@ export function ColdBooking({
 
 /**
  * Where a farmer's bins are: the places in words, and the whole store
- * (drawing or 3D) with their stacks in violet and the rest of the store as
+ * (drawing or 3D) with their stacks in deep green and the rest of the store as
  * it is for the months of the booking.
  */
 export function MyPlaces({ places, chambers, listingId, start, months, name }: { places: BookedPlace[]; chambers: ColdChamber[]; listingId: string; start: string; months: number; name?: string }) {
@@ -946,7 +974,7 @@ export function MyPlaces({ places, chambers, listingId, start, months, name }: {
       )}
       <PlaceDirections places={places} chambers={chambers} />
       {chambers.length > 0 && (
-        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="mt-1 inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 text-sm font-semibold text-sky-800 hover:underline">
+        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="mt-1 inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 text-sm font-semibold text-[#174C3C] hover:underline">
           <MapIcon className="h-4 w-4" aria-hidden /> {open ? 'Hide the cold store' : `See where your ${wordFor(kinds.length ? kinds : ['boxes'])} are (drawing & 3D)`}
         </button>
       )}

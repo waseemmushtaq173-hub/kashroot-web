@@ -18,6 +18,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { disposeMaterialSafely } from '@/components/rental/three/dispose';
 import { cellAt, cratesText, tonnesOf } from '@/lib/twin/engine';
 import { crateInfoAt, fetchTwinMeta, growersOf, type TwinChamberMeta, type TwinCrateInfo, type TwinMetadata } from '@/lib/twin/metadata';
 
@@ -382,7 +383,9 @@ export function ColdStoreTwin({ grower = null }: ColdStoreTwinProps) {
           root.traverse((o) => {
             const mesh = o as { isMesh?: boolean; geometry?: unknown; material?: unknown };
             if (mesh.isMesh) {
-              (mesh.geometry as { dispose: () => void }).dispose();
+              (mesh.geometry as { dispose?: () => void } | undefined)?.dispose?.();
+              // One material or an array of them, with their textures.
+              disposeMaterialSafely(mesh.material);
             }
           });
           renderer.dispose();

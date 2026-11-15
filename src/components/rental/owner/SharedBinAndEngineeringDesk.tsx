@@ -748,6 +748,8 @@ export function FarmerStoredApplesDesk({
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [book, setBook] = useState({ crates: '40', variety: VARIETIES[0], grade: 'Grade A', months: '3', crateKg: '18', rate: '35' });
   const [releaseFor, setReleaseFor] = useState<Record<string, string>>({});
+  // When the store's rows were last read: a reading's age is measured against it.
+  const [loadedAt, setLoadedAt] = useState(0);
 
   useEffect(() => {
     if (facilities && facilities.length > 0) return;
@@ -763,8 +765,10 @@ export function FarmerStoredApplesDesk({
       const params = new URLSearchParams({ viewerRole: 'FARMER', facilityId, farmerId: account.id });
       const res = await fetch(`${OPS}?${params}`, { headers: await authHeaders(), cache: 'no-store' });
       const json = (await res.json()) as OpsPayload;
-      if (res.ok && json.ok !== false) setOps(json);
-      else toast.error('Could not load your stored apples.');
+      if (res.ok && json.ok !== false) {
+        setOps(json);
+        setLoadedAt(Date.now());
+      } else toast.error('Could not load your stored apples.');
     } catch {
       toast.error('Could not reach KashRoot. Check your internet and try again.');
     } finally {
@@ -811,6 +815,11 @@ export function FarmerStoredApplesDesk({
   );
   const myMovements = ops?.movements ?? [];
   const myNotifications = ops?.notifications ?? [];
+  // The chambers this farmer's fruit is in (stored bins first, then chambers named on their bookings).
+  const myChambers = useMemo(
+    () => [...new Set([...myBins.map((b) => b.chamber_code), ...myBookings.filter((b) => b.facility_id === facilityId).map((b) => b.chamber_code)].filter((c): c is string => Boolean(c)))],
+    [myBins, myBookings, facilityId],
+  );
 
   return (
     <div className="space-y-6">
@@ -952,6 +961,45 @@ export function FarmerStoredApplesDesk({
               </ul>
             )}
             <p className="mt-3 text-xs text-slate-500">You see only your own crates here, plus how much room is left in each bin — never anyone else&apos;s.</p>
+          </Panel>
+
+          <Panel theme={theme} title="Storage conditions" icon={Thermometer}>
+            {myChambers.length === 0 ? (
+              <p className="text-sm text-slate-600">Once your apples are placed in a chamber, its temperature and humidity appear here.</p>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {myChambers.map((code) => {
+                  // Only what the database holds for this chamber (newest first); nothing is ever estimated or made up.
+                  const r = (ops?.caReadings ?? []).find((x) => x.chamber_code === code);
+                  if (!r) {
+                    return (
+                      <div key={code} data-testid="telemetry-not-connected" className="rounded-2xl bg-white/85 p-4 ring-1 ring-slate-900/5">
+                        <p className="font-semibold text-slate-900">Chamber {code}</p>
+                        <p className="mt-2 text-sm font-medium text-slate-600">Live sensor telemetry not connected</p>
+                        <p className="mt-1 text-xs text-slate-500">No reading has been recorded for this chamber. Ask the owner for its temperature.</p>
+                      </div>
+                    );
+                  }
+                  const hours = loadedAt ? (loadedAt - new Date(r.recorded_at).getTime()) / 3_600_000 : 0;
+                  return (
+                    <div key={code} className="rounded-2xl bg-white/85 p-4 ring-1 ring-slate-900/5">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-semibold text-slate-900">Chamber {code}</p>
+                        <Badge tone={alertTone(r.alert_status)}>{r.alert_status === 'CRITICAL_ALARM' ? 'CRITICAL' : r.alert_status === 'WARNING_THRESHOLD' ? 'WARNING' : 'NORMAL'}</Badge>
+                      </div>
+                      <p className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm text-slate-700">
+                        <span>Temperature</span><strong className="tabular-nums">{r.dry_bulb_temp_c}°C / {r.dry_bulb_temp_f}°F</strong>
+                        <span>Relative humidity</span><strong className="tabular-nums">{r.relative_humidity_percent}%</strong>
+                        <span>Sensor</span><strong>{r.reading_source === 'IOT_SENSOR' ? 'IoT sensor' : 'Written by the operator'}</strong>
+                        <span>Last updated</span><strong>{niceDate(r.recorded_at)}</strong>
+                      </p>
+                      {r.alert_message && <p className="mt-2 rounded-lg bg-amber-50 px-2 py-1 text-xs font-medium text-amber-950 ring-1 ring-amber-200">{r.alert_message}</p>}
+                      {hours > 24 && <p className="mt-2 text-xs text-slate-500">This reading is more than a day old; it is not a live value.</p>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </Panel>
 
           <Panel theme={theme} title="My apple movement ledger" icon={ListOrdered}>

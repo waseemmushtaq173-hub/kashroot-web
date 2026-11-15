@@ -18,6 +18,7 @@
 import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
 import { binTexture, cartonTexture, concreteTexture, crateTexture, diamondTexture, fanTexture, ghostTexture, gratingTexture, labelCanvas, panelTexture, plaqueCanvas, plateTexture } from '@/components/rental/three/textures';
 import type { Route } from '@/components/rental/walk/route';
+import { disposeMaterialSafely } from '@/components/rental/three/dispose';
 import { buildFixtures } from '@/components/rental/three/fixtures';
 import type { ColdKitGeos } from '@/components/rental/three/coldKit';
 import { type Kind, midOf, type Rect, rowPlates, type SceneZone, type Seg, segLength, type StoreScene, ZONE_LOOK } from '@/components/rental/three/storeScene';
@@ -223,7 +224,7 @@ export function makeKit(T: Three, phone: boolean, protos: ColdKitGeos | null = n
     rubber: new T.MeshStandardMaterial({ color: '#15191f', roughness: 0.92, metalness: 0 }),
   };
   const edge = new T.LineBasicMaterial({ color: '#334155', transparent: true, opacity: 0.55 });
-  const edgeOn = new T.LineBasicMaterial({ color: '#0284c7' });
+  const edgeOn = new T.LineBasicMaterial({ color: '#174C3C' });
   const textures = Object.values(tex);
   return {
     T,
@@ -299,17 +300,15 @@ function sliceMesh<T>(o: {
 
 /** Free everything a group made for itself (not the kit's shared parts). */
 export function disposeGroup(T: Three, kit: Kit, g: Obj) {
-  const shared = new Set<unknown>([...Object.values(kit.mats), kit.edge, kit.edgeOn, kit.unitBox]);
+  const shared = new Set<unknown>([...Object.values(kit.mats), kit.edge, kit.edgeOn, kit.unitBox, ...kit.textures]);
   g.traverse((o) => {
     // An instanced mesh's own per-instance data; its shape and look below, unless shared.
     if (o instanceof T.InstancedMesh) o.dispose();
-    const m = o as unknown as { geometry?: Geo; material?: Mat & { map?: Tex | null } };
+    const m = o as unknown as { geometry?: Geo; material?: Mat | Mat[] };
     // Sprites share one shape inside three.js; stack shapes belong to the kit.
     if (m.geometry && !shared.has(m.geometry) && !(o instanceof T.Sprite) && m.geometry.userData.stack !== true) m.geometry.dispose();
-    if (m.material && !shared.has(m.material)) {
-      m.material.map?.dispose();
-      m.material.dispose();
-    }
+    // One material or an array of them (the unit cooler): each on its own, the kit's left alone.
+    disposeMaterialSafely(m.material, shared);
   });
 }
 
@@ -902,12 +901,12 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
 
 /** What a place's mark on the floor looks like, and how strongly its bins are tinted. */
 const MARK: Record<Look, { tile: string; tint: string | null; amount: number }> = {
-  free: { tile: PLACE_LOOK.free.hex, tint: '#7dd3fc', amount: 1 },
+  free: { tile: PLACE_LOOK.free.hex, tint: '#8FCFB1', amount: 1 },
   part: { tile: PLACE_LOOK.part.hex, tint: null, amount: 0 },
-  selected: { tile: PLACE_LOOK.selected.hex, tint: '#10b981', amount: 1 },
-  held: { tile: PLACE_LOOK.held.hex, tint: '#f59e0b', amount: 1 },
+  selected: { tile: PLACE_LOOK.selected.hex, tint: '#1F7A5C', amount: 1 },
+  held: { tile: PLACE_LOOK.held.hex, tint: '#94A3B8', amount: 1 },
   booked: { tile: PLACE_LOOK.booked.hex, tint: null, amount: 0 },
-  mine: { tile: PLACE_LOOK.mine.hex, tint: '#7c3aed', amount: 0.8 },
+  mine: { tile: PLACE_LOOK.mine.hex, tint: '#C6A45B', amount: 0.8 },
   blocked: { tile: PLACE_LOOK.blocked.hex, tint: null, amount: 0 },
 };
 

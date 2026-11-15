@@ -5,12 +5,15 @@
  * chambers can be typed; nothing is saved — the wizard keeps its draft on this
  * browser, as for a real owner). ?view=farmer: that draft as farmers see the
  * store — the very rows the wizard would save (previewChambers), in the
- * Drawing, the 3D view and the walk inside.
+ * Drawing, the 3D view and the walk inside. Tapping a place there chooses it
+ * (one at a time, kept only on this page) and opens the booking's own
+ * selected-bin panel, so the panel is tested without signing in.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ColdStoreExplorer } from '@/components/rental/ColdStoreMap';
 import type { Look } from '@/components/rental/placeLook';
+import { SelectedBinPanel } from '@/components/rental/SelectedBinPanel';
 import { OwnerWizard } from '@/components/rental/owner/OwnerWizard';
 import { previewChambers, storeModel, withAllBoxes, type StoreDraft } from '@/lib/coldStore';
 import type { Account } from '@/lib/db/client';
@@ -56,14 +59,38 @@ function AsFarmersSee() {
   const model = useMemo(() => (draft ? storeModel(draft) : null), [draft]);
   const rows = useMemo(() => (model ? previewChambers(model, 'test') : []), [model]);
   const [active, setActive] = useState<string | null>(null);
-  const stateOf = useCallback((): Look => 'free', []);
+  const [pick, setPick] = useState<{ chamber: ColdChamber; slot: string; boxes: number } | null>(null);
+  const [booked, setBooked] = useState(false);
+  const stateOf = useCallback((c: ColdChamber, slot: string): Look => (pick && pick.chamber.id === c.id && pick.slot === slot ? 'selected' : 'free'), [pick]);
   const roomOf = useCallback((c: ColdChamber) => c.boxes_per_slot, []);
+  const onPlace = useCallback((c: ColdChamber, slot: string, look: Look) => {
+    setBooked(false);
+    setPick(look === 'selected' ? null : { chamber: c, slot, boxes: c.boxes_per_slot });
+  }, []);
   if (draft === undefined) return null;
   if (!model || !rows.length) return <p>No store typed yet: open ?view=owner first.</p>;
   return (
     <section aria-label="As farmers see it" className="space-y-3">
       <h1 className="text-xl font-bold">{model.store.title || 'Test cold store'} — as farmers see it</h1>
-      <ColdStoreExplorer chambers={rows} stateOf={stateOf} roomOf={roomOf} mode="book" active={active ?? rows[0].id} onActive={setActive} legend={['free']} building={model.building} rate={null} />
+      <ColdStoreExplorer chambers={rows} stateOf={stateOf} roomOf={roomOf} mode="book" onPlace={onPlace} active={active ?? rows[0].id} onActive={setActive} legend={['free', 'part', 'selected', 'held', 'booked', 'mine', 'blocked']} building={model.building} rate={null} />
+      {pick && (
+        <SelectedBinPanel
+          facility={model.store.title || 'Test cold store'}
+          chamber={pick.chamber}
+          slot={pick.slot}
+          room={pick.chamber.boxes_per_slot}
+          mineStored={0}
+          boxes={pick.boxes}
+          rate={Number(pick.chamber.rate) || 0}
+          months={6}
+          minUnits={1}
+          totalChosen={pick.boxes}
+          onBoxes={(n) => setPick({ ...pick, boxes: n })}
+          onRemove={() => setPick(null)}
+          onBook={() => setBooked(true)}
+        />
+      )}
+      {booked && <p role="status">Test page: the real booking window now opens its confirm step.</p>}
     </section>
   );
 }
