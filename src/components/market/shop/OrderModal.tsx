@@ -25,6 +25,7 @@ import { capturePoint, type LiveFix } from '@/lib/client/liveGps';
 import { inr, supabase, type Account } from '@/lib/db/client';
 import { orderAction, placeOrder, type MarketListing, type MarketOrder, type MarketUnit } from '@/lib/db/market';
 import { LISTINGS_CHANGED, UNIT_PLURAL as PLURAL, amountOf } from '@/components/market/shop/useLiveListings';
+import { BUYER_CONSOLIDATION_FEE_RATE, CLUSTER_RADIUS_KM, calculateClusterSettlement } from '@/lib/clusterConsolidation';
 
 // The native tile map for the buyer's delivery pin — no iframe, never blocked.
 const LiveInteractiveMap = dynamic(() => import('@/components/common/LiveInteractiveMap'), {
@@ -60,11 +61,11 @@ async function latest(id: string): Promise<Pick<MarketListing, 'price' | 'quanti
   return row && row.active && Number(row.quantity) > 0 ? { price: row.price, quantity: row.quantity } : null;
 }
 
-const OrderModalInner = React.memo(function OrderModalInner({ listing, account, theme, onClose, onPlaced }: { listing: Orderable; account: Account; theme: PortalTheme; onClose: () => void; onPlaced: (order: MarketOrder) => void }) {
+const OrderModalInner = React.memo(function OrderModalInner({ listing, account, theme, onClose, onPlaced, initialQuantity, settlement = false }: { listing: Orderable; account: Account; theme: PortalTheme; onClose: () => void; onPlaced: (order: MarketOrder) => void; initialQuantity?: number; settlement?: boolean }) {
   // Price and stock as last read: they change here when the seller changes them.
   const [now, setNow] = useState({ price: listing.price, quantity: listing.quantity });
   const l = { ...listing, ...now };
-  const [form, setForm] = useState({ quantity: '1', name: account.name, phone: account.phone, address: [account.village, account.district].filter(Boolean).join(', ') });
+  const [form, setForm] = useState({ quantity: initialQuantity && initialQuantity > 0 ? String(Math.min(initialQuantity, Number(listing.quantity))) : '1', name: account.name, phone: account.phone, address: [account.village, account.district].filter(Boolean).join(', ') });
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [gone, setGone] = useState(false);
@@ -254,6 +255,30 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
             </button>
           </div>
         )}
+        {settlement && l.unit === 'box' && qty > 0 && (() => {
+          // No freight rate is saved anywhere yet, so none is charged or shown as a number (0 per box here means "not quoted").
+          const s = calculateClusterSettlement({ produceSubtotalInr: qty * Number(l.price), totalBoxes: qty, freightPerBoxInr: 0 });
+          return (
+            <section aria-label="Settlement" data-testid="order-settlement" className="rounded-xl bg-[#F3F8F5] p-3 text-sm text-[#1E2D28] ring-1 ring-[#C6DBD0]">
+              <p className="font-bold text-[#174C3C]">Settlement for this order</p>
+              <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5">
+                <dt>Apple Boxes Subtotal (100% paid to Growers — 0% Grower Deduction)</dt>
+                <dd className="text-right font-bold tabular-nums">{inr(s.produceSubtotalInr)}</dd>
+                <dt>KashRoot Consolidation &amp; Service Fee ({Math.round(BUYER_CONSOLIDATION_FEE_RATE * 100)}% paid by Buyer)</dt>
+                <dd className="text-right font-bold tabular-nums">{inr(s.buyerConsolidationFeeInr)}</dd>
+                <dt>Hub Pickup &amp; Highway Freight</dt>
+                <dd className="text-right font-semibold text-[#52665E]">Not quoted yet</dd>
+              </dl>
+              <p className="mt-2 text-xs text-[#52665E]">
+                The escrow on this order holds the growers’ {inr(s.produceSubtotalInr)} only. The {Math.round(BUYER_CONSOLIDATION_FEE_RATE * 100)}% service fee is not collected through this order yet, and freight is
+                quoted when a pickup vehicle is assigned to the order; no freight figure is made up here.
+              </p>
+              <p className="mt-2 rounded-lg bg-[#EAF3EE] px-2.5 py-1.5 text-xs font-semibold text-[#174C3C]">
+                Orchard Gates ({CLUSTER_RADIUS_KM} km Cluster) → KashRoot Local Pickup Vehicle → Nearest KashRoot Hub Consolidation → Direct Highway Truck to Buyer
+              </p>
+            </section>
+          );
+        })()}
         {(gone || problem) && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm font-medium text-rose-800 ring-1 ring-rose-200">{gone ? GONE : problem}</p>}
         {fix ? (
           <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-950">🔒 <strong>{inr(qty * Number(l.price))} goes into KashRoot Escrow</strong> when you press Order. It releases to the farmer only when you press “✅ Confirm Delivery Received” after the goods reach you at {form.address.trim() || fix.address}.</p>
@@ -265,6 +290,6 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
   );
 });
 
-export function OrderModal({ listing, account, theme, onClose, onPlaced }: { listing: Orderable; account: Account; theme: PortalTheme; onClose: () => void; onPlaced: (order: MarketOrder) => void }) {
-  return <OrderModalInner listing={listing} account={account} theme={theme} onClose={onClose} onPlaced={onPlaced} />;
+export function OrderModal({ listing, account, theme, onClose, onPlaced, initialQuantity, settlement }: { listing: Orderable; account: Account; theme: PortalTheme; onClose: () => void; onPlaced: (order: MarketOrder) => void; /** The boxes the buyer put on the truck for this listing. */ initialQuantity?: number; /** Buyer portal: show the cluster settlement (growers 100%, 1% buyer fee, freight). */ settlement?: boolean }) {
+  return <OrderModalInner listing={listing} account={account} theme={theme} onClose={onClose} onPlaced={onPlaced} initialQuantity={initialQuantity} settlement={settlement} />;
 }

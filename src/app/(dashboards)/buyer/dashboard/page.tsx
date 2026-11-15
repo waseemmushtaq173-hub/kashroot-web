@@ -53,6 +53,8 @@ function BuyerDashboard() {
   const [orders, setOrders] = useState<MarketOrder[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ordering, setOrdering] = useState<ShopListing | null>(null);
+  /** The boxes the buyer put on the truck for the listing being ordered (the order form opens with it). */
+  const [orderingBoxes, setOrderingBoxes] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     const none = () => {
@@ -171,7 +173,12 @@ function BuyerDashboard() {
             category="produce"
             theme={theme}
             accountId={account?.id}
-            onOrder={(l) => (account ? setOrdering(l) : toast.error('Please sign in to the Buyer portal again to order.'))}
+            cluster
+            onOrder={(l, boxes) => {
+              if (!account) return void toast.error('Please sign in to the Buyer portal again to order.');
+              setOrderingBoxes(boxes);
+              setOrdering(l);
+            }}
             // Only real produce from real farmers — nothing made up.
             empty={
               <EmptyState
@@ -216,6 +223,8 @@ function BuyerDashboard() {
           listing={ordering}
           account={account}
           theme={theme}
+          initialQuantity={orderingBoxes}
+          settlement
           onClose={() => setOrdering(null)}
           onPlaced={() => {
             setOrdering(null);

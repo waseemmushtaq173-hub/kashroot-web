@@ -33,6 +33,7 @@ import { googleRoute, kmBetween, roadEstimate, type MapSpot } from '@/lib/maps';
 import { myPayout, paymentDetails, type PayoutAccount } from '@/lib/db/rentals';
 import { sendLocation, type OrgDriver, type ShopSeller } from '@/lib/db/shop';
 import { capturePoint, useLiveGps } from '@/lib/client/liveGps';
+import { getNearestVerifiedHub, isValidCoordinate } from '@/lib/clusterConsolidation';
 
 const OrderLiveMap = dynamic(() => import('@/components/market/OrderLiveMap').then((m) => m.default), {
   ssr: false,
@@ -45,7 +46,10 @@ const maskAcct = (n?: string | null) => (n ? `${n.slice(0, 4)}…${n.slice(-3)}`
 /** "Live Now": a fix pushed in the last two minutes. */
 const nowish = (at?: string | null) => Boolean(at) && Date.now() - Date.parse(at as string) < 120_000;
 
-export function OrderCard({ order, as, theme, onChange, lines, seller, drivers }: {
+/** The handover code a grower reads to the pickup driver: six digits made from the order's own id, so it is the same every time it is shown. */
+const handoverCode = (orderId: string) => String(parseInt(orderId.replace(/-/g, '').slice(0, 8), 16) % 1_000_000).padStart(6, '0');
+
+export function OrderCard({ order, as, theme, onChange, lines, seller, drivers, listingGps }: {
   order: MarketOrder;
   as: 'buyer' | 'seller';
   theme: PortalTheme;
@@ -56,12 +60,14 @@ export function OrderCard({ order, as, theme, onChange, lines, seller, drivers }
   seller?: ShopSeller | null;
   /** Pay-first orders, seller side in My business: the business's drivers to give it to. */
   drivers?: OrgDriver[];
+  /** Seller side: the orchard GPS saved on the listing this order was made from (null: none recorded). */
+  listingGps?: { lat: number | null; lng: number | null } | null;
 }) {
   if (order.pay_first) return <PayFirstOrder lines={lines?.length ? lines : [order]} as={as} theme={theme} seller={seller} onChange={onChange} drivers={drivers} />;
-  return <PayAfterDeliveryOrder order={order} as={as} theme={theme} onChange={onChange} />;
+  return <PayAfterDeliveryOrder order={order} as={as} theme={theme} onChange={onChange} listingGps={listingGps} />;
 }
 
-function PayAfterDeliveryOrder({ order: o, as, theme, onChange }: { order: MarketOrder; as: 'buyer' | 'seller'; theme: PortalTheme; onChange: () => void }) {
+function PayAfterDeliveryOrder({ order: o, as, theme, onChange, listingGps }: { order: MarketOrder; as: 'buyer' | 'seller'; theme: PortalTheme; onChange: () => void; listingGps?: { lat: number | null; lng: number | null } | null }) {
   const [busy, setBusy] = useState(false);
   const [payee, setPayee] = useState<PayoutAccount | null | undefined>(undefined);
   const sellerSide = as === 'seller';
@@ -176,6 +182,58 @@ function PayAfterDeliveryOrder({ order: o, as, theme, onChange }: { order: Marke
           <span>✅ <strong>Escrow Released to Farmer</strong>{o.escrow_released_at ? ` · ${ago(o.escrow_released_at)}` : ''}{o.escrow_tx_ref ? ` · UTR ${o.escrow_tx_ref}` : ''}</span>
         </p>
       )}
+
+      {sellerSide && !['cancelled', 'rejected'].includes(o.status) && (() => {
+        // The pickup point: the GPS the grower pinned on this order, else the GPS saved on the listing. Never a made-up point.
+        const origin = isValidCoordinate(o.seller_live_lat, o.seller_live_lng) ? { lat: o.seller_live_lat, lng: o.seller_live_lng } : listingGps ?? null;
+        const near = origin ? getNearestVerifiedHub(origin.lat, origin.lng) : null;
+        const hubName = near ? near.hub.name : 'the nearest KashRoot Hub';
+        const vehicle = o.ship_vehicle ? String(o.ship_vehicle) : null;
+        const stage = o.status === 'completed' ? 'DELIVERED_ESCROW_RELEASED' : o.status === 'delivered' ? 'ARRIVED_AT_BUYER — waiting for the buyer to confirm' : 'IN_TRANSIT_TO_BUYER';
+        return (
+          <section aria-label="KashRoot Hub pickup and payout" data-testid="hub-pickup-card" className="mt-3 space-y-2 rounded-xl bg-[#F3F8F5] p-3 text-sm text-[#1E2D28] ring-1 ring-[#C6DBD0]">
+            <p className="font-bold text-[#174C3C]">KashRoot Hub Pickup &amp; Payout</p>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+              <dt className="text-[#52665E]">Ordered</dt>
+              <dd><strong>{o.quantity} {o.unit}</strong> · gross {inr(o.amount)}</dd>
+              <dt className="text-[#52665E]">Grower Fee Deducted</dt>
+              <dd><strong>₹0 (0%)</strong></dd>
+              <dt className="text-[#52665E]">Net Payout to You</dt>
+              <dd><strong>100% · {inr(o.amount)}</strong></dd>
+              <dt className="text-[#52665E]">Nearest KashRoot Hub</dt>
+              <dd>{near ? <><strong>{near.hub.name}</strong> ({near.distanceKm.toFixed(1)} km from {isValidCoordinate(o.seller_live_lat, o.seller_live_lng) ? 'the GPS you pinned on this order' : 'the orchard GPS on your listing'})</> : 'Orchard GPS not recorded on this listing'}</dd>
+            </dl>
+            {!vehicle ? (
+              o.status === 'placed' || o.status === 'accepted' ? (
+                <p className="rounded-lg bg-amber-50 px-2.5 py-1.5 font-semibold text-amber-950 ring-1 ring-amber-200">Status: Order Confirmed — Awaiting KashRoot Pickup Vehicle Assignment to {hubName}</p>
+              ) : (
+                <p className="rounded-lg bg-[#EAF3EE] px-2.5 py-1.5 font-semibold text-[#174C3C]">Status: {stage} · no vehicle or driver is recorded on this order</p>
+              )
+            ) : (
+              <p className="rounded-lg bg-[#EAF3EE] px-2.5 py-1.5 text-[#174C3C]">
+                <strong>Status: {stage}</strong> · Vehicle <strong className="font-mono">{vehicle}</strong>
+                {o.driver_name ? ` · Driver ${o.driver_name}` : ''}
+                {o.driver_phone ? <> · <a href={`tel:${o.driver_phone}`} className="font-semibold underline underline-offset-2">📞 {o.driver_phone}</a></> : ''}
+                <span className="block text-xs text-[#52665E]">The stages between the orchard gate and the hub (picked up, at the hub) are not recorded on orders yet, so they are not shown as done.</span>
+              </p>
+            )}
+            {(o.status === 'accepted' || o.status === 'shipped') && (
+              <p className="text-xs text-[#1E2D28]">
+                Handover code for the pickup driver: <strong className="font-mono text-base tracking-widest text-[#174C3C]" data-testid="handover-code">{handoverCode(o.id)}</strong>
+                {o.seller_gps_updated_at ? <span className="text-[#52665E]"> · orchard-gate position last confirmed {ago(o.seller_gps_updated_at)}</span> : null}
+              </p>
+            )}
+            {o.status === 'accepted' && (
+              <Btn theme={theme} size="sm" variant="soft" icon={PackageCheck} disabled={busy} onClick={() => void step(async () => {
+                const fix = await capturePoint().catch(() => { throw new Error('Location is off. Allow location access (GPS) so the pickup driver gets your exact orchard gate, then press again.'); });
+                await orderSellerGps(o.id, fix);
+              }, 'Marked packed and ready: your orchard-gate position and the time are saved on the order')}>
+                Mark Boxes Packed &amp; Ready for Hub Pickup
+              </Btn>
+            )}
+          </section>
+        );
+      })()}
 
       {/* The live mutual GPS trip: farmer origin, the moving shipment, the buyer destination. */}
       {mapShown && (

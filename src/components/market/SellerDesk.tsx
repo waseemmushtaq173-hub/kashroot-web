@@ -252,7 +252,11 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
             <EmptyState theme={theme} icon={Package} title="No orders yet" text="When a buyer orders one of your products, it appears here. Accept it, ship it, and confirm when the money reaches you." />
           ) : (
             <ul className="space-y-3">
-              {[...waiting, ...others].map((g) => <OrderCard key={g[0].basket ?? g[0].id} order={g[0]} lines={g} as="seller" theme={theme} onChange={() => void reload()} />)}
+              {[...waiting, ...others].map((g) => {
+                // The orchard GPS saved on the listing the order was made from (null: none recorded).
+                const from = products?.find((x) => x.id === g[0].listing_id);
+                return <OrderCard key={g[0].basket ?? g[0].id} order={g[0]} lines={g} as="seller" theme={theme} onChange={() => void reload()} listingGps={from ? { lat: from.captured_lat, lng: from.captured_lng } : null} />;
+              })}
             </ul>
           )}
         </Panel>

@@ -8,6 +8,7 @@ import { Field, INPUT } from '@/components/portal/kit';
 import { AppleBox3D } from '@/components/three/AppleBox3D';
 import { reverseGeocode, nowIST, type GeoResult, engravePhotoFrame, startEngravedVideo } from '@/lib/geoStampMedia';
 import { PRODUCE, SUBCATEGORIES, UNITS, type ListingInput } from '@/lib/db/market';
+import { getNearestVerifiedHub } from '@/lib/clusterConsolidation';
 import type { PayoutAccount } from '@/lib/db/rentals';
 import dynamic from 'next/dynamic';
 
@@ -429,6 +430,18 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
               </p>
             )}
             {gps && <div className="mt-2"><LiveInteractiveMap lat={gps.lat} lng={gps.lng} accuracy={gps.accuracy} label="Orchard / capture spot" /></div>}
+            {gps && (() => {
+              // From the GPS just locked on this phone, nothing else.
+              const near = getNearestVerifiedHub(gps.lat, gps.lng);
+              if (!near) return null;
+              return (
+                <div data-testid="grower-hub-card" className="mt-2 space-y-1.5 rounded-xl bg-[#F3F8F5] p-3 text-sm text-[#1E2D28] ring-1 ring-[#C6DBD0]">
+                  <p>🏢 <strong>Assigned Nearest Hub: {near.hub.name} ({near.distanceKm.toFixed(1)} km from your captured orchard GPS)</strong></p>
+                  <p>🚛 <strong>Doorstep Orchard Pickup:</strong> When a buyer orders your boxes, a KashRoot pickup vehicle will collect them from your orchard gate and take them to this KashRoot Hub. You have zero transport responsibility.</p>
+                  <p>💰 <strong>0% Grower Commission:</strong> You receive 100% of your listed box price (KashRoot charges 1% to the buyer and ₹0 to the grower).</p>
+                </div>
+              );
+            })()}
             {cameraError && <p className="mt-1 rounded-xl bg-rose-50 p-3 text-sm text-rose-800 ring-1 ring-rose-200">{cameraError}</p>}
 
             {/* Live capture controls — inside the box once the camera is open. */}
