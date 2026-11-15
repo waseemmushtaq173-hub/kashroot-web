@@ -102,7 +102,7 @@ export function PhenologyPanel({ className = '' }: { className?: string }) {
           })}
         </ol>
         <p className="mt-2 text-[11px] text-slate-500">
-          Typical Kashmir calendar — exact dates shift a week or two with altitude and each year's weather. {current ? null : 'Between windows today: follow the nearest stage\u2019s guidance.'}
+          Typical Kashmir calendar — exact dates shift a week or two with altitude and each year&apos;s weather. {current ? null : 'Between windows today: follow the nearest stage\u2019s guidance.'}
         </p>
       </Panel>
 

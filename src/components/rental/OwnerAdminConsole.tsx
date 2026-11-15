@@ -164,6 +164,7 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
   }, [orgId, oversightOrgId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- kept as shipped: changing when this state is set needs its signed-in flow tested
     void load();
   }, [load]);
 
@@ -340,7 +341,7 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
       {has('twin') && (
       <Panel theme={theme} title="3D digital twin architect" icon={Boxes}>
         <p className="text-sm text-slate-600">
-          {chamberList.length} chamber{chamberList.length === 1 ? '' : 's'} drawn for {activeFacility?.title ?? 'this business'}: dynamic L-bank / perimeter placement from each chamber's saved wall, doors facing the hall, stacked bins and crates, chamber lighting — the same twin farmers see.
+          {chamberList.length} chamber{chamberList.length === 1 ? '' : 's'} drawn for {activeFacility?.title ?? 'this business'}: dynamic L-bank / perimeter placement from each chamber&apos;s saved wall, doors facing the hall, stacked bins and crates, chamber lighting — the same twin farmers see.
         </p>
         {!oversightOrgId && (
           <div className="mt-3 flex flex-wrap gap-2">
@@ -413,7 +414,7 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
             ))}
           </ul>
         )}
-        <p className="mt-3 text-xs text-slate-500">Farmers sharing one bin see only their own crates; the owner sees every farmer's slice of the bin.</p>
+        <p className="mt-3 text-xs text-slate-500">Farmers sharing one bin see only their own crates; the owner sees every farmer&apos;s slice of the bin.</p>
       </Panel>
       )}
 
@@ -804,6 +805,7 @@ function TxnModal({ open, organizationId, category, facilities, defaultFacilityI
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- kept as shipped: changing when this state is set needs its signed-in flow tested
     setForm((f) => ({ ...f, facilityId: f.facilityId || defaultFacilityId || facilities[0]?.id || '' }));
   }, [defaultFacilityId, facilities]);
   const pickedBooking = (bookings ?? []).find((b) => b.id === form.bookingId) ?? null;

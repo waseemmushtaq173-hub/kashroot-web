@@ -4603,7 +4603,7 @@ export const EMBEDDED_CIBRC_BANNED: CibrcBanned[] = [
 //   OFFICIAL FERTILISER (CONTROL) ORDER, 1985 — SCHEDULE I STATUTORY STANDARDS
 //   ═══════════════════════════════════════════════════════════════════════════
 
-// @ts-ignore - Union type too complex for inline array literal
+// @ts-expect-error -- TS2590: the union of this literal array is too complex for the compiler to represent
 export const EMBEDDED_FCO_STANDARDS: FcoStandard[] = [
   {
     id: 'fco-schedule-i-part-a-clause-1-46-0-0',

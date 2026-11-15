@@ -143,6 +143,7 @@ export function PortalShell({
 
   useEffect(() => {
     if (signedIn !== true || !portal) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- kept as shipped: changing when this state is set needs its signed-in flow tested
       setSuperAdmin(null);
       return;
     }

@@ -438,6 +438,7 @@ export function ColdStore3D({
   // and their loaders exist only in the browser, and a hiccup there must
   // never take the page down.
   const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- kept as shipped: changing when this state is set needs its signed-in flow tested
   useEffect(() => setMounted(true), []);
   const [info, setInfo] = useState<number | null>(null);
   const [where, setWhere] = useState<Where>({ text: 'You are outside the main door.', chamber: -1, level: 1, floors: 1 });

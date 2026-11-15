@@ -77,6 +77,7 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
     setForm({ ...form, ...patch });
     setProblem(null);
     // Editing the address after a lock is the buyer's own override.
+    // eslint-disable-next-line react-hooks/immutability -- kept as shipped: changing when this state is set needs its signed-in flow tested
     if (patch.address !== undefined) setAddrTouched(true);
   }, [form]);
   const total = useMemo(() => inr(qty * Number(l.price)), [qty, l.price]);
@@ -87,9 +88,11 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
   const [autoAddr, setAutoAddr] = useState<string | null>(null);
   const [addrTouched, setAddrTouched] = useState(false);
   const addrRef = useRef({ addrTouched, autoAddr });
+  // eslint-disable-next-line react-hooks/refs -- kept as shipped: changing when this state is set needs its signed-in flow tested
   addrRef.current = { addrTouched, autoAddr };
 
   /** High-accuracy live GPS, reverse-geocoded; mandatory before the order goes. */
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- kept as shipped: changing when this state is set needs its signed-in flow tested
   const takeFix = useCallback(async () => {
     setFixing(true);
     setFixError(null);

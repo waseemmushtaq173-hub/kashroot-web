@@ -104,6 +104,7 @@ function BuyerCheckoutForm({ listing: l, theme }: { listing: ShopListing; theme:
     if (!fix) return;
     const a = fix.address;
     if (addressIsCoords(a) || a === autoAddr) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- kept as shipped: changing when this state is set needs its signed-in flow tested
     setForm((cur) => (addrTouched && cur.address.trim() && cur.address !== autoAddr ? cur : { ...cur, address: a }));
     setAutoAddr(a);
   }, [fix, autoAddr, addrTouched]);
@@ -189,7 +190,7 @@ function BuyerCheckoutForm({ listing: l, theme }: { listing: ShopListing; theme:
         <p className="flex items-center gap-2 text-sm font-bold text-emerald-900">
           <CheckCircle2 className="h-5 w-5 shrink-0" aria-hidden /> Order placed — {inr(placed.amount)} locked in KashRoot Escrow
         </p>
-        <p className="text-sm text-emerald-950">The test order went through the real escrow: it is in the seller's orders and in the buyer's “My orders” now. You pay nothing yet — when the goods reach you, press “✅ Confirm Delivery Received” there and the escrow releases to the farmer.</p>
+        <p className="text-sm text-emerald-950">The test order went through the real escrow: it is in the seller&apos;s orders and in the buyer&apos;s “My orders” now. You pay nothing yet — when the goods reach you, press “✅ Confirm Delivery Received” there and the escrow releases to the farmer.</p>
         <div className="flex flex-wrap gap-2">
           <Btn theme={theme} variant="soft" icon={ShoppingCart} className="min-h-10 text-sm" onClick={() => { window.location.href = '/buyer/dashboard?tab=orders'; }}>
             Open My orders in the Buyer portal

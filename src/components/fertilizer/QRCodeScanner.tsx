@@ -396,7 +396,7 @@ export function QRCodeScanner({ onResult, onClose, allowedDomains = [], isOfflin
                   {scanning ? (
                     <p className="text-sm font-medium">Scanning… point at the QR code on the label</p>
                   ) : (
-                    <p className="text-sm text-white/80">Camera ready — tap "Start scanning"</p>
+                    <p className="text-sm text-white/80">Camera ready — tap &quot;Start scanning&quot;</p>
                   )}
                 </div>
               </div>

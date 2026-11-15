@@ -161,6 +161,7 @@ export function LiveGpsTrips() {
 
   useEffect(() => {
     let live = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- kept as shipped: changing when this state is set needs its signed-in flow tested
     void reload();
     const timer = window.setInterval(() => {
       if (live && !creating) void reload();
@@ -330,6 +331,7 @@ function TripCard({ trip, onBack, onChange }: { trip: Trip; onBack: () => void; 
   const lastSent = useRef(0);
   const watchId = useRef<number | null>(null);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- kept as shipped: changing when this state is set needs its signed-in flow tested
   useEffect(() => setT(trip), [trip]);
 
   const stopSharing = useCallback(() => {

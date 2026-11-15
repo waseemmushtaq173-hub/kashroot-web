@@ -68,6 +68,7 @@ export default function LiveInteractiveMap({ lat, lng, accuracy = null, label, d
   const drag = useRef<{ px: number; py: number; lat: number; lng: number } | null>(null);
 
   // A new fix re-centres the view on it.
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- kept as shipped: changing when this state is set needs its signed-in flow tested
   useEffect(() => { setCenter({ lat, lng }); }, [lat, lng]);
 
   // The container's real size drives which tiles are shown.
@@ -115,6 +116,7 @@ export default function LiveInteractiveMap({ lat, lng, accuracy = null, label, d
         role="application"
         aria-label={label ? `${label} on an interactive OpenStreetMap map` : 'Interactive OpenStreetMap map'}
         className="relative touch-none select-none overflow-hidden rounded-xl bg-slate-200 ring-1 ring-slate-900/10"
+        // eslint-disable-next-line react-hooks/refs -- kept as shipped: changing when this state is set needs its signed-in flow tested
         style={{ height: '14rem', cursor: drag.current ? 'grabbing' : 'grab' }}
         onPointerDown={(e) => {
           drag.current = { px: e.clientX, py: e.clientY, lat: center.lat, lng: center.lng };

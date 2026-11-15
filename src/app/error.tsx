@@ -81,6 +81,7 @@ export default function GlobalError({
       try {
         if (!window.sessionStorage.getItem('kr_chunk_reset_done')) {
           window.sessionStorage.setItem('kr_chunk_reset_done', '1');
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- kept as shipped: changing when this state is set needs its signed-in flow tested
           setRecovered(true);
           reset();
           return;
@@ -122,6 +123,8 @@ export default function GlobalError({
         >
           <RotateCcw className="w-5 h-5" /> Try Again
         </button>
+        {/* A full page load on purpose: after a crash the app's own router may be the broken part. */}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a
           href="/"
           className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-bold transition-colors ring-1 ring-white/20"

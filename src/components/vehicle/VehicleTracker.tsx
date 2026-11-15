@@ -204,7 +204,7 @@ export function VehicleTracker({
               {hasPosition && ` (vehicle currently near ${current?.locationName})`}
             </p>
             <p className="mt-2 text-xs text-amber-700">
-              This is the expected route based on the order. The vehicle's real position is shown above.
+              This is the expected route based on the order. The vehicle&apos;s real position is shown above.
               Only FASTag crossings and driver GPS are real tracking data.
             </p>
             {hasPosition && (

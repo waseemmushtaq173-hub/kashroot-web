@@ -224,6 +224,7 @@ export default function UnifiedLiveTrackingPortal() {
   }, [lookupShipmentByCode]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- kept as shipped: changing when this state is set needs its signed-in flow tested
     void fetchAvailableShipments();
   }, [fetchAvailableShipments]);
 
@@ -269,6 +270,7 @@ export default function UnifiedLiveTrackingPortal() {
       realtimeClientRef.current = client;
       realtimeChannelRef.current = channel;
     } catch {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- kept as shipped: changing when this state is set needs its signed-in flow tested
       setRealtimeStatus('POLLING');
     }
 

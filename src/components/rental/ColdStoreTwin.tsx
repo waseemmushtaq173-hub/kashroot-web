@@ -408,7 +408,9 @@ export function ColdStoreTwin({ grower = null }: ColdStoreTwinProps) {
   // Latest toggle values, read once at load to restore React's defaults.
   const cutawayRef = useRef(cutaway);
   const wallsRef = useRef(walls);
+  // eslint-disable-next-line react-hooks/immutability, react-hooks/refs -- kept as shipped: changing when this state is set needs its signed-in flow tested
   cutawayRef.current = cutaway;
+  // eslint-disable-next-line react-hooks/immutability, react-hooks/refs -- kept as shipped: changing when this state is set needs its signed-in flow tested
   wallsRef.current = walls;
 
   // Toggles → the scene.

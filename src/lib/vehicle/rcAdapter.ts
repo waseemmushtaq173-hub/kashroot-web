@@ -102,10 +102,13 @@ export function createUlipRcProvider(): RcProvider {
     key: 'ulip',
     name: 'ULIP / VAHAN (Government of India)',
     isConfigured: () => {
+      // Loaded only when asked, on the server: a top-level import would pull the server module into every caller.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { ulipConfigured } = require('@/lib/server/ulip');
       return ulipConfigured();
     },
     async lookup(registration: string) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- as above
       const { vahan } = require('@/lib/server/ulip');
       const details = await vahan(registration);
       if (!details?.fields?.length) return null;

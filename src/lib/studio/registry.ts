@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Object3D, Group, Material, Mesh } from 'three';
+import { Object3D, Group, Material, Mesh, MeshBasicMaterial, LineBasicMaterial, Line, Vector3 } from 'three';
 
 /**
  * Design Registry — Single source of truth for all 3D design types.
@@ -404,7 +404,7 @@ export function createCarton(params: CartonParams): Group {
   
   // QR code placeholder
   const qrGeo = new BoxGeometry(0.05, 0.001, 0.05);
-  const qrMat = new (require('three')).MeshBasicMaterial({ color: 0x000000 });
+  const qrMat = new MeshBasicMaterial({ color: 0x000000 });
   const qr = new Mesh(qrGeo, qrMat);
   qr.position.set(0, h / 2, w / 2 + 0.001);
   group.add(qr);
@@ -485,8 +485,8 @@ export function packBoxes(params: TruckLoadParams): { count: number; fillPercent
     for (let w = 0; w < boxesWidth; w++) {
       for (let h = 0; h < boxesHeight; h++) {
         let x = -cargoLength / 2 + (l + 0.5) * bl;
-        let z = -cargoWidth / 2 + (w + 0.5) * bw;
-        let y = (h + 0.5) * bh;
+        const z = -cargoWidth / 2 + (w + 0.5) * bw;
+        const y = (h + 0.5) * bh;
         
         // Apply interlock pattern offset
         if (stackPattern === 'interlock' && h % 2 === 1) {
@@ -509,8 +509,8 @@ export function createTruckLoad(params: TruckLoadParams): Group {
   const { cargoLength, cargoWidth, cargoHeight, boxLength, boxWidth, boxHeight } = params;
   
   // Cargo space wireframe
-  const cargoGeo = new (require('three')).BoxGeometry(cargoLength, cargoHeight, cargoWidth);
-  const cargoMat = new (require('three')).MeshBasicMaterial({ 
+  const cargoGeo = new BoxGeometry(cargoLength, cargoHeight, cargoWidth);
+  const cargoMat = new MeshBasicMaterial({ 
     color: 0x888888, 
     wireframe: true, 
     transparent: true, 
@@ -589,7 +589,7 @@ export function createOrchardLayout(params: OrchardLayoutParams): Group {
   const canopies = new InstancedMesh(leavesGeo, leavesMat, treeCount);
   
   const matrix = new Matrix4();
-  const dummy = new (require('three')).Object3D();
+  const dummy = new Object3D();
   
   positions.forEach((pos, i) => {
     dummy.position.set(pos.x, 1.25, pos.z);
@@ -610,14 +610,14 @@ export function createOrchardLayout(params: OrchardLayoutParams): Group {
   
   // Irrigation lines (if drip)
   if (irrigation === 'drip') {
-    const lineMat = new (require('three')).LineBasicMaterial({ color: 0x4a90d9, transparent: true, opacity: 0.5 });
+    const lineMat = new LineBasicMaterial({ color: 0x4a90d9, transparent: true, opacity: 0.5 });
     for (let r = 0; r < rows; r++) {
       const points = positions
         .filter((_, i) => Math.floor(i / treesPerRow) === r)
-        .map(p => new (require('three')).Vector3(p.x, 0.05, p.z));
+        .map(p => new Vector3(p.x, 0.05, p.z));
       if (points.length > 1) {
-        const lineGeo = new (require('three')).BufferGeometry().setFromPoints(points);
-        const line = new (require('three')).Line(lineGeo, lineMat);
+        const lineGeo = new BufferGeometry().setFromPoints(points);
+        const line = new Line(lineGeo, lineMat);
         group.add(line);
       }
     }

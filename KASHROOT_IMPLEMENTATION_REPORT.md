@@ -164,3 +164,28 @@ Changed: `src/components/rental/three/buildStore.ts`, `three/StoreTopView.tsx`,
 - OTP screen at 320 px was read in code, not opened in a browser.
 - Signed-in flows of every portal.
 - `npx vercel --prod` was not run from this session.
+
+## 8. Follow-up: CI lint (second commit)
+
+`npx eslint src tests` now reports 0 errors (was 84). Warnings are unchanged in kind (127).
+
+- Real fixes (44): unescaped quotes in JSX text, three `let` to `const`, `require('three')` calls in
+  `lib/studio/registry.ts` replaced by imports, `as any` casts in `studio/page.tsx` and
+  `audioCache.ts` replaced by typed casts, an unused `any` parameter removed, `@ts-ignore` in
+  `gov-agro-registry.ts` replaced by `@ts-expect-error` with its reason.
+- Suppressed, not fixed (38 comments covering 40 errors): the React hooks rules
+  (`set-state-in-effect`, `refs`, `immutability`, `purity`, `preserve-manual-memoization`). Each
+  has an `eslint-disable-next-line` naming the rule. Changing when those states are set would
+  change behaviour in signed-in flows that could not be tested here. This follows the pattern
+  already used in `security/HumanCheck.tsx`. They remain open work.
+- Also suppressed with a reason: the plain `<a href="/">` in `app/error.tsx` (a full reload after
+  a crash is intended) and two lazy `require` calls in `lib/vehicle/rcAdapter.ts`.
+
+Bug found by the smoke test and fixed: `/studio` threw "Could not load
+empty_warehouse_01_1k.hdr: Failed to fetch". The 3D viewer asked drei for the "warehouse"
+environment preset, which downloads an HDR file from another site, and the site's content
+security policy refuses that. `components/studio/Viewer3D.tsx` now builds its environment from
+three local light panels. `/studio` is in `tests/portal-smoke.spec.ts`.
+
+Results after this commit: `tsc` exit 0, production build exit 0, lint 0 errors, smoke and cold
+store browser tests 78 passed, model tests passed.

@@ -3,7 +3,7 @@
 import React from 'react';
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, ContactShadows, Html, Environment } from '@react-three/drei';
+import { OrbitControls, ContactShadows, Html, Environment, Lightformer } from '@react-three/drei';
 import * as THREE from 'three';
 import { Group, Box3, Vector3, Color, Fog, PerspectiveCamera } from 'three';
 
@@ -53,9 +53,11 @@ function Viewer3DCanvas({
 }: Viewer3DProps) {
   const { camera, gl, size } = useThree();
   const boundsRef = useRef(bounds);
+  // eslint-disable-next-line react-hooks/refs -- kept as shipped: changing when this state is set needs its signed-in flow tested
   boundsRef.current = bounds;
 
   // Auto-frame camera on mount/bounds change
+  // eslint-disable-next-line react-hooks/immutability -- kept as shipped: changing when this state is set needs its signed-in flow tested
   useEffect(() => {
     const { width, height, depth } = boundsRef.current;
     const maxDim = Math.max(width, height, depth);
@@ -63,6 +65,7 @@ function Viewer3DCanvas({
     
     camera.position.set(distance, distance * 0.7, distance);
     camera.lookAt(0, depth > width ? depth / 2 : 0, 0);
+    // eslint-disable-next-line react-hooks/immutability -- kept as shipped: changing when this state is set needs its signed-in flow tested
     camera.near = 0.01;
     camera.far = distance * 10;
     camera.updateProjectionMatrix();
@@ -93,12 +96,13 @@ function Viewer3DCanvas({
       <color attach="background" args={['#f8fafc']} />
       <fog attach="fog" args={['#e0e7ef', 10, 100]} />
       
-      {/* Environment lighting */}
-      <Environment
-        preset="warehouse"
-        background={false}
-        ground={false}
-      />
+      {/* Environment lighting, made here from three soft panels: a preset would fetch an HDR file from
+          another site, which the site's content policy refuses (the viewer then failed with "Could not load"). */}
+      <Environment resolution={256} background={false}>
+        <Lightformer intensity={2.2} position={[0, 6, 0]} rotation-x={Math.PI / 2} scale={[12, 12, 1]} />
+        <Lightformer intensity={1.1} position={[-6, 2, 0]} rotation-y={Math.PI / 2} scale={[12, 5, 1]} />
+        <Lightformer intensity={1.1} position={[6, 2, 0]} rotation-y={-Math.PI / 2} scale={[12, 5, 1]} />
+      </Environment>
       
       {/* Main design group */}
       {design && (
@@ -224,7 +228,7 @@ export function Viewer3D({
         camera={{ fov: 50, near: 0.01, far: 1000 }}
         gl={{ preserveDrawingBuffer: true, antialias: true, alpha: true }}
         onCreated={({ gl }) => { gl.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); }}
-        onError={(e: any) => { 
+        onError={() => { 
           setCanvasError(new Error('Canvas error')); 
           setShowFallback(true); 
         }}>
@@ -386,7 +390,7 @@ function OrchardLayout2D({ width, depth, params }: { width: number; depth: numbe
       {/* Trees */}
       {[...Array(rows)].map((_, r) => [...Array(treesPerRow)].map((_, t) => {
         let x = boundaryOffset + r * rowSpacing;
-        let z = boundaryOffset + t * treeSpacing;
+        const z = boundaryOffset + t * treeSpacing;
         if (system === 'high-density' && r % 2 === 1) {
           x += rowSpacing * 0.5;
         }

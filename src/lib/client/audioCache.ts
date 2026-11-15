@@ -95,7 +95,7 @@ export async function storeCachedAudio(
     audio,
     lang,
     text,
-    source: source as any,
+    source: source as AudioCacheEntry['source'],
     createdAt: now,
     expiresAt: now + CACHE_TTL_MS,
   });

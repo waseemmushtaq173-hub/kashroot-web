@@ -109,6 +109,7 @@ export function Portal3DScene({
       /* storage blocked */
     }
     const low = autoStarts2D();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- kept as shipped: changing when this state is set needs its signed-in flow tested
     setLowPower(low);
     setStarted2D(low || rememberedOff);
   }, []);

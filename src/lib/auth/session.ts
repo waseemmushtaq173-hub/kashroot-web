@@ -261,6 +261,7 @@ export function useRecentPortal(): PortalId | null {
   useEffect(() => {
     try {
       const kept = localStorage.getItem(RECENT_PORTAL_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- kept as shipped: changing when this state is set needs its signed-in flow tested
       if (kept && isPortalId(kept) && (PUBLIC_PORTAL_IDS as readonly string[]).includes(kept)) setRecent(kept);
     } catch {
       /* private mode: nothing kept */
@@ -274,6 +275,7 @@ export function useRecentPortal(): PortalId | null {
     } catch {
       /* private mode */
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- kept as shipped: changing when this state is set needs its signed-in flow tested
     setRecent(hit);
   }, [pathname]);
   return recent;

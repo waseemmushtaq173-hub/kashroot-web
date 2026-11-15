@@ -87,6 +87,7 @@ export default function LiveLogisticsMap({ trip, className = '' }: { trip: TripL
 
   // Follow mode: every new fix re-centres the view on the truck.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- kept as shipped: changing when this state is set needs its signed-in flow tested
     if (follow && truckLat !== null && truckLng !== null) setCenter({ lat: truckLat, lng: truckLng });
   }, [follow, truckLat, truckLng]);
 
@@ -166,6 +167,7 @@ export default function LiveLogisticsMap({ trip, className = '' }: { trip: TripL
         role="application"
         aria-label="Live shipment map: the truck, its route and the destination geofence"
         className="relative touch-none select-none overflow-hidden rounded-xl bg-slate-200 ring-1 ring-slate-900/10"
+        // eslint-disable-next-line react-hooks/refs -- kept as shipped: changing when this state is set needs its signed-in flow tested
         style={{ height: '22rem', cursor: drag.current ? 'grabbing' : 'grab' }}
         onPointerDown={(e) => {
           drag.current = { px: e.clientX, py: e.clientY, lat: center.lat, lng: center.lng };

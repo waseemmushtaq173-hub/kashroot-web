@@ -178,10 +178,12 @@ function AdminOrderCard({ o, canRelease, busy, onEscrow }: { o: AdminOrder; canR
   const s = ORDER_STATUS[o.status] ?? { label: o.status, tone: 'slate' as const };
   const pin: OrderPin | null = (() => {
     const c = pinOf(num(o.seller_live_lat), num(o.seller_live_lng));
+    // eslint-disable-next-line react-hooks/purity -- kept as shipped: changing when this state is set needs its signed-in flow tested
     return c ? { ...c, label: `🟢 Origin · ${o.seller_name ?? 'Farmer'}`, sub: o.seller_live_address ?? o.seller_district ?? null, live: o.seller_gps_updated_at != null && Date.now() - Date.parse(o.seller_gps_updated_at) < 120_000 } : null;
   })();
   const pinCash: OrderPin | null = (() => {
     const c = pinOf(num(o.buyer_live_lat), num(o.buyer_live_lng)) ?? pinOf(num(o.delivery_lat), num(o.delivery_lon));
+    // eslint-disable-next-line react-hooks/purity -- kept as shipped: changing when this state is set needs its signed-in flow tested
     return c ? { ...c, label: `🔵 Destination · ${o.buyer_name}`, sub: o.buyer_live_address ?? o.delivery_address, live: o.buyer_gps_updated_at != null && Date.now() - Date.parse(o.buyer_gps_updated_at) < 120_000 } : null;
   })();
   const pinTruck: OrderPin | null = (() => {
@@ -189,6 +191,7 @@ function AdminOrderCard({ o, canRelease, busy, onEscrow }: { o: AdminOrder; canR
     // next to the legacy last_* columns), last_* as the fallback.
     const c = pinOf(num(o.shipment_live_lat), num(o.shipment_live_lng)) ?? pinOf(num(o.last_lat), num(o.last_lon));
     const at = o.shipment_gps_updated_at ?? o.last_at;
+    // eslint-disable-next-line react-hooks/purity -- kept as shipped: changing when this state is set needs its signed-in flow tested
     return c ? { ...c, label: '🚚 Shipment', sub: o.ship_vehicle ?? null, live: at != null && Date.now() - Date.parse(at) < 120_000 } : null;
   })();
   const est = pin && pinCash ? roadEstimate(pin, pinCash) : null;
