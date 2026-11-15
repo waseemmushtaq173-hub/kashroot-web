@@ -9,9 +9,12 @@
  *   SMS   — MSG91 (MSG91_AUTH_KEY + MSG91_TEMPLATE_ID, DLT-approved template
  *           with an ##OTP## variable), Twilio (TWILIO_ACCOUNT_SID,
  *           TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER) or Fast2SMS (FAST2SMS_API_KEY).
- *   Email — Resend with a verified sender (RESEND_API_KEY + RESEND_FROM), else
- *           Gmail SMTP (GMAIL_USER,
- *           GMAIL_APP_PASSWORD).
+ *   Email — every route the site has, first success wins: Resend with a
+ *           verified sender (RESEND_API_KEY + RESEND_FROM), else the site's
+ *           Gmail (GMAIL_USER, GMAIL_APP_PASSWORD), then the SMTP relay
+ *           (SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS — the support
+ *           mailbox lib/server/mail sends from), then Resend without a
+ *           sender (onboarding@resend.dev reaches the account owner alone).
  * Signing key: OTP_SECRET (a long random string).
  */
 import 'server-only';
@@ -39,13 +42,16 @@ export function smsConfigured() {
 /**
  * Resend without RESEND_FROM can only send from onboarding@resend.dev, which
  * delivers to the Resend account owner alone — so Gmail wins unless Resend
- * has a verified sender.
+ * has a verified sender. 'SMTP' is the relay lib/server/mail sends from
+ * (SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS).
  */
-export function emailProvider(): 'Resend' | 'Gmail' | null {
+export function emailProvider(): 'Resend' | 'Gmail' | 'SMTP' | null {
   const resend = Boolean(process.env.RESEND_API_KEY?.trim());
   const gmail = Boolean(process.env.GMAIL_USER?.trim() && process.env.GMAIL_APP_PASSWORD?.trim());
+  const relay = Boolean(process.env.SMTP_USER?.trim() && process.env.SMTP_PASS?.replace(/\s/g, ''));
   if (resend && process.env.RESEND_FROM?.trim()) return 'Resend';
   if (gmail) return 'Gmail';
+  if (relay) return 'SMTP';
   return resend ? 'Resend' : null;
 }
 
@@ -142,23 +148,110 @@ async function sendSms(mobile10: string, code: string) {
   if (!res.ok || j.return === false) throw new SmsProviderError(`Fast2SMS: ${Array.isArray(j.message) ? j.message.join(' ') : j.message || `answered ${res.status}`}`);
 }
 
+/** The SMTP relay (lib/server/mail's SMTP_* settings) as an OTP route. The pair is used
+ *  whole — SMTP_USER with SMTP_PASS, never one account's address with another's
+ *  password (the mail server refuses that with 535). */
+function smtpRelay(): { host: string; port: number; user: string; pass: string } | null {
+  const user = process.env.SMTP_USER?.trim();
+  const pass = process.env.SMTP_PASS?.replace(/\s/g, '');
+  if (!user || !pass) return null;
+  return { host: process.env.SMTP_HOST?.trim() || 'smtp.gmail.com', port: Number(process.env.SMTP_PORT) || 465, user, pass };
+}
+
+/** A send failure's own words — its code and the server's first reply line, never a
+ *  credential — with the fix spelled out when the login was refused (535). */
+function mailFailure(err: unknown): string {
+  const e = err as { code?: string; responseCode?: number; response?: string; message?: string };
+  const reply = String(e?.response ?? e?.message ?? '').split(/\r?\n/)[0].replace(/https?:\/\/\S+/g, '').trim();
+  const head = [e?.code, e?.responseCode].filter(Boolean).join(' ');
+  const hint =
+    e?.code === 'EAUTH' || e?.responseCode === 535
+      ? " — the password must be that mail account's own App Password (Gmail: exactly 16 letters, Google Account → Security → 2-Step Verification → App passwords)"
+      : '';
+  return `${head} ${reply}${hint}`.replace(/\s+/g, ' ').trim().slice(0, 200);
+}
+
+const UNREACHABLE = ['ETIMEDOUT', 'ECONNECTION', 'ESOCKET', 'EDNS', 'ECONNREFUSED'];
+
+/** One SMTP send, on 465 (secure) and then 587 (STARTTLS) when 465 cannot be
+ *  reached — the same port pair lib/server/mail uses. Every attempt is bounded
+ *  (8 s to connect and greet, 12 s per socket), so a hung mail server can never
+ *  eat the whole 15-second budget. */
+async function smtpSend(s: { host: string; port: number; user: string; pass: string }, email: string, subject: string, html: string) {
+  const nodemailer = (await import('nodemailer')).default;
+  const message = { from: `KashRoot <${s.user}>`, to: email, subject, html };
+  const ports = s.port === 465 ? [465, 587] : [s.port];
+  let last: unknown = null;
+  for (const port of ports) {
+    try {
+      const t = nodemailer.createTransport({ host: s.host, port, secure: port === 465, requireTLS: port !== 465, auth: { user: s.user, pass: s.pass }, connectionTimeout: 8_000, greetingTimeout: 8_000, socketTimeout: 12_000 });
+      await t.sendMail(message);
+      return;
+    } catch (err) {
+      last = err;
+      if (!UNREACHABLE.includes(String((err as { code?: string })?.code))) break; // a refusal is the same on any port
+    }
+  }
+  throw last;
+}
+
+/**
+ * One code email through every route the site has, first success wins:
+ *   Resend with a verified sender → the site's Gmail (GMAIL_USER +
+ *   GMAIL_APP_PASSWORD) → the SMTP relay (SMTP_*) → Resend without a sender
+ *   (onboarding@resend.dev reaches the account owner alone — the last resort).
+ * Each route that fails adds its reason to the log, so one dead App Password
+ * no longer takes the whole email step down when another route still works.
+ */
 async function sendEmail(email: string, code: string) {
   const subject = `${code} is your KashRoot verification code`;
   const html = `<div style="font-family:system-ui,sans-serif;font-size:16px;color:#0f172a"><p>Your KashRoot verification code is</p><p style="font-size:28px;font-weight:700;letter-spacing:6px">${code}</p><p>It expires in 10 minutes. Never share it with anyone — KashRoot staff will never ask for it.</p></div>`;
-  if (emailProvider() === 'Resend') {
+  const resend = Boolean(process.env.RESEND_API_KEY?.trim());
+  const gmail = Boolean(process.env.GMAIL_USER?.trim() && process.env.GMAIL_APP_PASSWORD?.trim());
+  const relay = smtpRelay();
+  const failures: string[] = [];
+  const resendSend = async (from: string) => {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY!.trim()}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: process.env.RESEND_FROM || 'KashRoot <onboarding@resend.dev>', to: email, subject, html }),
+      body: JSON.stringify({ from, to: email, subject, html }),
       signal: AbortSignal.timeout(15_000),
     });
     if (!res.ok) throw new Error(`Resend answered ${res.status}`);
-    return;
+  };
+  if (resend && process.env.RESEND_FROM?.trim()) {
+    try {
+      await resendSend(process.env.RESEND_FROM.trim());
+      return;
+    } catch (err) {
+      failures.push(`Resend: ${mailFailure(err)}`);
+    }
   }
-  const nodemailer = (await import('nodemailer')).default;
-  await nodemailer
-    .createTransport({ service: 'gmail', auth: { user: process.env.GMAIL_USER?.trim(), pass: process.env.GMAIL_APP_PASSWORD?.replace(/\s/g, '') } })
-    .sendMail({ from: `KashRoot <${process.env.GMAIL_USER}>`, to: email, subject, html });
+  if (gmail) {
+    try {
+      await smtpSend({ host: 'smtp.gmail.com', port: 465, user: process.env.GMAIL_USER!.trim(), pass: process.env.GMAIL_APP_PASSWORD!.replace(/\s/g, '') }, email, subject, html);
+      return;
+    } catch (err) {
+      failures.push(`Gmail: ${mailFailure(err)}`);
+    }
+  }
+  if (relay) {
+    try {
+      await smtpSend(relay, email, subject, html);
+      return;
+    } catch (err) {
+      failures.push(`SMTP: ${mailFailure(err)}`);
+    }
+  }
+  if (resend) {
+    try {
+      await resendSend('KashRoot <onboarding@resend.dev>');
+      return;
+    } catch (err) {
+      failures.push(`Resend: ${mailFailure(err)}`);
+    }
+  }
+  throw new Error(failures.join('; ') || 'no email route is configured');
 }
 
 /**
