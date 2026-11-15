@@ -38,7 +38,7 @@ interface Smtp {
  * GMAIL_APP_PASSWORD — never one account's address with another's password
  * (Gmail refuses that with 535).
  */
-function smtp(): Smtp | null {
+export function smtp(): Smtp | null {
   const host = process.env.SMTP_HOST?.trim() || 'smtp.gmail.com';
   const port = Number(process.env.SMTP_PORT) || 465;
   const pass = (v: string | undefined) => (v ?? '').replace(/\s/g, '');

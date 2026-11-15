@@ -17,6 +17,7 @@
 import 'server-only';
 import { randomInt, randomUUID } from 'node:crypto';
 
+import { smtp } from './mail';
 import { sign, verifySignature } from './sign';
 
 export type Channel = 'sms' | 'whatsapp' | 'email';
@@ -35,15 +36,17 @@ export function smsConfigured() {
   return Boolean((process.env.MSG91_AUTH_KEY && process.env.MSG91_TEMPLATE_ID) || (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER) || process.env.FAST2SMS_API_KEY);
 }
 /**
- * Resend without RESEND_FROM can only send from onboarding@resend.dev, which
- * delivers to the Resend account owner alone — so Gmail wins unless Resend
- * has a verified sender.
+ * Gmail SMTP goes first whenever its settings are there; Resend is the second
+ * way (sendEmail tries it when Gmail fails). Resend without RESEND_FROM can
+ * only send from onboarding@resend.dev, which delivers to the Resend account
+ * owner alone.
  */
 export function emailProvider(): 'Resend' | 'Gmail' | null {
   const resend = Boolean(process.env.RESEND_API_KEY?.trim());
-  const gmail = Boolean(process.env.GMAIL_USER?.trim() && process.env.GMAIL_APP_PASSWORD?.trim());
-  if (resend && process.env.RESEND_FROM?.trim()) return 'Resend';
+  // The same settings the rest of the site's email uses: SMTP_USER + SMTP_PASS, or GMAIL_USER + GMAIL_APP_PASSWORD.
+  const gmail = smtp() !== null;
   if (gmail) return 'Gmail';
+  if (resend && process.env.RESEND_FROM?.trim()) return 'Resend';
   return resend ? 'Resend' : null;
 }
 
@@ -143,7 +146,7 @@ async function sendSms(mobile10: string, code: string) {
 async function sendEmail(email: string, code: string) {
   const subject = `${code} is your KashRoot verification code`;
   const html = `<div style="font-family:system-ui,sans-serif;font-size:16px;color:#0f172a"><p>Your KashRoot verification code is</p><p style="font-size:28px;font-weight:700;letter-spacing:6px">${code}</p><p>It expires in 10 minutes. Never share it with anyone — KashRoot staff will never ask for it.</p></div>`;
-  if (emailProvider() === 'Resend') {
+  const viaResend = async () => {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY!.trim()}`, 'Content-Type': 'application/json' },
@@ -151,12 +154,21 @@ async function sendEmail(email: string, code: string) {
       signal: AbortSignal.timeout(15_000),
     });
     if (!res.ok) throw new Error(`Resend answered ${res.status}`);
-    return;
+  };
+  const cfg = smtp();
+  const resend = Boolean(process.env.RESEND_API_KEY?.trim());
+  if (!cfg) return viaResend();
+  try {
+    const nodemailer = (await import('nodemailer')).default;
+    await nodemailer
+      .createTransport({ host: cfg.host, port: cfg.port, secure: cfg.port === 465, auth: { user: cfg.user, pass: cfg.pass }, connectionTimeout: 10_000, socketTimeout: 15_000 })
+      .sendMail({ from: `KashRoot <${cfg.user}>`, to: email, subject, html });
+  } catch (err) {
+    // Gmail refused or timed out: the second way, if the site has it. The code only ever goes to the inbox.
+    if (!resend) throw err;
+    console.error('OTP email: SMTP failed, trying Resend:', (err as { code?: string })?.code ?? (err instanceof Error ? err.message : err));
+    await viaResend();
   }
-  const nodemailer = (await import('nodemailer')).default;
-  await nodemailer
-    .createTransport({ service: 'gmail', auth: { user: process.env.GMAIL_USER?.trim(), pass: process.env.GMAIL_APP_PASSWORD?.replace(/\s/g, '') } })
-    .sendMail({ from: `KashRoot <${process.env.GMAIL_USER}>`, to: email, subject, html });
 }
 
 /**
