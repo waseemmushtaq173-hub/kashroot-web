@@ -8087,21 +8087,23 @@ ALTER TABLE public.universal_price_listings ENABLE ROW LEVEL SECURITY;
 -- The API roles keep standard table privileges: row level security and the
 -- open policies below are what decide which rows they can touch. (Revoking
 -- the privileges outright would break the anon-key server routes.)
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.shipment_tracking_trips TO anon, authenticated, service_role;
+REVOKE ALL ON public.shipment_tracking_trips FROM anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.shipment_tracking_trips TO service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.shipment_telemetry_events TO anon, authenticated, service_role;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.product_photo_verifications TO anon, authenticated, service_role;
+REVOKE ALL ON public.product_photo_verifications FROM anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.product_photo_verifications TO service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.universal_price_listings TO anon, authenticated, service_role;
 
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'shipment_tracking_trips' AND policyname = 'Read write shipment trips') THEN
-    CREATE POLICY "Read write shipment trips" ON public.shipment_tracking_trips FOR ALL USING (true) WITH CHECK (true);
+    CREATE POLICY "Read write shipment trips" ON public.shipment_tracking_trips FOR ALL TO service_role USING (true) WITH CHECK (true);
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'shipment_telemetry_events' AND policyname = 'Read write shipment events') THEN
     CREATE POLICY "Read write shipment events" ON public.shipment_telemetry_events FOR ALL USING (true) WITH CHECK (true);
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'product_photo_verifications' AND policyname = 'Read write photo verifications') THEN
-    CREATE POLICY "Read write photo verifications" ON public.product_photo_verifications FOR ALL USING (true) WITH CHECK (true);
+    CREATE POLICY "Read write photo verifications" ON public.product_photo_verifications FOR ALL TO service_role USING (true) WITH CHECK (true);
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'universal_price_listings' AND policyname = 'Read write universal prices') THEN
     CREATE POLICY "Read write universal prices" ON public.universal_price_listings FOR ALL USING (true) WITH CHECK (true);
@@ -8266,28 +8268,31 @@ ALTER TABLE public.product_photo_verifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.universal_price_listings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.authorized_fleet ENABLE ROW LEVEL SECURITY;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.shipment_tracking_trips TO anon, authenticated, service_role;
+REVOKE ALL ON public.shipment_tracking_trips FROM anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.shipment_tracking_trips TO service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.shipment_telemetry_events TO anon, authenticated, service_role;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.product_photo_verifications TO anon, authenticated, service_role;
+REVOKE ALL ON public.product_photo_verifications FROM anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.product_photo_verifications TO service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.universal_price_listings TO anon, authenticated, service_role;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.authorized_fleet TO anon, authenticated, service_role;
+REVOKE ALL ON public.authorized_fleet FROM anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.authorized_fleet TO service_role;
 
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'shipment_tracking_trips' AND policyname = 'Read write shipment trips') THEN
-    CREATE POLICY "Read write shipment trips" ON public.shipment_tracking_trips FOR ALL USING (true) WITH CHECK (true);
+    CREATE POLICY "Read write shipment trips" ON public.shipment_tracking_trips FOR ALL TO service_role USING (true) WITH CHECK (true);
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'shipment_telemetry_events' AND policyname = 'Read write shipment events') THEN
     CREATE POLICY "Read write shipment events" ON public.shipment_telemetry_events FOR ALL USING (true) WITH CHECK (true);
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'product_photo_verifications' AND policyname = 'Read write photo verifications') THEN
-    CREATE POLICY "Read write photo verifications" ON public.product_photo_verifications FOR ALL USING (true) WITH CHECK (true);
+    CREATE POLICY "Read write photo verifications" ON public.product_photo_verifications FOR ALL TO service_role USING (true) WITH CHECK (true);
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'universal_price_listings' AND policyname = 'Read write universal prices') THEN
     CREATE POLICY "Read write universal prices" ON public.universal_price_listings FOR ALL USING (true) WITH CHECK (true);
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'authorized_fleet' AND policyname = 'Read write authorized fleet') THEN
-    CREATE POLICY "Read write authorized fleet" ON public.authorized_fleet FOR ALL USING (true) WITH CHECK (true);
+    CREATE POLICY "Read write authorized fleet" ON public.authorized_fleet FOR ALL TO service_role USING (true) WITH CHECK (true);
   END IF;
 END $$;
 
