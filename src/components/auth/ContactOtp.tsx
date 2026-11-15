@@ -100,8 +100,8 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
       // goes only to the phone or the inbox. An email the sender cannot
       // deliver (unconfigured, refused, or slower than the server's
       // 15-second budget) comes back as 502 { unavailable: true } — the
-      // visitor is told plainly and offered the continue step; no code is
-      // ever shown on screen.
+      // visitor is told plainly, and what the caller offers then is the
+      // caller's choice; no code is ever shown on screen.
       const res = await fetch('/api/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel, to: value }) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {

@@ -12,9 +12,8 @@
  *   - an account without one in this portal is offered "Create your
  *     <portal> account" (its details for each portal stay separate);
  *   - admin: only accounts an admin has granted the role.
- * Then a one-time code: to the mobile number on the account by SMS and
- * WhatsApp together (email when there is no mobile or phone codes fail on the
- * site's side). The dashboards open only once it is verified.
+ * Then a one-time code to the account's email address. The dashboards open
+ * only once that 6-digit code has been verified — there is no bypass.
  * Coming back (lib/auth/session):
  *   - the portal was locked after 12 hours unused, but the account is still
  *     signed in on this device: one big "Continue as <name>" opens it again;
@@ -47,17 +46,6 @@ import { AUTH_ROUTES, loginHref, PORTALS, portalForRole, portalOfPath, safeNextP
 import { forgetPerson, rememberedPerson, rememberSignedIn, restoreSession, signOutCompletely, type RememberedPerson } from '@/lib/auth/session';
 
 const LEGACY_OK: PortalId[] = ['farmer', 'buyer'];
-
-/** The continue button on the one-time-code screen: words for the portal the
- *  visitor actually opened — the page's own path decides, never a hardcoded
- *  portal name. Anything else unlocks the current page in place. */
-function portalContinueLabel(pathname: string): string {
-  if (pathname.startsWith('/buyer')) return 'Continue to Buyer Portal →';
-  if (pathname.startsWith('/farmer')) return 'Continue to Farmer Portal →';
-  if (pathname.startsWith('/admin')) return 'Continue to Admin Portal →';
-  if (pathname.startsWith('/rental') || pathname.startsWith('/cold-storage')) return 'Continue to Cold Storage Portal →';
-  return 'Continue to Dashboard →';
-}
 
 type JoinRole = (typeof SELF_JOIN_ROLES)[number];
 const isJoinRole = (role: string | null): role is JoinRole => (SELF_JOIN_ROLES as readonly string[]).includes(role ?? '');
@@ -115,7 +103,6 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   const [step, setStep] = useState<OtpStep | null>(null);
   // Accounts with an authenticator app: its 6-digit code, instead of an emailed / SMS code.
   const [twoStepFor, setTwoStepFor] = useState<Session | null>(null);
-  const [codesDown, setCodesDown] = useState(false);
   // Signed in with an account that has no account in this portal yet: offer to create it.
   const [join, setJoin] = useState<{ session: Session; has: PortalId[] } | null>(null);
   // Signed in to other portals on this device (this portal has its own sign-in).
@@ -235,7 +222,6 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
     if (anotherAccount || !userId || signedInPortals(userId).length === 0) await authApi.logout();
     setStep(null);
     setJoin(null);
-    setCodesDown(false);
     setPassword('');
   };
 
@@ -445,8 +431,9 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
         <h2 id={ids.heading} className="font-display text-2xl font-semibold tracking-tight text-slate-900">
           Verify it’s you
         </h2>
-        <p className="mt-1 text-sm text-slate-600">
-          We’re emailing a one-time code to {step.to}.
+        <p className="mt-1 text-sm text-slate-600">We’re emailing a one-time code to {step.to}.</p>
+        <p className="mt-2 text-sm font-medium text-slate-700">
+          The {info.label} portal opens only after the 6-digit code is verified — there is no way past this step without it.
         </p>
         <div className="mt-6">
           <ContactOtp
@@ -460,33 +447,8 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
             required
             verified={false}
             onVerified={() => finish(step.session)}
-            onUnavailable={() => setCodesDown(true)}
           />
         </div>
-        {codesDown ? (
-          // Completes the sign-in state (token, portal, remember-me, KYC) and
-          // dismisses the gate in place — the portal's own dashboard opens.
-          <button
-            type="button"
-            onClick={() => finish(step.session)}
-            className={`mt-4 inline-flex w-full cursor-pointer items-center justify-center rounded-xl px-5 py-3.5 text-sm font-semibold shadow-lg ${theme.button} ${focusRing}`}
-          >
-            {portalContinueLabel(typeof window === 'undefined' ? '' : window.location.pathname)}
-          </button>
-        ) : (
-          // The email may be slow or land in spam, so the code screen can
-          // never trap anyone: one tap completes the sign-in in place (the
-          // session is real; the backend authorises every request itself)
-          // and opens the portal's dashboard.
-          <button
-            type="button"
-            onClick={() => finish(step.session)}
-            className={`mt-4 flex min-h-11 w-full cursor-pointer items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50 ${focusRing}`}
-          >
-            {`Code did not arrive? ${portalContinueLabel(typeof window === 'undefined' ? '' : window.location.pathname)}`}
-            <ArrowRight className="ml-1.5 h-4 w-4 shrink-0" aria-hidden />
-          </button>
-        )}
         <p className="mt-6 border-t border-slate-900/5 pt-3 text-sm text-slate-600">
           Not you?{' '}
           <button type="button" onClick={() => void cancelStep(true)} className={`cursor-pointer rounded font-semibold text-slate-800 underline-offset-4 hover:underline ${focusRing}`}>

@@ -6,9 +6,9 @@
  * Every code is real: the answer carries a signed token, and the 6-digit
  * code itself goes only to the phone or the inbox. An email that the sender
  * cannot deliver (unconfigured, refused by Gmail, or slower than the
- * 15-second budget) is a 502 with { unavailable: true } — the browser says
- * so plainly and offers the portal's continue-without-verification step;
- * no code is ever shown on screen.
+ * 15-second budget) is a 502 with { unavailable: true } — the visitor is
+ * told plainly and may try again; the sign-in's dashboard opens only on a
+ * verified code. No code is ever shown on screen.
  */
 import { NextResponse } from 'next/server';
 
@@ -39,13 +39,13 @@ export async function POST(request: Request) {
 
   // Email: the 15-second send. Delivered: 200 with the signed token — the
   // code is only ever in the inbox. Not delivered (sender unconfigured,
-  // refused, or slower than the budget): 502 unavailable — the browser
-  // offers the portal's continue step; the code is never shown on screen.
+  // refused, or slower than the budget): 502 unavailable — the visitor is
+  // told plainly and may try again; the code is never shown on screen.
   if (channel === 'email') {
     const { delivered, token } = await sendEmailCode(target);
     if (delivered) return NextResponse.json({ ok: true, emailDelivered: true, token, via: ['email'], to: target });
     return NextResponse.json(
-      { error: 'The verification email could not be sent just now. This is the site’s email setup, not your address — you can continue without this step for now.', unavailable: true },
+      { error: 'The verification email could not be sent just now. This is the site’s email setup, not your address — please try again in a minute.', unavailable: true },
       { status: 502 },
     );
   }
