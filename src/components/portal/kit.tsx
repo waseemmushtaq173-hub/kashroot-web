@@ -77,14 +77,15 @@ const BRAND = {
   canvas: 'bg-mist',
   heroTint: 'from-forest-deep/80 via-forest/45 to-transparent',
   eyebrow: 'bg-forest-soft text-forest ring-1 ring-champagne/60',
-  tile: 'bg-forest-soft text-forest ring-1 ring-forest-line shadow-[inset_0_1px_0_#fff,0_1px_2px_rgba(18,56,46,0.08)]',
+  // The forest and gold icon badge on its own ledge (globals.css .kr-icon-badge).
+  tile: 'kr-icon-badge',
   // A flat-fronted, bevelled green for chips and tabs; buttons (Btn) use the full tactile .kr-btn-primary.
   solid: 'bg-gradient-to-b from-forest-mid to-forest text-white ring-1 ring-forest-deep shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_2px_0_#12382E] hover:from-[#2F7A60] hover:to-[#1B5A47]',
   soft: 'bg-forest-soft text-forest ring-1 ring-forest-line hover:bg-[#DDEBE3]',
   accent: 'text-forest',
   outline: 'focus-visible:outline-forest',
   leaf: '#C6A45B', // champagne gold
-  tabActive: 'bg-white text-forest shadow-sm ring-1 ring-champagne',
+  tabActive: 'bg-forest text-white ring-1 ring-forest-deep shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_3px_0_#C6A45B]',
 } satisfies Omit<PortalTheme, 'mood' | 'photo' | 'focus'>;
 
 export const PORTAL_THEMES = {
@@ -129,7 +130,7 @@ export function btnClass(theme: PortalTheme, variant: BtnVariant, size: 'sm' | '
     outline: '',
     ghost: 'text-ink-soft hover:bg-forest-soft hover:text-ink',
     danger: 'bg-white text-rose-700 ring-1 ring-rose-200 hover:bg-rose-50',
-    white: 'bg-white/90 text-ink shadow-sm ring-1 ring-white hover:bg-white',
+    white: 'bg-white/10 text-white shadow-sm ring-1 ring-white/40 hover:bg-white/20',
   }[variant];
   return `${base} ${pad} ${look}`;
 }
@@ -156,7 +157,8 @@ export const Btn = forwardRef<HTMLButtonElement, BtnProps>(function Btn(
   ref,
 ) {
   const title = useContext(TitleAction);
-  const look = title && variant === 'white' ? (title === 'main' ? 'solid' : 'soft') : variant;
+  // On the forest hero banner: the main button is the light sage one (it stands out on green); a solid green one would vanish.
+  const look = title && (variant === 'white' || variant === 'solid') ? (title === 'main' ? 'soft' : 'white') : variant;
   const cls = `${btnClass(theme, look, size)} ${title ? 'min-h-11' : ''} ${className}`;
   const content = (
     <>
@@ -277,7 +279,7 @@ export function Badge({ tone = 'slate', children }: { tone?: 'slate' | 'green' |
     green: 'bg-forest-soft text-forest ring-forest-line',
     amber: 'bg-amber-50 text-amber-900 ring-amber-200',
     red: 'bg-rose-50 text-rose-800 ring-rose-200',
-    blue: 'bg-sky-50 text-sky-800 ring-sky-200',
+    blue: 'bg-[#EAF3EE] text-[#174C3C] ring-[#C6DBD0]',
     violet: 'bg-champagne-soft text-champagne-deep ring-champagne/60',
   };
   return (
@@ -429,12 +431,14 @@ export function PageHeader({
   actionsRef?: Ref<HTMLDivElement>;
 }) {
   return (
-    <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+    // The forest hero banner every portal page opens with (globals.css .kr-hero): white title, gold line under it.
+    <div className="kr-hero relative isolate flex flex-col gap-5 overflow-hidden rounded-3xl p-5 sm:flex-row sm:items-end sm:justify-between sm:p-7">
+      <ChinarLeaf className="pointer-events-none absolute -right-6 -top-8 -z-10 h-40 w-40 rotate-12 opacity-[0.14]" color={theme.leaf} />
       <div className="min-w-0 max-w-3xl">
-        {eyebrow && <p className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] ${theme.soft}`}>{eyebrow}</p>}
-        <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight text-ink [text-wrap:balance] sm:text-4xl">{title}</h1>
-        {description && <p className="mt-2 max-w-2xl text-base leading-relaxed text-ink-soft">{description}</p>}
-        <span aria-hidden className="mt-4 block h-px w-24 bg-gradient-to-r from-champagne to-transparent" />
+        {eyebrow && <p className="inline-flex items-center rounded-full bg-[#EAF3EE] px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-[#174C3C] ring-1 ring-[#C6A45B]">{eyebrow}</p>}
+        <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight text-white [text-wrap:balance] sm:text-4xl">{title}</h1>
+        {description && <p className="mt-2 max-w-2xl text-base leading-relaxed text-[#D9E8E0]">{description}</p>}
+        <span aria-hidden className="mt-4 block h-0.5 w-24 rounded-full bg-gradient-to-r from-champagne to-transparent" />
       </div>
       {actions && (
         <div ref={actionsRef} data-kr-title-actions className="flex shrink-0 flex-wrap gap-2">
@@ -450,8 +454,9 @@ export function PageHeader({
 /** One number on a card: its name, the value (tabular figures), one line of context. */
 export function KpiTile({ label, value, hint, icon: Icon, theme = PORTAL_THEMES.farmer }: { label: string; value: ReactNode; hint?: string; icon?: LucideIcon; theme?: PortalTheme }) {
   return (
-    <div className="kr-card kr-card-flat relative rounded-2xl p-4 sm:p-5">
-      <p className="flex items-center justify-between gap-2 text-sm font-semibold text-ink-soft">
+    // In a row these alternate forest green and soft sage (globals.css .kr-kpi), each on its own ledge.
+    <div className="kr-kpi relative rounded-2xl p-4 sm:p-5">
+      <p className="kr-kpi-label flex items-center justify-between gap-2 text-sm font-semibold">
         {label}
         {Icon && (
           <span className={`grid h-8 w-8 place-items-center rounded-lg ${theme.tile}`}>
@@ -459,8 +464,8 @@ export function KpiTile({ label, value, hint, icon: Icon, theme = PORTAL_THEMES.
           </span>
         )}
       </p>
-      <p className="mt-2 text-3xl font-bold leading-tight tracking-tight text-ink tabular-nums">{value}</p>
-      {hint && <p className={`mt-1.5 text-xs font-medium ${theme.accent}`}>{hint}</p>}
+      <p className="kr-kpi-value mt-2 text-3xl font-bold leading-tight tracking-tight tabular-nums">{value}</p>
+      {hint && <p className="kr-kpi-hint mt-1.5 text-xs font-medium">{hint}</p>}
     </div>
   );
 }

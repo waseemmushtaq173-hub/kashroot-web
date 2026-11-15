@@ -148,7 +148,7 @@ function PayAfterDeliveryOrder({ order: o, as, theme, onChange }: { order: Marke
           <p className="text-sm text-slate-600"><strong>{inr(o.amount)}</strong> ({inr(o.unit_price)} per {o.unit}) · {ago(o.created_at)}</p>
           <p className="mt-1 text-sm text-slate-700">
             {sellerSide ? `${o.buyer_name} · ` : `Sold by ${o.seller_name ?? 'the farmer'}${o.seller_district ? `, ${o.seller_district}` : ''} · `}
-            <a href={`tel:${sellerSide ? o.buyer_phone : o.seller_phone || o.buyer_phone}`} className="inline-flex items-center gap-1 font-semibold text-sky-800"><Phone className="h-3.5 w-3.5" aria-hidden /> {sellerSide ? o.buyer_phone : o.seller_phone || o.buyer_phone}</a>
+            <a href={`tel:${sellerSide ? o.buyer_phone : o.seller_phone || o.buyer_phone}`} className="inline-flex items-center gap-1 font-semibold text-[#174C3C]"><Phone className="h-3.5 w-3.5" aria-hidden /> {sellerSide ? o.buyer_phone : o.seller_phone || o.buyer_phone}</a>
             <span className="block text-slate-600">Deliver to: {o.buyer_live_address ?? o.delivery_address} · {o.buyer_name} 📞 {o.buyer_phone}</span>
           </p>
         </div>
@@ -243,7 +243,7 @@ function PayAfterDeliveryOrder({ order: o, as, theme, onChange }: { order: Marke
         {!sellerSide && !escrowed && (o.status === 'accepted' || o.status === 'shipped') && (
           <Btn theme={theme} size="sm" icon={PackageCheck} disabled={busy} onClick={() => { if (window.confirm('Have the goods reached you, and have you checked them?')) void act('delivered', 'Thanks — now pay the seller'); }}>I received the goods</Btn>
         )}
-        {wantBuyerLive && <span className="self-center text-xs font-bold text-sky-700">📡 Your live GPS is shared with the farmer{buyers.error ? '' : ' — tracking active'}</span>}
+        {wantBuyerLive && <span className="self-center text-xs font-bold text-[#174C3C]">📡 Your live GPS is shared with the farmer{buyers.error ? '' : ' — tracking active'}</span>}
         {!sellerSide && !['completed', 'cancelled', 'rejected', 'disputed', 'placed'].includes(o.status) && (
           <Btn theme={theme} size="sm" variant="ghost" icon={Flag} disabled={busy} onClick={() => { const n = ask('What went wrong? (wrong item, damaged, not delivered…)'); if (n === null) return; if (!n) return toast.error('Write what went wrong, for example: wrong item, broken, not delivered. Then press OK.'); void act('dispute', 'Problem reported to the farmer and KashRoot', n); }}>Report a problem</Btn>
         )}

@@ -60,10 +60,10 @@ const config: Config = {
         // headers, sidebars and primary actions, soft green panels, champagne gold accents, a cool mist page.
         // Gold is for lines, dots and badges (2.2:1 on white); its text pair is champagne-deep.
         // ink-soft is #718078 darkened to 5.3:1 on white so small secondary text keeps WCAG AA.
-        forest: { DEFAULT: '#174C3C', mid: '#286B54', deep: '#12382E', soft: '#EAF3EE', line: '#E2EAE5' },
+        forest: { DEFAULT: '#174C3C', mid: '#286B54', deep: '#12382E', pine: '#0B241D', soft: '#EAF3EE', line: '#C6DBD0' },
         champagne: { DEFAULT: '#C6A45B', soft: '#F6EFDC', deep: '#6B5421' },
-        mist: '#F4F7F8',
-        ink: { DEFAULT: '#25332F', soft: '#5B6B63' },
+        mist: '#E8F0EC',
+        ink: { DEFAULT: '#1E2D28', soft: '#52665E' },
         // Raw palette scales (accessible as bg-kr-primary-500, etc.)
         'kr-primary':   colors.primary,
         'kr-secondary': colors.secondary,

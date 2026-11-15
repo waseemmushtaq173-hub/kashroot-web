@@ -48,7 +48,7 @@ export function HelpButton({ size = 'md', className = '' }: { size?: 'md' | 'lg'
             href="/support"
             className="flex items-center gap-3 rounded-2xl bg-white p-4 no-underline ring-1 ring-slate-200 transition hover:bg-slate-50"
           >
-            <LifeBuoy className="h-6 w-6 shrink-0 text-sky-700" aria-hidden />
+            <LifeBuoy className="h-6 w-6 shrink-0 text-[#174C3C]" aria-hidden />
             <span>
               <span className="block font-semibold text-slate-900">Ask KashRoot</span>
               <span className="block text-sm text-slate-600">Common problems, check my request, and the help desk that answers you here in the app.</span>

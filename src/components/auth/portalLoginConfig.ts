@@ -87,26 +87,26 @@ const KISSAN: RoleLoginTheme = {
 /** Cold storage booking: glacier blue — ice chambers under a winter sky. */
 const RENTAL: RoleLoginTheme = {
   canvas: 'bg-gradient-to-br from-[#F5FAFD] via-[#EDF5FB] to-[#DDEBF7]',
-  iconTile: 'bg-gradient-to-br from-sky-700 to-sky-950 text-sky-50 shadow-lg shadow-sky-950/30 ring-1 ring-sky-300/40',
-  eyebrow: 'text-sky-200',
-  bullet: 'text-sky-300',
-  button: 'bg-sky-800 text-white shadow-sky-950/25 hover:bg-sky-900',
-  link: 'text-sky-800 hover:text-sky-900 hover:underline underline-offset-4',
-  outline: 'focus-visible:outline-sky-700',
-  inputFocus: 'focus:ring-sky-700',
-  sceneTint: 'from-[#031E30]/80 via-sky-950/35 to-transparent',
+  iconTile: 'bg-gradient-to-br from-[#174C3C] to-[#12382E] text-[#EAF3EE] shadow-lg shadow-[#174C3C]/30 ring-1 ring-[#C6DBD0]/40',
+  eyebrow: 'text-[#EAF3EE]',
+  bullet: 'text-[#8DB09F]',
+  button: 'bg-[#12382E] text-white shadow-[#174C3C]/25 hover:bg-[#12382E]',
+  link: 'text-[#174C3C] hover:text-[#12382E] hover:underline underline-offset-4',
+  outline: 'focus-visible:outline-[#174C3C]',
+  inputFocus: 'focus:ring-[#174C3C]',
+  sceneTint: 'from-[#031E30]/80 via-[#12382E]/35 to-transparent',
 };
 
 const TRACKING: RoleLoginTheme = {
   canvas: 'bg-gradient-to-br from-[#FBF8F0] via-[#F6F1E3] to-[#E0EFF9]',
-  iconTile: 'bg-gradient-to-br from-sky-700 to-sky-900 text-sky-50 shadow-lg shadow-sky-950/30 ring-1 ring-sky-300/40',
-  eyebrow: 'text-sky-200',
-  bullet: 'text-sky-300',
-  button: 'bg-sky-700 text-white shadow-sky-950/25 hover:bg-sky-800',
-  link: 'text-sky-800 hover:text-sky-900 hover:underline underline-offset-4',
-  outline: 'focus-visible:outline-sky-700',
-  inputFocus: 'focus:ring-sky-700',
-  sceneTint: 'from-[#031E30]/80 via-sky-950/35 to-transparent',
+  iconTile: 'bg-gradient-to-br from-[#174C3C] to-[#12382E] text-[#EAF3EE] shadow-lg shadow-[#174C3C]/30 ring-1 ring-[#C6DBD0]/40',
+  eyebrow: 'text-[#EAF3EE]',
+  bullet: 'text-[#8DB09F]',
+  button: 'bg-[#174C3C] text-white shadow-[#174C3C]/25 hover:bg-[#12382E]',
+  link: 'text-[#174C3C] hover:text-[#12382E] hover:underline underline-offset-4',
+  outline: 'focus-visible:outline-[#174C3C]',
+  inputFocus: 'focus:ring-[#174C3C]',
+  sceneTint: 'from-[#031E30]/80 via-[#12382E]/35 to-transparent',
 };
 
 const DEALER: RoleLoginTheme = {
@@ -135,14 +135,14 @@ const EXPERT: RoleLoginTheme = {
 
 const TRADER: RoleLoginTheme = {
   canvas: 'bg-gradient-to-br from-[#FBF8F0] via-[#F6F1E3] to-[#EFEAF9]',
-  iconTile: 'bg-gradient-to-br from-violet-700 to-violet-950 text-violet-50 shadow-lg shadow-violet-950/30 ring-1 ring-violet-300/40',
-  eyebrow: 'text-violet-200',
-  bullet: 'text-violet-300',
-  button: 'bg-violet-800 text-white shadow-violet-950/25 hover:bg-violet-900',
-  link: 'text-violet-800 hover:text-violet-900 hover:underline underline-offset-4',
-  outline: 'focus-visible:outline-violet-700',
-  inputFocus: 'focus:ring-violet-700',
-  sceneTint: 'from-[#1E0B33]/80 via-violet-950/35 to-transparent',
+  iconTile: 'bg-gradient-to-br from-[#174C3C] to-[#12382E] text-[#EAF3EE] shadow-lg shadow-[#174C3C]/30 ring-1 ring-[#C6DBD0]/40',
+  eyebrow: 'text-[#EAF3EE]',
+  bullet: 'text-[#8DB09F]',
+  button: 'bg-[#12382E] text-white shadow-[#174C3C]/25 hover:bg-[#12382E]',
+  link: 'text-[#174C3C] hover:text-[#12382E] hover:underline underline-offset-4',
+  outline: 'focus-visible:outline-[#174C3C]',
+  inputFocus: 'focus:ring-[#174C3C]',
+  sceneTint: 'from-[#1E0B33]/80 via-[#12382E]/35 to-transparent',
 };
 
 const ADMIN: RoleLoginTheme = {

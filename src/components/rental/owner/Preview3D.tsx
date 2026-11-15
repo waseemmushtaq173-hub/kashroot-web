@@ -23,7 +23,7 @@ import type { ColdChamber } from '@/lib/db/coldMap';
 const SpinBox = ({ text }: { text: string }) => (
   <div className="grid h-[420px] place-items-center rounded-3xl bg-slate-100" role="status" aria-live="polite">
     <div className="flex flex-col items-center gap-3">
-      <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-sky-200 border-t-sky-600" aria-hidden />
+      <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#C6DBD0] border-t-[#286B54]" aria-hidden />
       <p className="text-sm font-semibold text-slate-600">{text}</p>
     </div>
   </div>
@@ -44,7 +44,7 @@ const IndustrialColdStoreTwin3D = dynamic(
 
 const pill = (on: boolean) =>
   `inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-xl px-4 text-sm font-semibold ring-2 transition ${
-    on ? 'bg-sky-700 text-white ring-sky-700 shadow' : 'bg-white text-sky-900 ring-slate-200 hover:ring-sky-400'
+    on ? 'bg-[#174C3C] text-white ring-[#174C3C] shadow' : 'bg-white text-[#12382E] ring-slate-200 hover:ring-[#286B54]'
   }`;
 
 export const Preview3D = memo(function Preview3D({ model, listingId, selected, onPick }: { model: StoreModel; listingId: string; selected: string | null; onPick: (key: string) => void }) {

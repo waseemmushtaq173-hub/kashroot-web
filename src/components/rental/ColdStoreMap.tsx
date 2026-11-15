@@ -170,7 +170,7 @@ export function ChamberGrid({
 
   return (
     <div className="overflow-x-auto overscroll-x-contain pb-2">
-      <div className="mx-auto w-max" role="group" aria-label={`${c.name}: ${c.rows} rows from the door, ${c.cols} stacks in each row, ${c.boxes_per_slot} boxes in each place`}>
+      <div data-kr-plain className="mx-auto w-max" role="group" aria-label={`${c.name}: ${c.rows} rows from the door, ${c.cols} stacks in each row, ${c.boxes_per_slot} boxes in each place`}>
         <p className="mb-1 text-center text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Back wall</p>
         <div className="rounded-2xl border-[6px] border-b-0 border-slate-500 bg-slate-50 px-3 pb-3 pt-2 shadow-inner">
           <div className="flex items-center gap-1.5">

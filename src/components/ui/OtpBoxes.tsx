@@ -2,7 +2,7 @@
 
 /**
  * The KashRoot one-time-code look, used wherever a code is typed:
- *   OtpBoxes  one box per digit — filled boxes turn blue with the digit in
+ *   OtpBoxes  one box per digit — filled boxes turn forest green on a gold ledge with the digit in
  *             white, the box being typed in glows. A single input lies over
  *             the boxes, so paste, the phone's number keyboard and SMS
  *             autofill (one-time-code) keep working.
@@ -39,7 +39,7 @@ export function OtpBoxes({
   const caret = Math.min(value.length, length - 1);
 
   return (
-    <div className="relative mx-auto w-full max-w-[374px]">
+    <div data-kr-plain className="relative mx-auto w-full max-w-[374px]">
       <input
         id={id}
         value={value}
@@ -67,18 +67,18 @@ export function OtpBoxes({
           const active = focused && !disabled && i === caret;
           return (
             <Fragment key={i}>
-              {i > 0 && <span className="h-0.5 w-1 shrink-0 rounded-full bg-sky-200 sm:w-1.5" />}
+              {i > 0 && <span className="h-0.5 w-1 shrink-0 rounded-full bg-[#CFE0D6] sm:w-1.5" />}
               <span
                 className={`relative grid aspect-[10/11] min-w-0 max-w-10 flex-1 basis-0 place-items-center overflow-hidden rounded-xl text-lg font-bold tabular-nums transition duration-200 min-[380px]:text-xl sm:max-w-11 sm:text-2xl ${
                   digit
-                    ? 'bg-gradient-to-b from-sky-400 via-blue-500 to-blue-700 text-white shadow-lg shadow-blue-600/30'
+                    ? 'bg-gradient-to-b from-[#2B725A] via-[#174C3C] to-[#12382E] text-white shadow-[0_3px_0_#C6A45B,0_8px_14px_-4px_rgba(18,56,46,0.4)]'
                     : 'bg-white text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200'
-                } ${invalid ? 'ring-2 ring-rose-400' : active ? 'ring-2 ring-sky-500 ring-offset-2' : ''} ${disabled ? 'opacity-60' : ''}`}
+                } ${invalid ? 'ring-2 ring-rose-400' : active ? 'ring-2 ring-[#286B54] ring-offset-2' : ''} ${disabled ? 'opacity-60' : ''}`}
               >
                 {/* A soft shine across the top of a filled box. */}
                 {digit && <span className="absolute inset-x-1 top-1 h-2/5 rounded-lg bg-gradient-to-b from-white/45 to-white/0" />}
                 {digit && <span key={digit} className="kr-otp-pop relative">{digit}</span>}
-                {active && !digit && <span className="h-6 w-0.5 animate-pulse rounded-full bg-sky-500" />}
+                {active && !digit && <span className="h-6 w-0.5 animate-pulse rounded-full bg-[#286B54]" />}
               </span>
             </Fragment>
           );
@@ -107,8 +107,8 @@ export function OtpCard({
 }) {
   return (
     <div className="rounded-3xl bg-white/95 px-3.5 py-5 text-center shadow-[0_18px_50px_-20px_rgba(15,23,42,0.35)] ring-1 ring-slate-900/5 sm:p-6">
-      <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-b from-sky-50 to-blue-100 shadow-inner ring-1 ring-sky-100">
-        <Lock className="h-8 w-8 text-amber-500 drop-shadow-sm" strokeWidth={2.4} aria-hidden />
+      <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-b from-[#EAF3EE] to-[#DCEBE3] shadow-inner ring-1 ring-[#C6DBD0]">
+        <Lock className="h-8 w-8 text-[#C6A45B] drop-shadow-sm" strokeWidth={2.4} aria-hidden />
       </span>
       <p className="mt-3 text-lg font-bold text-slate-900">{title}</p>
       {sentTo && <p className="mt-1 text-sm text-slate-600">Enter the code sent to {sentTo}.</p>}
@@ -119,7 +119,7 @@ export function OtpCard({
           {resendIn > 0 ? (
             <span className="font-semibold text-slate-500">Resend in {resendIn}s</span>
           ) : (
-            <button type="button" onClick={onResend} disabled={resending} className="cursor-pointer font-semibold text-blue-700 underline underline-offset-4 hover:text-blue-800 disabled:cursor-wait disabled:opacity-60">
+            <button type="button" onClick={onResend} disabled={resending} className="cursor-pointer font-semibold text-[#174C3C] underline underline-offset-4 hover:text-[#12382E] disabled:cursor-wait disabled:opacity-60">
               {resending ? 'Sending…' : 'Resend OTP'}
             </button>
           )}

@@ -251,7 +251,7 @@ export default function GoogleOrTileLiveMap({
               setCenterOnVehicle(false);
               setZoom(5);
             }}
-            className="rounded-xl border border-sky-500/40 bg-slate-900/90 px-3 py-1.5 text-xs font-semibold text-sky-300 shadow hover:bg-slate-800"
+            className="rounded-xl border border-[#286B54]/40 bg-slate-900/90 px-3 py-1.5 text-xs font-semibold text-[#8DB09F] shadow hover:bg-slate-800"
           >
             🇮🇳 Full India Route
           </button>

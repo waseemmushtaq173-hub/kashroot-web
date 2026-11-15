@@ -90,7 +90,7 @@ const statusChip = (s: string) => {
   if (s === 'STALE' || s === 'UPDATING') return 'bg-amber-100 text-amber-800';
   if (s === 'DELIVERED') return 'bg-teal-100 text-teal-800';
   if (s === 'GPS_PERMISSION_DENIED') return 'bg-rose-100 text-rose-800';
-  if (s === 'ADMIN_APPROVED' || s === 'AIS140_VERIFIED_BY_ADMIN' || s === 'ACTIVE') return 'bg-sky-100 text-sky-800';
+  if (s === 'ADMIN_APPROVED' || s === 'AIS140_VERIFIED_BY_ADMIN' || s === 'ACTIVE') return 'bg-[#EAF3EE] text-[#174C3C]';
   if (s === 'REJECTED' || s === 'SUSPENDED') return 'bg-rose-100 text-rose-800';
   return 'bg-slate-100 text-slate-700';
 };
@@ -199,7 +199,7 @@ export function GpsFleetPanel() {
         </button>
       </div>
 
-      {msg && <div className="rounded-xl bg-sky-50 px-4 py-2.5 text-xs font-semibold text-sky-800 ring-1 ring-sky-200">{msg}</div>}
+      {msg && <div className="rounded-xl bg-[#EAF3EE] px-4 py-2.5 text-xs font-semibold text-[#174C3C] ring-1 ring-[#C6DBD0]">{msg}</div>}
 
       {/* Vehicles: honest verification states, approve or reject */}
       <div className={card}>
@@ -354,7 +354,7 @@ export function GpsFleetPanel() {
                   </td>
                   <td className={td}>
                     {d.ais140_certification_status === 'UNVERIFIED' ? (
-                      <button type="button" onClick={() => void verifyDevice(d.id, 'AIS140_VERIFIED_BY_ADMIN')} className="inline-flex items-center gap-1 rounded-lg bg-sky-600 px-2.5 py-1 text-[11px] font-bold text-white"><ShieldCheck size={12} /> Certify AIS-140</button>
+                      <button type="button" onClick={() => void verifyDevice(d.id, 'AIS140_VERIFIED_BY_ADMIN')} className="inline-flex items-center gap-1 rounded-lg bg-[#174C3C] px-2.5 py-1 text-[11px] font-bold text-white"><ShieldCheck size={12} /> Certify AIS-140</button>
                     ) : (
                       <button type="button" onClick={() => void verifyDevice(d.id, 'UNVERIFIED')} className="text-[11px] font-semibold text-slate-500 underline">Reset</button>
                     )}

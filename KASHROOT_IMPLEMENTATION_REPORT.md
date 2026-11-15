@@ -189,3 +189,47 @@ three local light panels. `/studio` is in `tests/portal-smoke.spec.ts`.
 
 Results after this commit: `tsc` exit 0, production build exit 0, lint 0 errors, smoke and cold
 store browser tests 78 passed, model tests passed.
+
+## 9. Look overhaul (third commit)
+
+Platform look, applied through shared pieces so every portal changes at once:
+
+- `globals.css` and `tailwind.config.ts`: sage-ivory canvas with gold and green ambient light on the body and every
+  portal frame; cards on an ivory-to-sage surface with a 3px forest bevel (gold on hover); 3D push buttons; soft-sage
+  buttons that turn forest green on a gold ledge when pressed, selected or checked. Automatic rules give the same
+  look to plain Tailwind white boxes, green buttons and white pills. `[data-kr-plain]` opts an area out (the bin map,
+  the code boxes).
+- Portal kit: forest hero banner with a gold bottom border, KPI strips alternating forest and sage, forest-and-gold
+  icon badges. Header and portal top bar with gold trim. Portal cards with a full-width launch button.
+- Old sky, indigo and violet accents in the portal, market, admin, tracking, auth and rental components were moved
+  to the green palette. OTP boxes are forest on a gold ledge.
+
+Departures from the brief, on purpose:
+
+- The card bevel is a shadow, not a real `border-bottom`, so nothing changes size.
+- A card inside a card gets a lighter sage ledge, so lists are not stacks of heavy green lines.
+- The automatic rules skip the dark sidebar and red (danger) buttons.
+- Walls between the camera and the inside of the store stay see-through (tinted champagne, not white); opaque
+  walls would hide the chambers.
+
+3D cold store (one generator, so every facility):
+
+- Valley sky gradient, orchard-green compound, asphalt truck yard with yellow bay lines, dark epoxy hall and
+  chamber floors.
+- Champagne-silver panel walls, forest wainscot band, gold roof trim, charcoal H-columns, forest racking.
+- The refrigeration plant is no longer a hall zone for anyone (removed from the zone list, so the other lanes share
+  the room). Zones are epoxy bays with a yellow border and an emerald guide line; the 2D fills are richer.
+- Hall equipment now fills about four-fifths of each zone: twin weighbridges and bin rows, a multi-lane grading
+  line with an optical hood, roller tables with light hoods, packing conveyors with strapping frames and carton
+  pallets, staged pallets at dispatch, a reefer truck each side of the main door.
+- Bins: a free place shows one empty pine bin; occupied and own places are forest green; shared amber; the
+  chosen place a green outline on a gold bay. Crates are pine, not blue. Labels are forest pills with a gold rim.
+
+Checked: `tsc` exit 0, lint 0 errors, production build exit 0, 127 model and browser tests passed (smoke over 38
+routes at two widths, cold store tab switching, the bin panel, the six OTP boxes inside their card at 320, 360 and
+390 px). Pictures were looked at for the homepage, a sign-in page, the tracking portal (desktop and phone), mandi
+rates, the kit page and the 3D store (outside, a chamber, x-ray, walking).
+
+Not checked: any signed-in dashboard. The automatic rules reach screens nobody has looked at; a button or box that
+looks wrong there can be opted out with `data-kr-plain`. The 3D frame rate was not re-measured after the extra hall
+equipment (it was already under the perf test's floor on this machine).

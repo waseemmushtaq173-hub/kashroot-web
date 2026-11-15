@@ -120,7 +120,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
       <div className="mx-auto grid min-h-[100svh] max-w-7xl content-start gap-6 p-4 sm:p-6 lg:grid-cols-[1.05fr_1fr] lg:gap-10 lg:p-8">
         {/* 3D story panel */}
         <section className="relative isolate flex min-h-[15rem] flex-col justify-between overflow-hidden rounded-[2rem] p-6 text-white shadow-[0_30px_80px_rgba(15,23,42,0.25)] sm:p-10 lg:sticky lg:top-8 lg:h-[calc(100svh-4rem)] lg:min-h-[36rem]">
-          <div aria-hidden className="absolute inset-0 -z-20 bg-gradient-to-br from-sky-300 to-amber-200" />
+          <div aria-hidden className="absolute inset-0 -z-20 bg-gradient-to-br from-[#CFE0D6] to-amber-200" />
           <ValleyScene key={theme.mood} mood={theme.mood} className="-z-20" />
           <div aria-hidden className={`absolute inset-0 -z-10 bg-gradient-to-t transition-colors duration-700 ${theme.tint}`} />
 

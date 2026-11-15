@@ -60,7 +60,7 @@ interface BlockRisk {
 const STATUS_LOOK: Record<Status, { label: string; tone: 'red' | 'amber' | 'green' | 'slate' | 'blue'; cell: string }> = {
   infection: { label: 'Infection likely — spray now', tone: 'red', cell: 'bg-red-50 ring-red-300' },
   upcoming: { label: 'Wet weather coming — protect', tone: 'amber', cell: 'bg-amber-50 ring-amber-300' },
-  covered: { label: 'Protected by your spray', tone: 'blue', cell: 'bg-sky-50 ring-sky-300' },
+  covered: { label: 'Protected by your spray', tone: 'blue', cell: 'bg-[#EAF3EE] ring-[#C6DBD0]' },
   safe: { label: 'No scab risk', tone: 'green', cell: 'bg-emerald-50 ring-emerald-300' },
   unknown: { label: 'Set the location', tone: 'slate', cell: 'bg-white ring-slate-200' },
 };

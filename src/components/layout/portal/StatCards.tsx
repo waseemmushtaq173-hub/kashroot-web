@@ -13,31 +13,30 @@ import { FOCUS, type PortalTheme } from '@/components/portal/kit';
 import type { KPI } from '@/components/layout/PortalShell';
 import type { ShellLook } from '@/components/layout/portal/look';
 
-export function StatCards({ kpis, theme, look }: { kpis: KPI[]; theme: PortalTheme; look: ShellLook }) {
+export function StatCards({ kpis, theme }: { kpis: KPI[]; theme: PortalTheme; look?: ShellLook }) {
   const cols = kpis.length >= 4 ? 'grid-cols-2 xl:grid-cols-4' : kpis.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2';
   return (
     <div className={`grid gap-3 sm:gap-4 ${cols}`}>
       {kpis.map((kpi, i) => {
-        const lead = i === 0;
+        // Forest green and soft sage in turn (globals.css .kr-kpi): never a row of white boxes.
+        const lead = i % 2 === 0;
         const body = (
           <>
-            {lead && <ChinarLeaf className="pointer-events-none absolute -bottom-6 -right-4 -z-10 h-28 w-28 -rotate-12 opacity-25" color="#FDE68A" />}
+            {i === 0 && <ChinarLeaf className="pointer-events-none absolute -bottom-6 -right-4 -z-10 h-28 w-28 -rotate-12 opacity-25" color="#FDE68A" />}
             <span className="flex items-start justify-between gap-3">
-              <span className={`text-sm font-semibold ${lead ? 'text-white/90' : 'text-slate-600'}`}>{kpi.label}</span>
+              <span className="kr-kpi-label text-sm font-semibold">{kpi.label}</span>
               {kpi.onClick && (
                 <span aria-hidden className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ring-1 transition ${lead ? 'bg-white/15 text-white ring-white/30' : 'bg-white text-slate-700 ring-slate-900/10 group-hover:bg-slate-900 group-hover:text-white'}`}>
                   <ArrowUpRight className="h-4 w-4" />
                 </span>
               )}
             </span>
-            <span className={`mt-3 block break-words text-3xl font-bold leading-tight tracking-tight tabular-nums ${lead ? 'text-white' : 'text-slate-900'}`}>{kpi.value}</span>
+            <span className="kr-kpi-value mt-3 block break-words text-3xl font-bold leading-tight tracking-tight tabular-nums">{kpi.value}</span>
             {/* The line's room is kept while its words load, so the cards do not grow later. */}
-            <span className={`mt-2 block min-h-4 text-xs font-medium leading-snug ${lead ? 'text-white/90' : theme.accent}`}>{kpi.trend ?? ''}</span>
+            <span className="kr-kpi-hint mt-2 block min-h-4 text-xs font-medium leading-snug">{kpi.trend ?? ''}</span>
           </>
         );
-        const face = `group relative isolate block h-full overflow-hidden rounded-2xl p-5 text-left ${
-          lead ? `${look.feature} shadow-lg ring-1 ring-amber-300/40` : 'bg-white/85 shadow-[0_8px_30px_rgba(15,23,42,0.06)] ring-1 ring-[#E8A317]/25 backdrop-blur'
-        }`;
+        const face = 'kr-kpi group relative isolate block h-full overflow-hidden rounded-2xl p-5 text-left';
         return kpi.onClick ? (
           <button
             key={kpi.label}

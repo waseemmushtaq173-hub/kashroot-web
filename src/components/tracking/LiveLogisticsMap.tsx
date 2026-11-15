@@ -275,12 +275,12 @@ export default function LiveLogisticsMap({ trip, className = '' }: { trip: TripL
             {accR > 2 && (
               <div
                 aria-hidden
-                className="pointer-events-none absolute rounded-full bg-indigo-500/20"
+                className="pointer-events-none absolute rounded-full bg-[#286B54]/20"
                 style={{ left: truck.x - accR, top: truck.y - accR, width: accR * 2, height: accR * 2, border: '1.5px solid rgba(79,70,229,0.55)' }}
               />
             )}
             <span
-              className="pointer-events-none absolute z-[7] grid h-9 w-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-indigo-700 shadow-lg ring-2 ring-indigo-600"
+              className="pointer-events-none absolute z-[7] grid h-9 w-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-[#174C3C] shadow-lg ring-2 ring-[#286B54]"
               style={{ left: truck.x, top: truck.y }}
             >
               <Truck className="h-5 w-5" aria-hidden />
@@ -314,7 +314,7 @@ export default function LiveLogisticsMap({ trip, className = '' }: { trip: TripL
           <button type="button" aria-label="Zoom out" disabled={zoom <= MIN_Z} onClick={() => setZoom((z) => Math.max(MIN_Z, z - 1))} className="grid h-8 w-8 cursor-pointer place-items-center rounded-lg bg-white text-slate-800 shadow ring-1 ring-slate-300 hover:bg-slate-50 disabled:opacity-40">
             <Minus className="h-4 w-4" aria-hidden />
           </button>
-          <button type="button" aria-label={follow ? 'Following the truck' : 'Centre back on the truck'} onClick={() => { setFollow(true); if (truckLat !== null && truckLng !== null) setCenter({ lat: truckLat, lng: truckLng }); }} className={`grid h-8 w-8 cursor-pointer place-items-center rounded-lg shadow ring-1 ring-slate-300 ${follow ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700 hover:bg-indigo-50'}`}>
+          <button type="button" aria-label={follow ? 'Following the truck' : 'Centre back on the truck'} onClick={() => { setFollow(true); if (truckLat !== null && truckLng !== null) setCenter({ lat: truckLat, lng: truckLng }); }} className={`grid h-8 w-8 cursor-pointer place-items-center rounded-lg shadow ring-1 ring-slate-300 ${follow ? 'bg-[#174C3C] text-white' : 'bg-white text-slate-700 hover:bg-[#EAF3EE]'}`}>
             <Crosshair className="h-4 w-4" aria-hidden />
           </button>
         </div>

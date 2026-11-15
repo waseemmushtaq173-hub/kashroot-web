@@ -58,7 +58,7 @@ export const TwinPeek = function TwinPeek({ store }: TwinPeekProps) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-3 inline-flex min-h-[48px] cursor-pointer items-center gap-2 rounded-2xl bg-sky-50 px-4 text-sm font-semibold text-sky-900 ring-2 ring-sky-200 hover:bg-sky-100"
+        className="mt-3 inline-flex min-h-[48px] cursor-pointer items-center gap-2 rounded-2xl bg-[#EAF3EE] px-4 text-sm font-semibold text-[#12382E] ring-2 ring-[#C6DBD0] hover:bg-[#EAF3EE]"
       >
         See inside in 3D — the store&apos;s digital twin
       </button>
@@ -89,8 +89,8 @@ export const TwinPeek = function TwinPeek({ store }: TwinPeekProps) {
             </div>
 
             {growers.length > 0 && (
-              <div className="rounded-2xl bg-sky-50/70 p-3 ring-1 ring-sky-200">
-                <p className="text-sm font-semibold text-sky-900">Light up a grower&apos;s crates</p>
+              <div className="rounded-2xl bg-[#EAF3EE]/70 p-3 ring-1 ring-[#C6DBD0]">
+                <p className="text-sm font-semibold text-[#12382E]">Light up a grower&apos;s crates</p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {growers.map((g) => (
                     <button
@@ -98,7 +98,7 @@ export const TwinPeek = function TwinPeek({ store }: TwinPeekProps) {
                       type="button"
                       aria-pressed={grower === g.grower_id}
                       onClick={() => setGrower(grower === g.grower_id ? null : g.grower_id)}
-                      className={`min-h-[40px] cursor-pointer rounded-xl px-3 text-xs font-semibold ring-2 transition ${grower === g.grower_id ? 'bg-sky-700 text-white ring-sky-700' : 'bg-white text-sky-900 ring-sky-200 hover:bg-sky-100'}`}
+                      className={`min-h-[40px] cursor-pointer rounded-xl px-3 text-xs font-semibold ring-2 transition ${grower === g.grower_id ? 'bg-[#174C3C] text-white ring-[#174C3C]' : 'bg-white text-[#12382E] ring-[#C6DBD0] hover:bg-[#EAF3EE]'}`}
                     >
                       {g.name.split(' - ')[0]} · {g.product_type}
                     </button>

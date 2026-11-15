@@ -16,7 +16,7 @@ export function SignInToCall({ portal = 'buyer', compact = false }: { portal?: P
   return (
     <Link
       href={loginHref(portal, here)}
-      className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl font-semibold text-sky-800 ${compact ? 'text-sm' : 'bg-slate-100 px-3 text-sm hover:bg-slate-200'}`}
+      className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl font-semibold text-[#174C3C] ${compact ? 'text-sm' : 'bg-slate-100 px-3 text-sm hover:bg-slate-200'}`}
     >
       <Phone className="h-4 w-4" aria-hidden /> Sign in to call
     </Link>

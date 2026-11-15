@@ -172,7 +172,7 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <label className="flex min-h-11 cursor-pointer items-center gap-2 whitespace-nowrap text-sm font-medium text-slate-700">
-            <input type="checkbox" checked={verifiedOnly} onChange={(e) => setVerifiedOnly(e.target.checked)} className="h-5 w-5 rounded border-slate-300 text-sky-700" /> Verified sellers only
+            <input type="checkbox" checked={verifiedOnly} onChange={(e) => setVerifiedOnly(e.target.checked)} className="h-5 w-5 rounded border-slate-300 text-[#174C3C]" /> Verified sellers only
           </label>
           <div className="flex flex-wrap items-center gap-2">
             {listings !== null && <span className="text-sm text-slate-600">{shown.length} {shown.length === 1 ? 'product' : 'products'} · cheapest first</span>}

@@ -61,8 +61,18 @@ function AsFarmersSee() {
   const [active, setActive] = useState<string | null>(null);
   const [pick, setPick] = useState<{ chamber: ColdChamber; slot: string; boxes: number } | null>(null);
   const [booked, setBooked] = useState(false);
-  const stateOf = useCallback((c: ColdChamber, slot: string): Look => (pick && pick.chamber.id === c.id && pick.slot === slot ? 'selected' : 'free'), [pick]);
-  const roomOf = useCallback((c: ColdChamber) => c.boxes_per_slot, []);
+  // ?looks=1: a spread of every look (shared, booked, held, the viewer's own) by place number, so the colours can be checked by eye.
+  const [looks] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('looks') === '1');
+  const lookOf = useCallback(
+    (slot: string): Look => {
+      if (!looks) return 'free';
+      const n = [...slot].reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % 9;
+      return n === 1 ? 'part' : n === 2 || n === 3 ? 'booked' : n === 4 ? 'held' : n === 5 ? 'mine' : 'free';
+    },
+    [looks],
+  );
+  const stateOf = useCallback((c: ColdChamber, slot: string): Look => (pick && pick.chamber.id === c.id && pick.slot === slot ? 'selected' : lookOf(slot)), [pick, lookOf]);
+  const roomOf = useCallback((c: ColdChamber, slot: string) => (lookOf(slot) === 'free' ? c.boxes_per_slot : lookOf(slot) === 'part' ? Math.ceil(c.boxes_per_slot / 2) : 0), [lookOf]);
   const onPlace = useCallback((c: ColdChamber, slot: string, look: Look) => {
     setBooked(false);
     setPick(look === 'selected' ? null : { chamber: c, slot, boxes: c.boxes_per_slot });

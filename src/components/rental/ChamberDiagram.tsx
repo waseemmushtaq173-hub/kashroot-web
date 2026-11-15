@@ -270,7 +270,7 @@ export function ChamberDiagram({
         {plan.crowded ? ` · ${words.title} are drawn closer together than they stand: there are more of them than fit on this floor.` : ''}
       </p>
       {plan.windows.length > 0 && (
-        <ul aria-label={`${c.name}: windows`} className="mt-1 space-y-0.5 text-center text-xs text-sky-900">
+        <ul aria-label={`${c.name}: windows`} className="mt-1 space-y-0.5 text-center text-xs text-[#12382E]">
           {plan.windows.map((win, i) => <li key={i}>{windowText(win, i, u)}</li>)}
         </ul>
       )}

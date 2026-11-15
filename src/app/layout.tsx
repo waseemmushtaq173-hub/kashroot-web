@@ -81,7 +81,7 @@ export default function RootLayout({
   return (
     <html lang="en-IN" className={`${nastaliq.variable} ${inter.variable} ${brandSerif.variable} ${devanagari.variable}`}>
       {/* font-sans: Nastaliq first (it covers only the Arabic script), then Inter, then Devanagari. */}
-      <body className="bg-[#07120D] font-sans text-[#F5F2EB] antialiased">
+      <body className="font-sans text-ink antialiased">
         <TestCopyBanner />
         <Providers>{children}</Providers>
         <Toaster position="top-center" theme="light" richColors closeButton toastOptions={{ classNames: { toast: "!rounded-2xl !shadow-[0_12px_40px_rgba(15,23,42,0.16)] !font-sans", title: "!font-semibold" } }} />

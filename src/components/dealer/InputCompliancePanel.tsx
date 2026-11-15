@@ -39,7 +39,7 @@ const LABEL_RULES: { pack: string; badge: string; badgeClass: string; rule: stri
   {
     pack: 'Pesticide canister',
     badge: 'CIB&RC',
-    badgeClass: 'bg-sky-50 text-sky-900 ring-sky-200',
+    badgeClass: 'bg-[#EAF3EE] text-[#12382E] ring-[#C6DBD0]',
     rule: 'Toxicity colour band: blue = moderately toxic, yellow = slightly, red = highly, green = low.',
     reg: 'Insecticides Act 1968 — CIB&RC reg. no.',
   },

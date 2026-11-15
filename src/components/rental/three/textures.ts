@@ -122,24 +122,24 @@ export function binTexture(T: Three, filled = true) {
   return finish(T, c);
 }
 
-/** A plastic apple crate: ribbed sides, a hand hole, air slots; apples on top (`filled`) or the bare ribbed floor. */
+/** An apple crate in warm pine (#C89B62 slats, #7A5228 posts): ribbed sides, a hand hole, air slots; apples on top (`filled`) or the bare floor. */
 export function crateTexture(T: Three, filled = true) {
   const { c, g } = canvas(256, 128);
   if (g) {
-    g.fillStyle = '#0b1f33';
+    g.fillStyle = '#2a1a0c';
     g.fillRect(0, 0, 128, 128);
     const body = g.createLinearGradient(0, 10, 0, 128);
-    body.addColorStop(0, '#3d8fd6');
-    body.addColorStop(1, '#2569a8');
+    body.addColorStop(0, '#D2A56B');
+    body.addColorStop(1, '#B98B52');
     g.fillStyle = body;
     g.fillRect(2, 12, 124, 114);
     // Ribs and the top rim.
     g.fillStyle = 'rgba(255,255,255,0.22)';
     g.fillRect(2, 12, 124, 9);
-    g.fillStyle = 'rgba(8,30,60,0.35)';
+    g.fillStyle = '#7A5228';
     for (const x of [2, 32, 62, 92, 122]) g.fillRect(x, 21, 4, 105);
     // Hand hole and air slots.
-    g.fillStyle = '#0a1726';
+    g.fillStyle = '#2a1a0c';
     if (g.roundRect) {
       g.beginPath();
       g.roundRect(44, 28, 40, 13, 6);
@@ -149,16 +149,16 @@ export function crateTexture(T: Three, filled = true) {
     g.fillStyle = 'rgba(0,0,0,0.6)';
     g.fillRect(0, 0, 128, 12);
     // Top: rim and apples (or the bare ribbed floor of an empty crate).
-    g.fillStyle = '#2f7cc0';
+    g.fillStyle = '#C89B62';
     g.fillRect(128, 0, 128, 128);
     if (filled) apples(g, 138, 10, 108, 108, 10, 61);
     else {
-      g.fillStyle = '#1f5f98';
+      g.fillStyle = '#9A6E3C';
       g.fillRect(138, 10, 108, 108);
-      g.fillStyle = 'rgba(8,30,60,0.45)';
+      g.fillStyle = 'rgba(60,35,12,0.5)';
       for (let i = 0; i < 6; i++) for (let j = 0; j < 4; j++) g.fillRect(144 + i * 17, 16 + j * 26, 11, 16);
     }
-    g.strokeStyle = '#1d4f80';
+    g.strokeStyle = '#7A5228';
     g.lineWidth = 3;
     g.strokeRect(138, 10, 108, 108);
   }
@@ -364,17 +364,28 @@ export function fanTexture(T: Three) {
   return t;
 }
 
-/** A label: a big title and a smaller line under it (`fill`: a coloured label with white words). */
+/**
+ * A label: a big title and a smaller line under it, as a deep forest green pill with a champagne gold rim
+ * (white title, gold second line). `dark` is kept for older calls: every label wears the one look now.
+ * `fill`: its own colour inside the same gold rim.
+ */
 export function labelCanvas(title: string, sub: string, dark = false, fill?: string) {
   const { c, g } = canvas(512, sub ? 168 : 112);
   if (fill) dark = true;
   if (g) {
-    g.fillStyle = fill ?? (dark ? 'rgba(15,23,42,0.86)' : 'rgba(255,255,255,0.95)');
+    dark = true;
+    g.fillStyle = fill ?? 'rgba(18,56,46,0.95)';
+    g.strokeStyle = '#C6A45B';
+    g.lineWidth = 6;
     if (g.roundRect) {
       g.beginPath();
-      g.roundRect(4, 4, 504, c.height - 8, 30);
+      g.roundRect(6, 6, 500, c.height - 12, 34);
       g.fill();
-    } else g.fillRect(4, 4, 504, c.height - 8);
+      g.stroke();
+    } else {
+      g.fillRect(6, 6, 500, c.height - 12);
+      g.strokeRect(6, 6, 500, c.height - 12);
+    }
     g.textAlign = 'center';
     g.fillStyle = dark ? '#ffffff' : '#0f172a';
     let px = 64;
@@ -382,7 +393,7 @@ export function labelCanvas(title: string, sub: string, dark = false, fill?: str
     while (g.measureText(title).width > 470 && (px -= 4) > 22);
     g.fillText(title, 256, sub ? 78 : 76);
     if (sub) {
-      g.fillStyle = fill ? '#ede9fe' : dark ? '#bae6fd' : '#0369a1';
+      g.fillStyle = '#E3C877';
       let sp = 42;
       do g.font = `600 ${sp}px system-ui, sans-serif`;
       while (g.measureText(sub).width > 480 && (sp -= 2) > 16);

@@ -418,7 +418,7 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
               <button type="button" disabled={gpsLoading} onClick={() => void lockGps()} className={`relative z-10 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-4 text-sm font-bold ring-1 transition-colors ${gps ? 'bg-emerald-50 text-emerald-900 ring-emerald-400 hover:bg-emerald-100' : 'bg-emerald-700 text-white ring-emerald-700 hover:bg-emerald-800 disabled:opacity-50'}`}>
                 📍 1. Lock Live GPS Location
               </button>
-              <button type="button" disabled={cameraBusy} onClick={() => void openCamera()} className={`relative z-10 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-4 text-sm font-bold ring-1 transition-colors ${cameraStream ? 'bg-sky-50 text-sky-900 ring-sky-400 hover:bg-sky-100' : 'bg-sky-700 text-white ring-sky-700 hover:bg-sky-800 disabled:opacity-50'}`}>
+              <button type="button" disabled={cameraBusy} onClick={() => void openCamera()} className={`relative z-10 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-4 text-sm font-bold ring-1 transition-colors ${cameraStream ? 'bg-[#EAF3EE] text-[#12382E] ring-[#286B54] hover:bg-[#EAF3EE]' : 'bg-[#174C3C] text-white ring-[#174C3C] hover:bg-[#12382E] disabled:opacity-50'}`}>
                 📷 2. Open Live Camera
               </button>
               {gpsLoading && <span className="self-center text-xs font-bold text-slate-600">Locking GPS… allow location access if the browser asks.</span>}

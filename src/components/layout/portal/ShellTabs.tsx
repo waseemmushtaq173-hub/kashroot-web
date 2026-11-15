@@ -96,12 +96,12 @@ export function ShellTabs({
             tabIndex={id === current ? 0 : -1}
             onClick={() => onSelect(id)}
             className={`relative flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left font-semibold transition ${large ? 'min-h-14 text-lg' : 'min-h-11 text-[15px]'} ${FOCUS} ${theme.outline} ${
-              active ? `${theme.soft} shadow-sm` : 'text-slate-600 hover:bg-slate-900/[0.04] hover:text-slate-900'
+              active ? 'bg-[#EAF3EE] text-[#174C3C] shadow-[inset_0_1px_0_#fff,0_3px_0_#C6A45B]' : 'text-white/85 hover:bg-white/10 hover:text-white'
             }`}
           >
             {/* The coloured bar at the sidebar's edge marks the open section. */}
             {active && <span aria-hidden className={`absolute -left-4 top-1/2 h-8 w-1.5 -translate-y-1/2 rounded-r-full ${theme.solid}`} />}
-            {Icon && <Icon className={`h-5 w-5 shrink-0 ${active ? '' : 'text-slate-400'}`} aria-hidden />}
+            {Icon && <Icon className={`h-5 w-5 shrink-0 ${active ? '' : 'text-champagne'}`} aria-hidden />}
             {/* A long name wraps onto a second line rather than being cut off ("Bookings to co…"). */}
             <span className="min-w-0 flex-1 leading-snug [overflow-wrap:anywhere]">{name}</span>
             {badge}

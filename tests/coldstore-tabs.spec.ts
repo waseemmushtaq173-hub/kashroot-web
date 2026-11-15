@@ -95,3 +95,23 @@ test('tapping a bin opens the selected-bin panel; the count changes the price an
   await expect(page.getByRole('status')).toContainText('confirm step');
   expect(errors, errors.join(' | ')).toHaveLength(0);
 });
+
+/** The one-time-code card: all six boxes inside the card at 320, 360 and 390 px (the sixth once hung over the edge). */
+for (const width of [320, 360, 390]) {
+  test(`the six code boxes stay inside their card at ${width} px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    const probe = await page.goto('/test-pages/kit');
+    test.skip(probe?.status() === 404, 'Test pages are off: start the server with KR_TEST_PAGES=1');
+    const sample = page.getByTestId('otp-sample');
+    await sample.scrollIntoViewIfNeeded();
+    const card = await sample.locator('> div').first().boundingBox();
+    const boxes = await sample.locator('[aria-hidden] > span.grid').evaluateAll((els) => els.map((el) => el.getBoundingClientRect()).map((r) => ({ left: r.left, right: r.right, width: r.width })));
+    expect(boxes).toHaveLength(6);
+    for (const b of boxes) {
+      expect(b.left, 'box starts inside the card').toBeGreaterThanOrEqual(card!.x);
+      expect(b.right, 'box ends inside the card').toBeLessThanOrEqual(card!.x + card!.width);
+      expect(b.width, 'box is wide enough to read').toBeGreaterThanOrEqual(28);
+    }
+    await sample.screenshot({ path: `test-results/otp-${width}.png` });
+  });
+}

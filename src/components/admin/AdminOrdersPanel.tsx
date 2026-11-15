@@ -225,7 +225,7 @@ function AdminOrderCard({ o, canRelease, busy, onEscrow }: { o: AdminOrder; canR
         <div className="rounded-xl bg-emerald-50/70 p-3 ring-1 ring-emerald-100">
           <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">From where · Seller / Origin</p>
           <p className="mt-1 text-sm font-semibold text-slate-900">{o.seller_name ?? '—'} {o.seller_district ? <span className="font-normal text-slate-600">· {o.seller_district}</span> : null}</p>
-          <p className="text-sm text-slate-700"><a href={`tel:${o.seller_phone ?? ''}`} className="inline-flex items-center gap-1 font-semibold text-sky-800"><Phone className="h-3.5 w-3.5" aria-hidden /> {o.seller_phone ?? '—'}</a></p>
+          <p className="text-sm text-slate-700"><a href={`tel:${o.seller_phone ?? ''}`} className="inline-flex items-center gap-1 font-semibold text-[#174C3C]"><Phone className="h-3.5 w-3.5" aria-hidden /> {o.seller_phone ?? '—'}</a></p>
           <p className="mt-1 text-xs text-slate-700">📍 {o.seller_live_address ?? o.seller_district ?? 'No origin GPS yet'}
             {o.seller_live_lat != null && <span className="block font-mono">{Number(o.seller_live_lat).toFixed(5)}, {Number(o.seller_live_lng).toFixed(5)}{o.seller_gps_accuracy ? ` (±${Math.round(Number(o.seller_gps_accuracy))} m)` : ''}</span>}
             {o.seller_gps_updated_at && <span className="block">GPS {ago(o.seller_gps_updated_at)}</span>}
@@ -238,10 +238,10 @@ function AdminOrderCard({ o, canRelease, busy, onEscrow }: { o: AdminOrder; canR
         </div>
 
         {/* To whom — the buyer / destination, with live GPS. */}
-        <div className="rounded-xl bg-sky-50/70 p-3 ring-1 ring-sky-100">
-          <p className="text-xs font-bold uppercase tracking-wide text-sky-800">To whom · Buyer / Destination</p>
+        <div className="rounded-xl bg-[#EAF3EE]/70 p-3 ring-1 ring-[#C6DBD0]">
+          <p className="text-xs font-bold uppercase tracking-wide text-[#174C3C]">To whom · Buyer / Destination</p>
           <p className="mt-1 text-sm font-semibold text-slate-900">{o.buyer_name}</p>
-          <p className="text-sm text-slate-700"><a href={`tel:${o.buyer_phone}`} className="inline-flex items-center gap-1 font-semibold text-sky-800"><Phone className="h-3.5 w-3.5" aria-hidden /> {o.buyer_phone}</a></p>
+          <p className="text-sm text-slate-700"><a href={`tel:${o.buyer_phone}`} className="inline-flex items-center gap-1 font-semibold text-[#174C3C]"><Phone className="h-3.5 w-3.5" aria-hidden /> {o.buyer_phone}</a></p>
           <p className="mt-1 text-xs text-slate-700">📍 {(o.buyer_live_address ?? o.delivery_address) || '—'}
             {o.buyer_live_lat != null && <span className="block font-mono">{Number(o.buyer_live_lat).toFixed(5)}, {Number(o.buyer_live_lng).toFixed(5)}{o.buyer_gps_accuracy ? ` (±${Math.round(Number(o.buyer_gps_accuracy))} m)` : ''}</span>}
             {o.buyer_gps_updated_at && <span className="block">GPS {ago(o.buyer_gps_updated_at)}</span>}

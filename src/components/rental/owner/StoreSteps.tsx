@@ -41,7 +41,7 @@ export function StoreStep({ kit }: { kit: Kit }) {
   return (
     <div className="space-y-5">
       <p className="flex items-start gap-2 text-base text-slate-700">
-        <Store className="mt-1 h-5 w-5 shrink-0 text-sky-700" aria-hidden /> Tell farmers whose cold store this is and where it is.
+        <Store className="mt-1 h-5 w-5 shrink-0 text-[#174C3C]" aria-hidden /> Tell farmers whose cold store this is and where it is.
       </p>
       <KitBox kit={kit} field="title" label="Cold store name" autoComplete="organization" maxLength={100} />
       <div className="grid gap-5 sm:grid-cols-2">
@@ -111,9 +111,9 @@ function SidesIcon({ sides, on }: { sides: Sides; on: boolean }) {
 function SidesPicker({ value, onChange, issues }: { value: Sides | ''; onChange: (v: Sides) => void; issues: Issue[] }) {
   const label = 'Where are the chambers?';
   return (
-    <fieldset data-field="building.sides" className="space-y-2 rounded-2xl bg-sky-50/70 p-4 ring-1 ring-sky-200">
+    <fieldset data-field="building.sides" className="space-y-2 rounded-2xl bg-[#EAF3EE]/70 p-4 ring-1 ring-[#C6DBD0]">
       <legend className="sr-only">{label}</legend>
-      <p className="flex items-center gap-2 text-base font-semibold text-sky-950"><Warehouse className="h-5 w-5" aria-hidden /> {label}</p>
+      <p className="flex items-center gap-2 text-base font-semibold text-[#12382E]"><Warehouse className="h-5 w-5" aria-hidden /> {label}</p>
       <p className="text-sm text-slate-700">Stand in the main door and look in. The passage starts at the main door. Are the chambers on its left, on its right, on both sides, or in an L — down the left wall and then along the back wall?</p>
       <div role="radiogroup" aria-label={label} className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {(['left', 'right', 'both', 'lbank'] as const).map((s) => (
@@ -124,11 +124,11 @@ function SidesPicker({ value, onChange, issues }: { value: Sides | ''; onChange:
             aria-checked={value === s}
             aria-label={SIDE_TEXT[s].title}
             onClick={() => onChange(s)}
-            className={`flex min-h-[124px] cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl p-2 text-center ring-2 transition ${value === s ? 'bg-sky-800 text-white shadow-md ring-sky-800' : 'bg-white text-slate-800 ring-slate-200 hover:ring-sky-300'}`}
+            className={`flex min-h-[124px] cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl p-2 text-center ring-2 transition ${value === s ? 'bg-[#12382E] text-white shadow-md ring-[#174C3C]' : 'bg-white text-slate-800 ring-slate-200 hover:ring-[#C6DBD0]'}`}
           >
             <span className="rounded-xl bg-white p-0.5"><SidesIcon sides={s} on={value === s} /></span>
             <span className="text-base font-bold leading-tight">{SIDE_TEXT[s].title}</span>
-            <span className={`hidden text-xs sm:block ${value === s ? 'text-sky-100' : 'text-slate-600'}`}>{SIDE_TEXT[s].text}</span>
+            <span className={`hidden text-xs sm:block ${value === s ? 'text-[#EAF3EE]' : 'text-slate-600'}`}>{SIDE_TEXT[s].text}</span>
           </button>
         ))}
       </div>
@@ -154,7 +154,7 @@ function DoorKindPicker({ value, onChange }: { value: '' | DoorKind; onChange: (
             role="radio"
             aria-checked={value === k}
             onClick={() => onChange(k)}
-            className={`min-h-11 cursor-pointer rounded-xl px-2 text-sm font-bold ring-2 transition ${value === k ? 'bg-sky-800 text-white shadow-md ring-sky-800' : 'bg-white text-slate-800 ring-slate-200 hover:ring-amber-300'}`}
+            className={`min-h-11 cursor-pointer rounded-xl px-2 text-sm font-bold ring-2 transition ${value === k ? 'bg-[#12382E] text-white shadow-md ring-[#174C3C]' : 'bg-white text-slate-800 ring-slate-200 hover:ring-amber-300'}`}
           >
             {DOOR_KIND_TEXT[k]}
           </button>
@@ -172,7 +172,7 @@ export function BuildingStep({ kit }: { kit: Kit }) {
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
       <div className="space-y-5">
         <p className="flex items-start gap-2 text-base text-slate-700">
-          <Ruler className="mt-1 h-5 w-5 shrink-0 text-sky-700" aria-hidden /> Measure the whole cold store building from outside. The front is the side facing the road.
+          <Ruler className="mt-1 h-5 w-5 shrink-0 text-[#174C3C]" aria-hidden /> Measure the whole cold store building from outside. The front is the side facing the road.
         </p>
         <div>
           <p className="mb-1.5 text-sm font-semibold text-slate-800">Measure in</p>
@@ -204,9 +204,9 @@ export function BuildingStep({ kit }: { kit: Kit }) {
           <KitBox kit={kit} field="building.wallThickness" label={`Insulated wall thickness (${u})`} number hint="How thick the cold-store panels are. Leave empty for the usual thickness." />
           <KitBox kit={kit} field="building.passageWidth" label={`Main forklift passage width (${u})`} number hint="How wide the passage from the main door is. Leave empty for the door's own width." />
         </div>
-        <fieldset className="space-y-3 rounded-2xl bg-sky-50/70 p-4 ring-1 ring-sky-200">
+        <fieldset className="space-y-3 rounded-2xl bg-[#EAF3EE]/70 p-4 ring-1 ring-[#C6DBD0]">
           <legend className="sr-only">Work spaces</legend>
-          <p className="flex items-center gap-2 text-base font-semibold text-sky-950"><Warehouse className="h-5 w-5" aria-hidden /> Work spaces (cleaning, grading, packing, plant, bay)</p>
+          <p className="flex items-center gap-2 text-base font-semibold text-[#12382E]"><Warehouse className="h-5 w-5" aria-hidden /> Work spaces (cleaning, grading, packing, plant, bay)</p>
           <p className="text-sm text-slate-700">The rooms around the chambers where the fruit is cleaned, graded, packed and loaded. Give each one its length and width — leave a space empty and the drawing makes it fit the room left over.</p>
           <div className="space-y-3">
             {SPACE_KEYS.map((k: SpaceKey) => (

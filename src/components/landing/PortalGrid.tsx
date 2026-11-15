@@ -19,10 +19,11 @@ import { EIGHT_PORTALS_CONFIG } from '@/lib/portalCardsConfig';
 
 const CARD =
   'kr-card kr-card-interactive group relative flex h-full min-h-[11.5rem] flex-col overflow-hidden rounded-3xl p-5 text-ink no-underline hover:no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest';
-const ICON = 'relative grid h-12 w-12 place-items-center rounded-2xl bg-forest-soft text-forest ring-1 ring-forest-line shadow-[inset_0_1px_0_#fff,0_1px_2px_rgba(18,56,46,0.08)]';
+// A forest and gold badge standing on its own ledge (globals.css .kr-icon-badge).
+const ICON = 'kr-icon-badge relative grid h-12 w-12 place-items-center rounded-2xl';
 const BADGE = 'relative rounded-full border border-champagne/60 bg-champagne-soft px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-champagne-deep';
 // The button inside a card lifts and sinks with the card (the card is the link).
-const CTA = 'kr-btn-primary relative mt-auto self-start group-hover:[transform:translateY(-1px)] group-hover:[box-shadow:var(--kr-btn-primary-hover-shadow)] group-active:[transform:translateY(1.5px)] group-active:[box-shadow:var(--kr-btn-primary-active-shadow)] motion-reduce:group-hover:[transform:none] motion-reduce:group-active:[transform:none]';
+const CTA = 'kr-btn-primary relative mt-auto w-full justify-between group-hover:[transform:translateY(-1px)] group-hover:[box-shadow:var(--kr-btn-primary-hover-shadow)] group-active:[transform:translateY(1.5px)] group-active:[box-shadow:var(--kr-btn-primary-active-shadow)] motion-reduce:group-hover:[transform:none] motion-reduce:group-active:[transform:none]';
 
 export function PortalGrid() {
   // Admin appears only on an admin's own phone or computer (see adminDevice).
@@ -46,7 +47,7 @@ export function PortalGrid() {
                 <span className="relative mb-4 mt-1 block text-sm leading-relaxed text-ink-soft">{card.purpose}</span>
                 <span className={CTA}>
                   {card.actionLabel}
-                  <ArrowUpRight className="h-4 w-4 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden />
+                  <ArrowUpRight className="h-4 w-4 text-champagne transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden />
                 </span>
               </Link>
             </Tilt3D>
@@ -76,7 +77,7 @@ function AdminCard() {
           <span className="relative mb-4 mt-1 block text-sm leading-relaxed text-ink-soft">{admin.tagline}</span>
           <span className={CTA}>
             Open Admin Console
-            <ArrowUpRight className="h-4 w-4 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden />
+            <ArrowUpRight className="h-4 w-4 text-champagne transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden />
           </span>
         </Link>
       </Tilt3D>

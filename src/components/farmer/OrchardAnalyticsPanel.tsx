@@ -45,7 +45,7 @@ const SCAB_STYLE: Record<ScabLevel, { label: string; chip: string; note: string 
 /** The season and the orchard work it calls for (Kashmir apple calendar). */
 const SEASON_STYLE: Record<SeasonId, { label: string; chip: string; note: string }> = {
   spring: { label: 'Bud break to bloom', chip: 'bg-lime-50 text-lime-900 ring-lime-200', note: 'Scab watch matters most now — thinning sprays and beehive time.' },
-  summer: { label: 'Fruit development', chip: 'bg-sky-50 text-sky-900 ring-sky-200', note: 'Irrigation, cover sprays and summer pruning.' },
+  summer: { label: 'Fruit development', chip: 'bg-[#EAF3EE] text-[#12382E] ring-[#C6DBD0]', note: 'Irrigation, cover sprays and summer pruning.' },
   autumn: { label: 'Harvest', chip: 'bg-amber-50 text-amber-900 ring-amber-200', note: 'Pick by colour, grade well — book cold storage early.' },
   winter: { label: 'Dormant', chip: 'bg-slate-100 text-slate-800 ring-slate-200', note: 'Pruning, dormant-oil spray, tool and equipment care.' },
 };

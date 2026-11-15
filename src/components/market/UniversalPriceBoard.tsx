@@ -176,7 +176,7 @@ export function UniversalPriceBoard({ account }: { account?: Account | null }) {
               aria-pressed={category === c}
               onClick={() => setCategory(c)}
               className={`min-h-9 cursor-pointer rounded-full px-3 py-1 text-xs font-semibold transition ${
-                category === c ? 'bg-sky-700 text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                category === c ? 'bg-[#174C3C] text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
               {c === 'ALL' ? '🌐 All 14 categories' : `${CATEGORY_ICON[c]} ${CATEGORY_LABEL[c]}`}

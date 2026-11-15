@@ -474,7 +474,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
         Every KashRoot portal has its own sign-in. No {info.label} account yet? Sign in with your KashRoot email and password and create it, or use Create an account below.
       </p>
       {elsewhere.length > 0 && (
-        <p role="status" className="mt-4 rounded-xl bg-sky-50 p-3 text-sm text-sky-950 ring-1 ring-sky-200">
+        <p role="status" className="mt-4 rounded-xl bg-[#EAF3EE] p-3 text-sm text-[#12382E] ring-1 ring-[#C6DBD0]">
           You are signed in to <strong>{elsewhere.map((p) => PORTALS[p].label).join(', ')}</strong> on this device. The {info.label} portal has its own sign-in — enter your password to open it.
         </p>
       )}

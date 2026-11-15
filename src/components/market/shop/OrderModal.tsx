@@ -237,9 +237,9 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
         </Field>
         {fix && (
           <>
-            <p className="rounded-xl bg-sky-50 p-3 text-sm text-sky-950">
+            <p className="rounded-xl bg-[#EAF3EE] p-3 text-sm text-[#12382E]">
               <strong>📍 Live GPS locked:</strong> {fix.address} · {fix.lat.toFixed(5)}, {fix.lng.toFixed(5)} (±{Math.round(fix.accuracy ?? 0)} m). Your pin goes on the live map the farmer follows to you.
-              <button type="button" onClick={() => void takeFix()} disabled={fixing} className="ms-2 inline-flex min-h-8 items-center gap-1 rounded-lg bg-sky-100 px-2 font-semibold text-sky-900 underline-offset-2 hover:bg-sky-200 disabled:opacity-50">
+              <button type="button" onClick={() => void takeFix()} disabled={fixing} className="ms-2 inline-flex min-h-8 items-center gap-1 rounded-lg bg-[#EAF3EE] px-2 font-semibold text-[#12382E] underline-offset-2 hover:bg-[#CFE0D6] disabled:opacity-50">
                 <Crosshair className="h-3.5 w-3.5" aria-hidden /> {fixing ? 'Capturing…' : 'Capture again'}
               </button>
             </p>
@@ -249,7 +249,7 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
         {fixError && (
           <div>
             <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm font-medium text-rose-800 ring-1 ring-rose-200">{fixError}</p>
-            <button type="button" onClick={() => void takeFix()} disabled={fixing} className="mt-2 inline-flex min-h-11 items-center gap-2 rounded-xl bg-sky-600 px-4 font-bold text-white hover:bg-sky-700 disabled:opacity-50">
+            <button type="button" onClick={() => void takeFix()} disabled={fixing} className="mt-2 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#174C3C] px-4 font-bold text-white hover:bg-[#174C3C] disabled:opacity-50">
               <Crosshair className="h-4 w-4" aria-hidden /> {fixing ? 'Capturing your live GPS…' : 'Capture my live GPS'}
             </button>
           </div>

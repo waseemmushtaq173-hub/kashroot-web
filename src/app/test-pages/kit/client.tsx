@@ -4,12 +4,14 @@ import { useState } from 'react';
 import { Package, ShoppingBag, Snowflake, Truck, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { OtpBoxes, OtpCard } from '@/components/ui/OtpBoxes';
 import { Badge, Btn, EmptyState, Field, INPUT, KpiTile, Modal, PORTAL_THEMES, PageHeader, Panel, Skeleton, TABLE, Tile, inr } from '@/components/portal/kit';
 
 const theme = PORTAL_THEMES.farmer;
 
 export function KitTestPage() {
   const [open, setOpen] = useState(false);
+  const [code, setCode] = useState('123456');
   return (
     <main className={`kr-light min-h-screen ${theme.canvas} text-slate-900`}>
       <div className="mx-auto max-w-5xl space-y-5 p-4">
@@ -86,6 +88,12 @@ export function KitTestPage() {
         <Panel theme={theme} title="Nothing yet">
           <EmptyState theme={theme} icon={Package} title="No orders yet" text="Find farm tools and inputs in the Shop, add them to the cart and order." />
         </Panel>
+      </div>
+      {/* The one-time-code card as the sign-in shows it: the six boxes must stay inside the card on the narrowest phone. */}
+      <div data-testid="otp-sample" className="mx-auto mt-6 max-w-sm">
+        <OtpCard sentTo="you@example.com" onResend={() => {}}>
+          <OtpBoxes id="kit-otp" label="6-digit OTP" value={code} onChange={setCode} />
+        </OtpCard>
       </div>
       <Modal open={open} onClose={() => setOpen(false)} title="A pop-up" footer={<Btn theme={theme} onClick={() => setOpen(false)}>Done</Btn>}>
         <p className="text-sm text-slate-700">On a phone it rises from the bottom as a sheet.</p>

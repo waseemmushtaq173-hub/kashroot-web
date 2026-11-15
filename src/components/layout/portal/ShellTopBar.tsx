@@ -57,7 +57,7 @@ export function ShellTopBar({
   );
 
   return (
-    <header data-kr-topbar className="sticky top-0 z-30 border-b border-slate-900/5 bg-white/80 shadow-[0_8px_30px_-18px_rgba(15,23,42,0.25)] backdrop-blur-xl">
+    <header data-kr-topbar className="sticky top-0 z-30 border-b-2 border-champagne bg-[#F2F8F5]/85 shadow-[0_8px_30px_-18px_rgba(18,56,46,0.35)] backdrop-blur-xl">
       <div className="flex h-[72px] items-center gap-2 px-3 sm:gap-3 sm:px-6 xl:px-8">
         <button
           type="button"
@@ -83,7 +83,7 @@ export function ShellTopBar({
               href={signInHref}
               className={`inline-flex h-12 items-center gap-2 rounded-xl px-4 text-base font-semibold no-underline shadow-sm transition hover:no-underline lg:h-11 lg:text-sm ${theme.solid} ${ring}`}
             >
-              <LogIn className="h-4 w-4" aria-hidden /> Sign in
+              <LogIn className="h-4 w-4" aria-hidden /> <span className="max-[420px]:sr-only">Sign in</span>
             </Link>
           )}
           {who &&

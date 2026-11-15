@@ -146,7 +146,7 @@ export function ReceiptView({ id }: { id: string }) {
       </div>
 
       {receipt.viewer === 'owner' && (
-        <div role="status" className={`mb-4 rounded-2xl p-4 ring-1 print:hidden ${b.status === 'confirmed' || b.status === 'completed' ? 'bg-emerald-50 text-emerald-950 ring-emerald-300' : b.status === 'paid' || b.status === 'requested' ? 'bg-sky-50 text-sky-950 ring-sky-300' : 'bg-slate-50 text-slate-800 ring-slate-300'}`}>
+        <div role="status" className={`mb-4 rounded-2xl p-4 ring-1 print:hidden ${b.status === 'confirmed' || b.status === 'completed' ? 'bg-emerald-50 text-emerald-950 ring-emerald-300' : b.status === 'paid' || b.status === 'requested' ? 'bg-[#EAF3EE] text-[#12382E] ring-[#C6DBD0]' : 'bg-slate-50 text-slate-800 ring-slate-300'}`}>
           <p className="flex items-center gap-2 text-lg font-bold">
             <BadgeCheck className="h-6 w-6" aria-hidden />
             {b.status === 'confirmed'
@@ -171,13 +171,13 @@ export function ReceiptView({ id }: { id: string }) {
       <article id="kr-receipt" aria-label="Cold storage receipt" className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-900/10 sm:p-7 print:rounded-none print:ring-0">
         <header className="flex flex-wrap items-start justify-between gap-3 border-b border-dashed border-slate-300 pb-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-sky-700">KashRoot · Cold storage receipt</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#174C3C]">KashRoot · Cold storage receipt</p>
             <h1 className="mt-1 font-sans text-2xl font-bold text-slate-900">Receipt {bookingCode(b.id)}</h1>
             <p className="text-sm text-slate-600">Booked on {when(b.created_at)}</p>
           </div>
         </header>
 
-        <p className={`mt-4 flex items-start gap-2 rounded-2xl p-3 text-base font-semibold ${st.tone === 'green' ? 'bg-emerald-50 text-emerald-900' : st.tone === 'blue' ? 'bg-sky-50 text-sky-900' : st.tone === 'amber' ? 'bg-amber-50 text-amber-900' : st.tone === 'red' ? 'bg-rose-50 text-rose-900' : 'bg-slate-50 text-slate-800'}`}>
+        <p className={`mt-4 flex items-start gap-2 rounded-2xl p-3 text-base font-semibold ${st.tone === 'green' ? 'bg-emerald-50 text-emerald-900' : st.tone === 'blue' ? 'bg-[#EAF3EE] text-[#12382E]' : st.tone === 'amber' ? 'bg-amber-50 text-amber-900' : st.tone === 'red' ? 'bg-rose-50 text-rose-900' : 'bg-slate-50 text-slate-800'}`}>
           <st.Icon className="mt-0.5 h-5 w-5 shrink-0" aria-hidden /> {st.text}
         </p>
         {b.owner_note && <p className="mt-2 text-sm text-slate-700">Owner’s note: {b.owner_note}</p>}
@@ -193,18 +193,18 @@ export function ReceiptView({ id }: { id: string }) {
             <p className="mt-1 font-semibold text-slate-900">{s.title}</p>
             <p className="text-slate-700">{address}</p>
             <p className="mt-1 text-slate-700">
-              Owner {s.owner_name}: <a href={`tel:${s.phone}`} className="inline-flex items-center gap-1 font-semibold text-sky-800"><Phone className="h-3.5 w-3.5 print:hidden" aria-hidden />{s.phone}</a>
+              Owner {s.owner_name}: <a href={`tel:${s.phone}`} className="inline-flex items-center gap-1 font-semibold text-[#174C3C]"><Phone className="h-3.5 w-3.5 print:hidden" aria-hidden />{s.phone}</a>
             </p>
             {s.manager_phone && (
               <p className="text-slate-700">
-                Manager{s.manager_name ? ` ${s.manager_name}` : ''}: <a href={`tel:${s.manager_phone}`} className="inline-flex items-center gap-1 font-semibold text-sky-800"><Phone className="h-3.5 w-3.5 print:hidden" aria-hidden />{s.manager_phone}</a>
+                Manager{s.manager_name ? ` ${s.manager_name}` : ''}: <a href={`tel:${s.manager_phone}`} className="inline-flex items-center gap-1 font-semibold text-[#174C3C]"><Phone className="h-3.5 w-3.5 print:hidden" aria-hidden />{s.manager_phone}</a>
               </p>
             )}
           </div>
         </section>
 
-        <section className="mt-5 rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-200 print:bg-white">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-sky-800">Space booked</h2>
+        <section className="mt-5 rounded-2xl bg-[#EAF3EE] p-4 ring-1 ring-[#C6DBD0] print:bg-white">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-[#174C3C]">Space booked</h2>
           <p className="mt-1 text-xl font-bold text-slate-900">{countWords}</p>
           <p className="text-slate-800">From {day(b.start)} to {day(lastDay(b.start, b.months))} ({b.months} month{b.months === 1 ? '' : 's'})</p>
           {words.lines.length > 0 && (

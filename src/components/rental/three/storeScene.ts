@@ -481,19 +481,20 @@ const ZONE_LINES: [SpaceKey, string][] = [
   ['cleaning', 'Receiving & weighing area'],
   ['grading', 'Automated grading line'],
   ['packing', 'Packaging space'],
-  ['machinery', 'Refrigeration plant'],
+  // The refrigeration plant is not drawn in the hall for anyone: the hall holds receiving, grading,
+  // sorting, packaging and dispatch only (the plant's size stays in the owner's own form).
 ];
 /** The grading lane's share that stays the machine line; the rest, beside it, is the sorting area. */
 const GRADING_SHARE = 0.62;
 
 /** The colour a work zone is painted in — the same hue in the 2D drawing and on the 3D floor. */
 export const ZONE_LOOK: Record<SceneZone['key'], string> = {
-  cleaning: '#0e7490',
-  grading: '#15803d',
-  sorting: '#4d7c0f',
-  packing: '#a16207',
+  cleaning: '#0F5E73',
+  grading: '#17603F',
+  sorting: '#3F6B1A',
+  packing: '#8A5A12',
   machinery: '#475569',
-  dock: '#c2410c',
+  dock: '#9A3F12',
 };
 
 /**

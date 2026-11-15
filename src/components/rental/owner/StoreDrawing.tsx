@@ -35,12 +35,12 @@ const fitFont = (text: string, room: number, max: number, min: number) => Math.m
 
 /** The pale fill a work zone is painted with on the drawing (the stroke is the zone's own colour). */
 const ZONE_FILL: Record<import('@/components/rental/three/storeScene').SceneZone['key'], string> = {
-  cleaning: '#ecfeff',
-  grading: '#f0fdf4',
-  sorting: '#ecfccb',
-  packing: '#fef9c3',
-  machinery: '#f1f5f9',
-  dock: '#ffedd5',
+  cleaning: '#BFE3EC',
+  grading: '#BFE5CF',
+  sorting: '#D5E8B0',
+  packing: '#F2DFA6',
+  machinery: '#E2E8F0',
+  dock: '#F4C9A8',
 };
 
 /** Where the chambers are, in words: "on both sides of the passage from the main door". */

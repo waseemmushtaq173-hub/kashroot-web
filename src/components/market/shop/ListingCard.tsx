@@ -33,7 +33,7 @@ const ListingCardInner = React.memo(function ListingCardInner({ listing: l, veri
         </div>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-bold uppercase tracking-wider text-sky-700">{l.subcategory ?? l.category}</span>
+        <span className="text-xs font-bold uppercase tracking-wider text-[#174C3C]">{l.subcategory ?? l.category}</span>
         {lowest && <Badge tone="green">Lowest price</Badge>}
         {isNewToday(l) && <Badge tone="amber"><Sparkles className="h-3 w-3" aria-hidden /> New today</Badge>}
       </div>
@@ -44,7 +44,7 @@ const ListingCardInner = React.memo(function ListingCardInner({ listing: l, veri
       {(l.grade || l.packing_layers || l.box_capacity_kg) && (
         <p className="mt-1 flex flex-wrap gap-1.5">
           {l.grade && <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-800 ring-1 ring-emerald-200">{/^grade /i.test(l.grade) ? l.grade : `Grade ${l.grade}`}</span>}
-          {l.packing_layers && <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-bold text-sky-800 ring-1 ring-sky-200">{l.packing_layers}</span>}
+          {l.packing_layers && <span className="rounded-full bg-[#EAF3EE] px-2.5 py-0.5 text-xs font-bold text-[#174C3C] ring-1 ring-[#C6DBD0]">{l.packing_layers}</span>}
           {l.box_capacity_kg && <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-800 ring-1 ring-amber-200">{l.box_capacity_kg} kg box</span>}
           {l.apples_per_box && <span className="rounded-full bg-slate-50 px-2.5 py-0.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">{l.apples_per_box}</span>}
         </p>

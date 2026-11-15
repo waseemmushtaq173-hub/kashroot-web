@@ -685,7 +685,7 @@ export function ColdStore3D({
       // Sharp when still. On a slow phone, fewer pixels while something moves (see the loop).
       const fullRatio = Math.min(window.devicePixelRatio || 1, weak ? 1 : phone ? 1.5 : 2);
       renderer.setPixelRatio(fullRatio);
-      renderer.setClearColor('#e3edf5');
+      renderer.setClearColor('#CFE2E6');
       const cv = renderer.domElement;
       let moveRatio = fullRatio;
       let slowFrames = 0;
@@ -697,6 +697,23 @@ export function ColdStore3D({
       el.prepend(cv);
 
       const world3 = new T.Scene();
+      // The Kashmir valley sky behind the store: pale blue overhead down to a sage haze at the ridge line — never a white void.
+      const skyTex = (() => {
+        const sky = document.createElement('canvas');
+        sky.width = 4;
+        sky.height = 256;
+        const g = sky.getContext('2d');
+        if (!g) return null;
+        const grad = g.createLinearGradient(0, 0, 0, 256);
+        grad.addColorStop(0, '#BDD6E2');
+        grad.addColorStop(1, '#E4EFEA');
+        g.fillStyle = grad;
+        g.fillRect(0, 0, 4, 256);
+        const tex = new T.CanvasTexture(sky);
+        tex.colorSpace = T.SRGBColorSpace;
+        return tex;
+      })();
+      if (skyTex) world3.background = skyTex;
       const camera = new T.PerspectiveCamera(FOV.orbit, 1, 0.05, 2000);
       camera.rotation.order = 'YXZ';
       const controls = new OrbitControls(camera, cv);
@@ -787,7 +804,7 @@ export function ColdStore3D({
         });
       };
       // Walking: a light haze gives the long rooms their depth.
-      const haze = new T.Fog('#e6edf3', 14, 70);
+      const haze = new T.Fog('#DCE9E6', 14, 70);
       const root = new T.Group();
       world3.add(root);
       let shell: Shell | null = null;
@@ -1630,6 +1647,7 @@ export function ColdStore3D({
         kit.dispose();
         contactMat?.dispose();
         contactTex?.dispose();
+        skyTex?.dispose();
         (world3.environment as InstanceType<typeof T.Texture> | null)?.dispose();
         renderer.dispose();
         renderer.forceContextLoss();
@@ -1844,7 +1862,7 @@ export function ColdStore3D({
       <div
         ref={host}
         tabIndex={walking ? 0 : -1}
-        className="relative w-full touch-none select-none overflow-hidden rounded-3xl bg-gradient-to-b from-[#EAF3EE] to-slate-100 outline-none ring-1 ring-slate-900/10 focus-visible:ring-2 focus-visible:ring-[#286B54]"
+        className="relative w-full touch-none select-none overflow-hidden rounded-3xl bg-gradient-to-b from-[#BDD6E2] to-[#E4EFEA] outline-none ring-1 ring-slate-900/10 focus-visible:ring-2 focus-visible:ring-[#286B54]"
         style={{ height }}
       >
         {!ready && (
@@ -1935,8 +1953,8 @@ export function ColdStore3D({
       <p className="text-xs text-slate-500">Sizes, chambers, doors and places are the owner’s. Cooling units hang on the wall the owner named (or the one facing the door); how many, and the lights and curtains, are drawn as in a typical cold store — the Photos tab shows this store as it really is, when the owner has added photos.</p>
       <p className="text-xs text-slate-600">
         {walking
-          ? `Walk with the arrows (or the keys W A S D, ← →) · drag to look around · ${mode === 'book' ? 'tap a free place in front of you, or aim the ring at it, to choose it.' : mode === 'owner' ? 'tap a stack to see whose it is.' : 'your stacks are tinted violet.'}`
-          : `Drag to turn the store · pinch or scroll to zoom · two fingers to move. Tap a chamber to see what it holds. ${mode === 'book' ? 'Tap a free place (an outlined stack) to choose it; tap it again to undo.' : mode === 'owner' ? 'Tap a stack to see whose it is.' : 'Your stacks are tinted deep green.'}`}
+          ? `Walk with the arrows (or the keys W A S D, ← →) · drag to look around · ${mode === 'book' ? 'tap a free place in front of you, or aim the ring at it, to choose it.' : mode === 'owner' ? 'tap a stack to see whose it is.' : 'your stacks are forest green under a gold light.'}`
+          : `Drag to turn the store · pinch or scroll to zoom · two fingers to move. Tap a chamber to see what it holds. ${mode === 'book' ? 'Tap a free place (an outlined stack) to choose it; tap it again to undo.' : mode === 'owner' ? 'Tap a stack to see whose it is.' : 'Your stacks are forest green under a gold light.'}`}
       </p>
     </div>
   );

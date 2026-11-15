@@ -342,7 +342,7 @@ export function OwnerSharedBinDesk({
                       {b.farmer_name} · {b.requested_crates} crates of {b.apple_variety}
                       <span className="ml-2 font-mono text-xs font-normal text-slate-500">{b.booking_reference}</span>
                     </p>
-                    <span className="text-sm font-semibold text-sky-900">{inr(b.total_estimated_charge_inr)}</span>
+                    <span className="text-sm font-semibold text-[#12382E]">{inr(b.total_estimated_charge_inr)}</span>
                   </div>
                   <p className="mt-0.5 text-sm text-slate-600">
                     {b.farmer_phone} · {b.duration_months} month{b.duration_months === 1 ? '' : 's'} · {b.crate_weight_kg} kg per crate · {b.total_weight_kg} kg total
@@ -405,7 +405,7 @@ export function OwnerSharedBinDesk({
                     </span>
                   </div>
                   <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-slate-100" role="presentation">
-                    <div className={`h-full rounded-full ${pct >= 100 ? 'bg-indigo-500' : pct > 0 ? 'bg-amber-400' : 'bg-emerald-400'}`} style={{ width: `${pct}%` }} />
+                    <div className={`h-full rounded-full ${pct >= 100 ? 'bg-[#286B54]' : pct > 0 ? 'bg-amber-400' : 'bg-emerald-400'}`} style={{ width: `${pct}%` }} />
                   </div>
                   {bin.dominant_apple_variety && <p className="mt-2 text-sm text-slate-600">Dominant variety: {bin.dominant_apple_variety}</p>}
                   {(bin.allocations ?? []).length === 0 ? (
@@ -458,7 +458,7 @@ export function OwnerSharedBinDesk({
           </ul>
         )}
         {releaseWanted.length > 0 && (
-          <p className="mt-3 rounded-xl bg-violet-50 px-3 py-2 text-sm text-violet-900 ring-1 ring-violet-200">
+          <p className="mt-3 rounded-xl bg-[#EAF3EE] px-3 py-2 text-sm text-[#12382E] ring-1 ring-[#C6DBD0]">
             {releaseWanted.length} release request{releaseWanted.length === 1 ? '' : 's'} waiting — confirm the dispatch on the bin above.
           </p>
         )}
@@ -647,9 +647,9 @@ function EngineeringCalculator({
 
 function CalcCard({ label, value, hint, strong }: { label: string; value: string; hint?: string; strong?: boolean }) {
   return (
-    <div className={`rounded-2xl p-4 ring-1 ${strong ? 'bg-sky-50 ring-sky-200' : 'bg-white/85 ring-slate-900/5'}`}>
+    <div className={`rounded-2xl p-4 ring-1 ${strong ? 'bg-[#EAF3EE] ring-[#C6DBD0]' : 'bg-white/85 ring-slate-900/5'}`}>
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className={`mt-1 font-display ${strong ? 'text-xl font-bold text-sky-900' : 'text-lg font-semibold text-slate-900'}`}>{value}</p>
+      <p className={`mt-1 font-display ${strong ? 'text-xl font-bold text-[#12382E]' : 'text-lg font-semibold text-slate-900'}`}>{value}</p>
       {hint && <p className="mt-0.5 text-xs text-slate-500">{hint}</p>}
     </div>
   );
@@ -929,7 +929,7 @@ export function FarmerStoredApplesDesk({
                         {mine.map((a) => {
                           const draft = releaseFor[a.id] ?? String(a.active_crates);
                           return (
-                            <li key={a.id} className="flex flex-col gap-2 rounded-xl bg-sky-50/70 px-3 py-2 ring-1 ring-sky-100 lg:flex-row lg:items-center lg:justify-between">
+                            <li key={a.id} className="flex flex-col gap-2 rounded-xl bg-[#EAF3EE]/70 px-3 py-2 ring-1 ring-[#C6DBD0] lg:flex-row lg:items-center lg:justify-between">
                               <p className="text-sm text-slate-800">
                                 <strong>Your allocation: {a.active_crates} crates</strong> ({a.active_weight_kg} kg) · {a.apple_variety} · since {niceDate(a.received_at)} · {a.released_crates} already dispatched
                               </p>

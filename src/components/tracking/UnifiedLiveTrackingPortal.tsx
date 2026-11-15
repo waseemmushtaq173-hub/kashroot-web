@@ -90,7 +90,7 @@ interface AssignmentRecord {
 
 const STATUS_BADGE_MAP: Record<string, { bg: string; label: string }> = {
   LIVE: { bg: 'bg-emerald-600 text-white', label: '● LIVE GPS STREAMING' },
-  UPDATING: { bg: 'bg-sky-600 text-white', label: '↻ UPDATING POSITION' },
+  UPDATING: { bg: 'bg-[#174C3C] text-white', label: '↻ UPDATING POSITION' },
   STALE: { bg: 'bg-amber-500 text-slate-950', label: '⚠ LOCATION STALE (NO RECENT PING)' },
   GPS_PERMISSION_DENIED: { bg: 'bg-rose-600 text-white', label: '✕ GPS PERMISSION DENIED' },
   DISCONNECTED: { bg: 'bg-slate-600 text-white', label: '⚡ DEVICE DISCONNECTED' },
@@ -617,7 +617,7 @@ export default function UnifiedLiveTrackingPortal() {
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-6">
       {/* Header banner and tab switch */}
-      <div className="rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-slate-950 via-indigo-950 to-emerald-950 p-6 text-white shadow-xl">
+      <div className="rounded-2xl border border-[#286B54]/30 bg-gradient-to-r from-slate-950 via-[#12382E] to-emerald-950 p-6 text-white shadow-xl">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <span className="inline-block rounded-full border border-emerald-400/30 bg-emerald-500/20 px-3 py-1 text-xs font-bold uppercase tracking-wider text-emerald-300">
@@ -636,7 +636,7 @@ export default function UnifiedLiveTrackingPortal() {
               [
                 ['BUYER_FARMER_TRACKER', '🗺️ Live Shipment Map (Buyer & Farmer)', 'bg-emerald-500'],
                 ['DRIVER_CONSOLE', '🚛 Driver / Vehicle Owner Login & Start GPS', 'bg-amber-400'],
-                ['AIS140_DEVICES', '📡 AIS-140 / External GPS Devices', 'bg-sky-400'],
+                ['AIS140_DEVICES', '📡 AIS-140 / External GPS Devices', 'bg-[#286B54]'],
               ] as Array<[PortalTab, string, string]>
             ).map(([key, label, activeBg]) => (
               <button
@@ -766,7 +766,7 @@ export default function UnifiedLiveTrackingPortal() {
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="text-xs font-semibold text-slate-500">Estimated Arrival (ETA)</div>
-                  <div className="mt-1 text-sm font-extrabold text-indigo-900">
+                  <div className="mt-1 text-sm font-extrabold text-[#12382E]">
                     {trackedShipment.estimated_arrival_at ? new Date(trackedShipment.estimated_arrival_at).toLocaleString() : 'Calculating...'}
                   </div>
                   <div className="text-xs text-slate-600">
@@ -1110,7 +1110,7 @@ export default function UnifiedLiveTrackingPortal() {
                       className="rounded-xl border border-slate-300 px-3 py-2 text-xs"
                     />
                   </div>
-                  <button type="submit" className="w-full rounded-xl bg-indigo-600 py-2 text-xs font-bold text-white hover:bg-indigo-700">
+                  <button type="submit" className="w-full rounded-xl bg-[#174C3C] py-2 text-xs font-bold text-white hover:bg-[#174C3C]">
                     Create &amp; Assign Shipment Tracking ID
                   </button>
                 </form>
@@ -1249,14 +1249,14 @@ export default function UnifiedLiveTrackingPortal() {
               </select>
             </div>
             <div className="flex items-end">
-              <button type="submit" className="w-full rounded-xl bg-sky-600 py-2.5 text-xs font-bold text-white hover:bg-sky-500">
+              <button type="submit" className="w-full rounded-xl bg-[#174C3C] py-2.5 text-xs font-bold text-white hover:bg-[#286B54]">
                 🔗 Pair Device to Vehicle
               </button>
             </div>
           </form>
 
           {deviceMsg && (
-            <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-xs font-semibold text-sky-800">{deviceMsg}</div>
+            <div className="rounded-xl border border-[#C6DBD0] bg-[#EAF3EE] px-4 py-2.5 text-xs font-semibold text-[#174C3C]">{deviceMsg}</div>
           )}
           {webhookSecretOnce && (
             <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 font-mono text-xs text-amber-900">

@@ -204,10 +204,10 @@ function BuyerCheckoutForm({ listing: l, theme }: { listing: ShopListing; theme:
   }
 
   return (
-    <div className="grid gap-3 rounded-2xl bg-sky-50/70 p-4 ring-1 ring-sky-200">
+    <div className="grid gap-3 rounded-2xl bg-[#EAF3EE]/70 p-4 ring-1 ring-[#C6DBD0]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-bold text-slate-900">🛒 Buyer Order &amp; Escrow Checkout</p>
-        <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-sky-800">Test the real order flow</span>
+        <span className="rounded-full bg-[#EAF3EE] px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-[#174C3C]">Test the real order flow</span>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <label className="flex flex-col gap-1 text-xs text-slate-500">
@@ -215,7 +215,7 @@ function BuyerCheckoutForm({ listing: l, theme }: { listing: ShopListing; theme:
           <select
             value={String(qty)}
             onChange={(e) => { setQty(Math.max(1, Math.min(max, Number(e.target.value)))); setProblem(null); }}
-            className="rounded border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-sky-500"
+            className="rounded border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#286B54]"
           >
             {stockRange.map((n) => (
               <option key={n} value={String(n)}>{n}</option>
@@ -230,24 +230,24 @@ function BuyerCheckoutForm({ listing: l, theme }: { listing: ShopListing; theme:
       <div className="grid grid-cols-2 gap-3">
         <label className="flex flex-col gap-1 text-xs text-slate-500">
           Your mobile
-          <input type="tel" inputMode="numeric" autoComplete="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="10-digit mobile number" className="min-h-11 w-full rounded-xl border-0 bg-white px-3 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500" />
+          <input type="tel" inputMode="numeric" autoComplete="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="10-digit mobile number" className="min-h-11 w-full rounded-xl border-0 bg-white px-3 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-[#286B54]" />
         </label>
         <label className="flex flex-col gap-1 text-xs text-slate-500">
           Your name
-          <input autoComplete="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Full name" className="min-h-11 w-full rounded-xl border-0 bg-white px-3 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500" />
+          <input autoComplete="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Full name" className="min-h-11 w-full rounded-xl border-0 bg-white px-3 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-[#286B54]" />
         </label>
       </div>
       <label className="flex flex-col gap-1 text-xs text-slate-500">
         Delivery address
-        <textarea rows={2} value={form.address} onChange={(e) => { setForm({ ...form, address: e.target.value }); setAddrTouched(true); }} placeholder="Village, tehsil, district, landmark" className="w-full rounded-xl border-0 bg-white px-3 py-2 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500" />
+        <textarea rows={2} value={form.address} onChange={(e) => { setForm({ ...form, address: e.target.value }); setAddrTouched(true); }} placeholder="Village, tehsil, district, landmark" className="w-full rounded-xl border-0 bg-white px-3 py-2 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-[#286B54]" />
       </label>
       <div className="grid gap-1.5">
-        <button type="button" onClick={() => void takeFix()} disabled={fixing} className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 text-sm font-bold text-white hover:bg-sky-700 disabled:opacity-50">
+        <button type="button" onClick={() => void takeFix()} disabled={fixing} className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#174C3C] px-4 text-sm font-bold text-white hover:bg-[#174C3C] disabled:opacity-50">
           <Crosshair className="h-4 w-4" aria-hidden /> {fixing ? 'Locking your live GPS…' : 'Lock Live Buyer GPS'}
         </button>
         {fix && (
           <>
-            <p className="rounded-xl bg-white p-2.5 text-xs font-semibold text-sky-900 ring-1 ring-sky-200">
+            <p className="rounded-xl bg-white p-2.5 text-xs font-semibold text-[#12382E] ring-1 ring-[#C6DBD0]">
               ✓ Live GPS Locked: {addressIsCoords(fix.address) ? fix.address : `${fix.address} · ${coordsText(fix)}`} (±{Math.round(fix.accuracy ?? 0)} m)
             </p>
             <LiveInteractiveMap lat={fix.lat} lng={fix.lng} accuracy={fix.accuracy} label="Your exact delivery pin" />
@@ -331,7 +331,7 @@ const ListingDetailModalInner = React.memo(function ListingDetailModalInner({ li
 
         {/* Identity + verified badge. */}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-sky-700">{l.subcategory ?? l.category}</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-[#174C3C]">{l.subcategory ?? l.category}</span>
           {verified && <BadgeCheck className="h-4 w-4 text-emerald-700" aria-hidden />}
           {verified && <Badge tone="green">Verified seller</Badge>}
           {l.is_live_camera_verified && <Badge tone="green">🛡️ Live Camera & GPS Verified at Orchard</Badge>}

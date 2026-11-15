@@ -46,13 +46,13 @@ export const TwinCapacity = function TwinCapacity({ drafts, unit }: TwinCapacity
   };
 
   return (
-    <section aria-label="What the twin engine computes for these chambers" className="rounded-2xl bg-white/90 p-4 ring-1 ring-sky-100">
+    <section aria-label="What the twin engine computes for these chambers" className="rounded-2xl bg-white/90 p-4 ring-1 ring-[#C6DBD0]">
       <h3 className="text-base font-semibold text-slate-900">Twin engine check</h3>
       <p className="mt-0.5 text-sm text-slate-600">
         Your sizes, run on the store&apos;s pallet racking: crates standing level by level ({TWIN_RACK.num_rack_rows} racks a level, {TWIN_CRATE.crates_per_row} crates a row × {TWIN_CRATE.rows_per_level} rows, {TWIN_RACK.num_levels} levels high).
       </p>
       {sized.length === 0 ? (
-        <p className="mt-3 rounded-xl bg-sky-50 px-3 py-2 text-sm text-sky-900 ring-1 ring-sky-100">Type a chamber&apos;s length, width, height and door to see what the racking holds there.</p>
+        <p className="mt-3 rounded-xl bg-[#EAF3EE] px-3 py-2 text-sm text-[#12382E] ring-1 ring-[#C6DBD0]">Type a chamber&apos;s length, width, height and door to see what the racking holds there.</p>
       ) : (
         <table aria-label="Crate places per chamber" className="mt-3 w-full text-left text-sm">
           <thead className="text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -71,7 +71,7 @@ export const TwinCapacity = function TwinCapacity({ drafts, unit }: TwinCapacity
                 <th scope="row" className="py-1.5 pr-2 font-semibold text-slate-900">{d.no || '?'}</th>
                 <td className="py-1.5 pr-2">{fit!.crates_per_level.toLocaleString('en-IN')}</td>
                 <td className="py-1.5 pr-2">{fit!.levels_per_chamber}</td>
-                <td className="py-1.5 pr-2 font-semibold text-sky-800">{fit!.crate_count.toLocaleString('en-IN')}</td>
+                <td className="py-1.5 pr-2 font-semibold text-[#174C3C]">{fit!.crate_count.toLocaleString('en-IN')}</td>
                 <td className="py-1.5 pr-2">{asked({ d, fit }) ? `${asked({ d, fit })} t of crates` : '—'}</td>
                 <td className="py-1.5">{tonnesOf(fit!.actual_usable_capacity_kg)} t</td>
               </tr>
