@@ -39,3 +39,6 @@ coverage/
 /playwright-report/
 .vercel
 .env*
+
+# Built pitch deck (holds contact details); regenerate with scripts/generate_ku_pitch_deck.py
+KashRoot_NewGen_IEDC_University_of_Kashmir_Pitch_Deck.pptx
