@@ -25,7 +25,7 @@ import { capturePoint, type LiveFix } from '@/lib/client/liveGps';
 import { inr, supabase, type Account } from '@/lib/db/client';
 import { orderAction, placeOrder, type MarketListing, type MarketOrder, type MarketUnit } from '@/lib/db/market';
 import { LISTINGS_CHANGED, UNIT_PLURAL as PLURAL, amountOf } from '@/components/market/shop/useLiveListings';
-import { BUYER_CONSOLIDATION_FEE_RATE, CLUSTER_RADIUS_KM, calculateClusterSettlement } from '@/lib/clusterConsolidation';
+import { BUYER_CONSOLIDATION_FEE_RATE, CLUSTER_RADIUS_KM, calculateClusterSettlement, computeRealDistanceKm, getNearestVerifiedHub } from '@/lib/clusterConsolidation';
 
 // The native tile map for the buyer's delivery pin — no iframe, never blocked.
 const LiveInteractiveMap = dynamic(() => import('@/components/common/LiveInteractiveMap'), {
@@ -33,7 +33,10 @@ const LiveInteractiveMap = dynamic(() => import('@/components/common/LiveInterac
   loading: () => <div className="h-56 w-full animate-pulse rounded-xl bg-slate-100" aria-hidden />,
 });
 
-type Orderable = Pick<MarketListing, 'id' | 'product' | 'price' | 'unit' | 'quantity' | 'seller_name' | 'district'>;
+type Orderable = Pick<MarketListing, 'id' | 'product' | 'price' | 'unit' | 'quantity' | 'seller_name' | 'district'> & Partial<Pick<MarketListing, 'captured_lat' | 'captured_lng'>>;
+
+/** Highway freight from the hub to the buyer: rupees for one box for one kilometre. */
+const FREIGHT_INR_PER_KM_PER_BOX = 0.12;
 
 /** Units sold whole: nobody orders half a box. */
 const WHOLE: MarketUnit[] = ['box', 'piece', 'bag'];
@@ -74,6 +77,11 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
   const [fixing, setFixing] = useState(false);
   const [fixError, setFixError] = useState<string | null>(null);
   const qty = Number(form.quantity) || 0;
+  // The hub nearest the listing's own orchard GPS, and the real distance from it to the buyer's locked GPS.
+  // Either is null when its GPS is missing: then no freight is worked out (never a guessed number).
+  const hub = settlement ? getNearestVerifiedHub(listing.captured_lat, listing.captured_lng) : null;
+  const hubToBuyerKm = hub && fix ? computeRealDistanceKm(hub.hub.lat, hub.hub.lng, fix.lat, fix.lng) : null;
+  const freightPerBox = hubToBuyerKm !== null ? hubToBuyerKm * FREIGHT_INR_PER_KM_PER_BOX : null;
   const set = useCallback((patch: Partial<typeof form>) => {
     setForm({ ...form, ...patch });
     setProblem(null);
@@ -173,6 +181,20 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
         buyer_live_lat: live.lat,
         buyer_live_lng: live.lng,
         buyer_live_address: live.address,
+        // Recorded with the order (not charged through the escrow): the hub, the 1% fee and the freight from real distance.
+        ...(settlement && l.unit === 'box'
+          ? (() => {
+              const liveKm = hub ? computeRealDistanceKm(hub.hub.lat, hub.hub.lng, live.lat, live.lng) : null;
+              const s = calculateClusterSettlement({ produceSubtotalInr: qty * Number(fresh.price), totalBoxes: qty, freightPerBoxInr: liveKm !== null ? liveKm * FREIGHT_INR_PER_KM_PER_BOX : 0 });
+              return {
+                assigned_hub_id: hub?.hub.id ?? null,
+                assigned_hub_name: hub?.hub.name ?? null,
+                buyer_fee_inr: s.buyerConsolidationFeeInr,
+                freight_inr: liveKm !== null ? s.freightTotalInr : null,
+                farmer_fee_inr: 0,
+              };
+            })()
+          : {}),
       });
       // The price changed in the same moment: take the order back and ask again.
       if (Number(order.unit_price) !== Number(fresh.price)) {
@@ -256,8 +278,7 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
           </div>
         )}
         {settlement && l.unit === 'box' && qty > 0 && (() => {
-          // No freight rate is saved anywhere yet, so none is charged or shown as a number (0 per box here means "not quoted").
-          const s = calculateClusterSettlement({ produceSubtotalInr: qty * Number(l.price), totalBoxes: qty, freightPerBoxInr: 0 });
+          const s = calculateClusterSettlement({ produceSubtotalInr: qty * Number(l.price), totalBoxes: qty, freightPerBoxInr: freightPerBox ?? 0 });
           return (
             <section aria-label="Settlement" data-testid="order-settlement" className="rounded-xl bg-[#F3F8F5] p-3 text-sm text-[#1E2D28] ring-1 ring-[#C6DBD0]">
               <p className="font-bold text-[#174C3C]">Settlement for this order</p>
@@ -266,12 +287,16 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
                 <dd className="text-right font-bold tabular-nums">{inr(s.produceSubtotalInr)}</dd>
                 <dt>KashRoot Consolidation &amp; Service Fee ({Math.round(BUYER_CONSOLIDATION_FEE_RATE * 100)}% paid by Buyer)</dt>
                 <dd className="text-right font-bold tabular-nums">{inr(s.buyerConsolidationFeeInr)}</dd>
-                <dt>Hub Pickup &amp; Highway Freight</dt>
-                <dd className="text-right font-semibold text-[#52665E]">Not quoted yet</dd>
+                <dt>
+                  Hub Pickup &amp; Highway Freight
+                  {hub && hubToBuyerKm !== null && <span className="block text-xs text-[#52665E]">{hub.hub.name} → your locked GPS: {hubToBuyerKm.toFixed(1)} km × {qty.toLocaleString('en-IN')} boxes × ₹{FREIGHT_INR_PER_KM_PER_BOX} a km a box</span>}
+                </dt>
+                <dd className="text-right font-bold tabular-nums">
+                  {freightPerBox !== null ? inr(s.freightTotalInr) : <span className="font-semibold text-[#52665E]">{!hub ? 'Orchard GPS not recorded on this listing' : 'Lock your GPS to work it out'}</span>}
+                </dd>
               </dl>
               <p className="mt-2 text-xs text-[#52665E]">
-                The escrow on this order holds the growers’ {inr(s.produceSubtotalInr)} only. The {Math.round(BUYER_CONSOLIDATION_FEE_RATE * 100)}% service fee is not collected through this order yet, and freight is
-                quoted when a pickup vehicle is assigned to the order; no freight figure is made up here.
+                The escrow on this order holds the growers’ {inr(s.produceSubtotalInr)} only. The service fee and the freight are recorded on the order for you to see; they are not collected through this order.
               </p>
               <p className="mt-2 rounded-lg bg-[#EAF3EE] px-2.5 py-1.5 text-xs font-semibold text-[#174C3C]">
                 Orchard Gates ({CLUSTER_RADIUS_KM} km Cluster) → KashRoot Local Pickup Vehicle → Nearest KashRoot Hub Consolidation → Direct Highway Truck to Buyer

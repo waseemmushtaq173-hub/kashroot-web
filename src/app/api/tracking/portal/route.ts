@@ -24,6 +24,7 @@ import { createHash } from 'node:crypto';
 
 import { haversineDistanceKm } from '@/lib/tracking/haversine';
 import { hasTeamPass } from '@/lib/server/teamPass';
+import { listPickupJobs, pickupAction } from '@/lib/server/pickupJobs';
 import { ipLimited, tooMany } from '@/lib/server/sign';
 
 export const dynamic = 'force-dynamic';
@@ -69,6 +70,12 @@ export async function GET(request: Request) {
   const adminView = searchParams.get('admin') === '1';
 
   const supabase = getSupabase();
+
+  // 0. Orchard pickup jobs on real marketplace orders (lib/server/pickupJobs).
+  if (mode === 'PICKUP_JOBS') {
+    const jobs = await listPickupJobs(supabase, searchParams.get('driverPhone'));
+    return NextResponse.json(jobs.body, { status: jobs.status });
+  }
 
   // 1. Driver profile, registered vehicles and assigned shipments
   if (mode === 'DRIVER_DASHBOARD' && driverId) {
@@ -263,6 +270,14 @@ export async function POST(request: Request) {
   const supabase = getSupabase();
 
   // Admin-gated actions first: the team pass protects fleet approval.
+  // Orchard pickup jobs: accept, the gate handover code, the hub, the trip to the buyer (lib/server/pickupJobs).
+  if (['CLAIM_PICKUP', 'VERIFY_HANDOVER', 'MARK_AT_HUB', 'MARK_IN_TRANSIT', 'PICKUP_GPS_PING'].includes(String(body.action))) {
+    // Guessing a 6-digit code is held to a few tries a minute per network.
+    if (body.action === 'VERIFY_HANDOVER' && ipLimited(request, 'pickup-handover', 6, 60_000)) return tooMany(60);
+    const done = await pickupAction(getSupabase(), body);
+    return NextResponse.json(done.body, { status: done.status });
+  }
+
   if (body.action === 'ADMIN_APPROVE_VEHICLE' || body.action === 'ADMIN_VERIFY_GPS_DEVICE') {
     if (!hasTeamPass(request.headers.get('cookie'), request.headers.get('user-agent'))) {
       return NextResponse.json({ ok: false, error: 'Super Admin team pass required.' }, { status: 403 });

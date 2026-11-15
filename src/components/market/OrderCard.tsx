@@ -28,7 +28,7 @@ import { PayDirect } from '@/components/payments/PayDirect';
 import { Badge, Btn, type PortalTheme } from '@/components/portal/kit';
 import { PayFirstOrder } from '@/components/shop/PayFirstOrder';
 import { ago, inr } from '@/lib/db/client';
-import { ORDER_STATUS, orderAction, orderArrive, orderBuyerGps, orderRelease, orderSellerGps, type MarketOrder, type OrderAction } from '@/lib/db/market';
+import { ORDER_STATUS, PICKUP_STAGE_LABEL, orderAction, orderArrive, orderBuyerGps, orderMarkPacked, orderRelease, orderSellerGps, type MarketOrder, type OrderAction } from '@/lib/db/market';
 import { googleRoute, kmBetween, roadEstimate, type MapSpot } from '@/lib/maps';
 import { myPayout, paymentDetails, type PayoutAccount } from '@/lib/db/rentals';
 import { sendLocation, type OrgDriver, type ShopSeller } from '@/lib/db/shop';
@@ -45,9 +45,6 @@ const coord = (lat?: number | null, lng?: number | null) =>
 const maskAcct = (n?: string | null) => (n ? `${n.slice(0, 4)}…${n.slice(-3)}` : null);
 /** "Live Now": a fix pushed in the last two minutes. */
 const nowish = (at?: string | null) => Boolean(at) && Date.now() - Date.parse(at as string) < 120_000;
-
-/** The handover code a grower reads to the pickup driver: six digits made from the order's own id, so it is the same every time it is shown. */
-const handoverCode = (orderId: string) => String(parseInt(orderId.replace(/-/g, '').slice(0, 8), 16) % 1_000_000).padStart(6, '0');
 
 export function OrderCard({ order, as, theme, onChange, lines, seller, drivers, listingGps }: {
   order: MarketOrder;
@@ -70,6 +67,8 @@ export function OrderCard({ order, as, theme, onChange, lines, seller, drivers, 
 function PayAfterDeliveryOrder({ order: o, as, theme, onChange, listingGps }: { order: MarketOrder; as: 'buyer' | 'seller'; theme: PortalTheme; onChange: () => void; listingGps?: { lat: number | null; lng: number | null } | null }) {
   const [busy, setBusy] = useState(false);
   const [payee, setPayee] = useState<PayoutAccount | null | undefined>(undefined);
+  /** The orchard-gate handover code, once the grower asks for it (it is kept server-side, never on the order row). */
+  const [handover, setHandover] = useState<string | null>(null);
   const sellerSide = as === 'seller';
   const s = ORDER_STATUS[o.status];
   const open = !['completed', 'cancelled', 'rejected'].includes(o.status);
@@ -163,6 +162,20 @@ function PayAfterDeliveryOrder({ order: o, as, theme, onChange, listingGps }: { 
           {escrowed && <Badge tone="green">🔒 In escrow</Badge>}
         </div>
       </div>
+      {!sellerSide && o.pickup_stage && (
+        <p className="mt-2 rounded-xl bg-[#EAF3EE] p-3 text-sm text-[#174C3C]" data-testid="buyer-pickup-stage">
+          <strong>🚛 {PICKUP_STAGE_LABEL[o.pickup_stage]}</strong>
+          {o.assigned_hub_name ? ` · via ${o.assigned_hub_name}` : ''}
+          {o.pickup_vehicle_number ? <> · vehicle <strong className="font-mono">{o.pickup_vehicle_number}</strong></> : ''}
+          {o.pickup_driver_name ? ` · driver ${o.pickup_driver_name}` : ''}
+          {o.pickup_driver_phone ? <> · <a href={`tel:${o.pickup_driver_phone}`} className="font-semibold underline underline-offset-2">📞 {o.pickup_driver_phone}</a></> : ''}
+        </p>
+      )}
+      {!sellerSide && (o.freight_inr != null || o.buyer_fee_inr != null) && (
+        <p className="mt-2 text-xs text-slate-600">
+          Recorded at checkout{o.buyer_fee_inr != null ? ` · KashRoot fee (1%) ${inr(Number(o.buyer_fee_inr))}` : ''}{o.freight_inr != null ? ` · hub-to-you freight ${inr(Number(o.freight_inr))}` : ''} — not part of the {inr(o.amount)} held in escrow.
+        </p>
+      )}
       {o.seller_note && <p className="mt-2 text-sm text-slate-700">Seller: {o.seller_note}</p>}
       {o.buyer_note && <p className="mt-2 text-sm text-rose-800">Buyer: {o.buyer_note}</p>}
       {o.payment_ref && <p className="mt-2 text-sm text-slate-700">Payment reference: <span className="font-mono font-semibold">{o.payment_ref}</span>{sellerSide && o.status === 'paid' ? ' — check it in your bank / UPI app before confirming.' : ''}</p>}
@@ -187,9 +200,23 @@ function PayAfterDeliveryOrder({ order: o, as, theme, onChange, listingGps }: { 
         // The pickup point: the GPS the grower pinned on this order, else the GPS saved on the listing. Never a made-up point.
         const origin = isValidCoordinate(o.seller_live_lat, o.seller_live_lng) ? { lat: o.seller_live_lat, lng: o.seller_live_lng } : listingGps ?? null;
         const near = origin ? getNearestVerifiedHub(origin.lat, origin.lng) : null;
-        const hubName = near ? near.hub.name : 'the nearest KashRoot Hub';
-        const vehicle = o.ship_vehicle ? String(o.ship_vehicle) : null;
-        const stage = o.status === 'completed' ? 'DELIVERED_ESCROW_RELEASED' : o.status === 'delivered' ? 'ARRIVED_AT_BUYER — waiting for the buyer to confirm' : 'IN_TRANSIT_TO_BUYER';
+        const hubName = o.assigned_hub_name || (near ? near.hub.name : 'the nearest KashRoot Hub');
+        const stage = o.pickup_stage ?? null;
+        const vehicle = o.pickup_vehicle_number || (o.ship_vehicle ? String(o.ship_vehicle) : null);
+        const driverName = o.pickup_driver_name || o.driver_name || null;
+        const driverPhone = o.pickup_driver_phone || o.driver_phone || null;
+        const handedOver = stage === 'PICKED_UP_FROM_ORCHARD_GATE' || stage === 'CONSOLIDATED_AT_KASHROOT_HUB' || stage === 'IN_TRANSIT_TO_BUYER' || stage === 'DELIVERED';
+        const showCode = async () => {
+          setBusy(true);
+          try {
+            setHandover(await orderMarkPacked(o.id));
+            onChange();
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Could not mark the boxes packed.');
+          } finally {
+            setBusy(false);
+          }
+        };
         return (
           <section aria-label="KashRoot Hub pickup and payout" data-testid="hub-pickup-card" className="mt-3 space-y-2 rounded-xl bg-[#F3F8F5] p-3 text-sm text-[#1E2D28] ring-1 ring-[#C6DBD0]">
             <p className="font-bold text-[#174C3C]">KashRoot Hub Pickup &amp; Payout</p>
@@ -201,34 +228,45 @@ function PayAfterDeliveryOrder({ order: o, as, theme, onChange, listingGps }: { 
               <dt className="text-[#52665E]">Net Payout to You</dt>
               <dd><strong>100% · {inr(o.amount)}</strong></dd>
               <dt className="text-[#52665E]">Nearest KashRoot Hub</dt>
-              <dd>{near ? <><strong>{near.hub.name}</strong> ({near.distanceKm.toFixed(1)} km from {isValidCoordinate(o.seller_live_lat, o.seller_live_lng) ? 'the GPS you pinned on this order' : 'the orchard GPS on your listing'})</> : 'Orchard GPS not recorded on this listing'}</dd>
+              <dd>{o.assigned_hub_name ? <strong>{o.assigned_hub_name}</strong> : near ? <><strong>{near.hub.name}</strong> ({near.distanceKm.toFixed(1)} km from {isValidCoordinate(o.seller_live_lat, o.seller_live_lng) ? 'the GPS you pinned on this order' : 'the orchard GPS on your listing'})</> : 'Orchard GPS not recorded on this listing'}</dd>
             </dl>
-            {!vehicle ? (
-              o.status === 'placed' || o.status === 'accepted' ? (
-                <p className="rounded-lg bg-amber-50 px-2.5 py-1.5 font-semibold text-amber-950 ring-1 ring-amber-200">Status: Order Confirmed — Awaiting KashRoot Pickup Vehicle Assignment to {hubName}</p>
-              ) : (
-                <p className="rounded-lg bg-[#EAF3EE] px-2.5 py-1.5 font-semibold text-[#174C3C]">Status: {stage} · no vehicle or driver is recorded on this order</p>
-              )
-            ) : (
+
+            {handedOver ? (
+              <p className="rounded-lg bg-emerald-50 px-2.5 py-1.5 font-bold text-emerald-900 ring-1 ring-emerald-200" data-testid="handed-over">
+                Handed Over at Orchard Gate — Responsibility Complete (100% Payout Protected in Escrow)
+                <span className="block text-xs font-semibold text-emerald-800">Now: {PICKUP_STAGE_LABEL[stage!]}{vehicle ? ` · vehicle ${vehicle}` : ''}</span>
+              </p>
+            ) : stage === 'PICKUP_VEHICLE_ASSIGNED' ? (
               <p className="rounded-lg bg-[#EAF3EE] px-2.5 py-1.5 text-[#174C3C]">
-                <strong>Status: {stage}</strong> · Vehicle <strong className="font-mono">{vehicle}</strong>
-                {o.driver_name ? ` · Driver ${o.driver_name}` : ''}
-                {o.driver_phone ? <> · <a href={`tel:${o.driver_phone}`} className="font-semibold underline underline-offset-2">📞 {o.driver_phone}</a></> : ''}
-                <span className="block text-xs text-[#52665E]">The stages between the orchard gate and the hub (picked up, at the hub) are not recorded on orders yet, so they are not shown as done.</span>
+                <strong>Status: Pickup vehicle assigned</strong> · Vehicle <strong className="font-mono">{vehicle}</strong>
+                {driverName ? ` · Driver ${driverName}` : ''}
+                {driverPhone ? <> · <a href={`tel:${driverPhone}`} className="font-semibold underline underline-offset-2">📞 {driverPhone}</a></> : ''}
+                <span className="block text-xs">When this driver is at your gate and has loaded the boxes, read them your handover code. They enter it to confirm the pickup.</span>
+              </p>
+            ) : stage === 'AWAITING_HUB_VEHICLE' ? (
+              <p className="rounded-lg bg-amber-50 px-2.5 py-1.5 font-semibold text-amber-950 ring-1 ring-amber-200">Status: Order Confirmed — Awaiting KashRoot Pickup Vehicle Assignment to {hubName}{o.boxes_packed_at ? ` · boxes marked packed ${ago(o.boxes_packed_at)}` : ''}</p>
+            ) : o.status === 'placed' ? (
+              <p className="text-[#52665E]">Accept the order first. When the boxes are packed, mark them ready here and a KashRoot pickup vehicle is assigned to collect them from your gate.</p>
+            ) : o.status === 'accepted' ? (
+              <p className="text-[#52665E]">Step 1: pack the boxes, then mark them ready. You do not transport anything: a KashRoot pickup vehicle collects from your orchard gate.</p>
+            ) : (
+              <p className="rounded-lg bg-[#EAF3EE] px-2.5 py-1.5 font-semibold text-[#174C3C]">Status: {ORDER_STATUS[o.status].label}{vehicle ? ` · vehicle ${vehicle}` : ' · no pickup vehicle is recorded on this order'}</p>
+            )}
+
+            {handover && !handedOver && (
+              <p className="rounded-lg bg-white px-2.5 py-2 ring-2 ring-[#C6A45B]">
+                Handover code for the pickup driver: <strong className="font-mono text-xl tracking-[0.3em] text-[#174C3C]" data-testid="handover-code">{handover}</strong>
+                <span className="block text-xs text-[#52665E]">Give it only to the KashRoot driver at your gate, after the boxes are on the vehicle. The buyer cannot see it.</span>
               </p>
             )}
-            {(o.status === 'accepted' || o.status === 'shipped') && (
-              <p className="text-xs text-[#1E2D28]">
-                Handover code for the pickup driver: <strong className="font-mono text-base tracking-widest text-[#174C3C]" data-testid="handover-code">{handoverCode(o.id)}</strong>
-                {o.seller_gps_updated_at ? <span className="text-[#52665E]"> · orchard-gate position last confirmed {ago(o.seller_gps_updated_at)}</span> : null}
-              </p>
+            {o.status === 'accepted' && !stage && (
+              <Btn theme={theme} size="sm" icon={PackageCheck} disabled={busy} onClick={() => void showCode()}>
+                Mark Boxes Packed &amp; Ready for Orchard-Gate Pickup
+              </Btn>
             )}
-            {o.status === 'accepted' && (
-              <Btn theme={theme} size="sm" variant="soft" icon={PackageCheck} disabled={busy} onClick={() => void step(async () => {
-                const fix = await capturePoint().catch(() => { throw new Error('Location is off. Allow location access (GPS) so the pickup driver gets your exact orchard gate, then press again.'); });
-                await orderSellerGps(o.id, fix);
-              }, 'Marked packed and ready: your orchard-gate position and the time are saved on the order')}>
-                Mark Boxes Packed &amp; Ready for Hub Pickup
+            {(stage === 'AWAITING_HUB_VEHICLE' || stage === 'PICKUP_VEHICLE_ASSIGNED') && !handover && (
+              <Btn theme={theme} size="sm" variant="soft" icon={ShieldCheck} disabled={busy} onClick={() => void showCode()}>
+                Show my handover code
               </Btn>
             )}
           </section>
@@ -268,16 +306,8 @@ function PayAfterDeliveryOrder({ order: o, as, theme, onChange, listingGps }: { 
             <Btn theme={theme} size="sm" variant="danger" icon={XCircle} disabled={busy} onClick={() => { const n = ask('Why can’t you take this order? (the buyer sees this)'); if (n !== null) void act('reject', 'Order declined', n); }}>Decline</Btn>
           </>
         )}
-        {sellerSide && o.status === 'accepted' && (
-          <Btn theme={theme} size="sm" icon={Truck} disabled={busy} onClick={() => { const note = window.prompt('Dispatch note for the buyer (vehicle, tracking code, expected date) — optional'); if (note === null) return; void step(async () => {
-            const fix = await capturePoint().catch(() => { throw new Error('Location is off. Allow location access (GPS) so the buyer can follow the shipment, then press again.'); });
-            await orderSellerGps(o.id, fix);
-            await orderAction(o.id, 'ship', undefined, note.trim() || undefined);
-          }, 'Dispatched — live GPS tracking is now active'); }}>
-            Dispatch Shipment &amp; Stream Live GPS
-          </Btn>
-        )}
-        {sellerSide && o.status === 'shipped' && (
+        {/* An order dispatched the old way (before hub pickup) can still be finished by its grower; a hub-pickup order is the driver's from the gate on. */}
+        {sellerSide && o.status === 'shipped' && !o.pickup_stage && (
           <>
             <Btn theme={theme} size="sm" icon={PackageCheck} disabled={busy} onClick={() => { if (window.confirm('Has the shipment reached the buyer’s location?')) void step(() => orderArrive(o.id), 'Arrived at Buyer Location — waiting for their escrow confirmation'); }}>
               Arrived at Buyer Location

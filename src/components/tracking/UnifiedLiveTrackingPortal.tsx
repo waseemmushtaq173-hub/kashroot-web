@@ -20,6 +20,7 @@ import { createClient, type RealtimeChannel, type SupabaseClient } from '@supaba
 
 import GoogleOrTileLiveMap, { type RoutePoint } from './GoogleOrTileLiveMap';
 import { PlaceInput } from './PlaceInput';
+import { OrchardPickupJobs } from './OrchardPickupJobs';
 import type { PlacePoint } from '@/lib/db/consignments';
 import { supabaseAnonKey, supabaseOrigin } from '@/lib/supabase-config';
 
@@ -898,7 +899,8 @@ export default function UnifiedLiveTrackingPortal() {
         </div>
       )}
 
-      {/* TAB 2: driver console */}
+      {/* TAB 2: orchard pickup jobs on real marketplace orders, then the driver console */}
+      {activeTab === 'DRIVER_CONSOLE' && <OrchardPickupJobs />}
       {activeTab === 'DRIVER_CONSOLE' && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div className="space-y-6">

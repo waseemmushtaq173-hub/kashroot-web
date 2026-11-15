@@ -47,3 +47,25 @@ test('a shipment is refused without real places and details; a position without 
   });
   expect(ping.status()).toBe(403);
 });
+
+test('orchard pickup jobs: only real waiting orders are listed, and no step works for a stranger', async ({ page, request }) => {
+  const jobs = await request.get('/api/tracking/portal?mode=PICKUP_JOBS');
+  expect(jobs.ok()).toBeTruthy();
+  const data = (await jobs.json()) as { ok: boolean; open: { pickup_stage: string; buyer_phone?: string; seller_phone?: string }[] };
+  expect(data.ok).toBe(true);
+  for (const j of data.open) {
+    expect(j.pickup_stage).toBe('AWAITING_HUB_VEHICLE');
+    // A job nobody has accepted yet shows no phone numbers.
+    expect(j.buyer_phone).toBeUndefined();
+    expect(j.seller_phone).toBeUndefined();
+  }
+  const stranger = { orderId: '00000000-0000-4000-8000-000000000009', driverPhone: '9876543210' };
+  for (const action of ['CLAIM_PICKUP', 'VERIFY_HANDOVER', 'MARK_AT_HUB', 'MARK_IN_TRANSIT', 'PICKUP_GPS_PING']) {
+    const res = await request.post('/api/tracking/portal', { data: { action, ...stranger, vehicleNumber: 'JK22A 1234', driverName: 'Test Driver', code: '123456', latitude: 33.7, longitude: 74.8 } });
+    expect([400, 403, 404, 409, 429, 503], `${action} answered ${res.status()}`).toContain(res.status());
+  }
+  await page.goto('/tracking');
+  await page.getByRole('tab', { name: /Driver \/ Vehicle Owner/ }).click();
+  await expect(page.getByTestId('orchard-pickup-jobs')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Orchard Pickup Jobs (KashRoot Hub)' })).toBeVisible();
+});

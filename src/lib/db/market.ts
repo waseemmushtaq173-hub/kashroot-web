@@ -141,7 +141,33 @@ export interface MarketOrder {
   /** The buyer's delivery confirmation, and the settlement reference written on the escrow ledger when it released. */
   delivered_confirmed_at?: string | null;
   escrow_tx_ref?: string | null;
+  /**
+   * The hub pickup workflow (20261123000000_hub_pickup_workflow.sql). The fee and the freight are recorded
+   * for the buyer to read; they are not part of `amount` (the escrow holds the growers' money only).
+   */
+  buyer_fee_inr?: number | null;
+  freight_inr?: number | null;
+  farmer_fee_inr?: number | null;
+  assigned_hub_id?: string | null;
+  assigned_hub_name?: string | null;
+  pickup_stage?: PickupStage | null;
+  boxes_packed_at?: string | null;
+  pickup_vehicle_number?: string | null;
+  pickup_driver_name?: string | null;
+  pickup_driver_phone?: string | null;
 }
+
+/** Where the boxes are between the orchard gate and the buyer, as the database holds it. */
+export type PickupStage = 'AWAITING_HUB_VEHICLE' | 'PICKUP_VEHICLE_ASSIGNED' | 'PICKED_UP_FROM_ORCHARD_GATE' | 'CONSOLIDATED_AT_KASHROOT_HUB' | 'IN_TRANSIT_TO_BUYER' | 'DELIVERED';
+
+export const PICKUP_STAGE_LABEL: Record<PickupStage, string> = {
+  AWAITING_HUB_VEHICLE: 'Boxes packed — awaiting a KashRoot pickup vehicle',
+  PICKUP_VEHICLE_ASSIGNED: 'Pickup vehicle assigned — on its way to the orchard gate',
+  PICKED_UP_FROM_ORCHARD_GATE: 'Picked up from the orchard gate',
+  CONSOLIDATED_AT_KASHROOT_HUB: 'At the KashRoot Hub',
+  IN_TRANSIT_TO_BUYER: 'On the highway to the buyer',
+  DELIVERED: 'Delivered',
+};
 
 export const SUBCATEGORIES = ['Packaging', 'Fertiliser', 'Pesticide / fungicide', 'Seeds & saplings', 'Tools & machinery', 'Irrigation', 'Anti-hail net', 'Other'];
 export const PRODUCE = ['Apple', 'Walnut', 'Almond', 'Cherry', 'Pear', 'Saffron', 'Rice', 'Vegetables', 'Other'];
@@ -285,10 +311,16 @@ export interface PlaceOrderInput {
   buyer_live_lat?: number | null;
   buyer_live_lng?: number | null;
   buyer_live_address?: string | null;
+  /** The hub nearest the listing's own orchard GPS, and the settlement lines worked out at checkout (recorded, not charged). */
+  assigned_hub_id?: string | null;
+  assigned_hub_name?: string | null;
+  buyer_fee_inr?: number | null;
+  freight_inr?: number | null;
+  farmer_fee_inr?: number | null;
 }
 
-/** Buyer-GPS columns that may not exist on a not-yet-migrated database: dropped and retried. */
-const PLACE_ORDER_FALLBACKS = ['buyer_live_lat', 'buyer_live_lng', 'buyer_live_address'] as const;
+/** Columns that may not exist on a not-yet-migrated database: dropped and retried. */
+const PLACE_ORDER_FALLBACKS = ['buyer_live_lat', 'buyer_live_lng', 'buyer_live_address', 'assigned_hub_id', 'assigned_hub_name', 'buyer_fee_inr', 'freight_inr', 'farmer_fee_inr'] as const;
 
 export async function placeOrder(input: PlaceOrderInput): Promise<MarketOrder> {
   const row: Record<string, unknown> = { ...input };
@@ -328,6 +360,19 @@ export type OrderAction = 'accept' | 'reject' | 'ship' | 'confirm_payment' | 'ca
 export async function orderAction(id: string, action: OrderAction, ref?: string, note?: string): Promise<void> {
   const { error } = await supabase.rpc('kr_order_action', { p_order: id, p_action: action, p_ref: ref ?? null, p_note: note ?? null });
   if (error) fail(error, 'Could not update the order.');
+}
+
+/**
+ * The grower marks the boxes packed and ready at the orchard gate (kr_order_mark_packed): the time is saved, the
+ * order joins the pickup queue, and the 6-digit handover code comes back — the same code every time it is asked for.
+ */
+export async function orderMarkPacked(id: string): Promise<string> {
+  const { data, error } = await supabase.rpc('kr_order_mark_packed', { p_order: id });
+  if (error) {
+    if (error.code === 'PGRST202' || /kr_order_mark_packed/.test(error.message ?? '')) throw new Error('The hub pickup update has not been run on the database yet (supabase/RUN_THIS_ONCE.sql). Ask the site owner to run it.');
+    fail(error, 'Could not mark the boxes packed.');
+  }
+  return String(data ?? '');
 }
 
 /** One live GPS fix. */
