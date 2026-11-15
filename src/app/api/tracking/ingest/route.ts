@@ -12,6 +12,8 @@
  * Adaptive breadcrumb throttling keeps Supabase writes light while the live
  * vehicle position itself stays instantaneous.
  */
+import { createHash } from 'node:crypto';
+
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -59,7 +61,7 @@ export async function POST(request: Request) {
   // The vehicle must be the shipment's active authorized carrier.
   const { data: pairing } = await supabase
     .from('shipment_vehicles')
-    .select('id')
+    .select('id, driver_id')
     .eq('shipment_id', body.shipmentId)
     .eq('vehicle_id', body.vehicleId)
     .eq('is_active_assignment', true)
@@ -70,6 +72,31 @@ export async function POST(request: Request) {
       { ok: false, error: 'This vehicle is not the authorized active carrier for this shipment.' },
       { status: 403 },
     );
+  }
+
+  // Who is sending. A hardware tracker or telematics gateway proves itself with the secret it was given when it
+  // was paired to this vehicle (only its SHA-256 hash is stored); a ping from the driver's phone must name the
+  // driver assigned to this trip. A position is never accepted from anyone else.
+  const fromDevice = body.sourceType === 'AIS140_EXTERNAL_DEVICE' || body.sourceType === 'TELEMATICS_WEBHOOK';
+  if (fromDevice) {
+    const bearer = (request.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+    const secret = String(body.apiSecretToken ?? bearer ?? '').trim();
+    if (!secret) {
+      return NextResponse.json({ ok: false, error: 'Device secret missing: send apiSecretToken in the JSON, or Authorization: Bearer <secret>.' }, { status: 401 });
+    }
+    const { data: device } = await supabase
+      .from('gps_devices')
+      .select('id')
+      .eq('vehicle_id', body.vehicleId)
+      .eq('is_active', true)
+      .eq('api_secret_token_hash', createHash('sha256').update(secret).digest('hex'))
+      .maybeSingle();
+    if (!device) {
+      return NextResponse.json({ ok: false, error: 'This device secret is not paired to this vehicle.' }, { status: 401 });
+    }
+    await supabase.from('gps_devices').update({ last_heartbeat_at: nowIso }).eq('id', device.id);
+  } else if (!body.driverId || String(body.driverId) !== String(pairing.driver_id)) {
+    return NextResponse.json({ ok: false, error: 'Only the driver assigned to this shipment can send its position.' }, { status: 403 });
   }
 
   // Fetch shipment to compute accurate distance travelled, remaining distance and ETA

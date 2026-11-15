@@ -8,7 +8,10 @@
  * cannot deliver (unconfigured, refused by Gmail, or slower than the
  * 15-second budget) is a 502 with { unavailable: true } — the visitor is
  * told plainly and may try again; the sign-in's dashboard opens only on a
- * verified code. No code is ever shown on screen.
+ * verified code. No code is ever shown on screen. When the only working
+ * route is Resend's test sender (it reaches the Resend account owner alone),
+ * the code goes to the site's verified inbox and the answer carries
+ * routedViaVerifiedInbox with that address.
  */
 import { NextResponse } from 'next/server';
 
@@ -42,8 +45,10 @@ export async function POST(request: Request) {
   // refused, or slower than the budget): 502 unavailable — the visitor is
   // told plainly and may try again; the code is never shown on screen.
   if (channel === 'email') {
-    const { delivered, token } = await sendEmailCode(target);
-    if (delivered) return NextResponse.json({ ok: true, emailDelivered: true, token, via: ['email'], to: target });
+    const { delivered, token, routedVia } = await sendEmailCode(target);
+    // Sent to the address itself — or, when only Resend's test sender works, to the site's verified inbox:
+    // the answer then names that inbox, so the screen never claims the code is in an inbox it did not reach.
+    if (delivered) return NextResponse.json({ ok: true, sent: true, emailDelivered: true, token, via: ['email'], to: target, ...(routedVia ? { routedViaVerifiedInbox: routedVia } : {}) });
     return NextResponse.json(
       { error: 'The verification email could not be sent just now. This is the site’s email setup, not your address — please try again in a minute.', unavailable: true },
       { status: 502 },

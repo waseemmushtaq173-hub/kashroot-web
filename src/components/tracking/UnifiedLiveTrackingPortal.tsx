@@ -19,6 +19,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createClient, type RealtimeChannel, type SupabaseClient } from '@supabase/supabase-js';
 
 import GoogleOrTileLiveMap, { type RoutePoint } from './GoogleOrTileLiveMap';
+import { PlaceInput } from './PlaceInput';
+import type { PlacePoint } from '@/lib/db/consignments';
 import { supabaseAnonKey, supabaseOrigin } from '@/lib/supabase-config';
 
 type PortalTab = 'BUYER_FARMER_TRACKER' | 'DRIVER_CONSOLE' | 'AIS140_DEVICES';
@@ -88,7 +90,12 @@ interface AssignmentRecord {
   vehicles: VehicleRecord | null;
 }
 
+/** Where hardware trackers send positions: this site's own address (the same one src/proxy.ts treats as the real site). */
+const INGEST_URL = `${(process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://kashroot-web.vercel.app').replace(/\/$/, '')}/api/tracking/ingest`;
+
 const STATUS_BADGE_MAP: Record<string, { bg: string; label: string }> = {
+  WAITING_FOR_DRIVER_GPS: { bg: 'bg-[#EAF3EE] text-[#174C3C] ring-1 ring-[#C6A45B]', label: '… WAITING FOR DRIVER GPS (not started yet)' },
+  DELAYED: { bg: 'bg-amber-200 text-amber-950', label: '◔ LAST PING OVER 30 SECONDS AGO' },
   LIVE: { bg: 'bg-emerald-600 text-white', label: '● LIVE GPS STREAMING' },
   UPDATING: { bg: 'bg-[#174C3C] text-white', label: '↻ UPDATING POSITION' },
   STALE: { bg: 'bg-amber-500 text-slate-950', label: '⚠ LOCATION STALE (NO RECENT PING)' },
@@ -97,6 +104,28 @@ const STATUS_BADGE_MAP: Record<string, { bg: string; label: string }> = {
   TRACKING_STOPPED: { bg: 'bg-slate-700 text-slate-100', label: '■ TRACKING STOPPED' },
   DELIVERED: { bg: 'bg-teal-700 text-white', label: '✓ SHIPMENT DELIVERED' },
 };
+
+/**
+ * What the buyer or farmer is told, from the database's own last ping and nothing else:
+ *   DELIVERED                the trip is finished;
+ *   GPS_PERMISSION_DENIED    the driver's phone refused location access;
+ *   WAITING_FOR_DRIVER_GPS   no ping has ever arrived for this shipment;
+ *   LIVE                     the last ping is under 30 seconds old;
+ *   DELAYED                  30 seconds to 2 minutes old;
+ *   STALE                    over 2 minutes old (the server also says so past its own limit);
+ *   otherwise the session's own state (stopped, disconnected).
+ */
+function honestStatus(shipment: ShipmentRecord | null, session: SessionRecord | null): string {
+  if (shipment?.shipment_status === 'DELIVERED' || session?.effective_status === 'DELIVERED') return 'DELIVERED';
+  if (session?.effective_status === 'GPS_PERMISSION_DENIED') return 'GPS_PERMISSION_DENIED';
+  if (!session || !session.last_location_update_at) return 'WAITING_FOR_DRIVER_GPS';
+  const age = session.seconds_since_last_update;
+  if (session.effective_status === 'LIVE' || session.effective_status === 'UPDATING') {
+    if (age === null || age < 30) return 'LIVE';
+    return age > 120 ? 'STALE' : 'DELAYED';
+  }
+  return session.effective_status || 'TRACKING_STOPPED';
+}
 
 interface DriverCoords {
   lat: number;
@@ -113,6 +142,8 @@ export default function UnifiedLiveTrackingPortal() {
   // ---- Buyer / farmer lookup state
   const [trackingIdInput, setTrackingIdInput] = useState('');
   const [availableShipments, setAvailableShipments] = useState<ShipmentRecord[]>([]);
+  /** The list has been read from the database at least once (so "none yet" is said only when it is true). */
+  const [listLoaded, setListLoaded] = useState(false);
   const [trackedShipment, setTrackedShipment] = useState<ShipmentRecord | null>(null);
   const [trackedVehicle, setTrackedVehicle] = useState<VehicleRecord | null>(null);
   const [trackedDriver, setTrackedDriver] = useState<DriverProfile | null>(null);
@@ -145,16 +176,14 @@ export default function UnifiedLiveTrackingPortal() {
   const [newDocNotes, setNewDocNotes] = useState('');
 
   // ---- New shipment form
-  const [shpCommodity, setShpCommodity] = useState('Kashmir Kullu Delicious Apples (Grade A)');
-  const [shpBoxes, setShpBoxes] = useState('217');
-  const [shpWeightKg, setShpWeightKg] = useState('3906');
-  const [shpOriginName, setShpOriginName] = useState('Shopian Fruit Mandi, Jammu & Kashmir');
-  const [shpOriginLat, setShpOriginLat] = useState('33.7173');
-  const [shpOriginLng, setShpOriginLng] = useState('74.8333');
-  const [shpDestName, setShpDestName] = useState('Yeshwanthpur APMC, Bengaluru, Karnataka');
-  const [shpDestLat, setShpDestLat] = useState('13.0285');
-  const [shpDestLng, setShpDestLng] = useState('77.5406');
-  const [shpBuyerName, setShpBuyerName] = useState('Bengaluru Wholesale Fruit Buyer');
+  // Nothing is pre-filled: a shipment is only what the driver or owner types, and where its places really are.
+  const [shpCommodity, setShpCommodity] = useState('');
+  const [shpBoxes, setShpBoxes] = useState('');
+  const [shpWeightKg, setShpWeightKg] = useState('');
+  const [shpOrigin, setShpOrigin] = useState<{ text: string; point: PlacePoint | null }>({ text: '', point: null });
+  const [shpDest, setShpDest] = useState<{ text: string; point: PlacePoint | null }>({ text: '', point: null });
+  const [shpFarmerName, setShpFarmerName] = useState('');
+  const [shpBuyerName, setShpBuyerName] = useState('');
 
   // ---- AIS-140 device pairing state
   const [deviceImei, setDeviceImei] = useState('');
@@ -210,18 +239,14 @@ export default function UnifiedLiveTrackingPortal() {
       const res = await fetch('/api/tracking/portal', { cache: 'no-store' });
       const data = await res.json();
       if (data.ok && Array.isArray(data.availableShipments)) {
+        // Only listed: nothing is opened or typed into the box for the visitor.
         setAvailableShipments(data.availableShipments);
-        // Auto-open the most recent shipment once, so the map is never empty.
-        const first = data.availableShipments[0]?.shipment_tracking_id;
-        if (first && !currentTrackingIdRef.current) {
-          setTrackingIdInput(first);
-          void lookupShipmentByCode(first);
-        }
+        setListLoaded(true);
       }
     } catch {
       // The freshness poll retries; ignore a transient list error.
     }
-  }, [lookupShipmentByCode]);
+  }, []);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- kept as shipped: changing when this state is set needs its signed-in flow tested
@@ -380,6 +405,14 @@ export default function UnifiedLiveTrackingPortal() {
       setGpsStatusMessage('Select a registered vehicle before creating or assigning a shipment.');
       return;
     }
+    if (!shpOrigin.point || !shpDest.point) {
+      setGpsStatusMessage('Pick the origin and the destination from the suggestions (or use your location for the origin), so the real places are saved.');
+      return;
+    }
+    if (!shpCommodity.trim() || !shpFarmerName.trim() || !shpBuyerName.trim() || !(Number(shpBoxes) > 0) || !(Number(shpWeightKg) > 0)) {
+      setGpsStatusMessage('Fill in the commodity, the number of boxes, the weight in kg, the consignor and the buyer.');
+      return;
+    }
     try {
       const res = await fetch('/api/tracking/portal', {
         method: 'POST',
@@ -388,16 +421,17 @@ export default function UnifiedLiveTrackingPortal() {
           action: 'CREATE_OR_ASSIGN_SHIPMENT',
           driverId: driverProfile.id,
           vehicleId: selectedVehicleId,
-          buyerName: shpBuyerName,
-          commodityName: shpCommodity,
-          boxCount: Number(shpBoxes || 200),
-          totalWeightKg: Number(shpWeightKg || 3600),
-          originName: shpOriginName,
-          originLat: Number(shpOriginLat),
-          originLng: Number(shpOriginLng),
-          destinationName: shpDestName,
-          destinationLat: Number(shpDestLat),
-          destinationLng: Number(shpDestLng),
+          farmerName: shpFarmerName.trim(),
+          buyerName: shpBuyerName.trim(),
+          commodityName: shpCommodity.trim(),
+          boxCount: Number(shpBoxes),
+          totalWeightKg: Number(shpWeightKg),
+          originName: shpOrigin.text.trim() || shpOrigin.point.name,
+          originLat: shpOrigin.point.lat,
+          originLng: shpOrigin.point.lng,
+          destinationName: shpDest.text.trim() || shpDest.point.name,
+          destinationLat: shpDest.point.lat,
+          destinationLng: shpDest.point.lng,
         }),
       });
       const data = await res.json();
@@ -611,41 +645,42 @@ export default function UnifiedLiveTrackingPortal() {
   };
 
   // ----------------------------------------------------------------- render
-  const currentStatusKey = trackedSession?.effective_status || 'TRACKING_STOPPED';
+  const currentStatusKey = honestStatus(trackedShipment, trackedSession);
   const badgeStyle = STATUS_BADGE_MAP[currentStatusKey] || STATUS_BADGE_MAP.TRACKING_STOPPED;
 
   return (
+    <div data-kr-shell="standalone" className="kr-light min-h-screen">
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-6">
       {/* Header banner and tab switch */}
-      <div className="rounded-2xl border border-[#286B54]/30 bg-gradient-to-r from-slate-950 via-[#12382E] to-emerald-950 p-6 text-white shadow-xl">
+      <div className="kr-hero rounded-3xl p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <span className="inline-block rounded-full border border-emerald-400/30 bg-emerald-500/20 px-3 py-1 text-xs font-bold uppercase tracking-wider text-emerald-300">
+            <span className="inline-block rounded-full bg-[#EAF3EE] px-3 py-1 text-xs font-bold uppercase tracking-wider text-[#174C3C] ring-1 ring-[#C6A45B]">
               KashRoot Pan-India Cold-Chain &amp; Produce Logistics
             </span>
             <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
               Live GPS Vehicle &amp; Shipment Tracking Portal
             </h1>
-            <p className="mt-1 max-w-3xl text-sm text-slate-300">
+            <p className="mt-1 max-w-3xl text-sm text-[#D9E8E0]">
               Real-time consent-based GPS telemetry connecting Jammu &amp; Kashmir orchard consignments to buyers across India.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div role="tablist" aria-label="Tracking portal sections" className="flex flex-wrap gap-2">
             {(
               [
-                ['BUYER_FARMER_TRACKER', '🗺️ Live Shipment Map (Buyer & Farmer)', 'bg-emerald-500'],
-                ['DRIVER_CONSOLE', '🚛 Driver / Vehicle Owner Login & Start GPS', 'bg-amber-400'],
-                ['AIS140_DEVICES', '📡 AIS-140 / External GPS Devices', 'bg-[#286B54]'],
-              ] as Array<[PortalTab, string, string]>
-            ).map(([key, label, activeBg]) => (
+                ['BUYER_FARMER_TRACKER', '🗺️ Live Shipment Map (Buyer & Farmer)'],
+                ['DRIVER_CONSOLE', '🚛 Driver / Vehicle Owner Login & Start GPS'],
+                ['AIS140_DEVICES', '📡 AIS-140 / External GPS Devices'],
+              ] as Array<[PortalTab, string]>
+            ).map(([key, label]) => (
               <button
                 key={key}
                 type="button"
+                role="tab"
+                aria-selected={activeTab === key}
                 onClick={() => setActiveTab(key)}
-                className={`rounded-xl px-4 py-2.5 text-xs font-bold transition sm:text-sm ${
-                  activeTab === key ? `${activeBg} text-slate-950 shadow-lg` : 'bg-slate-800/90 text-slate-200 hover:bg-slate-700'
-                }`}
+                className="min-h-11 rounded-xl bg-white px-4 py-2.5 text-xs font-bold sm:text-sm"
               >
                 {label}
               </button>
@@ -671,7 +706,7 @@ export default function UnifiedLiveTrackingPortal() {
                   type="text"
                   value={trackingIdInput}
                   onChange={(e) => setTrackingIdInput(e.target.value.toUpperCase())}
-                  placeholder="e.g. KR-SHP-2026-..."
+                  placeholder="e.g. Enter your Shipment ID from your Buyer/Farmer Order or Driver Trip"
                   className="mt-1 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 font-mono text-sm font-semibold text-slate-900 focus:border-emerald-600 focus:outline-none"
                 />
               </div>
@@ -705,6 +740,13 @@ export default function UnifiedLiveTrackingPortal() {
               </div>
             )}
 
+            {listLoaded && availableShipments.length === 0 && (
+              <p data-testid="no-active-shipments" className="mt-3 rounded-xl bg-[#EAF3EE] px-4 py-3 text-sm text-[#174C3C] ring-1 ring-[#C6DBD0]">
+                No active shipments registered yet. Switch to &apos;Driver / Vehicle Owner Login &amp; Start GPS&apos; to register a real vehicle and start
+                live browser GPS broadcasting, or dispatch an order from the Farmer/Buyer portal.
+              </p>
+            )}
+
             {lookupError && (
               <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-semibold text-rose-700">
                 {lookupError}
@@ -724,17 +766,17 @@ export default function UnifiedLiveTrackingPortal() {
                   <div className="mt-2 text-[11px] text-slate-500">
                     {trackedSession?.last_location_update_at
                       ? `Last GPS ping: ${new Date(trackedSession.last_location_update_at).toLocaleTimeString()} (${trackedSession.seconds_since_last_update ?? 0}s ago)`
-                      : 'No live GPS ping received yet'}
+                      : 'No GPS ping has been received for this shipment yet'}
                   </div>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="text-xs font-semibold text-slate-500">Assigned Vehicle</div>
                   <div className="mt-1 font-mono text-base font-extrabold text-slate-900">
-                    {trackedVehicle?.registration_number || 'Pending Vehicle'}
+                    {trackedVehicle?.registration_number || 'No vehicle assigned yet'}
                   </div>
                   <div className="text-xs text-slate-600">
-                    {trackedVehicle?.vehicle_category || 'Commercial Carrier'} · {trackedVehicle?.make_and_model || ''}
+                    {trackedVehicle ? `${trackedVehicle.vehicle_category} · ${trackedVehicle.make_and_model || ''}` : 'A driver registers the vehicle in the Driver tab'}
                   </div>
                   {trackedDriver && (
                     <div className="mt-1 text-[11px] text-slate-500">
@@ -756,18 +798,18 @@ export default function UnifiedLiveTrackingPortal() {
                   <div className="mt-1 text-base font-extrabold text-slate-900">
                     {trackedSession?.last_speed_kmh !== null && trackedSession?.last_speed_kmh !== undefined
                       ? `${trackedSession.last_speed_kmh} km/h`
-                      : 'Speed N/A'}
+                      : 'Speed not reported'}
                   </div>
                   <div className="text-xs text-slate-600">
                     Accuracy:{' '}
-                    {trackedSession?.last_accuracy_m ? `±${Math.round(Number(trackedSession.last_accuracy_m))} meters` : 'Awaiting lock'}
+                    {trackedSession?.last_accuracy_m ? `±${Math.round(Number(trackedSession.last_accuracy_m))} meters` : 'no reading yet'}
                   </div>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="text-xs font-semibold text-slate-500">Estimated Arrival (ETA)</div>
                   <div className="mt-1 text-sm font-extrabold text-[#12382E]">
-                    {trackedShipment.estimated_arrival_at ? new Date(trackedShipment.estimated_arrival_at).toLocaleString() : 'Calculating...'}
+                    {trackedShipment.estimated_arrival_at ? new Date(trackedShipment.estimated_arrival_at).toLocaleString() : 'Not estimated yet'}
                   </div>
                   <div className="text-xs text-slate-600">
                     {trackedShipment.box_count} boxes · {trackedShipment.total_weight_kg} kg
@@ -1065,27 +1107,34 @@ export default function UnifiedLiveTrackingPortal() {
                 <form onSubmit={handleCreateShipment} className="space-y-2.5 border-t border-slate-100 pt-3">
                   <div className="text-xs font-bold text-slate-600">Or Dispatch a New Produce Shipment for This Vehicle:</div>
                   <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                    <PlaceInput label="Origin (pickup)" value={shpOrigin.text} point={shpOrigin.point} onChange={(text, point) => setShpOrigin({ text, point })} gps placeholder="Type the village, town or mandi and pick it" />
+                    <PlaceInput label="Destination (delivery)" value={shpDest.text} point={shpDest.point} onChange={(text, point) => setShpDest({ text, point })} placeholder="Type the town or mandi and pick it" />
+                  </div>
+                  <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                     <input
                       type="text"
-                      value={shpOriginName}
-                      onChange={(e) => setShpOriginName(e.target.value)}
-                      placeholder="Origin (Shopian, J&K)"
+                      aria-label="Consignor: the farmer or sender"
+                      value={shpFarmerName}
+                      onChange={(e) => setShpFarmerName(e.target.value)}
+                      placeholder="Consignor (farmer or sender) name"
                       className="rounded-xl border border-slate-300 px-3 py-2 text-xs"
                     />
                     <input
                       type="text"
-                      value={shpDestName}
-                      onChange={(e) => setShpDestName(e.target.value)}
-                      placeholder="Destination (Bengaluru, KA)"
+                      aria-label="Buyer or receiver"
+                      value={shpBuyerName}
+                      onChange={(e) => setShpBuyerName(e.target.value)}
+                      placeholder="Buyer (receiver) name"
                       className="rounded-xl border border-slate-300 px-3 py-2 text-xs"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                  <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
                     <input
                       type="text"
+                      aria-label="Commodity"
                       value={shpCommodity}
                       onChange={(e) => setShpCommodity(e.target.value)}
-                      placeholder="Commodity"
+                      placeholder="Commodity (e.g. apples, grade and variety)"
                       className="rounded-xl border border-slate-300 px-3 py-2 text-xs"
                     />
                     <input
@@ -1102,13 +1151,6 @@ export default function UnifiedLiveTrackingPortal() {
                       placeholder="Weight kg"
                       className="rounded-xl border border-slate-300 px-3 py-2 text-xs"
                     />
-                    <input
-                      type="text"
-                      value={shpBuyerName}
-                      onChange={(e) => setShpBuyerName(e.target.value)}
-                      placeholder="Buyer Name"
-                      className="rounded-xl border border-slate-300 px-3 py-2 text-xs"
-                    />
                   </div>
                   <button type="submit" className="w-full rounded-xl bg-[#174C3C] py-2 text-xs font-bold text-white hover:bg-[#174C3C]">
                     Create &amp; Assign Shipment Tracking ID
@@ -1118,9 +1160,9 @@ export default function UnifiedLiveTrackingPortal() {
             </div>
 
             {/* 4. START / STOP controls */}
-            <div className="rounded-2xl border border-emerald-500/40 bg-slate-950 p-6 text-white shadow-lg">
-              <h2 className="text-base font-extrabold text-emerald-400">4. Live GPS Broadcast Controls (Explicit Consent)</h2>
-              <p className="mt-1 text-xs text-slate-300">
+            <div className="rounded-2xl border border-[#C6DBD0] bg-white p-6 text-slate-900 shadow-sm">
+              <h2 className="text-base font-extrabold text-[#174C3C]">4. Live GPS Broadcast Controls (Explicit Consent)</h2>
+              <p className="mt-1 text-xs text-slate-600">
                 Location sharing runs ONLY while an authorized trip is active. Pressing <strong>STOP TRACKING</strong> immediately
                 terminates the device location watcher.
               </p>
@@ -1130,7 +1172,7 @@ export default function UnifiedLiveTrackingPortal() {
                   <button
                     type="button"
                     onClick={() => void handleStartLiveGpsTracking()}
-                    className="flex-1 rounded-xl bg-emerald-500 px-5 py-3.5 text-sm font-extrabold text-slate-950 shadow-lg hover:bg-emerald-400"
+                    className="flex-1 rounded-xl bg-emerald-700 px-5 py-3.5 text-sm font-extrabold text-white shadow-lg"
                   >
                     ▶ START TRACKING (Share Actual Live GPS)
                   </button>
@@ -1146,7 +1188,7 @@ export default function UnifiedLiveTrackingPortal() {
                     <button
                       type="button"
                       onClick={() => void handleStopLiveGpsTracking(true)}
-                      className="flex-1 rounded-xl bg-teal-500 px-4 py-3.5 text-sm font-extrabold text-slate-950 shadow-lg hover:bg-teal-400"
+                      className="flex-1 rounded-xl bg-teal-700 px-4 py-3.5 text-sm font-extrabold text-white shadow-lg"
                     >
                       ✓ MARK SHIPMENT DELIVERED
                     </button>
@@ -1155,29 +1197,29 @@ export default function UnifiedLiveTrackingPortal() {
               </div>
 
               {gpsStatusMessage && (
-                <div className="mt-4 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 font-mono text-xs text-emerald-300">
+                <div role="status" className="mt-4 rounded-xl border border-[#C6DBD0] bg-[#EAF3EE] px-4 py-3 font-mono text-xs text-[#174C3C]">
                   {gpsStatusMessage}
                 </div>
               )}
 
               {liveDriverCoords && (
                 <div className="mt-3 grid grid-cols-2 gap-2 text-center text-xs sm:grid-cols-4">
-                  <div className="rounded-lg border border-slate-800 bg-slate-900 p-2">
-                    <div className="text-slate-400">Latitude</div>
+                  <div className="rounded-lg border border-[#C6DBD0] bg-[#F3F8F5] p-2">
+                    <div className="text-slate-600">Latitude</div>
                     <div className="font-mono font-bold">{liveDriverCoords.lat.toFixed(5)}°</div>
                   </div>
-                  <div className="rounded-lg border border-slate-800 bg-slate-900 p-2">
-                    <div className="text-slate-400">Longitude</div>
+                  <div className="rounded-lg border border-[#C6DBD0] bg-[#F3F8F5] p-2">
+                    <div className="text-slate-600">Longitude</div>
                     <div className="font-mono font-bold">{liveDriverCoords.lng.toFixed(5)}°</div>
                   </div>
-                  <div className="rounded-lg border border-slate-800 bg-slate-900 p-2">
-                    <div className="text-slate-400">Accuracy</div>
+                  <div className="rounded-lg border border-[#C6DBD0] bg-[#F3F8F5] p-2">
+                    <div className="text-slate-600">Accuracy</div>
                     <div className="font-mono font-bold">±{Math.round(liveDriverCoords.accuracy)} m</div>
                   </div>
-                  <div className="rounded-lg border border-slate-800 bg-slate-900 p-2">
-                    <div className="text-slate-400">Speed</div>
+                  <div className="rounded-lg border border-[#C6DBD0] bg-[#F3F8F5] p-2">
+                    <div className="text-slate-600">Speed</div>
                     <div className="font-mono font-bold">
-                      {liveDriverCoords.speedKmh !== null ? `${liveDriverCoords.speedKmh} km/h` : '0 km/h'}
+                      {liveDriverCoords.speedKmh !== null ? `${liveDriverCoords.speedKmh} km/h` : 'not reported'}
                     </div>
                   </div>
                 </div>
@@ -1195,9 +1237,15 @@ export default function UnifiedLiveTrackingPortal() {
           </h2>
           <p className="max-w-3xl text-xs text-slate-600">
             Authorized hardware GPS trackers and commercial fleet telematics providers stream coordinates directly to
-            KashRoot&apos;s unified ingestion endpoint (<code className="font-mono">POST /api/tracking/ingest</code>). A device must be
+            KashRoot&apos;s ingestion endpoint: <code className="break-all font-mono font-semibold">POST {INGEST_URL}</code>. A device must be
             paired to a vehicle by its registered driver/owner below; devices are recorded <strong>UNVERIFIED</strong> until their
             AIS-140 certificate is verified by a Super Admin.
+          </p>
+          <p className="max-w-3xl rounded-xl bg-[#EAF3EE] px-4 py-3 text-xs text-[#174C3C] ring-1 ring-[#C6DBD0]">
+            No hardware tracker is connected to KashRoot unless one is paired here and has sent a position. This page shows the
+            endpoint and its format; it does not show devices that do not exist. Every device request must carry the secret given
+            once at pairing, as <code className="font-mono">apiSecretToken</code> in the JSON or as an{' '}
+            <code className="font-mono">Authorization: Bearer</code> header. A request without the paired secret is refused (401).
           </p>
 
           <form onSubmit={handlePairDevice} className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-4">
@@ -1265,23 +1313,25 @@ export default function UnifiedLiveTrackingPortal() {
             </div>
           )}
 
-          <pre className="overflow-x-auto rounded-xl bg-slate-950 p-4 font-mono text-xs text-emerald-300">{`POST /api/tracking/ingest
+          <pre className="overflow-x-auto rounded-xl bg-[#12382E] p-4 font-mono text-xs text-[#EAF3EE]">{`POST ${INGEST_URL}
 Content-Type: application/json
+Authorization: Bearer <secret shown once when the device was paired>
 
 {
-  "eventAction": "GPS_PING",
+  "eventAction": "GPS_PING",          // START_TRACKING for the first position, then GPS_PING
   "shipmentId": "<shipment UUID>",
   "vehicleId": "<vehicle UUID>",
-  "sourceType": "AIS140_EXTERNAL_DEVICE",
-  "latitude": 33.7173,
-  "longitude": 74.8333,
-  "accuracyM": 5.0,
-  "speedKmh": 54.5,
-  "headingDeg": 178.0,
+  "sourceType": "AIS140_EXTERNAL_DEVICE",   // or "TELEMATICS_WEBHOOK"
+  "latitude": <the device's own latitude>,
+  "longitude": <the device's own longitude>,
+  "accuracyM": <metres, when the device reports it>,
+  "speedKmh": <km/h, when the device reports it>,
+  "headingDeg": <0-360, when the device reports it>,
   "deviceConnectivity": "GSM_4G_ACTIVE"
 }`}</pre>
         </div>
       )}
+    </div>
     </div>
   );
 }

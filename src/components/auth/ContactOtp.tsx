@@ -76,6 +76,8 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
   const [error, setError] = useState<string | null>(null);
   const [wait, setWait] = useState(0);
   const [fallback, setFallback] = useState(false);
+  // The inbox the code really went to, when it was not the address typed (the server says so; see /api/otp/send).
+  const [routedVia, setRoutedVia] = useState<string | null>(null);
   useEffect(() => {
     if (wait <= 0) return;
     const t = window.setTimeout(() => setWait((s) => s - 1), 1000);
@@ -95,6 +97,7 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
     setBusy('send');
     setError(null);
     setFallback(false);
+    setRoutedVia(null);
     try {
       // Every code is real: the server signs a token and the 6-digit code
       // goes only to the phone or the inbox. An email the sender cannot
@@ -104,11 +107,13 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
       // caller's choice; no code is ever shown on screen.
       const res = await fetch('/api/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel, to: value }) });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
+      // "Sent" is said only on a 200 that carries a token: anything else is an error, shown as the server worded it.
+      if (!res.ok || !data.token) {
         if (data.unavailable) onUnavailable?.();
         throw new Error(data.error ?? 'Could not send the OTP.');
       }
       setToken(data.token);
+      setRoutedVia(typeof data.routedViaVerifiedInbox === 'string' ? data.routedViaVerifiedInbox : null);
       setSentVia(Array.isArray(data.via) ? data.via : []);
       setSentTo(data.to);
       setCode('');
@@ -120,11 +125,12 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
         try {
           const res2 = await fetch('/api/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel: 'email', to: emailFallback }) });
           const data2 = await res2.json().catch(() => ({}));
-          if (!res2.ok) {
+          if (!res2.ok || !data2.token) {
             if (data2.unavailable) onUnavailable?.();
             throw new Error(data2.error ?? 'Could not send the OTP.');
           }
           setToken(data2.token);
+          setRoutedVia(typeof data2.routedViaVerifiedInbox === 'string' ? data2.routedViaVerifiedInbox : null);
           setSentVia(['email']);
           setSentTo(emailFallback ?? '');
           setCode('');
@@ -234,8 +240,16 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
               resendIn={wait}
               resending={busy === 'send'}
             >
+              {routedVia && (
+                <p role="status" data-testid="otp-routed" className="mb-3 rounded-xl bg-amber-50 px-3 py-2 text-left text-sm text-amber-950 ring-1 ring-amber-300">
+                  <strong>Verification code sent! (Delivered via your verified inbox: {routedVia})</strong>
+                  <span className="mt-1 block text-xs">
+                    Resend sandbox active: the 6-digit OTP for {sentTo} was delivered to the verified inbox ({routedVia}), not to {sentTo}.
+                  </span>
+                </p>
+              )}
               <OtpBoxes id={`${id}-code`} label="6-digit OTP" value={code} onChange={setCode} disabled={busy === 'verify'} invalid={Boolean(error)} onEnter={() => void verify()} />
-              {fallback ? (
+              {routedVia ? null : fallback ? (
                 <p className="mt-3 text-sm text-emerald-700">SMS limit reached — we sent the 6-digit verification code to your email instead.</p>
               ) : (
                 <p className="mt-3 text-sm text-slate-600">OTP sent{sms && sentVia.length ? ` by ${joinNames(sentVia)}` : ''} to <span className="font-semibold text-slate-900">{sentTo}</span>. It expires in 10 minutes.</p>

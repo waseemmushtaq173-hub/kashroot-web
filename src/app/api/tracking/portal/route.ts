@@ -29,6 +29,8 @@ import { ipLimited, tooMany } from '@/lib/server/sign';
 export const dynamic = 'force-dynamic';
 
 const STALE_THRESHOLD_SECONDS = 90;
+/** A shipment counts as active in the public list while it was updated within this long. */
+const ACTIVE_WINDOW_MS = 24 * 3600 * 1000;
 
 const VEHICLE_CATEGORIES = [
   'TRUCK_REEFER',
@@ -125,10 +127,15 @@ export async function GET(request: Request) {
 
   // 3. Buyer / farmer authorized shipment lookup by Tracking ID
   if (!trackingId) {
-    // Summary list of recent shipments for authorized selection.
+    // The list of active shipments: rows of gps_shipments only (made by a registered driver's trip or a dispatched
+    // order), still on the road — not delivered or cancelled — and heard from in the last 24 hours. An old paused
+    // trip is not "active"; it stays reachable by its own Tracking ID.
+    const since = new Date(Date.now() - ACTIVE_WINDOW_MS).toISOString();
     const { data: recentShipments } = await supabase
       .from('gps_shipments')
       .select('id, shipment_tracking_id, commodity_name, origin_name, destination_name, shipment_status, updated_at')
+      .in('shipment_status', ['ASSIGNED', 'IN_TRANSIT', 'TRACKING_PAUSED'])
+      .gte('updated_at', since)
       .order('updated_at', { ascending: false })
       .limit(10);
 
@@ -394,13 +401,34 @@ export async function POST(request: Request) {
 
   // ACTION 3: create or assign a shipment trip to an authorized vehicle and driver
   if (body.action === 'CREATE_OR_ASSIGN_SHIPMENT') {
-    const originLat = Number(body.originLat ?? 33.7173);
-    const originLng = Number(body.originLng ?? 74.8333);
-    const destLat = Number(body.destinationLat ?? 12.9716);
-    const destLng = Number(body.destinationLng ?? 77.5946);
+    // Nothing is filled in for the caller: a shipment is only what a real person entered. (Number(null) is 0, a
+    // valid coordinate in the Gulf of Guinea, so missing values are refused before they are read as numbers.)
+    const given = (v: unknown) => v !== null && v !== undefined && String(v).trim() !== '';
+    if (![body.originLat, body.originLng, body.destinationLat, body.destinationLng].every(given)) {
+      return NextResponse.json({ ok: false, error: 'Choose the origin and the destination from the place suggestions (or use your GPS position), so their real coordinates are saved.' }, { status: 400 });
+    }
+    const originLat = Number(body.originLat);
+    const originLng = Number(body.originLng);
+    const destLat = Number(body.destinationLat);
+    const destLng = Number(body.destinationLng);
 
     if (!validLatLng(originLat, originLng) || !validLatLng(destLat, destLng)) {
       return NextResponse.json({ ok: false, error: 'Origin and destination coordinates must be valid.' }, { status: 400 });
+    }
+    const boxCount = Math.floor(Number(body.boxCount));
+    const totalWeightKg = Number(body.totalWeightKg);
+    const missing = [
+      !clampText(body.originName, 160) && 'origin',
+      !clampText(body.destinationName, 160) && 'destination',
+      !clampText(body.commodityName, 120) && 'commodity',
+      !clampText(body.farmerName, 120) && 'consignor (farmer or sender) name',
+      !clampText(body.buyerName, 120) && 'buyer (receiver) name',
+      !(boxCount > 0) && 'number of boxes',
+      !(totalWeightKg > 0) && 'weight in kg',
+      !(body.vehicleId && body.driverId) && 'registered vehicle and driver',
+    ].filter(Boolean);
+    if (missing.length) {
+      return NextResponse.json({ ok: false, error: `Fill in: ${missing.join(', ')}.` }, { status: 400 });
     }
 
     // The driver must already be an authorized operator of this vehicle.
@@ -433,17 +461,17 @@ export async function POST(request: Request) {
         .from('gps_shipments')
         .insert({
           shipment_tracking_id: trackingId,
-          farmer_name: clampText(body.farmerName || 'Waseem Mushtaq Mir (Shopian Orchard)', 120),
-          farmer_phone: body.farmerPhone ? clampText(body.farmerPhone, 24) : '+91-6006561291',
-          buyer_name: clampText(body.buyerName || 'Bengaluru Wholesale Fruit Buyer', 120),
+          farmer_name: clampText(body.farmerName, 120),
+          farmer_phone: body.farmerPhone ? clampText(body.farmerPhone, 24) : null,
+          buyer_name: clampText(body.buyerName, 120),
           buyer_phone: body.buyerPhone ? clampText(body.buyerPhone, 24) : null,
-          commodity_name: clampText(body.commodityName || 'Kashmir Kullu Delicious Apples (Grade A)', 120),
-          box_count: Number(body.boxCount || 217),
-          total_weight_kg: Number(body.totalWeightKg || 3906),
-          origin_name: clampText(body.originName || 'Shopian, Jammu & Kashmir', 160),
+          commodity_name: clampText(body.commodityName, 120),
+          box_count: boxCount,
+          total_weight_kg: totalWeightKg,
+          origin_name: clampText(body.originName, 160),
           origin_lat: originLat,
           origin_lng: originLng,
-          destination_name: clampText(body.destinationName || 'Bengaluru, Karnataka', 160),
+          destination_name: clampText(body.destinationName, 160),
           destination_lat: destLat,
           destination_lng: destLng,
           total_route_distance_km: highwayDistanceKm,

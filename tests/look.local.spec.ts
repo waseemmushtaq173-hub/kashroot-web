@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Pictures of the KashRoot look, for a person to check by eye (nothing is asserted beyond "no script error"):
  * the homepage, a portal's door, the open tracking portal, a tool page and the 3D cold store with free,
  * shared, booked, held, chosen and own places. Runs only with KR_LOOK=1 against a server started with
@@ -29,6 +29,7 @@ for (const [name, path, width] of [
   ['home-390', '/', 390],
   ['login-farmer', '/login/farmer', 1280],
   ['tracking', '/tracking/dashboard', 1280],
+  ['tracking-live', '/tracking', 1280],
   ['tracking-390', '/tracking/dashboard', 390],
   ['mandi', '/mandi-weather', 1280],
   ['compare', '/compare-prices', 1280],
