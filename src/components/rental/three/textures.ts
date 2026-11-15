@@ -392,3 +392,71 @@ export function plateTexture(T: Three, row: number) {
   t.colorSpace = T.SRGBColorSpace;
   return t;
 }
+
+/**
+ * A chamber's insulated sliding door as in Kashmir's CA stores: safety yellow, a
+ * blue round number badge, a yellow-and-black warning triangle and a glass inspection
+ * window with a frame and latches. `ratio` is the door's height ÷ width, so circles stay round.
+ */
+export function chamberDoorTexture(T: Three, number: number, ratio: number) {
+  const w = 256;
+  const h = Math.round(Math.min(640, Math.max(256, w * ratio)));
+  const { c, g } = canvas(w, h);
+  if (g) {
+    g.fillStyle = '#facc15';
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = '#eab308';
+    for (const y of [0.33, 0.58]) g.fillRect(0, h * y, w, 5);
+    g.lineWidth = 8;
+    g.strokeStyle = '#ca8a04';
+    g.strokeRect(4, 4, w - 8, h - 8);
+    // Blue number badge.
+    const r = w * 0.15;
+    g.fillStyle = '#1d4ed8';
+    g.beginPath();
+    g.arc(w / 2, h * 0.2, r, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#ffffff';
+    g.font = `800 ${Math.round(r * (number > 9 ? 1.05 : 1.3))}px system-ui, sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(String(number), w / 2, h * 0.2 + 2);
+    // Warning triangle.
+    const ty = h * 0.34;
+    const tw = w * 0.17;
+    g.fillStyle = '#fde047';
+    g.strokeStyle = '#111827';
+    g.lineWidth = 5;
+    g.beginPath();
+    g.moveTo(w / 2, ty - tw);
+    g.lineTo(w / 2 + tw, ty + tw * 0.75);
+    g.lineTo(w / 2 - tw, ty + tw * 0.75);
+    g.closePath();
+    g.fill();
+    g.stroke();
+    g.fillStyle = '#111827';
+    g.fillRect(w / 2 - 3, ty - tw * 0.4, 6, tw * 0.7);
+    g.beginPath();
+    g.arc(w / 2, ty + tw * 0.5, 3.5, 0, Math.PI * 2);
+    g.fill();
+    // Inspection window in the lower half: frame, glass, latches.
+    const wx0 = w * 0.2;
+    const wy0 = h * 0.6;
+    const ww = w * 0.6;
+    const wh = h * 0.27;
+    g.fillStyle = '#ca8a04';
+    g.fillRect(wx0 - 8, wy0 - 8, ww + 16, wh + 16);
+    const glass = g.createLinearGradient(wx0, wy0, wx0 + ww, wy0 + wh);
+    glass.addColorStop(0, '#bfdbfe');
+    glass.addColorStop(1, '#60a5fa');
+    g.fillStyle = glass;
+    g.fillRect(wx0, wy0, ww, wh);
+    g.fillStyle = '#111827';
+    for (const y of [wy0 + wh * 0.2, wy0 + wh * 0.75]) g.fillRect(wx0 + ww + 2, y, 12, 14);
+    g.fillRect(wx0 - 14, wy0 + wh * 0.2, 12, 14);
+  }
+  const t = new T.CanvasTexture(c);
+  t.colorSpace = T.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}

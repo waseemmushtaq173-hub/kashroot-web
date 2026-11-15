@@ -16,7 +16,7 @@
  * loaded only when the 3D view opens.
  */
 import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
-import { binTexture, cartonTexture, concreteTexture, crateTexture, fanTexture, ghostTexture, gratingTexture, labelCanvas, panelTexture, plateTexture } from '@/components/rental/three/textures';
+import { binTexture, cartonTexture, chamberDoorTexture, concreteTexture, crateTexture, fanTexture, ghostTexture, gratingTexture, labelCanvas, panelTexture, plateTexture } from '@/components/rental/three/textures';
 import type { Route } from '@/components/rental/walk/route';
 import { buildFixtures } from '@/components/rental/three/fixtures';
 import { type Kind, midOf, type Rect, rowPlates, type Seg, segLength, type StoreScene } from '@/components/rental/three/storeScene';
@@ -60,7 +60,7 @@ export interface Kit {
   stackGeo: (units: number) => Geo;
   /** `wall` / `chamberWall` solid, `wallNear` / `chamberNear` see-through (the walls between the camera and the inside). */
   mats: Record<
-    | 'bin' | 'crate' | 'binEmpty' | 'crateEmpty' | 'carton' | 'ghostOn' | 'tile' | 'hall' | 'yard' | 'apron' | 'walk' | 'passage' | 'stripe' | 'chamberFloor' | 'wall' | 'wallNear' | 'chamberWall' | 'chamberNear' | 'door' | 'leaf' | 'deck' | 'beam' | 'glass' | 'hit' | 'shutter'
+    | 'bin' | 'crate' | 'binEmpty' | 'crateEmpty' | 'doorYellow' | 'rail' | 'ctrl' | 'ledOn' | 'ledWarn' | 'carton' | 'ghostOn' | 'tile' | 'hall' | 'yard' | 'apron' | 'walk' | 'passage' | 'stripe' | 'chamberFloor' | 'wall' | 'wallNear' | 'chamberWall' | 'chamberNear' | 'door' | 'leaf' | 'deck' | 'beam' | 'glass' | 'hit' | 'shutter'
     // The machines and fittings (three/fixtures).
     | 'ceiling' | 'roof' | 'lamp' | 'cooler' | 'fan' | 'guard' | 'pipe' | 'copper' | 'curtain' | 'condenser',
     Mat
@@ -137,6 +137,12 @@ export function makeKit(T: Three, phone: boolean): Kit {
     chamberWall: new T.MeshStandardMaterial({ map: tex.panel, roughness: 0.6 }),
     chamberNear: new T.MeshStandardMaterial({ map: tex.panel, roughness: 0.6, ...see, opacity: 0.22 }),
     door: new T.MeshStandardMaterial({ color: '#f59e0b', roughness: 0.6 }),
+    // The chambers' sliding CA doors: safety yellow, on a black rail, with a grey control box and its lights.
+    doorYellow: new T.MeshStandardMaterial({ color: '#facc15', roughness: 0.45 }),
+    rail: new T.MeshStandardMaterial({ color: '#1e293b', roughness: 0.5, metalness: 0.4 }),
+    ctrl: new T.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.5, metalness: 0.2 }),
+    ledOn: new T.MeshBasicMaterial({ color: '#22c55e' }),
+    ledWarn: new T.MeshBasicMaterial({ color: '#f97316' }),
     leaf: new T.MeshStandardMaterial({ color: '#f1f5f9', roughness: 0.5 }),
     deck: new T.MeshStandardMaterial({ map: tex.grating, roughness: 0.6, ...see, opacity: 1, metalness: 0.2 }),
     beam: new T.MeshStandardMaterial({ color: '#1e5a8c', roughness: 0.5, metalness: 0.3 }),
@@ -183,12 +189,16 @@ export function disposeGroup(T: Three, kit: Kit, g: Obj) {
   g.traverse((o) => {
     // An instanced mesh's own per-instance data; its shape and look below, unless shared.
     if (o instanceof T.InstancedMesh) o.dispose();
-    const m = o as unknown as { geometry?: Geo; material?: Mat & { map?: Tex | null } };
+    const m = o as unknown as { geometry?: Geo; material?: (Mat & { map?: Tex | null }) | (Mat & { map?: Tex | null })[] };
     // Sprites share one shape inside three.js; stack shapes belong to the kit.
     if (m.geometry && !shared.has(m.geometry) && !(o instanceof T.Sprite) && m.geometry.userData.stack !== true) m.geometry.dispose();
-    if (m.material && !shared.has(m.material)) {
-      m.material.map?.dispose();
-      m.material.dispose();
+    // A mesh may carry one material or a list of them (a list's `.map` is the array method, not a texture).
+    const mats = Array.isArray(m.material) ? m.material : m.material ? [m.material] : [];
+    for (const mat of mats) {
+      if (shared.has(mat)) continue;
+      const tex = mat.map;
+      if (tex && typeof tex.dispose === 'function') tex.dispose();
+      if (typeof mat.dispose === 'function') mat.dispose();
     }
   });
 }
@@ -452,13 +462,30 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
       const wallLen = along ? r.w : r.d;
       const startAlong = along ? Math.min(c.door.x1, c.door.x2) - r.x : Math.min(c.door.y1, c.door.y2) - r.y;
       const room = { before: startAlong, after: wallLen - startAlong - dw };
+      const side = room.after >= room.before ? 1 : -1;
+      const number = c.no ?? c.index + 1;
+      // A black rail over the wall, long enough for the door to slide open along it.
+      box(along ? dw * 2 + 0.3 : 0.1, 0.1, along ? 0.1 : dw * 2 + 0.3, wx(o, dm.x + (along ? side * dw * 0.5 : 0) - c.inward.x * 0.13), c.doorH + 0.26, wz(o, dm.y + (along ? 0 : side * dw * 0.5) - c.inward.y * 0.13), mats.rail);
       if (c.toScale && Math.max(room.before, room.after) >= dw * 0.9) {
-        const side = room.after >= room.before ? 1 : -1;
         const shiftBy = side * (dw + 0.05);
         const out = 0.16;
         const lx = dm.x + (along ? shiftBy : 0) - c.inward.x * out;
         const ly = dm.y + (along ? 0 : shiftBy) - c.inward.y * out;
-        box(along ? dw : 0.1, c.doorH, along ? 0.1 : dw, wx(o, lx), c.doorH / 2, wz(o, ly), mats.leaf);
+        box(along ? dw : 0.1, c.doorH, along ? 0.1 : dw, wx(o, lx), c.doorH / 2, wz(o, ly), mats.doorYellow);
+        // The door's face as seen from the passage: number badge, warning triangle, glass window.
+        const face = new T.MeshBasicMaterial({ map: chamberDoorTexture(T, number, c.doorH / dw) });
+        const plane = new T.Mesh(new T.PlaneGeometry(dw, c.doorH), face);
+        plane.position.set(wx(o, lx - c.inward.x * 0.06), c.doorH / 2, wz(o, ly - c.inward.y * 0.06));
+        plane.rotation.y = Math.atan2(-c.inward.x, c.inward.y);
+        add(plane);
+      }
+      // The grey control box with its lights, on the wall beside the door.
+      const beside = -side * (dw / 2 + 0.4);
+      const bx = dm.x + (along ? beside : 0) - c.inward.x * 0.2;
+      const by = dm.y + (along ? 0 : beside) - c.inward.y * 0.2;
+      box(along ? 0.28 : 0.12, 0.4, along ? 0.12 : 0.28, wx(o, bx), 1.3, wz(o, by), mats.ctrl);
+      for (const [dy, m] of [[0.12, mats.ledOn], [0.04, mats.ledWarn]] as const) {
+        box(along ? 0.05 : 0.02, 0.05, along ? 0.02 : 0.05, wx(o, bx - c.inward.x * 0.07), 1.3 + dy, wz(o, by - c.inward.y * 0.07), m);
       }
       // Its name on a sign over the door, flat on the wall outside (as stores paint them): read
       // from the passage, so a farmer finds "Chamber 2" without counting doors.
