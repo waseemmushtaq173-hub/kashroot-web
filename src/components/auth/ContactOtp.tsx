@@ -52,7 +52,7 @@ export interface ContactOtpProps {
   locked?: boolean;
   /** Send the code as soon as the panel opens. */
   autoSend?: boolean;
-  /** Email to fall back to when SMS cannot be sent (rate-limit, quota, delivery error, or a 4 s timeout). */
+  /** Email to fall back to when SMS cannot be sent (rate-limit, quota, delivery error). */
   emailFallback?: string | null;
 }
 
@@ -60,6 +60,12 @@ export type PhoneRoute = 'sms' | 'whatsapp';
 
 const INPUT = 'block min-h-11 w-full rounded-xl border-0 bg-white px-3.5 py-2.5 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 disabled:bg-slate-50 disabled:text-slate-500';
 const BUTTON = 'inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50';
+
+/** Words for a failed send — never the raw fetch internals; always words a person can act on. */
+function sendWords(err: unknown): string {
+  const raw = err instanceof Error && err.message && err.message !== 'Failed to fetch' ? err.message : '';
+  return raw && !/timed?\s*out|aborted/i.test(raw) ? raw : 'Could not send the OTP. Press Send OTP again.';
+}
 
 export function ContactOtp({ channel, value, onChange, onVerified, verified, onReset, label, accent = EMERALD, required, hint, routes = ['sms'], onUnavailable, locked = false, autoSend = false, emailFallback }: ContactOtpProps) {
   const id = useId();
@@ -70,6 +76,8 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
   const [error, setError] = useState<string | null>(null);
   const [wait, setWait] = useState(0);
   const [fallback, setFallback] = useState(false);
+  // The inbox the code really went to, when it was not the address typed (the server says so; see /api/otp/send).
+  const [routedVia, setRoutedVia] = useState<string | null>(null);
   useEffect(() => {
     if (wait <= 0) return;
     const t = window.setTimeout(() => setWait((s) => s - 1), 1000);
@@ -89,25 +97,40 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
     setBusy('send');
     setError(null);
     setFallback(false);
+    setRoutedVia(null);
     try {
-      const res = await fetch('/api/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel, to: value }), signal: AbortSignal.timeout(4_000) });
+      // Every code is real: the server signs a token and the 6-digit code
+      // goes only to the phone or the inbox. An email the sender cannot
+      // deliver (unconfigured, refused, or slower than the server's
+      // 15-second budget) comes back as 502 { unavailable: true } — the
+      // visitor is told plainly, and what the caller offers then is the
+      // caller's choice; no code is ever shown on screen.
+      const res = await fetch('/api/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel, to: value }) });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok && sms) onUnavailable?.();
-      if (!res.ok) throw new Error(data.error ?? 'Could not send the OTP.');
+      // "Sent" is said only on a 200 that carries a token: anything else is an error, shown as the server worded it.
+      if (!res.ok || !data.token) {
+        if (data.unavailable) onUnavailable?.();
+        throw new Error(data.error ?? 'Could not send the OTP.');
+      }
       setToken(data.token);
+      setRoutedVia(typeof data.routedViaVerifiedInbox === 'string' ? data.routedViaVerifiedInbox : null);
       setSentVia(Array.isArray(data.via) ? data.via : []);
       setSentTo(data.to);
       setCode('');
       setWait(30);
     } catch (err) {
-      // SMS failed (rate-limit, quota, delivery error, or 4 s timeout): fall back to email automatically.
+      // SMS failed (rate-limit, quota, delivery error): fall back to email automatically.
       if (sms && emailFallback) {
         setFallback(true);
         try {
-          const res2 = await fetch('/api/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel: 'email', to: emailFallback }), signal: AbortSignal.timeout(4_000) });
+          const res2 = await fetch('/api/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel: 'email', to: emailFallback }) });
           const data2 = await res2.json().catch(() => ({}));
-          if (!res2.ok) throw new Error(data2.error ?? 'Could not send the OTP.');
+          if (!res2.ok || !data2.token) {
+            if (data2.unavailable) onUnavailable?.();
+            throw new Error(data2.error ?? 'Could not send the OTP.');
+          }
           setToken(data2.token);
+          setRoutedVia(typeof data2.routedViaVerifiedInbox === 'string' ? data2.routedViaVerifiedInbox : null);
           setSentVia(['email']);
           setSentTo(emailFallback ?? '');
           setCode('');
@@ -115,11 +138,12 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
           setError(null);
         } catch (err2) {
           setFallback(false);
-          setError(err2 instanceof Error && err2.message !== 'Failed to fetch' ? err2.message : 'Could not send the OTP. Check your connection.');
+          setError(sendWords(err2));
         }
       } else {
-        if (sms) onUnavailable?.();
-        setError(err instanceof Error && err.message !== 'Failed to fetch' ? err.message : 'Could not send the OTP. Check your connection.');
+        // The site cannot send this code right now — the sender is down, not the visitor's fault.
+        onUnavailable?.();
+        setError(sendWords(err));
       }
     } finally {
       setBusy(null);
@@ -136,12 +160,13 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoSend, valid]);
 
-  const verify = async () => {
-    if (!token || code.length !== 6) return;
+  const verify = async (override?: string) => {
+    const typed = override ?? code;
+    if (!token || typed.length !== 6) return;
     setBusy('verify');
     setError(null);
     try {
-      const res = await fetch('/api/otp/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, code }) });
+      const res = await fetch('/api/otp/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, code: typed }) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? 'That OTP is not correct.');
       setToken(null);
@@ -215,8 +240,16 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
               resendIn={wait}
               resending={busy === 'send'}
             >
+              {routedVia && (
+                <p role="status" data-testid="otp-routed" className="mb-3 rounded-xl bg-amber-50 px-3 py-2 text-left text-sm text-amber-950 ring-1 ring-amber-300">
+                  <strong>Verification code sent! (Delivered via your verified inbox: {routedVia})</strong>
+                  <span className="mt-1 block text-xs">
+                    Resend sandbox active: the 6-digit OTP for {sentTo} was delivered to the verified inbox ({routedVia}), not to {sentTo}.
+                  </span>
+                </p>
+              )}
               <OtpBoxes id={`${id}-code`} label="6-digit OTP" value={code} onChange={setCode} disabled={busy === 'verify'} invalid={Boolean(error)} onEnter={() => void verify()} />
-              {fallback ? (
+              {routedVia ? null : fallback ? (
                 <p className="mt-3 text-sm text-emerald-700">SMS limit reached — we sent the 6-digit verification code to your email instead.</p>
               ) : (
                 <p className="mt-3 text-sm text-slate-600">OTP sent{sms && sentVia.length ? ` by ${joinNames(sentVia)}` : ''} to <span className="font-semibold text-slate-900">{sentTo}</span>. It expires in 10 minutes.</p>

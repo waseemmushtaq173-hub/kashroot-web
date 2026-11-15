@@ -624,7 +624,7 @@ function ShopSection({ org, members, suspended, busy, act }: { org: Org & { role
     const { data } = await supabase.auth.getSession();
     const uid = data.session?.user.id ?? null;
     setMe(uid);
-    const cols = 'id, product, variety, district, active, org_id, seller_id';
+    const cols = '*';
     const [inOrg, outside, o, d] = await Promise.all([
       supabase.from('market_listings').select(cols).eq('org_id', org.id).order('created_at'),
       // The owner's own products not in any business yet, to put in this one.

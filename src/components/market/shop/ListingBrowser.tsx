@@ -16,11 +16,13 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Package, RefreshCw, Search } from 'lucide-react';
 
+import { ClusterTruckBar, type PoolLine } from '@/components/market/shop/ClusterTruckBar';
 import { ListingCard } from '@/components/market/shop/ListingCard';
 import { useLiveListings, type ShopListing } from '@/components/market/shop/useLiveListings';
 import { Btn, EmptyState, INPUT, type PortalTheme, Skeleton } from '@/components/portal/kit';
 import { RegionChip } from '@/components/voice/RegionChip';
 import { PRODUCE, SUBCATEGORIES, type MarketCategory } from '@/lib/db/market';
+import { CLUSTER_RADIUS_KM, TRUCK_CAPACITY_BOXES, computeRealDistanceKm, isValidCoordinate } from '@/lib/clusterConsolidation';
 import { searchFromLink } from '@/lib/navIntent';
 import { ownFilter, regionFirst, stateLabel, useRegion, type Crop } from '@/lib/region';
 
@@ -48,12 +50,15 @@ function keepChoice(options: { value: string; label: string }[], chosen: string)
   return [...options, { value: chosen, label: `${label} (none on sale now)` }];
 }
 
-export function ListingBrowser({ category, theme, accountId, onOrder, empty, toolbar }: {
+export function ListingBrowser({ category, theme, accountId, onOrder, empty, toolbar, cluster = false }: {
   category: MarketCategory;
   theme: PortalTheme;
   /** The signed-in person: their own products show "Yours" instead of Order. */
   accountId?: string | null;
-  onOrder: (listing: ShopListing) => void;
+  /** `boxes`: how many the buyer put on the truck for this listing (the order form opens with that number). */
+  onOrder: (listing: ShopListing, boxes?: number) => void;
+  /** The Buyer portal: the 10 km cluster from the 1st order, and the 2,000-box truck (real listing GPS and stock only). */
+  cluster?: boolean;
   /** Shown when nothing at all is listed yet (no made-up products). */
   empty: ReactNode;
   /** Extra controls at the top of the filter box (e.g. what to compare). */
@@ -72,6 +77,10 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
   const [search, setSearch] = useState(() => (!params.get('category') || params.get('category') === category ? searchFromLink(params) : ''));
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  // The cluster: the 1st-order anchor, the boxes chosen for the truck (in the order chosen), and the 10 km filter.
+  const [anchorId, setAnchorId] = useState<string | null>(null);
+  const [pool, setPool] = useState<{ id: string; boxes: number }[]>([]);
+  const [nearOnly, setNearOnly] = useState(false);
 
   const all = useMemo(() => listings ?? [], [listings]);
   const ofKind = useMemo(() => all.filter((l) => !kind || l.subcategory === kind), [all, kind]);
@@ -80,9 +89,37 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
     [all, ofKind, variety, grade, district],
   );
 
+  // Only listings still on sale count: one that sold out or was taken off drops off the truck and stops being the anchor.
+  const anchor = useMemo(() => (cluster ? all.find((l) => l.id === anchorId) ?? null : null), [cluster, all, anchorId]);
+  const lines = useMemo<PoolLine[]>(
+    () => pool.flatMap((p) => {
+      const listing = all.find((l) => l.id === p.id);
+      return listing ? [{ listing, boxes: Math.min(p.boxes, Number(listing.quantity)) }] : [];
+    }),
+    [pool, all],
+  );
+  const onTruck = lines.reduce((n, l) => n + l.boxes, 0);
+  const kmFromAnchor = (l: ShopListing) => (anchor && anchor.id !== l.id ? computeRealDistanceKm(anchor.captured_lat, anchor.captured_lng, l.captured_lat, l.captured_lng) : null);
+  const makeAnchor = (l: ShopListing) => setAnchorId(l.id);
+  const toggleTruck = (l: ShopListing) => {
+    if (pool.some((p) => p.id === l.id)) return setPool(pool.filter((p) => p.id !== l.id));
+    const room = TRUCK_CAPACITY_BOXES - onTruck;
+    if (room <= 0) return;
+    // All the listing has, or what still fits on the truck; the buyer changes the number on the truck bar.
+    setPool([...pool, { id: l.id, boxes: Math.max(1, Math.min(Math.floor(Number(l.quantity)), room)) }]);
+    // The first listing on the truck with GPS is the 1st order, unless the buyer already chose one.
+    if (!anchor && isValidCoordinate(l.captured_lat, l.captured_lng)) setAnchorId(l.id);
+  };
+
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase();
     return ofKind
+      .filter((l) => {
+        if (!nearOnly || !anchor) return true;
+        if (l.id === anchor.id) return true;
+        const km = computeRealDistanceKm(anchor.captured_lat, anchor.captured_lng, l.captured_lat, l.captured_lng);
+        return km !== null && km <= CLUSTER_RADIUS_KM;
+      })
       .filter((l) =>
         (!variety || key(l.variety) === variety) &&
         (!grade || key(l.grade) === grade) &&
@@ -91,9 +128,9 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
         (!q || `${l.product} ${l.variety ?? ''} ${l.grade ?? ''} ${l.seller_name} ${l.district} ${l.subcategory ?? ''}`.toLowerCase().includes(q)),
       )
       .sort((a, b) => Number(a.price) - Number(b.price));
-  }, [ofKind, variety, grade, district, verifiedOnly, verified, search]);
+  }, [ofKind, variety, grade, district, verifiedOnly, verified, search, nearOnly, anchor]);
 
-  const filtered = Boolean(kind || variety || grade || district || verifiedOnly || search.trim());
+  const filtered = Boolean(kind || variety || grade || district || verifiedOnly || search.trim() || (nearOnly && anchor));
   const clear = () => {
     setKind(ALL);
     setVariety(ALL);
@@ -101,6 +138,7 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
     setDistrict(ALL);
     setSearch('');
     setVerifiedOnly(false);
+    setNearOnly(false);
   };
   const reload = async () => {
     setRefreshing(true);
@@ -119,6 +157,16 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
 
   return (
     <section aria-label="Products" className="space-y-5">
+      {cluster && (
+        <ClusterTruckBar
+          lines={lines}
+          anchor={anchor}
+          onBoxes={(id, boxes) => setPool(pool.map((p) => (p.id === id ? { ...p, boxes } : p)))}
+          onRemove={(id) => setPool(pool.filter((p) => p.id !== id))}
+          onOrder={(l, boxes) => onOrder(l, boxes)}
+          onClear={() => setPool([])}
+        />
+      )}
       <div className="grid gap-3 rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-slate-900/5">
         {toolbar}
         {produce && (
@@ -171,9 +219,19 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
           </label>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <label className="flex min-h-11 cursor-pointer items-center gap-2 whitespace-nowrap text-sm font-medium text-slate-700">
-            <input type="checkbox" checked={verifiedOnly} onChange={(e) => setVerifiedOnly(e.target.checked)} className="h-5 w-5 rounded border-slate-300 text-sky-700" /> Verified sellers only
-          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex min-h-11 cursor-pointer items-center gap-2 whitespace-nowrap text-sm font-medium text-slate-700">
+              <input type="checkbox" checked={verifiedOnly} onChange={(e) => setVerifiedOnly(e.target.checked)} className="h-5 w-5 rounded border-slate-300 text-[#174C3C]" /> Verified sellers only
+            </label>
+            {cluster && (
+              <button type="button" aria-pressed={nearOnly && Boolean(anchor)} disabled={!anchor} title={anchor ? undefined : 'Choose a 1st order first: “Set as 1st Order Anchor” on a listing with GPS'} onClick={() => setNearOnly(!nearOnly)} className="kr-btn-secondary kr-btn-sm min-h-11">
+                Show Only Growers Within {CLUSTER_RADIUS_KM} km of 1st Order
+              </button>
+            )}
+            {cluster && anchor && (
+              <button type="button" onClick={() => { setAnchorId(null); setNearOnly(false); }} className="min-h-11 cursor-pointer rounded-xl px-3 text-sm font-semibold text-[#52665E] hover:bg-[#EAF3EE]">Clear the 1st order anchor</button>
+            )}
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             {listings !== null && <span className="text-sm text-slate-600">{shown.length} {shown.length === 1 ? 'product' : 'products'} · cheapest first</span>}
             {filtered && <Btn theme={theme} variant="ghost" className="min-h-11" onClick={clear}>Clear filters</Btn>}
@@ -201,7 +259,16 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
       ) : (
         <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {shown.map((l, i) => (
-            <ListingCard key={l.id} listing={l} verified={verified.has(l.seller_id)} lowest={i === 0 && Boolean(kind)} own={accountId === l.seller_id} theme={theme} onOrder={() => onOrder(l)} />
+            <ListingCard
+              key={l.id}
+              listing={l}
+              verified={verified.has(l.seller_id)}
+              lowest={i === 0 && Boolean(kind)}
+              own={accountId === l.seller_id}
+              theme={theme}
+              onOrder={() => onOrder(l, pool.find((p) => p.id === l.id)?.boxes)}
+              cluster={cluster ? { isAnchor: anchor?.id === l.id, hasAnchor: Boolean(anchor), kmFromAnchor: kmFromAnchor(l), onTruck: lines.find((x) => x.listing.id === l.id)?.boxes ?? 0, truckFull: onTruck >= TRUCK_CAPACITY_BOXES, onAnchor: () => makeAnchor(l), onTruckToggle: () => toggleTruck(l) } : undefined}
+            />
           ))}
         </ul>
       )}

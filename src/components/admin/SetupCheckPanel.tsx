@@ -108,9 +108,9 @@ function OptionalServices() {
     { name: 'Server secret (KYC_DB_SECRET)', on: state.server, onText: 'set — identity checks, shared limits, the security log and help requests work', offText: 'not set — add it in Vercel (see SECURITY.md)' },
     // The site key is built into the pages (NEXT_PUBLIC_, at deploy time); the secret is read by the server now.
     state.human === humanCheckOn
-      ? { name: '“I am human” check (hCaptcha)', on: state.human, onText: 'on — both keys set; Supabase CAPTCHA may be on', offText: 'off — optional. While it is off, Supabase CAPTCHA must stay OFF too, or nobody can sign in', optional: true }
+      ? { name: '“I am human” check (Google reCAPTCHA)', on: state.human, onText: 'on — both keys set; Supabase CAPTCHA may be on', offText: 'off — optional. While it is off, Supabase CAPTCHA must stay OFF too, or nobody can sign in', optional: true }
       : {
-          name: '“I am human” check (hCaptcha)',
+          name: '“I am human” check (Google reCAPTCHA)',
           on: false,
           onText: '',
           offText: state.human
@@ -126,7 +126,7 @@ function OptionalServices() {
       <ul className="divide-y divide-slate-200 rounded-xl text-sm ring-1 ring-slate-200" data-optional-services>
         {rows.map((r) => (
           <li key={r.name} className="grid grid-cols-[1.5rem_1fr] items-start gap-2 px-3 py-2">
-            {r.on ? <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-700" aria-label="On" /> : r.optional ? <Info className="mt-0.5 h-4 w-4 text-sky-700" aria-label="Optional" /> : <XCircle className="mt-0.5 h-4 w-4 text-amber-700" aria-label="Missing" />}
+            {r.on ? <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-700" aria-label="On" /> : r.optional ? <Info className="mt-0.5 h-4 w-4 text-[#174C3C]" aria-label="Optional" /> : <XCircle className="mt-0.5 h-4 w-4 text-amber-700" aria-label="Missing" />}
             <span>
               <span className="font-semibold text-slate-900">{r.name}</span>
               <span className="text-slate-600"> — {r.on ? r.onText : r.offText}</span>

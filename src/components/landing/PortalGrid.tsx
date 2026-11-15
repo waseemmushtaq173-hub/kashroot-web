@@ -1,66 +1,86 @@
 'use client';
 
 /**
- * Every portal as a coloured 3D card. Each opens the portal; anyone not
- * signed in to that portal lands on its own sign-in. (Orchard Health and the
- * Season Planner are part of the Farmer portal.)
+ * Every portal as a card, from lib/portalCardsConfig: the portal's real
+ * purpose, a gold badge word, and its direct action route. All cards wear the
+ * one KashRoot look (white tactile card, soft green icon tile, champagne gold
+ * accents, forest green button); a portal's own identity is its icon and
+ * badge word. Each opens the portal; anyone not signed in to that portal lands
+ * on its own sign-in. (Orchard Health and the Season Planner are part of the
+ * Farmer portal.) Admin appears only on an admin's own device (see adminDevice).
  */
 import Link from 'next/link';
 import { ArrowUpRight } from 'lucide-react';
 
-import { PORTAL_LOGIN } from '@/components/auth/portalLoginConfig';
-import { PORTAL_THEMES, type PortalThemeId } from '@/components/portal/kit';
 import { Tilt3D } from '@/components/three/Tilt3D';
-import { PORTALS, PUBLIC_PORTAL_IDS, type PortalId } from '@/lib/auth/roles';
+import { PORTALS } from '@/lib/auth/roles';
 import { useShowAdmin } from '@/lib/client/adminDevice';
-
-const KIT_THEME: Record<PortalId, PortalThemeId> = {
-  farmer: 'farmer',
-  buyer: 'buyer',
-  kissan: 'kissan',
-  rental: 'rental',
-  tracking: 'tracking',
-  dealer: 'dealer',
-  expert: 'expert',
-  trader: 'trader',
-  admin: 'admin',
-};
+import { EIGHT_PORTALS_CONFIG } from '@/lib/portalCardsConfig';
 
 const CARD =
-  'group relative flex h-full min-h-[11.5rem] flex-col overflow-hidden rounded-3xl p-5 text-slate-900 no-underline shadow-[0_18px_40px_-18px_rgba(15,23,42,0.35)] ring-1 ring-white/80 transition [transform-style:preserve-3d] hover:no-underline hover:shadow-[0_28px_60px_-20px_rgba(15,23,42,0.45)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2';
+  'kr-card kr-card-interactive group relative flex h-full min-h-[11.5rem] flex-col overflow-hidden rounded-3xl p-5 text-ink no-underline hover:no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest';
+// A forest and gold badge standing on its own ledge (globals.css .kr-icon-badge).
+const ICON = 'kr-icon-badge relative grid h-12 w-12 place-items-center rounded-2xl';
+const BADGE = 'relative rounded-full border border-champagne/60 bg-champagne-soft px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-champagne-deep';
+// The button inside a card lifts and sinks with the card (the card is the link).
+const CTA = 'kr-btn-primary relative mt-auto w-full justify-between group-hover:[transform:translateY(-1px)] group-hover:[box-shadow:var(--kr-btn-primary-hover-shadow)] group-active:[transform:translateY(1.5px)] group-active:[box-shadow:var(--kr-btn-primary-active-shadow)] motion-reduce:group-hover:[transform:none] motion-reduce:group-active:[transform:none]';
 
 export function PortalGrid() {
   // Admin appears only on an admin's own phone or computer (see adminDevice).
   const showAdmin = useShowAdmin();
-  const ids: PortalId[] = showAdmin ? [...PUBLIC_PORTAL_IDS, 'admin'] : PUBLIC_PORTAL_IDS;
   return (
     <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {ids.map((id) => {
-        const copy = PORTAL_LOGIN[id];
-        const theme = PORTAL_THEMES[KIT_THEME[id]];
-        const Icon = copy.icon;
+      {EIGHT_PORTALS_CONFIG.map((card) => {
+        const Icon = card.icon;
         return (
-          <li key={id}>
+          <li key={card.id}>
             <Tilt3D className="rounded-3xl">
-              <Link
-                href={PORTALS[id].home}
-                className={`${CARD} ${theme.canvas} ${theme.outline}`}
-              >
-                <span aria-hidden className={`pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full opacity-40 blur-2xl ${theme.tile}`} />
-                <span data-depth className={`relative grid h-12 w-12 place-items-center rounded-2xl ${copy.theme.iconTile}`}>
-                  <Icon className="h-6 w-6" aria-hidden />
+              <Link href={card.href} className={CARD}>
+                <span aria-hidden className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-champagne to-transparent" />
+                <span className="flex items-start justify-between gap-3">
+                  <span className={ICON}>
+                    <Icon className="h-6 w-6" aria-hidden />
+                  </span>
+                  <span aria-hidden className={BADGE}>{card.tag}</span>
                 </span>
-                <span className="relative mt-4 block text-lg font-semibold tracking-tight">{PORTALS[id].label}</span>
-                <span className="relative mt-1 block text-sm text-slate-600">{PORTALS[id].tagline}</span>
-                <span className={`relative mt-auto inline-flex items-center gap-1 pt-4 text-sm font-semibold ${theme.accent}`}>
-                  {PORTALS[id].requiredRole ? `${PORTALS[id].label} sign-in` : 'Open'}
-                  <ArrowUpRight className="h-4 w-4 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden />
+                <span className="relative mt-4 block text-lg font-semibold tracking-tight text-ink">{card.name}</span>
+                <span className="relative mb-4 mt-1 block text-sm leading-relaxed text-ink-soft">{card.purpose}</span>
+                <span className={CTA}>
+                  {card.actionLabel}
+                  <ArrowUpRight className="h-4 w-4 text-champagne transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden />
                 </span>
               </Link>
             </Tilt3D>
           </li>
         );
       })}
+      {showAdmin && <AdminCard />}
     </ul>
+  );
+}
+
+/** The admin console, only on an admin's own device: same card language. */
+function AdminCard() {
+  const admin = PORTALS.admin;
+  return (
+    <li>
+      <Tilt3D className="rounded-3xl">
+        <Link href={admin.home} className={CARD}>
+          <span aria-hidden className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-champagne to-transparent" />
+          <span className="flex items-start justify-between gap-3">
+            <span className={ICON}>
+              <ArrowUpRight className="h-6 w-6 rotate-45" aria-hidden />
+            </span>
+            <span aria-hidden className={BADGE}>Staff</span>
+          </span>
+          <span className="relative mt-4 block text-lg font-semibold tracking-tight text-ink">{admin.label}</span>
+          <span className="relative mb-4 mt-1 block text-sm leading-relaxed text-ink-soft">{admin.tagline}</span>
+          <span className={CTA}>
+            Open Admin Console
+            <ArrowUpRight className="h-4 w-4 text-champagne transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden />
+          </span>
+        </Link>
+      </Tilt3D>
+    </li>
   );
 }

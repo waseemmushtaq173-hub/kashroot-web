@@ -22,7 +22,7 @@ export interface ShopListing extends Omit<MarketListing, 'photo'> {
   created_at: string;
 }
 
-const COLUMNS = 'id, seller_id, seller_name, phone, district, category, subcategory, product, variety, grade, unit, price, quantity, details, active, created_at, updated_at';
+const COLUMNS = '*';
 const REFRESH_MS = 30_000;
 /** Listings per photo request (keeps the request address short). */
 const PHOTO_BATCH = 40;
@@ -80,7 +80,7 @@ export function useLiveListings(category: MarketCategory): LiveListings {
       const missing = rows.filter((r) => cache.get(r.id)?.at !== r.updated_at).map((r) => r.id);
       for (let i = 0; i < missing.length; i += PHOTO_BATCH) {
         const ids = missing.slice(i, i + PHOTO_BATCH);
-        const p = await supabase.from('market_listings').select('id, photo, updated_at').in('id', ids);
+        const p = await supabase.from('market_listings').select('*').in('id', ids);
         if (p.error || stale()) break;
         const got = new Map(((p.data ?? []) as { id: string; photo: string | null; updated_at: string }[]).map((x) => [x.id, x]));
         for (const id of ids) {

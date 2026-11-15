@@ -2,10 +2,20 @@
  * POST { channel: 'sms' | 'whatsapp' | 'email', to, human? } → { token } (the code goes only to the phone or inbox).
  * Each code costs money: limited per number and per network (shared by all instances), and — when the
  * "I am human" check is switched on (HCAPTCHA_SECRET_KEY) — only for a browser that passed it.
+ *
+ * Every code is real: the answer carries a signed token, and the 6-digit
+ * code itself goes only to the phone or the inbox. An email that the sender
+ * cannot deliver (unconfigured, refused by Gmail, or slower than the
+ * 15-second budget) is a 502 with { unavailable: true } — the visitor is
+ * told plainly and may try again; the sign-in's dashboard opens only on a
+ * verified code. No code is ever shown on screen. When the only working
+ * route is Resend's test sender (it reaches the Resend account owner alone),
+ * the code goes to the site's verified inbox and the answer carries
+ * routedViaVerifiedInbox with that address.
  */
 import { NextResponse } from 'next/server';
 
-import { emailConfigured, normalise, sendCode, SmsProviderError, smsConfigured, whatsappConfigured, type Channel } from '@/lib/server/otp';
+import { normalise, sendCode, sendEmailCode, SmsProviderError, smsConfigured, whatsappConfigured, type Channel } from '@/lib/server/otp';
 import { securityEvent } from '@/lib/server/securityLog';
 import { hashed, sharedIpLimited, sharedLimited } from '@/lib/server/sharedLimit';
 import { hasSigningSecret } from '@/lib/server/sign';
@@ -16,19 +26,43 @@ export async function POST(request: Request) {
   const phone = channel !== 'email';
   const target = normalise(channel, String(to ?? ''));
   if (!target) return NextResponse.json({ error: phone ? 'Enter a valid 10-digit Indian mobile number.' : 'Enter a valid email address.' }, { status: 400 });
-  // A mobile code goes by SMS and WhatsApp together, so either one is enough.
-  const configured = channel === 'sms' ? smsConfigured() || whatsappConfigured() : channel === 'whatsapp' ? whatsappConfigured() : emailConfigured();
-  if (!hasSigningSecret() || !configured) {
+  if (!hasSigningSecret()) return NextResponse.json({ error: 'Verification is not configured.' }, { status: 503 });
+
+  const rateLimited = async () => {
+    // A mobile code goes by SMS and WhatsApp together, so either one is enough; the limit is per channel.
+    if (await sharedLimited(`otp:${channel}:${hashed(target)}`, 4, 15 * 60_000)) {
+      securityEvent('rate_limited', { request, account: target, detail: `otp-send: 4 codes to one ${channel} address in 15 min` });
+      return true;
+    }
+    if (await sharedIpLimited(request, 'otp', 20, 15 * 60_000)) return true;
+    return false;
+  };
+
+  if (await rateLimited()) return NextResponse.json({ error: 'Too many codes requested. Wait a few minutes and try again.' }, { status: 429 });
+
+  // Email: the 15-second send. Delivered: 200 with the signed token — the
+  // code is only ever in the inbox. Not delivered (sender unconfigured,
+  // refused, or slower than the budget): 502 unavailable — the visitor is
+  // told plainly and may try again; the code is never shown on screen.
+  if (channel === 'email') {
+    const { delivered, token, routedVia } = await sendEmailCode(target);
+    // Sent to the address itself — or, when only Resend's test sender works, to the site's verified inbox:
+    // the answer then names that inbox, so the screen never claims the code is in an inbox it did not reach.
+    if (delivered) return NextResponse.json({ ok: true, sent: true, emailDelivered: true, token, via: ['email'], to: target, ...(routedVia ? { routedViaVerifiedInbox: routedVia } : {}) });
     return NextResponse.json(
-      { configured: false, error: `${channel === 'sms' ? 'SMS' : channel === 'whatsapp' ? 'WhatsApp' : 'Email'} OTPs are not switched on for this site yet, so this step is optional for now.` },
+      { error: 'The verification email could not be sent just now. This is the site’s email setup, not your address — please try again in a minute.', unavailable: true },
+      { status: 502 },
+    );
+  }
+
+  // A mobile code goes by SMS and WhatsApp together, so either one is enough.
+  const configured = channel === 'sms' ? smsConfigured() || whatsappConfigured() : whatsappConfigured();
+  if (!configured) {
+    return NextResponse.json(
+      { configured: false, error: `${channel === 'sms' ? 'SMS' : 'WhatsApp'} OTPs are not switched on for this site yet, so this step is optional for now.` },
       { status: 503 },
     );
   }
-  if (await sharedLimited(`otp:${channel}:${hashed(target)}`, 4, 15 * 60_000)) {
-    securityEvent('rate_limited', { request, account: target, detail: 'otp-send: 4 codes to one number in 15 min' });
-    return NextResponse.json({ error: 'Too many codes requested. Wait a few minutes and try again.' }, { status: 429 });
-  }
-  if (await sharedIpLimited(request, 'otp', 20, 15 * 60_000)) return NextResponse.json({ error: 'Too many codes requested. Wait a few minutes and try again.' }, { status: 429 });
   try {
     const { token, via } = await sendCode(channel, target);
     return NextResponse.json({ token, via, to: phone ? `••••••${target.slice(-4)}` : target });

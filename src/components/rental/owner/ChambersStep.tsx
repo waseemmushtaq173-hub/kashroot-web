@@ -14,11 +14,12 @@ import { Box as BoxIcon, CheckCircle2, CircleAlert, Copy, DoorOpen, Layers, Map 
 
 import { Btn, PORTAL_THEMES } from '@/components/portal/kit';
 import { ChamberSide, floorText } from '@/components/rental/owner/ChamberSide';
-import { Counter, Problems, StoragePicker, WallPicker } from '@/components/rental/owner/fields';
+import { BIG, Counter, Problems, StoragePicker, WallPicker } from '@/components/rental/owner/fields';
 import { Preview3D } from '@/components/rental/owner/Preview3D';
+import { TwinCapacity } from '@/components/rental/owner/TwinCapacity';
 import { StoreDrawing } from '@/components/rental/owner/StoreDrawing';
 import { KitBox, type Kit } from '@/components/rental/owner/StoreSteps';
-import { blankChamber, copyChamber, countText, nextNumber, nice, readNumber, UNIT_WORDS, type ChamberDraft } from '@/lib/coldStore';
+import { blankChamber, copyChamber, countText, nextNumber, nice, readNumber, UNIT_WORDS, type ChamberDraft, type Packed } from '@/lib/coldStore';
 import type { ColdChamber } from '@/lib/db/coldMap';
 
 const theme = PORTAL_THEMES.rental;
@@ -75,7 +76,7 @@ export function ChambersStep({
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
       <div className="min-w-0 space-y-5">
         <p className="flex items-start gap-2 text-base text-slate-700">
-          <BoxIcon className="mt-1 h-5 w-5 shrink-0 text-emerald-700" aria-hidden /> Add each chamber: what it holds, its floors, its size and its door. KashRoot lays out the stacks — always exactly your count.
+          <BoxIcon className="mt-1 h-5 w-5 shrink-0 text-[#174C3C]" aria-hidden /> Add each chamber: what it holds, its floors, its size and its door. KashRoot lays out the stacks — always exactly your count.
         </p>
         <div role="tablist" aria-label="Your chambers" className="flex flex-wrap gap-2">
           {draft.chambers.map((c) => {
@@ -83,14 +84,14 @@ export function ChambersStep({
             const on = open?.key === c.key;
             const mc = model.chambers.find((x) => x.key === c.key);
             return (
-              <button key={c.key} type="button" role="tab" aria-selected={on} onClick={() => onSelect(c.key)} className={`inline-flex min-h-[48px] cursor-pointer items-center gap-2 rounded-xl px-3.5 text-sm font-semibold ring-2 transition ${on ? 'bg-chinar text-white ring-chinar' : 'bg-white text-slate-800 ring-slate-200 hover:ring-emerald-300'}`}>
+              <button key={c.key} type="button" role="tab" aria-selected={on} onClick={() => onSelect(c.key)} className={`inline-flex min-h-[48px] cursor-pointer items-center gap-2 rounded-xl px-3.5 text-sm font-semibold ring-2 transition ${on ? 'bg-[#12382E] text-white ring-[#174C3C]' : 'bg-white text-slate-800 ring-slate-200 hover:ring-[#C6DBD0]'}`}>
                 {st === 'ok' ? <CheckCircle2 className={`h-4 w-4 ${on ? 'text-white' : 'text-emerald-700'}`} aria-label="ready" /> : st === 'warn' ? <TriangleAlert className={`h-4 w-4 ${on ? 'text-amber-200' : 'text-amber-600'}`} aria-label="please check" /> : <CircleAlert className={`h-4 w-4 ${on ? 'text-rose-200' : 'text-rose-600'}`} aria-label="needs fixing" />}
                 Chamber {c.no || '?'}
-                {mc?.count ? <span className={`font-normal ${on ? 'text-emerald-100' : 'text-slate-500'}`}>· {countText(mc.count, c.storage)}</span> : null}
+                {mc?.count ? <span className={`font-normal ${on ? 'text-[#EAF3EE]' : 'text-slate-500'}`}>· {countText(mc.count, c.storage)}</span> : null}
               </button>
             );
           })}
-          <button type="button" onClick={add} className="inline-flex min-h-[48px] cursor-pointer items-center gap-1.5 rounded-xl bg-emerald-50 px-3.5 text-sm font-semibold text-emerald-800 ring-2 ring-emerald-200 hover:bg-emerald-100">
+          <button type="button" onClick={add} className="inline-flex min-h-[48px] cursor-pointer items-center gap-1.5 rounded-xl bg-[#EAF3EE] px-3.5 text-sm font-semibold text-[#174C3C] ring-2 ring-[#C6DBD0] hover:bg-[#EAF3EE]">
             <Plus className="h-4 w-4" aria-hidden /> Add a chamber
           </button>
         </div>
@@ -125,7 +126,7 @@ export function ChambersStep({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div role="tablist" aria-label="See your store" className="flex gap-1 rounded-2xl bg-ivory p-1 ring-1 ring-[#E8A317]/30">
             {([['drawing', 'Drawing', MapIcon], ['3d', '3D view', Layers]] as const).map(([id, label, Icon]) => (
-              <button key={id} type="button" role="tab" aria-selected={view === id} onClick={() => setView(id)} className={`inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-xl px-4 text-sm font-semibold transition ${view === id ? 'bg-sky-700 text-white shadow' : 'text-sky-900 hover:bg-sky-100'}`}>
+              <button key={id} type="button" role="tab" aria-selected={view === id} onClick={() => setView(id)} className={`inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-xl px-4 text-sm font-semibold transition ${view === id ? 'bg-[#174C3C] text-white shadow' : 'text-[#12382E] hover:bg-[#EAF3EE]'}`}>
                 <Icon className="h-4 w-4" aria-hidden /> {label}
               </button>
             ))}
@@ -147,13 +148,14 @@ export function ChambersStep({
           </>
         ) : (
           <>
-            <p className="text-sm text-slate-700">Your store in 3D, exactly as farmers will see it. Drag to turn it.</p>
+            <p className="text-sm text-slate-700">Your store in 3D, exactly as farmers will see it. Drag to turn it — or switch to the industrial digital twin above the view.</p>
             <Preview3D model={shown} listingId={listingId} selected={open?.key ?? null} onPick={onSelect} />
           </>
         )}
         {draft.chambers.filter((c) => !shown.chambers.some((mc) => mc.key === c.key)).map((c) => (
           <p key={c.key} className="text-xs text-slate-600">Chamber {c.no || '?'} is drawn once its length, width and height are filled in.</p>
         ))}
+        <TwinCapacity drafts={draft.chambers} unit={draft.unit} />
       </section>
     </div>
   );
@@ -194,9 +196,43 @@ function ChamberEditor({
       </div>
       <StoragePicker name={`${k}.storage`} value={c.storage} onChange={(v) => kit.set(`${k}.storage`, v)} />
       <div className="grid gap-5 sm:grid-cols-2">
+        <div>
+          <label htmlFor={`${k}-unit`} className="block text-sm font-semibold text-slate-800">3D twin unit type</label>
+          <select
+            id={`${k}-unit`}
+            className={`${BIG} mt-1.5`}
+            value={c.storage}
+            onChange={(e) => kit.set(`${k}.storage`, e.target.value as Packed)}
+          >
+            <option value="bins">Wooden bin</option>
+            <option value="crates">Blue plastic crate</option>
+          </select>
+          <p className="mt-1 text-xs text-slate-600">The same choice as above, drawn in the 3D view.</p>
+        </div>
+        <Counter
+          label="Levels in one rack"
+          name={`${k}.rackLevels`}
+          value={c.rackLevels || '4'}
+          min={1}
+          max={10}
+          onChange={(v) => kit.set(`${k}.rackLevels`, v)}
+          issues={kit.issuesOf(`${k}.rackLevels`)}
+          hint="How many levels one rack holds (1 to 10), saved with the chamber."
+        />
+      </div>
+      <div className="grid gap-5 sm:grid-cols-2">
         <KitBox kit={kit} field={`${k}.count`} label={`How many ${W.many} does it hold?`} number whole />
         <KitBox kit={kit} field={`${k}.kg`} label={`Exact capacity of one ${W.one} (kg)`} number hint="Enter the owner's measured or certified capacity. KashRoot will not assume a standard weight." />
       </div>
+      <Counter
+        label="Crates one shared bin holds"
+        name={`${k}.cratesPerBin`}
+        value={c.cratesPerBin || '100'}
+        min={1}
+        max={1000}
+        onChange={(v) => kit.set(`${k}.cratesPerBin`, v)}
+        hint="When farmers share a big wooden bin (e.g. Bin B-102), this is the most crates it holds. Default 100."
+      />
       <KitBox
         kit={kit}
         field={`${k}.tonnes`}
@@ -218,7 +254,7 @@ function ChamberEditor({
 
       <fieldset className="space-y-4 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-900/5">
         <legend className="sr-only">Size</legend>
-        <p className="flex items-center gap-2 text-base font-semibold text-slate-900"><Ruler className="h-5 w-5 text-emerald-700" aria-hidden /> Size inside the chamber</p>
+        <p className="flex items-center gap-2 text-base font-semibold text-slate-900"><Ruler className="h-5 w-5 text-[#174C3C]" aria-hidden /> Size inside the chamber</p>
         <div className="grid gap-5 sm:grid-cols-3">
           <KitBox kit={kit} field={`${k}.length`} label={`Length, along the front (${u})`} number />
           <KitBox kit={kit} field={`${k}.width`} label={`Width, front to back (${u})`} number />
@@ -230,6 +266,13 @@ function ChamberEditor({
         <legend className="sr-only">The chamber’s door</legend>
         <p className="flex items-center gap-2 text-base font-semibold text-amber-950"><DoorOpen className="h-5 w-5" aria-hidden /> The door of {name}</p>
         <WallPicker label={`Which wall is the door of ${name} in?`} name={`${k}.door.wall`} value={c.door.wall} onChange={(w) => kit.set(`${k}.door.wall`, w)} />
+        <Pick
+          label="How is the door built?"
+          name={`${k}.doorType`}
+          value={c.doorType}
+          options={[['', 'Not said (CA sliding overlap)'], ['SLIDING_OVERLAP_CA', 'Sliding overlap (CA)'], ['OVERLAP_HEATED_GASKET', 'Overlap · heated gasket'], ['INFITTING_PLUG', 'Infitting plug']]}
+          onChange={(v) => kit.set(`${k}.doorType`, v)}
+        />
         <KitBox kit={kit} field={`${k}.door.from`} label={`Door: distance from the left corner (${u})`} number hint={`Stand outside the chamber, facing its ${c.door.wall} wall. Measure from the corner on your left to the door. At the corner: write 0.`} />
         <div className="grid gap-5 sm:grid-cols-2">
           <KitBox kit={kit} field={`${k}.door.width`} label={`Door: width (${u})`} number />
@@ -237,18 +280,18 @@ function ChamberEditor({
         </div>
       </fieldset>
 
-      <FloorHeights kit={kit} c={c} floors={floors} />
+      {floors > 1 && <FloorHeights kit={kit} c={c} floors={floors} />}
 
       <fieldset className="space-y-4 rounded-2xl bg-ivory/80 p-4 ring-1 ring-[#E8A317]/30">
         <legend className="sr-only">One {W.one} and how you stack</legend>
-        <p className="flex items-center gap-2 text-base font-semibold text-sky-950"><BoxIcon className="h-5 w-5" aria-hidden /> One {W.one} and how you stack</p>
-        <p className="text-sm text-sky-950">Enter the exact container measurements and safe stacking limit used in this chamber.</p>
+        <p className="flex items-center gap-2 text-base font-semibold text-[#12382E]"><BoxIcon className="h-5 w-5" aria-hidden /> One {W.one} and how you stack</p>
+        <p className="text-sm text-[#12382E]">Enter the exact container measurements and safe stacking limit used in this chamber.</p>
         <div className="grid gap-5 sm:grid-cols-3">
           <KitBox kit={kit} field={`${k}.unitL`} label={`Exact ${W.title.slice(0, -1)} length (${u})`} number />
           <KitBox kit={kit} field={`${k}.unitW`} label={`Exact ${W.title.slice(0, -1)} width (${u})`} number />
           <KitBox kit={kit} field={`${k}.unitH`} label={`Exact ${W.title.slice(0, -1)} height (${u})`} number hint="Measure the container itself, excluding any ceiling clearance." />
         </div>
-        <KitBox kit={kit} field={`${k}.stackHigh`} label={`How many ${W.many} high is one stack?`} number whole hint={`Every stack is exactly this high, so the ${W.many} the chamber holds must make full stacks on each floor.`} />
+        <KitBox kit={kit} field={`${k}.stackHigh`} label={`Maximum safe layers high in one stack`} number whole hint="Enter the owner's safe limit. It must also fit within the usable stacking height." />
         <div className="grid gap-5 sm:grid-cols-3">
           <KitBox kit={kit} field={`${k}.aisle`} label={`Forklift aisle width (${u})`} number hint="Enter 0 only if the chamber has no forklift aisle." />
           <KitBox kit={kit} field={`${k}.stackGap`} label={`Gap between stacks (${u})`} number />
@@ -266,12 +309,12 @@ function ChamberEditor({
       <KitBox kit={kit} field={`${k}.rate`} label={`Rent for one ${W.one} for one month (₹)`} number hint={`Farmers pay this for each ${W.one} they keep here, each month.`} />
 
       {done && done.floors.length > 0 && (
-        <div className="rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-950 ring-1 ring-emerald-200" aria-live="polite">
+        <div className="rounded-2xl bg-[#EAF3EE] p-4 text-sm text-[#12382E] ring-1 ring-[#C6DBD0]" aria-live="polite">
           <p className="font-semibold">How {name} is laid out</p>
           <ul className="mt-1 space-y-0.5">
             {done.floors.map((f) => <li key={f.floor}>{floorText(done, f)}</li>)}
           </ul>
-          <p className="mt-1 text-emerald-900">Farmers book any number of {W.many}; a stack can be shared.</p>
+          <p className="mt-1 text-[#12382E]">Farmers book any number of {W.many}; a stack can be shared.</p>
         </div>
       )}
       <Problems issues={[...kit.issuesOf(`${k}.fit`), ...kit.issuesOf(`${k}.spot`)]} onFix={kit.fix} />
@@ -280,11 +323,18 @@ function ChamberEditor({
         <summary className="min-h-[44px] cursor-pointer list-none py-2 text-sm font-semibold text-slate-800">More details (optional) — where the chamber stands, its cooling</summary>
         <div className="mt-3 space-y-5">
           <p className="text-sm text-slate-700">Where {name} stands inside the building (leave empty and it is drawn in order along the back wall):</p>
+          <Pick
+            label="Which wall is the chamber against?"
+            name={`${k}.wallPosition`}
+            value={c.wallPosition}
+            options={[['', 'Drawn in order'], ['LEFT', 'Left wall'], ['BACK', 'Back wall'], ['RIGHT', 'Right wall'], ['FRONT', 'Front wall']]}
+            onChange={(v) => kit.set(`${k}.wallPosition`, v)}
+          />
           <div className="grid gap-5 sm:grid-cols-2">
-            <KitBox kit={kit} field={`${k}.spotX`} label={`From the building’s left wall (${u})`} number />
-            <KitBox kit={kit} field={`${k}.spotY`} label={`From the building’s front wall (${u})`} number />
+            <KitBox kit={kit} field={`${k}.spotX`} label={`From the building's left wall (${u})`} number />
+            <KitBox kit={kit} field={`${k}.spotY`} label={`From the building's front wall (${u})`} number />
           </div>
-          <p className="flex items-center gap-2 pt-2 text-sm font-semibold text-slate-900"><Snowflake className="h-4 w-4 text-sky-700" aria-hidden /> Cooling (optional — shown to farmers when you fill it in)</p>
+          <p className="flex items-center gap-2 pt-2 text-sm font-semibold text-slate-900"><Snowflake className="h-4 w-4 text-[#174C3C]" aria-hidden /> Cooling (optional — shown to farmers when you fill it in)</p>
           <Pick
             label="Which wall are the cooling units on?"
             name={`${k}.coolerWall`}
@@ -308,7 +358,7 @@ function ChamberEditor({
         <div className="flex items-end gap-2">
           <label className="block">
             <span className="block text-sm font-semibold text-slate-800">How many more chambers like this?</span>
-            <input className="mt-1.5 block min-h-[48px] w-20 rounded-xl border-0 bg-white px-3 text-center text-base font-bold text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-700" inputMode="numeric" value={more} onChange={(e) => setMore(e.target.value.replace(/\D/g, '').slice(0, 2))} />
+            <input className="mt-1.5 block min-h-[48px] w-20 rounded-xl border-0 bg-white px-3 text-center text-base font-bold text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 focus:outline-none focus:ring-2 focus:ring-[#174C3C]" inputMode="numeric" value={more} onChange={(e) => setMore(e.target.value.replace(/\D/g, '').slice(0, 2))} />
           </label>
           <Btn theme={theme} variant="soft" className="min-h-[48px]" icon={Plus} onClick={onMore}>Add {Math.min(50, Math.max(1, Math.floor(Number(more)) || 1))} more like this</Btn>
         </div>
@@ -332,15 +382,15 @@ function FloorHeights({ kit, c, floors }: { kit: Kit; c: ChamberDraft; floors: n
   };
   return (
     <fieldset data-field={field} className="space-y-3 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-900/5">
-      <legend className="sr-only">{floors > 1 ? 'Height of each floor' : 'Usable stacking height'}</legend>
-      <p className="flex items-center gap-2 text-base font-semibold text-slate-900"><Layers className="h-5 w-5 text-emerald-700" aria-hidden /> {floors > 1 ? `Height of each floor (${u})` : `Usable stacking height (${u})`}</p>
-      <p className="text-sm text-slate-700">{floors > 1 ? 'Measure from the floor or grating to the next grating, or to the cooling units / ceiling for the top floor.' : 'Measure from the floor to the lowest thing above the stacks (cooling units, beams or ceiling).'}</p>
+      <legend className="sr-only">Height of each floor</legend>
+      <p className="flex items-center gap-2 text-base font-semibold text-slate-900"><Layers className="h-5 w-5 text-[#174C3C]" aria-hidden /> Height of each floor ({u})</p>
+      <p className="text-sm text-slate-700">Enter the measured usable stacking height from the floor or grating to the next grating, or to the ceiling for the top floor.</p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {values.map((v, i) => (
           <label key={i} className="block">
-            <span className="block text-sm font-semibold text-slate-800">{floors > 1 ? `Floor ${i + 1}` : 'Height'}</span>
+            <span className="block text-sm font-semibold text-slate-800">Floor {i + 1}</span>
             <input
-              className="mt-1.5 block min-h-[48px] w-full rounded-xl border-0 bg-white px-3 text-base text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-700"
+              className="mt-1.5 block min-h-[48px] w-full rounded-xl border-0 bg-white px-3 text-base text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#174C3C]"
               inputMode="decimal"
               value={v === '?' ? '' : v}
               onChange={(e) => put(i, e.target.value.replace(/[^\d.]/g, ''))}
@@ -361,7 +411,7 @@ function Pick<V extends string>({ label, name, value, options, onChange }: { lab
       <p className="text-sm font-semibold text-slate-800">{label}</p>
       <div className="mt-1.5 flex flex-wrap gap-2">
         {options.map(([v, text]) => (
-          <button key={v || 'none'} type="button" role="radio" aria-checked={value === v} onClick={() => onChange(v)} className={`min-h-[44px] cursor-pointer rounded-xl px-3 text-sm font-semibold ring-2 transition ${value === v ? 'bg-chinar text-white ring-chinar' : 'bg-white text-slate-800 ring-slate-200 hover:ring-emerald-300'}`}>
+          <button key={v || 'none'} type="button" role="radio" aria-checked={value === v} onClick={() => onChange(v)} className={`min-h-[44px] cursor-pointer rounded-xl px-3 text-sm font-semibold ring-2 transition ${value === v ? 'bg-[#12382E] text-white ring-[#174C3C]' : 'bg-white text-slate-800 ring-slate-200 hover:ring-[#C6DBD0]'}`}>
             {text}
           </button>
         ))}

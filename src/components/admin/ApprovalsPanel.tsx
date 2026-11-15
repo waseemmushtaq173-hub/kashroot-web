@@ -134,7 +134,7 @@ export function ApprovalsPanel() {
                   )}
                   <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
                     {r.phone && (
-                      <a href={`tel:+91${r.phone.replace(/\D/g, '').slice(-10)}`} className="inline-flex items-center gap-1 font-semibold text-sky-800">
+                      <a href={`tel:+91${r.phone.replace(/\D/g, '').slice(-10)}`} className="inline-flex items-center gap-1 font-semibold text-[#174C3C]">
                         <Phone className="h-3.5 w-3.5" aria-hidden /> Call {r.phone}
                       </a>
                     )}

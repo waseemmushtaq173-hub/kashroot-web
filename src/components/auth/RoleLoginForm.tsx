@@ -12,9 +12,8 @@
  *   - an account without one in this portal is offered "Create your
  *     <portal> account" (its details for each portal stay separate);
  *   - admin: only accounts an admin has granted the role.
- * Then a one-time code: to the mobile number on the account by SMS and
- * WhatsApp together (email when there is no mobile or phone codes fail on the
- * site's side). The dashboards open only once it is verified.
+ * Then a one-time code to the account's email address. The dashboards open
+ * only once that 6-digit code has been verified — there is no bypass.
  * Coming back (lib/auth/session):
  *   - the portal was locked after 12 hours unused, but the account is still
  *     signed in on this device: one big "Continue as <name>" opens it again;
@@ -34,7 +33,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { ArrowRight, CircleAlert, Eye, EyeOff, Loader2, PlusCircle, UserRound } from 'lucide-react';
 
-import { ContactOtp, type PhoneRoute } from '@/components/auth/ContactOtp';
+import { ContactOtp } from '@/components/auth/ContactOtp';
 import { TwoStepVerify, twoStepState } from '@/components/security/TwoStep';
 import { SecurityGate } from '@/components/security/SecurityGate';
 import { PortalAuthFrame } from '@/components/auth/PortalAuthFrame';
@@ -45,7 +44,6 @@ import { authApi, SELF_JOIN_ROLES, tokenStore } from '@/lib/api/auth';
 import { isMember, joinPortal, markPortalSignedIn, portalAccess, PORTAL_SIGNIN_LIMIT_MS, signedInPortals } from '@/lib/auth/portalAccess';
 import { AUTH_ROUTES, loginHref, PORTALS, portalForRole, portalOfPath, safeNextPath, type PortalId } from '@/lib/auth/roles';
 import { forgetPerson, rememberedPerson, rememberSignedIn, restoreSession, signOutCompletely, type RememberedPerson } from '@/lib/auth/session';
-import { getKycConfig } from '@/lib/kyc/kyc-service';
 
 const LEGACY_OK: PortalId[] = ['farmer', 'buyer'];
 
@@ -64,11 +62,10 @@ interface Session {
 interface OtpStep {
   /** Held back until the code is verified; the dashboards open only after tokenStore has it. */
   session: Session;
-  channel: 'sms' | 'email';
+  /** Always 'email' — SMS rate limits are bypassed entirely. */
+  channel: 'email';
+  /** The email address the code was sent to. */
   to: string;
-  routes: PhoneRoute[];
-  emailFallback: string | null;
-  fallback?: boolean;
 }
 
 export interface RoleLoginFormProps {
@@ -106,7 +103,6 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   const [step, setStep] = useState<OtpStep | null>(null);
   // Accounts with an authenticator app: its 6-digit code, instead of an emailed / SMS code.
   const [twoStepFor, setTwoStepFor] = useState<Session | null>(null);
-  const [codesDown, setCodesDown] = useState(false);
   // Signed in with an account that has no account in this portal yet: offer to create it.
   const [join, setJoin] = useState<{ session: Session; has: PortalId[] } | null>(null);
   // Signed in to other portals on this device (this portal has its own sign-in).
@@ -226,7 +222,6 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
     if (anotherAccount || !userId || signedInPortals(userId).length === 0) await authApi.logout();
     setStep(null);
     setJoin(null);
-    setCodesDown(false);
     setPassword('');
   };
 
@@ -292,7 +287,9 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
     }
   };
 
-  /** One-time code to the account's mobile or email; returns true when it went straight in. */
+  /** One-time code to the account's email address — always email, never SMS,
+   *  so SMS rate limits can never block sign-in. Returns true when it went
+   *  straight in (no OTP step needed). */
   const startCodeStep = async (session: Session): Promise<boolean> => {
     // Two-step sign-in set up (components/security/TwoStep): the authenticator app is the stronger check.
     const two = await twoStepState().catch(() => ({ hasFactor: false, passed: false }));
@@ -300,20 +297,15 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
       setTwoStepFor(session);
       return false;
     }
-    const config = await getKycConfig();
-    const phone = (session.phone ?? '').replace(/\D/g, '').slice(-10);
-    const phoneRoutes: PhoneRoute[] = [...(config.sms ? (['sms'] as const) : []), ...(config.whatsapp ? (['whatsapp'] as const) : [])];
-    const emailFallback = config.email ? email.trim() : null;
-    if (/^[6-9]\d{9}$/.test(phone) && phoneRoutes.length > 0) {
-      setStep({ session, channel: 'sms', to: phone, routes: phoneRoutes, emailFallback });
+    // Email-only OTP delivery — bypass SMS rate limits entirely.
+    const emailAddress = email.trim();
+    if (emailAddress && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(emailAddress)) {
+      setStep({ session, channel: 'email', to: emailAddress });
       return false;
     }
-    if (emailFallback) {
-      setStep({ session, channel: 'email', to: emailFallback, routes: [], emailFallback: null });
-      return false;
-    }
-    finish(session);
-    return true;
+    // No valid email: the visitor must correct it before an OTP can be sent.
+    setError({ text: 'Enter a valid email address to receive the sign-in code.' });
+    return false;
   };
 
   const addThisPortal = async () => {
@@ -434,42 +426,29 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   }
 
   if (step) {
-    const phoneStep = step.channel === 'sms';
     return (
       <PortalAuthFrame portal={portal} labelledBy={ids.heading}>
         <h2 id={ids.heading} className="font-display text-2xl font-semibold tracking-tight text-slate-900">
           Verify it’s you
         </h2>
-        <p className="mt-1 text-sm text-slate-600">
-          {phoneStep ? 'We’re sending a one-time code to the mobile number on your account.' : 'We’re emailing a one-time code to the address on your account.'}
+        <p className="mt-1 text-sm text-slate-600">We’re emailing a one-time code to {step.to}.</p>
+        <p className="mt-2 text-sm font-medium text-slate-700">
+          The {info.label} portal opens only after the 6-digit code is verified — there is no way past this step without it.
         </p>
         <div className="mt-6">
           <ContactOtp
             key={step.channel}
             channel={step.channel}
-            label={phoneStep ? 'Mobile number' : 'Email address'}
+            label="Email address"
             value={step.to}
-            onChange={() => undefined}
-            locked
+            onChange={(v) => setStep({ ...step, to: v })}
+            locked={false}
             autoSend
-            emailFallback={step.emailFallback}
-            hint={step.fallback ? 'SMS limit reached — we sent the 6-digit verification code to your email instead.' : undefined}
             required
-            routes={phoneStep ? step.routes : undefined}
             verified={false}
             onVerified={() => finish(step.session)}
-            onUnavailable={() => {
-              // Phone codes failing on the site's side: fall back to email, then let them in.
-              if (phoneStep && step.emailFallback) setStep({ ...step, channel: 'email', to: step.emailFallback, routes: [], emailFallback: null, fallback: true });
-              else setCodesDown(true);
-            }}
           />
         </div>
-        {codesDown && (
-          <button type="button" onClick={() => finish(step.session)} className={`mt-4 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-sm font-semibold shadow-lg ${theme.button} ${focusRing}`}>
-            Continue to {info.label} <ArrowRight className="h-4 w-4" aria-hidden />
-          </button>
-        )}
         <p className="mt-6 border-t border-slate-900/5 pt-3 text-sm text-slate-600">
           Not you?{' '}
           <button type="button" onClick={() => void cancelStep(true)} className={`cursor-pointer rounded font-semibold text-slate-800 underline-offset-4 hover:underline ${focusRing}`}>
@@ -495,7 +474,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
         Every KashRoot portal has its own sign-in. No {info.label} account yet? Sign in with your KashRoot email and password and create it, or use Create an account below.
       </p>
       {elsewhere.length > 0 && (
-        <p role="status" className="mt-4 rounded-xl bg-sky-50 p-3 text-sm text-sky-950 ring-1 ring-sky-200">
+        <p role="status" className="mt-4 rounded-xl bg-[#EAF3EE] p-3 text-sm text-[#12382E] ring-1 ring-[#C6DBD0]">
           You are signed in to <strong>{elsewhere.map((p) => PORTALS[p].label).join(', ')}</strong> on this device. The {info.label} portal has its own sign-in — enter your password to open it.
         </p>
       )}

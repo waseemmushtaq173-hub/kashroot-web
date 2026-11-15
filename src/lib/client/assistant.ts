@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { needsDevanagari, speak, stopSpeaking, voiceHint, type SpeechLang } from '@/lib/client/speech';
+import { getOfflineResponse, isOfflineMode } from '@/lib/client/offlineIntent';
 import { ksText } from '@/lib/kashmiri/phrases';
 import { detectReplyLang, rememberLang } from '@/lib/langDetect';
 import { navigationFor } from '@/lib/navIntent';
@@ -102,6 +103,19 @@ export function useAssistant(opts: { page?: string } = {}) {
       setTurns((all) => [...all, { role: 'user', text: question, lang }]);
       setThinking(true);
       let turn: Turn;
+      
+      // Check if offline - use deterministic intent matcher
+      const offline = isOfflineMode();
+      if (offline) {
+        setNotice('No internet — using saved data on this phone');
+        const offlineResp = getOfflineResponse(question, lang);
+        turn = { role: 'assistant', text: offlineResp.text, lang, speech: offlineResp.speech, error: false };
+        setThinking(false);
+        setTurns((all) => [...all, turn]);
+        void say(turn);
+        return;
+      }
+      
       try {
         const speakAs = (await needsDevanagari(lang)) ? 'hi' : undefined;
         const res = await fetch('/api/ai', {

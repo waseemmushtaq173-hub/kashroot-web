@@ -13,9 +13,9 @@ import { memo, useCallback, useState, type SVGProps } from 'react';
 
 import { DimLine, ScaleBar } from '@/components/rental/drawingMarks';
 import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
-import { midOf, type Rect, type SceneChamber, type StoreScene, type Vec } from '@/components/rental/three/storeScene';
+import { midOf, ZONE_LOOK, type Rect, type SceneChamber, type SceneZone, type StoreScene, type Vec } from '@/components/rental/three/storeScene';
 import { showLength } from '@/lib/coldLayout';
-import { AREA_KINDS, areaName, countText, nice, type Storage } from '@/lib/coldStore';
+import { countText, DOOR_KIND_TEXT, nice, type Storage } from '@/lib/coldStore';
 import type { ColdChamber } from '@/lib/db/coldMap';
 
 /** How wide an element is on screen (0 until known). */
@@ -32,6 +32,16 @@ function useShownWidth(): [(el: HTMLElement | null) => (() => void) | undefined,
 
 /** A font size for words that should fit in `room` px: at most `max`, at least `min`. */
 const fitFont = (text: string, room: number, max: number, min: number) => Math.max(min, Math.min(max, room / (text.length * 0.58)));
+
+/** The pale fill a work zone is painted with on the drawing (the stroke is the zone's own colour). */
+const ZONE_FILL: Record<SceneZone['key'], string> = {
+  cleaning: '#BFE3EC',
+  grading: '#BFE5CF',
+  sorting: '#D5E8B0',
+  packing: '#F2DFA6',
+  machinery: '#E2E8F0',
+  dock: '#F4C9A8',
+};
 
 /** What one chamber holds and has free (on all its floors), and the places with room. */
 export interface ChamberCount {
@@ -71,13 +81,20 @@ export const StoreTopView = memo(function StoreTopView({
   const bx = scene.bounds;
   const md = scene.mainDoor;
   // The sizes stand on walls without the main door; the main door's words outside its wall.
+  // The height (to the roof) is written on whichever side the width is not on.
   const lengthOn = md?.wall === 'back' ? 'front' : 'back';
   const widthOn = md?.wall === 'left' ? 'right' : 'left';
+  const heightOn = widthOn === 'left' ? 'right' : 'left';
   const side = font * 2 + 10;
   // A row under everything for the scale bar.
   const scaleRow = font + 18;
   const pad = b
-    ? { l: widthOn === 'left' || md?.wall === 'left' ? side : 10, r: widthOn === 'right' || md?.wall === 'right' ? side : 10, t: side, b: font * 3 + 24 + scaleRow }
+    ? {
+        l: widthOn === 'left' || heightOn === 'left' || md?.wall === 'left' ? side : 10,
+        r: widthOn === 'right' || heightOn === 'right' || md?.wall === 'right' ? side : 10,
+        t: side,
+        b: font * 3 + 24 + scaleRow,
+      }
     : { l: 8, r: 10, t: 8, b: font * 2 + 16 + scaleRow };
   const k = Math.min((W - pad.l - pad.r) / Math.max(1, bx.w), (narrow ? 460 : 560) / Math.max(1, bx.d));
   const left = pad.l + (W - pad.l - pad.r - bx.w * k) / 2;
@@ -159,13 +176,13 @@ export const StoreTopView = memo(function StoreTopView({
             onPick(c.index);
           }
         }}
-        className="cursor-pointer outline-none [&:focus-visible>rect:first-child]:stroke-sky-900"
+        className="cursor-pointer outline-none [&:focus-visible>rect:first-child]:stroke-[#174C3C]"
       >
         <title>{label}</title>
-        <rect x={X(r.x)} y={Y(r.y + r.d)} width={r.w * k} height={r.d * k} fill={c.fits ? (f ? '#ffffff' : '#f1f5f9') : '#fff1f2'} stroke={c.fits ? (on ? '#0369a1' : '#475569') : '#e11d48'} strokeWidth={on ? 5 : 3} strokeDasharray={c.fits ? undefined : '8 5'} />
+        <rect x={X(r.x)} y={Y(r.y + r.d)} width={r.w * k} height={r.d * k} fill={c.fits ? (f ? '#ffffff' : '#f1f5f9') : '#fff1f2'} stroke={c.fits ? (on ? '#174C3C' : '#475569') : '#e11d48'} strokeWidth={on ? 5 : 3} strokeDasharray={c.fits ? undefined : '8 5'} />
         {f?.walkway && <rect x={X(f.walkway.x)} y={Y(f.walkway.y + f.walkway.d)} width={f.walkway.w * k} height={f.walkway.d * k} fill="#fef3c7" />}
         {on && f?.walkway && walkwayDim(c, f.walkway)}
-        {[...paths].map(([fill, d]) => <path key={fill} d={d} fill={fill} stroke={fill === PLACE_LOOK.blocked.mini ? '#cbd5e1' : 'none'} strokeWidth={0.6} />)}
+        {[...paths].map(([fill, d]) => <path key={fill} d={d} fill={fill} stroke={fill === PLACE_LOOK.blocked.mini ? PLACE_LOOK.blocked.stroke : 'none'} strokeWidth={0.6} />)}
         {c.door && <line {...seg({ x: c.door.x1, y: c.door.y1 }, { x: c.door.x2, y: c.door.y2 })} stroke="#d97706" strokeWidth={6} />}
         {text(cx, top + nameSize * 0.6, name, nameSize, { fontWeight: 800, fill: c.fits ? '#0f172a' : '#9f1239', stroke: '#ffffff', strokeWidth: 4, paintOrder: 'stroke' })}
         {lines.map((t, i) => (
@@ -176,14 +193,14 @@ export const StoreTopView = memo(function StoreTopView({
   };
 
   const pass = scene.passage;
-  const summary = `${b ? `The building from above: ${showLength(b.length, u)} long and ${showLength(b.width, u)} wide, the main door in the ${b.door.wall} wall. ${b.areas?.length ? `Work areas: ${b.areas.map(areaName).join(', ')}. ` : ''}` : ''}${scene.chambers.length} chamber${scene.chambers.length === 1 ? '' : 's'}: ${scene.chambers.map((c) => c.name).join(', ')}. Showing floor ${floor}.`;
+  const summary = `${b ? `The building from above: ${showLength(b.length, u)} long, ${showLength(b.width, u)} wide and ${showLength(b.height, u)} high, the main door in the ${b.door.wall} wall. ` : ''}${scene.chambers.length} chamber${scene.chambers.length === 1 ? '' : 's'}: ${scene.chambers.map((c) => c.name).join(', ')}. Showing floor ${floor}.`;
   return (
     <figure ref={ref} className="space-y-1">
       <div className="overflow-hidden rounded-3xl bg-gradient-to-b from-slate-50 to-white ring-1 ring-slate-900/10">
         <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="group" aria-label={summary} className="block h-auto w-full select-none">
           {b ? (
             <>
-              <rect x={X(0)} y={Y(b.width)} width={b.length * k} height={b.width * k} fill="#e2e8f0" stroke="#334155" strokeWidth={5} />
+              <rect x={X(scene.hall.x)} y={Y(scene.hall.y + scene.hall.d)} width={scene.hall.w * k} height={scene.hall.d * k} fill="#e2e8f0" stroke="#334155" strokeWidth={5} />
               {(() => {
                 const y = lengthOn === 'back' ? Y(b.width) - font - 2 : Y(0) + font + 6;
                 return <DimLine dim="length" x1={X(0)} y1={y} x2={X(b.length)} y2={y} text={`Length ${showLength(b.length, u)}`} font={font} />;
@@ -191,6 +208,17 @@ export const StoreTopView = memo(function StoreTopView({
               {(() => {
                 const x = widthOn === 'left' ? X(0) - font - 2 : X(b.length) + font + 2;
                 return <DimLine dim="width" x1={x} y1={Y(0)} x2={x} y2={Y(b.width)} text={`Width ${showLength(b.width, u)}`} font={font} />;
+              })()}
+              {(() => {
+                // The height is not a length in the plan: it stands written
+                // beside the building on the side the width is not on.
+                const x = heightOn === 'left' ? X(0) - font - 2 : X(b.length) + font + 2;
+                const y = Y(b.width / 2);
+                return (
+                  <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={font - 1} fontWeight={800} fill="#64748b" transform={`rotate(-90 ${x} ${y})`}>
+                    {`Height ${showLength(b.height, u)}`}
+                  </text>
+                );
               })()}
             </>
           ) : (
@@ -217,21 +245,60 @@ export const StoreTopView = memo(function StoreTopView({
               })()}
             </g>
           )}
-          {(b?.areas ?? []).map((ar, i) => {
-            const name = areaName(ar);
-            const w = ar.length * k;
-            const h = ar.width * k;
-            const cx = X(ar.x + ar.length / 2);
-            const cy = Y(ar.y + ar.width / 2);
-            const fs = Math.max(9, Math.min(font, (Math.max(w, h) - 10) / (name.length * 0.58)));
-            return (
-              <g key={`area-${i}`} data-area={ar.kind}>
-                <rect x={X(ar.x)} y={Y(ar.y + ar.width)} width={w} height={h} rx={6} fill={AREA_KINDS[ar.kind].colour} stroke="#475569" strokeWidth={1.5} strokeDasharray="8 4" />
-                <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight={700} fill="#1e293b" transform={h > w * 1.4 ? `rotate(-90 ${cx} ${cy})` : undefined}>{name}</text>
-              </g>
-            );
-          })}
+          {scene.building &&
+            scene.zones.map((z) => {
+              // The work zones painted on the free floor (the dock in the
+              // passage mouth): only where they have room on the drawing.
+              const zw = z.rect.w * k;
+              const zd = z.rect.d * k;
+              if (zw < 10 || zd < 10) return null;
+              const zx = X(z.rect.x);
+              const zy = Y(z.rect.y + z.rect.d);
+              const upright = zd >= zw;
+              // The zone's own dimensions under its name (the owner's unit).
+              const dims = `${showLength(z.rect.w, u)} × ${showLength(z.rect.d, u)}`;
+              const withDims = zw >= 54 || zd >= 54;
+              const size = fitFont(z.label, (upright ? zd : zw) - 8, font - 2, 7);
+              const cx = zx + zw / 2;
+              const cy = zy + zd / 2;
+              return (
+                <g key={z.key} aria-hidden>
+                  <rect x={zx} y={zy} width={zw} height={zd} fill={ZONE_FILL[z.key]} stroke={ZONE_LOOK[z.key]} strokeWidth={1.5} strokeDasharray="6 4" />
+                  <text x={cx} y={cy - (withDims ? 6 : 0)} textAnchor="middle" dominantBaseline="central" fontSize={size} fontWeight={800} letterSpacing={1} fill={ZONE_LOOK[z.key]} transform={upright ? `rotate(-90 ${cx} ${cy})` : undefined}>
+                    {z.label.toUpperCase()}
+                  </text>
+                  {withDims && (
+                    <text x={cx} y={cy + 9} textAnchor="middle" dominantBaseline="central" fontSize={Math.max(6, size - 2)} fontWeight={700} fill={ZONE_LOOK[z.key]} transform={upright ? `rotate(-90 ${cx} ${cy})` : undefined}>
+                      {dims}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
           {scene.chambers.map(chamber)}
+          {scene.vestibule && (
+            // The airlock vestibule inside the main door: its side walls where they are open hall, and the inner door across the passage.
+            <g data-vestibule aria-hidden>
+              {scene.vestibule.walls.map((s, i) => (
+                <line key={i} {...seg({ x: s.x1, y: s.y1 }, { x: s.x2, y: s.y2 })} stroke="#475569" strokeWidth={4} strokeLinecap="round" />
+              ))}
+              <line {...seg({ x: scene.vestibule.door.x1, y: scene.vestibule.door.y1 }, { x: scene.vestibule.door.x2, y: scene.vestibule.door.y2 })} stroke="#d97706" strokeWidth={6} strokeDasharray="9 4" />
+              {(() => {
+                const r = scene.vestibule.rect;
+                const vw = r.w * k;
+                const vd = r.d * k;
+                if (Math.max(vw, vd) < 44 || Math.min(vw, vd) < 11) return null;
+                const upright = vd > vw;
+                const cx = X(r.x + r.w / 2);
+                const cy = Y(r.y + r.d / 2);
+                return (
+                  <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={Math.min(font - 3, Math.min(vw, vd) * 0.55)} fontWeight={800} letterSpacing={1} fill="#475569" transform={upright ? `rotate(-90 ${cx} ${cy})` : undefined}>
+                    AIRLOCK
+                  </text>
+                );
+              })()}
+            </g>
+          )}
           {md && (
             <g>
               <line {...seg({ x: md.seg.x1, y: md.seg.y1 }, { x: md.seg.x2, y: md.seg.y2 })} stroke="#d97706" strokeWidth={10} />
@@ -243,7 +310,7 @@ export const StoreTopView = memo(function StoreTopView({
                 const upright = md.wall === 'left' || md.wall === 'right';
                 return (
                   <text x={px} y={py} textAnchor="middle" dominantBaseline="central" fontSize={font} fontWeight={800} fill="#b45309" transform={upright ? `rotate(-90 ${px} ${py})` : undefined}>
-                    {`Main door · ${showLength(md.width, u)}`}
+                    {`Main door · ${showLength(md.width, u)} · ${md.kind ? DOOR_KIND_TEXT[md.kind] : 'Roll-up'}`}
                   </text>
                 );
               })()}
@@ -258,7 +325,6 @@ export const StoreTopView = memo(function StoreTopView({
         <span className="inline-flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm bg-amber-100 ring-1 ring-amber-300" aria-hidden /> Passage and walkways</span>
         {b && md && <span>Main door {showLength(md.from, u)} from the left corner of the {md.wall} wall (standing outside, facing it).</span>}
         {scene.floors > 1 && <span>Showing floor {floor}. Upper floors are steel decks inside the same chamber.</span>}
-        {scene.beside && <span>Chambers set up before the building was measured stand beside it here.</span>}
       </figcaption>
     </figure>
   );

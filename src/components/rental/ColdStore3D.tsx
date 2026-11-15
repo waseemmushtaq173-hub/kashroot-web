@@ -7,8 +7,8 @@
  * chamber where it stands with its own door, the floors inside a chamber as
  * grating decks, and every bin or crate stacked where the plan puts it.
  * Colours say what each place is (components/rental/placeLook): booked
- * stacks stand full of apples, a free place holds the store's bins or crates
- * standing empty, as high as the owner stacks; crates keep mixed colours.
+ * stacks stand full, a free place is a marked space with the outline of the
+ * stack that fits there.
  *
  *   orbit  drag to turn, pinch or scroll to zoom; one tap for the whole store,
  *          the view from the main door or from above; tap a chamber for what
@@ -25,14 +25,15 @@
  * closes. Without WebGL the Drawing is the way.
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { DoorOpen, Footprints, Layers, Maximize2, ScanEye, Volume2, X } from 'lucide-react';
+import { DoorOpen, Factory, Footprints, Layers, Maximize2, ScanEye, ShoppingCart, Volume2, X } from 'lucide-react';
 
 import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
-import { buildPlaces, buildRoute, buildShell, disposeGroup, faceWalls, makeKit, sizeLabels, wx, wz, type Cell, type Origin, type Places, type Shell } from '@/components/rental/three/buildStore';
+import { loadColdKitGeo, type ColdKitGeos } from '@/components/rental/three/coldKit';
+import { buildPlaces, buildRoute, buildShell, disposeGroup, faceWalls, makeKit, sizeLabels, wx, wz, type Cell, type InstSummary, type Origin, type Places, type PlacesState, type Shell } from '@/components/rental/three/buildStore';
 import { routeTo, type Route, type RouteLang } from '@/components/rental/walk/route';
 import { speak, stopSpeaking } from '@/lib/client/speech';
 import { rememberedLang, rememberLang } from '@/lib/langDetect';
-import { buildScene, chamberAt, EYE, insideDoor, midOf, sceneText, startPoint, type SceneChamber, type StoreScene } from '@/components/rental/three/storeScene';
+import { buildScene, chamberAt, EYE, insideDoor, midOf, sceneText, startPoint, zonesForViewer, type SceneChamber, type StoreScene } from '@/components/rental/three/storeScene';
 import { drawMiniMap } from '@/components/rental/walk/miniMap';
 import { noInput, usePageZoom, WalkHud, type Measure, type Press, type Target, type WalkInput, type Where } from '@/components/rental/walk/WalkHud';
 import { aheadOf, canStand, walk, WALK_SPEED, walkWorld, type Walker, type WalkWorld } from '@/components/rental/walk/walker';
@@ -41,6 +42,21 @@ import { countText, nice, unitWord, type Building, type PreviewRows, type Storag
 import { placeLabel, type ColdChamber } from '@/lib/db/coldMap';
 
 export type View3D = 'orbit' | 'walk';
+
+/**
+ * One farmer's share of a shared place, for the owner's card only: the 3D
+ * view never receives holders in a farmer-facing mode, so no other farmer's
+ * name, quantity or booking reference can reach a farmer's screen.
+ */
+export interface PlaceHolder {
+  name: string;
+  /** Units (bins / crates / boxes) this farmer holds on the place; null when the records do not say. */
+  units: number | null;
+  /** The booking's reference. */
+  ref: string | null;
+  /** The apple variety, only when the records say (never invented). */
+  variety?: string | null;
+}
 
 /** A place in words: "Chamber 2 · Floor 1 · Row 3, stack 4 · 4 bins free". */
 export function placeText(c: SceneChamber, cell: Cell): string {
@@ -104,6 +120,10 @@ interface Api {
   /** Walk the way from the main door (walking only). False when there is no way to walk. */
   guide: () => boolean;
   stopGuide: () => void;
+  /** Floor slice + grower highlight on the already-built places (the toggles re-slice, without rebuilding). */
+  world: (s: { floor: number | 'all'; mine: boolean }) => void;
+  /** X-ray walls on/off (every wall turns glass at once). */
+  xray: (on: boolean) => void;
 }
 
 /**
@@ -162,7 +182,7 @@ function InfoCard({ c, free, rate, unit, onClose, onWalk, zoom }: { c: SceneCham
           </>
         ) : null}
         <dt className="text-slate-500">Free now</dt>
-        <dd className="font-semibold text-sky-800">{countText(free, st)}</dd>
+        <dd className="font-semibold text-[#174C3C]">{countText(free, st)}</dd>
         {r ? (
           <>
             <dt className="text-slate-500">Rent</dt>
@@ -177,7 +197,7 @@ function InfoCard({ c, free, rate, unit, onClose, onWalk, zoom }: { c: SceneCham
         )}
       </dl>
       {onWalk && (
-        <button type="button" onClick={onWalk} className="mt-2 inline-flex min-h-[44px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-chinar px-3 font-semibold text-white hover:bg-chinar-hover">
+        <button type="button" onClick={onWalk} className="mt-2 inline-flex min-h-[44px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#174C3C] px-3 font-semibold text-white hover:bg-[#12382E]">
           <Footprints className="h-4 w-4" aria-hidden /> Walk in here
         </button>
       )}
@@ -186,6 +206,156 @@ function InfoCard({ c, free, rate, unit, onClose, onWalk, zoom }: { c: SceneCham
 }
 const UNIT_ONE: Record<Storage, string> = { bins: 'bin', crates: 'crate', boxes: 'box' };
 const UNIT_MANY: Record<Storage, string> = { bins: 'bins', crates: 'crates', boxes: 'boxes' };
+
+/**
+ * The crate drawer, opened by tapping any stack in the 3D and walk views —
+ * the live booking / capacity inspector: the place's own identifiers and
+ * exact bookkeeping — weights from the owner's kg per unit and the boxes
+ * the database says are standing, allocation from the bookings (never
+ * invented, "—" without).
+ */
+function CrateCard({
+  cell,
+  scene,
+  chambers,
+  mode,
+  onPlace,
+  stackOf,
+  holdersOf,
+  mineOf,
+  mineName,
+  facilityName,
+  facilityId,
+  onClose,
+}: {
+  cell: Cell;
+  scene: StoreScene;
+  chambers: ColdChamber[];
+  mode: 'book' | 'owner' | 'view';
+  /** Booking flow: choose this place — or take it off — right from the card, the same choose a map tap makes; the choice flows into the booking's confirm and payment. */
+  onPlace?: (c: ColdChamber, slot: string, look: Look) => void;
+  stackOf?: (c: ColdChamber, slot: string) => string | null;
+  holdersOf?: (c: ColdChamber, slot: string) => PlaceHolder[];
+  mineOf?: (c: ColdChamber, slot: string) => number | null;
+  mineName?: string;
+  facilityName?: string;
+  facilityId?: string;
+  onClose: () => void;
+}) {
+  const c = scene.chambers[cell.chamber];
+  const f = c?.floors[cell.floor];
+  const row = chambers.find((x) => x.id === f?.row.id);
+  const st: Storage = c?.storage ?? 'boxes';
+  const per = row?.unit_kg ?? c?.group?.unitKg ?? null;
+  const maxUnits = f?.k ?? 0;
+  const standing = Math.max(0, maxUnits - cell.free);
+  const kg = (units: number) => (per != null ? `${nice(units * per)} kg` : '—');
+  const owner = mode === 'owner';
+  // Role isolation: the owner reads every farmer sharing a place; a farmer's card holds only their own units and what is still free.
+  const allocation = owner && row ? stackOf?.(row, cell.slot) ?? null : null;
+  const holders = owner && row ? holdersOf?.(row, cell.slot) ?? [] : [];
+  const mineUnits = !owner && row ? mineOf?.(row, cell.slot) ?? null : null;
+  const whose = owner ? allocation : cell.look === 'mine' ? (mineName?.trim() ? `${mineName.trim()} (you)` : 'You') : null;
+  const unitType = st === 'bins' ? 'Wooden bins' : st === 'crates' ? 'Plastic crates' : 'Paper cartons';
+  // The unit's own measured size, only what the owner's save holds (never invented; — without).
+  const dims = row && (row.unit_length_m != null || row.unit_width_m != null || row.unit_height_m != null)
+    ? `${nice(Number(row.unit_length_m ?? 0))} × ${nice(Number(row.unit_width_m ?? 0))} × ${nice(Number(row.unit_height_m ?? 0))} m`
+    : null;
+  // This place can be chosen from the card itself (booking only): free, shared with room left,
+  // or already this farmer's choice (the button then takes it off).
+  const chosen = cell.look === 'selected';
+  const bookable = mode === 'book' && Boolean(onPlace && row) && (chosen || cell.look === 'free' || cell.look === 'part');
+  return (
+    <section aria-label={`${c?.name ?? 'Place'}: what is on place ${cell.slot}`} className="rounded-2xl bg-white/95 p-3 text-sm text-slate-800 shadow-xl ring-1 ring-slate-900/10 backdrop-blur">
+      <div className="flex items-start justify-between gap-2">
+        <h4 className="text-base font-bold text-slate-900">{placeLabel(cell.slot)} · {PLACE_LOOK[cell.look].label}</h4>
+        <button type="button" onClick={onClose} aria-label="Close" className="-m-1 grid h-11 w-11 cursor-pointer place-items-center rounded-xl text-slate-500 hover:bg-slate-100">
+          <X className="h-5 w-5" aria-hidden />
+        </button>
+      </div>
+      <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
+        <dt className="text-slate-500">Facility</dt>
+        <dd className="font-semibold">{facilityName?.trim() || 'This cold store'}</dd>
+        <dt className="text-slate-500">Facility ID</dt>
+        <dd>{facilityId?.trim() || '—'}</dd>
+        <dt className="text-slate-500">Chamber</dt>
+        <dd>{c?.name}{c?.toScale ? ` · ${sizeText(c, scene.unit)}` : ''}</dd>
+        <dt className="text-slate-500">Chamber ID</dt>
+        <dd>{row?.id ?? c?.group?.key ?? c?.key ?? '—'}</dd>
+        <dt className="text-slate-500">Level / layer</dt>
+        <dd>{f && c && c.floors.length > 1 ? `Floor ${f.floor} of ${c.floors.length}` : 'Ground level'}</dd>
+        <dt className="text-slate-500">Storage Unit ID</dt>
+        <dd className="font-semibold">{`${c?.name ?? 'Chamber'}${row?.chamber_no != null ? ` (Chamber ${row.chamber_no})` : ''} · Floor ${f?.floor ?? cell.floor + 1} · ${cell.slot}`}</dd>
+        <dt className="text-slate-500">Storage Type</dt>
+        <dd>{unitType}</dd>
+        <dt className="text-slate-500">Maximum Capacity</dt>
+        <dd className="font-semibold">{countText(maxUnits, st)} · {kg(maxUnits)}</dd>
+        {dims && (
+          <>
+            <dt className="text-slate-500">Unit size (L×W×H)</dt>
+            <dd>{dims}</dd>
+          </>
+        )}
+        {owner ? (
+          <>
+            <dt className="text-slate-500">Stored Quantity</dt>
+            <dd className={standing ? 'font-semibold text-emerald-800' : ''}>{standing.toLocaleString('en-IN')} {unitWord(st, standing)} · {kg(standing)}</dd>
+          </>
+        ) : (
+          <>
+            <dt className="text-slate-500">Your {unitWord(st, 2)}</dt>
+            <dd className={mineUnits ? 'font-semibold text-[#12382E]' : ''}>
+              {mineUnits ? `${mineUnits.toLocaleString('en-IN')} ${unitWord(st, mineUnits)} · ${kg(mineUnits)}` : cell.look === 'mine' ? 'Yours' : 'None'}
+            </dd>
+            <dt className="text-slate-500">Occupied now</dt>
+            <dd>{countText(standing, st)} · {kg(standing)}</dd>
+          </>
+        )}
+        <dt className="text-slate-500">{owner ? 'Available Capacity' : 'Free in this place'}</dt>
+        <dd className={!owner ? 'font-semibold text-[#174C3C]' : ''}>{cell.free.toLocaleString('en-IN')} {unitWord(st, cell.free)} · {kg(cell.free)}</dd>
+        <dt className="text-slate-500">Occupancy Status</dt>
+        <dd>{PLACE_LOOK[cell.look].label}{owner && whose ? ` · ${whose}` : ''}</dd>
+        {!owner && cell.look === 'mine' && whose && (
+          <>
+            <dt className="text-slate-500">Grower allocation</dt>
+            <dd>{whose}</dd>
+          </>
+        )}
+      </dl>
+      {owner && holders.length > 0 && (
+        <div className="mt-2 rounded-xl bg-slate-50 p-2 ring-1 ring-slate-200">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Shared by {holders.length} {holders.length === 1 ? 'farmer' : 'farmers'}</p>
+          <ul className="mt-1 space-y-1">
+            {holders.map((h, i) => (
+              <li key={`${h.ref ?? h.name}-${i}`}>
+                <span className="font-semibold">{h.name}</span>
+                {' — '}
+                {h.units != null ? `${h.units.toLocaleString('en-IN')} ${unitWord(st, h.units)} · ${kg(h.units)}` : 'quantity not recorded'}
+                {h.variety ? ` · ${h.variety}` : ''}
+                {h.ref ? <span className="ml-1 font-mono text-xs text-slate-500">ref {h.ref}</span> : null}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 text-xs text-slate-600">
+            {holders.reduce((n, h) => n + (h.units ?? 0), 0).toLocaleString('en-IN')} of {maxUnits.toLocaleString('en-IN')} {unitWord(st, maxUnits)} held · {cell.free.toLocaleString('en-IN')} free
+          </p>
+        </div>
+      )}
+      {bookable && (
+        <button
+          type="button"
+          data-testid="select-and-book-bin"
+          onClick={() => onPlace?.(row!, cell.slot, cell.look)}
+          className={`mt-3 w-full ${chosen ? 'kr-btn-secondary' : 'kr-btn-primary'}`}
+        >
+          {chosen ? <X className="h-4 w-4" aria-hidden /> : <ShoppingCart className="h-4 w-4" aria-hidden />}
+          {chosen ? 'Remove from my selection' : 'Select & Book This Bin'}
+        </button>
+      )}
+    </section>
+  );
+}
+
 
 /** What is shown from outside: every place, only those with room, or only the person's own. */
 type Focus = 'all' | 'free' | 'mine';
@@ -213,6 +383,12 @@ export function ColdStore3D({
   view = 'orbit',
   onView,
   mineName,
+  stackOf,
+  holdersOf,
+  mineOf,
+  onOpenTwin,
+  facilityName,
+  facilityId,
 }: {
   chambers: ColdChamber[];
   stateOf: (c: ColdChamber, slot: string) => Look;
@@ -231,6 +407,17 @@ export function ColdStore3D({
   onView?: (v: View3D) => void;
   /** The farmer's name, shown over their own places ('mine'). */
   mineName?: string;
+  /** Who holds one place (owner views): a sentence for the crate drawer read from the bookings, or null. */
+  stackOf?: (c: ColdChamber, slot: string) => string | null;
+  /** Owner views: every farmer sharing one place, with units and booking references. */
+  holdersOf?: (c: ColdChamber, slot: string) => PlaceHolder[];
+  /** Farmer views: how many units the viewer themselves hold on one place (null: not known). */
+  mineOf?: (c: ColdChamber, slot: string) => number | null;
+  onOpenTwin?: () => void;
+  /** The facility's name, shown in the place inspector (Facility → Chamber → …). */
+  facilityName?: string;
+  /** The facility's database id, shown in the place inspector (Facility ID row). */
+  facilityId?: string;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const tip = useRef<HTMLDivElement>(null);
@@ -239,23 +426,86 @@ export function ColdStore3D({
   const input = useRef<WalkInput>(noInput());
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
+  // WebGL contexts and module loads can fail transiently — a phone juggling
+  // too many live canvases, a driver hiccup just after a tab switch, one bad
+  // network round trip. The view is rebuilt from scratch up to three times,
+  // a quarter second apart, before the quiet "cannot show 3D" panel shows.
+  const [attempt, setAttempt] = useState(0);
+  // Set when the safety cap trims a very large store: the honest badge over the view.
+  const [instSummary, setInstSummary] = useState<InstSummary | null>(null);
+  // The 3D world is built only once the component has truly mounted (never
+  // during a portal's first render or a stray server pass): three.js, WebGL
+  // and their loaders exist only in the browser, and a hiccup there must
+  // never take the page down.
+  const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- kept as shipped: changing when this state is set needs its signed-in flow tested
+  useEffect(() => setMounted(true), []);
   const [info, setInfo] = useState<number | null>(null);
   const [where, setWhere] = useState<Where>({ text: 'You are outside the main door.', chamber: -1, level: 1, floors: 1 });
   const [target, setTarget] = useState<Target | null>(null);
   const [measure, setMeasure] = useState<Measure | null>(null);
+  // The digital-twin controls (in addition to the camera pills and the place filters).
+  const [xrayWalls, setXrayWalls] = useState(false);
+  // The Blender kit's real geometries, loaded in the BACKGROUND: the 3D world
+  // always mounts with its own procedural kit first (well under 400 ms, never
+  // waiting on a network), and rebuilds once with the real shapes when the
+  // kit GLB has arrived. A missing or slow GLB simply never arrives: the
+  // procedural shapes stay — nothing waits, nothing breaks.
+  const [kitProtos, setKitProtos] = useState<ColdKitGeos | null>(null);
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      const T = await import('three');
+      const protos = await loadColdKitGeo(T, '/models/coldstore_kit.glb', 8000);
+      if (live && protos) setKitProtos(protos);
+    })();
+    return () => {
+      live = false;
+    };
+  }, []);
+  const [myHighlight, setMyHighlight] = useState(false);
+  /** The crate stack the drawer is open for: one tap on a booked (or the farmer's own) stack. */
+  const [stackCell, setStackCell] = useState<Cell | null>(null);
   // On a phone the page is shrunk to fit: a taller view and bigger buttons.
   const zoom = usePageZoom();
   const textId = useId();
 
   // The owner's live preview brings its building with its rows (lib/coldStore previewChambers).
   const shownBuilding = building !== undefined ? building : ((chambers as PreviewRows).building ?? null);
-  const scene = useMemo(() => buildScene(chambers, shownBuilding), [chambers, shownBuilding]);
-  const cells = useMemo(() => cellsOf(scene, stateOf, roomOf), [scene, stateOf, roomOf]);
+  // The scene and its places are built in a guard: odd input can never take
+  // the page down — worst case the view opens empty and the Drawing beside
+  // it still shows the store.
+  const scene = useMemo(() => {
+    try {
+      const built = buildScene(chambers, shownBuilding);
+      // The machinery bay stays out of farmer-facing views (book / view);
+      // the owner's own view keeps the plant bay they sized.
+      return { ...built, zones: zonesForViewer(built.zones, mode) };
+    } catch (err) {
+      console.error('The store scene failed to build:', err instanceof Error ? err.message : err);
+      return buildScene([], null);
+    }
+  }, [chambers, shownBuilding, mode]);
+  const cells = useMemo(() => {
+    try {
+      return cellsOf(scene, stateOf, roomOf);
+    } catch (err) {
+      console.error('The places failed to build:', err instanceof Error ? err.message : err);
+      return [] as Cell[];
+    }
+  }, [scene, stateOf, roomOf]);
   const free = useMemo(() => {
     const out = scene.chambers.map(() => 0);
     for (const c of cells) out[c.chamber] += c.free;
     return out;
   }, [scene, cells]);
+  // The drawer's place, as it is right now: a choice made from the card (or the
+  // map) re-labels the card at once — its look, room and the book button state
+  // — instead of repeating the snapshot taken when it was opened.
+  const liveCell = useMemo(
+    () => (stackCell ? cells.find((x) => x.chamber === stackCell.chamber && x.floor === stackCell.floor && x.place === stackCell.place) ?? stackCell : null),
+    [stackCell, cells],
+  );
   const activeIndex = useMemo(() => scene.chambers.findIndex((c) => c.group.floors.some((r) => r.id === active)), [scene, active]);
   // From outside, the person can show only the places with room, only their own, and one floor at a
   // time (the upper floors hide the lower ones). Walking always shows everything, as it stands.
@@ -291,7 +541,16 @@ export function ColdStore3D({
   }, [cells, mineLook, scene]);
   // The way to the farmer's place, and the guided walk along it: the step reached (null: not
   // guiding), whether they have arrived, and the language the steps are said in.
-  const route = useMemo(() => routeFor(scene, cells, mode), [scene, cells, mode]);
+  // Guarded: an odd store must not take the page down to the error guard —
+  // the view opens without a route, and the Drawing beside it still works.
+  const route = useMemo(() => {
+    try {
+      return routeFor(scene, cells, mode);
+    } catch (err) {
+      console.error('The way could not be worked out:', err instanceof Error ? err.message : err);
+      return null;
+    }
+  }, [scene, cells, mode]);
   const [guideAt, setGuideAt] = useState<number | null>(null);
   const [guideDone, setGuideDone] = useState(false);
   const [guideLang, setGuideLang] = useState<RouteLang>('en');
@@ -301,12 +560,26 @@ export function ColdStore3D({
     setGuideDone(done);
   }, []);
 
+  // Opening the crate drawer from inside the scene (a tap on a booked / own stack).
+  const onStack = useCallback((c: Cell) => setStackCell(c), []);
+
+  // An api hiccup (a scene the 3D code cannot draw, a WebGL hiccup) must never
+  // take the page down to the error guard: the failure is logged, the view
+  // keeps its last good frame, and the next data change retries.
+  const safe = useCallback((fn: () => void) => {
+    try {
+      fn();
+    } catch (err) {
+      console.error('3D update failed:', err instanceof Error ? err.message : err);
+    }
+  }, []);
+
   // The latest data and callbacks, for the scene (which is set up once).
-  const latest = useRef({ scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName, route, onStep });
+  const latest = useRef({ scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName, route, onStep, onStack, chambers, stackOf });
   useEffect(() => {
-    latest.current = { scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName, route, onStep };
-  }, [scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName, route, onStep]);
-  useEffect(() => api.current?.setRoute(route), [route]);
+    latest.current = { scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName, route, onStep, onStack, chambers, stackOf };
+  }, [scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName, route, onStep, onStack, chambers, stackOf]);
+  useEffect(() => safe(() => api.current?.setRoute(route)), [safe, route]);
   // Each step said aloud as the walk reaches it, in the person's language.
   useEffect(() => {
     if (guideAt === null || !route) return;
@@ -322,9 +595,9 @@ export function ColdStore3D({
   }, [view]);
   useEffect(() => () => stopSpeaking(), []);
   // The places are built again only when the store or what its places are changes (not when the page around it redraws).
-  useEffect(() => api.current?.setData(scene, shownCells, free, mineName), [scene, shownCells, free, mineName]);
-  useEffect(() => api.current?.setActive(activeIndex), [activeIndex]);
-  useEffect(() => api.current?.setView(view), [view]);
+  useEffect(() => safe(() => api.current?.setData(scene, shownCells, free, mineName)), [safe, scene, shownCells, free, mineName]);
+  useEffect(() => safe(() => api.current?.setActive(activeIndex)), [safe, activeIndex]);
+  useEffect(() => safe(() => api.current?.setView(view)), [safe, view]);
   // The small map is drawn into the walk's buttons, which appear once the view is ready.
   useEffect(() => {
     if (view === 'walk' && ready) api.current?.showWhere();
@@ -339,16 +612,50 @@ export function ColdStore3D({
     if (on) api.current?.kick();
   }, []);
 
+  // Floor slice and grower highlight, also without building the places again.
+  useEffect(() => safe(() => api.current?.world({ floor: floorShown ?? 'all', mine: myHighlight })), [safe, floorShown, myHighlight, shownCells]);
+  useEffect(() => safe(() => api.current?.xray(xrayWalls)), [safe, xrayWalls]);
+
   useEffect(() => {
     const el = host.current;
-    if (!el) return;
+    // Not mounted yet (or already gone): nothing to build — three.js exists
+    // only in a browser, and the mount gate keeps the first portal render
+    // free of any 3D work at all.
+    if (!el || !mounted) return;
     let disposed = false;
     let cleanup = () => {};
 
-    void (async () => {
-      const T = await import('three');
-      const { OrbitControls } = await import('three/examples/jsm/controls/OrbitControls.js');
+    // Transient WebGL failures (a context lost to tab churn, a driver hiccup,
+    // one slow module fetch) get an automatic retry: this mount is rebuilt
+    // from scratch up to three times, a quarter second apart, before the
+    // quiet "cannot show 3D" panel shows. A fresh attempt means a brand-new
+    // canvas and a brand-new WebGL context — the old one is torn down by the
+    // cleanup below before the next run starts.
+    const scheduleRetry = () => {
       if (disposed) return;
+      if (attempt < 2) {
+        window.setTimeout(() => {
+          if (!disposed) setAttempt((a) => a + 1);
+        }, 250);
+      } else {
+        setFailed(true);
+      }
+    };
+
+    void (async () => {
+      let T: typeof import('three');
+      let controlsMod: typeof import('three/examples/jsm/controls/OrbitControls.js');
+      try {
+        T = await import('three');
+        controlsMod = await import('three/examples/jsm/controls/OrbitControls.js');
+      } catch {
+        // The module bundle itself did not arrive — often a one-off network
+        // hiccup, not a broken browser. Same retry, not an instant give-up.
+        scheduleRetry();
+        return;
+      }
+      if (disposed) return;
+      const { OrbitControls } = controlsMod;
 
       const phone = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 640;
       // A low-cost phone (4 GB or less, or 4 cores or fewer): one pixel per screen pixel, no smoothing.
@@ -358,18 +665,31 @@ export function ColdStore3D({
       try {
         renderer = new T.WebGLRenderer({ antialias: !phone, powerPreference: phone ? 'low-power' : 'default' });
       } catch {
-        setFailed(true);
+        // Context creation refused — try the whole mount again before
+        // concluding this phone cannot show 3D.
+        scheduleRetry();
         return;
       }
+      // Filmic tone mapping and sRGB output: the same pixels, but light rolls
+      // off the way eyes expect, so steel, paint and apples read solid.
+      renderer.toneMapping = T.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.05;
+      renderer.outputColorSpace = T.SRGBColorSpace;
+      // Soft sun shadows on a laptop only: one extra draw pass per light is too
+      // much for a phone, which keeps the flat, even look.
+      const withShadows = !phone && !weak;
+      renderer.shadowMap.enabled = withShadows;
+      if (withShadows) renderer.shadowMap.type = T.PCFSoftShadowMap;
+      renderer.localClippingEnabled = true;
       const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       // Sharp when still. On a slow phone, fewer pixels while something moves (see the loop).
       const fullRatio = Math.min(window.devicePixelRatio || 1, weak ? 1 : phone ? 1.5 : 2);
+      renderer.setPixelRatio(fullRatio);
+      renderer.setClearColor('#CFE2E6');
+      const cv = renderer.domElement;
       let moveRatio = fullRatio;
       let slowFrames = 0;
       let handHeld = false;
-      renderer.setPixelRatio(fullRatio);
-      renderer.setClearColor('#e3edf5');
-      const cv = renderer.domElement;
       cv.className = 'block h-full w-full rounded-3xl outline-none';
       cv.setAttribute('role', 'img');
       cv.setAttribute('aria-describedby', textId);
@@ -377,6 +697,23 @@ export function ColdStore3D({
       el.prepend(cv);
 
       const world3 = new T.Scene();
+      // The Kashmir valley sky behind the store: pale blue overhead down to a sage haze at the ridge line — never a white void.
+      const skyTex = (() => {
+        const sky = document.createElement('canvas');
+        sky.width = 4;
+        sky.height = 256;
+        const g = sky.getContext('2d');
+        if (!g) return null;
+        const grad = g.createLinearGradient(0, 0, 0, 256);
+        grad.addColorStop(0, '#BDD6E2');
+        grad.addColorStop(1, '#E4EFEA');
+        g.fillStyle = grad;
+        g.fillRect(0, 0, 4, 256);
+        const tex = new T.CanvasTexture(sky);
+        tex.colorSpace = T.SRGBColorSpace;
+        return tex;
+      })();
+      if (skyTex) world3.background = skyTex;
       const camera = new T.PerspectiveCamera(FOV.orbit, 1, 0.05, 2000);
       camera.rotation.order = 'YXZ';
       const controls = new OrbitControls(camera, cv);
@@ -389,18 +726,89 @@ export function ColdStore3D({
       world3.add(new T.HemisphereLight('#ffffff', '#94a3b8', 1.9));
       const sun = new T.DirectionalLight('#fff7ed', 1.6);
       sun.position.set(-40, 80, 55);
+      if (withShadows) {
+        sun.castShadow = true;
+        sun.shadow.mapSize.set(2048, 2048);
+        sun.shadow.bias = -0.0004;
+        sun.shadow.normalBias = 0.03;
+        const sc = sun.shadow.camera;
+        sc.left = -70;
+        sc.right = 70;
+        sc.top = 70;
+        sc.bottom = -70;
+        sc.near = 10;
+        sc.far = 240;
+      }
       world3.add(sun);
       const fill = new T.DirectionalLight('#dbeafe', 0.55);
       fill.position.set(50, 30, -40);
       world3.add(fill);
+      // Real interior lights for walking (the LED strips are emissive meshes, not light sources): two
+      // point lights that follow the walker, hung under the ceiling of the room they stand in — a
+      // chamber or the grading / packaging hall — so every chamber is brightly lit where you are.
+      // The count never changes (no shader recompiles); both stay dark outside the walk.
+      const walkLamps = [0, 1].map(() => {
+        const l = new T.PointLight('#f5faff', 0, 18, 1.5);
+        world3.add(l);
+        return l;
+      });
 
-      const kit = makeKit(T, phone);
+      // Gentle studio reflections for the steel and painted panels (desktop
+      // only: the prefiltered map is memory a phone is short of). Kept faint —
+      // the lights stay in charge of the look.
+      if (withShadows) {
+        const { RoomEnvironment } = await import('three/examples/jsm/environments/RoomEnvironment.js');
+        const pmrem = new T.PMREMGenerator(renderer);
+        world3.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+        world3.environmentIntensity = 0.35;
+        pmrem.dispose();
+      }
+
+      // The kit used for all logic is the procedural one, dressed with the
+      // Blender protos when they have answered in the background (or kept
+      // plain when they never do). Nothing here waits on the network: the
+      // first mount always draws the procedural kit at once.
+      const kit = makeKit(T, phone, kitProtos);
+
+      // A soft contact shadow under the building: a radial gradient on a disc,
+      // so the store sits on the yard instead of floating — cheaper than a
+      // shadow pass and there on phones too.
+      const contactTex = (() => {
+        const cv = document.createElement('canvas');
+        cv.width = 128;
+        cv.height = 128;
+        const g = cv.getContext('2d');
+        if (!g) return null;
+        const grad = g.createRadialGradient(64, 64, 10, 64, 64, 64);
+        grad.addColorStop(0, 'rgba(15,23,42,0.30)');
+        grad.addColorStop(0.55, 'rgba(15,23,42,0.13)');
+        grad.addColorStop(1, 'rgba(15,23,42,0)');
+        g.fillStyle = grad;
+        g.fillRect(0, 0, 128, 128);
+        const t = new T.CanvasTexture(cv);
+        t.colorSpace = T.SRGBColorSpace;
+        return t;
+      })();
+      const contactMat = contactTex ? new T.MeshBasicMaterial({ map: contactTex, transparent: true, depthWrite: false }) : null;
+      let contact: InstanceType<typeof T.Mesh> | null = null;
+      // Desktop only: the sun's shadow pass. Opaque lit meshes cast and
+      // receive; see-through things (gratings, glows, marks) stay out of it.
+      const dressShadows = (g: InstanceType<typeof T.Object3D>) => {
+        if (!withShadows) return;
+        g.traverse((o) => {
+          const m = o as unknown as { isMesh?: boolean; castShadow?: boolean; receiveShadow?: boolean; material?: { transparent?: boolean; isMeshStandardMaterial?: boolean } };
+          if (m.isMesh && m.material && m.material.isMeshStandardMaterial) {
+            m.castShadow = !m.material.transparent;
+            m.receiveShadow = true;
+          }
+        });
+      };
       // Walking: a light haze gives the long rooms their depth.
-      const haze = new T.Fog('#e6edf3', 14, 70);
+      const haze = new T.Fog('#DCE9E6', 14, 70);
       const root = new T.Group();
       world3.add(root);
       let shell: Shell | null = null;
-      let places: Places | null = null;
+      let places: PlacesState | null = null;
       // The way to the farmer's place (arrows on the floor), and the guided walk along it:
       // `i` the next point, `said` the last step told.
       let routeNow: Route | null = null;
@@ -420,6 +828,8 @@ export function ColdStore3D({
       let running = false;
       let last = 0;
       let held = 0;
+      // X-ray walls: every wall of the store turns glass at once (the 3D toggle).
+      let xrayNow = false;
       const me: Walker & { heading: number; pitch: number } = { x: 0, y: 0, level: 1, inside: -1, heading: Math.PI / 2, pitch: -0.08 };
       let orbitPose: { pos: [number, number, number]; target: [number, number, number] } | null = null;
       let startAt: number | null = null;
@@ -745,6 +1155,9 @@ export function ColdStore3D({
         if (e.pointerType !== 'mouse') hideTip = window.setTimeout(() => showTip(null, 0, 0), 2600);
         if (cell) {
           act(cell);
+          // Any stack opens the live booking / capacity inspector — free or
+          // booked — so what a place is and holds is always one tap away.
+          latest.current.onStack?.(cell);
           return;
         }
         if (mode3 === 'orbit') {
@@ -844,7 +1257,20 @@ export function ColdStore3D({
           const b = s.bounds;
           origin = { ox: b.x + b.w / 2, oy: b.y + b.d / 2 };
           shell = buildShell(kit, s, origin);
+          dressShadows(shell.group);
           root.add(shell.group);
+          // The disc under the building, from its own footprint, just over the
+          // yard (the hall floor sits above it inside the walls).
+          if (contactMat) {
+            if (contact) {
+              root.remove(contact);
+              contact.geometry.dispose();
+            }
+            contact = new T.Mesh(new T.CircleGeometry(Math.max(b.w, b.d) * 0.62, 48), contactMat);
+            contact.rotation.x = -Math.PI / 2;
+            contact.position.set(0, -0.02, 0);
+            root.add(contact);
+          }
         }
         // A new store (or new measurements): the way is drawn again from its own numbers.
         if (fresh) {
@@ -856,13 +1282,14 @@ export function ColdStore3D({
           disposeGroup(T, kit, places.group);
         }
         places = buildPlaces(kit, s, cs, origin, (i) => freeBy[i] ?? 0, who);
+        setInstSummary(places.instSummary);
+        dressShadows(places.group);
         root.add(places.group);
         labelsWalk = null;
         const stops = new Set<string>();
         for (const c of cs) {
           const ch = s.chambers[c.chamber];
-          // Every standing stack stops you — free places hold the store's empty bins or crates too.
-          if (c.look === 'booked' || c.look === 'mine' || c.look === 'part' || (c.look === 'free' && ch?.storage !== 'boxes') || (c.look === 'blocked' && ch?.storage === 'boxes')) stops.add(`${c.chamber}:${c.floor}:${c.place}`);
+          if (c.look === 'booked' || c.look === 'mine' || c.look === 'part' || (c.look === 'blocked' && ch?.storage === 'boxes')) stops.add(`${c.chamber}:${c.floor}:${c.place}`);
         }
         walkWorldNow = walkWorld(s, (ci, fi, pi) => stops.has(`${ci}:${fi}:${pi}`));
         const first = !shown;
@@ -889,14 +1316,29 @@ export function ColdStore3D({
       };
       /**
        * One frame. From outside, the walls between the camera and the inside
-       * are see-through (a cutaway from any side); walking, every wall looks
-       * solid. Labels stay readable however far away they are.
+       * are see-through (a cutaway from any side) — or all of them are, when
+       * x-ray mode is on; walking, every wall looks solid (unless x-ray).
+       * Labels stay readable however far away they are.
        */
       const render = () => {
-        if (shell) faceWalls(kit, shell.walls, mode3 === 'walk' ? null : { x: camera.position.x, z: camera.position.z });
+        if (shell) faceWalls(kit, shell.walls, mode3 === 'walk' ? null : { x: camera.position.x, z: camera.position.z }, xrayNow);
         // Ceilings, roof and lights only when walking: from outside the roof is off so you can look in.
         if (shell) shell.walkOnly.visible = mode3 === 'walk';
         world3.fog = mode3 === 'walk' ? haze : null;
+        if (mode3 === 'walk' && shown) {
+          // The room the walker is in sets how high the luminaires hang: under its ceiling, or under the deck above.
+          const ci = me.inside >= 0 ? me.inside : chamberAt(shown, me);
+          const ch = ci >= 0 ? shown.chambers[ci] : null;
+          const room = ch ? ch.h : shown.building?.height ?? shown.height;
+          const base = ch && me.inside >= 0 && me.level > 1 ? ch.floors[me.level - 1]?.z0 ?? 0 : 0;
+          const hang = Math.max(EYE + 0.6, Math.min(room - 0.35, base + 4.2));
+          // One over the walker, one a few metres ahead, as a row of strips would light the way.
+          [0, 1].forEach((i) => {
+            const reach = i * 5;
+            walkLamps[i].position.set(wx(origin, me.x + Math.cos(me.heading) * reach), hang, wz(origin, me.y + Math.sin(me.heading) * reach));
+            walkLamps[i].intensity = i === 0 ? 40 : 28;
+          });
+        } else for (const l of walkLamps) l.intensity = 0;
         if (labelsWalk !== (mode3 === 'walk')) {
           labelsWalk = mode3 === 'walk';
           root.traverse((o) => {
@@ -1145,7 +1587,7 @@ export function ColdStore3D({
         raf = requestAnimationFrame(loop);
       }
 
-      api.current = {
+        api.current = {
         setData,
         setActive,
         setView,
@@ -1173,6 +1615,19 @@ export function ColdStore3D({
           mark = { x: me.x, y: me.y, level: me.level, inside: me.inside };
           tellMeasure();
         },
+        // The digital-twin controls, applied to the places already built: no rebuild, a shade of work.
+        world: (s) => {
+          if (!places) return;
+          places.applyWorld(s);
+          places.applyWorldApples(s);
+          dirty = true;
+          kick();
+        },
+        xray: (on) => {
+          xrayNow = on;
+          dirty = true;
+          kick();
+        },
       };
       setData(latest.current.scene, latest.current.cells, latest.current.free, latest.current.mineName);
       setView(latest.current.view);
@@ -1190,19 +1645,32 @@ export function ColdStore3D({
         if (places) disposeGroup(T, kit, places.group);
         if (routeGroup) disposeGroup(T, kit, routeGroup);
         kit.dispose();
+        contactMat?.dispose();
+        contactTex?.dispose();
+        skyTex?.dispose();
+        (world3.environment as InstanceType<typeof T.Texture> | null)?.dispose();
         renderer.dispose();
         renderer.forceContextLoss();
         cv.remove();
         api.current = null;
       };
-    })();
+    })().catch((err) => {
+      // Any 3D failure stays inside this panel: a WebGL, module or geometry
+      // hiccup never takes the page down to the portal's error screen — and
+      // it goes through the same automatic retry as the rest.
+      if (disposed) return;
+      console.error('3D scene failed:', err instanceof Error ? err.message : err);
+      scheduleRetry();
+    });
 
     return () => {
       disposed = true;
       cleanup();
     };
-    // Set up once (textId never changes); data and callbacks reach the scene through `latest` and `api`.
-  }, [textId]);
+    // Rebuilt from scratch per attempt (the retry counter) and once more when
+    // the Blender kit arrives in the background; textId never changes, and
+    // data and callbacks reach the scene through `latest`/`api`.
+  }, [textId, mounted, attempt, kitProtos]);
 
   if (failed) {
     return <p className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-950 ring-1 ring-amber-200">This phone or browser cannot show 3D. Use the Drawing — it shows the same chambers and places.</p>;
@@ -1263,7 +1731,7 @@ export function ColdStore3D({
             : 'You have not chosen a place yet.'
         : '';
   const ww = WAY_WORDS[guideLang];
-  const chip = (on: boolean) => `inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition ${on ? 'bg-chinar text-white' : 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200 hover:bg-emerald-100'}`;
+  const chip = (on: boolean) => `inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition ${on ? 'bg-[#174C3C] text-white' : 'bg-[#EAF3EE] text-[#12382E] ring-1 ring-[#CFE0D6] hover:bg-[#EAF3EE]'}`;
   const shownInfo = info !== null ? scene.chambers[info] : null;
   const note = scene.problems.length ? (mode === 'owner' ? scene.problems.slice(0, 2).join(' ') : 'As the owner measured them, some chambers do not fit inside the building, so they are drawn outside it.') : '';
   const big = zoom > 1.3;
@@ -1291,7 +1759,7 @@ export function ColdStore3D({
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2" role="group" aria-label={walking ? 'Walk to' : 'Look at'}>
         {route && onView && (
-          <button type="button" onClick={showWay} className={`${chip(true)} shadow-sm hover:bg-chinar-hover`}>
+          <button type="button" onClick={showWay} className={`${chip(true)} shadow-sm hover:bg-[#12382E]`}>
             <Footprints className="h-4 w-4" aria-hidden /> {wayLabel}
           </button>
         )}
@@ -1331,8 +1799,16 @@ export function ColdStore3D({
             {walking ? `Go to ${c.name}` : c.name}
           </button>
         ))}
+        {onOpenTwin && (
+          <button type="button" onClick={onOpenTwin} className={chip(false)}>
+            <Factory className="h-4 w-4" aria-hidden /> Digital twin
+          </button>
+        )}
+        <span aria-label="What the store holds" className="ml-auto inline-flex min-h-[36px] items-center rounded-xl bg-white px-3 text-xs font-semibold uppercase tracking-wide text-slate-600 ring-1 ring-slate-200">
+          {kinds.size === 1 ? UNIT_MANY[[...kinds][0]] : 'Places'}
+        </span>
       </div>
-      {!walking && (mode !== 'owner' || floorsMost > 1) && (
+      {!walking && (
         <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Show">
           {mode !== 'owner' && (
             <>
@@ -1364,6 +1840,18 @@ export function ColdStore3D({
               ))}
             </span>
           )}
+          <button type="button" aria-pressed={xrayWalls} onClick={() => setXrayWalls((v) => !v)} className={chip(xrayWalls)}>
+            <ScanEye className="h-4 w-4" aria-hidden /> X-ray walls
+          </button>
+          <button
+            type="button"
+            aria-pressed={myHighlight}
+            onClick={() => setMyHighlight((v) => !v)}
+            className={chip(myHighlight)}
+            aria-description={mode === 'owner' ? 'Dims every stack that nobody has booked' : 'Dims every stack that is not yours'}
+          >
+            {mode === 'owner' ? 'Highlight booked' : 'Highlight mine'}
+          </button>
         </div>
       )}
       {!walking && showing && (
@@ -1374,12 +1862,24 @@ export function ColdStore3D({
       <div
         ref={host}
         tabIndex={walking ? 0 : -1}
-        className="relative w-full touch-none select-none overflow-hidden rounded-3xl bg-gradient-to-b from-sky-50 to-slate-100 outline-none ring-1 ring-slate-900/10 focus-visible:ring-2 focus-visible:ring-sky-600"
+        className="relative w-full touch-none select-none overflow-hidden rounded-3xl bg-gradient-to-b from-[#BDD6E2] to-[#E4EFEA] outline-none ring-1 ring-slate-900/10 focus-visible:ring-2 focus-visible:ring-[#286B54]"
         style={{ height }}
       >
-        {!ready && <p className="absolute inset-0 grid place-items-center text-sm text-slate-500">Opening the 3D view…</p>}
+        {!ready && (
+          <div className="absolute inset-0 grid place-items-center rounded-3xl bg-slate-100/80" role="status" aria-live="polite">
+            <div className="flex flex-col items-center gap-3">
+              <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#CFE0D6] border-t-[#286B54]" aria-hidden />
+              <p className="text-sm font-semibold text-slate-600">Initializing the 3D cold store...</p>
+            </div>
+          </div>
+        )}
         <p id={textId} data-scene-text className="sr-only">{sceneText(scene)}</p>
         <div ref={tip} aria-live="polite" className="pointer-events-none absolute z-30 max-w-[228px] whitespace-pre-line rounded-xl bg-slate-900/90 px-3 py-2 text-xs font-semibold text-white opacity-0 shadow-lg transition-opacity" />
+        {instSummary && ready && (
+          <p role="status" className="pointer-events-none absolute left-1/2 top-3 z-30 w-fit max-w-[calc(100%-1rem)] -translate-x-1/2 rounded-full bg-slate-900/85 px-3.5 py-1.5 text-center text-[11px] font-semibold text-white shadow-lg">
+            Showing optimized 3D instanced view of {instSummary.total.toLocaleString('en-IN')} storage places · {instSummary.boxes.toLocaleString('en-IN')} total box capacity
+          </p>
+        )}
         {walking && ready && (
           <WalkHud
             press={press}
@@ -1399,12 +1899,33 @@ export function ColdStore3D({
         {!big && card}
       </div>
       {big && card}
+      {stackCell && liveCell && (
+        <CrateCard
+          cell={liveCell}
+          scene={scene}
+          chambers={chambers}
+          mode={mode}
+          // Booking flow: the card's own "Select & Book This Bin" — the same
+          // choose a map tap makes, so the choice flows into confirm & payment.
+          onPlace={mode === 'book' ? onPlace : undefined}
+          // Role isolation: only the owner's view reads who holds a place;
+          // farmer-facing cards never name another farmer and carry only the
+          // viewer's own units plus what is still free.
+          stackOf={mode === 'owner' ? stackOf : undefined}
+          holdersOf={mode === 'owner' ? holdersOf : undefined}
+          mineOf={mode === 'owner' ? undefined : mineOf}
+          mineName={mineName}
+          facilityName={facilityName}
+          facilityId={facilityId}
+          onClose={() => setStackCell(null)}
+        />
+      )}
       {route && guideAt !== null && (
-        <section aria-label="The way to your place" className="rounded-2xl bg-emerald-50 p-3 ring-1 ring-emerald-200">
+        <section aria-label="The way to your place" className="rounded-2xl bg-[#EAF3EE] p-3 ring-1 ring-[#CFE0D6]">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h4 dir={rtl} className="font-semibold text-emerald-900">{guideDone ? ww.here : ww.follow}</h4>
+            <h4 dir={rtl} className="font-semibold text-[#12382E]">{guideDone ? ww.here : ww.follow}</h4>
             <div className="flex gap-2">
-              <button type="button" onClick={() => void speak(route.steps[guideAt]?.text[guideLang] ?? '', guideLang)} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-emerald-900 ring-1 ring-emerald-200 hover:bg-emerald-100">
+              <button type="button" onClick={() => void speak(route.steps[guideAt]?.text[guideLang] ?? '', guideLang)} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-[#12382E] ring-1 ring-[#CFE0D6] hover:bg-[#EAF3EE]">
                 <Volume2 className="h-4 w-4" aria-hidden /> {ww.again}
               </button>
               <button type="button" onClick={stopWay} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100">
@@ -1414,14 +1935,14 @@ export function ColdStore3D({
           </div>
           <div role="radiogroup" aria-label="Language of the steps" className="mt-2 flex flex-wrap gap-1.5">
             {GUIDE_LANGS.map(([l, name]) => (
-              <button key={l} type="button" role="radio" aria-checked={guideLang === l} onClick={() => sayIn(l)} className={`min-h-[44px] cursor-pointer rounded-xl px-3 text-sm font-semibold ring-1 ${guideLang === l ? 'bg-chinar text-white ring-chinar' : 'bg-white text-emerald-900 ring-emerald-200 hover:bg-emerald-100'}`}>
+              <button key={l} type="button" role="radio" aria-checked={guideLang === l} onClick={() => sayIn(l)} className={`min-h-[44px] cursor-pointer rounded-xl px-3 text-sm font-semibold ring-1 ${guideLang === l ? 'bg-[#174C3C] text-white ring-[#174C3C]' : 'bg-white text-[#12382E] ring-[#CFE0D6] hover:bg-[#EAF3EE]'}`}>
                 {name}
               </button>
             ))}
           </div>
           <ol dir={rtl} aria-live="polite" className="mt-2 space-y-1 text-sm">
             {route.steps.map((s, k) => (
-              <li key={k} className={`rounded-lg px-2 py-1 ${k === guideAt ? 'bg-chinar font-semibold text-white' : k < guideAt ? 'text-emerald-800' : 'text-slate-600'}`}>
+              <li key={k} className={`rounded-lg px-2 py-1 ${k === guideAt ? 'bg-[#174C3C] font-semibold text-white' : k < guideAt ? 'text-[#174C3C]' : 'text-slate-600'}`}>
                 {k + 1}. {s.text[guideLang]}
               </li>
             ))}
@@ -1429,13 +1950,15 @@ export function ColdStore3D({
         </section>
       )}
       {note &&<p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-950 ring-1 ring-amber-300">{note}</p>}
-      {scene.beside && <p className="text-xs text-slate-600">Chambers set up before the building was measured stand beside it, outside its walls.</p>}
       <p className="text-xs text-slate-500">Sizes, chambers, doors and places are the owner’s. Cooling units hang on the wall the owner named (or the one facing the door); how many, and the lights and curtains, are drawn as in a typical cold store — the Photos tab shows this store as it really is, when the owner has added photos.</p>
       <p className="text-xs text-slate-600">
         {walking
-          ? `Walk with the arrows (or the keys W A S D, ← →) · drag to look around · ${mode === 'book' ? 'tap a free place in front of you, or aim the ring at it, to choose it.' : mode === 'owner' ? 'tap a stack to see whose it is.' : 'your stacks are tinted violet.'}`
-          : `Drag to turn the store · pinch or scroll to zoom · two fingers to move. Tap a chamber to see what it holds. ${mode === 'book' ? 'Empty stacks are free, stacks full of apples are taken. Tap an empty stack to choose it; tap it again to undo.' : mode === 'owner' ? 'Tap a stack to see whose it is.' : 'Your stacks are tinted violet.'}`}
+          ? `Walk with the arrows (or the keys W A S D, ← →) · drag to look around · ${mode === 'book' ? 'tap a free place in front of you, or aim the ring at it, to choose it.' : mode === 'owner' ? 'tap a stack to see whose it is.' : 'your stacks are forest green under a gold light.'}`
+          : `Drag to turn the store · pinch or scroll to zoom · two fingers to move. Tap a chamber to see what it holds. ${mode === 'book' ? 'Tap a free place (an outlined stack) to choose it; tap it again to undo.' : mode === 'owner' ? 'Tap a stack to see whose it is.' : 'Your stacks are forest green under a gold light.'}`}
       </p>
     </div>
   );
 }
+
+/** The default export too: either import style works. */
+export default ColdStore3D;

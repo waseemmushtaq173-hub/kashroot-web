@@ -21,6 +21,7 @@ import { AnswerBank } from '@/components/advisory/AnswerBank';
 import { AskForm } from '@/components/advisory/AskForm';
 import { RequestThread } from '@/components/advisory/RequestThread';
 import { PortalShell } from '@/components/layout/PortalShell';
+import { PhenologyPanel } from '@/components/advisory/PhenologyPanel';
 import { Badge, Btn, EmptyState, Panel, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
 import { RoleApplicationForm } from '@/components/staff/RoleApplicationForm';
 import { KIND_LABEL, listRequests, myRoleRequest, STATUS_LABEL, type AdvisoryRequest, type RequestKind, type RequestStatus } from '@/lib/db/advisory';
@@ -84,12 +85,17 @@ export function AdvisoryDesk({ farmerView = false }: { farmerView?: boolean }) {
   useEffect(() => {
     let live = true;
     const tick = async () => {
-      if (live) await refresh();
+      // Background tabs do not poll — refresh the moment the page is seen again.
+      if (!live || document.visibilityState !== 'visible') return;
+      await refresh();
     };
+    const onVisible = () => { if (document.visibilityState === 'visible') void refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
     void tick();
     const id = window.setInterval(() => void tick(), 20000);
     return () => {
       live = false;
+      document.removeEventListener('visibilitychange', onVisible);
       window.clearInterval(id);
     };
   }, [refresh]);
@@ -173,6 +179,10 @@ export function AdvisoryDesk({ farmerView = false }: { farmerView?: boolean }) {
         <AnswerBank theme={theme} />
       ) : activeTab === 'library' ? (
         <div className="grid gap-6 lg:grid-cols-2">
+          {/* The 2D phenology timeline & leaf pathology panel (verified vs AI badges). */}
+          <div className="lg:col-span-2">
+            <PhenologyPanel />
+          </div>
           <Panel theme={theme} title="Disease management" icon={ShieldAlert}>
             <ArticleList kind="protocol" />
           </Panel>

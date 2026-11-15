@@ -17,7 +17,8 @@ import { DoorOpen } from 'lucide-react';
 
 import { DimLine, ScaleBar } from '@/components/rental/drawingMarks';
 import { useWidth } from '@/components/rental/owner/useWidth';
-import { AREA_KINDS, areaName, countText, doorLine, fromDoor, passageOf, placeRect, type Building, type ModelChamber, type Sides, type StoreModel, type Wall } from '@/lib/coldStore';
+import { workZones, ZONE_LOOK } from '@/components/rental/three/storeScene';
+import { countText, doorLine, fromDoor, passageOf, placeRect, type Building, type ModelChamber, type Sides, type StoreModel, type Wall } from '@/lib/coldStore';
 import { FOOT, type SizeUnit } from '@/lib/coldLayout';
 
 const WALL_NAME = { front: 'front', back: 'back', left: 'left', right: 'right' } as const;
@@ -32,18 +33,28 @@ const OUT: Record<Wall, [number, number]> = { front: [0, 1], back: [0, -1], left
 /** A font size for words that should fit in `room` px: at most `max`, at least `min`. */
 const fitFont = (text: string, room: number, max: number, min: number) => Math.max(min, Math.min(max, room / (text.length * 0.58)));
 
+/** The pale fill a work zone is painted with on the drawing (the stroke is the zone's own colour). */
+const ZONE_FILL: Record<import('@/components/rental/three/storeScene').SceneZone['key'], string> = {
+  cleaning: '#BFE3EC',
+  grading: '#BFE5CF',
+  sorting: '#D5E8B0',
+  packing: '#F2DFA6',
+  machinery: '#E2E8F0',
+  dock: '#F4C9A8',
+};
+
 /** Where the chambers are, in words: "on both sides of the passage from the main door". */
 export const SIDES_TEXT: Record<Sides, string> = {
   left: 'on the left side of the passage from the main door',
   right: 'on the right side of the passage from the main door',
   both: 'on both sides of the passage from the main door',
+  lbank: 'in an L: 1 to 4 down the left wall, the rest along the back wall',
 };
 
 /** "Building 120 ft long, 60 ft wide, 30 ft high; main door in the front wall, 10 ft from the left corner, 10 ft wide; chambers on both sides of the passage from the main door." */
 export function buildingText(b: Building): string {
   const u = b.unit;
-  const areas = (b.areas ?? []).map((a) => `${areaName(a)} ${say(a.length, u)} × ${say(a.width, u)}, ${say(a.x, u)} from the left wall and ${say(a.y, u)} from the front wall`);
-  return `Building ${say(b.length, u)} long, ${say(b.width, u)} wide, ${say(b.height, u)} high; main door in the ${WALL_NAME[b.door.wall]} wall, ${say(b.door.from, u)} from the left corner, ${say(b.door.width, u)} wide and ${say(b.door.height, u)} high; chambers ${SIDES_TEXT[b.sides]}${areas.length ? `; work areas: ${areas.join('; ')}` : ''}`;
+  return `Building ${say(b.length, u)} long, ${say(b.width, u)} wide, ${say(b.height, u)} high; main door in the ${WALL_NAME[b.door.wall]} wall, ${say(b.door.from, u)} from the left corner, ${say(b.door.width, u)} wide and ${say(b.door.height, u)} high; chambers ${SIDES_TEXT[b.sides]}`;
 }
 
 export const StoreDrawing = memo(function StoreDrawing({ model, selected, onPick, title, empty }: { model: StoreModel; selected?: string | null; onPick?: (key: string) => void; title?: string; /** What to say before the building is known. */ empty?: string }) {
@@ -183,25 +194,44 @@ export const StoreDrawing = memo(function StoreDrawing({ model, selected, onPick
                     PASSAGE
                   </text>
                 )}
-                {!items.length && (b.sides === 'both' ? [zone('left'), zone('right')] : [zone(b.sides)])}
+                {!items.length && (b.sides === 'both' ? [zone('left'), zone('right')] : b.sides === 'lbank' ? [zone('left')] : [zone(b.sides)])}
               </g>
             );
           })()}
-          {/* Work areas: packing, grading, machinery… where the owner measured them */}
-          {(b.areas ?? []).map((a, i) => {
-            const name = areaName(a);
-            const w = a.length * k;
-            const h = a.width * k;
-            const fs = fitFont(name, Math.max(w, h) - 10, font, 9);
-            const cx = X(a.x + a.length / 2);
-            const cy = Y(a.y + a.width / 2);
+          {/* The work zones: the owner's own sizes where they gave them,
+              otherwise fitted to the free floor — never on a chamber, never
+              on the forklift passage. */}
+          {(() => {
+            const zones = workZones({ x: x0, y: y0, w: x1 - x0, d: y1 - y0 }, items.map(({ spot }) => ({ x: spot.x, y: spot.y, w: spot.w, d: spot.d })), pass.rect, wall, b.workSpaces);
+            if (!zones.length) return null;
             return (
-              <g key={`area-${i}`} data-area={a.kind}>
-                <rect x={X(a.x)} y={Y(a.y + a.width)} width={w} height={h} rx={6} fill={AREA_KINDS[a.kind].colour} fillOpacity={0.85} stroke="#475569" strokeWidth={1.5} strokeDasharray="8 4" />
-                <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight={700} fill="#1e293b" transform={h > w * 1.4 ? `rotate(-90 ${cx} ${cy})` : undefined}>{name}</text>
+              <g data-work-zones>
+                {zones.map((z) => {
+                  const zw = z.rect.w * k;
+                  const zd = z.rect.d * k;
+                  if (zw < 12 || zd < 12) return null;
+                  const upright = zd >= zw;
+                  const withDims = zw >= 54 || zd >= 54;
+                  const size = fitFont(z.label, (upright ? zd : zw) - 8, font - 2, 8);
+                  const cx = X(z.rect.x + z.rect.w / 2);
+                  const cy = Y(z.rect.y + z.rect.d / 2);
+                  return (
+                    <g key={z.key}>
+                      <rect x={X(z.rect.x)} y={Y(z.rect.y + z.rect.d)} width={zw} height={zd} fill={ZONE_FILL[z.key]} stroke={ZONE_LOOK[z.key]} strokeWidth={1.5} strokeDasharray="6 4" />
+                      <text x={cx} y={cy - (withDims ? 6 : 0)} textAnchor="middle" dominantBaseline="central" fontSize={size} fontWeight={800} letterSpacing={1} fill={ZONE_LOOK[z.key]} transform={upright ? `rotate(-90 ${cx} ${cy})` : undefined}>
+                        {z.label.toUpperCase()}
+                      </text>
+                      {withDims && (
+                        <text x={cx} y={cy + 9} textAnchor="middle" dominantBaseline="central" fontSize={Math.max(7, size - 2)} fontWeight={700} fill={ZONE_LOOK[z.key]} transform={upright ? `rotate(-90 ${cx} ${cy})` : undefined}>
+                          {`${say(z.rect.w, u)} × ${say(z.rect.d, u)}`}
+                        </text>
+                      )}
+                    </g>
+                  );
+                })}
               </g>
             );
-          })}
+          })()}
           {items.map(({ mc, spot }) => {
             const on = selected === mc.key;
             const sx = (x: number) => X(spot.x + x);

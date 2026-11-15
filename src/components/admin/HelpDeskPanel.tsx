@@ -67,7 +67,7 @@ function Request({ r, onDone }: { r: DeskRequest; onDone: () => void }) {
       </div>
       <p className="text-sm text-slate-700">
         <strong className="text-slate-900">{r.name}</strong> ·{' '}
-        <a href={`tel:+91${r.phone}`} className="inline-flex min-h-11 items-center gap-1 font-semibold text-sky-800 underline">
+        <a href={`tel:+91${r.phone}`} className="inline-flex min-h-11 items-center gap-1 font-semibold text-[#174C3C] underline">
           <Phone className="h-4 w-4" aria-hidden /> {r.phone}
         </a>
         {r.email && <> · {r.email}</>} · {r.signedIn ? 'signed in' : 'not signed in'} · writes in {r.lang}

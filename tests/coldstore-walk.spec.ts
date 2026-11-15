@@ -8,7 +8,7 @@ import { expect, test } from '@playwright/test';
 const draft = {
   title: 'Walk test store', ownerName: 'Owner', ownerPhone: '9876543210', managerName: '', managerPhone: '9876543210',
   state: 'Jammu & Kashmir', district: 'Shopian', area: 'Test', address: '', unit: 'm',
-  building: { length: '40', width: '30', height: '12', door: { wall: 'front', from: '18', width: '4', height: '5' }, sides: 'both', areas: [{ key: 'a1', kind: 'packing', name: '', length: '8', width: '8', x: '30', y: '2' }] },
+  building: { length: '40', width: '30', height: '12', door: { wall: 'front', from: '18', width: '4', height: '5' }, sides: 'both' },
   chambers: [
     { key: 'k1', no: '1', storage: 'bins', count: '480', kg: '250', tonnes: '', floors: '1', length: '14', width: '12', height: '8', rate: '45', unitL: '1.2', unitW: '1', unitH: '0.76', floorHeights: '8', aisle: '3.5', stackGap: '0.1', wallGap: '0.3', stackHigh: '8', door: { wall: 'front', from: '5', width: '3', height: '4' }, spotX: '', spotY: '', coolerWall: '', coolant: '', ca: '', temperature: '', humidity: '' },
   ],

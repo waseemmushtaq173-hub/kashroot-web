@@ -19,11 +19,11 @@ import { ShellTabs } from '@/components/layout/portal/ShellTabs';
 import type { ShellLook } from '@/components/layout/portal/look';
 import { liftToasts } from '@/lib/client/toastLayer';
 
-const HEADING = 'px-3 pb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400';
-const ITEM = `flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left font-semibold no-underline transition hover:no-underline ${FOCUS}`;
+const HEADING = 'px-3 pb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-champagne';
+const ITEM = `flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left font-semibold no-underline transition hover:no-underline ${FOCUS} focus-visible:outline-champagne`;
 /** Row height and text: the drawer (phones, laid out 800 px wide and shown at about half size) gets bigger rows. */
 const SIZE = { normal: 'min-h-11 text-[15px]', large: 'min-h-14 text-lg' };
-const IDLE = 'text-slate-600 hover:bg-slate-900/[0.04] hover:text-slate-900';
+const IDLE = 'text-white/85 hover:bg-white/10 hover:text-white';
 
 export interface SidebarProps {
   theme: PortalTheme;
@@ -51,19 +51,21 @@ export interface SidebarProps {
   onNavigate?: () => void;
   /** Bigger rows, for the drawer. */
   large?: boolean;
+  /** Only the KashRoot Super Admin gets "My business"; everyone else stays on My details / Home. */
+  isSuperAdmin?: boolean;
 }
 
-function MenuLink({ href, icon: Icon, children, onNavigate, outline, size, current = false }: { href: string; icon: ElementType; children: ReactNode; onNavigate?: () => void; outline: string; size: string; current?: boolean }) {
+function MenuLink({ href, icon: Icon, children, onNavigate, size, current = false }: { href: string; icon: ElementType; children: ReactNode; onNavigate?: () => void; size: string; current?: boolean }) {
   return (
-    <Link href={href} onClick={onNavigate} aria-current={current ? 'page' : undefined} className={`${ITEM} ${size} ${outline} ${IDLE}`}>
-      <Icon className="h-5 w-5 shrink-0 text-slate-400" aria-hidden />
+    <Link href={href} onClick={onNavigate} aria-current={current ? 'page' : undefined} className={`${ITEM} ${size} ${IDLE}`}>
+      <Icon className="h-5 w-5 shrink-0 text-white/65" aria-hidden />
       <span className="min-w-0 flex-1 truncate">{children}</span>
     </Link>
   );
 }
 
 export function SidebarContent(props: SidebarProps) {
-  const { theme, look, portalLabel, title, tabs, activeTab, onSelect, idPrefix, panelId, navItems, dashboard, onDetails, onSignOut, onNavigate, pending = 0, large = false } = props;
+  const { theme, look, portalLabel, title, tabs, activeTab, onSelect, idPrefix, panelId, navItems, dashboard, onDetails, onSignOut, onNavigate, pending = 0, large = false, isSuperAdmin = false } = props;
   const hold = (n: number) => (pending > 0 && !onSignOut ? Array.from({ length: n }, (_, i) => <li key={`hold-${i}`} aria-hidden className={size} />) : null);
   const size = large ? SIZE.large : SIZE.normal;
   const hasMenu = tabs.length > 0 || navItems.length > 0 || Boolean(dashboard);
@@ -72,11 +74,11 @@ export function SidebarContent(props: SidebarProps) {
     <div className="relative flex min-h-full flex-col gap-7 px-4 pb-5 pt-6">
       {/* Logo and the portal's name */}
       <div className="px-2">
-        <Link href="/" onClick={onNavigate} aria-label="KashRoot home" className={`inline-flex min-h-12 items-center rounded-xl text-slate-900 no-underline hover:no-underline ${FOCUS} ${theme.outline}`}>
+        <Link href="/" onClick={onNavigate} aria-label="KashRoot home" className={`inline-flex min-h-12 items-center rounded-xl text-white no-underline hover:no-underline ${FOCUS} focus-visible:outline-champagne`}>
           <BrandMark />
         </Link>
         {portalLabel && (
-          <p className={`mt-3 flex w-fit max-w-full items-center gap-2 rounded-2xl px-3 py-1 text-xs font-semibold leading-snug ${theme.soft}`}>
+          <p className="mt-3 flex w-fit max-w-full items-center gap-2 rounded-2xl bg-white/10 px-3 py-1 text-xs font-semibold leading-snug text-white ring-1 ring-champagne/50">
             <ChinarLeaf className="h-3.5 w-3.5 shrink-0" color={theme.leaf} />
             {/* Long names ("Cold Storage Booking portal") wrap rather than lose their end. */}
             <span>{portalLabel}</span>
@@ -91,7 +93,7 @@ export function SidebarContent(props: SidebarProps) {
           </p>
           <div className="space-y-1">
             {dashboard && (
-              <MenuLink href={dashboard.href} icon={ArrowLeft} onNavigate={onNavigate} outline={theme.outline} size={size}>
+              <MenuLink href={dashboard.href} icon={ArrowLeft} onNavigate={onNavigate} size={size}>
                 {dashboard.label}
               </MenuLink>
             )}
@@ -99,7 +101,7 @@ export function SidebarContent(props: SidebarProps) {
               <ShellTabs tabs={tabs} activeTab={activeTab} onSelect={onSelect} theme={theme} orientation="vertical" idPrefix={idPrefix} panelId={panelId} label={`${title} sections`} large={large} />
             )}
             {navItems.map(({ label, href, icon, active }) => (
-              <MenuLink key={href} href={href} icon={icon} onNavigate={onNavigate} outline={theme.outline} size={size} current={active}>
+              <MenuLink key={href} href={href} icon={icon} onNavigate={onNavigate} size={size} current={active}>
                 {label}
               </MenuLink>
             ))}
@@ -115,42 +117,42 @@ export function SidebarContent(props: SidebarProps) {
           {hold(pending)}
           {onDetails && (
             <li>
-              <button type="button" onClick={onDetails} className={`${ITEM} ${size} ${theme.outline} ${IDLE}`}>
-                <UserRound className="h-5 w-5 shrink-0 text-slate-400" aria-hidden /> My details
+              <button type="button" onClick={onDetails} className={`${ITEM} ${size} ${IDLE}`}>
+                <UserRound className="h-5 w-5 shrink-0 text-white/65" aria-hidden /> My details
               </button>
             </li>
           )}
           {onSignOut && (
             <li>
               {/* Optional for farmers and buyers; required for admins (the Admin portal leads them to it). */}
-              <MenuLink href="/account/two-step" icon={ShieldCheck} onNavigate={onNavigate} outline={theme.outline} size={size}>
+              <MenuLink href="/account/two-step" icon={ShieldCheck} onNavigate={onNavigate} size={size}>
                 Two-step sign-in
               </MenuLink>
             </li>
           )}
-          {onSignOut && (
+          {onSignOut && isSuperAdmin && (
             <li>
               {/* Cold stores, dealers and shops run by more than one person: owner, managers, staff. */}
-              <MenuLink href="/account/business" icon={Building2} onNavigate={onNavigate} outline={theme.outline} size={size}>
+              <MenuLink href="/account/business" icon={Building2} onNavigate={onNavigate} size={size}>
                 My business
               </MenuLink>
             </li>
           )}
           <li>
-            <MenuLink href="/support" icon={LifeBuoy} onNavigate={onNavigate} outline={theme.outline} size={size}>
+            <MenuLink href="/support" icon={LifeBuoy} onNavigate={onNavigate} size={size}>
               Help &amp; support
             </MenuLink>
           </li>
           <li>
-            <MenuLink href="/" icon={Home} onNavigate={onNavigate} outline={theme.outline} size={size}>
+            <MenuLink href="/" icon={Home} onNavigate={onNavigate} size={size}>
               Home
             </MenuLink>
           </li>
           {hold(1)}
           {onSignOut && (
             <li>
-              <button type="button" onClick={onSignOut} className={`${ITEM} ${size} ${theme.outline} ${IDLE}`}>
-                <LogOut className="h-5 w-5 shrink-0 text-slate-400" aria-hidden /> Sign out
+              <button type="button" onClick={onSignOut} className={`${ITEM} ${size} ${IDLE}`}>
+                <LogOut className="h-5 w-5 shrink-0 text-white/65" aria-hidden /> Sign out
               </button>
             </li>
           )}
@@ -184,14 +186,14 @@ export function SidebarDrawer({ onClose, label, children }: { onClose: () => voi
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="kr-drawer fixed inset-y-0 left-0 m-0 h-full max-h-none w-[min(26rem,90vw)] max-w-none overflow-y-auto border-0 bg-white p-0 text-slate-900 shadow-[0_30px_90px_rgba(15,23,42,0.35)] backdrop:bg-slate-900/40 backdrop:backdrop-blur-sm"
+      className="kr-drawer fixed inset-y-0 left-0 m-0 h-full max-h-none w-[min(26rem,90vw)] max-w-none overflow-y-auto border-0 bg-forest-deep p-0 text-white shadow-[0_30px_90px_rgba(18,56,46,0.5)] backdrop:bg-forest-deep/50 backdrop:backdrop-blur-sm"
     >
       <div className="relative flex min-h-full flex-col">
         <button
           type="button"
           onClick={onClose}
           aria-label="Close menu"
-          className={`absolute right-3 top-4 z-10 grid h-12 w-12 cursor-pointer place-items-center rounded-xl text-slate-600 ring-1 ring-slate-900/10 transition hover:bg-slate-100 hover:text-slate-900 ${FOCUS} focus-visible:outline-slate-700`}
+          className={`absolute right-3 top-4 z-10 grid h-12 w-12 cursor-pointer place-items-center rounded-xl text-white ring-1 ring-white/30 transition hover:bg-white/10 ${FOCUS} focus-visible:outline-champagne`}
         >
           <X className="h-5 w-5" aria-hidden />
         </button>

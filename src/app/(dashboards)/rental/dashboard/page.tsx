@@ -14,11 +14,15 @@
  *   (bins or crates, floors, size, its own door, rent), where farmers pay
  *   them — drawn and in 3D as they type; then confirm the money arrived.
  *   (components/rental, components/rental/owner)
+ *   Business admin: the owner's complete business administration console —
+ *   facilities, chambers, bins, bookings, staff RBAC and financials — also
+ *   opened by the Platform Superadmin in Authorized Oversight Mode
+ *   (?oversightOrgId=…&oversight=1, gold banner, audit-logged).
  * Payments go straight to the owner — KashRoot does not hold them.
  * Data: rental_listings, rental_bookings, payout_accounts (shared database).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Apple, ArrowRight, Boxes, CalendarDays, Camera, CheckCircle2, ClipboardCheck, IndianRupee, Landmark, Map as MapIcon, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, ReceiptText, Search, Snowflake, Sparkles, Store, Trash2, Warehouse, XCircle } from 'lucide-react';
+import { Apple, ArrowRight, Boxes, Building2, CalendarDays, Camera, CheckCircle2, ClipboardCheck, Factory, IndianRupee, Landmark, Map as MapIcon, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, ReceiptText, Search, Snowflake, Sparkles, Store, Trash2, Warehouse, XCircle } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { IdentityStatus } from '@/components/auth/IdentityStatus';
@@ -27,10 +31,13 @@ import { ColdBooking, MyPlaces, niceDate } from '@/components/rental/ColdBooking
 import { PayOwner } from '@/components/rental/receipt/PayOwner';
 import { ColdMapEditor } from '@/components/rental/ColdMapEditor';
 import { ownerMeasured } from '@/lib/coldLayout';
+import { TwinPeek } from '@/components/rental/twin/TwinPeek';
 import { OwnerWizard, type Step } from '@/components/rental/owner/OwnerWizard';
+import { FarmerStoredApplesDesk, OwnerSharedBinDesk } from '@/components/rental/owner/SharedBinAndEngineeringDesk';
 import { StorePhotosEditor } from '@/components/rental/StorePhotos';
 import { PaymentDetails } from '@/components/rental/owner/PaymentStep';
 import { ColdStoreDirectory, useColdDirectory } from '@/components/rental/ColdStoreDirectory';
+import { OwnerAdminConsole } from '@/components/rental/OwnerAdminConsole';
 import { Badge, Btn, EmptyState, Field, INPUT, Modal, Panel, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
 import { inr, loadAccount, type Account } from '@/lib/db/client';
 import { coldWantFromLink } from '@/lib/navIntent';
@@ -66,14 +73,27 @@ const anyOf = (kinds: Storage[]) => unitsText(kinds).replace(/ and (?=\S+$)/, ' 
 /** A booking that holds or held space: it has a receipt to show. */
 const hasReceipt = (b: RentalBooking) => b.status === 'paid' || b.status === 'confirmed' || b.status === 'completed';
 /** Tabs a link may open (?tab=…), on each side. */
-const TABS: Record<Side, string[]> = { farmer: ['cold', 'bookings'], owner: ['stores', 'requests', 'payments'] };
+const TABS: Record<Side, string[]> = { farmer: ['cold', 'mystore', 'bookings'], owner: ['stores', 'bizadmin', 'operations', 'requests', 'payments'] };
 
 export default function RentalPage() {
   const [account, setAccount] = useState<Account | null | undefined>(undefined);
+  // Platform Superadmin oversight: ?oversightOrgId=<id>&oversight=1 opens that
+  // owner's complete Business admin console in Authorized Oversight Mode — the
+  // gold banner; the inspection itself is audit-logged in platform_audit_logs.
+  const [oversightOrgId] = useState<string | null>(() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      return p.get('oversight') === '1' && p.get('oversightOrgId') ? p.get('oversightOrgId') : null;
+    } catch {
+      return null;
+    }
+  });
   // Two sides of the portal: farmers who store apples, and owners who run a cold store.
   const [side, setSideState] = useState<Side>(() => {
     try {
-      const asked = new URLSearchParams(window.location.search).get('as');
+      const p = new URLSearchParams(window.location.search);
+      if (p.get('oversight') === '1' && p.get('oversightOrgId')) return 'owner';
+      const asked = p.get('as');
       if (asked === 'owner' || asked === 'farmer') return asked;
       return localStorage.getItem(SIDE_KEY) === 'owner' ? 'owner' : 'farmer';
     } catch {
@@ -83,8 +103,11 @@ export default function RentalPage() {
   const [tab, setTab] = useState(() => {
     // A link back from a receipt opens My bookings or Bookings to confirm.
     try {
-      const asked = new URLSearchParams(window.location.search).get('tab');
+      const p = new URLSearchParams(window.location.search);
+      const asked = p.get('tab');
       if (asked && TABS[side].includes(asked)) return asked;
+      // Oversight opens on the Business admin console unless a tab is named.
+      if (p.get('oversight') === '1' && p.get('oversightOrgId')) return 'bizadmin';
     } catch {
       /* no address to read */
     }
@@ -221,10 +244,13 @@ export default function RentalPage() {
         side === 'farmer'
           ? [
               { id: 'cold', label: 'Find a cold store', icon: Snowflake },
+              { id: 'mystore', label: 'My stored apples', icon: Boxes },
               { id: 'bookings', label: 'My bookings', icon: CalendarDays, count: mine.filter((b) => b.status === 'requested').length || undefined },
             ]
           : [
               { id: 'stores', label: 'My cold stores', icon: Warehouse },
+              { id: 'bizadmin', label: 'Business admin', icon: Building2 },
+              { id: 'operations', label: 'Shared bins & CA desk', icon: Factory },
               { id: 'requests', label: 'Bookings to confirm', icon: ClipboardCheck, count: waiting || undefined },
               { id: 'payments', label: 'Payment details', icon: Landmark },
             ]
@@ -243,12 +269,12 @@ export default function RentalPage() {
         <p role="alert" className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">{listError}</p>
       ) : tab === 'cold' ? (
         <div className="space-y-5">
-          <div role="tablist" aria-label="Which cold stores" className="flex w-full gap-1 rounded-2xl bg-emerald-50 p-1 ring-1 ring-emerald-200 sm:w-auto sm:max-w-xl">
+          <div role="tablist" aria-label="Which cold stores" className="flex w-full gap-1 rounded-2xl bg-[#EAF3EE] p-1 ring-1 ring-[#C6DBD0] sm:w-auto sm:max-w-xl">
             {([
               ['all', `All cold stores (${directory.entries.length.toLocaleString('en-IN')}${directory.reading ? '…' : ''})`],
               ['kashroot', `Book on KashRoot (${listings.length})`],
             ] as const).map(([id, label]) => (
-              <button key={id} type="button" role="tab" aria-selected={findView === id} onClick={() => setFindView(id)} className={`flex-1 cursor-pointer rounded-xl px-4 py-2.5 text-sm font-semibold transition ${findView === id ? 'bg-chinar text-white shadow' : 'text-emerald-900 hover:bg-emerald-100'}`}>
+              <button key={id} type="button" role="tab" aria-selected={findView === id} onClick={() => setFindView(id)} className={`flex-1 cursor-pointer rounded-xl px-4 py-2.5 text-sm font-semibold transition ${findView === id ? 'bg-[#12382E] text-white shadow' : 'text-[#12382E] hover:bg-[#EAF3EE]'}`}>
                 {label}
               </button>
             ))}
@@ -297,6 +323,8 @@ export default function RentalPage() {
           </>
           )}
         </div>
+      ) : tab === 'mystore' && side === 'farmer' ? (
+        <FarmerStoredApplesDesk account={account} theme={theme} />
       ) : tab === 'bookings' ? (
         <Panel theme={theme} title="My bookings" icon={CalendarDays}>
           {mine.length === 0 ? (
@@ -309,9 +337,14 @@ export default function RentalPage() {
             </ul>
           )}
         </Panel>
+      ) : tab === 'bizadmin' ? (
+        <OwnerAdminConsole
+          oversightOrgId={oversightOrgId}
+          onAddFacility={oversightOrgId ? undefined : () => setTab('stores')}
+        />
       ) : side === 'owner' ? (
         <OwnerPanel
-          section={tab === 'requests' || tab === 'payments' ? tab : 'stores'}
+          section={tab === 'requests' || tab === 'payments' || tab === 'operations' ? (tab as 'requests' | 'payments' | 'operations') : 'stores'}
           account={account}
           owned={owned}
           incoming={incoming}
@@ -351,11 +384,11 @@ export default function RentalPage() {
 /** Someone at the store to call: their name, number and a big Call button. */
 function CallPerson({ role, name, phone }: { role: string; name: string | null; phone: string }) {
   return (
-    <a href={`tel:${phone}`} aria-label={`Call the ${role}${name ? `, ${name}` : ''}, ${phone}`} className="flex min-h-[48px] w-full min-w-0 items-center gap-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-slate-800 no-underline ring-1 ring-emerald-200 hover:bg-emerald-100 hover:no-underline sm:w-auto">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-chinar text-white"><Phone className="h-4 w-4" aria-hidden /></span>
+    <a href={`tel:${phone}`} aria-label={`Call the ${role}${name ? `, ${name}` : ''}, ${phone}`} className="flex min-h-[48px] w-full min-w-0 items-center gap-3 rounded-xl bg-[#EAF3EE] px-3 py-2 text-sm text-slate-800 no-underline ring-1 ring-[#C6DBD0] hover:bg-[#EAF3EE] hover:no-underline sm:w-auto">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#12382E] text-white"><Phone className="h-4 w-4" aria-hidden /></span>
       <span className="min-w-0">
         <span className="block text-xs text-slate-600">{role[0].toUpperCase() + role.slice(1)}{name ? `: ${name}` : ''}</span>
-        <span className="block font-semibold tabular-nums text-emerald-900">Call {phone}</span>
+        <span className="block font-semibold tabular-nums text-[#12382E]">Call {phone}</span>
       </span>
     </a>
   );
@@ -454,7 +487,7 @@ function StoreCard({
 
       {map ? (
         <>
-          <p className="mt-4 flex items-center gap-1.5 text-sm font-semibold text-sky-900"><MapIcon className="h-4 w-4" aria-hidden /> {groups.length} chamber{groups.length === 1 ? '' : 's'} · {known ? `${freeAll.toLocaleString('en-IN')} ${anyOf(kinds)} free today` : `${l.available.toLocaleString('en-IN')} of ${l.capacity.toLocaleString('en-IN')} free`}</p>
+          <p className="mt-4 flex items-center gap-1.5 text-sm font-semibold text-[#12382E]"><MapIcon className="h-4 w-4" aria-hidden /> {groups.length} chamber{groups.length === 1 ? '' : 's'} · {known ? `${freeAll.toLocaleString('en-IN')} ${anyOf(kinds)} free today` : `${l.available.toLocaleString('en-IN')} of ${l.capacity.toLocaleString('en-IN')} free`}</p>
           {/* A table on wider screens, a short card per chamber on a phone. */}
           <table aria-label="What each chamber holds" className="mt-2 hidden w-full text-left text-sm sm:table">
             <thead className="bg-ivory text-xs font-semibold uppercase tracking-wider text-slate-600">
@@ -494,13 +527,14 @@ function StoreCard({
           <p className="mt-2 text-xs font-medium text-emerald-800">
             Any number of {anyOf(kinds)}{l.min_units > 1 ? ` from ${l.min_units.toLocaleString('en-IN')}` : ''}: share a place, pay only for your own {anyOf(kinds)}
           </p>
+          <TwinPeek store={l.title} />
           {own ? (
             <p className="mt-3"><Badge tone="violet">Your listing</Badge></p>
           ) : (
             <div className="mt-4 flex flex-col gap-3 border-t border-slate-900/5 pt-4 lg:flex-row lg:items-end lg:justify-between">
               <Btn theme={theme} icon={MapIcon} className="min-h-[48px] text-base" onClick={() => onBook()}>Choose your place</Btn>
               <form
-                className="flex flex-col gap-2 rounded-2xl bg-emerald-50 p-3 ring-1 ring-emerald-200 lg:max-w-xl"
+                className="flex flex-col gap-2 rounded-2xl bg-[#EAF3EE] p-3 ring-1 ring-[#C6DBD0] lg:max-w-xl"
                 onSubmit={(e) => {
                   e.preventDefault();
                   quick();
@@ -509,7 +543,7 @@ function StoreCard({
                 {kinds.length > 1 && (
                   <div role="radiogroup" aria-label="What will you bring?" className="flex gap-2">
                     {kinds.map((k) => (
-                      <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className={`min-h-[44px] flex-1 cursor-pointer rounded-xl px-3 text-sm font-semibold ring-2 ${kind === k ? 'bg-chinar text-white ring-chinar' : 'bg-white text-emerald-900 ring-emerald-200'}`}>
+                      <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className={`min-h-[44px] flex-1 cursor-pointer rounded-xl px-3 text-sm font-semibold ring-2 ${kind === k ? 'bg-[#12382E] text-white ring-[#174C3C]' : 'bg-white text-[#12382E] ring-[#C6DBD0]'}`}>
                         {UNIT_WORDS[k].title}
                       </button>
                     ))}
@@ -517,11 +551,11 @@ function StoreCard({
                 )}
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <div className="flex items-center gap-2">
-                    <label htmlFor={`quick-${l.id}`} className="shrink-0 text-base font-semibold text-emerald-950">Just give me</label>
+                    <label htmlFor={`quick-${l.id}`} className="shrink-0 text-base font-semibold text-[#12382E]">Just give me</label>
                     <span className="w-24 shrink-0">
                       <input id={`quick-${l.id}`} aria-label={`How many ${word} do you need?`} inputMode="numeric" className={`${INPUT} min-h-[44px] text-base`} value={count} onChange={(e) => setCount(e.target.value)} placeholder="40" />
                     </span>
-                    <span className="text-base font-semibold text-emerald-950">{word}</span>
+                    <span className="text-base font-semibold text-[#12382E]">{word}</span>
                   </div>
                   <Btn theme={theme} type="submit" variant="soft" icon={Sparkles} className="min-h-[44px] w-full sm:w-auto">Book nearest the door</Btn>
                 </div>
@@ -535,7 +569,7 @@ function StoreCard({
           <div className="mt-3">
             <p className="flex justify-between text-sm"><span className="font-semibold text-slate-900">{l.available.toLocaleString('en-IN')} boxes free</span><span className="text-slate-500">of {l.capacity.toLocaleString('en-IN')}</span></p>
             <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100" role="meter" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Free space">
-              <div className="h-full rounded-full bg-chinar" style={{ width: `${pct}%` }} />
+              <div className="h-full rounded-full bg-[#12382E]" style={{ width: `${pct}%` }} />
             </div>
           </div>
           {l.details && <p className="mt-2 line-clamp-2 text-sm text-slate-600">{l.details}</p>}
@@ -602,7 +636,7 @@ function RenterBooking({ booking: b, places, chambers, onChange }: { booking: Re
       {b.status === 'confirmed' && <p className="mt-2 text-sm font-semibold text-emerald-800">Confirmed by the owner{b.confirmed_at ? ` on ${new Date(b.confirmed_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}. Show your receipt at the cold store.</p>}
       {(b.status === 'requested' || b.status === 'paid') && l && (
         <details className="mt-3 rounded-2xl bg-slate-50 ring-1 ring-slate-900/5" open={b.status === 'requested'}>
-          <summary className="min-h-[44px] cursor-pointer px-4 py-3 text-sm font-semibold text-emerald-800">{b.status === 'requested' ? 'Pay the owner' : `You said you paid · reference ${b.payment_ref ?? ''}`}</summary>
+          <summary className="min-h-[44px] cursor-pointer px-4 py-3 text-sm font-semibold text-[#174C3C]">{b.status === 'requested' ? 'Pay the owner' : `You said you paid · reference ${b.payment_ref ?? ''}`}</summary>
           <div className="px-4 pb-4">
             <PayOwner bookingId={b.id} amount={Number(b.amount)} owner={{ name: l.owner_name, phone: l.phone }} paidRef={b.status === 'paid' ? b.payment_ref : null} onPaid={() => onChange()} />
           </div>
@@ -628,8 +662,8 @@ function OwnerPanel({
   prefill,
   onChange,
 }: {
-  /** The owner's tab: their stores (plan & 3D), bookings to confirm, or where farmers pay them. */
-  section: 'stores' | 'requests' | 'payments';
+  /** The owner's tab: their stores (plan & 3D), the shared bin & CA desk, bookings to confirm, or where farmers pay them. */
+  section: 'stores' | 'operations' | 'requests' | 'payments';
   account: Account;
   owned: RentalListing[];
   incoming: RentalBooking[];
@@ -678,6 +712,12 @@ function OwnerPanel({
       <div className="lg:col-span-2">
         <IdentityStatus account={account} theme={theme} purpose="list your cold store and take bookings" />
       </div>
+      {section === 'operations' && (
+        <div className="lg:col-span-2">
+          <OwnerSharedBinDesk account={account} owned={owned} theme={theme} />
+        </div>
+      )}
+
       {section === 'requests' && (
       <Panel theme={theme} title="Bookings to confirm" icon={CheckCircle2} className="lg:col-span-2">
         {pending.length === 0 ? (
@@ -696,7 +736,7 @@ function OwnerPanel({
                 <li key={b.id} className="flex flex-col gap-3 rounded-2xl bg-white/85 p-4 ring-1 ring-slate-900/5 lg:flex-row lg:items-center lg:justify-between">
                   <div className="min-w-0">
                     <p className="font-semibold text-slate-900">{b.renter_name} · {what} · {b.duration} month{b.duration === 1 ? '' : 's'} <span className="font-mono text-xs font-normal text-slate-500">{bookingCode(b.id)}</span></p>
-                    <p className="text-sm text-slate-600">{b.rental_listings?.title} · {niceDate(b.start_date)} to {niceDate(lastDay(b.start_date, b.duration))} · <strong>{inr(b.amount)}</strong> · <a href={`tel:${b.renter_phone}`} className="inline-flex min-h-[44px] items-center gap-1 font-semibold text-emerald-700"><Phone className="h-3.5 w-3.5" aria-hidden />{b.renter_phone}</a></p>
+                    <p className="text-sm text-slate-600">{b.rental_listings?.title} · {niceDate(b.start_date)} to {niceDate(lastDay(b.start_date, b.duration))} · <strong>{inr(b.amount)}</strong> · <a href={`tel:${b.renter_phone}`} className="inline-flex min-h-[44px] items-center gap-1 font-semibold text-[#174C3C]"><Phone className="h-3.5 w-3.5" aria-hidden />{b.renter_phone}</a></p>
                     {lines.length > 0 && <p className="text-sm text-slate-700">Places: <strong>{lines.map((x) => x.text).join('. ')}</strong></p>}
                     {b.payment_ref ? (
                       <p className="mt-1 text-sm text-emerald-800">Farmer says paid · reference <span className="font-mono font-semibold">{b.payment_ref}</span> — check it in your bank or UPI app first.</p>
@@ -780,17 +820,6 @@ function OwnerPanel({
                       </p>
                       <Btn theme={theme} className="mt-3 min-h-[48px] w-full text-base sm:w-auto" icon={Warehouse} onClick={() => openWizard(l, l.building ? 3 : 2)}>
                         Set up building & chambers
-                      </Btn>
-                    </div>
-                  )}
-                  {wizardStore && mine.some((c) => c.storage === 'boxes' || !ownerMeasured(c.size)) && (
-                    <div className="mt-3 rounded-2xl bg-amber-50 p-4 ring-2 ring-amber-300">
-                      <p className="font-semibold text-amber-950">Some chambers need exact measurements before farmers can book them</p>
-                      <p className="mt-1 text-sm text-amber-950">
-                        KashRoot only shows what you measured — never a standard size. For each chamber enter one bin or crate’s length, width and height, how many high you stack, and each floor’s usable height.
-                      </p>
-                      <Btn theme={theme} className="mt-3 min-h-[48px] w-full text-base sm:w-auto" icon={Warehouse} onClick={() => openWizard(l, l.building ? 3 : 2)}>
-                        Finish chamber measurements
                       </Btn>
                     </div>
                   )}
@@ -979,17 +1008,17 @@ function SideSwitch({ side, waiting, onChange }: { side: Side; waiting: number; 
         role="radio"
         aria-checked={on}
         onClick={() => !on && onChange(id)}
-        className={`flex flex-1 cursor-pointer items-start gap-3 rounded-2xl p-4 text-left ring-2 transition ${on ? 'bg-chinar text-white shadow-lg ring-chinar' : 'bg-white/80 text-slate-800 ring-slate-900/10 hover:ring-emerald-300'}`}
+        className={`flex flex-1 cursor-pointer items-start gap-3 rounded-2xl p-4 text-left ring-2 transition ${on ? 'bg-[#12382E] text-white shadow-lg ring-[#174C3C]' : 'bg-white/80 text-slate-800 ring-slate-900/10 hover:ring-[#C6DBD0]'}`}
       >
-        <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${on ? 'bg-white/15' : 'bg-emerald-50 text-emerald-700'}`}>
+        <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${on ? 'bg-white/15' : 'bg-[#EAF3EE] text-[#174C3C]'}`}>
           <Icon className="h-5 w-5" aria-hidden />
         </span>
         <span className="min-w-0">
           <span className="flex items-center gap-2 text-base font-semibold">
             {title}
-            {badge ? <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${on ? 'bg-white text-emerald-800' : 'bg-amber-400 text-amber-950'}`}>{badge} waiting</span> : null}
+            {badge ? <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${on ? 'bg-white text-[#174C3C]' : 'bg-amber-400 text-amber-950'}`}>{badge} waiting</span> : null}
           </span>
-          <span className={`mt-0.5 block text-sm ${on ? 'text-emerald-100' : 'text-slate-600'}`}>{text}</span>
+          <span className={`mt-0.5 block text-sm ${on ? 'text-[#EAF3EE]' : 'text-slate-600'}`}>{text}</span>
         </span>
       </button>
     );

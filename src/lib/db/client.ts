@@ -61,7 +61,7 @@ export function dbMessage(error: { message?: string; code?: string } | null | un
   if (/JWT|not authenticated|permission denied|row-level security/i.test(m)) return 'Please sign in again to do this.';
   if (/Failed to fetch|NetworkError|network/i.test(m)) {
     return typeof navigator !== 'undefined' && navigator.onLine === false
-      ? 'You are offline — this needs the internet. Try again when you have signal.'
+      ? 'Your device reports no active internet connection. Check mobile data or Wi-Fi.'
       : 'Could not reach KashRoot. Check your internet and try again.';
   }
   if (/violates check constraint/i.test(m)) return 'Some details are not in the right format. Please check and try again.';

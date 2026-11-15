@@ -1,0 +1,232 @@
+{
+  "$schema": "kashroot_coldstore_twin.schema/1.0",
+  "facility_name": "KashRoot Reference Cold Store - Sopore Apple CA Store",
+  "owner_note": "All dimensions in metres, weights in kilograms. Every capacity number published by KashRoot is computed from these values by the capacity engine - nothing estimated.",
+  "building": {
+    "length_m": 48.0,
+    "width_m": 26.0,
+    "height_m": 9.0,
+    "wall_thickness_m": 0.2,
+    "insulation_thickness_m": 0.1,
+    "column_spacing_m": 6.0,
+    "roof_pitch_ratio": 0.08,
+    "num_chambers": 4,
+    "loading_bay_length_m": 47.2,
+    "loading_bay_width_m": 6.5,
+    "entrance_pos": [6.0, 0.0],
+    "exit_pos": [42.0, 0.0]
+  },
+  "panels": {
+    "partition_thickness_m": 0.12,
+    "slab_thickness_m": 0.25,
+    "corrugation_pitch_m": 0.28,
+    "corrugation_depth_m": 0.02,
+    "expansion_joint_pitch_m": 6.0,
+    "expansion_joint_width_m": 0.02,
+    "top_clearance_m": 0.45,
+    "evaporator_height_m": 0.9,
+    "door_slide_allowance_m": 0.15,
+    "wall_clearance_m": 0.3,
+    "crate_gap_m": 0.02,
+    "rack_bay_pitch_m": 1.2,
+    "crate_stack_slack_m": 0.05
+  },
+  "staging": {
+    "pallet_length_m": 1.2,
+    "pallet_width_m": 1.0,
+    "stack_rows": 2,
+    "stack_gap_m": 0.35,
+    "edge_clearance_m": 0.5
+  },
+  "chambers": [
+    {
+      "chamber_id": "CH01",
+      "label": "CA Chamber 1",
+      "length_m": 11.5,
+      "width_m": 17.5,
+      "height_m": 8.2,
+      "temperature_c": -0.5,
+      "humidity_pct": 92,
+      "ca": true,
+      "num_floors": 1,
+      "aisle_width_m": 3.5,
+      "door_width_m": 3.2,
+      "door_height_m": 4.0,
+      "max_load_capacity_kg": 60000,
+      "unit_mode": "CRATES",
+      "rack": {
+        "rack_length_m": 9.6,
+        "rack_width_m": 2.0,
+        "rack_height_m": 7.0,
+        "num_rack_rows": 3,
+        "num_levels": 12,
+        "level_clearance_m": 0.1,
+        "rack_spacing_m": 1.4,
+        "floor_load_limit_kg": 1500,
+        "upright_width_m": 0.1
+      },
+      "crate": {
+        "crate_length_m": 0.6,
+        "crate_width_m": 0.4,
+        "crate_height_m": 0.33,
+        "weight_capacity_kg": 20,
+        "crates_per_row": 15,
+        "rows_per_level": 4,
+        "vertical_stack_limit": 3,
+        "material_type": "HDPE_PLASTIC",
+        "base_color": [0.72, 0.16, 0.14, 1.0]
+      }
+    },
+    {
+      "chamber_id": "CH02",
+      "label": "CA Chamber 2",
+      "length_m": 11.5,
+      "width_m": 17.5,
+      "height_m": 8.2,
+      "temperature_c": 1.0,
+      "humidity_pct": 90,
+      "ca": true,
+      "num_floors": 1,
+      "aisle_width_m": 3.5,
+      "door_width_m": 3.2,
+      "door_height_m": 4.0,
+      "max_load_capacity_kg": 60000,
+      "unit_mode": "CRATES",
+      "rack": {
+        "rack_length_m": 9.6,
+        "rack_width_m": 2.0,
+        "rack_height_m": 7.0,
+        "num_rack_rows": 3,
+        "num_levels": 12,
+        "level_clearance_m": 0.1,
+        "rack_spacing_m": 1.4,
+        "floor_load_limit_kg": 1500,
+        "upright_width_m": 0.1
+      },
+      "crate": {
+        "crate_length_m": 0.6,
+        "crate_width_m": 0.4,
+        "crate_height_m": 0.33,
+        "weight_capacity_kg": 20,
+        "crates_per_row": 15,
+        "rows_per_level": 4,
+        "vertical_stack_limit": 3,
+        "material_type": "HDPE_PLASTIC",
+        "base_color": [0.72, 0.16, 0.14, 1.0]
+      }
+    },
+    {
+      "chamber_id": "CH03",
+      "label": "Cold Chamber 3",
+      "length_m": 11.5,
+      "width_m": 17.5,
+      "height_m": 8.2,
+      "temperature_c": 2.0,
+      "humidity_pct": 90,
+      "ca": false,
+      "num_floors": 1,
+      "aisle_width_m": 3.5,
+      "door_width_m": 3.6,
+      "door_height_m": 4.2,
+      "max_load_capacity_kg": 60000,
+      "unit_mode": "CRATES",
+      "rack": {
+        "rack_length_m": 9.6,
+        "rack_width_m": 2.0,
+        "rack_height_m": 7.0,
+        "num_rack_rows": 3,
+        "num_levels": 12,
+        "level_clearance_m": 0.1,
+        "rack_spacing_m": 1.4,
+        "floor_load_limit_kg": 1500,
+        "upright_width_m": 0.1
+      },
+      "crate": {
+        "crate_length_m": 0.6,
+        "crate_width_m": 0.4,
+        "crate_height_m": 0.33,
+        "weight_capacity_kg": 20,
+        "crates_per_row": 15,
+        "rows_per_level": 4,
+        "vertical_stack_limit": 3,
+        "material_type": "HDPE_PLASTIC",
+        "base_color": [0.74, 0.17, 0.15, 1.0]
+      }
+    },
+    {
+      "chamber_id": "CH04",
+      "label": "Cold Chamber 4",
+      "length_m": 11.5,
+      "width_m": 17.5,
+      "height_m": 8.2,
+      "temperature_c": 0.5,
+      "humidity_pct": 92,
+      "ca": false,
+      "num_floors": 1,
+      "aisle_width_m": 3.5,
+      "door_width_m": 3.2,
+      "door_height_m": 4.0,
+      "max_load_capacity_kg": 60000,
+      "unit_mode": "CRATES",
+      "rack": {
+        "rack_length_m": 9.6,
+        "rack_width_m": 2.0,
+        "rack_height_m": 7.0,
+        "num_levels": 12,
+        "num_rack_rows": 3,
+        "level_clearance_m": 0.1,
+        "rack_spacing_m": 1.4,
+        "floor_load_limit_kg": 1500,
+        "upright_width_m": 0.1
+      },
+      "crate": {
+        "crate_length_m": 0.6,
+        "crate_width_m": 0.4,
+        "crate_height_m": 0.33,
+        "weight_capacity_kg": 20,
+        "crates_per_row": 15,
+        "rows_per_level": 4,
+        "vertical_stack_limit": 3,
+        "material_type": "HDPE_PLASTIC",
+        "base_color": [0.74, 0.17, 0.15, 1.0]
+      }
+    }
+  ],
+  "demo_bookings": [
+    {
+      "grower_id": "GRW-001",
+      "name": "Mudasir Ahmad - Sopore",
+      "product_type": "Ambri Apple",
+      "crates": 1620,
+      "chamber": "CH01"
+    },
+    {
+      "grower_id": "GRW-002",
+      "name": "Ghulam Nabi Dar - Lar",
+      "product_type": "American Kulu Apple",
+      "crates": 1400,
+      "chamber": "CH02"
+    },
+    {
+      "grower_id": "GRW-003",
+      "name": "Aijaz Khan - Sopore",
+      "product_type": "Red Delicious",
+      "crates": 900,
+      "chamber": "CH02"
+    },
+    {
+      "grower_id": "GRW-004",
+      "name": "Bashir Ahmad Wani - Kupwara",
+      "product_type": "Ambri Apple",
+      "crates": 1100,
+      "chamber": "CH03"
+    },
+    {
+      "grower_id": "GRW-005",
+      "name": "Sabzar Ahmad - Sopore",
+      "product_type": "Delicious Red",
+      "crates": 1200,
+      "chamber": "CH04"
+    }
+  ]
+}

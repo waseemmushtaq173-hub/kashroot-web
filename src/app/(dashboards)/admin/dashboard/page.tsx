@@ -17,6 +17,9 @@
  *                     orders, cold-store bookings, expert requests…
  *   Setup check:      which database setup files have been run in Supabase
  *                     (kr_setup_status), and how to run a missing one.
+ *   Owner businesses: the multi-tenant cold storage hierarchy — owner
+ *                     onboarding queue, Authorized Oversight Mode, global
+ *                     audit trail (cold_storage_organizations).
  *
  * Who may enter: the Super Admin and the KashRoot team they add
  * (20261117000000_kashroot_team.sql). The page itself is served only with the
@@ -27,15 +30,18 @@
  * Admin lock, removed from the team), the page closes.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BarChart3, Building2, Crown, DatabaseZap, GraduationCap, LifeBuoy, ListChecks, LockKeyhole, PackageX, Settings, Snowflake, UserCog, Users, Wallet } from 'lucide-react';
+import { BarChart3, Building2, Crown, DatabaseZap, GraduationCap, LifeBuoy, ListChecks, LockKeyhole, PackageX, Satellite, Settings, Snowflake, Truck, UserCog, Users, Wallet } from 'lucide-react';
 
 import { AccountsPanel } from '@/components/admin/AccountsPanel';
 import { AdminLock } from '@/components/admin/AdminLock';
+import { AdminOrdersPanel } from '@/components/admin/AdminOrdersPanel';
 import { ApprovalsPanel } from '@/components/admin/ApprovalsPanel';
 import { ColdDirectoryPanel } from '@/components/admin/ColdDirectoryPanel';
 import { ContributorsPanel } from '@/components/admin/ContributorsPanel';
 import { DatabaseUpdateNeeded } from '@/components/admin/DatabaseUpdateNeeded';
+import { GpsFleetPanel } from '@/components/admin/GpsFleetPanel';
 import { HelpDeskPanel } from '@/components/admin/HelpDeskPanel';
+import { OwnerHierarchyPanel } from '@/components/admin/OwnerHierarchyPanel';
 import { PlatformNumbers, loadAdminStats } from '@/components/admin/PlatformNumbers';
 import { RegistryPanel } from '@/components/admin/RegistryPanel';
 import { ReportedOrders, loadReportedOrders } from '@/components/admin/ReportedOrders';
@@ -47,7 +53,7 @@ import { authFetch } from '@/lib/auth-fetch';
 import { functionMissing } from '@/lib/client/teamCheck';
 import { supabase } from '@/lib/db/client';
 
-type Tab = 'super' | 'approvals' | 'accounts' | 'problems' | 'help' | 'contributors' | 'coldstores' | 'registry' | 'numbers' | 'security' | 'setup' | 'team' | 'businesses' | 'settings';
+type Tab = 'super' | 'gpsfleet' | 'orders' | 'approvals' | 'accounts' | 'problems' | 'help' | 'contributors' | 'coldstores' | 'hierarchy' | 'registry' | 'numbers' | 'security' | 'setup' | 'team' | 'businesses' | 'settings';
 
 interface Counts {
   waiting: number;
@@ -56,6 +62,8 @@ interface Counts {
   accounts7d: number;
   /** Accounts used during the last 7 days (null if unknown). */
   active7d: number | null;
+  /** Orders on the platform — all of them (Platform numbers → optional). */
+  orders: number;
 }
 
 export default function AdminConsolePage() {
@@ -125,12 +133,15 @@ function Console({ sections }: { sections: string[] }) {
   const superAdmin = sections.includes('*');
   const can = useCallback((section: string) => sections.includes('*') || sections.includes(section), [sections]);
   const allTabs = ([
+    // The one Super Admin first: 100% of orders with live GPS and the escrow ledger.
+    { id: 'orders', label: 'Orders · GPS & Escrow', icon: Truck, section: 'orders' },
     { id: 'approvals', label: 'Approvals', icon: GraduationCap, section: 'approvals' },
     { id: 'accounts', label: 'Accounts', icon: Users, section: 'accounts' },
     { id: 'problems', label: 'Problems', icon: PackageX, section: 'problems' },
     { id: 'help', label: 'Help desk', icon: LifeBuoy, section: 'help' },
     { id: 'contributors', label: 'Contributors', icon: Wallet, section: 'contributors' },
     { id: 'coldstores', label: 'Cold stores', icon: Snowflake, section: 'coldstores' },
+    { id: 'hierarchy', label: 'Owner businesses', icon: Building2, section: 'hierarchy' },
     { id: 'registry', label: 'Official lists', icon: ListChecks, section: 'registry' },
     { id: 'numbers', label: 'Platform numbers', icon: BarChart3, section: 'numbers' },
     { id: 'security', label: 'Security', icon: LockKeyhole, section: 'security' },
@@ -162,7 +173,7 @@ function Console({ sections }: { sections: string[] }) {
       const t = a.last_active_at ?? a.last_sign_in_at;
       return t && now - Date.parse(t) < 7 * 86_400_000;
     }).length;
-    setCounts({ waiting: requests.data?.length ?? 0, problems: problems.length, accounts: stats?.accounts ?? 0, accounts7d: stats?.accounts_7d ?? 0, active7d: signedIn });
+    setCounts({ waiting: requests.data?.length ?? 0, problems: problems.length, accounts: stats?.accounts ?? 0, accounts7d: stats?.accounts_7d ?? 0, active7d: signedIn, orders: stats ? Object.values(stats.orders).reduce((s, x) => s + Number(x ?? 0), 0) : 0 });
     // Nothing waiting for approval: open on the list of accounts.
     if (!requests.data?.length && can('accounts')) setTab((t) => (t === 'approvals' && !opened.current ? 'accounts' : t));
   }, [can]);
@@ -194,6 +205,7 @@ function Console({ sections }: { sections: string[] }) {
       eyebrow="Platform admin"
       theme="admin"
       kpis={[
+        ...(can('orders') ? [{ label: 'Platform orders', value: n(counts?.orders), trend: '100% of orders · live GPS · escrow ledger — tap to open', onClick: () => show('orders') }] : []),
         ...(can('approvals') ? [{ label: 'Waiting for approval', value: n(counts?.waiting), trend: 'Agronomists, dealers, Mandi Helpers', onClick: () => show('approvals') }] : []),
         ...(can('problems') ? [{ label: 'Orders with a problem', value: n(counts?.problems), trend: 'Reported by buyers', onClick: () => show('problems') }] : []),
         ...(can('accounts') && can('numbers')
@@ -208,8 +220,14 @@ function Console({ sections }: { sections: string[] }) {
           : []),
       ]}
       tabs={[
-        // The one Super Admin only (the database checks it again for every call).
-        ...(superAdmin ? [{ id: 'super', label: 'Super Admin', icon: Crown }] : []),
+        // The Super Admin only: the governance console and the live GPS fleet
+        // oversight (the database and the API re-check the pass on every call).
+        ...(superAdmin
+          ? [
+              { id: 'super', label: 'Super Admin', icon: Crown },
+              { id: 'gpsfleet', label: 'Live GPS fleet', icon: Satellite },
+            ]
+          : []),
         ...allTabs.map((t) => ({
           id: t.id,
           label: t.label,
@@ -221,12 +239,15 @@ function Console({ sections }: { sections: string[] }) {
       onTabChange={(id) => show(id as Tab)}
     >
       {tab === 'super' && superAdmin && <SuperAdminPanel />}
+      {tab === 'gpsfleet' && superAdmin && <GpsFleetPanel />}
+      {tab === 'orders' && can('orders') && <AdminOrdersPanel canRelease={superAdmin} />}
       {tab === 'approvals' && can('approvals') && <ApprovalsPanel />}
       {tab === 'accounts' && can('accounts') && <AccountsPanel onRefreshed={load} />}
       {tab === 'problems' && can('problems') && <ReportedOrders />}
       {tab === 'help' && can('help') && <HelpDeskPanel />}
       {tab === 'contributors' && can('contributors') && <ContributorsPanel />}
       {tab === 'coldstores' && can('coldstores') && <ColdDirectoryPanel />}
+      {tab === 'hierarchy' && can('hierarchy') && <OwnerHierarchyPanel />}
       {tab === 'registry' && can('registry') && <RegistryPanel />}
       {tab === 'numbers' && can('numbers') && <PlatformNumbers onRefreshed={load} />}
       {tab === 'security' && can('security') && <SecurityPanel />}

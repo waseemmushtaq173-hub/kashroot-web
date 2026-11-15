@@ -10,8 +10,11 @@
  * directly by UPI / bank once the goods arrive. Escrow payment holds the
  * identity check (KYC) and where buyers pay. Orchard Health and the Season
  * Planner are part of this portal (/farmer/orchard-health,
- * /farmer/season-planner); Cold Storage, mandi rates, Price Comparison and
- * the fertiliser check have their own places on the home page, not in here.
+ * /farmer/season-planner); mandi rates, Price Comparison and the fertiliser
+ * check have their own places on the home page. Cold storage lives here too
+ * ("My stored apples" tab): book crates, see exactly where they are stored,
+ * and ask for them back — the shared storage portal /rental covers finding
+ * stores and the owner's side.
  * "Spraying today" is orchard work, not the weather tool: dry hours to spray
  * from Open-Meteo for the farmer's district (My details), next to the scab
  * risk map and the spray log.
@@ -38,7 +41,9 @@ import {
 } from 'lucide-react';
 
 import { PortalShell } from '@/components/layout/PortalShell';
+import { OrchardAnalyticsPanel } from '@/components/farmer/OrchardAnalyticsPanel';
 import { SellerDesk } from '@/components/market/SellerDesk';
+import { FarmerStoredApplesDesk } from '@/components/rental/owner/SharedBinAndEngineeringDesk';
 import { SafePayment } from '@/components/payments/SafePayment';
 import { Btn, Panel, PORTAL_THEMES, Skeleton, Tile } from '@/components/portal/kit';
 import { LastUpdated } from '@/components/pwa/SavedAt';
@@ -50,8 +55,8 @@ import type { MarketCategory, MarketListing, MarketOrder } from '@/lib/db/market
 import { sellerToAct } from '@/lib/db/shop';
 
 const theme = PORTAL_THEMES.farmer;
-type Tab = 'overview' | 'lots' | 'orders' | 'payouts';
-const TABS: Tab[] = ['overview', 'lots', 'orders', 'payouts'];
+type Tab = 'overview' | 'coldstore' | 'lots' | 'orders' | 'payouts';
+const TABS: Tab[] = ['overview', 'coldstore', 'lots', 'orders', 'payouts'];
 
 export default function FarmerDashboardPage() {
   return (
@@ -63,7 +68,8 @@ export default function FarmerDashboardPage() {
 
 function FarmerDashboard() {
   const params = useSearchParams();
-  const initial = params.get('tab') as Tab | null;
+  // “Manage / Edit My Listing” sends ?tab=sell&edit=<id>: sell is the products tab.
+  const initial = (params.get('tab') === 'sell' ? 'lots' : params.get('tab')) as Tab | null;
   const [tab, setTab] = useState<Tab>(initial && TABS.includes(initial) ? initial : 'overview');
   // The open tab lives in the address too: a refresh stays on it, and the
   // portal frame hides its identity-check banner on the Safe payment tab.
@@ -71,6 +77,8 @@ function FarmerDashboard() {
     window.history.replaceState(null, '', tab === 'overview' ? window.location.pathname : `${window.location.pathname}?tab=${tab}`);
   }, [tab]);
   const [addRequest, setAddRequest] = useState(params.get('add') === '1' ? 1 : 0);
+  // ?edit=<id> (from “Manage / Edit My Listing”): SellerDesk opens that product's editor.
+  const autoEditId = params.get('edit');
   // Said to the voice assistant ("sell 50 boxes of apples"): ?crop=&qty= fill the form add=1 opens, that time only.
   const [voiceDraft] = useState(() => (params.get('add') === '1' ? listingDraftFromLink(params) : undefined));
   // What "add" opens: produce from the orchard, or farm inputs for sale.
@@ -103,12 +111,13 @@ function FarmerDashboard() {
       eyebrow="Farmer portal"
       theme="farmer"
       kpis={[
-        { label: 'Money received', value: inr(received), trend: 'Paid to you directly' },
-        { label: 'Orders to act on', value: String(toAct), trend: 'Accept, ship, confirm payment' },
+        { label: 'Money received', value: inr(received), trend: 'Escrow released to you after delivery' },
+        { label: 'Orders to act on', value: String(toAct), trend: 'All active orders — accept, dispatch, arrive' },
         { label: 'On sale', value: String(onSale), trend: 'Produce and farm inputs' },
       ]}
       tabs={[
         { id: 'overview', label: 'Overview', icon: Sprout },
+        { id: 'coldstore', label: 'My stored apples', icon: Thermometer },
         { id: 'lots', label: 'What I sell', icon: Store, count: products.length || undefined },
         { id: 'orders', label: 'Orders', icon: Package, count: toAct || undefined },
         { id: 'payouts', label: 'Escrow payment', icon: ShieldCheck },
@@ -132,6 +141,10 @@ function FarmerDashboard() {
               <Tile theme={theme} icon={CalendarDays} label="Season planner" hint="Tasks & costs" href="/farmer/season-planner" />
               <Tile theme={theme} icon={MessageCircleQuestion} label="Ask an expert" hint="Agronomist answers" href="/farmer/ask-expert" />
             </div>
+
+            {/* Orchard & crop health: fast 2D analytics (season stage, scab risk,
+                soil moisture, rain outlook) — replaced the decorative 3D scene. */}
+            <OrchardAnalyticsPanel district={account?.district} />
 
             <div className="relative isolate overflow-hidden rounded-3xl bg-gradient-to-r from-chinar via-chinar-hover to-[#04241D] p-7 text-white shadow-lg ring-1 ring-amber-300/40">
               <ChinarLeaf className="pointer-events-none absolute -bottom-8 -right-6 -z-10 h-40 w-40 -rotate-12 opacity-20" color="#FDE68A" />
@@ -191,17 +204,21 @@ function FarmerDashboard() {
         tab !== 'overview' && <p role="alert" className="rounded-2xl bg-amber-50 p-4 text-amber-900 ring-1 ring-amber-200">Sign in again to manage your produce.</p>
       ) : (
         <div className={tab === 'overview' ? 'hidden' : 'space-y-6'}>
+          {tab === 'coldstore' && <FarmerStoredApplesDesk account={account} theme={theme} />}
           {tab === 'payouts' && <SafePayment as="farmer" account={account} theme={theme} />}
-          <SellerDesk
-            account={account}
-            theme={theme}
-            category={addCategory}
-            mixed
-            show={tab === 'lots' ? 'products' : tab === 'payouts' ? 'payouts' : 'orders'}
-            addRequest={addRequest}
-            addDraft={addRequest === 1 ? voiceDraft : undefined}
-            onLoaded={onLoaded}
-          />
+          {tab !== 'coldstore' && (
+            <SellerDesk
+              account={account}
+              theme={theme}
+              category={addCategory}
+              mixed
+              show={tab === 'lots' ? 'products' : tab === 'payouts' ? 'payouts' : 'orders'}
+              addRequest={addRequest}
+              addDraft={addRequest === 1 ? voiceDraft : undefined}
+              autoEditId={autoEditId}
+              onLoaded={onLoaded}
+            />
+          )}
         </div>
       )}
     </PortalShell>

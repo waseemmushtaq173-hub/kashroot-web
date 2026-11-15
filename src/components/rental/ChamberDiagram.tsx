@@ -13,7 +13,7 @@
  */
 import { useCallback, useId, useState } from 'react';
 
-import { lookLabel, type Look } from '@/components/rental/placeLook';
+import { lookLabel, PLACE_LOOK, type Look } from '@/components/rental/placeLook';
 import { layersText, planOf, showLength, type ChamberPlan, type ChamberSize, type WindowSize } from '@/lib/coldLayout';
 import { countText, UNIT_WORDS } from '@/lib/coldStore';
 import { placeKey, placeLabel, placeName, type ColdChamber } from '@/lib/db/coldMap';
@@ -45,15 +45,8 @@ function useShownWidth(): [(el: HTMLElement | null) => (() => void) | undefined,
   return [ref, width];
 }
 
-const FILL: Record<Look, { fill: string; stroke: string; text: string }> = {
-  free: { fill: '#e0f2fe', stroke: '#38bdf8', text: '#0369a1' },
-  part: { fill: '#e0f2fe', stroke: '#0ea5e9', text: '#0c4a6e' },
-  selected: { fill: '#10b981', stroke: '#047857', text: '#ffffff' },
-  held: { fill: '#fcd34d', stroke: '#d97706', text: '#78350f' },
-  booked: { fill: '#94a3b8', stroke: '#64748b', text: '#ffffff' },
-  mine: { fill: '#7c3aed', stroke: '#5b21b6', text: '#ffffff' },
-  blocked: { fill: 'url(#hatch)', stroke: '#cbd5e1', text: '#94a3b8' },
-};
+// The bin map's one palette (placeLook): the drawing never keeps its own colours.
+const FILL: Record<Look, { fill: string; stroke: string; text: string }> = PLACE_LOOK;
 
 export function ChamberDiagram({
   chamber: c,
@@ -130,11 +123,11 @@ export function ChamberDiagram({
             act();
           }
         }}
-        className={clickable ? 'cursor-pointer outline-none [&:focus-visible>rect]:stroke-sky-900 [&:focus-visible>rect]:[stroke-width:3]' : 'cursor-default'}
+        className={clickable ? 'cursor-pointer outline-none [&:focus-visible>rect]:stroke-[#12382E] [&:focus-visible>rect]:[stroke-width:3]' : 'cursor-default'}
       >
         <title>{`${name} · ${lookLabel(look, words.many)}${look === 'part' ? ` · room for ${countText(spare, c.storage)}` : ''}${label ? ` · ${label}` : ''}`}</title>
-        <rect x={x} y={y} width={pw} height={pd} rx={Math.min(6, pw / 6)} fill={look === 'blocked' && !quiet ? `url(#${hatch})` : f.fill} stroke={f.stroke} strokeWidth={1.5} />
-        {taken > 0 && <rect x={x + 1} y={y + pd * (1 - taken)} width={pw - 2} height={pd * taken - 1} rx={Math.min(5, pw / 7)} fill="#cbd5e1" pointerEvents="none" />}
+        <rect x={x} y={y} width={pw} height={pd} rx={Math.min(6, pw / 6)} fill={look === 'blocked' && !quiet ? `url(#${hatch})` : f.fill} stroke={f.stroke} strokeWidth={!quiet && (look === 'selected' || look === 'mine') ? 2.5 : 1.5} strokeDasharray={!quiet && look === 'held' ? '4 3' : undefined} />
+        {taken > 0 && <rect x={x + 1} y={y + pd * (1 - taken)} width={pw - 2} height={pd * taken - 1} rx={Math.min(5, pw / 7)} fill="#E9D8A6" pointerEvents="none" />}
         {mark && pw >= 18 && pd >= 14 && (
           <text x={x + pw / 2} y={y + pd / 2} dominantBaseline="central" textAnchor="middle" fontSize={Math.min(14, pd * 0.5, pw * 0.4)} fontWeight={700} fill={f.text}>
             {mark}
@@ -181,12 +174,15 @@ export function ChamberDiagram({
       >
         <defs>
           <pattern id={hatch} width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-            <rect width="8" height="8" fill="#f8fafc" />
-            <line x1="0" y1="0" x2="0" y2="8" stroke="#cbd5e1" strokeWidth="4" />
+            <rect width="8" height="8" fill="#ffffff" />
+            <line x1="0" y1="0" x2="0" y2="8" stroke="#FEE2E2" strokeWidth="4" />
           </pattern>
           <marker id={`arr-${uid}`} viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
             <path d="M0,0 L10,5 L0,10 z" fill="#64748b" />
           </marker>
+          <clipPath id={`room-${uid}`}>
+            <rect x={M.l} y={M.t} width={w} height={h} />
+          </clipPath>
         </defs>
 
         {/* Floor */}
@@ -214,8 +210,10 @@ export function ChamberDiagram({
           </g>
         )}
 
-        {/* Places */}
-        {Array.from({ length: rows }, (_, ri) => Array.from({ length: cols }, (_, i) => place(ri + 1, i)))}
+        {/* Places — clipped to the room, so no rounding or odd measured size can ever poke a place past its walls */}
+        <g clipPath={`url(#room-${uid})`}>
+          {Array.from({ length: rows }, (_, ri) => Array.from({ length: cols }, (_, i) => place(ri + 1, i)))}
+        </g>
 
         {/* Walls, with the door in the front wall */}
         <g aria-hidden fill="none" stroke={wall} strokeWidth={6} strokeLinecap="square">
@@ -272,10 +270,13 @@ export function ChamberDiagram({
         {plan.crowded ? ` · ${words.title} are drawn closer together than they stand: there are more of them than fit on this floor.` : ''}
       </p>
       {plan.windows.length > 0 && (
-        <ul aria-label={`${c.name}: windows`} className="mt-1 space-y-0.5 text-center text-xs text-sky-900">
+        <ul aria-label={`${c.name}: windows`} className="mt-1 space-y-0.5 text-center text-xs text-[#12382E]">
           {plan.windows.map((win, i) => <li key={i}>{windowText(win, i, u)}</li>)}
         </ul>
       )}
     </div>
   );
 }
+
+/** The default export too: either import style works. */
+export default ChamberDiagram;

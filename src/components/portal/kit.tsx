@@ -5,11 +5,12 @@
  * (farmer, buyer, kissan tools, cold storage booking, tracking, dealer,
  * expert, mandi helpers, admin) and the orchard tools.
  *
- * The look carries the valley without naming it: season photographs in each
- * hero, a khatamband (carved-ceiling) lattice woven faintly into the canvas, a
- * chinar leaf as the ornament, and a palette of saffron, chinar amber, lake
- * teal, crocus violet and walnut. Everything sits on frosted white glass with
- * slate-900 text, so contrast holds on every theme.
+ * One cohesive KashRoot identity: a mist page, white tactile cards (.kr-card
+ * look) with soft #E2EAE5 borders, forest green buttons and icon tiles on soft
+ * green, champagne gold hairlines and badges, a khatamband (carved-ceiling)
+ * lattice woven faintly into the canvas and the chinar leaf as the ornament.
+ * Text is ink on white, so contrast holds on every portal; a portal's own
+ * identity is only its icon, its badge and its 3D valley scene.
  *
  * Every class is a complete literal string so Tailwind keeps it.
  */
@@ -66,21 +67,25 @@ export interface PortalTheme {
 const T = (t: PortalTheme) => t;
 
 /**
- * One KashRoot look for every portal: deep chinar-green and saffron gold on
- * ivory, with the copper chinar leaf. Portals differ only by their season
- * photograph and the valley's mood, so the whole app reads as one.
+ * One KashRoot frame for every portal: a cool mist page (#F4F7F8), forest green (#174C3C / #12382E)
+ * headers, sidebars and primary actions, soft green (#EAF3EE) panels, champagne gold (#C6A45B)
+ * accents, ink text (#25332F) and #E2EAE5 borders. A portal keeps a subtle identity of its own
+ * through its icon, its badge word and the season of its 3D valley scene (`mood`), nothing louder.
+ * Gold is for lines and badges; text on gold-tinted surfaces is champagne-deep (6.3:1).
  */
 const BRAND = {
-  canvas: 'bg-gradient-to-br from-ivory via-ivory-deep to-[#EAF3EE]',
-  heroTint: 'from-[#052E26]/80 via-emerald-950/45 to-transparent',
-  eyebrow: 'bg-white/15 text-amber-100 ring-1 ring-amber-200/50',
-  tile: 'bg-gradient-to-br from-emerald-700 to-chinar-deep text-amber-200 shadow-lg shadow-emerald-950/25 ring-1 ring-amber-300/40',
-  solid: 'bg-chinar text-white hover:bg-chinar-hover',
-  soft: 'bg-chinar-soft text-chinar-hover ring-1 ring-chinar-line hover:bg-emerald-100',
-  accent: 'text-chinar',
-  outline: 'focus-visible:outline-emerald-700',
-  leaf: '#B4532A', // copper
-  tabActive: 'bg-white text-emerald-900 shadow-sm ring-1 ring-amber-300',
+  canvas: 'bg-mist',
+  heroTint: 'from-forest-deep/80 via-forest/45 to-transparent',
+  eyebrow: 'bg-forest-soft text-forest ring-1 ring-champagne/60',
+  // The forest and gold icon badge on its own ledge (globals.css .kr-icon-badge).
+  tile: 'kr-icon-badge',
+  // A flat-fronted, bevelled green for chips and tabs; buttons (Btn) use the full tactile .kr-btn-primary.
+  solid: 'bg-gradient-to-b from-forest-mid to-forest text-white ring-1 ring-forest-deep shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_2px_0_#12382E] hover:from-[#2F7A60] hover:to-[#1B5A47]',
+  soft: 'bg-forest-soft text-forest ring-1 ring-forest-line hover:bg-[#DDEBE3]',
+  accent: 'text-forest',
+  outline: 'focus-visible:outline-forest',
+  leaf: '#C6A45B', // champagne gold
+  tabActive: 'bg-forest text-white ring-1 ring-forest-deep shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_3px_0_#C6A45B]',
 } satisfies Omit<PortalTheme, 'mood' | 'photo' | 'focus'>;
 
 export const PORTAL_THEMES = {
@@ -115,15 +120,17 @@ type BtnVariant = 'solid' | 'soft' | 'outline' | 'ghost' | 'danger' | 'white';
 
 /** The look every button shares (also for links and raw buttons styled like one). */
 export function btnClass(theme: PortalTheme, variant: BtnVariant, size: 'sm' | 'md') {
-  const base = `inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl font-semibold no-underline transition duration-200 hover:no-underline active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 disabled:active:translate-y-0 motion-reduce:transition-none motion-reduce:active:translate-y-0 ${FOCUS} ${theme.outline}`;
+  // solid is the tactile .kr-btn-primary, soft and outline the tactile .kr-btn-secondary (globals.css): bevel, lift on hover, sink on press.
+  const shape = variant === 'solid' ? 'kr-btn-primary' : variant === 'outline' || variant === 'soft' ? 'kr-btn-secondary' : 'rounded-xl font-semibold transition duration-200 active:translate-y-px';
+  const base = `${shape} inline-flex cursor-pointer items-center justify-center gap-2 no-underline hover:no-underline disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none motion-reduce:active:translate-y-0 ${FOCUS} ${theme.outline}`;
   const pad = size === 'sm' ? 'min-h-11 px-3 py-1.5 text-xs' : 'min-h-11 px-4 py-2.5 text-sm';
   const look = {
-    solid: `${theme.solid} shadow-sm shadow-emerald-950/15`,
-    soft: theme.soft,
-    outline: 'bg-white text-chinar ring-1 ring-[#E8A317]/50 hover:bg-ivory hover:ring-[#E8A317]',
-    ghost: 'text-slate-700 hover:bg-slate-900/5',
+    solid: '',
+    soft: '',
+    outline: '',
+    ghost: 'text-ink-soft hover:bg-forest-soft hover:text-ink',
     danger: 'bg-white text-rose-700 ring-1 ring-rose-200 hover:bg-rose-50',
-    white: 'bg-white/90 text-slate-900 shadow-sm ring-1 ring-white hover:bg-white',
+    white: 'bg-white/10 text-white shadow-sm ring-1 ring-white/40 hover:bg-white/20',
   }[variant];
   return `${base} ${pad} ${look}`;
 }
@@ -150,7 +157,8 @@ export const Btn = forwardRef<HTMLButtonElement, BtnProps>(function Btn(
   ref,
 ) {
   const title = useContext(TitleAction);
-  const look = title && variant === 'white' ? (title === 'main' ? 'solid' : 'soft') : variant;
+  // On the forest hero banner: the main button is the light sage one (it stands out on green); a solid green one would vanish.
+  const look = title && (variant === 'white' || variant === 'solid') ? (title === 'main' ? 'soft' : 'white') : variant;
   const cls = `${btnClass(theme, look, size)} ${title ? 'min-h-11' : ''} ${className}`;
   const content = (
     <>
@@ -174,9 +182,8 @@ export const Btn = forwardRef<HTMLButtonElement, BtnProps>(function Btn(
 
 // ── Surfaces ────────────────────────────────────────────────────────────────
 
-// Every card: frosted ivory-white with a saffron-gold hairline.
-export const GLASS_CARD =
-  'rounded-3xl bg-white/75 backdrop-blur-xl ring-1 ring-[#E8A317]/25 shadow-[0_8px_30px_rgba(15,23,42,0.06)]';
+// Every card: white, a soft #E2EAE5 border and the layered card shadow (globals.css .kr-card), not lifted by hover.
+export const GLASS_CARD = 'kr-card kr-card-flat rounded-3xl';
 
 export function Panel({
   title,
@@ -200,7 +207,7 @@ export function Panel({
       {(title || action) && (
         <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
           {title && (
-            <h2 className="flex items-center gap-2.5 font-display text-xl font-semibold tracking-tight text-slate-900">
+            <h2 className="flex items-center gap-2.5 font-display text-xl font-semibold tracking-tight text-ink">
               {Icon && (
                 <span className={`grid h-9 w-9 place-items-center rounded-xl ${theme.tile}`}>
                   <Icon className="h-[18px] w-[18px]" aria-hidden />
@@ -235,18 +242,18 @@ export function Tile({
   onClick?: () => void;
   badge?: string;
 }) {
-  const cls = `group relative flex h-full flex-col items-start gap-3 rounded-2xl bg-white/80 p-4 [transform-style:preserve-3d] text-left no-underline ring-1 ring-[#E8A317]/25 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:ring-[#E8A317]/50 hover:bg-white hover:no-underline hover:shadow-md motion-reduce:hover:translate-y-0 ${FOCUS} ${theme.outline}`;
+  const cls = `kr-card kr-card-interactive group relative flex h-full flex-col items-start gap-3 rounded-2xl p-4 [transform-style:preserve-3d] text-left no-underline hover:no-underline ${FOCUS} ${theme.outline}`;
   const body = (
     <>
       <span data-depth className={`grid h-11 w-11 place-items-center rounded-xl ${theme.tile}`}>
         <Icon className="h-5 w-5" aria-hidden />
       </span>
       <span>
-        <span className="block font-semibold text-slate-900">{label}</span>
-        {hint && <span className="mt-0.5 block text-xs text-slate-600">{hint}</span>}
+        <span className="block font-semibold text-ink">{label}</span>
+        {hint && <span className="mt-0.5 block text-xs text-ink-soft">{hint}</span>}
       </span>
       {badge && (
-        <span className={`absolute right-3 top-3 rounded-full px-2 py-0.5 text-[11px] font-semibold ${theme.soft}`}>{badge}</span>
+        <span className="absolute right-3 top-3 rounded-full border border-champagne/60 bg-champagne-soft px-2 py-0.5 text-[11px] font-semibold text-champagne-deep">{badge}</span>
       )}
     </>
   );
@@ -266,13 +273,14 @@ export function Tile({
 }
 
 export function Badge({ tone = 'slate', children }: { tone?: 'slate' | 'green' | 'amber' | 'red' | 'blue' | 'violet'; children: ReactNode }) {
+  // green = KashRoot forest, violet (ownership, staff) = champagne gold; amber, red and blue keep their plain meaning.
   const tones = {
-    slate: 'bg-slate-100 text-slate-700 ring-slate-200',
-    green: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
+    slate: 'bg-[#F1F5F3] text-ink-soft ring-forest-line',
+    green: 'bg-forest-soft text-forest ring-forest-line',
     amber: 'bg-amber-50 text-amber-900 ring-amber-200',
     red: 'bg-rose-50 text-rose-800 ring-rose-200',
-    blue: 'bg-sky-50 text-sky-800 ring-sky-200',
-    violet: 'bg-violet-50 text-violet-800 ring-violet-200',
+    blue: 'bg-[#EAF3EE] text-[#174C3C] ring-[#C6DBD0]',
+    violet: 'bg-champagne-soft text-champagne-deep ring-champagne/60',
   };
   return (
     <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ${tones[tone]}`}>
@@ -295,13 +303,13 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="relative isolate flex flex-col items-center overflow-hidden rounded-2xl border border-dashed border-[#E8A317]/50 bg-ivory/70 px-6 py-10 text-center">
-      <ChinarLeaf className="pointer-events-none absolute -right-5 -top-5 -z-10 h-24 w-24 rotate-12 opacity-[0.12]" color={theme.leaf} />
+    <div className="relative isolate flex flex-col items-center overflow-hidden rounded-2xl border border-dashed border-champagne/70 bg-forest-soft/60 px-6 py-10 text-center">
+      <ChinarLeaf className="pointer-events-none absolute -right-5 -top-5 -z-10 h-24 w-24 rotate-12 opacity-[0.16]" color={theme.leaf} />
       <span className={`grid h-14 w-14 place-items-center rounded-2xl ${theme.tile}`}>
         <Icon className="h-7 w-7" aria-hidden />
       </span>
-      <h3 className="mt-4 font-display text-xl font-semibold text-slate-900">{title}</h3>
-      <p className="mt-1.5 max-w-md text-sm leading-relaxed text-slate-600">{text}</p>
+      <h3 className="mt-4 font-display text-xl font-semibold text-ink">{title}</h3>
+      <p className="mt-1.5 max-w-md text-sm leading-relaxed text-ink-soft">{text}</p>
       {action && <div className="mt-5">{action}</div>}
     </div>
   );
@@ -317,7 +325,7 @@ export function Skeleton({ label, rows = 3, height = 'h-14' }: { label: string; 
     <div role="status" aria-live="polite" className="space-y-2" data-skeleton>
       <p className="text-xs font-medium text-slate-500">{label}</p>
       {Array.from({ length: rows }, (_, i) => (
-        <div key={i} aria-hidden className={`${height} animate-pulse rounded-2xl bg-gradient-to-r from-slate-200/70 via-[#FBF8F0] to-slate-200/70 ring-1 ring-[#E8A317]/15 motion-reduce:animate-none`} />
+        <div key={i} aria-hidden className={`${height} animate-pulse rounded-2xl bg-gradient-to-r from-forest-soft via-white to-forest-soft ring-1 ring-forest-line motion-reduce:animate-none`} />
       ))}
     </div>
   );
@@ -326,15 +334,15 @@ export function Skeleton({ label, rows = 3, height = 'h-14' }: { label: string; 
 // ── Forms ───────────────────────────────────────────────────────────────────
 
 export const INPUT =
-  'block min-h-11 w-full rounded-xl border-0 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 shadow-sm ring-1 ring-inset ring-slate-300 transition duration-200 hover:ring-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-700 disabled:bg-slate-50 disabled:text-slate-500 motion-reduce:transition-none';
+  'block min-h-11 w-full rounded-xl border-0 bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-slate-500 shadow-sm ring-1 ring-inset ring-slate-300 transition duration-200 hover:ring-slate-400 focus:outline-none focus:ring-2 focus:ring-forest disabled:bg-slate-50 disabled:text-slate-500 motion-reduce:transition-none';
 
 /** Label wrapping its control, so the association needs no ids. */
 export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="block text-sm font-medium text-slate-800">{label}</span>
+      <span className="block text-sm font-medium text-ink">{label}</span>
       <span className="mt-1.5 block">{children}</span>
-      {hint && <span className="mt-1 block text-xs text-slate-500">{hint}</span>}
+      {hint && <span className="mt-1 block text-xs text-ink-soft">{hint}</span>}
     </label>
   );
 }
@@ -379,26 +387,26 @@ export function Modal({
       onClick={(e) => {
         if (e.target === e.currentTarget) ref.current?.close();
       }}
-      className={`kr-sheet m-auto max-h-[calc(100svh-2rem)] w-[calc(100%-2rem)] overflow-hidden rounded-3xl bg-white/95 p-0 text-slate-900 shadow-[0_30px_90px_rgba(15,23,42,0.3)] ring-1 ring-[#E8A317]/25 backdrop-blur-2xl backdrop:bg-slate-900/30 backdrop:backdrop-blur-sm max-sm:mb-0 max-sm:max-h-[92svh] max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none ${wide ? 'max-w-3xl' : 'max-w-lg'}`}
+      className={`kr-sheet m-auto max-h-[calc(100svh-2rem)] w-[calc(100%-2rem)] overflow-hidden rounded-3xl border border-forest-line bg-white p-0 text-ink shadow-[inset_0_1px_0_#fff,0_30px_90px_rgba(18,56,46,0.3)] backdrop:bg-forest-deep/40 backdrop:backdrop-blur-sm max-sm:mb-0 max-sm:max-h-[92svh] max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none ${wide ? 'max-w-3xl' : 'max-w-lg'}[will-change:transform,opacity][transform:translate3d(0,0,0)]`}
     >
       <div className="flex max-h-[calc(100svh-2rem)] flex-col max-sm:max-h-[92svh]">
         <span aria-hidden className="mx-auto mt-2 h-1.5 w-10 shrink-0 rounded-full bg-slate-300 sm:hidden" />
-        <header className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-900/5 px-6 py-4">
-          <h2 id={titleId} className="flex items-center gap-2 font-display text-xl font-semibold text-slate-900">
-            <ChinarLeaf className="h-5 w-5" color="#B45309" />
+        <header className="flex shrink-0 items-center justify-between gap-4 border-b border-forest-line px-6 py-4">
+          <h2 id={titleId} className="flex items-center gap-2 font-display text-xl font-semibold text-ink">
+            <ChinarLeaf className="h-5 w-5" color="#C6A45B" />
             {title}
           </h2>
           <button
             type="button"
             onClick={() => ref.current?.close()}
             aria-label="Close"
-            className={`grid h-11 w-11 cursor-pointer place-items-center rounded-full text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 ${FOCUS} focus-visible:outline-slate-700`}
+            className={`grid h-11 w-11 cursor-pointer place-items-center rounded-full text-ink-soft transition hover:bg-forest-soft hover:text-ink ${FOCUS} focus-visible:outline-forest`}
           >
             <X className="h-5 w-5" aria-hidden />
           </button>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">{children}</div>
-        {footer && <footer className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-slate-900/5 bg-ivory/80 px-6 py-4">{footer}</footer>}
+        {footer && <footer className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-forest-line bg-mist px-6 py-4">{footer}</footer>}
       </div>
     </dialog>
   );
@@ -423,12 +431,14 @@ export function PageHeader({
   actionsRef?: Ref<HTMLDivElement>;
 }) {
   return (
-    <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+    // The forest hero banner every portal page opens with (globals.css .kr-hero): white title, gold line under it.
+    <div className="kr-hero relative isolate flex flex-col gap-5 overflow-hidden rounded-3xl p-5 sm:flex-row sm:items-end sm:justify-between sm:p-7">
+      <ChinarLeaf className="pointer-events-none absolute -right-6 -top-8 -z-10 h-40 w-40 rotate-12 opacity-[0.14]" color={theme.leaf} />
       <div className="min-w-0 max-w-3xl">
-        {eyebrow && <p className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] ${theme.soft}`}>{eyebrow}</p>}
-        <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight text-slate-900 [text-wrap:balance] sm:text-4xl">{title}</h1>
-        {description && <p className="mt-2 max-w-2xl text-base leading-relaxed text-slate-600">{description}</p>}
-        <span aria-hidden className="mt-4 block h-px w-24 bg-gradient-to-r from-[#E8A317] to-transparent" />
+        {eyebrow && <p className="inline-flex items-center rounded-full bg-[#EAF3EE] px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-[#174C3C] ring-1 ring-[#C6A45B]">{eyebrow}</p>}
+        <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight text-white [text-wrap:balance] sm:text-4xl">{title}</h1>
+        {description && <p className="mt-2 max-w-2xl text-base leading-relaxed text-[#D9E8E0]">{description}</p>}
+        <span aria-hidden className="mt-4 block h-0.5 w-24 rounded-full bg-gradient-to-r from-champagne to-transparent" />
       </div>
       {actions && (
         <div ref={actionsRef} data-kr-title-actions className="flex shrink-0 flex-wrap gap-2">
@@ -444,8 +454,9 @@ export function PageHeader({
 /** One number on a card: its name, the value (tabular figures), one line of context. */
 export function KpiTile({ label, value, hint, icon: Icon, theme = PORTAL_THEMES.farmer }: { label: string; value: ReactNode; hint?: string; icon?: LucideIcon; theme?: PortalTheme }) {
   return (
-    <div className="relative rounded-2xl bg-white/85 p-4 shadow-[0_8px_30px_rgba(15,23,42,0.06)] ring-1 ring-[#E8A317]/25 backdrop-blur sm:p-5">
-      <p className="flex items-center justify-between gap-2 text-sm font-semibold text-slate-600">
+    // In a row these alternate forest green and soft sage (globals.css .kr-kpi), each on its own ledge.
+    <div className="kr-kpi relative rounded-2xl p-4 sm:p-5">
+      <p className="kr-kpi-label flex items-center justify-between gap-2 text-sm font-semibold">
         {label}
         {Icon && (
           <span className={`grid h-8 w-8 place-items-center rounded-lg ${theme.tile}`}>
@@ -453,23 +464,23 @@ export function KpiTile({ label, value, hint, icon: Icon, theme = PORTAL_THEMES.
           </span>
         )}
       </p>
-      <p className="mt-2 text-3xl font-bold leading-tight tracking-tight text-slate-900 tabular-nums">{value}</p>
-      {hint && <p className={`mt-1.5 text-xs font-medium ${theme.accent}`}>{hint}</p>}
+      <p className="kr-kpi-value mt-2 text-3xl font-bold leading-tight tracking-tight tabular-nums">{value}</p>
+      {hint && <p className="kr-kpi-hint mt-1.5 text-xs font-medium">{hint}</p>}
     </div>
   );
 }
 
 // ── Tables ──────────────────────────────────────────────────────────────────
 
-/** Tables: a framed, sideways-scrolling box; an ivory heading row; tabular figures; a soft row hover. */
+/** Tables: a framed, sideways-scrolling box; a soft-green heading row; tabular figures; a soft row hover. */
 export const TABLE = {
-  wrap: 'overflow-x-auto rounded-2xl bg-white/85 ring-1 ring-[#E8A317]/25',
+  wrap: 'overflow-x-auto rounded-2xl border border-forest-line bg-white [box-shadow:var(--kr-card-shadow)]',
   table: 'w-full text-left text-sm tabular-nums',
-  head: 'bg-ivory text-xs font-semibold uppercase tracking-wider text-slate-600',
+  head: 'bg-forest-soft text-xs font-semibold uppercase tracking-wider text-forest',
   th: 'px-4 py-3',
-  body: 'divide-y divide-slate-900/5',
-  row: 'transition-colors hover:bg-ivory/60',
-  td: 'px-4 py-3 text-slate-800',
+  body: 'divide-y divide-forest-line',
+  row: 'transition-colors hover:bg-forest-soft/50',
+  td: 'px-4 py-3 text-ink',
 } as const;
 
 // ── Misc ────────────────────────────────────────────────────────────────────
@@ -479,9 +490,9 @@ export const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency:
 export function Divider({ theme }: { theme: PortalTheme }) {
   return (
     <div className="my-8 flex items-center gap-3" aria-hidden>
-      <span className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
+      <span className="h-px flex-1 bg-gradient-to-r from-transparent via-champagne to-transparent" />
       <ChinarLeaf className="h-5 w-5" color={theme.leaf} />
-      <span className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
+      <span className="h-px flex-1 bg-gradient-to-r from-transparent via-champagne to-transparent" />
     </div>
   );
 }

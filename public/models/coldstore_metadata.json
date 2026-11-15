@@ -1,0 +1,49 @@
+{
+  "ok": true,
+  "generator": "Blender 5.2.3 LTS",
+  "blender_version": "5.2.3 LTS",
+  "generated_at": "2026-11-11T07:35:52+00:00",
+  "storageTypes": {
+    "WOODEN_BIN": {
+      "defaultCapacityKg": 200,
+      "dimensionsMeters": [
+        1.2,
+        1.0,
+        0.78
+      ]
+    },
+    "PLASTIC_CRATE": {
+      "defaultCapacityKg": 16.5,
+      "dimensionsMeters": [
+        0.54,
+        0.36,
+        0.29
+      ]
+    }
+  },
+  "kit": {
+    "file": "coldstore_kit.glb",
+    "nodes": [
+      "Kit_Apples_Cluster",
+      "Kit_Crate_HDPE",
+      "Kit_Evaporator",
+      "Kit_Pallet_Bin",
+      "Kit_Rack_Beam",
+      "Kit_Rack_Post"
+    ],
+    "bytes": 63592,
+    "sha256": "64b39fe30ed1f3c286e2eb2d7b5c55803e859ceff7d8ec1cd0c7c427381c4503"
+  },
+  "facility": {
+    "file": "coldstore_facility_twin.glb",
+    "note": "generic reference facility; live capacity and occupancy come from the database",
+    "referenceLayout": {
+      "woodenBins": 104,
+      "blueCrates": 400,
+      "rackPosts": 70,
+      "rackBeams": 304
+    },
+    "bytes": 172060,
+    "sha256": "f91e112bbf27eb3738c13d48312983cb60bd7bf707ae5dbd1d554769cd6829c7"
+  }
+}

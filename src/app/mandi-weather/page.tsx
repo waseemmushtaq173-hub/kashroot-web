@@ -3,12 +3,14 @@
 /**
  * Live Mandi Rates & Weather.
  *
- * - Weather: Open-Meteo through /api/weather (any place in India, or the
- *   browser's location). Farm advice lines are simple rules on that data.
+ * - Weather: Open-Meteo through /api/weather + IMD through /api/v1/weather.
+ *   Farm advice lines are simple rules on that data.
  * - Mandi: Agmarknet daily prices through /api/mandi (data.gov.in), filtered
  *   by state / district / market / commodity, sortable, Rs per quintal or kg.
+ * - Also shows rates posted by approved Mandi Helpers.
  *
  * Nothing is invented: empty feeds and service errors are shown as such.
+ * Every data point carries its source and timestamp.
  */
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -30,6 +32,7 @@ import {
   MapPin,
   RefreshCw,
   Search,
+  ShieldCheck,
   Sun,
   Thermometer,
   TriangleAlert,
@@ -58,6 +61,7 @@ interface Place {
   lng: number;
   note?: string;
 }
+
 interface Forecast {
   place: Place;
   current: { time: string; temperature: number; humidity: number; precipitation: number; wind: number; code: number };
@@ -65,35 +69,87 @@ interface Forecast {
   daily: { date: string; max: number; min: number; precipitation: number; code: number }[];
   source: string;
   fetchedAt: string;
-  /** Open-Meteo did not answer: the server's last good forecast, from fetchedAt. */
   stale?: boolean;
 }
+
+interface ImdCurrentWeather {
+  temperature: number;
+  humidity: number;
+  windSpeed: number;
+  windDirection: number;
+  rainfall: number;
+  pressure: number;
+  condition: string;
+  observedAt: string;
+  source: string;
+  stationCode: string;
+  stationName: string;
+}
+
+interface ImdHourlyForecast {
+  time: string;
+  temperature: number;
+  humidity: number;
+  precipitationProbability: number;
+  rainfall: number;
+  windSpeed: number;
+  condition: string;
+}
+
+interface ImdDailyForecast {
+  date: string;
+  maxTemperature: number;
+  minTemperature: number;
+  totalRainfall: number;
+  avgHumidity: number;
+  maxWindSpeed: number;
+  condition: string;
+}
+
+interface ImdWeatherWarning {
+  severity: 'INFO' | 'WARNING' | 'CRITICAL';
+  message: string;
+  issuedAt: string;
+  validUntil: string;
+  affectedDistricts: string[];
+  source: string;
+}
+
+interface ImdAgrometAdvisory {
+  title: string;
+  description: string;
+  crops: string[];
+  districts: string[];
+  validFrom: string;
+  validUntil: string;
+  sourceOrganization: string;
+  sourceUrl: string;
+}
+
+interface ImdWeatherResponse {
+  current: ImdCurrentWeather;
+  hourly: ImdHourlyForecast[];
+  daily: ImdDailyForecast[];
+  warnings: ImdWeatherWarning[];
+  advisories: ImdAgrometAdvisory[];
+  district: string;
+  source: string;
+  observationTime: string;
+  stationCode: string;
+  stationName: string;
+  /** The route's own upstream was down: this is the server's last good copy. */
+  stale?: boolean;
+}
+
 interface MandiResult {
   records: MandiRecord[];
   usingSampleKey: boolean;
   fetchedAt: string;
   source: string;
-  /** Fetched by this browser straight from data.gov.in (server could not reach it). */
   direct?: boolean;
-  /** All-India search: some states were not read in time. */
   partial?: boolean;
-  /** The mandi/district asked for had no report today; nearby ones are shown. */
   widened?: string;
-  /** Agmarknet and data.gov.in did not answer: the server's last good reports, from fetchedAt. */
   stale?: boolean;
-}
-
-/**
- * When the server cannot reach data.gov.in (some government servers refuse
- * cloud hosts), ask data.gov.in from this browser instead, with its public
- * sample key (limited to 10 reports).
- */
-async function mandiFromBrowser(query: MandiQuery): Promise<MandiResult> {
-  const wide = { state: titleCase(query.state), commodity: titleCase(query.commodity) };
-  const res = await fetch(mandiUrl({ ...wide, limit: 10 }, MANDI_SAMPLE_KEY), { headers: { Accept: 'application/json' } });
-  if (!res.ok) throw new Error(`data.gov.in answered ${res.status}`);
-  const n = narrowMandi(parseMandi(await res.json(), wide), query.district, query.market, wide.state);
-  return { records: n.records, widened: n.widened, usingSampleKey: true, fetchedAt: new Date().toISOString(), source: 'Agmarknet via data.gov.in', direct: true };
 }
 
 const STATES = [
@@ -102,10 +158,7 @@ const STATES = [
   'Pondicherry', 'Punjab', 'Rajasthan', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttrakhand', 'West Bengal',
 ];
 
-/** Commodities the user can quick-pick; the full list comes live from data.gov.in. */
 const QUICK_COMMODITIES = ['Apple'];
-
-/** Orchard fruits typically sold by the box rather than quintal/kg. */
 const BOX_COMMODITIES = new Set(['Apple']);
 
 const WMO: [number[], string, LucideIcon][] = [
@@ -123,6 +176,20 @@ const wmo = (code: number) => WMO.find(([codes]) => codes.includes(code)) ?? WMO
 const dayName = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
 const daysOld = (iso: string) => Math.max(0, Math.floor((Date.now() - Date.parse(`${iso}T00:00:00+05:30`)) / 864e5));
 
+function formatDateTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return iso;
+  }
+}
+
 function advice(f: Forecast): { tone: 'amber' | 'blue' | 'green' | 'red'; text: string }[] {
   const out: { tone: 'amber' | 'blue' | 'green' | 'red'; text: string }[] = [];
   const wetSoon = f.hourly.slice(0, 12).some((h) => h.precipitationProbability >= 60);
@@ -136,7 +203,19 @@ function advice(f: Forecast): { tone: 'amber' | 'blue' | 'green' | 'red'; text: 
   return out;
 }
 
-/** An error that also carries the technical reason, shown under the message. */
+function imdAdvice(w: ImdWeatherResponse): { tone: 'amber' | 'blue' | 'green' | 'red'; text: string; icon: LucideIcon }[] {
+  const out: { tone: 'amber' | 'blue' | 'green' | 'red'; text: string; icon: LucideIcon }[] = [];
+  const wetSoon = w.hourly.slice(0, 12).some((h) => h.precipitationProbability >= 60);
+  if (wetSoon) out.push({ tone: 'blue', text: 'Rain likely in the next 12 hours — hold sprays and fertiliser application.', icon: CloudRain });
+  if (w.current.windSpeed >= 15) out.push({ tone: 'amber', text: `Wind ${Math.round(w.current.windSpeed)} km/h — spray drift risk; spray in calm morning hours.`, icon: Wind });
+  const frost = w.daily.slice(0, 3).find((d) => d.minTemperature <= 2);
+  if (frost) out.push({ tone: 'red', text: `Frost risk on ${dayName(frost.date)} (min ${Math.round(frost.minTemperature)} °C) — protect blossoms and nurseries.`, icon: CloudSnow });
+  const hot = w.daily.slice(0, 3).find((d) => d.maxTemperature >= 32);
+  if (hot) out.push({ tone: 'amber', text: `Heat on ${dayName(hot.date)} (max ${Math.round(hot.maxTemperature)} °C) — irrigate early and shade fresh produce.`, icon: Sun });
+  if (out.length === 0) out.push({ tone: 'green', text: 'Settled weather — a good window for field work and harvest.', icon: CloudSun });
+  return out;
+}
+
 type DetailedError = Error & { detail?: string };
 
 async function getJson<T>(url: string): Promise<T> {
@@ -150,17 +229,23 @@ async function getJson<T>(url: string): Promise<T> {
   return data as T;
 }
 
+async function mandiFromBrowser(query: MandiQuery): Promise<MandiResult> {
+  const wide = { state: titleCase(query.state), commodity: titleCase(query.commodity) };
+  const res = await fetch(mandiUrl({ ...wide, limit: 10 }, MANDI_SAMPLE_KEY), { headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error(`data.gov.in answered ${res.status}`);
+  const n = narrowMandi(parseMandi(await res.json(), wide), query.district, query.market, wide.state);
+  return { records: n.records, widened: n.widened, usingSampleKey: true, fetchedAt: new Date().toISOString(), source: 'Agmarknet via data.gov.in', direct: true };
+}
+
 const noSubscribe = () => () => {};
 
 export default function MandiWeatherPage() {
-  // Weather
+  // Weather location
   const [placeQuery, setPlaceQuery] = useState('');
-  // A place picked here; until then the person's area (phone location or chosen state, lib/region); else Srinagar.
   const [pickedPlace, setWhere] = useState<{ q?: string; lat?: number; lng?: number; name?: string } | null>(null);
   const [suggestions, setSuggestions] = useState<Place[]>([]);
   const [locating, setLocating] = useState(false);
   const { region } = useRegion();
-  // The saved area is read only in the browser: ask for the weather once it is known (never Srinagar first).
   const inBrowser = useSyncExternalStore(noSubscribe, () => true, () => false);
   const where = useMemo(() => {
     if (pickedPlace) return pickedPlace;
@@ -168,6 +253,7 @@ export default function MandiWeatherPage() {
     return s ? (s.lat !== undefined && s.lng !== undefined ? { lat: s.lat, lng: s.lng, name: s.name } : { q: s.name }) : { q: 'Srinagar' };
   }, [pickedPlace, region]);
 
+  // Open-Meteo weather
   const weatherQ = useQuery({
     queryKey: ['weather', where],
     queryFn: () => {
@@ -181,14 +267,37 @@ export default function MandiWeatherPage() {
     },
     staleTime: 5 * 60_000,
     enabled: inBrowser,
-    // Asked even with no signal: the service worker answers from the copy saved on this phone.
     networkMode: 'offlineFirst',
   });
-  // No signal: the forecast saved on this phone, and when it was saved (components/pwa).
   const weatherSavedAt = useSavedAt('/api/weather', () => void weatherQ.refetch());
 
-  // The name just picked from the list: don't look it up again (the list would pop back open
-  // over "Use my location").
+  // IMD weather (district-based)
+  const districtForImd = useMemo(() => {
+    if (where.lat && where.lng) return undefined; // will use lat/lng
+    // Extract district from place name or use region
+    const name = where.q ?? where.name ?? 'Srinagar';
+    return name.split(' ').pop() ?? 'Srinagar';
+  }, [where]);
+
+  const imdWeatherQ = useQuery({
+    queryKey: ['imd-weather', where],
+    queryFn: () => {
+      const p = new URLSearchParams();
+      if (where.lat !== undefined && where.lng !== undefined) {
+        p.set('lat', String(where.lat));
+        p.set('lng', String(where.lng));
+      } else if (districtForImd) {
+        p.set('district', districtForImd);
+      }
+      return getJson<ImdWeatherResponse>(`/api/v1/weather?${p}`);
+    },
+    staleTime: 15 * 60_000,
+    enabled: inBrowser,
+    networkMode: 'offlineFirst',
+  });
+  const imdWeatherSavedAt = useSavedAt('/api/v1/weather', () => void imdWeatherQ.refetch());
+
+  // Location search
   const picked = useRef('');
   useEffect(() => {
     const text = placeQuery.trim();
@@ -199,10 +308,7 @@ export default function MandiWeatherPage() {
         .then((r) => live && setSuggestions(r.places))
         .catch(() => live && setSuggestions([]));
     }, 350);
-    return () => {
-      live = false;
-      clearTimeout(t);
-    };
+    return () => { live = false; clearTimeout(t); };
   }, [placeQuery]);
 
   const useMyLocation = () => {
@@ -219,14 +325,12 @@ export default function MandiWeatherPage() {
     );
   };
 
-  // Mandi
+  // Mandi filters
   const [filters, setFilters] = useState<{ state: string; district: string; market: string; commodity: string; variety: string; grade: string }>({ state: '', district: '', market: '', commodity: 'Apple', variety: '', grade: '' });
   const [applied, setApplied] = useState<{ state: string; district: string; market: string; commodity: string; variety: string; grade: string }>({ state: '', district: '', market: '', commodity: 'Apple', variety: '', grade: '' });
-  // Live commodity discovery from data.gov.in.
   const [commodities, setCommodities] = useState<string[]>([]);
   const [commodityVarieties, setCommodityVarieties] = useState<Record<string, string[]>>({});
   const [commodityLoading, setCommodityLoading] = useState(false);
-  // Opened by the voice assistant ("walnut rate in Sopore"): ?crop=&market= fill the search.
   const fromLink = useCallback((p: URLSearchParams) => {
     const asked = mandiFromLink(p);
     if (!asked) return;
@@ -234,7 +338,6 @@ export default function MandiWeatherPage() {
     setFilters(next);
     setApplied(next);
   }, []);
-  // Fetch live commodity list from data.gov.in on mount.
   useEffect(() => {
     let live = true;
     const t = setTimeout(async () => {
@@ -253,7 +356,7 @@ export default function MandiWeatherPage() {
     }, 0);
     return () => { live = false; };
   }, []);
-  // Default unit: box for orchard fruit, quintal otherwise.
+
   const [unit, setUnit] = useState<'quintal' | 'kg' | 'box'>('box');
   const [boxKg, setBoxKg] = useState(17);
   const [sort, setSort] = useState<'price-asc' | 'price-desc' | 'date'>('date');
@@ -275,14 +378,13 @@ export default function MandiWeatherPage() {
   });
   const mandiSavedAt = useSavedAt('/api/mandi', () => void mandiQ.refetch());
 
-  // Agmarknet publishes ₹ per quintal (100 kg). Default unit depends on commodity type.
   const isBoxCommodity = applied.commodity && BOX_COMMODITIES.has(applied.commodity);
   const defaultUnit = isBoxCommodity ? 'box' : 'quintal';
   const effectiveUnit = unit === 'box' && !isBoxCommodity ? 'quintal' : unit;
   const factor = effectiveUnit === 'kg' ? 0.01 : effectiveUnit === 'box' ? (boxKg > 0 ? boxKg : 17) / 100 : 1;
   const unitLabel = effectiveUnit === 'box' ? `box (${boxKg} kg)` : effectiveUnit;
+
   const rows = useMemo(() => {
-    // Hard client-side guard: NEVER render mixed commodities — only Apple rows.
     const list = [...(mandiQ.data?.records ?? [])].filter((r) =>
       r.commodity.toLowerCase().replace(/[^a-z]/g, '') === 'apple'
     );
@@ -291,29 +393,26 @@ export default function MandiWeatherPage() {
     else list.sort((a, b) => b.arrivalDate.localeCompare(a.arrivalDate) || a.market.localeCompare(b.market));
     return list;
   }, [mandiQ.data, sort]);
-  /** Rows by state (Jammu and Kashmir first), each in the chosen order. */
+
   const byState = useMemo(() => {
     const groups = new Map<string, MandiRecord[]>();
     for (const r of rows) groups.set(r.state, [...(groups.get(r.state) ?? []), r]);
     return [...groups.entries()].sort(([a], [b]) => (/jammu/i.test(a) ? -1 : /jammu/i.test(b) ? 1 : a.localeCompare(b)));
   }, [rows]);
+
   const showState = (state: string) => {
     const next = { ...applied, state, district: '', market: '' };
     setFilters(next);
     setApplied(next);
   };
-  /**
-   * Reports far from the rest (under a third or over three times the median)
-   * are usually typing slips in the feed (e.g. ₹300 instead of ₹3000 a
-   * quintal). They stay in the table, marked, but are left out of the best,
-   * lowest and average figures.
-   */
+
   const unusual = useMemo(() => {
     const sorted = rows.map((r) => r.modalPrice).filter((n) => n > 0).sort((a, b) => a - b);
     if (sorted.length < 4) return new Set<MandiRecord>();
     const median = sorted[Math.floor(sorted.length / 2)];
     return new Set(rows.filter((r) => r.modalPrice <= 0 || r.modalPrice < median / 3 || r.modalPrice > median * 3));
   }, [rows]);
+
   const stats = useMemo(() => {
     const usable = rows.filter((r) => r.modalPrice > 0 && !unusual.has(r));
     if (usable.length === 0) return null;
@@ -323,8 +422,6 @@ export default function MandiWeatherPage() {
     return { avg: usable.reduce((s, r) => s + r.modalPrice, 0) / usable.length, hi, lo, latest, count: usable.length };
   }, [rows, unusual]);
 
-  // Rates posted by KashRoot's approved Mandi Helpers: the headline numbers
-  // fall back to these while the government feeds block automatic access.
   const postedQ = useQuery({ queryKey: ['posted-rates'], queryFn: () => recentRates(), staleTime: 5 * 60_000, networkMode: 'offlineFirst' });
   const posted = useMemo(() => {
     const want = applied.commodity.trim().toLowerCase();
@@ -336,6 +433,7 @@ export default function MandiWeatherPage() {
   }, [postedQ.data, applied.commodity]);
 
   const f = weatherQ.data;
+  const imd = imdWeatherQ.data;
   const [, condLabel, CondIcon] = f ? wmo(f.current.code) : [[], '', Cloud];
 
   return (
@@ -343,19 +441,28 @@ export default function MandiWeatherPage() {
       standalone
       theme="buyer"
       eyebrow="Live mandi rates & weather"
-      title="Today’s prices, today’s sky"
-      description="Daily rates posted by checked traders at Kashmir’s mandis, government-published prices when their service is open, and the local forecast that decides when you pick, spray and ship."
+      title="Today's prices, today's sky"
+      description="Daily rates posted by checked traders at Kashmir's mandis, government-published prices when their service is open, and the local forecast that decides when you pick, spray and ship."
       kpis={[
         {
-          label: 'Weather',
+          label: 'Weather (Open-Meteo)',
           value: f ? `${Math.round(f.current.temperature)} °C` : '—',
-          trend: f ? `${condLabel} · ${f.place.name}` : weatherQ.isError ? 'Unavailable right now' : 'Loading…',
+          trend: f ? `${condLabel} · ${f.place.name}` : weatherQ.isError ? 'Unavailable' : 'Loading…',
+        },
+        imd ? {
+          label: 'Weather (IMD)',
+          value: `${Math.round(imd.current.temperature)} °C`,
+          trend: `${imd.current.condition} · ${imd.stationName} (${imd.stationCode})`,
+        } : {
+          label: 'Weather (IMD)',
+          value: '—',
+          trend: imdWeatherQ.isError ? 'Unavailable' : imdWeatherQ.isLoading ? 'Loading…' : 'No district selected',
         },
         stats || !posted
           ? {
               label: `${applied.commodity || 'Select a commodity'}`,
               value: '—',
-              trend: stats ? `per ${unitLabel}` : mandiQ.isError ? 'Unavailable right now' : mandiQ.isLoading ? 'Loading…' : 'Select a commodity',
+              trend: stats ? `per ${unitLabel}` : mandiQ.isError ? 'Unavailable' : mandiQ.isLoading ? 'Loading…' : 'Select a commodity',
             }
           : {
               label: `${applied.commodity} — average modal`,
@@ -376,8 +483,14 @@ export default function MandiWeatherPage() {
       ]}
     >
       <ReadLink onRead={fromLink} />
-      {/* ── Weather ───────────────────────────────────────── */}
-      <Panel theme={theme} title="Weather" icon={CloudSun} action={<SavedAt at={f ? weatherSavedAt : null} />}>
+
+      {/* ── Weather Panel ───────────────────────────────────── */}
+      <Panel theme={theme} title="Weather" icon={CloudSun} action={
+        <>
+          {f?.stale && <LastUpdated at={f.fetchedAt} source={f.source} className="mr-2" />}
+          {imd?.stale && <LastUpdated at={imd.observationTime} source="Open-Meteo" />}
+        </>
+      }>
         <div className="flex flex-col gap-3 md:flex-row">
           <form
             className="relative flex-1"
@@ -387,9 +500,7 @@ export default function MandiWeatherPage() {
               setSuggestions([]);
             }}
           >
-            <label htmlFor="place" className="sr-only">
-              Town, district or village
-            </label>
+            <label htmlFor="place" className="sr-only">Town, district or village</label>
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
             <input
               id="place"
@@ -429,25 +540,48 @@ export default function MandiWeatherPage() {
           </Btn>
         </div>
 
+        {/* Loading / Error states for Open-Meteo */}
         {!weatherQ.data && !weatherQ.isError && (
-          // About as tall as the forecast that replaces it (phone, tablet, computer), so the page does not jump.
           <div role="status" className="mt-6">
-            <p className="flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading forecast…</p>
+            <p className="flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading Open-Meteo forecast…</p>
             <div aria-hidden className="mt-3 h-[60rem] animate-pulse rounded-2xl bg-gradient-to-r from-slate-200/70 via-[#FBF8F0] to-slate-200/70 ring-1 ring-[#E8A317]/15 motion-reduce:animate-none sm:h-[41rem] lg:h-[22rem]" />
           </div>
         )}
         {weatherQ.isError && (
           <div className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">
             <TriangleAlert className="h-4 w-4" aria-hidden /> {(weatherQ.error as Error).message}
-            <Btn theme={theme} size="sm" variant="ghost" icon={RefreshCw} onClick={() => void weatherQ.refetch()}>
-              Retry
-            </Btn>
+            <Btn theme={theme} size="sm" variant="ghost" icon={RefreshCw} onClick={() => void weatherQ.refetch()}>Retry</Btn>
+            {(weatherQ.error as DetailedError).detail && (
+              <details className="w-full text-xs text-rose-900/80">
+                <summary className="cursor-pointer">Technical details</summary>
+                <p className="mt-1 break-words font-mono">{`${(weatherQ.error as DetailedError).detail}`}</p>
+              </details>
+            )}
           </div>
         )}
-        {f?.stale && <LastUpdated at={f.fetchedAt} source="Open-Meteo" className="mt-6" />}
+
+        {/* Loading / Error states for IMD */}
+        {inBrowser && !imdWeatherQ.data && !imdWeatherQ.isError && (
+          <div role="status" className="mt-6">
+            <p className="flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading IMD forecast…</p>
+          </div>
+        )}
+        {imdWeatherQ.isError && (
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl bg-amber-50 p-3 text-sm text-amber-800 ring-1 ring-amber-200">
+            <TriangleAlert className="h-4 w-4" aria-hidden /> IMD: {(imdWeatherQ.error as Error).message}
+            <Btn theme={theme} size="sm" variant="ghost" icon={RefreshCw} onClick={() => void imdWeatherQ.refetch()}>Retry</Btn>
+          </div>
+        )}
+
+        {/* Open-Meteo Weather Display */}
         {f && (
-          <div className="mt-6 space-y-5">
-            {/* minmax(0, …) and min-w-0: the 24-hour strip scrolls inside its box instead of widening the page on phones. */}
+          <div className="mt-6 space-y-5 border-t border-slate-200 pt-4">
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" aria-hidden />
+              <span>Source: {f.source}, CC BY 4.0</span>
+              {f.stale && <span className="ml-2 text-amber-600">(stale)</span>}
+              {f.stale && <LastUpdated at={f.fetchedAt} source={f.source} className="ml-auto" />}
+            </div>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,2fr)]">
               <Tilt3D className="min-w-0 rounded-3xl" max={6}>
                 <div className="relative h-full overflow-hidden rounded-3xl bg-gradient-to-br from-sky-500 to-indigo-600 p-6 text-white shadow-lg [transform-style:preserve-3d]">
@@ -463,18 +597,9 @@ export default function MandiWeatherPage() {
                     </div>
                   </div>
                   <dl className="mt-5 grid grid-cols-3 gap-2 text-sm">
-                    <div>
-                      <dt className="flex items-center gap-1 text-sky-100"><Droplets className="h-3.5 w-3.5" aria-hidden /> Humidity</dt>
-                      <dd className="font-semibold">{f.current.humidity}%</dd>
-                    </div>
-                    <div>
-                      <dt className="flex items-center gap-1 text-sky-100"><Wind className="h-3.5 w-3.5" aria-hidden /> Wind</dt>
-                      <dd className="font-semibold">{Math.round(f.current.wind)} km/h</dd>
-                    </div>
-                    <div>
-                      <dt className="flex items-center gap-1 text-sky-100"><CloudRain className="h-3.5 w-3.5" aria-hidden /> Rain</dt>
-                      <dd className="font-semibold">{f.current.precipitation} mm</dd>
-                    </div>
+                    <div><dt className="flex items-center gap-1 text-sky-100"><Droplets className="h-3.5 w-3.5" aria-hidden /> Humidity</dt><dd className="font-semibold">{f.current.humidity}%</dd></div>
+                    <div><dt className="flex items-center gap-1 text-sky-100"><Wind className="h-3.5 w-3.5" aria-hidden /> Wind</dt><dd className="font-semibold">{Math.round(f.current.wind)} km/h</dd></div>
+                    <div><dt className="flex items-center gap-1 text-sky-100"><CloudRain className="h-3.5 w-3.5" aria-hidden /> Rain</dt><dd className="font-semibold">{f.current.precipitation} mm</dd></div>
                   </dl>
                 </div>
               </Tilt3D>
@@ -484,7 +609,7 @@ export default function MandiWeatherPage() {
                     <Badge tone={a.tone}>Farm tip</Badge> {a.text}
                   </p>
                 ))}
-                <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-1" aria-label="Next 24 hours">
+                <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-1" aria-label="Next 24 hours (Open-Meteo)">
                   {f.hourly.filter((_, i) => i % 2 === 0).map((h) => {
                     const [, , Icon] = wmo(h.code);
                     return (
@@ -513,47 +638,130 @@ export default function MandiWeatherPage() {
                   );
                 })}
               </div>
-              <p className="text-xs text-slate-500">Weather data: {f.source}, CC BY 4.0.</p>
+            </div>
+          </div>
+        )}
+
+        {/* IMD Weather Display */}
+        {imd && (
+          <div className="mt-6 space-y-5 border-t border-slate-200 pt-4">
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" aria-hidden />
+              <span>Source: {imd.source} — Station: {imd.stationName} ({imd.stationCode})</span>
+              {imd.stale && <LastUpdated at={imd.observationTime} source="Open-Meteo" className="ml-auto" />}
+            </div>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,2fr)]">
+              <Tilt3D className="min-w-0 rounded-3xl" max={6}>
+                <div className="relative h-full overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-600 p-6 text-white shadow-lg [transform-style:preserve-3d]">
+                  <p className="flex items-center gap-1.5 text-sm text-emerald-100">
+                    <MapPin className="h-4 w-4" aria-hidden />
+                    {imd.district} district · {imd.stationName}
+                  </p>
+                  <div data-depth className="mt-3 flex items-center gap-4">
+                    <span className="text-5xl" aria-hidden>🌡️</span>
+                    <div>
+                      <p className="text-5xl font-semibold tabular-nums">{Math.round(imd.current.temperature)}°</p>
+                      <p className="text-emerald-100">{imd.current.condition}</p>
+                    </div>
+                  </div>
+                  <dl className="mt-5 grid grid-cols-3 gap-2 text-sm">
+                    <div><dt className="flex items-center gap-1 text-emerald-100"><Droplets className="h-3.5 w-3.5" aria-hidden /> Humidity</dt><dd className="font-semibold">{imd.current.humidity}%</dd></div>
+                    <div><dt className="flex items-center gap-1 text-emerald-100"><Wind className="h-3.5 w-3.5" aria-hidden /> Wind</dt><dd className="font-semibold">{Math.round(imd.current.windSpeed)} km/h @ {imd.current.windDirection}°</dd></div>
+                    <div><dt className="flex items-center gap-1 text-emerald-100"><CloudRain className="h-3.5 w-3.5" aria-hidden /> Rain</dt><dd className="font-semibold">{imd.current.rainfall} mm</dd></div>
+                    <div style={{ gridColumn: 'span 2' }}><dt className="flex items-center gap-1 text-emerald-100"><FileQuestion className="h-3.5 w-3.5" aria-hidden /> Pressure</dt><dd className="font-semibold">{imd.current.pressure} hPa</dd></div>
+                  </dl>
+                </div>
+              </Tilt3D>
+              <div className="min-w-0 space-y-3">
+                {imdAdvice(imd).map((a) => (
+                  <p key={a.text} className="flex items-start gap-2 rounded-2xl bg-white/70 p-3 text-sm text-slate-800 ring-1 ring-slate-900/5">
+                    <Badge tone={a.tone}><a.icon className="h-3.5 w-3.5" aria-hidden /> Farm tip</Badge> {a.text}
+                  </p>
+                ))}
+                {imd.warnings.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-rose-800 flex items-center gap-1"><TriangleAlert className="h-4 w-4" aria-hidden /> Weather warnings</p>
+                    {imd.warnings.map((w, i) => (
+                      <div key={i} className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800 ring-1 ring-rose-200">
+                        <span className="font-semibold uppercase">{w.severity}</span>: {w.message}
+                        <div className="mt-1 text-xs text-rose-700">Issued: {formatDateTime(w.issuedAt)} · Valid until: {formatDateTime(w.validUntil)}</div>
+                        <div className="text-xs text-rose-700">Districts: {w.affectedDistricts.join(', ')}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {imd.advisories.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-sky-800 flex items-center gap-1"><CloudSun className="h-4 w-4" aria-hidden /> Agromet Advisories</p>
+                    {imd.advisories.map((a, i) => (
+                      <div key={i} className="rounded-xl bg-sky-50 p-3 text-sm text-sky-900 ring-1 ring-sky-200">
+                        <p className="font-semibold">{a.title}</p>
+                        <p className="mt-1">{a.description}</p>
+                        <div className="mt-1 text-xs text-sky-700">Crops: {a.crops.join(', ')} · Districts: {a.districts.join(', ')}</div>
+                        <div className="text-xs text-sky-700">Valid: {a.validFrom} to {a.validUntil} · Source: {a.sourceOrganization}</div>
+                        {a.sourceUrl && (
+                          <a href={a.sourceUrl} target="_blank" rel="noreferrer" className="text-xs text-sky-600 underline mt-1 inline-block">Read full advisory ↗</a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-1" aria-label="Next 24 hours (IMD)">
+                  {imd.hourly.filter((_, i) => i % 2 === 0).map((h) => (
+                    <div key={h.time} className="min-w-[4.5rem] shrink-0 rounded-2xl bg-white/80 p-2.5 text-center ring-1 ring-slate-900/5">
+                      <p className="text-xs text-slate-500">{h.time.slice(11, 16)}</p>
+                      <p className="text-sm font-semibold tabular-nums text-slate-900">{Math.round(h.temperature)}°</p>
+                      <p className="text-[11px] text-emerald-700">{h.precipitationProbability}% 🌧️</p>
+                      <p className="text-[11px] text-slate-600">{h.condition}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+                  {imd.daily.map((d) => (
+                    <Tilt3D key={d.date} className="rounded-2xl" max={8}>
+                      <div className="h-full rounded-2xl bg-white/85 p-3 text-center shadow-sm ring-1 ring-slate-900/5 [transform-style:preserve-3d]">
+                        <p className="text-xs font-semibold text-slate-600">{dayName(d.date)}</p>
+                        <p className="text-2xl my-1" aria-hidden>{d.condition === 'Rain' ? '🌧️' : d.condition === 'Clear sky' ? '☀️' : '⛅'}</p>
+                        <p className="text-sm font-semibold tabular-nums text-slate-900">{Math.round(d.maxTemperature)}° / <span className="text-slate-500">{Math.round(d.minTemperature)}°</span></p>
+                        <p className="text-[11px] text-emerald-700">{d.totalRainfall} mm</p>
+                      </div>
+                    </Tilt3D>
+                  ))}
+                </div>
               </div>
             </div>
-          )}
-        </Panel>
+          </div>
+        )}
+
+        {(!f && !imd) && !weatherQ.isError && !imdWeatherQ.isError && inBrowser && (
+          <p className="mt-6 text-center text-slate-500">Select a location or enable location access to see weather forecasts.</p>
+        )}
+      </Panel>
 
       {/* ── Rates posted by approved Mandi Helpers ───────── */}
       <div className="mt-6">
         <PostedRates theme={theme} commodity={applied.commodity} />
       </div>
 
-      {/* ── Mandi ─────────────────────────────────────────── */}
+      {/* ── Mandi Prices ───────────────────────────────────── */}
       <div className="mt-6">
-        <Panel theme={theme} title="Mandi prices (Agmarknet)" icon={Thermometer} action={<SavedAt at={mandiQ.data ? mandiSavedAt : null} />}>
+        <Panel theme={theme} title="Mandi prices (Agmarknet)" icon={Thermometer} action={
+          <>
+            {mandiQ.data?.stale && <LastUpdated at={mandiQ.data.fetchedAt} source={mandiQ.data.source} className="mr-2" />}
+            {mandiQ.data?.stale && <Badge tone="amber">Stale</Badge>}
+          </>
+        }>
           <div className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_1fr_1fr_auto]">
-            <label className="text-sm font-medium text-slate-700">
-              Commodity
-            </label>
-            <input
-              list="commodities"
-              className={`${INPUT} mt-1`}
-              value={filters.commodity}
-              onChange={(e) => setFilters({ ...filters, commodity: e.target.value, variety: '', grade: '' })}
-              placeholder="Apple"
-            />
-            <label className="text-sm font-medium text-slate-700">
-              State
-            </label>
+            <label className="text-sm font-medium text-slate-700">Commodity</label>
+            <input list="commodities" className={`${INPUT} mt-1`} value={filters.commodity} onChange={(e) => setFilters({ ...filters, commodity: e.target.value, variety: '', grade: '' })} placeholder="Apple" />
+            <label className="text-sm font-medium text-slate-700">State</label>
             <input list="states" className={`${INPUT} mt-1`} value={filters.state} onChange={(e) => setFilters({ ...filters, state: e.target.value })} placeholder="All India" />
-            <label className="text-sm font-medium text-slate-700">
-              District
-            </label>
+            <label className="text-sm font-medium text-slate-700">District</label>
             <input className={`${INPUT} mt-1`} value={filters.district} onChange={(e) => setFilters({ ...filters, district: e.target.value })} placeholder="Any" />
-            <label className="text-sm font-medium text-slate-700">
-              Market
-            </label>
+            <label className="text-sm font-medium text-slate-700">Market</label>
             <input className={`${INPUT} mt-1`} value={filters.market} onChange={(e) => setFilters({ ...filters, market: e.target.value })} placeholder="Any" />
             <div className="flex items-end">
-              <Btn theme={theme} type="submit" icon={Search} className="w-full">
-                Show prices
-              </Btn>
+              <Btn theme={theme} type="submit" icon={Search} className="w-full">Show prices</Btn>
             </div>
             <datalist id="commodities">{commodities.map((c) => <option key={c} value={c} />)}</datalist>
             <datalist id="states">{STATES.map((s) => <option key={s} value={s} />)}</datalist>
@@ -589,17 +797,13 @@ export default function MandiWeatherPage() {
           </div>
 
           {mandiQ.isLoading && applied.commodity && (
-            <p className="mt-6 flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Fetching today’s reports…</p>
+            <p className="mt-6 flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Fetching today&rsquo;s reports…</p>
           )}
           {mandiQ.isError && applied.commodity && (
             <div className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">
               <TriangleAlert className="h-4 w-4" aria-hidden /> {(mandiQ.error as Error).message}
-              <Btn theme={theme} size="sm" variant="ghost" icon={RefreshCw} onClick={() => void mandiQ.refetch()}>
-                Retry
-              </Btn>
-              <a href="https://agmarknet.gov.in/" target="_blank" rel="noreferrer" className="text-sm font-semibold text-rose-900 underline">
-                Open agmarknet.gov.in
-              </a>
+              <Btn theme={theme} size="sm" variant="ghost" icon={RefreshCw} onClick={() => void mandiQ.refetch()}>Retry</Btn>
+              <a href="https://agmarknet.gov.in/" target="_blank" rel="noreferrer" className="text-sm font-semibold text-rose-900 underline">Open agmarknet.gov.in</a>
               {(mandiQ.error as DetailedError).detail && (
                 <details className="w-full text-xs text-rose-900/80">
                   <summary className="cursor-pointer">Technical details (for the site owner)</summary>
@@ -608,7 +812,7 @@ export default function MandiWeatherPage() {
               )}
             </div>
           )}
-          {mandiQ.data?.stale && applied.commodity && <LastUpdated at={mandiQ.data.fetchedAt} source="Agmarknet" className="mt-5" />}
+          {mandiQ.data?.stale && applied.commodity && <LastUpdated at={mandiQ.data.fetchedAt} source={mandiQ.data.source} className="mt-5" />}
           {mandiQ.data?.widened && rows.length > 0 && (
             <p className="mt-5 flex items-start gap-2 rounded-2xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
               <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> {mandiQ.data.widened}

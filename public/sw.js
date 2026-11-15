@@ -25,8 +25,8 @@
  * unless it is URGENT (a fix people must get at once): then it takes over
  * straight away.
  */
-const VERSION = '2026-11-17.1';
-/** This version fixes sign-in: older ones kept the sign-in pages with a broken security check. */
+const VERSION = '2026-11-17.2';
+/** This version ships the new portal palette: older ones kept saved pages in the old colours. It takes over at once. */
 const URGENT = true;
 const SHELL = `kr-shell-${VERSION}`; // the offline page and its files
 const STATIC = `kr-static-${VERSION}`; // the app's files

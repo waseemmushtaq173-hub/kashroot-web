@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pencil, Phone } from 'lucide-react';
 
 import { ColdStoreExplorer, type Look } from '@/components/rental/ColdStoreMap';
+import type { PlaceHolder } from '@/components/rental/ColdStore3D';
 import { niceDate, placesText } from '@/components/rental/ColdBooking';
 import { Badge, Btn, Field, INPUT, Modal, PORTAL_THEMES } from '@/components/portal/kit';
 import { unitWord } from '@/lib/coldStore';
@@ -105,6 +106,29 @@ export function ColdMapEditor({
     if (!on?.length) return undefined;
     return `${initials(on[0].booking.renter_name)}${on.length > 1 ? `+${on.length - 1}` : ''}`;
   };
+  // Who holds one place for the crate drawer: names and their boxes there, from the
+  // bookings alone (nothing invented when the records do not say).
+  const stackOf = useCallback(
+    (c: ColdChamber, slot: string) => {
+      const on = holder.get(placeKey(c.id, slot));
+      if (!on?.length) return null;
+      const [first] = on;
+      const boxes = first.boxes != null && first.boxes > 0 ? `${first.boxes.toLocaleString('en-IN')} ${unitWord(c.storage, first.boxes)}` : null;
+      return `${first.booking.renter_name}${boxes ? ` — ${boxes}` : ''}${on.length > 1 ? ` (+${on.length - 1} more)` : ''}`;
+    },
+    [holder],
+  );
+  // Every farmer sharing one place, for the 3D place card (units from the bookings; the booking's
+  // reference is its payment reference or short id; no variety is invented — bookings do not hold one).
+  const holdersOf = useCallback(
+    (c: ColdChamber, slot: string): PlaceHolder[] =>
+      (holder.get(placeKey(c.id, slot)) ?? []).map(({ booking, boxes }) => ({
+        name: booking.renter_name,
+        units: boxes != null && boxes > 0 ? boxes : null,
+        ref: booking.payment_ref || booking.id.slice(0, 8).toUpperCase(),
+      })),
+    [holder],
+  );
 
   const who = picked ? holder.get(picked) ?? [] : [];
   const unit = chambers.find((c) => picked?.startsWith(`${c.id}:`))?.storage ?? 'boxes';
@@ -136,6 +160,8 @@ export function ColdMapEditor({
               mode="owner"
               onPlace={onStore}
               labelOf={initialsOf}
+              stackOf={stackOf}
+              holdersOf={holdersOf}
               active={viewing}
               onActive={setViewing}
               legend={['free', 'part', 'held', 'booked', 'blocked']}
@@ -154,7 +180,7 @@ export function ColdMapEditor({
                       {b.units.toLocaleString('en-IN')} in all · {niceDate(b.start_date)} to {niceDate(periodEnd(b.start_date, b.duration))} · {inr(Number(b.amount))}
                     </p>
                     <p className="mt-1 text-slate-700">Places: {placesText(places.filter((p) => p.booking_id === b.id), chambers)}</p>
-                    <a href={`tel:${b.renter_phone}`} className="mt-2 inline-flex items-center gap-1 font-semibold text-emerald-700"><Phone className="h-4 w-4" aria-hidden /> {b.renter_phone}</a>
+                    <a href={`tel:${b.renter_phone}`} className="mt-2 inline-flex items-center gap-1 font-semibold text-[#174C3C]"><Phone className="h-4 w-4" aria-hidden /> {b.renter_phone}</a>
                   </div>
                 ))}
               </section>

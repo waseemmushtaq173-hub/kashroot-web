@@ -19,6 +19,49 @@
   --kr-copper: #B4532A;
 }
 
+/*
+ * The unified KashRoot identity: forest green headers, sidebars and primary actions, soft green
+ * panels, champagne gold accents, a cool mist page. Used by .kr-btn-primary, .kr-btn-secondary
+ * and .kr-card below and by the Tailwind colours forest / champagne / mist / ink.
+ * .kr-light (the tool pages) sets its own --kr-text-* and --kr-border-* names on its element,
+ * which win inside it; these :root values apply everywhere else.
+ */
+:root {
+  --kr-forest-green: #174C3C;
+  --kr-secondary-green: #286B54;
+  --kr-deep-green: #12382E;
+  --kr-soft-green: #EAF3EE;
+  --kr-surface-white: #FFFFFF;
+  --kr-pine: #0B241D;
+  --kr-main-bg: #E8F0EC;
+  --kr-champagne-gold: #C6A45B;
+  --kr-text-primary: #1E2D28;
+  --kr-text-secondary: #52665E;
+  --kr-border: #C6DBD0;
+  --kr-card-border: #C2D8CD;
+  --kr-card-bg: linear-gradient(180deg, #FFFFFF 0%, #F3F8F5 100%);
+  /* The page: Kashmiri sage-ivory, lit softly by champagne gold (top left) and forest green (bottom right). Never plain white. */
+  --kr-canvas:
+    radial-gradient(60rem 36rem at 12% -6%, rgba(198, 164, 91, .12), transparent 62%),
+    radial-gradient(54rem 34rem at 96% 104%, rgba(23, 76, 60, .10), transparent 60%),
+    linear-gradient(180deg, #E8F0EC 0%, #DFECE5 100%);
+
+  --kr-btn-primary-bg: linear-gradient(180deg, #2B725A 0%, #174C3C 65%, #12382E 100%);
+  --kr-btn-primary-shadow: inset 0 1px 0 rgba(255, 255, 255, .32), 0 3px 0 #091F18, 0 8px 16px -3px rgba(18, 56, 46, .30);
+  --kr-btn-primary-hover-shadow: inset 0 1px 0 rgba(255, 255, 255, .38), 0 4px 0 #091F18, 0 12px 22px -4px rgba(18, 56, 46, .36), 0 0 0 1px rgba(198, 164, 91, .55), 0 0 18px -2px rgba(198, 164, 91, .45);
+  --kr-btn-primary-active-shadow: inset 0 2px 5px rgba(0, 0, 0, .32), 0 1px 0 #091F18;
+  --kr-btn-secondary-bg: linear-gradient(180deg, #FFFFFF 0%, #E6F1EC 100%);
+  --kr-btn-secondary-shadow: inset 0 1px 0 #FFFFFF, 0 3px 0 #8DB09F, 0 6px 12px -3px rgba(23, 76, 60, .14);
+  /* A chosen tab or pill: forest green standing on a champagne gold ledge. */
+  --kr-btn-on-bg: linear-gradient(180deg, #1F5E4A 0%, #174C3C 60%, #12382E 100%);
+  --kr-btn-on-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 3px 0 #C6A45B, 0 8px 16px -4px rgba(18, 56, 46, .32);
+  /* A card: a white top light, a 3px forest ledge under it (the bevel), a soft drop. Drawn as shadows, so no size changes. */
+  --kr-card-shadow: inset 0 1px 0 #FFFFFF, inset 0 0 0 1px #C2D8CD, 0 3px 0 #174C3C, 0 10px 24px -6px rgba(18, 56, 46, .14);
+  --kr-card-hover-shadow: inset 0 1px 0 #FFFFFF, inset 0 0 0 1px #C2D8CD, 0 3px 0 #C6A45B, 0 16px 30px -8px rgba(18, 56, 46, .22);
+  /* A card inside a card: the same build with a lighter sage ledge, so a list is not a stack of heavy green lines. */
+  --kr-inset-card-shadow: inset 0 1px 0 #FFFFFF, inset 0 0 0 1px #C2D8CD, 0 2px 0 #8DB09F, 0 6px 14px -6px rgba(18, 56, 46, .12);
+}
+
 /* Figures line up in every table. */
 table {
   font-variant-numeric: tabular-nums;
@@ -45,11 +88,19 @@ body {
 }
 
 body {
-  background-color: #07120D; /* Deep Royal Forest Green */
-  color: #F5F2EB;
+  background: var(--kr-canvas) fixed;
+  background-color: #E8F0EC;
+  color: #1E2D28;
   min-height: 100vh;
   margin: 0;
-  background-image: none !important; /* Forces the removal of that mountain graphic */
+}
+
+/* Every portal frame and tool page stands on the same canvas (they once set a flat mist, slate or white). */
+[data-kr-shell],
+.kr-light.min-h-screen,
+:is(main, div).min-h-screen:is([class~='bg-white'], [class~='bg-slate-50'], [class~='bg-gray-50'], [class~='bg-mist']) {
+  background: var(--kr-canvas) fixed;
+  background-color: #E8F0EC;
 }
 
 /* KASHROOT DYNAMIC PORTAL THEMES */
@@ -293,9 +344,256 @@ section[data-react-aria-top-layer][popover] [data-sonner-toast] {
 dialog.kr-drawer[open] { animation: kr-drawer-in 0.22s ease-out; }
 @media (prefers-reduced-motion: reduce) { dialog.kr-drawer[open] { animation: none; } }
 
-/* A badge drawn white for the old dark photo hero stays readable on the light title row. */
-[data-kr-title-actions] > span.text-white {
-  color: #334155;
-  background-color: rgb(255 255 255 / 0.9);
-  --tw-ring-color: rgb(15 23 42 / 0.1);
+/*
+ * Tactile 2.5D buttons and cards (the one KashRoot look). The bevel is the inset highlight plus a
+ * solid "ledge" shadow under the button; hovering lifts it 1px, pressing sinks it 1.5px onto the ledge.
+ * In @layer components, so a Tailwind utility on the same element (px-3, rounded-full, w-full) still wins.
+ * The old .kr-btn-primary / .kr-btn-secondary / .kr-card in tailwind.config.ts were removed in favour of these.
+ */
+@layer components {
+  .kr-btn-primary,
+  .kr-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+    white-space: nowrap;
+    text-decoration: none;
+    cursor: pointer;
+    user-select: none;
+    transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease, filter 150ms ease;
+  }
+  .kr-btn-primary.kr-btn-sm,
+  .kr-btn-secondary.kr-btn-sm { padding: 0.375rem 0.75rem; font-size: 0.8125rem; }
+  .kr-btn-primary.kr-btn-lg,
+  .kr-btn-secondary.kr-btn-lg { padding: 0.75rem 1.5rem; font-size: 1rem; }
+
+  .kr-btn-primary {
+    background: var(--kr-btn-primary-bg);
+    color: #FFFFFF;
+    border: 1px solid #0E2F25;
+    box-shadow: var(--kr-btn-primary-shadow);
+  }
+  .kr-btn-primary:hover:not(:disabled):not([aria-disabled='true']) {
+    transform: translateY(-1.5px);
+    box-shadow: var(--kr-btn-primary-hover-shadow);
+    text-decoration: none;
+  }
+  .kr-btn-primary:active:not(:disabled):not([aria-disabled='true']) {
+    transform: translateY(2px);
+    box-shadow: var(--kr-btn-primary-active-shadow);
+  }
+
+  .kr-btn-secondary {
+    background: var(--kr-btn-secondary-bg);
+    color: #174C3C;
+    border: 1px solid #BDD4C8;
+    box-shadow: var(--kr-btn-secondary-shadow);
+  }
+  .kr-btn-secondary:hover:not(:disabled):not([aria-disabled='true']) {
+    transform: translateY(-1.5px);
+    border-color: #C6A45B;
+    box-shadow: inset 0 1px 0 #FFFFFF, 0 4px 0 #8DB09F, 0 10px 18px -4px rgba(23, 76, 60, .2);
+    text-decoration: none;
+  }
+  .kr-btn-secondary:active:not(:disabled):not([aria-disabled='true']) {
+    transform: translateY(2px);
+    box-shadow: inset 0 2px 3px rgba(23, 76, 60, .18), 0 1px 0 #8DB09F;
+  }
+  .kr-btn-secondary:is([aria-pressed='true'], [aria-selected='true'], [aria-current='page']) {
+    background: var(--kr-btn-on-bg);
+    color: #FFFFFF;
+    border-color: #0E2F25;
+    box-shadow: var(--kr-btn-on-shadow);
+  }
+
+  /* Forest outline: 9.8:1 on white; on a dark bar add focus-visible:outline-white. */
+  .kr-btn-primary:focus-visible,
+  .kr-btn-secondary:focus-visible {
+    outline: 2px solid #174C3C;
+    outline-offset: 2px;
+  }
+
+  .kr-btn-primary:disabled,
+  .kr-btn-primary[aria-disabled='true'] {
+    cursor: not-allowed;
+    opacity: 0.5;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 1px 0 #12382E;
+  }
+  .kr-btn-secondary:disabled,
+  .kr-btn-secondary[aria-disabled='true'] {
+    cursor: not-allowed;
+    opacity: 0.55;
+    box-shadow: inset 0 1px 0 #FFFFFF, 0 1px 0 #C8D9D0;
+  }
+  .kr-btn-primary[aria-busy='true'],
+  .kr-btn-secondary[aria-busy='true'] { cursor: wait; opacity: 0.75; }
+
+  .kr-card {
+    background: var(--kr-card-bg);
+    border: 0;
+    border-radius: 1rem;
+    box-shadow: var(--kr-card-shadow);
+    transition: box-shadow 200ms ease, transform 200ms ease;
+  }
+
+  /* A number on a card. In a row of them they alternate: forest green (white figure, gold name), then soft sage. */
+  .kr-kpi {
+    --kpi-label: #174C3C;
+    --kpi-value: #174C3C;
+    --kpi-hint: #286B54;
+    background: linear-gradient(180deg, #F4F9F6 0%, #EAF3EE 100%);
+    box-shadow: inset 0 1px 0 #FFFFFF, inset 0 0 0 1px #C2D8CD, 0 3px 0 #174C3C, 0 10px 22px -8px rgba(18, 56, 46, .18);
+  }
+  .kr-kpi:nth-child(odd) {
+    --kpi-label: #D9BE7C;
+    --kpi-value: #FFFFFF;
+    --kpi-hint: #D9E8E0;
+    background: linear-gradient(160deg, #1F5E4A 0%, #174C3C 55%, #12382E 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), inset 0 0 0 1px #0E2F25, 0 3px 0 #C6A45B, 0 12px 26px -8px rgba(18, 56, 46, .4);
+  }
+  .kr-kpi-label { color: var(--kpi-label); }
+  .kr-kpi-value { color: var(--kpi-value); }
+  .kr-kpi-hint { color: var(--kpi-hint); }
+
+  /* The forest hero banner at the top of every portal page (portal kit PageHeader). */
+  .kr-hero {
+    background:
+      radial-gradient(40rem 18rem at 100% 0%, rgba(198, 164, 91, .22), transparent 60%),
+      linear-gradient(135deg, #12382E 0%, #174C3C 100%);
+    border-bottom: 3px solid #C6A45B;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), 0 14px 30px -12px rgba(18, 56, 46, .5);
+    color: #FFFFFF;
+  }
+
+  /* On the forest banner a green button would vanish: there the main button is the light sage one on a gold ledge. */
+  .kr-hero .kr-btn-primary {
+    background: var(--kr-btn-secondary-bg);
+    color: #174C3C;
+    border-color: #C6A45B;
+    box-shadow: inset 0 1px 0 #FFFFFF, 0 3px 0 #C6A45B, 0 8px 16px -4px rgba(0, 0, 0, .35);
+  }
+  .kr-hero .kr-btn-primary:hover:not(:disabled) { box-shadow: inset 0 1px 0 #FFFFFF, 0 4px 0 #C6A45B, 0 12px 20px -4px rgba(0, 0, 0, .4); }
+  .kr-hero .kr-btn-primary:active:not(:disabled) { box-shadow: inset 0 2px 3px rgba(23, 76, 60, .2), 0 1px 0 #C6A45B; }
+
+  /* A forest and gold icon badge standing on its own ledge (portal cards, panel titles). */
+  .kr-icon-badge {
+    background: linear-gradient(135deg, #174C3C 0%, #286B54 100%);
+    color: #FFFFFF;
+    border: 1px solid #C6A45B;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 4px 0 #0F2E24, 0 8px 14px -4px rgba(18, 56, 46, .35);
+  }
+  .kr-card:hover { box-shadow: var(--kr-card-hover-shadow); }
+  /* A card that holds content and does nothing when pointed at (panels, tables). */
+  .kr-card-flat:hover { box-shadow: var(--kr-card-shadow); }
+  .kr-card-interactive { cursor: pointer; }
+  .kr-card-interactive:hover { transform: translateY(-2px); }
+  .kr-card-interactive:active { transform: translateY(0); box-shadow: var(--kr-card-shadow); }
+  .kr-card-interactive:focus-visible { outline: 2px solid #174C3C; outline-offset: 2px; }
+}
+
+/* Reduced motion: the press and the hover change the shadow only, nothing moves. */
+@media (prefers-reduced-motion: reduce) {
+  .kr-btn-primary,
+  .kr-btn-secondary,
+  .kr-card { transition: none; }
+  .kr-btn-primary:hover,
+  .kr-btn-primary:active,
+  .kr-btn-secondary:hover,
+  .kr-btn-secondary:active,
+  .kr-card-interactive:hover,
+  .kr-card-interactive:active { transform: none !important; }
+}
+
+/*
+ * The KashRoot look applied by itself. Screens written with plain Tailwind (a white rounded box, a
+ * green button, a white pill) take the same card, push button and soft-sage button as the portal
+ * kit, without each file being rewritten. Whole class names are matched ([class~=...]), so a
+ * "hover:bg-white" never counts as "bg-white". Anything inside [data-kr-plain] is left exactly as
+ * written: the bin map (its colours mean something), the code boxes, maps.
+ */
+
+/* Cards: a white or near-white rounded box inside a portal or tool page. */
+:is([data-kr-shell], .kr-light) :is(div, li, article, section, details, form):is([class~="rounded-xl"], [class~="rounded-2xl"], [class~="rounded-3xl"]):is([class~="bg-white"], [class~="bg-white/85"], [class~="bg-white/90"], [class~="bg-white/80"], [class~="bg-slate-50"], [class~="bg-gray-50"]):not([class*="kr-card"]):not([class*="kr-kpi"]):not([data-kr-plain]):not([data-kr-plain] *) {
+  background-image: var(--kr-card-bg);
+  box-shadow: var(--kr-inset-card-shadow);
+}
+
+/* Push buttons: anything green or dark that is pressed to do something, and every form's submit. */
+:is(button, a, [role="button"]):is(
+  [type="submit"],
+  [class~="bg-emerald-600"], [class~="bg-emerald-700"], [class~="bg-emerald-800"], [class~="bg-emerald-900"],
+  [class~="bg-green-600"], [class~="bg-green-700"], [class~="bg-green-800"],
+  [class~="bg-teal-700"], [class~="bg-teal-800"],
+  [class~="bg-chinar"], [class~="bg-forest"], [class~="bg-forest-mid"], [class~="bg-forest-deep"],
+  [class~="bg-[#174C3C]"], [class~="bg-[#12382E]"], [class~="bg-[#286B54]"], [class~="bg-[#065F46]"],
+  [class~="bg-slate-900"], [class~="bg-slate-800"]
+):not([class*="kr-btn"]):not([data-kr-plain]):not([data-kr-plain] *) {
+  background-color: #174C3C;
+  background-image: var(--kr-btn-primary-bg);
+  color: #FFFFFF;
+  border: 1px solid #0E2F25;
+  box-shadow: var(--kr-btn-primary-shadow);
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+:is(button, a, [role="button"]):is(
+  [type="submit"],
+  [class~="bg-emerald-600"], [class~="bg-emerald-700"], [class~="bg-emerald-800"], [class~="bg-emerald-900"],
+  [class~="bg-green-600"], [class~="bg-green-700"], [class~="bg-green-800"],
+  [class~="bg-teal-700"], [class~="bg-teal-800"],
+  [class~="bg-chinar"], [class~="bg-forest"], [class~="bg-forest-mid"], [class~="bg-forest-deep"],
+  [class~="bg-[#174C3C]"], [class~="bg-[#12382E]"], [class~="bg-[#286B54]"], [class~="bg-[#065F46]"],
+  [class~="bg-slate-900"], [class~="bg-slate-800"]
+):not([class*="kr-btn"]):not([data-kr-plain]):not([data-kr-plain] *):not(:disabled):hover {
+  transform: translateY(-1.5px);
+  box-shadow: var(--kr-btn-primary-hover-shadow);
+}
+:is(button, a, [role="button"]):is(
+  [type="submit"],
+  [class~="bg-emerald-600"], [class~="bg-emerald-700"], [class~="bg-emerald-800"], [class~="bg-emerald-900"],
+  [class~="bg-green-600"], [class~="bg-green-700"], [class~="bg-green-800"],
+  [class~="bg-teal-700"], [class~="bg-teal-800"],
+  [class~="bg-chinar"], [class~="bg-forest"], [class~="bg-forest-mid"], [class~="bg-forest-deep"],
+  [class~="bg-[#174C3C]"], [class~="bg-[#12382E]"], [class~="bg-[#286B54]"], [class~="bg-[#065F46]"],
+  [class~="bg-slate-900"], [class~="bg-slate-800"]
+):not([class*="kr-btn"]):not([data-kr-plain]):not([data-kr-plain] *):not(:disabled):active {
+  transform: translateY(2px);
+  box-shadow: var(--kr-btn-primary-active-shadow);
+}
+
+/* Soft-sage buttons: white pills, tabs and choices. */
+:is([data-kr-shell], .kr-light) :is(button, a[class~="rounded-full"], a[class~="rounded-xl"], [role="tab"], [role="radio"]):is([class~="bg-white"], [class~="bg-white/85"], [class~="bg-forest-soft"], [class~="bg-[#EAF3EE]"], [role="tab"], [role="radio"]):not([class*="kr-btn"]):not([class*="kr-card"]):not([class*="kr-kpi"]):not([data-kr-plain]):not([data-kr-plain] *):not(aside *):not(.kr-drawer *):not([class*="text-rose"]):not([class*="text-red"]):not([aria-pressed="true"]):not([aria-selected="true"]):not([aria-checked="true"]):not([aria-current="page"]) {
+  background-color: #FFFFFF;
+  background-image: var(--kr-btn-secondary-bg);
+  color: #174C3C;
+  font-weight: 600;
+  border: 1px solid #BDD4C8;
+  box-shadow: var(--kr-btn-secondary-shadow);
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+:is([data-kr-shell], .kr-light) :is(button, a[class~="rounded-full"], a[class~="rounded-xl"], [role="tab"], [role="radio"]):is([class~="bg-white"], [class~="bg-white/85"], [class~="bg-forest-soft"], [class~="bg-[#EAF3EE]"], [role="tab"], [role="radio"]):not([class*="kr-btn"]):not([class*="kr-card"]):not([class*="kr-kpi"]):not([data-kr-plain]):not([data-kr-plain] *):not(aside *):not(.kr-drawer *):not([class*="text-rose"]):not([class*="text-red"]):not([aria-pressed="true"]):not([aria-selected="true"]):not([aria-checked="true"]):not([aria-current="page"]):not(:disabled):hover {
+  transform: translateY(-1.5px);
+  border-color: #C6A45B;
+}
+:is([data-kr-shell], .kr-light) :is(button, a[class~="rounded-full"], a[class~="rounded-xl"], [role="tab"], [role="radio"]):is([class~="bg-white"], [class~="bg-white/85"], [class~="bg-forest-soft"], [class~="bg-[#EAF3EE]"], [role="tab"], [role="radio"]):not([class*="kr-btn"]):not([class*="kr-card"]):not([class*="kr-kpi"]):not([data-kr-plain]):not([data-kr-plain] *):not(aside *):not(.kr-drawer *):not([class*="text-rose"]):not([class*="text-red"]):not([aria-pressed="true"]):not([aria-selected="true"]):not([aria-checked="true"]):not([aria-current="page"]):not(:disabled):active {
+  transform: translateY(2px);
+  box-shadow: inset 0 2px 3px rgba(23, 76, 60, .18), 0 1px 0 #8DB09F;
+}
+/* Chosen (pressed, selected, checked, the open page): forest green on a champagne gold ledge. */
+:is([data-kr-shell], .kr-light) :is(button, a, [role="tab"], [role="radio"]):is([aria-pressed="true"], [aria-selected="true"], [aria-checked="true"], [aria-current="page"]):not([class*="kr-card"]):not([class*="kr-kpi"]):not([data-kr-plain]):not([data-kr-plain] *):not(aside *):not(.kr-drawer *):not([hidden]):not(:disabled) {
+  background-color: #174C3C;
+  background-image: var(--kr-btn-on-bg);
+  color: #FFFFFF;
+  border: 1px solid #0E2F25;
+  box-shadow: var(--kr-btn-on-shadow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(button, a, [role="button"], [role="tab"], [role="radio"]):hover,
+  :is(button, a, [role="button"], [role="tab"], [role="radio"]):active { transform: none !important; }
 }

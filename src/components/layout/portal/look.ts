@@ -1,11 +1,11 @@
 /**
  * What the portal frame adds to the PORTAL_THEMES palette: the ink of the
  * valley drawn behind the page (mountains, lake, shikara) and the deep
- * gradient of the one highlighted card (first stat card, app card). The
- * chinar leaves keep the theme's own `leaf` colour.
+ * gradient of the one highlighted card (first stat card, app card, the
+ * avatar). The chinar leaves keep the theme's own `leaf` colour.
  *
  * Every class is a complete literal string so Tailwind keeps it; white text on
- * each `feature` gradient stays above 4.5:1.
+ * the `feature` gradient stays above 6:1.
  */
 import type { PortalThemeId } from '@/components/portal/kit';
 
@@ -16,21 +16,24 @@ export interface ShellLook {
   feature: string;
 }
 
-/** Every portal shares the KashRoot look (see BRAND in components/portal/kit). */
-const BRAND_LOOK: ShellLook = { ink: '#0B4D3B', feature: 'bg-gradient-to-br from-emerald-800 via-emerald-900 to-[#04241D] ring-1 ring-amber-300/40' };
+/** Every portal wears the one KashRoot green (see BRAND in components/portal/kit). */
+const FOREST: ShellLook = {
+  ink: '#174C3C',
+  feature: 'bg-gradient-to-br from-forest-mid via-forest to-forest-deep ring-1 ring-champagne/40',
+};
 
 export const SHELL_LOOK: Record<PortalThemeId, ShellLook> = {
-  farmer: BRAND_LOOK,
-  buyer: BRAND_LOOK,
-  seller: BRAND_LOOK,
-  kissan: BRAND_LOOK,
-  rental: BRAND_LOOK,
-  provider: BRAND_LOOK,
-  dealer: BRAND_LOOK,
-  admin: BRAND_LOOK,
-  tracking: BRAND_LOOK,
-  trader: BRAND_LOOK,
-  expert: BRAND_LOOK,
+  farmer: FOREST,
+  buyer: FOREST,
+  seller: FOREST,
+  kissan: FOREST,
+  rental: FOREST,
+  provider: FOREST,
+  dealer: FOREST,
+  admin: FOREST,
+  tracking: FOREST,
+  trader: FOREST,
+  expert: FOREST,
 };
 
 /** The look for a theme name as pages pass it (unknown names fall back like resolveTheme). */

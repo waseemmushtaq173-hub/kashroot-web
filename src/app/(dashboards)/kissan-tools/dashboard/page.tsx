@@ -18,6 +18,7 @@ import { toast } from '@/lib/client/toast';
 
 import { PortalShell } from '@/components/layout/PortalShell';
 import { OrderCard } from '@/components/market/OrderCard';
+import { EquipmentSpecTables } from '@/components/kissan/EquipmentSpecTables';
 import { amountOf, useLiveListings, type ShopListing } from '@/components/market/shop/useLiveListings';
 import { Btn, EmptyState, INPUT, PORTAL_THEMES, Panel, Skeleton } from '@/components/portal/kit';
 import { Checkout } from '@/components/shop/Checkout';
@@ -157,6 +158,9 @@ export default function KissanToolsDashboardPage() {
     >
       {tab === 'shop' && (
         <div className="space-y-5">
+          {/* Structured equipment specification tables (tractors, harvesters,
+              sprayers, irrigation, horticultural tools) above the shop. */}
+          <EquipmentSpecTables />
           <div className="grid min-w-0 gap-3 rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-slate-900/5">
             <label className="relative block">
               <span className="sr-only">Search</span>

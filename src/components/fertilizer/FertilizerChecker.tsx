@@ -8,7 +8,12 @@
  *      what is missing or suspicious; the registration number is looked up in
  *      the Government list and the batch in KashRoot's dealer records. Can be
  *      read aloud.
- *   2. Registration / batch → what is printed on the label:
+ *   2. QR code scan → scans the QR on the label, follows manufacturer's
+ *      verification page (domain allowlist, SSRF protection), outcome:
+ *      VERIFIED_BY_MANUFACTURER, REGISTERED_BATCH_UNVERIFIED, EXPIRED, BANNED,
+ *      NOT_FOUND, PENDING_MANUFACTURER. Offline: "checked against saved list",
+ *      never "genuine".
+ *   3. Registration / batch → what is printed on the label:
  *        • a CIB&RC registration number or a product name is looked up in the
  *          official lists the KashRoot admin imported (official_products via
  *          kr_registry_search) — every answer names its source and date, and
@@ -18,23 +23,27 @@
  *        • a batch number: the Government publishes no list of batch numbers,
  *          and the result says so; a KashRoot dealer record for the batch
  *          (fertilizer_batches via kr_check_batch) is shown as extra information.
- *   3. Lab report → Fertiliser (Control) Order, 1985 minimums.
+ *   4. Lab report → Fertiliser (Control) Order, 1985 minimums.
+ *   5. Bag-marking checklist → when no manufacturer record, check FCO Schedule I
+ *      mandatory label fields; fail → "Book lab test".
  * Anyone — signed in or not — can report a suspicious product to the KashRoot admin.
  */
 import { useEffect, useRef, useState } from 'react';
-import { BadgeCheck, Camera, CheckCircle2, CircleAlert, Copy, FileQuestion, Flag, FlaskConical, Loader2, ScanLine, ShieldCheck, XCircle } from 'lucide-react';
+import { BadgeCheck, Camera, CheckCircle2, CircleAlert, Copy, FileQuestion, Flag, FlaskConical, Loader2, QrCode, ScanLine, ShieldCheck, XCircle } from 'lucide-react';
 
 import { LangPicker, SpeakButton } from '@/components/voice/VoiceButtons';
 import { checkLabel, type LabelFacts, type RuleReport } from '@/lib/fertilizer/labelRules';
 import { readTyped, type Typed } from '@/lib/fertilizer/trueScan';
-import { compressImage } from '@/lib/client/image';
+import { compressImageForFastScan } from '@/lib/fastImageCompress';
 import { isRtl, type SpeechLang } from '@/lib/client/speech';
+import { classifyFetchError } from '@/lib/onlineFirstClient';
 import { dbMessage, loadAccount, supabase, supabaseConfigured, type Account } from '@/lib/db/client';
-import { searchRegistry, type OfficialHit } from '@/lib/db/registry';
+import { searchRegistry, type OfficialHit, type OfficialKind } from '@/lib/db/registry';
 import type { FcoStandard, CibrcProduct, CibrcBanned } from '@/lib/db/govRegistry';
 import {
   cibrcLookupRegistered,
   cibrcLookupBanned,
+  fcoLookupEmbedded,
   fcoLookupMerged,
   agroRegistryStats,
   searchAllEmbedded,
@@ -43,6 +52,9 @@ import {
 } from '@/lib/gov-agro-registry';
 import { reportBatch } from '@/lib/db/security';
 import { skuastLookup, skuastLookupAll, type SkuastRecommendation } from '@/lib/skuast-kashmir-recommendations';
+
+import { QRCodeScanner, QRCodeResult, type QRCodeVerificationResult } from './QRCodeScanner';
+import { BagMarkingChecklist } from './BagMarkingChecklist';
 
 interface BatchRow {
   batch_code: string;
@@ -91,7 +103,17 @@ const day = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDat
 const count = (n: number) => n.toLocaleString('en-IN');
 /** "1 product", "1,234 products" */
 const products = (n: number) => `${count(n)} product${n === 1 ? '' : 's'}`;
-const offline = (err: unknown) => (err instanceof Error && !/Failed to fetch|NetworkError|Load failed/i.test(err.message) ? err.message : 'No internet connection. Please try again.');
+/** One honest message for a failed request: names the device only when the
+ * device itself reports being offline, names KashRoot when it could not be
+ * reached, and otherwise passes the real error on — never a blanket
+ * "No internet connection" claim. */
+const offline = (err: unknown) => {
+  const classified = classifyFetchError(err);
+  if (classified.kind === 'DEVICE_NETWORK_UNAVAILABLE') return classified.userMessage;
+  const m = err instanceof Error ? err.message : '';
+  if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Could not reach KashRoot. Check your internet and try again.';
+  return m || 'The request could not be completed. Please try again.';
+};
 
 type FcoRow = { key: string; label: string; min: number | null; max: number | null; value: number | null; verdict: 'pass' | 'fail' | 'missing' };
 
@@ -139,24 +161,64 @@ async function lookupBatch(raw: string): Promise<Lookup> {
 }
 
 /** Everything TrueScan can say about what was typed — all looked up at once. */
+/** Convert an embedded SearchHit into an OfficialHit for the UI. */
+function toOfficialHit(h: SearchHit): OfficialHit {
+  return {
+    kind: (h.kind === 'fco' ? 'fertiliser' : 'pesticide') as OfficialKind,
+    name: h.brandName ?? h.productName ?? h.active_molecule ?? h.fertiliser_type ?? 'Unknown',
+    registration_no: h.cir_no ?? null,
+    registrant: h.legalManufacturer ?? h.manufacturerCompany ?? h.manufacturer ?? null,
+    details: {},
+    source: h.source,
+    source_url: h.source_url,
+    imported_at: new Date().toISOString(),
+    matched: 'name',
+  };
+}
+
 async function scan(raw: string): Promise<Scan> {
   const typed = readTyped(raw);
   if (!typed.text) return { state: 'error', message: 'Type what is printed on the label: the registration number (CIR-…), the product name, or the batch number.' };
   if (typed.text.length < 2) return { state: 'error', message: `“${typed.text}” is too short. Type the whole registration number, product name or batch number.` };
   try {
-    const [statsResult, hits, dealer] = await Promise.all([
+    // ── Primary: embedded search — always works, fuzzy/typo-tolerant ──
+    const embeddedHits = searchAllEmbedded(typed.text).map(toOfficialHit);
+
+    // ── Supplementary: Supabase registry (if configured) ──
+    let supabaseHits: OfficialHit[] | null = null;
+    if (supabaseConfigured) {
+      try {
+        const { data, error } = await supabase.rpc('kr_registry_search', { p_text: typed.text.slice(0, 200) });
+        if (!error && data) {
+          supabaseHits = ((data ?? []) as OfficialHit[]).map((h) => ({ ...h, details: h.details ?? {} }));
+        }
+      } catch {
+        // ignore Supabase errors — embedded data is authoritative
+      }
+    }
+
+    // ── Merge: embedded first, then Supabase (dedup by kind + name) ──
+    const merged: OfficialHit[] = [];
+    const seen = new Set<string>();
+    const add = (h: OfficialHit) => {
+      const key = `${h.kind}:${(h.name ?? '').toLowerCase()}`;
+      if (!seen.has(key)) { seen.add(key); merged.push(h); }
+    };
+    for (const h of embeddedHits) add(h);
+    for (const h of (supabaseHits ?? [])) add(h);
+
+    const [statsResult, dealer] = await Promise.all([
       agroRegistryStats(),
-      searchRegistry(typed.text),
       typed.kind === 'batch' && typed.text.length >= 3 ? lookupBatch(typed.text) : Promise.resolve(undefined),
     ]);
-    return { state: 'done', typed, hits, stats: statsResult, dealer };
+    return { state: 'done', typed, hits: merged, stats: statsResult, dealer };
   } catch (err) {
     return { state: 'error', message: offline(err) };
   }
 }
 
 export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
-  const [mode, setMode] = useState<'photo' | 'registry' | 'lab'>('photo');
+  const [mode, setMode] = useState<'photo' | 'qr' | 'registry' | 'lab' | 'bagChecklist'>('registry');
   const [account, setAccount] = useState<Account | null>(null);
   const [code, setCode] = useState('');
   const [result, setResult] = useState<Scan>({ state: 'idle' });
@@ -166,7 +228,8 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
   const [stats, setStats] = useState<AgroRegistryStats | null | undefined>(undefined);
   // Live FCO standard for the lab tab: null when not set up or not yet fetched.
   const [fcoStandard, setFcoStandard] = useState<FcoStandard | null | undefined>(undefined);
-  const [fcoLoading, setFcoLoading] = useState(false);
+  // Dedicated input state for the Lab tab — never disabled during loading
+  const [fcoQuery, setFcoQuery] = useState('');
   // Lab values entered for the loaded FCO standard, keyed by parameter key.
   const [values, setValues] = useState<Record<string, string>>({});
   // CIBRC check results for what was typed / photographed.
@@ -184,6 +247,12 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
   const [browseQuery, setBrowseQuery] = useState('');
   const [browseResults, setBrowseResults] = useState<SearchHit[] | null>(null);
   const [browseLoading, setBrowseLoading] = useState(false);
+  // QR code scanner state
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
+  const [qrResult, setQrResult] = useState<QRCodeVerificationResult | null>(null);
+  const [qrScanning, setQrScanning] = useState(false);
+  // Bag marking checklist state
+  const [bagChecklistProduct, setBagChecklistProduct] = useState<string>('');
 
   useEffect(() => {
     void loadAccount().then(setAccount).catch(() => setAccount(null));
@@ -197,12 +266,20 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
     setMode(id);
     // What the lists hold, said under the box before anything is typed.
     if (id === 'registry' && stats === undefined) setStats(agroRegistryStats());
-    if (id === 'lab' && fcoStandard === undefined) {
-      setFcoLoading(true);
-      void fcoLookupMerged('Diammonium phosphate (DAP)', '18:46:0')
-        .then(setFcoStandard)
-        .catch(() => setFcoStandard(null))
-        .finally(() => setFcoLoading(false));
+    if (id === 'lab') {
+      // Load FCO standards synchronously (0ms) from embedded registry —
+      // never block on a slow or failing network fetch.
+      if (fcoStandard === undefined) {
+        const embedded = fcoLookupEmbedded('Diammonium phosphate (DAP)', '18:46:0');
+        setFcoStandard(embedded ?? null);
+      }
+    }
+    if (id === 'qr') {
+      setQrResult(null);
+      setQrScannerOpen(true);
+    }
+    if (id === 'bagChecklist') {
+      setBagChecklistProduct(code || fcoQuery || '');
     }
   };
   const check = async () => {
@@ -271,8 +348,10 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
       <div role="group" aria-label="Check type" className="inline-flex flex-wrap rounded-xl bg-slate-900/5 p-1">
         {([
           ['photo', 'Photo of the label', Camera],
+          ['qr', 'Scan QR code', QrCode],
           ['registry', 'Registration / batch', ScanLine],
           ['lab', 'Lab report vs FCO', FlaskConical],
+          ['bagChecklist', 'Bag-marking checklist', FileQuestion],
         ] as const).map(([id, label, Icon]) => (
           <button
             key={id}
@@ -287,6 +366,69 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
       </div>
 
       {mode === 'photo' && <LabelPhoto account={account} />}
+
+      {mode === 'qr' && (
+        <div className="mt-5">
+          <QRCodeScanner
+            onResult={async (qrText) => {
+              setQrScanning(true);
+              try {
+                const res = await fetch('/api/truescan/verify-qr', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    qrText,
+                    productName: code || fcoQuery,
+                    isOffline: !navigator.onLine,
+                  }),
+                });
+                const data = await res.json();
+                setQrResult(data);
+                setQrScannerOpen(false);
+              } catch (err) {
+                console.error('QR verification failed:', err);
+              } finally {
+                setQrScanning(false);
+              }
+            }}
+            onClose={() => {
+              setQrScannerOpen(false);
+              setMode('registry');
+            }}
+            isOffline={!navigator.onLine}
+          />
+          {qrResult && (
+            <QRCodeResult
+              key={qrResult.checkedAt}
+              result={qrResult}
+              onReportFake={() => {
+                void fetch('/api/truescan/report-fake', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    productType: qrResult.outcome === 'BANNED' ? 'pesticide' : 'fertilizer',
+                    productName: qrResult.productName,
+                    manufacturer: qrResult.manufacturer,
+                    batchNumber: qrResult.batchNumber,
+                    registrationNumber: qrResult.registrationNumber,
+                    expiryDate: qrResult.expiryDate,
+                    reason: qrResult.outcome === 'EXPIRED' ? 'expired' :
+                      qrResult.outcome === 'BANNED' ? 'not_in_list' : 'qr_fail',
+                    details: qrResult.details,
+                    anonymous: true,
+                  }),
+                });
+                alert('Report submitted. Thank you.');
+              }}
+              onLabTest={() => {
+                setBagChecklistProduct(qrResult.productName);
+                setMode('bagChecklist');
+              }}
+              onClose={() => setQrResult(null)}
+            />
+          )}
+        </div>
+      )}
 
       {mode === 'registry' && (
         <div className="mt-5">
@@ -311,26 +453,66 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
 
       {mode === 'lab' && (
         <div className="mt-5">
+          {/* Input row — never disabled, never blocked by loading */}
           <div className="flex gap-2">
             <label className="block text-sm font-medium text-slate-800" htmlFor="fco-type">Fertiliser type</label>
             <input
               id="fco-type"
-              value=""
+              value={fcoQuery}
               placeholder="e.g. DAP, Urea, MOP, SSP"
               onChange={(e) => {
+                const v = e.target.value.trim();
+                setFcoQuery(v);
                 setValues({});
-                setFcoLoading(true);
-                void fcoLookupMerged(e.target.value.trim())
-                  .then((s) => setFcoStandard(s))
-                  .catch(() => setFcoStandard(null))
-                  .finally(() => setFcoLoading(false));
+                // Synchronous (0ms) lookup from embedded registry — never blocked on network
+                const embedded = fcoLookupEmbedded(v);
+                setFcoStandard(embedded ?? null);
+                if (!embedded && v.length > 0) {
+                  // Live fallback in background without blocking UI
+                  void fcoLookupMerged(v)
+                    .then((s) => setFcoStandard(s ?? null))
+                    .catch(() => setFcoStandard(null));
+                }
               }}
               className={`${INPUT} mt-1.5 flex-1`}
             />
           </div>
-          {fcoLoading ? (
-            <p className="mt-3 flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading FCO standard…</p>
-          ) : standard && report ? (
+
+          {/* Quick-select pills */}
+          <div className="flex flex-wrap gap-2 mt-3">
+            <p className="text-xs text-slate-500 mb-1">Quick select:</p>
+            {[
+              'IFFCO Urea',
+              'IFFCO DAP',
+              'Nano Urea',
+              'MOP',
+              'SOP',
+              'SSP',
+              'NPK 19:19:19',
+              'NPK 12:32:16',
+              'Calcium Nitrate',
+              'Boron 20%',
+              'Zinc Sulphate 21%',
+              'YaraLiva Nitrabor',
+            ].map((pill) => (
+              <button
+                key={pill}
+                type="button"
+                onClick={() => {
+                  setFcoQuery(pill);
+                  setValues({});
+                  const embedded = fcoLookupEmbedded(pill);
+                  setFcoStandard(embedded ?? null);
+                }}
+                className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-3 py-1 text-sm font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-900 transition"
+              >
+                {pill}
+              </button>
+            ))}
+          </div>
+
+          {/* Results — render immediately once fcoStandard is set */}
+          {standard && report ? (
             <>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {report.rows.map((r) => (
@@ -357,12 +539,54 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
                 </p>
               )}
               <p className="mt-3 text-xs text-slate-500">Standard: {standard.fco_schedule_clause ? `${standard.fco_schedule_clause} — ` : ''}Fertiliser (Control) Order, 1985, Schedule I{standard.reference ? ' (typed by KashRoot — check the gazette)' : ''}. Source: {standard.source}, published {new Date(standard.published_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}. A state fertiliser quality control lab report is the legal test.</p>
+
+              {/* Authorised registered manufacturer */}
+              {(standard.manufacturerCompany || standard.brandName) && (
+                <div className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-slate-800 ring-1 ring-emerald-200">
+                  <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-emerald-800 mb-1">Authorised Registered Manufacturer</p>
+                  <p className="font-medium">{standard.manufacturerCompany}</p>
+                  {standard.brandName && standard.brandName !== standard.manufacturerCompany && (
+                    <p className="text-xs text-slate-600">Brand: {standard.brandName}</p>
+                  )}
+                </div>
+              )}
+
+              {/* SKUAST-Kashmir official dosage */}
+              {standard.skuast_kashmir_dosage && (
+                <div className="mt-4 rounded-xl bg-indigo-50 p-3 text-sm text-slate-800 ring-1 ring-indigo-200">
+                  <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-indigo-800 mb-1">SKUAST-Kashmir Official Dosage</p>
+                  <p className="font-medium">{standard.skuast_kashmir_dosage}</p>
+                </div>
+              )}
             </>
           ) : (
             <p className="mt-3 text-sm text-slate-500">Type a fertiliser type (e.g. DAP, Urea, MOP) to load its FCO Schedule I standard.</p>
           )}
         </div>
       )}
+      {mode === 'bagChecklist' && (
+        <div className="mt-5">
+          <BagMarkingChecklist
+            productName={bagChecklistProduct}
+            onLabTest={() => {
+              void fetch('/api/lab-test/book', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  productType: 'fertilizer',
+                  productName: bagChecklistProduct,
+                  reason: 'bag_marking_fail',
+                  district: '',
+                  farmerName: '',
+                  farmerPhone: '',
+                }),
+              });
+            }}
+            onClose={() => setMode('photo')}
+          />
+        </div>
+      )}
+
       {!compact && <OfficialChecks />}
 
       {/* Browse official register panel */}
@@ -902,6 +1126,13 @@ function ReportBatch({ code, account }: { code: string; account: Account | null 
   );
 }
 
+/** The real steps of a label scan, shown as live progress while the backend works. */
+const SCAN_STAGES = [
+  'Optimizing label image…',
+  'Matching CIB&RC & FCO 1985 registry…',
+  'Completing authenticity report…',
+] as const;
+
 function LabelPhoto({ account }: { account: Account | null }) {
   const [lang, setLang] = useState<SpeechLang>('en');
   const [photo, setPhoto] = useState<string | null>(null);
@@ -910,6 +1141,11 @@ function LabelPhoto({ account }: { account: Account | null }) {
   const [lookup, setLookup] = useState<Lookup>({ state: 'idle' });
   const [regCheck, setRegCheck] = useState<RegCheck>({ state: 'idle' });
   const [error, setError] = useState<string | null>(null);
+  // Real step-by-step scan progress: 1..3 (SCAN_STAGES); 0 = idle.
+  const [stage, setStage] = useState(0);
+  // Aborts a stuck /api/label request so the UI can never freeze.
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   const [langFrom, setLangFrom] = useState<Account | null>(null);
   if (account !== langFrom) {
@@ -934,15 +1170,26 @@ function LabelPhoto({ account }: { account: Account | null }) {
     setReading(null);
     setLookup({ state: 'idle' });
     setRegCheck({ state: 'idle' });
+    setBusy(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    // The UI never freezes: if the backend has not answered within 30 s the
+    // request is abandoned with an honest message (slow-network safe).
+    const timeout = window.setTimeout(() => controller.abort(), 30_000);
     try {
-      const image = await compressImage(file, 1600, 0.85);
+      setStage(1);
+      // Client-side downscale first: a 10 MB phone photo becomes ~110 KB here,
+      // before any upload — the single biggest latency win.
+      const fast = await compressImageForFastScan(file, 1024, 0.82);
+      const image = fast.base64DataUrl;
       setPhoto(image);
-      setBusy(true);
-      const res = await fetch('/api/label', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ photo: image, lang }) });
+      setStage(2);
+      const res = await fetch('/api/label', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ photo: image, lang }), signal: controller.signal });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? 'The label could not be read.');
       const r = data as LabelReading;
       setReading(r);
+      setStage(3);
       const reg = r.registration_no?.trim();
       const checks: Promise<void>[] = [];
       if (reg && reg.length >= 3 && (r.product_type === 'pesticide' || /cir/i.test(reg))) checks.push(checkRegistration(reg));
@@ -952,9 +1199,13 @@ function LabelPhoto({ account }: { account: Account | null }) {
       }
       await Promise.all(checks);
     } catch (err) {
-      setError(err instanceof Error && err.message !== 'Failed to fetch' ? err.message : 'No internet connection. Please try again.');
+      if (controller.signal.aborted) setError('The label check took too long and was stopped. Please try again.');
+      else setError(offline(err));
     } finally {
+      clearTimeout(timeout);
+      abortRef.current = null;
       setBusy(false);
+      setStage(0);
     }
   };
 
@@ -976,7 +1227,29 @@ function LabelPhoto({ account }: { account: Account | null }) {
         <span className="text-xs text-emerald-800">The side with the batch number, dates and registration number</span>
         <input type="file" accept="image/*" capture="environment" className="sr-only" disabled={busy} onChange={(e) => void read(e.target.files?.[0])} />
       </label>
-      {busy && <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Reading the label…</p>}
+      {busy && (
+        <div role="status" aria-live="polite" className="rounded-2xl bg-white p-4 ring-1 ring-slate-200">
+          <ol className="space-y-2 text-sm">
+            {SCAN_STAGES.map((label, i) => {
+              const n = i + 1;
+              const done = stage > n;
+              const active = stage === n;
+              return (
+                <li key={label} className={`flex items-center gap-2 ${done ? 'text-emerald-700' : active ? 'font-semibold text-slate-900' : 'text-slate-400'}`}>
+                  {done ? (
+                    <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden />
+                  ) : active ? (
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                  ) : (
+                    <CircleAlert className="h-4 w-4 shrink-0 opacity-40" aria-hidden />
+                  )}
+                  {n}. {label}
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      )}
       {error && <p role="alert" className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">{error}</p>}
       {reading && (
         <div className="space-y-3 rounded-2xl bg-white p-4 ring-1 ring-slate-200">

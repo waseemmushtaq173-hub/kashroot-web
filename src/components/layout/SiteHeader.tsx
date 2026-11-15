@@ -3,14 +3,15 @@
 import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { ArrowLeft, LayoutGrid, ChevronDown, Home, LogIn, LogOut, Menu, UserPlus, UserRound, X } from 'lucide-react';
+import { ArrowLeft, LayoutGrid, ChevronDown, Home, LogIn, LogOut, MapPinned, Menu, Leaf, Pill, Scale, ShoppingBag, Snowflake, Sprout, Tractor, UserPlus, UserRound, X } from 'lucide-react';
 import { BrandMark } from '@/components/brand/Shikara';
 import { MyDetailsPanel } from '@/components/portal/MyDetailsPanel';
 import { MY_DETAILS } from '@/components/portal/myDetailsConfig';
 import { FloatingVoice } from '@/components/voice/FloatingVoice';
 import { loginHref, PORTALS, PUBLIC_PORTAL_IDS, type PortalId } from '@/lib/auth/roles';
+import { PORTAL_CARD_FOR } from '@/lib/portalCardsConfig';
 import { useSecretAdminTap, useShowAdmin } from '@/lib/client/adminDevice';
-import { signOutOfPortal, useMyPortal, useSignedIn } from '@/lib/auth/session';
+import { signOutOfPortal, useMyPortal, useRecentPortal, useSignedIn } from '@/lib/auth/session';
 import { HelpButton } from '@/components/layout/HelpButton';
 import { SocialIcons } from '@/components/layout/SocialIcons';
 
@@ -31,13 +32,35 @@ interface MenuItem {
   title: string;
   href: string;
   desc: string;
+  /** Set for portal rows: draws the portal's own 3D colour badge. */
+  portal?: PortalId;
 }
 export const TOOL_ITEMS: MenuItem[] = [
   { title: 'Price Comparison', href: '/compare-prices', desc: 'Compare offers and order, or list what you sell' },
   { title: 'Live mandi rates & weather', href: '/mandi-weather', desc: 'Today’s prices and the forecast' },
   { title: 'KashRoot TrueScan — is it genuine?', href: '/supplies/tester', desc: 'Check a fertiliser or pesticide against the Government lists' },
 ];
-const PORTAL_ITEMS: MenuItem[] = PUBLIC_PORTAL_IDS.map((id) => ({ title: PORTALS[id].label, href: PORTALS[id].home, desc: PORTALS[id].tagline }));
+const PORTAL_ITEMS: MenuItem[] = PUBLIC_PORTAL_IDS.map((id) => ({
+  title: PORTALS[id].label,
+  href: PORTALS[id].home,
+  // The menu says the portal's real purpose — the same copy the homepage
+  // cards use (lib/portalCardsConfig), never a "3D" promotional line.
+  desc: PORTAL_CARD_FOR[id]?.purpose ?? PORTALS[id].tagline,
+  portal: id,
+}));
+
+/** Each portal's own icon, for its 3D badge in the menus. */
+const PORTAL_ICONS: Record<PortalId, typeof Sprout> = {
+  farmer: Sprout,
+  buyer: ShoppingBag,
+  kissan: Tractor,
+  rental: Snowflake,
+  tracking: MapPinned,
+  dealer: Pill,
+  expert: Leaf,
+  trader: Scale,
+  admin: UserRound,
+};
 
 /** The menu groups, with Admin (last) only on an admin's own device. */
 function useMenuSections(): { heading: string; items: MenuItem[] }[] {
@@ -85,6 +108,8 @@ function BackButton({ light }: { light: boolean }) {
 function MobileMenu({ showAuth }: { showAuth: boolean }) {
   const sections = useMenuSections();
   const myPortal = useMyPortal();
+  const recentPortal = useRecentPortal();
+  const portal = myPortal ?? recentPortal;
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -125,10 +150,10 @@ function MobileMenu({ showAuth }: { showAuth: boolean }) {
           id="mobile-menu"
           className="absolute inset-x-0 top-full z-50 max-h-[calc(100svh-4.5rem)] overflow-y-auto border-b border-slate-900/10 bg-white px-3 pb-4 pt-2 shadow-[0_24px_60px_-20px_rgba(15,23,42,0.35)]"
         >
-          {showAuth && myPortal && (
+          {showAuth && portal && (
             <div className="p-1">
-              <Link href={PORTALS[myPortal].home} onClick={close} className="flex items-center justify-center gap-2 rounded-xl bg-chinar px-3 py-3 text-sm font-semibold text-white no-underline shadow-sm hover:bg-chinar-hover hover:no-underline">
-                <UserRound className="h-4 w-4" aria-hidden /> Open my {PORTALS[myPortal].label} portal
+              <Link href={myPortal ? PORTALS[portal].home : loginHref(portal, PORTALS[portal].home)} onClick={close} className="flex items-center justify-center gap-2 rounded-xl bg-chinar px-3 py-3 text-sm font-semibold text-white no-underline shadow-sm hover:bg-chinar-hover hover:no-underline">
+                <UserRound className="h-4 w-4" aria-hidden /> {myPortal ? `Open my ${PORTALS[portal].label} portal` : `${PORTALS[portal].label} portal sign-in`}
               </Link>
             </div>
           )}
@@ -147,8 +172,17 @@ function MobileMenu({ showAuth }: { showAuth: boolean }) {
               <p className={heading}>{sec.heading}</p>
               {sec.items.map((p) => (
                 <Link key={p.href} href={p.href} onClick={close} className={item}>
-                  {p.title}
-                  <span className="block text-xs font-normal text-slate-500">{p.desc}</span>
+                  <span className="flex items-start gap-2.5">
+                    {p.portal && (
+                      <span aria-hidden className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br ${PORTALS[p.portal].theme.badge} text-white shadow-md ring-1 ${PORTALS[p.portal].theme.ring} [transform:perspective(400px)_rotateX(8deg)]`}>
+                        {(() => { const Icon = PORTAL_ICONS[p.portal]; return <Icon className="h-[18px] w-[18px]" aria-hidden />; })()}
+                      </span>
+                    )}
+                    <span className="min-w-0">
+                      {p.title}
+                      <span className="block text-xs font-normal text-slate-500">{p.desc}</span>
+                    </span>
+                  </span>
                 </Link>
               ))}
             </div>
@@ -208,18 +242,29 @@ function PortalMenu({ onOpenPortals, tone }: { onOpenPortals?: () => void; tone:
           {sections.map((sec, i) => (
             <div key={sec.heading} role="group" aria-label={sec.heading} className={`${i === 0 ? 'lg:row-span-2' : i === 1 ? 'mt-1 border-t pt-1 lg:mt-0 lg:border-l lg:border-t-0 lg:pl-2 lg:pt-0' : 'mt-1 border-t pt-1 lg:col-start-2 lg:border-l lg:pl-2'} ${light ? 'border-slate-900/10' : 'border-white/20'}`}>
               <p className={`px-3 pb-1 pt-2 text-[11px] font-bold uppercase tracking-[0.14em] ${light ? 'text-slate-500' : 'text-kr-text-secondary'}`}>{sec.heading}</p>
-              {sec.items.map((p) => (
-                <Link
-                  key={p.href}
-                  href={p.href}
-                  role="menuitem"
-                  onClick={() => setOpen(false)}
-                  className={`block rounded-xl px-3 py-2.5 no-underline transition-colors hover:no-underline ${light ? 'hover:bg-slate-900/5' : 'hover:bg-white/30'}`}
-                >
-                  <span className={`block text-sm font-semibold ${light ? 'text-slate-900' : 'text-kr-text-primary'}`}>{p.title}</span>
-                  <span className={`block text-xs ${light ? 'text-slate-600' : 'text-kr-text-secondary'}`}>{p.desc}</span>
-                </Link>
-              ))}
+              {sec.items.map((p) => {
+                const theme = p.portal ? PORTALS[p.portal].theme : null;
+                const Icon = p.portal ? PORTAL_ICONS[p.portal] : null;
+                return (
+                  <Link
+                    key={p.href}
+                    href={p.href}
+                    role="menuitem"
+                    onClick={() => setOpen(false)}
+                    className={`flex items-start gap-3 rounded-xl px-3 py-2.5 no-underline transition-colors hover:no-underline ${theme ? theme.wash : light ? 'hover:bg-slate-900/5' : 'hover:bg-white/30'}`}
+                  >
+                    {theme && Icon && (
+                      <span aria-hidden className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br ${theme.badge} text-white shadow-[0_6px_14px_rgba(15,23,42,0.25),inset_0_1px_0_rgba(255,255,255,0.35)] ring-1 ${theme.ring} transition-transform duration-200 [transform:perspective(500px)_rotateX(10deg)] hover:[transform:perspective(500px)_rotateX(0deg)_translateY(-2px)]`}>
+                        <Icon className="h-5 w-5" />
+                      </span>
+                    )}
+                    <span className="min-w-0">
+                      <span className={`block text-sm font-semibold ${theme ? theme.text : light ? 'text-slate-900' : 'text-kr-text-primary'}`}>{p.title}</span>
+                      <span className={`block text-xs ${light ? 'text-slate-600' : 'text-kr-text-secondary'}`}>{p.desc}</span>
+                    </span>
+                  </Link>
+                );
+              })}
             </div>
           ))}
         </div>
@@ -245,7 +290,11 @@ export function SiteHeader({
 }) {
   const light = tone === 'light';
   const secretTap = useSecretAdminTap();
+  // The button shows the signed-in portal, else the portal last visited on
+  // this device — always labelled and routed honestly.
   const myPortal = useMyPortal();
+  const recentPortal = useRecentPortal();
+  const shownPortal = myPortal ?? recentPortal;
 
   if (portal) {
     return <PortalHeader portal={portal} />;
@@ -259,7 +308,7 @@ export function SiteHeader({
     <header
       className={
         light
-          ? 'sticky top-0 z-40 border-b border-slate-900/5 bg-white/70 backdrop-blur-xl shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)]'
+          ? 'sticky top-0 z-40 border-b-2 border-champagne bg-[#F2F8F5]/85 backdrop-blur-xl shadow-[0_8px_30px_-12px_rgba(18,56,46,0.3)]'
           : 'sticky top-0 z-40 border-b border-white/25 bg-kr-bg-surface/75 backdrop-blur-xl supports-[backdrop-filter]:bg-kr-bg-surface/65 shadow-[0_8px_30px_-12px_rgba(7,11,26,0.35)]'
       }
     >
@@ -283,11 +332,15 @@ export function SiteHeader({
           <HelpButton />
           {light && showRoleSignIn && !hideSignIn && (
             // Next to Help & support on every screen; on a phone "My portal" keeps it short.
-            <Link href={myPortal ? PORTALS[myPortal].home : '/login'} className={`${navLink} inline-flex whitespace-nowrap`} data-signin-link>
-              {myPortal ? (
+            <Link
+              href={shownPortal ? (myPortal ? PORTALS[shownPortal].home : loginHref(shownPortal, PORTALS[shownPortal].home)) : '/login'}
+              className={`${navLink} inline-flex whitespace-nowrap`}
+              data-signin-link
+            >
+              {shownPortal ? (
                 <>
                   <span className="md:hidden">My portal</span>
-                  <span className="hidden md:inline">My {PORTALS[myPortal].label} portal</span>
+                  <span className="hidden md:inline">My {PORTALS[shownPortal].label} portal</span>
                 </>
               ) : (
                 'Sign in'
@@ -361,7 +414,7 @@ function PortalHeader({ portal }: { portal: PortalId }) {
     router.replace(loginHref(portal));
   };
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-900/5 bg-white/75 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b-2 border-champagne bg-[#F2F8F5]/85 shadow-[0_8px_30px_-12px_rgba(18,56,46,0.3)] backdrop-blur-xl">
       <nav aria-label="Portal" className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
           <Link href="/" aria-label="KashRoot home" className="shrink-0 text-slate-900 no-underline hover:no-underline">

@@ -24,7 +24,7 @@ import { ChambersStep } from '@/components/rental/owner/ChambersStep';
 import { PayoutFields, payoutDraftOf, savePayoutDraft } from '@/components/rental/owner/PaymentStep';
 import { ReviewStep } from '@/components/rental/owner/ReviewStep';
 import { BuildingStep, StoreStep, type Kit } from '@/components/rental/owner/StoreSteps';
-import { blankStore, draftFromSaved, payoutIssues, setField, storeModel, withAllBoxes, type Issue, type PayoutDraft, type StoreDraft } from '@/lib/coldStore';
+import { blankStore, draftFromSaved, payoutIssues, setField, storeModel, twinPayload, withAllBoxes, type Issue, type PayoutDraft, type StoreDraft } from '@/lib/coldStore';
 import type { Account } from '@/lib/db/client';
 import { deleteChamber, saveColdStore, type ColdChamber } from '@/lib/db/coldMap';
 import { publishStore, saveStore, type PayoutAccount, type RentalListing } from '@/lib/db/rentals';
@@ -207,8 +207,38 @@ export function OwnerWizard({
         await saveColdStore(listingId, model.rows);
         setDone((d) => ({ ...d, chambers: model.rows.length > 0 || older.length > 0 }));
         toast.success(`Chambers saved — ${model.rows.length} floor${model.rows.length === 1 ? '' : 's'} in all`);
+        // The Blender twin regenerates from the very rows that were saved, on
+        // the store machine where Blender lives. Never held against the save.
+        const twin = twinPayload(model, draft);
+        if (twin) {
+          void fetch('/api/cold-storage/blender-generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(twin),
+          }).catch(() => {});
+        }
       } else if (step === 4) {
-        onPayout(await savePayoutDraft(payDraft));
+        const savedPayout = await savePayoutDraft(payDraft);
+        onPayout(savedPayout);
+        // The same real details go onto the cold store's own row
+        // (rental_listings.owner_payout_upi and the bank fields), so the 3D
+        // unit booking shows farmers exactly where to pay. Never held
+        // against the saved payout account.
+        if (listingId) {
+          try {
+            await saveStore(
+              {
+                owner_payout_upi: savedPayout.upi_id,
+                owner_bank_account_name: savedPayout.account_name,
+                owner_bank_account_no: savedPayout.account_number,
+                owner_bank_ifsc: savedPayout.ifsc,
+              },
+              listingId,
+            );
+          } catch (storeErr) {
+            console.error('Payout details on the cold store row failed', storeErr);
+          }
+        }
         toast.success('Payment details saved');
       }
       // What was kept on the phone is saved now: the notice about it goes.
@@ -279,8 +309,8 @@ export function OwnerWizard({
         </div>
 
         <nav aria-label="Steps">
-          <div className="h-2.5 overflow-hidden rounded-full bg-emerald-100" role="progressbar" aria-valuemin={1} aria-valuemax={5} aria-valuenow={step} aria-label={`Step ${step} of 5`}>
-            <div className="h-full rounded-full bg-emerald-700 transition-all" style={{ width: `${(step / 5) * 100}%` }} />
+          <div className="h-2.5 overflow-hidden rounded-full bg-[#EAF3EE]" role="progressbar" aria-valuemin={1} aria-valuemax={5} aria-valuenow={step} aria-label={`Step ${step} of 5`}>
+            <div className="h-full rounded-full bg-[#174C3C] transition-all" style={{ width: `${(step / 5) * 100}%` }} />
           </div>
           <ol className="mt-3 grid grid-cols-5 gap-1 text-center">
             {STEPS.map(({ n, title: t }) => {
@@ -292,9 +322,9 @@ export function OwnerWizard({
                     disabled={!can || busy}
                     aria-current={n === step ? 'step' : undefined}
                     onClick={() => go(n)}
-                    className={`flex min-h-[44px] w-full flex-col items-center gap-1 rounded-xl px-1 py-1.5 text-[11px] font-semibold leading-tight transition sm:text-xs ${n === step ? 'bg-chinar text-white' : can ? 'cursor-pointer text-emerald-900 hover:bg-emerald-50' : 'cursor-not-allowed text-slate-400'}`}
+                    className={`flex min-h-[44px] w-full flex-col items-center gap-1 rounded-xl px-1 py-1.5 text-[11px] font-semibold leading-tight transition sm:text-xs ${n === step ? 'bg-[#12382E] text-white' : can ? 'cursor-pointer text-[#12382E] hover:bg-[#EAF3EE]' : 'cursor-not-allowed text-slate-400'}`}
                   >
-                    <span className={`grid h-6 w-6 place-items-center rounded-full text-xs ${n === step ? 'bg-white text-emerald-800' : n < step || (n === 5 && done.published) ? 'bg-chinar text-white' : 'bg-slate-200 text-slate-700'}`}>{n < step ? '✓' : n}</span>
+                    <span className={`grid h-6 w-6 place-items-center rounded-full text-xs ${n === step ? 'bg-white text-[#174C3C]' : n < step || (n === 5 && done.published) ? 'bg-[#12382E] text-white' : 'bg-slate-200 text-slate-700'}`}>{n < step ? '✓' : n}</span>
                     <span className="hidden sm:block">{t}</span>
                   </button>
                 </li>

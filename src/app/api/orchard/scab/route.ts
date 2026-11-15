@@ -23,7 +23,7 @@ export async function GET(request: Request) {
   const params = new URLSearchParams({
     latitude: lat.toFixed(3),
     longitude: lng.toFixed(3),
-    hourly: 'temperature_2m,relative_humidity_2m,precipitation',
+    hourly: 'temperature_2m,relative_humidity_2m,precipitation,soil_moisture_0_to_7cm',
     current: 'temperature_2m',
     past_days: '3',
     forecast_days: '4',
@@ -34,15 +34,21 @@ export async function GET(request: Request) {
     const res = await fetch(`${base}/v1/forecast?${params}`, { next: { revalidate: 900 }, signal: AbortSignal.timeout(20_000) });
     if (!res.ok) throw new Error(`Open-Meteo answered ${res.status}`);
     const j = await res.json();
-    const hours: Hour[] = (j.hourly.time as string[]).map((time, i) => ({
+    const times = j.hourly.time as string[];
+    const hours: Hour[] = times.map((time, i) => ({
       time,
       temp: j.hourly.temperature_2m[i],
       rh: j.hourly.relative_humidity_2m[i],
       rain: j.hourly.precipitation[i] ?? 0,
     }));
     const now = String(j.current?.time ?? new Date().toISOString().slice(0, 16));
+    // Top-soil moisture (0–7 cm, m³/m³): the first value from now onward that
+    // the source actually has — undefined stays undefined, never a made-up number.
+    const moist = (j.hourly.soil_moisture_0_to_7cm ?? []) as (number | null)[];
+    const mIdx = times.findIndex((t, i) => t >= now && Number.isFinite(moist[i] as number));
+    const soilMoisture = mIdx >= 0 ? { value: Number(moist[mIdx]), at: times[mIdx] } : undefined;
     return NextResponse.json(
-      { timezone: j.timezone, now, spells: wetSpells(hours, now), source: 'Open-Meteo (open-meteo.com)' },
+      { timezone: j.timezone, now, spells: wetSpells(hours, now), soilMoisture, source: 'Open-Meteo (open-meteo.com)' },
       { headers: { 'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=1800' } },
     );
   } catch (err) {

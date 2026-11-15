@@ -24,15 +24,25 @@ import { isOfflineError, NEEDS_INTERNET, offlineNow, useOnline } from '@/compone
 import { keepListingDraft, OUTBOX_SENT } from '@/components/pwa/outboxSend';
 import { inr, type Account } from '@/lib/db/client';
 import { deleteListing, myListings, saveListing, sellerOrders, updateListing, type ListingInput, type MarketCategory, type MarketListing, type MarketOrder } from '@/lib/db/market';
-import { myPayout, type PayoutAccount } from '@/lib/db/rentals';
+import { myPayout, savePayout, type PayoutAccount } from '@/lib/db/rentals';
 import { groupBaskets, listingPhotos, sellerMustAct } from '@/lib/db/shop';
+
+/** The mandatory payout account for produce listings (the escrow releases the order money into it). */
+const payoutProblem = (p: PayoutAccount | null | undefined, produce: boolean): string | null => {
+  if (!produce) return null;
+  if (!p || p.account_name.trim().length < 2) return 'Fill the 🏦 Farmer Payout Account: the account holder name — the escrow releases your payment there.';
+  if (!(p.upi_id ?? '').trim() && !((p.account_number ?? '').trim() && (p.ifsc ?? '').trim())) {
+    return 'Add a UPI ID, or a bank account number with IFSC: the escrow needs somewhere to release your payment.';
+  }
+  return null;
+};
 
 export function blankProduct(account: Account, category: MarketCategory = 'supplies'): ListingInput {
   const produce = category === 'produce';
-  return { seller_name: account.business || account.name, phone: account.phone, district: account.district, category, subcategory: produce ? 'Apple' : 'Packaging', product: '', variety: '', grade: '', unit: produce ? 'box' : 'piece', price: 0, quantity: 0, details: '', photo: null };
+  return { seller_name: account.business || account.name, phone: account.phone, district: account.district, category, subcategory: produce ? 'Apple' : 'Packaging', product: '', variety: '', grade: '', unit: produce ? 'box' : 'piece', price: 0, quantity: 0, details: '', photo: null, box_capacity_kg: null, packing_layers: null, apples_per_box: null, captured_lat: null, captured_lng: null, captured_accuracy_m: null, captured_address: null, captured_at_iso: null, is_live_camera_verified: false };
 }
 
-export function SellerDesk({ account, theme, show = 'all', category = 'supplies', mixed = false, addRequest = 0, addDraft, onLoaded }: { account: Account; theme: PortalTheme; /** 'sell': orders and products (payout details shown elsewhere). */ show?: 'all' | 'sell' | 'products' | 'orders' | 'payouts'; category?: MarketCategory; /** Farmer portal: produce and farm inputs side by side. */ mixed?: boolean; addRequest?: number; /** Filled into the form that addRequest opens (e.g. a dealer's batch). */ addDraft?: Partial<ListingInput>; onLoaded?: (products: MarketListing[], orders: MarketOrder[]) => void }) {
+export function SellerDesk({ account, theme, show = 'all', category = 'supplies', mixed = false, addRequest = 0, addDraft, autoEditId, onLoaded }: { account: Account; theme: PortalTheme; /** 'sell': orders and products (payout details shown elsewhere). */ show?: 'all' | 'sell' | 'products' | 'orders' | 'payouts'; category?: MarketCategory; /** Farmer portal: produce and farm inputs side by side. */ mixed?: boolean; addRequest?: number; /** Filled into the form that addRequest opens (e.g. a dealer's batch). */ addDraft?: Partial<ListingInput>; /** ?edit=<id> from “Manage / Edit My Listing”: this product's editor opens as soon as the list is in. */ autoEditId?: string | null; onLoaded?: (products: MarketListing[], orders: MarketOrder[]) => void }) {
   const [products, setProducts] = useState<MarketListing[] | null>(null);
   const [orders, setOrders] = useState<MarketOrder[]>([]);
   const [payout, setPayout] = useState<PayoutAccount | null | undefined>(undefined);
@@ -91,13 +101,22 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
     setOpening(p.id);
     try {
       const photos = p.photo ? await listingPhotos(p.id) : [];
-      setEditing({ id: p.id, data: { seller_name: p.seller_name, phone: p.phone, district: p.district, category: p.category, subcategory: p.subcategory, product: p.product, variety: p.variety ?? '', grade: p.grade ?? '', unit: p.unit, price: Number(p.price), quantity: Number(p.quantity), details: p.details ?? '', photo: photos[0] ?? null, photos: photos.length ? photos : null } });
+      setEditing({ id: p.id, data: { seller_name: p.seller_name, phone: p.phone, district: p.district, category: p.category, subcategory: p.subcategory, product: p.product, variety: p.variety ?? '', grade: p.grade ?? '', unit: p.unit, price: Number(p.price), quantity: Number(p.quantity), details: p.details ?? '', photo: photos[0] ?? null, photos: photos.length ? photos : null, box_capacity_kg: p.box_capacity_kg, packing_layers: p.packing_layers, apples_per_box: p.apples_per_box, captured_lat: p.captured_lat, captured_lng: p.captured_lng, captured_accuracy_m: p.captured_accuracy_m, captured_address: p.captured_address, captured_at_iso: p.captured_at_iso, is_live_camera_verified: p.is_live_camera_verified } });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not open the product. Check your internet and try again.');
     } finally {
       setOpening(null);
     }
   };
+
+  // ?edit=<id> (from “Manage / Edit My Listing”): the editor opens for that
+  // product the moment the list is in — once, so a later reload does not reopen it.
+  const [seenEdit, setSeenEdit] = useState<string | null>(null);
+  if (autoEditId && products && autoEditId !== seenEdit) {
+    const p = products.find((x) => x.id === autoEditId);
+    setSeenEdit(autoEditId);
+    if (p) void edit(p);
+  }
 
   const run = async (fn: () => Promise<void>, ok: string) => {
     setBusy(true);
@@ -117,14 +136,32 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
   const draftable = mixed && !editing?.id;
   const save = () => {
     if (!editing) return;
+    const produce = editing.data.category === 'produce';
     const problem = productProblem(editing.data, { isNew: !editing.id });
-    if (problem) return toast.error(problem);
-    const input = { ...editing.data, product: editing.data.product.trim(), phone: editing.data.phone.replace(/\s/g, ''), variety: editing.data.variety || null, grade: editing.data.grade || null, details: editing.data.details || null };
+    const payProblem = payoutProblem(payout, produce);
+    if (problem || payProblem) return toast.error(problem ?? payProblem);
+    const input = {
+      ...editing.data,
+      product: editing.data.product.trim(),
+      phone: editing.data.phone.replace(/\s/g, ''),
+      variety: editing.data.variety || null,
+      grade: editing.data.grade || null,
+      details: editing.data.details || null,
+      // The farmer's real payout account rides on the listing too — the same
+      // details just saved to payout_accounts — so the escrow release and the
+      // buyer's payment always know exactly where to settle.
+      payout_upi: produce && payout ? payout.upi_id ?? null : null,
+      bank_account_name: produce && payout ? payout.account_name || null : null,
+      bank_account_no: produce && payout ? payout.account_number ?? null : null,
+      bank_ifsc: produce && payout ? payout.ifsc ?? null : null,
+    };
     if (offlineNow()) return draftable ? void keepDraft(input) : void toast.error(NEEDS_INTERNET);
     const id = editing.id;
     void (async () => {
       setBusy(true);
       try {
+        // The payout account first: the escrow of every order releases there.
+        if (produce && payout) await savePayout(payout);
         await saveListing(input, id);
         setEditing(null);
         // The list first, then the message: "Listed" shows when the product is on screen.
@@ -165,7 +202,7 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
         </>
       }
     >
-      <ProductForm value={editing.data} isNew={!editing.id} onChange={(data) => setEditing({ ...editing, data })} />
+      <ProductForm value={editing.data} isNew={!editing.id} onChange={(data) => setEditing({ ...editing, data })} payout={payout ?? null} onPayoutChange={(p) => setPayout(p)} farmerId={account.id} listingId={editing.id ?? null} />
     </Modal>
   );
 
@@ -215,7 +252,11 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
             <EmptyState theme={theme} icon={Package} title="No orders yet" text="When a buyer orders one of your products, it appears here. Accept it, ship it, and confirm when the money reaches you." />
           ) : (
             <ul className="space-y-3">
-              {[...waiting, ...others].map((g) => <OrderCard key={g[0].basket ?? g[0].id} order={g[0]} lines={g} as="seller" theme={theme} onChange={() => void reload()} />)}
+              {[...waiting, ...others].map((g) => {
+                // The orchard GPS saved on the listing the order was made from (null: none recorded).
+                const from = products?.find((x) => x.id === g[0].listing_id);
+                return <OrderCard key={g[0].basket ?? g[0].id} order={g[0]} lines={g} as="seller" theme={theme} onChange={() => void reload()} listingGps={from ? { lat: from.captured_lat, lng: from.captured_lng } : null} />;
+              })}
             </ul>
           )}
         </Panel>
@@ -302,3 +343,6 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
     </div>
   );
 }
+
+/** The default export too: either import style works. */
+export default SellerDesk;

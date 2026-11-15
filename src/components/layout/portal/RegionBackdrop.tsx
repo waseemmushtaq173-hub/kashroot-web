@@ -9,14 +9,13 @@
  * not taken): computers get the copy their screen needs (1280 / 1920 px); phones
  * the 640 px one — at a third of full strength under the ivory wash, a softer
  * copy looks the same and arrives four times sooner. If it
- * does not load, the drawn backdrop alone shows (KashmirBackdrop). The
- * photograph's author and licence are credited at the end of the page
- * (RegionCredit). Decorative: hidden from screen readers.
+ * does not load, the drawn backdrop alone shows (KashmirBackdrop). Decorative:
+ * hidden from screen readers.
  */
 import { useState } from 'react';
 
 import { useRegion } from '@/lib/region';
-import { skinFor, type RegionSkin } from '@/lib/regionSkins';
+import { skinFor } from '@/lib/regionSkins';
 
 /** Phones (pages laid out under 1024 px): the 640 px copy; computers: as wide as the screen. */
 const SIZES = '(max-width: 1023px) 360px, 100vw';
@@ -47,24 +46,5 @@ export function RegionBackdrop() {
       {/* The KashRoot ivory over it, and a fade into the page below. */}
       <div className="absolute inset-0 bg-gradient-to-b from-[#fbf8f1]/50 via-[#fbf8f1]/70 to-[#fbf8f1]" />
     </div>
-  );
-}
-
-/**
- * The photograph's credit, at the end of the page: inside the band it would
- * sit behind the page's cards, unseen and unclickable, and the licences
- * (CC BY, CC BY-SA) ask for a credit people can see.
- */
-export function RegionCredit({ skin }: { skin: RegionSkin }) {
-  return (
-    <p className="mx-auto max-w-7xl px-4 pb-6 text-xs text-slate-500 sm:px-6 xl:px-8 print:hidden">
-      <a href={skin.credit.source} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center hover:text-slate-700 hover:underline">
-        Background photo: {skin.scene} — {skin.credit.author}
-      </a>
-      {' · '}
-      <a href={skin.credit.licenceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center hover:text-slate-700 hover:underline">
-        {skin.credit.licence}
-      </a>
-    </p>
   );
 }

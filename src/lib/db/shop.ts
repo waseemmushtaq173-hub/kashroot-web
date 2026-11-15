@@ -14,7 +14,7 @@
  * never holds the money.
  */
 import { dbMessage, supabase } from '@/lib/db/client';
-import { ORDER_STATUS, type MarketOrder, type MarketUnit } from '@/lib/db/market';
+import { OPEN_ORDER_STATUSES, ORDER_STATUS, type MarketOrder, type MarketUnit } from '@/lib/db/market';
 
 const fail = (error: { message?: string; code?: string } | null, fallback: string): never => {
   throw new Error(dbMessage(error, fallback));
@@ -22,7 +22,7 @@ const fail = (error: { message?: string; code?: string } | null, fallback: strin
 
 /** Every photo of one listing (the shop cards only carry the first). */
 export async function listingPhotos(id: string): Promise<string[]> {
-  const { data, error } = await supabase.from('market_listings').select('photo, photos').eq('id', id).maybeSingle();
+  const { data, error } = await supabase.from('market_listings').select('*').eq('id', id).maybeSingle();
   if (error) fail(error, 'Could not load the photos.');
   const row = data as { photo: string | null; photos: string[] | null } | null;
   return row?.photos?.length ? row.photos : row?.photo ? [row.photo] : [];
@@ -89,8 +89,8 @@ export const basketTotal = (lines: MarketOrder[]) => lines.reduce((s, l) => s + 
 export const sellerMustAct = (o: Pick<MarketOrder, 'status' | 'pay_first' | 'payment_state'>) =>
   o.status === 'placed' || o.status === 'paid' || (o.status === 'accepted' && !(o.pay_first && (o.payment_state ?? 'unpaid') === 'unpaid'));
 
-/** How many orders wait for the seller (the products of one Kissan Tools order count once). */
-export const sellerToAct = (orders: MarketOrder[]) => groupBaskets(orders).filter((g) => sellerMustAct(g[0])).length;
+/** How many ACTIVE orders the seller has — new, being packed, on the way, arrived and waiting for the buyer's escrow confirmation — the products of one Kissan Tools order count once. */
+export const sellerToAct = (orders: MarketOrder[]) => groupBaskets(orders).filter((g) => OPEN_ORDER_STATUSES.includes(g[0].status)).length;
 
 /** The seller ships: vehicle number or courier, and the driver (optional). */
 export async function shipOrder(id: string, p: { vehicle: string; driverName?: string; driverPhone?: string; note?: string }): Promise<void> {
@@ -236,7 +236,7 @@ export function sellerOfOrder(o: MarketOrder, byListing?: Map<string, ShopSeller
 export async function sellersOf(listingIds: string[]): Promise<Map<string, ShopSeller>> {
   const ids = [...new Set(listingIds.filter(Boolean))];
   if (!ids.length) return new Map();
-  const { data, error } = await supabase.from('market_listings').select('id, seller_name, phone, district').in('id', ids);
+  const { data, error } = await supabase.from('market_listings').select('*').in('id', ids);
   // A hidden or removed product leaves the order without the name: not an error.
   if (error) return new Map();
   return new Map(((data ?? []) as (ShopSeller & { id: string })[]).map((r) => [r.id, { seller_name: r.seller_name, phone: r.phone, district: r.district }]));

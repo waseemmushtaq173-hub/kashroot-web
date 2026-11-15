@@ -8,7 +8,7 @@
  */
 import { useSyncExternalStore } from 'react';
 
-export const NEEDS_INTERNET = 'You are offline — this needs the internet. Try again when you have signal.';
+export const NEEDS_INTERNET = 'Your device has no active internet connection. This needs the internet — try again when you have signal.';
 
 function subscribe(fn: () => void) {
   window.addEventListener('online', fn);
@@ -40,5 +40,5 @@ export const offlineNow = () => typeof navigator !== 'undefined' && navigator.on
 export function isOfflineError(err: unknown): boolean {
   if (offlineNow()) return true;
   const m = err instanceof Error ? err.message : typeof err === 'string' ? err : String((err as { message?: unknown } | null)?.message ?? '');
-  return /Failed to fetch|NetworkError|Load failed|network connection was lost|No internet connection|Could not reach KashRoot|You are offline/i.test(m);
+  return /Failed to fetch|NetworkError|Load failed|network connection was lost|No internet connection|no active internet connection|Could not reach KashRoot|You are offline/i.test(m);
 }

@@ -75,110 +75,90 @@ function finish(T: Three, c: HTMLCanvasElement, repeatY = true) {
   return t;
 }
 
-/** The inside of an empty bin or crate: its floor boards, in shadow. */
-function emptyInside(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, tone: string, seed: number) {
-  const n = Math.max(3, Math.round(h / 18));
-  for (let i = 0; i < n; i++) board(g, x, y + (i * h) / n, w, h / n - 2, tone, seed + i);
-  const shade = g.createRadialGradient(x + w / 2, y + h / 2, w * 0.1, x + w / 2, y + h / 2, w * 0.75);
-  shade.addColorStop(0, 'rgba(0,0,0,0)');
-  shade.addColorStop(1, 'rgba(0,0,0,0.35)');
-  g.fillStyle = shade;
-  g.fillRect(x, y, w, h);
-}
-
 /**
- * A wooden apple bin as used in Kashmir: pale pine slats with gaps, square
- * corner posts, on a forklift base — full (apples between the slats and on
- * top) or empty (the inside in shadow, the floor boards on top).
+ * A wooden apple bin: slatted sides on a forklift pallet base with corner
+ * posts. `filled`: apples show between the slats and across the top; else the
+ * bin is empty — a dark cavity between the slats and a bare timber floor — so
+ * a vacant bin and a stored one can never be mistaken for each other.
  */
-export function binTexture(T: Three, full = true) {
+export function binTexture(T: Three, filled = true) {
   const { c, g } = canvas(256, 128);
   if (g) {
-    // Side (one bin).
-    g.fillStyle = full ? '#20150d' : '#2b2017';
+    // Side (one bin, 0.76 m with the gap above it).
+    g.fillStyle = '#20150d';
     g.fillRect(0, 0, 128, 128);
-    if (full) apples(g, 8, 8, 112, 84, 7, 7);
-    const slats = [[8, 19], [31, 19], [54, 19], [77, 17]];
-    slats.forEach(([y, h], i) => board(g, 9, y, 110, h, i % 2 ? '#dcbc85' : '#e3c690', 11 + i));
-    // Corner posts.
-    board(g, 0, 4, 12, 94, '#c9a26a', 31);
-    board(g, 116, 4, 12, 94, '#c9a26a', 32);
-    // Forklift base: a deck board, three blocks with the fork openings between them.
-    board(g, 0, 96, 128, 7, '#c49a5f', 41);
+    if (filled) apples(g, 8, 8, 112, 84, 7, 7);
+    else {
+      // The far wall's slats seen through the gaps, in shadow.
+      for (let i = 0; i < 4; i++) board(g, 8, 8 + i * 21, 112, 19, i % 2 ? '#4a3220' : '#533826', 71 + i);
+      g.fillStyle = 'rgba(0,0,0,0.38)';
+      g.fillRect(8, 8, 112, 84);
+    }
+    const slats = [[8, 21], [33, 21], [58, 21], [83, 13]];
+    slats.forEach(([y, h], i) => board(g, 6, y, 116, h, i % 2 ? '#c8955a' : '#cf9d61', 11 + i));
+    board(g, 0, 6, 11, 92, '#a8733d', 31);
+    board(g, 117, 6, 11, 92, '#a8733d', 32);
+    // Nail heads on the corner posts.
+    g.fillStyle = 'rgba(40,30,20,0.7)';
+    for (const px of [5, 122]) for (const py of [14, 39, 64, 88]) g.fillRect(px, py, 2, 2);
+    // Pallet base: a deck board, three blocks with the fork openings between them.
+    board(g, 0, 96, 128, 7, '#9b6a37', 41);
     g.fillStyle = '#1a120b';
     g.fillRect(0, 103, 128, 21);
-    board(g, 0, 103, 14, 21, '#b58b52', 42);
-    board(g, 57, 103, 14, 21, '#b58b52', 43);
-    board(g, 114, 103, 14, 21, '#b58b52', 44);
-    board(g, 0, 122, 128, 6, '#ad844c', 45);
-    g.fillStyle = 'rgba(0,0,0,0.55)';
-    g.fillRect(0, 0, 128, 4);
-    // Top: the rim, apples or the empty floor inside.
-    board(g, 128, 0, 128, 128, '#d8b77f', 51);
-    if (full) apples(g, 140, 12, 104, 104, 7.5, 53);
-    else emptyInside(g, 140, 12, 104, 104, '#c9a873', 55);
-    g.strokeStyle = 'rgba(90,60,25,0.6)';
+    board(g, 0, 103, 14, 21, '#8d5f30', 42);
+    board(g, 57, 103, 14, 21, '#8d5f30', 43);
+    board(g, 114, 103, 14, 21, '#8d5f30', 44);
+    board(g, 0, 122, 128, 6, '#85582c', 45);
+    g.fillStyle = 'rgba(0,0,0,0.65)';
+    g.fillRect(0, 0, 128, 6);
+    // Top: the rim, apples (or the bare floor boards) inside.
+    board(g, 128, 0, 128, 128, '#b9844b', 51);
+    if (filled) apples(g, 140, 12, 104, 104, 7.5, 53);
+    else for (let i = 0; i < 6; i++) board(g, 140, 12 + i * 17.4, 104, 16.4, i % 2 ? '#8a6038' : '#94683f', 81 + i);
+    g.strokeStyle = 'rgba(70,40,15,0.6)';
     g.lineWidth = 2;
     g.strokeRect(140, 12, 104, 104);
   }
   return finish(T, c);
 }
 
-/**
- * A plastic apple crate: ribbed sides, a hand hole, air slots — full or
- * empty. Drawn in light grey: each stack gets its own colour (blue, violet,
- * green…) from the instance colour, as real crates are mixed.
- */
-export function crateTexture(T: Three, full = true) {
+/** An apple crate in warm pine (#C89B62 slats, #7A5228 posts): ribbed sides, a hand hole, air slots; apples on top (`filled`) or the bare floor. */
+export function crateTexture(T: Three, filled = true) {
   const { c, g } = canvas(256, 128);
   if (g) {
-    g.fillStyle = '#1f2937';
+    g.fillStyle = '#2a1a0c';
     g.fillRect(0, 0, 128, 128);
     const body = g.createLinearGradient(0, 10, 0, 128);
-    body.addColorStop(0, '#ffffff');
-    body.addColorStop(1, '#c7ced8');
+    body.addColorStop(0, '#D2A56B');
+    body.addColorStop(1, '#B98B52');
     g.fillStyle = body;
-    g.fillRect(2, 10, 124, 116);
-    // Rim, ribs, a hand hole and the air slots (apples show through them when full).
-    g.fillStyle = 'rgba(255,255,255,0.5)';
-    g.fillRect(2, 10, 124, 8);
-    g.fillStyle = 'rgba(15,23,42,0.28)';
-    for (const x of [2, 32, 62, 92, 122]) g.fillRect(x, 18, 4, 108);
-    g.fillStyle = '#111827';
+    g.fillRect(2, 12, 124, 114);
+    // Ribs and the top rim.
+    g.fillStyle = 'rgba(255,255,255,0.22)';
+    g.fillRect(2, 12, 124, 9);
+    g.fillStyle = '#7A5228';
+    for (const x of [2, 32, 62, 92, 122]) g.fillRect(x, 21, 4, 105);
+    // Hand hole and air slots.
+    g.fillStyle = '#2a1a0c';
     if (g.roundRect) {
       g.beginPath();
-      g.roundRect(44, 26, 40, 12, 6);
+      g.roundRect(44, 28, 40, 13, 6);
       g.fill();
-    } else g.fillRect(44, 26, 40, 12);
-    for (let i = 0; i < 4; i++) {
-      for (let j = 0; j < 3; j++) {
-        const x = 10 + i * 30;
-        const y = 50 + j * 24;
-        g.fillStyle = '#111827';
-        g.fillRect(x, y, 18, 14);
-        if (full) {
-          g.save();
-          g.beginPath();
-          g.rect(x, y, 18, 14);
-          g.clip();
-          apples(g, x - 4, y - 4, 26, 22, 6, 70 + i * 3 + j);
-          g.restore();
-        }
-      }
-    }
-    g.fillStyle = 'rgba(0,0,0,0.5)';
-    g.fillRect(0, 0, 128, 10);
-    // Top: rim, and apples or the crate's slotted floor.
-    g.fillStyle = '#e5e9ef';
+    } else g.fillRect(44, 28, 40, 13);
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) g.fillRect(12 + i * 30, 60 + j * 26, 16, 14);
+    g.fillStyle = 'rgba(0,0,0,0.6)';
+    g.fillRect(0, 0, 128, 12);
+    // Top: rim and apples (or the bare ribbed floor of an empty crate).
+    g.fillStyle = '#C89B62';
     g.fillRect(128, 0, 128, 128);
-    if (full) apples(g, 138, 10, 108, 108, 10, 61);
+    if (filled) apples(g, 138, 10, 108, 108, 10, 61);
     else {
-      g.fillStyle = '#9aa4b2';
+      g.fillStyle = '#9A6E3C';
       g.fillRect(138, 10, 108, 108);
-      g.fillStyle = '#4b5563';
-      for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) g.fillRect(144 + i * 17, 16 + j * 17, 10, 10);
+      g.fillStyle = 'rgba(60,35,12,0.5)';
+      for (let i = 0; i < 6; i++) for (let j = 0; j < 4; j++) g.fillRect(144 + i * 17, 16 + j * 26, 11, 16);
     }
-    g.strokeStyle = '#6b7280';
+    g.strokeStyle = '#7A5228';
     g.lineWidth = 3;
     g.strokeRect(138, 10, 108, 108);
   }
@@ -237,7 +217,7 @@ export function ghostTexture(T: Three) {
   return finish(T, c);
 }
 
-/** Concrete floor with joints every few metres. */
+/** Sealed, power-trowelled concrete with saw-cut joints every few metres and faint trowel swirls. */
 export function concreteTexture(T: Three) {
   const { c, g } = canvas(256, 256);
   if (g) {
@@ -248,9 +228,47 @@ export function concreteTexture(T: Three) {
       g.fillStyle = `rgba(${rnd() < 0.5 ? '255,255,255' : '90,100,110'},${0.05 + rnd() * 0.08})`;
       g.fillRect(rnd() * 256, rnd() * 256, 2 + rnd() * 3, 2 + rnd() * 3);
     }
+    // Trowel swirls: long, faint arcs where the machine passed.
+    g.lineWidth = 3;
+    for (let i = 0; i < 26; i++) {
+      g.strokeStyle = `rgba(${rnd() < 0.5 ? '255,255,255' : '110,120,130'},${0.07 + rnd() * 0.06})`;
+      g.beginPath();
+      g.arc(rnd() * 256, rnd() * 256, 18 + rnd() * 46, rnd() * 6.28, rnd() * 6.28 + 2.2);
+      g.stroke();
+    }
     g.strokeStyle = 'rgba(100,116,139,0.45)';
     g.lineWidth = 2;
     g.strokeRect(1, 1, 254, 254);
+  }
+  const t = new T.CanvasTexture(c);
+  t.colorSpace = T.SRGBColorSpace;
+  t.wrapS = t.wrapT = T.RepeatWrapping;
+  t.anisotropy = 4;
+  return t;
+}
+
+/** Galvanised diamond (tread) plate: the forklift kick-plate along the foot of a wall. */
+export function diamondTexture(T: Three) {
+  const { c, g } = canvas(128, 128);
+  if (g) {
+    g.fillStyle = '#b9c2cc';
+    g.fillRect(0, 0, 128, 128);
+    // Rows of raised lozenges, each row turned across the last.
+    for (let j = 0; j < 8; j++) {
+      for (let i = 0; i < 8; i++) {
+        const cx = i * 16 + 8 + (j % 2 ? 0 : 0);
+        const cy = j * 16 + 8;
+        g.save();
+        g.translate(cx, cy);
+        g.rotate(((i + j) % 2 ? 1 : -1) * Math.PI / 4);
+        const hi = g.createLinearGradient(-6, 0, 6, 0);
+        hi.addColorStop(0, '#f1f5f9');
+        hi.addColorStop(1, '#7b8794');
+        g.fillStyle = hi;
+        g.fillRect(-6, -1.6, 12, 3.2);
+        g.restore();
+      }
+    }
   }
   const t = new T.CanvasTexture(c);
   t.colorSpace = T.SRGBColorSpace;
@@ -273,6 +291,7 @@ export function gratingTexture(T: Three) {
   const t = new T.CanvasTexture(c);
   t.colorSpace = T.SRGBColorSpace;
   t.wrapS = t.wrapT = T.RepeatWrapping;
+  t.anisotropy = 4;
   return t;
 }
 
@@ -345,17 +364,28 @@ export function fanTexture(T: Three) {
   return t;
 }
 
-/** A label: a big title and a smaller line under it (`fill`: a coloured label with white words). */
+/**
+ * A label: a big title and a smaller line under it, as a deep forest green pill with a champagne gold rim
+ * (white title, gold second line). `dark` is kept for older calls: every label wears the one look now.
+ * `fill`: its own colour inside the same gold rim.
+ */
 export function labelCanvas(title: string, sub: string, dark = false, fill?: string) {
   const { c, g } = canvas(512, sub ? 168 : 112);
   if (fill) dark = true;
   if (g) {
-    g.fillStyle = fill ?? (dark ? 'rgba(15,23,42,0.86)' : 'rgba(255,255,255,0.95)');
+    dark = true;
+    g.fillStyle = fill ?? 'rgba(18,56,46,0.95)';
+    g.strokeStyle = '#C6A45B';
+    g.lineWidth = 6;
     if (g.roundRect) {
       g.beginPath();
-      g.roundRect(4, 4, 504, c.height - 8, 30);
+      g.roundRect(6, 6, 500, c.height - 12, 34);
       g.fill();
-    } else g.fillRect(4, 4, 504, c.height - 8);
+      g.stroke();
+    } else {
+      g.fillRect(6, 6, 500, c.height - 12);
+      g.strokeRect(6, 6, 500, c.height - 12);
+    }
     g.textAlign = 'center';
     g.fillStyle = dark ? '#ffffff' : '#0f172a';
     let px = 64;
@@ -363,11 +393,58 @@ export function labelCanvas(title: string, sub: string, dark = false, fill?: str
     while (g.measureText(title).width > 470 && (px -= 4) > 22);
     g.fillText(title, 256, sub ? 78 : 76);
     if (sub) {
-      g.fillStyle = fill ? '#ede9fe' : dark ? '#bae6fd' : '#0369a1';
+      g.fillStyle = '#E3C877';
       let sp = 42;
       do g.font = `600 ${sp}px system-ui, sans-serif`;
       while (g.measureText(sub).width > 480 && (sp -= 2) > 16);
       g.fillText(sub, 256, 140);
+    }
+  }
+  return c;
+}
+
+/**
+ * The digital status plaque beside a chamber's door: the chamber's ID, and
+ * either its last logged temperature with the time that reading was recorded,
+ * or "Sensor not connected" when the database holds no reading for it. Never
+ * a made-up or moving number.
+ */
+export function plaqueCanvas(id: string, reading: { text: string; when: string } | null | 'loading') {
+  const { c, g } = canvas(256, 168);
+  if (g) {
+    g.fillStyle = '#0b1220';
+    g.fillRect(0, 0, 256, 168);
+    g.strokeStyle = '#64748b';
+    g.lineWidth = 4;
+    g.strokeRect(2, 2, 252, 164);
+    g.textAlign = 'center';
+    g.fillStyle = '#e2e8f0';
+    let px = 34;
+    do g.font = `800 ${px}px system-ui, sans-serif`;
+    while (g.measureText(id).width > 230 && (px -= 2) > 14);
+    g.fillText(id, 128, 40);
+    g.fillStyle = 'rgba(148,163,184,0.5)';
+    g.fillRect(14, 52, 228, 2);
+    if (reading === 'loading') {
+      g.fillStyle = '#94a3b8';
+      g.font = '700 30px system-ui, sans-serif';
+      g.fillText('Reading…', 128, 120);
+    } else if (reading) {
+      g.fillStyle = '#4ade80';
+      let tp = 62;
+      do g.font = `800 ${tp}px ui-monospace, monospace`;
+      while (g.measureText(reading.text).width > 230 && (tp -= 2) > 20);
+      g.fillText(reading.text, 128, 116);
+      g.fillStyle = '#94a3b8';
+      let wp = 22;
+      do g.font = `600 ${wp}px system-ui, sans-serif`;
+      while (g.measureText(reading.when).width > 236 && (wp -= 1) > 11);
+      g.fillText(reading.when, 128, 152);
+    } else {
+      g.fillStyle = '#fbbf24';
+      g.font = '800 30px system-ui, sans-serif';
+      g.fillText('Sensor not', 128, 100);
+      g.fillText('connected', 128, 140);
     }
   }
   return c;
@@ -390,73 +467,5 @@ export function plateTexture(T: Three, row: number) {
   }
   const t = new T.CanvasTexture(c);
   t.colorSpace = T.SRGBColorSpace;
-  return t;
-}
-
-/**
- * A chamber's insulated sliding door as in Kashmir's CA stores: safety yellow, a
- * blue round number badge, a yellow-and-black warning triangle and a glass inspection
- * window with a frame and latches. `ratio` is the door's height ÷ width, so circles stay round.
- */
-export function chamberDoorTexture(T: Three, number: number, ratio: number) {
-  const w = 256;
-  const h = Math.round(Math.min(640, Math.max(256, w * ratio)));
-  const { c, g } = canvas(w, h);
-  if (g) {
-    g.fillStyle = '#facc15';
-    g.fillRect(0, 0, w, h);
-    g.fillStyle = '#eab308';
-    for (const y of [0.33, 0.58]) g.fillRect(0, h * y, w, 5);
-    g.lineWidth = 8;
-    g.strokeStyle = '#ca8a04';
-    g.strokeRect(4, 4, w - 8, h - 8);
-    // Blue number badge.
-    const r = w * 0.15;
-    g.fillStyle = '#1d4ed8';
-    g.beginPath();
-    g.arc(w / 2, h * 0.2, r, 0, Math.PI * 2);
-    g.fill();
-    g.fillStyle = '#ffffff';
-    g.font = `800 ${Math.round(r * (number > 9 ? 1.05 : 1.3))}px system-ui, sans-serif`;
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.fillText(String(number), w / 2, h * 0.2 + 2);
-    // Warning triangle.
-    const ty = h * 0.34;
-    const tw = w * 0.17;
-    g.fillStyle = '#fde047';
-    g.strokeStyle = '#111827';
-    g.lineWidth = 5;
-    g.beginPath();
-    g.moveTo(w / 2, ty - tw);
-    g.lineTo(w / 2 + tw, ty + tw * 0.75);
-    g.lineTo(w / 2 - tw, ty + tw * 0.75);
-    g.closePath();
-    g.fill();
-    g.stroke();
-    g.fillStyle = '#111827';
-    g.fillRect(w / 2 - 3, ty - tw * 0.4, 6, tw * 0.7);
-    g.beginPath();
-    g.arc(w / 2, ty + tw * 0.5, 3.5, 0, Math.PI * 2);
-    g.fill();
-    // Inspection window in the lower half: frame, glass, latches.
-    const wx0 = w * 0.2;
-    const wy0 = h * 0.6;
-    const ww = w * 0.6;
-    const wh = h * 0.27;
-    g.fillStyle = '#ca8a04';
-    g.fillRect(wx0 - 8, wy0 - 8, ww + 16, wh + 16);
-    const glass = g.createLinearGradient(wx0, wy0, wx0 + ww, wy0 + wh);
-    glass.addColorStop(0, '#bfdbfe');
-    glass.addColorStop(1, '#60a5fa');
-    g.fillStyle = glass;
-    g.fillRect(wx0, wy0, ww, wh);
-    g.fillStyle = '#111827';
-    for (const y of [wy0 + wh * 0.2, wy0 + wh * 0.75]) g.fillRect(wx0 + ww + 2, y, 12, 14);
-    g.fillRect(wx0 - 14, wy0 + wh * 0.2, 12, 14);
-  }
-  const t = new T.CanvasTexture(c);
-  t.colorSpace = T.SRGBColorSpace;
-  t.anisotropy = 4;
   return t;
 }

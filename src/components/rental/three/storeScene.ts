@@ -14,8 +14,8 @@
  * plan; with a building they are drawn beside it. Without a building the
  * chambers stand side by side along a corridor. Pure: no three.js, no React.
  */
-import { planOf, showLength, type ChamberPlan, type Wall } from '@/lib/coldLayout';
-import { areaName, arrangeStore, doorLine, fromDoor, groupChambers, outlineOf, placeRect, type Building, type ChamberGroup, type PreviewRows, type Side, type Storage } from '@/lib/coldStore';
+import { ensureBuildingEnclosesChambers, planOf, type ChamberPlan, type Wall } from '@/lib/coldLayout';
+import { arrangeStore, doorLine, fromDoor, groupChambers, oppositeWall, outlineOf, placeRect, type Building, type ChamberGroup, type PreviewRows, type SpaceKey, type Storage, type WallSide, type WorkSpaces } from '@/lib/coldStore';
 import { placeName, type ColdChamber } from '@/lib/db/coldMap';
 
 export interface Vec {
@@ -38,6 +38,16 @@ export interface Seg {
 
 /** What one stack is made of: wooden bins, plastic crates, or apple boxes (older stores). */
 export type Kind = 'bin' | 'crate' | 'carton';
+
+/**
+ * The 3D view draws a stack as at most this many levels. A wizard store can
+ * keep hundreds of bins on one place (Al Noor: 300 on each of 1,556 places);
+ * drawing a steel rail for every level of every drawn place ran a phone's
+ * WebGL context out of memory before the first frame. The place still holds
+ * every bin — only the drawn levels are capped, evenly filling the floor
+ * height, and the places-near cap badge says the view is representative.
+ */
+export const DRAW_LEVEL_CAP = 24;
 
 export interface ScenePlace {
   row: number;
@@ -85,7 +95,7 @@ export interface SceneChamber {
   /** Inside the building, clear of the others. */
   fits: boolean;
   /** The side of the passage it stands on (null: where the owner said, or no building). */
-  side: Side | null;
+  side: WallSide | null;
   doorWall: Wall;
   /** The door as a line on its wall, its height, and the way in (a unit vector into the chamber). */
   door: Seg | null;
@@ -110,10 +120,59 @@ export interface MainDoor {
   mid: Vec;
   /** Into the building. */
   inward: Vec;
+  /** How it opens (absent: a roll-up shutter, as always drawn). */
+  kind?: import('@/lib/coldStore').DoorKind;
 }
 
+/** A work zone painted on the real floor: the dock at the main door, or a line of work set out on free floor. */
+export interface SceneZone {
+  key: 'cleaning' | 'grading' | 'sorting' | 'packing' | 'machinery' | 'dock';
+  label: string;
+  rect: Rect;
+}
+
+/**
+ * The airlock vestibule just inside the main door (Fishery Leaflet 427
+ * anteroom principle: warm outside air must not reach the working hall or the
+ * chambers). The main door is its outer door; `door` is the inner airlock
+ * door across the passage. `walls` are only the sides that are open hall and
+ * the stubs beside the inner door — a chamber wall alongside the passage
+ * already closes its side.
+ */
+export interface Vestibule {
+  rect: Rect;
+  walls: Seg[];
+  door: Seg;
+}
+
+/**
+ * The building's structural steel, worked out from its own grid: H-columns
+ * standing against the inner faces of the outer walls and at the outer
+ * corners of the chambers (every 20–25 ft along a wall), and overhead
+ * I-beams on the same grid. `pillars` are floor footprints (they stop a
+ * walker); `beams` are centre lines at the roof. A column is only ever
+ * placed where it clears every door, the main passage, the airlock, the
+ * chamber walkways and the work zones — see structureOf.
+ */
+export interface Structure {
+  pillars: Rect[];
+  beams: Seg[];
+}
+
+/** A column's footprint (its yellow base guard), metres, square. */
+export const COLUMN = 0.38;
+/** Ceiling I-beam: 0.8 ft deep, flanges 0.5 ft wide. */
+export const BEAM_DEPTH = 0.244;
+export const BEAM_FLANGE = 0.152;
+/** The structural grid: a column at least every 25 ft along a wall. */
+const GRID_MAX = 7.62;
+/** Keep a column 2.5 ft clear of any door opening. */
+const DOOR_CLEAR = 0.762;
+/** The forklift's way up to a chamber door, metres out from it. */
+const DOOR_APPROACH = 3;
+
 export interface StoreScene {
-  /** The owner's building (null: not given). */
+  /** The owner's building as the drawing encloses it — grown where a chamber poked out (null: not given). */
   building: Building | null;
   /** The building's floor, or the space the chambers stand in. */
   hall: Rect;
@@ -126,6 +185,12 @@ export interface StoreScene {
   walls: Seg[];
   /** The passage straight in from the main door (null without a building). */
   passage: Rect | null;
+  /** The airlock vestibule inside the main door (null when the passage has no room for one). */
+  vestibule: Vestibule | null;
+  /** Structural columns and ceiling I-beams on the building's grid (empty without a building). */
+  structure: Structure;
+  /** Work zones painted on the floor (none without a building, and only where free floor has room). */
+  zones: SceneZone[];
   chambers: SceneChamber[];
   /** Why something is drawn where it should not be. */
   problems: string[];
@@ -209,7 +274,7 @@ export const midOf = (s: Seg): Vec => ({ x: (s.x1 + s.x2) / 2, y: (s.y1 + s.y2) 
 export const segLength = (s: Seg) => Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
 
 /** A wizard chamber (its floors), standing with its front-left corner at `at`. */
-function wizardChamber(g: ChamberGroup, index: number, at: { x: number; y: number; w: number; d: number; fits: boolean; side?: Side }): SceneChamber {
+function wizardChamber(g: ChamberGroup, index: number, at: { x: number; y: number; w: number; d: number; fits: boolean; side?: WallSide }): SceneChamber {
   const size = g.size!;
   const o = outlineOf(size);
   const rect: Rect = { x: at.x, y: at.y, w: at.w, d: at.d };
@@ -238,13 +303,14 @@ function wizardChamber(g: ChamberGroup, index: number, at: { x: number; y: numbe
     }
     const h = plan.floorH || s.height;
     const k = Math.max(1, row.boxes_per_slot);
+    const layers = Math.max(1, Math.min(k, DRAW_LEVEL_CAP));
     floors.push({
       row,
       floor: row.floor,
       z0: plan.floorZ ?? 0,
       h,
       k,
-      layers: k,
+      layers,
       // A stack never goes through the floor above (only when the owner's count needed taller stacks).
       stackH: Math.min(k * s.box.h, h * 0.97),
       places,
@@ -278,18 +344,18 @@ function wizardChamber(g: ChamberGroup, index: number, at: { x: number; y: numbe
   };
 }
 
-/** The footprint of an older chamber (its door in the front wall). */
-function olderSize(g: ChamberGroup): { w: number; d: number } {
+/** The footprint of an older chamber (its door in the front wall); `d` clamps inside a hall depth when given. */
+function olderSize(g: ChamberGroup, limitD = Infinity): { w: number; d: number } {
   const row = g.floors[0];
-  if (row.size) return { w: row.size.width, d: row.size.length };
-  return { w: row.cols * PITCH + 2 * PAD, d: row.rows * PITCH + 2 * PAD };
+  if (row.size) return { w: row.size.width, d: Math.min(row.size.length, limitD) };
+  return { w: row.cols * PITCH + 2 * PAD, d: Math.min(row.rows * PITCH + 2 * PAD, limitD) };
 }
 
 /** An older chamber (boxes): measured (door and windows as measured) or rows × stacks. */
-function olderChamber(g: ChamberGroup, index: number, at: Vec, beside: boolean): SceneChamber {
+function olderChamber(g: ChamberGroup, index: number, at: Vec, beside = false, sizeUnknown?: { w: number; d: number }): SceneChamber {
   const row = g.floors[0];
   const s = row.size;
-  const { w, d } = olderSize(g);
+  const { w, d } = sizeUnknown ?? olderSize(g);
   const rect: Rect = { x: at.x, y: at.y, w, d };
   const places: ScenePlace[] = [];
   let floor: SceneFloor;
@@ -317,13 +383,21 @@ function olderChamber(g: ChamberGroup, index: number, at: Vec, beside: boolean):
       windows.push({ seg, sill: win.sill, height: win.height, wall: win.wall });
     }
     const walkway = plan.aisleX ? { x: at.x + plan.aisleX[0], y: at.y, w: plan.aisleX[1] - plan.aisleX[0], d } : null;
-    floor = { row, floor: 1, z0: 0, h: s.height, k: row.boxes_per_slot, layers: Math.max(1, plan.layers), stackH: Math.max(0.2, plan.stackHeight), places, walkway, crowded: false, plan };
+    floor = { row, floor: 1, z0: 0, h: s.height, k: row.boxes_per_slot, layers: Math.max(1, Math.min(plan.layers, DRAW_LEVEL_CAP)), stackH: Math.max(0.2, Math.min(plan.stackHeight, plan.floorH || plan.stackHeight)), places, walkway, crowded: false, plan };
   } else {
-    const f = PITCH * 0.82;
+    // Rows × stacks without a measured size: the places stand inside the
+    // chamber's own rectangle. When there are more rows than 1.2 m steps
+    // fit between the walls, the step shrinks (crowded) and the footprint
+    // with it — a long chamber's grid never runs out through the back wall.
+    const stepX = row.cols > 1 ? Math.min(PITCH, (w - 2 * PAD) / row.cols) : PITCH;
+    const stepY = Math.min(PITCH, (d - 2 * PAD) / Math.max(1, row.rows));
+    const f = Math.max(0.05, Math.min(PITCH * 0.82, stepX * 0.9, stepY * 0.9));
+    const midX = at.x + (w - (row.cols - 1) * stepX) / 2;
+    const midY = at.y + (d - (row.rows - 1) * stepY) / 2;
     for (let r = 1; r <= row.rows; r++) {
       for (let c = 0; c < row.cols; c++) {
         const slot = placeName(r, c);
-        places.push({ row: r, col: c, slot, rect: { x: at.x + PAD + (c + 0.5) * PITCH - f / 2, y: at.y + PAD + (r - 0.5) * PITCH - f / 2, w: f, d: f }, blocked: row.blocked.includes(slot) });
+        places.push({ row: r, col: c, slot, rect: { x: midX + c * stepX - f / 2, y: midY + (r - 1) * stepY - f / 2, w: f, d: f }, blocked: row.blocked.includes(slot) });
       }
     }
     const dw = Math.min(1.6, w * 0.4);
@@ -356,6 +430,167 @@ function olderChamber(g: ChamberGroup, index: number, at: Vec, beside: boolean):
   };
 }
 
+/** The smallest floor a work lane needs, and the gap left between lanes. */
+const ZONE_MIN_LANE = 3;
+const ZONE_MIN_DEPTH = 3;
+const ZONE_GAP = 0.4;
+
+/**
+ * The biggest empty rectangle of the hall's floor on a 1 m grid: nothing in
+ * `taken` (chambers, the passage) stands on it. The classic row-by-row scan
+ * of free heights (largest rectangle under a histogram), so one pass finds
+ * it.
+ */
+function biggestFreeRect(hall: Rect, taken: Rect[]): Rect | null {
+  const gw = Math.max(2, Math.floor(hall.w));
+  const gd = Math.max(2, Math.floor(hall.d));
+  const occ = new Uint8Array(gw * gd);
+  for (const r of taken) {
+    const xa = Math.max(0, Math.floor(r.x - hall.x));
+    const ya = Math.max(0, Math.floor(r.y - hall.y));
+    const xb = Math.min(gw, Math.ceil(r.x + r.w - hall.x));
+    const yb = Math.min(gd, Math.ceil(r.y + r.d - hall.y));
+    for (let y = ya; y < yb; y++) for (let x = xa; x < xb; x++) occ[y * gw + x] = 1;
+  }
+  const hgt = new Int32Array(gw);
+  const stack: number[] = [];
+  let best: Rect | null = null;
+  let bestArea = 0;
+  for (let y = 0; y < gd; y++) {
+    for (let x = 0; x < gw; x++) hgt[x] = occ[y * gw + x] ? 0 : hgt[x] + 1;
+    stack.length = 0;
+    for (let x = 0; x <= gw; x++) {
+      const cur = x < gw ? hgt[x] : 0;
+      while (stack.length && hgt[stack[stack.length - 1]] >= cur) {
+        const h = hgt[stack.pop() as number];
+        const left = stack.length ? stack[stack.length - 1] + 1 : 0;
+        const w = x - left;
+        if (h * w > bestArea && h >= ZONE_MIN_DEPTH && w >= ZONE_MIN_LANE) {
+          bestArea = h * w;
+          best = { x: hall.x + left, y: hall.y + y - h + 1, w, d: h };
+        }
+      }
+      stack.push(x);
+    }
+  }
+  return best;
+}
+
+/** The lines of work, in the order they follow the fruit through the store (the sorting area is carved from the grading lane). */
+const ZONE_LINES: [SpaceKey, string][] = [
+  ['cleaning', 'Receiving & weighing area'],
+  ['grading', 'Automated grading line'],
+  ['packing', 'Packaging space'],
+  // The refrigeration plant is not drawn in the hall for anyone: the hall holds receiving, grading,
+  // sorting, packaging and dispatch only (the plant's size stays in the owner's own form).
+];
+/** The grading lane's share that stays the machine line; the rest, beside it, is the sorting area. */
+const GRADING_SHARE = 0.62;
+
+/** The colour a work zone is painted in — the same hue in the 2D drawing and on the 3D floor. */
+export const ZONE_LOOK: Record<SceneZone['key'], string> = {
+  cleaning: '#0F5E73',
+  grading: '#17603F',
+  sorting: '#3F6B1A',
+  packing: '#8A5A12',
+  machinery: '#475569',
+  dock: '#9A3F12',
+};
+
+/**
+ * Where the work zones stand. A zone the owner sized keeps its own length ×
+ * width (clamped into the free floor, laid along its longer side; too many
+ * for it shrink together so every one still fits); zones left empty are set
+ * out as equal lanes on whatever room is left. The dock stands on the
+ * passage floor at the main door — an owner-sized dock keeps its length as
+ * the depth it reaches into the passage. Only real free floor is set out —
+ * never a chamber, never the forklift corridor. Exported for the wizard's
+ * own live drawing (owner/StoreDrawing), which draws the same zones from
+ * the draft.
+ */
+export function workZones(hall: Rect, chamberRects: Rect[], passage: Rect | null, doorWall: Wall, ownerSpaces?: WorkSpaces): SceneZone[] {
+  const zones: SceneZone[] = [];
+  const taken = [...chamberRects];
+  if (passage) taken.push({ ...passage });
+  const free = biggestFreeRect(hall, taken);
+  const owner = ownerSpaces ?? null;
+  if (free) {
+    const along = free.w >= free.d;
+    const run = along ? free.w : free.d;
+    const cross = along ? free.d : free.w;
+    const put = (key: SceneZone['key'], label: string, len: number, wid: number, at: number) => {
+      zones.push({ key, label, rect: along ? { x: free.x + at, y: free.y + (cross - wid) / 2, w: len, d: wid } : { x: free.x + (cross - wid) / 2, y: free.y + at, w: wid, d: len } });
+    };
+    const sized = ZONE_LINES.filter(([k]) => owner?.[k]);
+    const rest = ZONE_LINES.filter(([k]) => !owner?.[k]);
+    if (sized.length) {
+      // Owner-sized first: their lengths along the run (an owner space is
+      // never smaller than 1 m), shrinking together when they overflow, with
+      // the gap left between them.
+      const lanes = sized.map(([k, label]) => {
+        const s = owner![k]!;
+        const len = Math.min(Math.max(s.l, 1), run);
+        const wid = Math.min(Math.max(s.w, 1), cross);
+        return { k, label, len, wid };
+      });
+      const room = run - ZONE_GAP * Math.max(0, lanes.length - 1);
+      const total = lanes.reduce((n, s) => n + s.len, 0);
+      const scale = total > room && total > 0 ? room / total : 1;
+      let at = 0;
+      for (const s of lanes) {
+        const len = Math.max(1, s.len * scale);
+        put(s.k, s.label, len, s.wid, at);
+        at += len + ZONE_GAP;
+      }
+      // The zones left to KashRoot: equal lanes over what run is still free.
+      const left = Math.max(0, run - at);
+      const n = Math.min(rest.length, Math.floor(left / ZONE_MIN_LANE));
+      if (n > 0) {
+        const lane = left / n;
+        rest.slice(0, n).forEach(([key, label], i) => put(key, label, lane - 2 * ZONE_GAP, cross - 2 * ZONE_GAP, at + i * lane + ZONE_GAP));
+      }
+    } else {
+      // Nothing owner-sized: the four lines of work as equal lanes, as many
+      // as fit side by side along the free rect's longer side.
+      const n = Math.min(ZONE_LINES.length, Math.floor(run / ZONE_MIN_LANE));
+      const lane = run / n;
+      ZONE_LINES.slice(0, n).forEach(([key, label], i) => put(key, label, lane - 2 * ZONE_GAP, cross - 2 * ZONE_GAP, i * lane + ZONE_GAP));
+    }
+  }
+  // The grading lane holds the machine line and, beside it along the same run, the sorting area.
+  const gi = zones.findIndex((z) => z.key === 'grading');
+  if (gi >= 0) {
+    const g = zones[gi].rect;
+    const along = g.w >= g.d;
+    const run = along ? g.w : g.d;
+    if (run >= ZONE_MIN_LANE * 2) {
+      const lineLen = Math.max(ZONE_MIN_LANE, (run - ZONE_GAP) * GRADING_SHARE);
+      const sortLen = run - ZONE_GAP - lineLen;
+      if (sortLen >= 1.5) {
+        zones[gi] = { ...zones[gi], rect: along ? { ...g, w: lineLen } : { ...g, d: lineLen } };
+        zones.splice(gi + 1, 0, { key: 'sorting', label: 'Sorting area', rect: along ? { ...g, x: g.x + lineLen + ZONE_GAP, w: sortLen } : { ...g, y: g.y + lineLen + ZONE_GAP, d: sortLen } });
+      }
+    }
+  }
+  if (passage) {
+    // The dock is the strip of the passage at the main door: the passage
+    // runs from it, clear of every chamber, to the wall opposite. An
+    // owner-sized dock keeps its length as the depth it reaches in.
+    const horiz = doorWall === 'front' || doorWall === 'back';
+    const size = horiz ? passage.d : passage.w;
+    const depth = Math.min(owner?.dock ? Math.max(1.2, owner.dock.l) : 3, size);
+    if (depth >= 1.2 && Math.min(passage.w, passage.d) >= 1.2) {
+      const touchesNear = horiz ? Math.abs(passage.y - hall.y) < 0.6 : Math.abs(passage.x - hall.x) < 0.6;
+      const touchesFar = horiz ? Math.abs(passage.y + passage.d - (hall.y + hall.d)) < 0.6 : Math.abs(passage.x + passage.w - (hall.x + hall.w)) < 0.6;
+      const frontEnd = doorWall === 'front' || doorWall === 'left' ? touchesNear : touchesFar;
+      const lo = horiz ? passage.y : passage.x;
+      const at = frontEnd ? lo : lo + size - depth;
+      zones.push({ key: 'dock', label: 'Dispatch & truck bay', rect: horiz ? { x: passage.x, y: at, w: passage.w, d: depth } : { x: at, y: passage.y, w: depth, d: passage.d } });
+    }
+  }
+  return zones;
+}
+
 /**
  * The store from its saved rows (one per floor of a chamber) and, when known,
  * its building. Deterministic: the same rows give the same scene.
@@ -372,18 +607,117 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
   let hall: Rect;
   let passage: Rect | null = null;
   if (b) {
-    hall = { x: 0, y: 0, w: b.length, d: b.width };
-    const lay = arrangeStore(b, wizard.map((g) => ({ key: g.key, name: g.name, outline: outlineOf(g.size!), spot: g.size!.spot })));
+    // Every chamber inside the walls (lib/coldLayout): the owner's building
+    // grows a little where a chamber pokes out — its door and heights stay
+    // as measured — so the arrangement below never stands one outside.
+    // Growing the shell moves the passage and every spot with it, so the
+    // arrangement is reworked (at most three rounds) until nothing pokes
+    // past the walls. A chamber wider than the passage leaves room for is
+    // beyond growing: it keeps its fits = false and the hall stretches
+    // around it below.
+    // The saved wall of each chamber (step 3: LEFT / BACK / RIGHT / FRONT)
+    // forms the owner-diagram banks: 1..4 along the left wall with doors
+    // facing the hall, 5..N along the far wall with doors at their bottom.
+    // A back / front bank chamber is turned — its door wall becomes the face
+    // towards the hall — so its outline, door and places land the right way
+    // even when an older save measured it for a passage side.
+    const bankOf = (g: ChamberGroup): WallSide | undefined => {
+      const wp = (g.sidePosition ?? '').trim().toUpperCase();
+      return wp === 'LEFT' ? 'left' : wp === 'RIGHT' ? 'right' : wp === 'BACK' ? 'back' : wp === 'FRONT' ? 'front' : undefined;
+    };
+    const banked = wizard.map((g) => {
+      const side = bankOf(g);
+      if (side !== 'back' && side !== 'front') return g;
+      return { ...g, size: { ...g.size!, doorWall: side === 'back' ? b.door.wall : oppositeWall(b.door.wall) } };
+    });
+    let enclosed = ensureBuildingEnclosesChambers(b, banked.map((g) => g.size!));
+    const arranged = (cur: Building) => arrangeStore(cur, banked.map((g) => ({ key: g.key, name: g.name, outline: outlineOf(g.size!), spot: g.size!.spot, side: bankOf(g) })));
+    let lay = arranged(enclosed);
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    for (let grown = 0; grown < 3; grown++) {
+      let east = enclosed.length;
+      let back = enclosed.width;
+      for (const g of banked) {
+        const spot = lay.spots[g.key];
+        if (!spot || spot.fits) continue;
+        east = Math.max(east, spot.x + spot.w);
+        back = Math.max(back, spot.y + spot.d);
+      }
+      if (east <= enclosed.length && back <= enclosed.width) break;
+      enclosed = { ...enclosed, length: round2(east + 0.6), width: round2(back + 0.6) };
+      lay = arranged(enclosed);
+    }
+    hall = { x: 0, y: 0, w: enclosed.length, d: enclosed.width };
     passage = lay.passage.rect;
     // The owner's live preview brings where its top view puts each chamber (lib/coldStore previewChambers): the very same places.
     const pre = rows as PreviewRows;
     for (const p of pre.spots ? (pre.problems ?? []) : lay.problems.map((x) => x.message)) if (!problems.includes(p)) problems.push(p);
-    for (const g of wizard) chambers.push(wizardChamber(g, chambers.length, pre.spots?.[g.floors[0].id] ?? lay.spots[g.key]));
-    // Older chambers: in a line beside the building, to its right.
-    let x = b.length + 4;
+    for (const g of banked) chambers.push(wizardChamber(g, chambers.length, pre.spots?.[g.floors[0].id] ?? lay.spots[g.key]));
+    // Older chambers: never outside the walls. The building stretches to
+    // wrap them, east of the measured chambers, passage still in front —
+    // Chamber 1 every chamber sits inside the insulated perimeter.
+    let x = enclosed.length + 2;
+    const olderPlaced: { g: ChamberGroup; at: Vec; size: { w: number; d: number } }[] = [];
     for (const g of older) {
-      chambers.push(olderChamber(g, chambers.length, { x, y: 0 }, true));
-      x += olderSize(g).w + GAP;
+      const s = olderSize(g, Math.max(2, enclosed.width - 2 * PAD));
+      olderPlaced.push({ g, at: { x, y: (enclosed.width - s.d) / 2 }, size: s });
+      x += s.w + GAP;
+    }
+    for (const p of olderPlaced) chambers.push(olderChamber(p.g, chambers.length, p.at, false, p.size));
+    // The east wall moves out so every chamber is inside the building.
+    if (olderPlaced.length > 0) {
+      hall = { x: 0, y: 0, w: enclosed.length + 2 + olderPlaced.reduce((n, p) => n + p.size.w + GAP, 0), d: enclosed.width };
+    }
+    // A chamber measured before the building was (or one bigger than its
+    // shell) still ends up inside the walls: the building grows around every
+    // chamber, every place and the passage too. The front wall keeps its
+    // y = 0, so the main door and the walls derived below stay where the
+    // owner measured.
+    let east = hall.x + hall.w;
+    let back = hall.y + hall.d;
+    for (const c of chambers) {
+      east = Math.max(east, c.rect.x + c.rect.w);
+      back = Math.max(back, c.rect.y + c.rect.d);
+      for (const f of c.floors) {
+        if (f.walkway) {
+          east = Math.max(east, f.walkway.x + f.walkway.w);
+          back = Math.max(back, f.walkway.y + f.walkway.d);
+        }
+        for (const p of f.places) {
+          east = Math.max(east, p.rect.x + p.rect.w);
+          back = Math.max(back, p.rect.y + p.rect.d);
+        }
+      }
+    }
+    if (passage) {
+      east = Math.max(east, passage.x + passage.w);
+      back = Math.max(back, passage.y + passage.d);
+    }
+    hall = { x: hall.x, y: hall.y, w: Math.max(hall.w, east - hall.x), d: Math.max(hall.d, back - hall.y) };
+    // The passage runs straight in from the main door to the wall opposite:
+    // it reaches the back of the hall even when the hall grew around it.
+    if (passage) passage = { x: passage.x, y: passage.y, w: passage.w, d: Math.max(passage.d, hall.y + hall.d - passage.y) };
+    // Every place sits inside its own chamber — hard-clamped, so no
+    // rounding or odd input can poke a stack through a chamber wall.
+    for (const c of chambers) {
+      for (const f of c.floors) {
+        if (f.walkway) {
+          f.walkway = {
+            x: Math.max(c.rect.x, Math.min(f.walkway.x, c.rect.x + c.rect.w - f.walkway.w)),
+            y: Math.max(c.rect.y, Math.min(f.walkway.y, c.rect.y + c.rect.d - f.walkway.d)),
+            w: f.walkway.w,
+            d: f.walkway.d,
+          };
+        }
+        for (const p of f.places) {
+          p.rect = {
+            x: Math.max(c.rect.x, Math.min(p.rect.x, c.rect.x + c.rect.w - p.rect.w)),
+            y: Math.max(c.rect.y, Math.min(p.rect.y, c.rect.y + c.rect.d - p.rect.d)),
+            w: p.rect.w,
+            d: p.rect.d,
+          };
+        }
+      }
     }
   } else {
     // No building: side by side along a corridor (in front of them), fronts in a line.
@@ -405,19 +739,34 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
     hall = { x: -1, y: 0, w: width + 2, d: CORRIDOR + Math.max(deep, 2) + 1 };
   }
 
+  // The building everything is drawn inside: the owner's shell grown where a
+  // chamber poked out through a wall or up through the roof, so the labels,
+  // the walls and the roof all tell the same truth as the drawing.
+  let effBuilding: Building | null = null;
+  if (b) {
+    let tall = b.height;
+    for (const c of chambers) tall = Math.max(tall, c.h);
+    effBuilding = { ...b, length: hall.w, width: hall.d, height: tall > b.height ? Math.round((tall + 0.3) * 100) / 100 : b.height };
+  }
+
   let mainDoor: MainDoor | null = null;
   let walls: Seg[] = [];
+  let zones: SceneZone[] = [];
   if (b) {
-    const seg = doorLine(b.door, { length: b.length, width: b.width });
-    mainDoor = { seg, wall: b.door.wall, from: b.door.from, width: b.door.width, height: b.door.height, mid: midOf(seg), inward: INWARD[b.door.wall] };
+    const seg = doorLine(b.door, { length: hall.w, width: hall.d });
+    mainDoor = { seg, wall: b.door.wall, from: b.door.from, width: b.door.width, height: b.door.height, mid: midOf(seg), inward: INWARD[b.door.wall], kind: b.doorKind };
     walls = wallsOf(hall, seg, b.door.wall);
+    // The work zones painted on the floor: the dock at the main door, and
+    // the lines of work on the biggest clear floor — real free floor only,
+    // the owner's own sizes kept where they gave them.
+    zones = workZones(hall, chambers.map((c) => c.rect), passage, b.door.wall, b.workSpaces);
   }
 
   let x0 = hall.x;
   let y0 = hall.y;
   let x1 = hall.x + hall.w;
   let y1 = hall.y + hall.d;
-  let height = b?.height ?? 0;
+  let height = effBuilding ? effBuilding.height : 0;
   let floors = 1;
   for (const c of chambers) {
     x0 = Math.min(x0, c.rect.x);
@@ -427,10 +776,210 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
     height = Math.max(height, c.h);
     floors = Math.max(floors, c.floors.length);
   }
-  return { building: b, hall, bounds: { x: x0, y: y0, w: x1 - x0, d: y1 - y0 }, height: Math.max(height, 1), mainDoor, walls, passage, chambers, problems, beside: Boolean(b) && older.length > 0, floors, unit };
+  const vestibule = vestibuleOf(mainDoor, passage, chambers, hall);
+  const structure = effBuilding ? structureOf({ hall, wallT: effBuilding.wallThickness ?? 0.25, mainDoor, passage, vestibule, chambers, zones }) : { pillars: [], beams: [] };
+  return { building: effBuilding, hall, bounds: { x: x0, y: y0, w: x1 - x0, d: y1 - y0 }, height: Math.max(height, 1), mainDoor, walls, passage, vestibule, structure, zones, chambers, problems, beside: false, floors, unit };
 }
 
 const ORD = ['1st', '2nd', '3rd'];
+
+/** How deep the airlock vestibule is, metres in from the main door. */
+const VESTIBULE_DEPTH = 2.4;
+
+/**
+ * The airlock vestibule in the passage just inside the main door: its inner
+ * door across the passage, a wall on each side that is open hall (a chamber
+ * standing alongside already closes its own side) and stubs either side of
+ * the inner door. Null when the passage is too short or narrow for one.
+ */
+export function vestibuleOf(md: MainDoor | null, passage: Rect | null, chambers: { rect: Rect }[], hall: Rect): Vestibule | null {
+  if (!md || !passage) return null;
+  const vertical = md.inward.y !== 0;
+  const a0 = vertical ? passage.x : passage.y;
+  const a1 = vertical ? passage.x + passage.w : passage.y + passage.d;
+  const room = vertical ? passage.d : passage.w;
+  const depth = Math.min(VESTIBULE_DEPTH, room * 0.4);
+  if (depth < 1.6 || a1 - a0 < 1.6) return null;
+  const sign = vertical ? md.inward.y : md.inward.x;
+  const start = vertical ? md.mid.y : md.mid.x;
+  const end = start + sign * depth;
+  const lo = Math.min(start, end);
+  const mid = vertical ? md.mid.x : md.mid.y;
+  const half = Math.min(md.width, a1 - a0) / 2;
+  const g0 = Math.max(a0, mid - half);
+  const g1 = Math.min(a1, mid + half);
+  const at = (a: number, d: number): Vec => (vertical ? { x: a, y: d } : { x: d, y: a });
+  const line = (aa: number, dd: number, bb: number, ee: number): Seg => {
+    const p = at(aa, dd);
+    const q = at(bb, ee);
+    return { x1: p.x, y1: p.y, x2: q.x, y2: q.y };
+  };
+  // The building's own wall, or a chamber standing against this edge of the passage along the vestibule's depth, is its side wall already.
+  const onHall = (edge: number) => (vertical ? [hall.x, hall.x + hall.w] : [hall.y, hall.y + hall.d]).some((e) => Math.abs(e - edge) < 0.3);
+  const closed = (edge: number) =>
+    onHall(edge) ||
+    chambers.some(({ rect: r }) => {
+      const near = vertical ? [r.x, r.x + r.w] : [r.y, r.y + r.d];
+      const span = vertical ? [r.y, r.y + r.d] : [r.x, r.x + r.w];
+      return near.some((e) => Math.abs(e - edge) < 0.3) && Math.min(span[1], lo + depth) - Math.max(span[0], lo) > 0.5;
+    });
+  const walls: Seg[] = [];
+  if (!closed(a0)) walls.push(line(a0, start, a0, end));
+  if (!closed(a1)) walls.push(line(a1, start, a1, end));
+  if (g0 - a0 > 0.05) walls.push(line(a0, end, g0, end));
+  if (a1 - g1 > 0.05) walls.push(line(g1, end, a1, end));
+  const rect: Rect = vertical ? { x: a0, y: lo, w: a1 - a0, d: depth } : { x: lo, y: a0, w: depth, d: a1 - a0 };
+  return { rect, walls, door: line(g0, end, g1, end) };
+}
+
+const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w - 1e-6 && a.x + a.w > b.x + 1e-6 && a.y < b.y + b.d - 1e-6 && a.y + a.d > b.y + 1e-6;
+const columnAt = (x: number, y: number): Rect => ({ x: x - COLUMN / 2, y: y - COLUMN / 2, w: COLUMN, d: COLUMN });
+
+/** The floor in front of a door that must stay open: the opening 2.5 ft each side, and `reach` out from its wall. */
+function doorZone(s: Seg, out: Vec, reach: number): Rect {
+  const horiz = Math.abs(s.y2 - s.y1) < 1e-6;
+  const a0 = Math.min(horiz ? s.x1 : s.y1, horiz ? s.x2 : s.y2) - DOOR_CLEAR;
+  const a1 = Math.max(horiz ? s.x1 : s.y1, horiz ? s.x2 : s.y2) + DOOR_CLEAR;
+  const wall = horiz ? s.y1 : s.x1;
+  const dir = (horiz ? out.y : out.x) >= 0 ? 1 : -1;
+  const lo = dir > 0 ? wall - DOOR_CLEAR : wall - reach;
+  const hi = dir > 0 ? wall + reach : wall + DOOR_CLEAR;
+  return horiz ? { x: a0, y: lo, w: a1 - a0, d: hi - lo } : { x: lo, y: a0, w: hi - lo, d: a1 - a0 };
+}
+
+/**
+ * The structural grid. Deterministic: the same building, chambers and doors
+ * always give the same columns and beams.
+ *
+ *  • Perimeter columns stand against the inner face of the outer walls, at
+ *    most 25 ft apart (corners included).
+ *  • Partition columns stand just outside each chamber's outer corners.
+ *  • Before any column is kept it is checked against every door opening
+ *    (2.5 ft each side, and the forklift's way up to it), the main passage,
+ *    the airlock, the chambers themselves (walkways and bin slots are inside
+ *    them) and — for the partition ones — the work zones. A blocked
+ *    perimeter column slides along its wall towards the nearest corner; if
+ *    nothing clear is found it is left out. A column therefore never blocks a
+ *    door, the corridor or a bin slot.
+ *  • Ceiling I-beams span the shorter way across the building on the grid
+ *    lines of the long walls' columns (on the real column where it was moved).
+ */
+export function structureOf(a: {
+  hall: Rect;
+  wallT: number;
+  mainDoor: MainDoor | null;
+  passage: Rect | null;
+  vestibule: Vestibule | null;
+  chambers: SceneChamber[];
+  zones: SceneZone[];
+}): Structure {
+  const { hall } = a;
+  const inset = a.wallT / 2 + COLUMN / 2 + 0.01;
+  const inner: Rect = { x: hall.x + inset - COLUMN / 2, y: hall.y + inset - COLUMN / 2, w: hall.w - 2 * inset + COLUMN, d: hall.d - 2 * inset + COLUMN };
+  if (inner.w < COLUMN * 2 || inner.d < COLUMN * 2) return { pillars: [], beams: [] };
+
+  const clear: Rect[] = [];
+  if (a.mainDoor) clear.push(doorZone(a.mainDoor.seg, { x: -a.mainDoor.inward.x, y: -a.mainDoor.inward.y }, DOOR_APPROACH));
+  if (a.passage) clear.push({ x: a.passage.x - 0.05, y: a.passage.y - 0.05, w: a.passage.w + 0.1, d: a.passage.d + 0.1 });
+  if (a.vestibule) clear.push(a.vestibule.rect);
+  for (const c of a.chambers) {
+    clear.push(c.rect);
+    if (c.door) clear.push(doorZone(c.door, { x: -c.inward.x, y: -c.inward.y }, DOOR_APPROACH));
+  }
+  const zoneRects = a.zones.map((z) => z.rect);
+  const free = (r: Rect, withZones: boolean) => !clear.some((k) => overlaps(r, k)) && (!withZones || !zoneRects.some((z) => overlaps(r, z)));
+  const inside = (r: Rect) => r.x >= inner.x - 1e-6 && r.y >= inner.y - 1e-6 && r.x + r.w <= inner.x + inner.w + 1e-6 && r.y + r.d <= inner.y + inner.d + 1e-6;
+
+  const pillars: Rect[] = [];
+  const apart = (r: Rect, gap: number) => !pillars.some((p) => Math.hypot(p.x - r.x, p.y - r.y) < gap);
+  const round = (n: number) => Math.round(n * 100) / 100;
+
+  // Grid lines along each wall: evenly spread, never further apart than 25 ft.
+  const lines = (from: number, to: number) => {
+    const n = Math.max(1, Math.ceil((to - from) / GRID_MAX - 1e-9));
+    return Array.from({ length: n + 1 }, (_, i) => from + ((to - from) * i) / n);
+  };
+  const xs = lines(inner.x + COLUMN / 2, inner.x + inner.w - COLUMN / 2);
+  const ys = lines(inner.y + COLUMN / 2, inner.y + inner.d - COLUMN / 2);
+  const along: 'x' | 'y' = hall.w >= hall.d ? 'x' : 'y';
+
+  type Wall4 = { fixed: number; list: number[]; horiz: boolean };
+  const walls4: Wall4[] = [
+    { fixed: inner.y + COLUMN / 2, list: xs, horiz: true }, // front wall (low y)
+    { fixed: inner.y + inner.d - COLUMN / 2, list: xs, horiz: true }, // back wall
+    { fixed: inner.x + COLUMN / 2, list: ys.slice(1, -1), horiz: false }, // left wall (corners belong to front/back)
+    { fixed: inner.x + inner.w - COLUMN / 2, list: ys.slice(1, -1), horiz: false }, // right wall
+  ];
+  // Where each long-wall grid line's column really stands (null: none), for the beams to land on.
+  const landed = new Map<string, number | null>();
+  walls4.forEach((w, wi) => {
+    w.list.forEach((t, li) => {
+      const at = (s: number) => (w.horiz ? columnAt(s, w.fixed) : columnAt(w.fixed, s));
+      // Sliding order: where it is, then outwards in 0.5 m steps — towards the nearer end of the wall first.
+      const lo = w.list[0];
+      const hi = w.list[w.list.length - 1];
+      const towardEnd = t - lo <= hi - t ? -1 : 1;
+      let kept: number | null = null;
+      for (let d = 0; d <= GRID_MAX / 2 && kept === null; d += 0.5) {
+        for (const s of d === 0 ? [0] : [towardEnd, -towardEnd]) {
+          const pos = t + s * d;
+          const r = at(pos);
+          if (pos < (w.horiz ? inner.x : inner.y) + COLUMN / 2 - 1e-6 || pos > (w.horiz ? inner.x + inner.w : inner.y + inner.d) - COLUMN / 2 + 1e-6) continue;
+          if (inside(r) && free(r, false) && apart(r, COLUMN * 3)) {
+            kept = pos;
+            pillars.push({ x: round(r.x), y: round(r.y), w: COLUMN, d: COLUMN });
+            break;
+          }
+        }
+      }
+      landed.set(`${wi}:${li}`, kept);
+    });
+  });
+
+  // Partition columns just outside each chamber's outer corners.
+  for (const c of a.chambers) {
+    const r = c.rect;
+    for (const [cx, cy, sx, sy] of [
+      [r.x, r.y, -1, -1],
+      [r.x + r.w, r.y, 1, -1],
+      [r.x, r.y + r.d, -1, 1],
+      [r.x + r.w, r.y + r.d, 1, 1],
+    ] as const) {
+      const p = columnAt(cx + sx * (COLUMN / 2 + 0.02), cy + sy * (COLUMN / 2 + 0.02));
+      if (inside(p) && free(p, true) && apart(p, COLUMN * 3)) pillars.push({ x: round(p.x), y: round(p.y), w: COLUMN, d: COLUMN });
+    }
+  }
+
+  // Beams: across the shorter span, on the long walls' grid lines.
+  const beams: Seg[] = [];
+  const e = a.wallT / 2;
+  const spanA = along === 'x' ? { from: hall.y + e, to: hall.y + hall.d - e } : { from: hall.x + e, to: hall.x + hall.w - e };
+  const longWalls = along === 'x' ? [0, 1] : [2, 3];
+  const gridLines = along === 'x' ? xs : ys;
+  const interior = gridLines.slice(1, -1);
+  const marks = interior.length ? interior.map((t, i) => {
+    // The column's real spot on the first long wall where it stands, else the second's, else the grid line.
+    const li = along === 'x' ? i + 1 : i;
+    for (const wi of longWalls) {
+      const k = landed.get(`${wi}:${li}`);
+      if (k !== undefined && k !== null) return k;
+    }
+    return t;
+  }) : [along === 'x' ? hall.x + hall.w / 2 : hall.y + hall.d / 2];
+  for (const t of marks) beams.push(along === 'x' ? { x1: t, y1: spanA.from, x2: t, y2: spanA.to } : { x1: spanA.from, y1: t, x2: spanA.to, y2: t });
+  return { pillars, beams };
+}
+
+/**
+ * The zones a viewer may see. Farmer-facing views (book / view) never show
+ * the machinery bay — the supplementary directive keeps the refrigeration
+ * plant room, CA/CS gas room, electrical room, office and laboratory out of
+ * farmer 2D/3D; the owner's own view keeps the plant bay they sized.
+ */
+export function zonesForViewer(zones: SceneZone[], mode: 'book' | 'owner' | 'view'): SceneZone[] {
+  return mode === 'owner' ? zones : zones.filter((z) => z.key !== 'machinery');
+}
+
 /**
  * The store in words, for people who cannot see the 3D view: "The main door
  * is in the front wall. Chamber 1 stands on the left of the passage, the 1st
@@ -439,14 +988,13 @@ const ORD = ['1st', '2nd', '3rd'];
 export function sceneText(scene: StoreScene): string {
   const out: string[] = [];
   if (scene.mainDoor) out.push(`The main door is in the ${scene.mainDoor.wall} wall; a passage runs straight in from it.`);
-  const areas = scene.building?.areas ?? [];
-  if (areas.length) out.push(`Work areas: ${areas.map((ar) => `${areaName(ar)}, ${showLength(ar.x, scene.unit)} from the left wall and ${showLength(ar.y, scene.unit)} from the front wall`).join('; ')}.`);
-  const seen: Record<Side, number> = { left: 0, right: 0 };
+  const seen: Record<WallSide, number> = { left: 0, right: 0, back: 0, front: 0 };
   for (const c of scene.chambers) {
     const floors = c.floors.length > 1 ? ` It has ${c.floors.length} floors.` : '';
     if (c.side) {
       const n = ++seen[c.side];
-      out.push(`${c.name} stands on the ${c.side} of the passage, the ${ORD[n - 1] ?? `${n}th`} from the main door, its door facing the passage.${floors}`);
+      const where = c.side === 'back' ? 'along the far wall' : c.side === 'front' ? 'along the entrance wall' : `on the ${c.side} of the passage`;
+      out.push(`${c.name} stands ${where}, the ${ORD[n - 1] ?? `${n}th`} banked there, its door facing the hall.${floors}`);
     } else if (c.beside) out.push(`${c.name} is drawn beside the building.`);
     else if (scene.building) out.push(`${c.name} stands where the owner said.${floors}`);
     else out.push(`${c.name} is number ${c.index + 1} along the corridor.${floors}`);

@@ -9,19 +9,19 @@
  * sending it twice (the answer lost on a weak signal) cannot make two.
  */
 
-export type OutboxKind = 'question' | 'rate' | 'listing';
+export type OutboxKind = 'question' | 'rate' | 'listing' | 'photo' | 'scan';
 
 export interface OutboxItem<P = unknown> {
   id: string;
   kind: OutboxKind;
   /** The account that wrote it. */
   userId: string;
-  /** What the person sees in "Waiting to send", e.g. “Question: Black spots on leaves”. */
+  /** What the person sees in "Waiting to send", e.g. "Question: Black spots on leaves". */
   label: string;
   payload: P;
   createdAt: number;
-  /** waiting: sent when online; sending: on its way; failed: the person decides (Try again / Remove). */
-  state: 'waiting' | 'sending' | 'failed';
+  /** waiting: sent when online; sending: on its way; failed: the person decides (Try again / Remove); sent: delivered. */
+  state: 'waiting' | 'sending' | 'failed' | 'sent';
   /** Why the last try did not work, in plain words. */
   error?: string;
   tries: number;

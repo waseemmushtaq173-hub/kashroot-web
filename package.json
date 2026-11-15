@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "license": "UNLICENSED",
+  "overrides": {
+    "postcss-selector-parser": "^6.1.5",
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.1"
+    }
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -13,12 +19,17 @@
     "@anthropic-ai/sdk": "^0.133.0",
     "@capacitor/android": "^8.5.2",
     "@capacitor/core": "^8.5.2",
+    "@react-three/drei": "^10.7.9",
+    "@react-three/fiber": "^9.8.2",
+    "@supabase/auth-helpers-nextjs": "^0.15.0",
     "@supabase/supabase-js": "^2.117.2",
     "@tailwindcss/forms": "^0.5.11",
     "@tailwindcss/typography": "^0.5.20",
     "@tanstack/react-query": "^5.104.0",
     "@xmldom/xmldom": "^0.8.11",
     "adm-zip": "^0.6.1",
+    "dexie": "^4.4.7",
+    "idb": "^8.0.4",
     "jsqr": "^1.4.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.48.0",
@@ -31,9 +42,10 @@
     "react-leaflet": "^5.0.0",
     "server-only": "^0.0.1",
     "sonner": "^2.0.8",
-    "three": "^0.180.0",
+    "three": "^0.187.0",
     "twilio": "^6.1.2",
     "xml-crypto": "^6.1.2",
+    "zod": "^4.6.7",
     "zxing-wasm": "^3.1.5"
   },
   "devDependencies": {
@@ -43,10 +55,10 @@
     "@types/leaflet": "^1.9.22",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.2",
-    "@types/qrcode": "^1.5.5",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@types/three": "^0.180.0",
+    "@types/three": "^0.187.0",
     "autoprefixer": "^10.6.1",
     "eslint": "^9",
     "eslint-config-next": "^16.4.3",

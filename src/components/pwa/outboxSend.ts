@@ -42,7 +42,13 @@ export type ListingRow = ListingInput & { active: false };
 type Payload = { row: QuestionRow } | { row: RateRow } | { row: ListingRow };
 
 /** The table each kind of item becomes a row of. */
-const TABLE = { question: 'advisory_requests', rate: 'mandi_rates', listing: 'market_listings' } as const;
+const TABLE = {
+  question: 'advisory_requests',
+  rate: 'mandi_rates',
+  listing: 'market_listings',
+  photo: 'listing_photos', // VERIFY IN DOCS: table for photo uploads
+  scan: 'truescan_scans',  // VERIFY IN DOCS: table for scan results
+} as const;
 
 /** Today in India (yyyy-mm-dd), as the database dates a rate. */
 const indiaDay = (ms = Date.now()) => new Date(ms + 5.5 * 3600_000).toISOString().slice(0, 10);

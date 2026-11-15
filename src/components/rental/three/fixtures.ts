@@ -9,9 +9,9 @@
  *             along that wall under the ceiling;
  *   curtains  clear PVC strip curtains hanging in each chamber's doorway;
  *   outside   condensing units along the building's back wall;
- *   walkOnly  the ceilings, the hall's roof with its trusses, and the LED
- *             lights under them — shown only when walking (from outside the
- *             roof stays off, so you can look in).
+ *   walkOnly  the ceilings, and the hall's roof with its trusses — shown
+ *             only when walking (from outside the roof stays off, so you
+ *             can look in). The lights under the ceilings show always.
  *
  * How many there are follows the size of each room: they show what a cold
  * store looks like inside, not this store's own machines (the page says so).
@@ -19,7 +19,7 @@
  * (fans, lights, strips) are instanced, so phones stay smooth.
  */
 import type { Kit, Origin } from '@/components/rental/three/buildStore';
-import type { Rect, SceneChamber, StoreScene } from '@/components/rental/three/storeScene';
+import { BEAM_DEPTH, BEAM_FLANGE, COLUMN, type Rect, type SceneChamber, type StoreScene } from '@/components/rental/three/storeScene';
 
 type Three = typeof import('three');
 type Obj = InstanceType<Three['Object3D']>;
@@ -78,6 +78,11 @@ export function buildFixtures(kit: Kit, scene: StoreScene, o: Origin): Fixtures 
   const lamps: { x: number; y: number; z: number; len: number; alongX: boolean }[] = [];
   const bays: { x: number; y: number; z: number }[] = [];
   const strips: { x: number; y: number; z: number; h: number; alongX: boolean }[] = [];
+  // Structural steel: column centres (world x, z), beams, and the heights they stand to.
+  const cols: { x: number; z: number }[] = [];
+  const beamList: { x: number; z: number; len: number; alongX: boolean }[] = [];
+  let structTop = 0;
+  let structH = 0;
 
   /** LED battens in rows under a ceiling at height `top` over the plan rectangle `r`. */
   const lightRows = (r: Rect, top: number) => {
@@ -132,25 +137,32 @@ export function buildFixtures(kit: Kit, scene: StoreScene, o: Origin): Fixtures 
     const ud = 0.75;
     const cy = H - 0.3 - uh / 2;
     const far = alongX ? (to.y > 0 ? r.y + r.d : r.y) : to.x > 0 ? r.x + r.w : r.x;
-    // The unit's front (fans) faces away from its wall: -to in the plan; world z is the plan's y reversed.
+    // The unit's front faces away from its wall: -to in the plan; world z is the plan's y reversed.
     const nx = -to.x;
     const nz = to.y;
-    const fansEach = Math.max(1, Math.round(uw / 0.75));
-    const fr = Math.min(0.27, uh * 0.38);
     for (let i = 0; i < n; i++) {
       const a = (alongX ? r.x : r.y) + (wallLen * (i + 0.5)) / n;
       const off = ud / 2 + 0.1;
       const px = alongX ? a : far - to.x * off;
       const py = alongX ? far - to.y * off : a;
-      box(alongX ? uw : ud, uh, alongX ? ud : uw, X(px), cy, Z(py), mats.cooler);
+      // The Blender kit's own evaporator when it is in: casing and grille —
+      // one shared proto, turned to blow into the room (shrouds point local
+      // −Z, so the turn is atan2(−nx, −nz)). No fan discs: the visual rule
+      // keeps rotating fan meshes out of the stored-fruit airspace — the
+      // blower unit cooler stays a closed housing over the aisle / wall, and
+      // the kit's fan-face slot gets the plain grille (never the blade texture).
+      const evapProto = kit.protos?.evap;
+      if (evapProto) {
+        const m = new T.Mesh(evapProto, [mats.cooler, mats.guard, mats.guard]);
+        m.scale.set(uw, uh, ud);
+        m.rotation.y = Math.atan2(-nx, -nz);
+        m.position.set(X(px), cy - uh / 2, Z(py));
+        group.add(m);
+      } else {
+        box(alongX ? uw : ud, uh, alongX ? ud : uw, X(px), cy, Z(py), mats.cooler);
+      }
       // The drip tray under it.
       box(alongX ? uw + 0.1 : ud + 0.1, 0.05, alongX ? ud + 0.1 : uw + 0.1, X(px), cy - uh / 2 - 0.03, Z(py), mats.guard);
-      for (let k = 0; k < fansEach; k++) {
-        const s = ((k + 0.5) / fansEach - 0.5) * uw;
-        const fx = (alongX ? px + s : px) - to.x * (ud / 2 + 0.012);
-        const fy = (alongX ? py : py + s) - to.y * (ud / 2 + 0.012);
-        fans.push({ x: X(fx), y: cy + 0.03, z: Z(fy), nx, ny: 0, nz, r: fr });
-      }
     }
     // The refrigerant lines along that wall, under the ceiling.
     const lineAt = (off: number) => {
@@ -170,20 +182,36 @@ export function buildFixtures(kit: Kit, scene: StoreScene, o: Origin): Fixtures 
     const hall = scene.hall;
     const H = scene.building.height;
     ceiling(hall, H, mats.roof, 3);
-    const trusses = clamp(Math.round(hall.d / 6), 1, 20);
-    for (let i = 0; i < trusses; i++) {
-      const py = hall.y + ((i + 0.5) / trusses) * hall.d;
-      box(hall.w, 0.32, 0.14, X(hall.x + hall.w / 2), H - 0.2, Z(py), mats.beam, walkOnly);
-    }
+    // Structural steel on the building's own grid (storeScene structureOf): H-columns stand with their
+    // yellow base guards against the outer walls and at the chambers' outer corners — never in a door
+    // opening, the passage, an aisle or a bin slot — and I-beams (0.8 ft deep, 0.5 ft flanges) span the
+    // roof between them. The columns show from outside too; the beams, like the roof, only when walking.
+    const st = scene.structure;
+    const colTop = H - BEAM_DEPTH;
+    for (const p of st.pillars) cols.push({ x: X(p.x + p.w / 2), z: Z(p.y + p.d / 2) });
+    for (const b of st.beams) beamList.push({ x: X((b.x1 + b.x2) / 2), z: Z((b.y1 + b.y2) / 2), len: Math.hypot(b.x2 - b.x1, b.y2 - b.y1), alongX: Math.abs(b.y2 - b.y1) < 1e-6 });
+    structTop = colTop;
+    structH = H;
     const under = (px: number, py: number) => scene.chambers.some((c) => px > c.rect.x - 0.3 && px < c.rect.x + c.rect.w + 0.3 && py > c.rect.y - 0.3 && py < c.rect.y + c.rect.d + 0.3);
-    const cols = clamp(Math.round(hall.w / 6), 1, 20);
+    const bayCols = clamp(Math.round(hall.w / 6), 1, 20);
     const rows = clamp(Math.round(hall.d / 6), 1, 20);
-    for (let i = 0; i < cols; i++) {
+    for (let i = 0; i < bayCols; i++) {
       for (let j = 0; j < rows; j++) {
-        const px = hall.x + ((i + 0.5) / cols) * hall.w;
+        const px = hall.x + ((i + 0.5) / bayCols) * hall.w;
         const py = hall.y + ((j + 0.5) / rows) * hall.d;
         if (!under(px, py)) bays.push({ x: X(px), y: H - 0.7, z: Z(py) });
       }
+    }
+    // LED strip luminaires in rows under the hall roof too (visual
+    // requirement #6: the grading / packaging hall is lit with strip
+    // battens, as the chambers are — lights in, no fans in the fruit air).
+    const stripAlongX = hall.w >= hall.d;
+    const stripRows = clamp(Math.round((stripAlongX ? hall.d : hall.w) / 8), 1, 5);
+    const stripLen = Math.min((stripAlongX ? hall.w : hall.d) * 0.86, 30);
+    for (let i = 0; i < stripRows; i++) {
+      const a = (stripAlongX ? hall.y : hall.x) + ((i + 0.5) / stripRows) * (stripAlongX ? hall.d : hall.w);
+      const b = (stripAlongX ? hall.x : hall.y) + (stripAlongX ? hall.w : hall.d) / 2;
+      lamps.push({ x: X(stripAlongX ? b : a), y: H - 0.5, z: Z(stripAlongX ? a : b), len: stripLen, alongX: stripAlongX });
     }
     // Condensing units on the ground behind the building, fans on top, lines into the wall.
     const units = clamp(scene.chambers.filter((c) => c.toScale).length, 1, 6);
@@ -232,16 +260,18 @@ export function buildFixtures(kit: Kit, scene: StoreScene, o: Origin): Fixtures 
     q.setFromUnitVectors(fwd, dir.set(f.nx, f.ny, f.nz).normalize());
     m4.compose(pos.set(f.x + f.nx * 0.02, f.y + f.ny * 0.02, f.z + f.nz * 0.02), q, scl.set(f.r, f.r, f.r));
   });
-  // LED battens under the ceilings, round high-bay lights in the hall.
+  // LED battens under the ceilings, round high-bay lights in the hall —
+  // part of the scene in the orbit view too (a cold store is lit), while
+  // the ceilings and roof they hang from stay walk-only.
   add(new T.BoxGeometry(1, 1, 1), mats.lamp, lamps.length, (i) => {
     const l = lamps[i];
     q.identity();
     m4.compose(pos.set(l.x, l.y, l.z), q, l.alongX ? scl.set(l.len, 0.04, 0.09) : scl.set(0.09, 0.04, l.len));
-  }, walkOnly);
+  });
   add(new T.CylinderGeometry(0.3, 0.38, 0.12, 20), mats.lamp, bays.length, (i) => {
     q.identity();
     m4.compose(pos.set(bays[i].x, bays[i].y, bays[i].z), q, scl.set(1, 1, 1));
-  }, walkOnly);
+  });
   // Strip curtains: overlapping clear strips, 20 cm wide.
   const curtain = add(new T.BoxGeometry(1, 1, 1), mats.curtain, strips.length, (i) => {
     const s = strips[i];
@@ -249,6 +279,34 @@ export function buildFixtures(kit: Kit, scene: StoreScene, o: Origin): Fixtures 
     m4.compose(pos.set(s.x, s.y, s.z), q, s.alongX ? scl.set(0.2, s.h, 0.006) : scl.set(0.006, s.h, 0.2));
   });
   if (curtain) curtain.renderOrder = 2;
+
+  // H-columns: two flanges and a web up to the beams, on a yellow-and-black base guard.
+  const unit = () => new T.BoxGeometry(1, 1, 1);
+  const FL = 0.3;
+  add(unit(), mats.steel, cols.length * 2, (i) => {
+    const c = cols[i >> 1];
+    q.identity();
+    m4.compose(pos.set(c.x, structTop / 2, c.z + (i % 2 ? 1 : -1) * (FL / 2 - 0.016)), q, scl.set(FL, structTop, 0.032));
+  });
+  add(unit(), mats.steel, cols.length, (i) => {
+    q.identity();
+    m4.compose(pos.set(cols[i].x, structTop / 2, cols[i].z), q, scl.set(0.026, structTop, FL - 0.06));
+  });
+  add(unit(), mats.stripe, cols.length, (i) => {
+    q.identity();
+    m4.compose(pos.set(cols[i].x, 0.45, cols[i].z), q, scl.set(COLUMN, 0.9, COLUMN));
+  });
+  // Ceiling I-beams: top and bottom flange and the web, one draw each; walking only (like the roof).
+  const FLANGE_T = 0.02;
+  const beamPart = (y: number, h: number, across: number, mat: Mat) =>
+    add(unit(), mat, beamList.length, (i) => {
+      const b = beamList[i];
+      q.identity();
+      m4.compose(pos.set(b.x, y, b.z), q, b.alongX ? scl.set(b.len, h, across) : scl.set(across, h, b.len));
+    }, walkOnly);
+  beamPart(structH - FLANGE_T / 2, FLANGE_T, BEAM_FLANGE, mats.steel);
+  beamPart(structH - BEAM_DEPTH + FLANGE_T / 2, FLANGE_T, BEAM_FLANGE, mats.steel);
+  beamPart(structH - BEAM_DEPTH / 2, BEAM_DEPTH - 2 * FLANGE_T, 0.012, mats.steel);
 
   return { group, walkOnly };
 }

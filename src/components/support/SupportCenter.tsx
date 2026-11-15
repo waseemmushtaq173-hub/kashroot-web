@@ -18,6 +18,7 @@ import { CheckCircle2, ChevronDown, LifeBuoy, Loader2, Mail, MessageSquare, Sear
 
 import { GUARD_TEXT, useFormGuard } from '@/lib/client/formGuard';
 import { authFetch } from '@/lib/auth-fetch';
+import { classifyFetchError } from '@/lib/onlineFirstClient';
 import { supabase } from '@/lib/supabase';
 import { HELP_TOPICS, TOPIC_LABEL, type SupportTopic } from '@/lib/helpTopics';
 import { isRtl, LANG_LABEL, speak, stopSpeaking, type SpeechLang } from '@/lib/client/speech';
@@ -29,6 +30,16 @@ import type { GuideText } from '@/lib/portalGuide';
 type Lang = 'en' | 'hi' | 'ur';
 const LANGS: Lang[] = ['en', 'hi', 'ur'];
 const pick = (t: GuideText, l: Lang) => t[l];
+
+/** One honest reason a request failed — the device only when the device says
+ * so, KashRoot when it could not be reached, otherwise the real error. */
+const describeError = (err: unknown) => {
+  const classified = classifyFetchError(err);
+  if (classified.kind === 'DEVICE_NETWORK_UNAVAILABLE') return classified.userMessage;
+  const m = err instanceof Error ? err.message : '';
+  if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Could not reach KashRoot. Check your internet and try again.';
+  return m || 'The request could not be completed. Please try again.';
+};
 
 interface Msg {
   author: 'customer' | 'kashroot' | 'internal';
@@ -114,8 +125,8 @@ async function post(body: Record<string, unknown>): Promise<{ ok: boolean; data:
   try {
     const res = await authFetch('/api/support', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     return { ok: res.ok, data: (await res.json().catch(() => ({}))) as Record<string, unknown> };
-  } catch {
-    return { ok: false, data: { error: 'No internet connection. Please check your mobile data and try again.' } };
+  } catch (err) {
+    return { ok: false, data: { error: describeError(err) } };
   }
 }
 

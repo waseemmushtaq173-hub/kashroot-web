@@ -8,16 +8,14 @@
  *                       main door (which wall, how far from the left
  *                       corner, how wide and how high) and where the
  *                       chambers are: left, right or both sides of the
- *                       passage from the main door, and the work areas
- *                       (receiving, grading, washing, packing, machine
- *                       room, loading dock, office) with their size and
- *                       place — drawn from above as the owner types.
+ *                       passage from the main door — drawn from above as
+ *                       the owner types.
  */
-import { Cog, DoorOpen, Droplets, Factory, Filter, Package, Ruler, Store, Trash2, Truck, Warehouse, Weight, Briefcase, type LucideIcon } from 'lucide-react';
+import { DoorOpen, Ruler, Store, Warehouse } from 'lucide-react';
 
 import { Box, Choose, Problems, UnitSwitch, WallPicker } from '@/components/rental/owner/fields';
 import { StoreDrawing } from '@/components/rental/owner/StoreDrawing';
-import { AREA_KINDS, AREA_ORDER, blankArea, getField, JK, JK_DISTRICTS, MAX_AREAS, STATES, switchUnit, type AreaKind, type Issue, type Sides, type StoreDraft, type StoreModel } from '@/lib/coldStore';
+import { DOOR_KINDS, DOOR_KIND_TEXT, SPACE_DRAFT_FIELDS, SPACE_KEYS, SPACE_TEXT, getField, JK, JK_DISTRICTS, STATES, switchUnit, type DoorKind, type Issue, type Sides, type SpaceKey, type StoreDraft, type StoreModel } from '@/lib/coldStore';
 
 /** What every step gets from the wizard. */
 export interface Kit {
@@ -43,7 +41,7 @@ export function StoreStep({ kit }: { kit: Kit }) {
   return (
     <div className="space-y-5">
       <p className="flex items-start gap-2 text-base text-slate-700">
-        <Store className="mt-1 h-5 w-5 shrink-0 text-emerald-700" aria-hidden /> Tell farmers whose cold store this is and where it is.
+        <Store className="mt-1 h-5 w-5 shrink-0 text-[#174C3C]" aria-hidden /> Tell farmers whose cold store this is and where it is.
       </p>
       <KitBox kit={kit} field="title" label="Cold store name" autoComplete="organization" maxLength={100} />
       <div className="grid gap-5 sm:grid-cols-2">
@@ -77,25 +75,31 @@ const SIDE_TEXT: Record<Sides, { title: string; text: string }> = {
   left: { title: 'Left side', text: 'Chambers on your left' },
   right: { title: 'Right side', text: 'Chambers on your right' },
   both: { title: 'Both sides', text: 'Chambers left and right' },
+  lbank: { title: 'L-bank', text: 'Chambers 1–4 down the left wall, 5+ along the back wall' },
 };
 
-/** The store from above as you walk in: the main door at the bottom, the passage up from it, chambers on one side or both. */
+/** The store from above as you walk in: the main door at the bottom, the passage up from it, chambers on one side, both, or the L-bank. */
 function SidesIcon({ sides, on }: { sides: Sides; on: boolean }) {
-  const room = (x: number, y: number, door: 'l' | 'r') => (
+  const room = (x: number, y: number, door: 'l' | 'r' | 'b') => (
     <g key={`${x}-${y}`}>
       <rect x={x} y={y} width="22" height="17" rx="1.5" fill={on ? '#c4b5fd' : '#bfdbfe'} stroke={on ? '#5b21b6' : '#1d4ed8'} strokeWidth="1.5" />
-      <line x1={door === 'r' ? x + 22 : x} y1={y + 5} x2={door === 'r' ? x + 22 : x} y2={y + 12} stroke="#d97706" strokeWidth="3" />
+      {door === 'b' ? (
+        <line x1={x + 5} y1={y + 17} x2={x + 17} y2={y + 17} stroke="#d97706" strokeWidth="3" />
+      ) : (
+        <line x1={door === 'r' ? x + 22 : x} y1={y + 5} x2={door === 'r' ? x + 22 : x} y2={y + 12} stroke="#d97706" strokeWidth="3" />
+      )}
     </g>
   );
+  const lbank = sides === 'lbank';
   const left = sides !== 'right';
-  const right = sides !== 'left';
+  const right = sides !== 'left' && !lbank;
   return (
     <svg aria-hidden width="84" height="72" viewBox="0 0 84 72">
       <rect x="4" y="3" width="76" height="60" rx="3" fill="#ffffff" stroke="#64748b" strokeWidth="2" />
-      <rect x="35" y="3" width="14" height="60" fill="#fef3c7" />
-      <line x1="42" y1="58" x2="42" y2="12" stroke="#b45309" strokeWidth="1.5" strokeDasharray="3 3" />
-      <path d="M38 17 L42 11 L46 17" fill="none" stroke="#b45309" strokeWidth="1.5" />
-      {left && [room(7, 6, 'r'), room(7, 25, 'r'), room(7, 44, 'r')]}
+      <rect x="35" y={lbank ? 24 : 3} width="14" height={lbank ? 39 : 60} fill="#fef3c7" />
+      <line x1="42" y1="58" x2="42" y2={lbank ? 30 : 12} stroke="#b45309" strokeWidth="1.5" strokeDasharray="3 3" />
+      <path d={lbank ? 'M38 35 L42 29 L46 35' : 'M38 17 L42 11 L46 17'} fill="none" stroke="#b45309" strokeWidth="1.5" />
+      {lbank ? [room(7, 25, 'r'), room(7, 44, 'r'), room(7, 6, 'b'), room(31, 6, 'b'), room(55, 6, 'b')] : left && [room(7, 6, 'r'), room(7, 25, 'r'), room(7, 44, 'r')]}
       {right && [room(55, 6, 'l'), room(55, 25, 'l'), room(55, 44, 'l')]}
       <line x1="34" y1="63" x2="50" y2="63" stroke="#d97706" strokeWidth="5" />
       <text x="42" y="71.5" textAnchor="middle" fontSize="7" fontWeight="700" fill="#b45309">MAIN DOOR</text>
@@ -103,16 +107,16 @@ function SidesIcon({ sides, on }: { sides: Sides; on: boolean }) {
   );
 }
 
-/** Where the chambers are along the passage from the main door: three big picture buttons. */
+/** Where the chambers are along the passage from the main door: big picture buttons. */
 function SidesPicker({ value, onChange, issues }: { value: Sides | ''; onChange: (v: Sides) => void; issues: Issue[] }) {
   const label = 'Where are the chambers?';
   return (
-    <fieldset data-field="building.sides" className="space-y-2 rounded-2xl bg-emerald-50/70 p-4 ring-1 ring-emerald-200">
+    <fieldset data-field="building.sides" className="space-y-2 rounded-2xl bg-[#EAF3EE]/70 p-4 ring-1 ring-[#C6DBD0]">
       <legend className="sr-only">{label}</legend>
-      <p className="flex items-center gap-2 text-base font-semibold text-emerald-950"><Warehouse className="h-5 w-5" aria-hidden /> {label}</p>
-      <p className="text-sm text-slate-700">Stand in the main door and look in. The passage starts at the main door. Are the chambers on its left, on its right, or on both sides?</p>
-      <div role="radiogroup" aria-label={label} className="grid grid-cols-3 gap-2">
-        {(['left', 'right', 'both'] as const).map((s) => (
+      <p className="flex items-center gap-2 text-base font-semibold text-[#12382E]"><Warehouse className="h-5 w-5" aria-hidden /> {label}</p>
+      <p className="text-sm text-slate-700">Stand in the main door and look in. The passage starts at the main door. Are the chambers on its left, on its right, on both sides, or in an L — down the left wall and then along the back wall?</p>
+      <div role="radiogroup" aria-label={label} className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {(['left', 'right', 'both', 'lbank'] as const).map((s) => (
           <button
             key={s}
             type="button"
@@ -120,16 +124,42 @@ function SidesPicker({ value, onChange, issues }: { value: Sides | ''; onChange:
             aria-checked={value === s}
             aria-label={SIDE_TEXT[s].title}
             onClick={() => onChange(s)}
-            className={`flex min-h-[124px] cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl p-2 text-center ring-2 transition ${value === s ? 'bg-chinar text-white shadow-md ring-chinar' : 'bg-white text-slate-800 ring-slate-200 hover:ring-emerald-300'}`}
+            className={`flex min-h-[124px] cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl p-2 text-center ring-2 transition ${value === s ? 'bg-[#12382E] text-white shadow-md ring-[#174C3C]' : 'bg-white text-slate-800 ring-slate-200 hover:ring-[#C6DBD0]'}`}
           >
             <span className="rounded-xl bg-white p-0.5"><SidesIcon sides={s} on={value === s} /></span>
             <span className="text-base font-bold leading-tight">{SIDE_TEXT[s].title}</span>
-            <span className={`hidden text-xs sm:block ${value === s ? 'text-emerald-100' : 'text-slate-600'}`}>{SIDE_TEXT[s].text}</span>
+            <span className={`hidden text-xs sm:block ${value === s ? 'text-[#EAF3EE]' : 'text-slate-600'}`}>{SIDE_TEXT[s].text}</span>
           </button>
         ))}
       </div>
-      <p className="text-xs text-slate-600">KashRoot puts the chambers in number order from the main door inward{value === 'both' ? ' — Chamber 1 on the left, 2 on the right, 3 on the left and so on' : ''}, each with its door facing the passage. To put a chamber somewhere else, say where it stands in step 3 (More details).</p>
+      <p className="text-xs text-slate-600">KashRoot puts the chambers in number order from the main door inward{value === 'both' ? ' — Chamber 1 on the left, 2 on the right, 3 on the left and so on' : value === 'lbank' ? ' — Chambers 1 to 4 down the left wall, front to rear, then 5 and on along the back wall from left to right' : ''}, each with its door facing the passage or the hall. To put a chamber somewhere else, say where it stands in step 3 (More details).</p>
       <Problems issues={issues} />
+    </fieldset>
+  );
+}
+
+/** How the main door opens: three picture buttons — slides out, slides in, or rolls up. */
+function DoorKindPicker({ value, onChange }: { value: '' | DoorKind; onChange: (v: DoorKind) => void }) {
+  const label = 'How does the main door open?';
+  return (
+    <fieldset className="space-y-2 rounded-2xl bg-amber-50/70 p-4 ring-1 ring-amber-200">
+      <legend className="sr-only">{label}</legend>
+      <p className="text-base font-semibold text-amber-950">{label}</p>
+      <p className="text-sm text-slate-700">The drawing and the 3D view show the door exactly as it opens.</p>
+      <div role="radiogroup" aria-label={label} className="grid grid-cols-3 gap-2">
+        {DOOR_KINDS.map((k) => (
+          <button
+            key={k}
+            type="button"
+            role="radio"
+            aria-checked={value === k}
+            onClick={() => onChange(k)}
+            className={`min-h-11 cursor-pointer rounded-xl px-2 text-sm font-bold ring-2 transition ${value === k ? 'bg-[#12382E] text-white shadow-md ring-[#174C3C]' : 'bg-white text-slate-800 ring-slate-200 hover:ring-amber-300'}`}
+          >
+            {DOOR_KIND_TEXT[k]}
+          </button>
+        ))}
+      </div>
     </fieldset>
   );
 }
@@ -142,7 +172,7 @@ export function BuildingStep({ kit }: { kit: Kit }) {
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
       <div className="space-y-5">
         <p className="flex items-start gap-2 text-base text-slate-700">
-          <Ruler className="mt-1 h-5 w-5 shrink-0 text-emerald-700" aria-hidden /> Measure the whole cold store building from outside. The front is the side facing the road.
+          <Ruler className="mt-1 h-5 w-5 shrink-0 text-[#174C3C]" aria-hidden /> Measure the whole cold store building from outside. The front is the side facing the road.
         </p>
         <div>
           <p className="mb-1.5 text-sm font-semibold text-slate-800">Measure in</p>
@@ -168,81 +198,34 @@ export function BuildingStep({ kit }: { kit: Kit }) {
             <KitBox kit={kit} field="building.door.width" label={`Main door: width (${u})`} number />
             <KitBox kit={kit} field="building.door.height" label={`Main door: height (${u})`} number />
           </div>
+          <DoorKindPicker value={draft.building.doorKind} onChange={(v) => kit.set('building.doorKind', v)} />
+        </fieldset>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <KitBox kit={kit} field="building.wallThickness" label={`Insulated wall thickness (${u})`} number hint="How thick the cold-store panels are. Leave empty for the usual thickness." />
+          <KitBox kit={kit} field="building.passageWidth" label={`Main forklift passage width (${u})`} number hint="How wide the passage from the main door is. Leave empty for the door's own width." />
+        </div>
+        <fieldset className="space-y-3 rounded-2xl bg-[#EAF3EE]/70 p-4 ring-1 ring-[#C6DBD0]">
+          <legend className="sr-only">Work spaces</legend>
+          <p className="flex items-center gap-2 text-base font-semibold text-[#12382E]"><Warehouse className="h-5 w-5" aria-hidden /> Work spaces (cleaning, grading, packing, plant, bay)</p>
+          <p className="text-sm text-slate-700">The rooms around the chambers where the fruit is cleaned, graded, packed and loaded. Give each one its length and width — leave a space empty and the drawing makes it fit the room left over.</p>
+          <div className="space-y-3">
+            {SPACE_KEYS.map((k: SpaceKey) => (
+              <div key={k} className="rounded-xl bg-white p-3 ring-1 ring-slate-200">
+                <p className="text-sm font-semibold text-slate-900">{SPACE_TEXT[k]}</p>
+                <div className="mt-1.5 grid gap-3 sm:grid-cols-2">
+                  <KitBox kit={kit} field={`building.${SPACE_DRAFT_FIELDS[k].l}`} label={`Length (${u})`} number />
+                  <KitBox kit={kit} field={`building.${SPACE_DRAFT_FIELDS[k].w}`} label={`Width (${u})`} number />
+                </div>
+              </div>
+            ))}
+          </div>
         </fieldset>
         <SidesPicker value={draft.building.sides ?? ''} onChange={(v) => kit.set('building.sides', v)} issues={kit.issuesOf('building.sides')} />
-        <WorkAreas kit={kit} />
       </div>
       <section aria-label="Live drawing of the building" className="space-y-2 lg:sticky lg:top-4 lg:self-start">
         <p className="text-sm font-semibold text-slate-800">Live drawing <span className="font-normal text-slate-600">— changes as you type</span></p>
         <StoreDrawing model={kit.shown} title={draft.title.trim() || undefined} />
       </section>
     </div>
-  );
-}
-
-const AREA_ICON: Record<AreaKind, LucideIcon> = { receiving: Weight, grading: Filter, washing: Droplets, packing: Package, machinery: Cog, loading: Truck, office: Briefcase, other: Factory };
-
-/**
- * The parts of the building that are not chambers — where apples are received,
- * graded, washed, packed into bins and loaded — each with its size and where
- * it stands, measured from the building's left wall and front wall.
- */
-function WorkAreas({ kit }: { kit: Kit }) {
-  const u = kit.draft.unit;
-  const areas = kit.draft.building.areas ?? [];
-  const add = (kind: AreaKind) => kit.update((d) => ({ ...d, building: { ...d.building, areas: [...(d.building.areas ?? []), blankArea(kind)] } }));
-  const remove = (key: string) => kit.update((d) => ({ ...d, building: { ...d.building, areas: (d.building.areas ?? []).filter((a) => a.key !== key) } }));
-  const full = areas.length >= MAX_AREAS;
-  return (
-    <fieldset data-field="building.areas" className="space-y-4 rounded-2xl bg-orange-50/60 p-4 ring-1 ring-orange-200">
-      <legend className="sr-only">Work areas</legend>
-      <p className="flex items-center gap-2 text-base font-semibold text-orange-950"><Factory className="h-5 w-5" aria-hidden /> Work areas (if your store has them)</p>
-      <p className="text-sm text-slate-700">Grading, washing, packing, the machine room — the parts of the building that are not chambers. Tap what you have, then measure it and where it is. They are drawn in the plan and in 3D, so farmers know where to bring their apples.</p>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="Add a work area">
-        {AREA_ORDER.map((kind) => {
-          const Icon = AREA_ICON[kind];
-          return (
-            <button
-              key={kind}
-              type="button"
-              disabled={full}
-              onClick={() => add(kind)}
-              className="flex min-h-[72px] cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl bg-white p-2 text-center text-sm font-semibold text-slate-800 ring-2 ring-slate-200 transition hover:ring-orange-300 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <span className="grid h-8 w-8 place-items-center rounded-xl" style={{ background: AREA_KINDS[kind].colour }}><Icon className="h-5 w-5 text-slate-800" aria-hidden /></span>
-              <span className="leading-tight">{AREA_KINDS[kind].title}</span>
-            </button>
-          );
-        })}
-      </div>
-      {full && <p className="text-sm text-amber-900">{MAX_AREAS} areas is the most — join small ones together.</p>}
-      <Problems issues={kit.issuesOf('building.areas')} />
-      {areas.map((a, i) => {
-        const Icon = AREA_ICON[a.kind];
-        const f = `building.areas.${a.key}`;
-        const title = a.kind === 'other' ? a.name.trim() || 'Other area' : AREA_KINDS[a.kind].title;
-        return (
-          <section key={a.key} aria-label={`Work area ${i + 1}: ${title}`} className="space-y-3 rounded-2xl bg-white p-4 ring-1 ring-slate-900/10">
-            <div className="flex items-center justify-between gap-2">
-              <p className="flex items-center gap-2 font-semibold text-slate-900">
-                <span className="grid h-8 w-8 place-items-center rounded-xl" style={{ background: AREA_KINDS[a.kind].colour }}><Icon className="h-5 w-5" aria-hidden /></span>
-                {title}
-              </p>
-              <button type="button" onClick={() => remove(a.key)} aria-label={`Remove ${title}`} className="grid h-11 w-11 cursor-pointer place-items-center rounded-xl text-rose-700 hover:bg-rose-50">
-                <Trash2 className="h-5 w-5" aria-hidden />
-              </button>
-            </div>
-            <p className="text-xs text-slate-600">{AREA_KINDS[a.kind].hint}</p>
-            <KitBox kit={kit} field={`${f}.name`} label={a.kind === 'other' ? 'Name of this area' : 'Name (optional)'} maxLength={40} />
-            <div className="grid gap-4 sm:grid-cols-2">
-              <KitBox kit={kit} field={`${f}.length`} label={`Length, along the front (${u})`} number />
-              <KitBox kit={kit} field={`${f}.width`} label={`Width, front to back (${u})`} number />
-              <KitBox kit={kit} field={`${f}.x`} label={`From the building’s left wall (${u})`} number hint="Stand outside facing the front. 0 if it touches the left wall." />
-              <KitBox kit={kit} field={`${f}.y`} label={`From the building’s front wall (${u})`} number hint="0 if it touches the front wall." />
-            </div>
-          </section>
-        );
-      })}
-    </fieldset>
   );
 }

@@ -40,7 +40,8 @@ import { ChamberDiagram } from '@/components/rental/ChamberDiagram';
 import { StorePhotosView } from '@/components/rental/StorePhotos';
 import { lookLabel, PLACE_LOOK, placesOf, type Look } from '@/components/rental/placeLook';
 import { StoreTopView, type ChamberCount } from '@/components/rental/three/StoreTopView';
-import { buildScene } from '@/components/rental/three/storeScene';
+import { buildScene, zonesForViewer } from '@/components/rental/three/storeScene';
+import { Guard3D } from '@/components/rental/three/SceneGuard';
 import { layersText, planOf, showLength } from '@/lib/coldLayout';
 import { asBuilding, countText, unitsText, unitWord, type Building, type Storage } from '@/lib/coldStore';
 import { supabase } from '@/lib/db/client';
@@ -48,10 +49,19 @@ import { placeKey, placeLabel, placeName, usablePlaces, type ColdChamber } from 
 
 export { PLACE_LOOK, type Look };
 
-// three.js loads only when someone opens the 3D view or walks inside.
+// three.js loads only when someone opens the 3D view or walks inside, and a
+// WebGL or network hiccup there stays inside the 3D panel (three/SceneGuard):
+// it never takes the whole page down to the portal's error screen.
 const ColdStore3D = dynamic(() => import('@/components/rental/ColdStore3D').then((m) => m.ColdStore3D), {
   ssr: false,
-  loading: () => <div className="grid h-[420px] place-items-center rounded-3xl bg-slate-100 text-sm text-slate-500">Opening the 3D view…</div>,
+  loading: () => (
+    <div className="grid h-[420px] place-items-center rounded-3xl bg-slate-100" role="status" aria-live="polite">
+      <div className="flex flex-col items-center gap-3">
+        <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#CFE0D6] border-t-[#286B54]" aria-hidden />
+        <p className="text-sm font-semibold text-slate-600">Initializing the 3D cold store...</p>
+      </div>
+    </div>
+  ),
 });
 
 /** "4,480" — Indian grouping. */
@@ -87,10 +97,10 @@ export function ChamberFacts({ chamber: c, roomOf, mode }: { chamber: ColdChambe
   const floors = size?.floors ?? 1;
   const counted = Boolean(size?.places);
   const fact = (label: string, value: string, sub?: string, strong = false) => (
-    <div className={`rounded-2xl p-3 ring-1 ${strong ? 'bg-chinar text-white ring-chinar' : 'bg-white ring-slate-900/5'}`}>
-      <dt className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${strong ? 'text-emerald-100' : 'text-slate-500'}`}>{label}</dt>
+    <div className={`rounded-2xl p-3 ring-1 ${strong ? 'bg-[#174C3C] text-white ring-[#174C3C]' : 'bg-white ring-slate-900/5'}`}>
+      <dt className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${strong ? 'text-[#EAF3EE]' : 'text-slate-500'}`}>{label}</dt>
       <dd className={`mt-0.5 text-lg font-bold tabular-nums ${strong ? 'text-white' : 'text-slate-900'}`}>{value}</dd>
-      {sub && <dd className={`text-xs ${strong ? 'text-emerald-100' : 'text-slate-600'}`}>{sub}</dd>}
+      {sub && <dd className={`text-xs ${strong ? 'text-[#EAF3EE]' : 'text-slate-600'}`}>{sub}</dd>}
     </div>
   );
   const sizeFact = () => {
@@ -108,7 +118,7 @@ export function ChamberFacts({ chamber: c, roomOf, mode }: { chamber: ColdChambe
         {fact(floors > 1 ? `Floor ${size?.floor ?? 1} holds` : 'Chamber holds', countText(b.holds, st), mode === 'view' ? undefined : `${boxes(b.free)} free · room on ${b.open} of ${b.places} places`, true)}
       </dl>
       {mode === 'book' && (
-        <p className="flex items-start gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-950 ring-1 ring-emerald-200">
+        <p className="flex items-start gap-2 rounded-xl bg-[#EAF3EE] px-3 py-2 text-sm text-[#25332F] ring-1 ring-[#CFE0D6]">
           <Hand className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           <span>
             You choose: tap any place with room where you want your {unitWord(st)} — any number, small or big. A place in {c.name} takes up to {countText(c.boxes_per_slot, st)}; a part-filled place takes the rest, and you pay only for your own {unitWord(st)}.
@@ -160,7 +170,7 @@ export function ChamberGrid({
 
   return (
     <div className="overflow-x-auto overscroll-x-contain pb-2">
-      <div className="mx-auto w-max" role="group" aria-label={`${c.name}: ${c.rows} rows from the door, ${c.cols} stacks in each row, ${c.boxes_per_slot} boxes in each place`}>
+      <div data-kr-plain className="mx-auto w-max" role="group" aria-label={`${c.name}: ${c.rows} rows from the door, ${c.cols} stacks in each row, ${c.boxes_per_slot} boxes in each place`}>
         <p className="mb-1 text-center text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Back wall</p>
         <div className="rounded-2xl border-[6px] border-b-0 border-slate-500 bg-slate-50 px-3 pb-3 pt-2 shadow-inner">
           <div className="flex items-center gap-1.5">
@@ -297,6 +307,11 @@ export function ColdStoreExplorer({
   building: buildingProp,
   rate: rateProp,
   mineName,
+  stackOf,
+  holdersOf,
+  mineOf,
+  facilityName,
+  facilityId,
 }: {
   chambers: ColdChamber[];
   stateOf: (c: ColdChamber, slot: string) => Look;
@@ -316,6 +331,15 @@ export function ColdStoreExplorer({
   rate?: number | null;
   /** The farmer's name, shown over their own places in the 3D views. */
   mineName?: string;
+  /** Who holds one place (owner flow): a drawer sentence from the bookings, or null when nothing says. */
+  stackOf?: (c: ColdChamber, slot: string) => string | null;
+  /** Owner flow: every farmer sharing one place (units, booking reference), for the 3D place card. */
+  holdersOf?: (c: ColdChamber, slot: string) => import('@/components/rental/ColdStore3D').PlaceHolder[];
+  /** Farmer flow: the viewer's own units on one place (null: not known), for the 3D place card. */
+  mineOf?: (c: ColdChamber, slot: string) => number | null;
+  facilityName?: string;
+  /** The facility's database id, shown in the 3D place inspector (Facility ID row). */
+  facilityId?: string;
 }) {
   const [view, setView] = useState<ExplorerView>('drawing');
   // While the drawing is looked at, the 3D code (and three.js) loads in the background, so the
@@ -344,7 +368,11 @@ export function ColdStoreExplorer({
   const chamber = chambers.find((c) => c.id === active) ?? chambers[0];
   const byLook = useMemo(() => roomByLook(stateOf), [stateOf]);
   const roomOf = roomOfProp ?? byLook;
-  const scene = useMemo(() => buildScene(chambers, building), [chambers, building]);
+  const scene = useMemo(() => {
+    const built = buildScene(chambers, building);
+    // Farmer-facing top views never show the machinery bay.
+    return { ...built, zones: zonesForViewer(built.zones, mode) };
+  }, [chambers, building, mode]);
   // What each chamber (all its floors) holds and has free.
   const counts = useMemo<ChamberCount[]>(
     () =>
@@ -387,7 +415,7 @@ export function ColdStoreExplorer({
       role="tab"
       aria-selected={view === id}
       onClick={() => setView(id)}
-      className={`inline-flex min-h-[44px] flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition sm:flex-none sm:px-4 ${view === id ? 'bg-chinar text-white shadow' : 'text-emerald-900 hover:bg-emerald-100'}`}
+      className={`inline-flex min-h-[44px] flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition sm:flex-none sm:px-4 ${view === id ? 'bg-[#174C3C] text-white shadow' : 'text-[#12382E] hover:bg-[#EAF3EE]'}`}
     >
       <Icon className="h-4 w-4 shrink-0" aria-hidden /> {label}
     </button>
@@ -406,14 +434,14 @@ export function ColdStoreExplorer({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div role="tablist" aria-label="How to see the store" className={`${realStore ? 'grid grid-cols-2 sm:flex' : 'flex'} w-full gap-1 rounded-2xl bg-emerald-50 p-1 ring-1 ring-emerald-200 sm:w-auto`}>
+        <div role="tablist" aria-label="How to see the store" className={`${realStore ? 'grid grid-cols-2 sm:flex' : 'flex'} w-full gap-1 rounded-2xl bg-[#EAF3EE] p-1 ring-1 ring-[#CFE0D6] sm:w-auto`}>
           {tab('drawing', 'Drawing', MapIcon)}
           {tab('3d', '3D view', Layers)}
           {tab('walk', 'Walk inside', Footprints)}
           {realStore && tab('photos', 'Photos', Camera)}
         </div>
         <p className="text-sm text-slate-700">
-          {groups} chamber{groups === 1 ? '' : 's'} · holds <strong className="text-slate-900">{mixText(totals.holds)}</strong> · <strong className={anyFree ? 'text-sky-800' : 'text-slate-900'}>{freeText}</strong> free
+          {groups} chamber{groups === 1 ? '' : 's'} · holds <strong className="text-slate-900">{mixText(totals.holds)}</strong> · <strong className={anyFree ? 'text-[#174C3C]' : 'text-slate-900'}>{freeText}</strong> free
         </p>
       </div>
 
@@ -437,20 +465,27 @@ export function ColdStoreExplorer({
           {waiting ? (
             drawingSoon
           ) : (
-            <ColdStore3D
-              chambers={chambers}
-              stateOf={stateOf}
-              roomOf={roomOf}
-              mode={mode}
-              onPlace={onPlace}
-              active={chamber?.id ?? null}
-              onActive={onActive}
-              building={building}
-              rate={rate}
-              mineName={mineName}
-              view={view === 'walk' ? 'walk' : 'orbit'}
-              onView={(v) => setView(v === 'walk' ? 'walk' : '3d')}
-            />
+            <Guard3D>
+              <ColdStore3D
+                chambers={chambers}
+                stateOf={stateOf}
+                roomOf={roomOf}
+                mode={mode}
+                onPlace={onPlace}
+                active={chamber?.id ?? null}
+                onActive={onActive}
+                building={building}
+                rate={rate}
+                mineName={mineName}
+                stackOf={stackOf}
+                holdersOf={holdersOf}
+                mineOf={mineOf}
+                facilityName={facilityName}
+                facilityId={facilityId}
+                view={view === 'walk' ? 'walk' : 'orbit'}
+                onView={(v) => setView(v === 'walk' ? 'walk' : '3d')}
+              />
+            </Guard3D>
           )}
           {chamber && (
             <section aria-label={`${chamber.name} in numbers`} className="space-y-2">
@@ -473,7 +508,7 @@ export function ColdStoreExplorer({
                       role="radio"
                       aria-checked={floor === n}
                       onClick={() => toFloor(n)}
-                      className={`min-h-[44px] min-w-[44px] cursor-pointer rounded-xl px-4 text-sm font-bold transition ${floor === n ? 'bg-chinar text-white shadow' : 'bg-white text-emerald-900 ring-1 ring-emerald-200 hover:bg-emerald-50'}`}
+                      className={`min-h-[44px] min-w-[44px] cursor-pointer rounded-xl px-4 text-sm font-bold transition ${floor === n ? 'bg-[#174C3C] text-white shadow' : 'bg-white text-[#12382E] ring-1 ring-[#CFE0D6] hover:bg-[#EAF3EE]'}`}
                     >
                       {`Floor ${n}`}
                     </button>

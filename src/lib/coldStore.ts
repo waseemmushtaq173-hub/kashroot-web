@@ -37,12 +37,21 @@ import type { ColdChamber } from '@/lib/db/coldMap';
 
 export { WALLS, type Wall, type SizeUnit };
 
-/** Where the chambers are, as you walk in through the main door: left of the passage, right of it, or both sides. */
-export type Sides = 'left' | 'right' | 'both';
-export type Side = Exclude<Sides, 'both'>;
-export const SIDES: Sides[] = ['left', 'right', 'both'];
-/** The side of the passage for the n-th chamber placed in order (from 0): all on one side, or 1 left, 2 right, 3 left … */
-export const sideOrder = (sides: Sides, n: number): Side => (sides === 'both' ? (n % 2 ? 'right' : 'left') : sides);
+/**
+ * Where the chambers are, as you walk in through the main door: left of the passage, right of it, both sides,
+ * or the L-bank of the architectural diagram — Chambers 1..4 down the left wall (front to rear), 5..N along the back wall (left to right).
+ */
+export type Side = 'left' | 'right';
+export type Sides = Side | 'both' | 'lbank';
+/** A chamber's bank along a building wall: a passage side, or across the far ('back') or entrance ('front') wall. */
+export type WallSide = Side | 'back' | 'front';
+/** The wall opposite this one (front ↔ back, left ↔ right). */
+export const oppositeWall = (w: Wall): Wall => ({ front: 'back', back: 'front', left: 'right', right: 'left' } as const)[w];
+export const SIDES: Sides[] = ['left', 'right', 'both', 'lbank'];
+/** The L-bank: this many chambers stand down the left wall before the back wall's row begins. */
+export const L_BANK_LEFT = 4;
+/** The bank for the n-th chamber placed in order (from 0): all on one side, 1 left, 2 right, 3 left … or the L-bank (1..4 left, then along the back wall). */
+export const sideOrder = (sides: Sides, n: number): WallSide => (sides === 'lbank' ? (n < L_BANK_LEFT ? 'left' : 'back') : sides === 'both' ? (n % 2 ? 'right' : 'left') : sides);
 
 // ───────────────────────── what a chamber stores ─────────────────────────
 
@@ -103,49 +112,6 @@ export interface DoorDraft {
   height: string;
 }
 
-// ───────────────────────── work areas in the building ─────────────────────────
-
-/** The parts of a cold store building that are not chambers: where apples are received, graded, washed, packed and loaded. */
-export type AreaKind = 'receiving' | 'grading' | 'washing' | 'packing' | 'machinery' | 'loading' | 'office' | 'other';
-export const AREA_KINDS: Record<AreaKind, { title: string; hint: string; colour: string }> = {
-  receiving: { title: 'Receiving & weighing', hint: 'Where trucks unload and apples are weighed.', colour: '#fde68a' },
-  grading: { title: 'Grading & sorting line', hint: 'The sorting machine or tables where apples are graded by size and colour.', colour: '#bbf7d0' },
-  washing: { title: 'Washing & drying', hint: 'Where apples are washed, waxed or dried.', colour: '#bae6fd' },
-  packing: { title: 'Packing hall', hint: 'Where apples are filled into boxes or crates and transferred into bins.', colour: '#fed7aa' },
-  machinery: { title: 'Machine room', hint: 'Compressors, generator, electric panel.', colour: '#e2e8f0' },
-  loading: { title: 'Loading dock', hint: 'Where trucks are loaded for dispatch.', colour: '#fecaca' },
-  office: { title: 'Office', hint: 'Office, store keeper, staff room.', colour: '#ddd6fe' },
-  other: { title: 'Other', hint: 'Any other area — write its name.', colour: '#f5f5f4' },
-};
-export const AREA_ORDER: AreaKind[] = ['receiving', 'grading', 'washing', 'packing', 'machinery', 'loading', 'office', 'other'];
-/** The building is saved in one small database field: at most this many areas. */
-export const MAX_AREAS = 8;
-
-/** A work area as typed: its kind, name (for "other"), size and where it stands (from the building's left wall and front wall). */
-export interface AreaDraft {
-  key: string;
-  kind: AreaKind;
-  name: string;
-  length: string;
-  width: string;
-  x: string;
-  y: string;
-}
-
-/** A work area as saved, in metres, in the building's frame: x along the front from the left wall, y in from the front wall. */
-export interface WorkArea {
-  kind: AreaKind;
-  name?: string;
-  x: number;
-  y: number;
-  length: number;
-  width: number;
-}
-
-export const blankArea = (kind: AreaKind = 'packing'): AreaDraft => ({ key: newKey(), kind, name: '', length: '', width: '', x: '', y: '' });
-/** What an area is called: its own name, or its kind. */
-export const areaName = (a: Pick<WorkArea, 'kind' | 'name'>) => (a.name?.trim() ? a.name.trim() : AREA_KINDS[a.kind].title);
-
 /** One chamber as typed (lengths in the store's unit). */
 export interface ChamberDraft {
   /** Stable while editing (the drawings and 3D keep track of it by this). */
@@ -169,6 +135,10 @@ export interface ChamberDraft {
   rate: string;
   /** How high they stack, if the owner says ('' = as high as fits). */
   stackHigh: string;
+  /** How many levels one rack holds (1 to 10); shown in the 3D twin and saved to cold_chambers.levels_count. */
+  rackLevels: string;
+  /** Where it stands in the building ('' = drawn in order): which wall it is against (LEFT / BACK / RIGHT / FRONT). */
+  wallPosition: '' | 'LEFT' | 'BACK' | 'RIGHT' | 'FRONT';
   /** Where it stands, if the owner says: from the building's left wall and front wall ('' = drawn in order). */
   spotX: string;
   spotY: string;
@@ -188,6 +158,10 @@ export interface ChamberDraft {
   ca: '' | 'yes' | 'no';
   temperature: string;
   humidity: string;
+  /** The chamber door's build ('' = the CA default sliding overlap). */
+  doorType: '' | 'INFITTING_PLUG' | 'OVERLAP_HEATED_GASKET' | 'SLIDING_OVERLAP_CA';
+  /** How many crates one shared bin holds (the chamber's default for cold_storage_bins.max_crates). */
+  cratesPerBin: string;
 }
 
 /** The whole store as typed. */
@@ -204,7 +178,25 @@ export interface StoreDraft {
   /** Feet or metres, for the building and every chamber. */
   unit: SizeUnit;
   /** `sides`: where the chambers are along the passage from the main door ('' = not chosen yet). */
-  building: { length: string; width: string; height: string; door: DoorDraft; sides: Sides | ''; areas?: AreaDraft[] };
+  building: {
+    length: string;
+    width: string;
+    height: string;
+    door: DoorDraft;
+    sides: Sides | '';
+    /** Insulated wall thickness ('' = the drawing's default). */
+    wallThickness: string;
+    /** The main forklift passage width ('' = as wide as the door, at least CORRIDOR). */
+    passageWidth: string;
+    /** How the main door opens ('' = not chosen yet). */
+    doorKind: '' | DoorKind;
+    /** The five work spaces, length × width each ('' = not set). */
+    spCleaningL: string; spCleaningW: string;
+    spGradingL: string; spGradingW: string;
+    spPackingL: string; spPackingW: string;
+    spMachineryL: string; spMachineryW: string;
+    spDockL: string; spDockW: string;
+  };
   chambers: ChamberDraft[];
 }
 
@@ -224,6 +216,14 @@ export const newKey = () => `c${Date.now().toString(36)}${(made++).toString(36)}
 
 export const blankDoor = (): DoorDraft => ({ wall: 'front', from: '', width: '', height: '' });
 
+/** One building length from the draft ('' or nonsense → null), clamped into [lo, hi] metres. */
+const buildingLen = (s: string, u: SizeUnit, lo: number, hi: number): number | null => {
+  const n = readNumber(s);
+  if (n === null) return null;
+  const m = metres(n, u);
+  return Number.isFinite(m) ? Math.min(hi, Math.max(lo, m)) : null;
+};
+
 export function blankStore(who?: { name?: string; phone?: string; district?: string; village?: string } | null, prefill?: { title?: string; district?: string; address?: string } | null): StoreDraft {
   const district = prefill?.district || who?.district || '';
   return {
@@ -237,7 +237,7 @@ export function blankStore(who?: { name?: string; phone?: string; district?: str
     area: who?.village ?? '',
     address: prefill?.address ?? '',
     unit: 'ft',
-    building: { length: '', width: '', height: '', door: blankDoor(), sides: '', areas: [] },
+    building: { length: '', width: '', height: '', door: blankDoor(), sides: '', wallThickness: '', passageWidth: '', doorKind: '', spCleaningL: '', spCleaningW: '', spGradingL: '', spGradingW: '', spPackingL: '', spPackingW: '', spMachineryL: '', spMachineryW: '', spDockL: '', spDockW: '' },
     chambers: [],
   };
 }
@@ -256,6 +256,8 @@ export const blankChamber = (no: number, storage: Packed = 'bins'): ChamberDraft
   door: blankDoor(),
   rate: '',
   stackHigh: '',
+  rackLevels: '4',
+  wallPosition: '',
   spotX: '',
   spotY: '',
   unitL: '',
@@ -270,13 +272,15 @@ export const blankChamber = (no: number, storage: Packed = 'bins'): ChamberDraft
   ca: '',
   temperature: '',
   humidity: '',
+  doorType: '',
+  cratesPerBin: '100',
 });
 
 /** The next free chamber number. */
 export const nextNumber = (chambers: Pick<ChamberDraft, 'no'>[], taken = 0) => Math.max(taken, 0, ...chambers.map((c) => Math.floor(Number(c.no)) || 0)) + 1;
 
-/** A copy of a chamber with a new number (where it stands is not copied). */
-export const copyChamber = (c: ChamberDraft, no: number): ChamberDraft => ({ ...c, door: { ...c.door }, key: newKey(), no: String(no), spotX: '', spotY: '' });
+/** A copy of a chamber with a new number (where it stands is not copied: neither the spot nor the wall it is against). */
+export const copyChamber = (c: ChamberDraft, no: number): ChamberDraft => ({ ...c, door: { ...c.door }, key: newKey(), no: String(no), spotX: '', spotY: '', wallPosition: '' });
 
 export const blankPayout = (name = ''): PayoutDraft => ({ name, account: '', account2: '', ifsc: '', bank: '', upi: '' });
 
@@ -350,9 +354,44 @@ export interface Building {
   door: DoorAt;
   /** Where the chambers are along the passage from the main door ('both' for stores saved before it was asked). */
   sides: Sides;
-  /** Work areas (packing, grading, machinery…), when the owner added them. */
-  areas?: WorkArea[];
+  /** Insulated wall thickness in metres (absent: the drawing's sensible default). */
+  wallThickness?: number;
+  /** How the main door opens (absent: a roll-up shutter, as always drawn). */
+  doorKind?: DoorKind;
+  /** The main forklift passage width in metres (absent: as wide as the door, at least CORRIDOR). */
+  passageWidth?: number;
+  /** The five work spaces, length × width in metres (absent: sized from the free floor). */
+  workSpaces?: WorkSpaces;
 }
+
+/** How the main door opens: it slides out along the wall, slides in, or rolls up. */
+export type DoorKind = 'outside-slide' | 'inside-slide' | 'roll-up';
+export const DOOR_KINDS: DoorKind[] = ['outside-slide', 'inside-slide', 'roll-up'];
+export const DOOR_KIND_TEXT: Record<DoorKind, string> = { 'outside-slide': 'Outside sliding', 'inside-slide': 'Inside sliding', 'roll-up': 'Roll-up' };
+
+/** The five work spaces round the chambers. */
+export type SpaceKey = 'cleaning' | 'grading' | 'packing' | 'machinery' | 'dock';
+export const SPACE_KEYS: SpaceKey[] = ['cleaning', 'grading', 'packing', 'machinery', 'dock'];
+export const SPACE_TEXT: Record<SpaceKey, string> = {
+  cleaning: 'Apple Cleaning & Washing',
+  grading: 'Grading & Sorting Machinery',
+  packing: 'Apple Packing & Boxing',
+  machinery: 'Refrigeration Plant / Machinery Room',
+  dock: 'Loading & Unloading Bay',
+};
+/** One space as the owner sized it: length × width, in metres. */
+export type SpaceSize = { l: number; w: number };
+export type WorkSpaces = Partial<Record<SpaceKey, SpaceSize>>;
+/** The draft fields of each space's length and width. */
+export const SPACE_DRAFT_FIELDS: Record<SpaceKey, { l: string; w: string }> = {
+  cleaning: { l: 'spCleaningL', w: 'spCleaningW' },
+  grading: { l: 'spGradingL', w: 'spGradingW' },
+  packing: { l: 'spPackingL', w: 'spPackingW' },
+  machinery: { l: 'spMachineryL', w: 'spMachineryW' },
+  dock: { l: 'spDockL', w: 'spDockW' },
+};
+/** Every building length is kept inside these metres, however it was typed. */
+export const BUILDING_LIMITS = { wallThickness: [0.05, 1.5], passage: [2, 12], space: [1, 60] } as const;
 /** A door in metres: its wall, from the left corner of that wall (standing outside facing it), width, height. */
 export interface DoorAt {
   wall: Wall;
@@ -384,6 +423,14 @@ export interface ChamberRow {
   capacity_mt: number;
   rate: number;
   size: ChamberSize;
+  /** How many levels one rack holds (1 to 10) — the twin's rackLevels. */
+  levels_count: number;
+  /** Where the chamber stands in the building (null = drawn in order; the twin alternates the walls). */
+  side_position: string | null;
+  /** The chamber door's build. */
+  door_type: string;
+  /** How many crates one shared bin holds (the chamber's default for cold_storage_bins.max_crates). */
+  crates_per_bin: number;
 }
 
 /** One floor of a chamber: its share of the count, the stack height, the places, and its plan. */
@@ -417,7 +464,7 @@ export interface ModelChamber {
   /** In the building's frame, its door in the wall facing the passage when it stands along it. */
   outline: Outline;
   /** The side of the passage it stands on (null: where the owner said, or the building is not known yet). */
-  side: Side | null;
+  side: WallSide | null;
   /** Where the owner said it stands (metres from the building's left wall and front wall). */
   spot?: { x: number; y: number };
   /** The floors, laid out (empty until the count, floors and door are right). */
@@ -438,6 +485,11 @@ export interface StoreRow {
   area: string;
   address: string | null;
   building: Building | null;
+  /** Where farmers pay the owner directly (20261111000002): read per facility by the unit booking API. */
+  owner_payout_upi?: string | null;
+  owner_bank_account_name?: string | null;
+  owner_bank_account_no?: string | null;
+  owner_bank_ifsc?: string | null;
 }
 
 export interface StoreModel {
@@ -455,9 +507,93 @@ export interface StoreModel {
    * wall facing the passage, whatever wall is in the draft. Known as soon as
    * the building is, even before the chamber's size is typed.
    */
-  along: Record<string, { side: Side; wall: Wall }>;
+  along: Record<string, { side: WallSide; wall: Wall }>;
   issues: Issue[];
   totals: { bins: number; crates: number; tonnes: number; places: number };
+}
+
+/**
+ * The Blender twin's own payload, in the bridge's words (scripts/
+ * blender_kashroot_bridge materialize): the building in metres, every saved
+ * (ready) chamber, and the racks one entry per chamber. Nothing here is a
+ * number that was not typed on this wizard first: sizes and counts come
+ * from the very model that is drawn and saved, and anything the owner left
+ * blank is left out so the twin engine keeps its own reference default.
+ * `null` when no chamber is ready yet — there is nothing to generate.
+ */
+export function twinPayload(model: StoreModel, draft: StoreDraft): Record<string, unknown> | null {
+  const u = draft.unit;
+  const toM = (s: string): number | null => {
+    const n = readNumber(s);
+    return n === null ? null : metres(n, u);
+  };
+  const byKey = new Map(draft.chambers.map((c) => [c.key, c]));
+  const chambers: Record<string, unknown>[] = [];
+  const racks: Record<string, unknown>[] = [];
+  for (const m of model.chambers) {
+    if (!m.ready || !m.outline) continue;
+    const dc = byKey.get(m.key);
+    const no = m.no > 0 ? m.no : chambers.length + 1;
+    const cid = `CH${String(no).padStart(2, '0')}`;
+    const ch: Record<string, unknown> = {
+      chamberId: cid,
+      label: m.name || `Chamber ${no}`,
+      length: m.outline.length,
+      width: m.outline.width,
+      height: m.outline.height,
+      floors: m.floors.length || 1,
+    };
+    if (m.outline.door) {
+      ch.doorWidth = m.outline.door.width;
+      ch.doorHeight = m.outline.door.height;
+    }
+    if (m.count > 0 && m.kg > 0) ch.maxLoadKg = m.count * m.kg;
+    if (dc) {
+      const c1 = readNumber(dc.temperature);
+      if (c1 !== null) ch.temperature = c1;
+      const h1 = readNumber(dc.humidity);
+      if (h1 !== null) ch.humidity = h1;
+      if (dc.ca === 'yes' || dc.ca === 'no') ch.controlAtmosphere = dc.ca === 'yes';
+      const aisle = dc.aisle ? toM(dc.aisle) : null;
+      if (aisle !== null) ch.aisleWidth = aisle;
+    }
+    chambers.push(ch);
+
+    // One rack unit per chamber: the owner's own bin/crate, its stack and gap.
+    const floor0 = m.floors[0];
+    const rack: Record<string, unknown> = {
+      chamberId: cid,
+      unitType: m.storage === 'bins' ? 'BIN' : 'CRATE',
+    };
+    if (m.kg > 0) rack.unitCapacityKg = m.kg;
+    if (floor0) {
+      if (floor0.row.cols > 0) rack.cratesPerRow = Math.round(floor0.row.cols);
+      if (floor0.row.rows > 0) rack.rowsPerLevel = Math.round(floor0.row.rows);
+    }
+    if (dc) {
+      const ul = dc.unitL ? toM(dc.unitL) : null;
+      const uw = dc.unitW ? toM(dc.unitW) : null;
+      const uh = dc.unitH ? toM(dc.unitH) : null;
+      if (ul !== null) rack.unitLength = ul;
+      if (uw !== null) rack.unitWidth = uw;
+      if (uh !== null) rack.unitHeight = uh;
+      const levels = dc.stackHigh ? readNumber(dc.stackHigh) : floor0?.stack ?? null;
+      if (levels !== null) rack.verticalStackLevels = Math.max(1, Math.round(levels));
+      const gap = dc.stackGap ? toM(dc.stackGap) : null;
+      if (gap !== null) rack.rackClearance = gap;
+    }
+    racks.push(rack);
+  }
+  // The twin draws the whole facility: without the measured building there is nothing to generate.
+  if (chambers.length === 0 || !model.building) return null;
+  const payload: Record<string, unknown> = {
+    building: { length: model.building.length, width: model.building.width, height: model.building.height },
+    chambers,
+    racks,
+  };
+  const title = draft.title.trim();
+  if (title) payload.facilityName = title;
+  return payload;
 }
 
 /** Typical and allowed sizes, in metres: [allowed low, typical low, typical high, allowed high]. */
@@ -553,15 +689,28 @@ export function storeModel(draft: StoreDraft): StoreModel {
   }
   const mainDoor = readDoor(d.building.door, 'building.door', 'the main door', 'the building', 2, bL !== null && bW !== null && bH !== null ? { length: bL, width: bW, height: bH } : null, u, add);
   const sides = SIDES.includes(d.building.sides as Sides) ? (d.building.sides as Sides) : null;
-  if (!sides) add('error', 2, 'building.sides', 'Choose where the chambers are, as you walk in through the main door: on the left side of the passage, on the right side, or on both sides.');
-  // Drawn on both sides until the owner chooses (it cannot be saved before).
-  const building: Building | null = bL !== null && bW !== null && bH !== null && mainDoor ? { unit: u, length: bL, width: bW, height: bH, door: mainDoor, sides: sides ?? 'both' } : null;
-  const areas = readAreas(d.building.areas ?? [], bL, bW, u, add);
-  if (building && areas.length) building.areas = areas;
-  if (building) {
-    const way = passageOf(building).rect;
-    for (const ar of areas) if (overlaps({ x: ar.x, y: ar.y, w: ar.length, d: ar.width }, way)) add('warn', 2, 'building.areas', `The ${areaName(ar).toLowerCase()} is in the passage from the main door. Chambers open onto that passage — check where the area is.`);
+  if (!sides) add('error', 2, 'building.sides', 'Choose where the chambers are, as you walk in through the main door: on the left side of the passage, on the right side, on both sides, or in the L-bank (left wall, then the back wall).');
+  // The owner's extra architecture: wall thickness, the passage width, how
+  // the main door opens, and the five work spaces. Anything left empty falls
+  // back to the drawing's own sensible choice; anything typed is clamped.
+  const wallThickness = buildingLen(d.building.wallThickness, u, BUILDING_LIMITS.wallThickness[0], BUILDING_LIMITS.wallThickness[1]) ?? undefined;
+  const passageWidth = buildingLen(d.building.passageWidth, u, BUILDING_LIMITS.passage[0], BUILDING_LIMITS.passage[1]) ?? undefined;
+  const doorKind = DOOR_KINDS.includes(d.building.doorKind as DoorKind) ? (d.building.doorKind as DoorKind) : undefined;
+  const workSpaces: WorkSpaces = {};
+  for (const k of SPACE_KEYS) {
+    const f = SPACE_DRAFT_FIELDS[k];
+    const l = buildingLen(d.building[f.l as keyof typeof d.building] as string, u, BUILDING_LIMITS.space[0], BUILDING_LIMITS.space[1]);
+    const w = buildingLen(d.building[f.w as keyof typeof d.building] as string, u, BUILDING_LIMITS.space[0], BUILDING_LIMITS.space[1]);
+    if (l !== null && w !== null) workSpaces[k] = { l, w };
   }
+  // Drawn on both sides until the owner chooses (it cannot be saved before).
+  const building: Building | null = bL !== null && bW !== null && bH !== null && mainDoor ? {
+    unit: u, length: bL, width: bW, height: bH, door: mainDoor, sides: sides ?? 'both',
+    ...(wallThickness !== undefined && { wallThickness }),
+    ...(passageWidth !== undefined && { passageWidth }),
+    ...(doorKind !== undefined && { doorKind }),
+    ...(Object.keys(workSpaces).length > 0 && { workSpaces }),
+  } : null;
 
   // ── 3. The chambers ──
   if (!d.chambers.length) add('error', 3, 'chambers', 'Add your first chamber: tap “Add a chamber”.');
@@ -573,15 +722,33 @@ export function storeModel(draft: StoreDraft): StoreModel {
   // In number order from the main door inward, the chambers the owner did not place stand
   // on their side of the passage, each with its door in the wall that faces the passage.
   const byNumber = (n: number | null) => (n !== null && Number.isFinite(n) ? n : Infinity);
-  const along = new Map<string, { side: Side; wall: Wall }>();
+  const along = new Map<string, { side: WallSide; wall: Wall }>();
   if (building) {
     d.chambers
       .map((c, i) => ({ c, i, no: byNumber(readNumber(c.no)) }))
       .filter(({ c }) => !spotOf(c))
       .sort((a, b) => a.no - b.no || a.i - b.i)
       .forEach(({ c }, n) => {
-        const side = sideOrder(building.sides, n);
-        along.set(c.key, { side, wall: passageWall(building.door.wall, side) });
+        // The chamber's wall (step 3) leads: LEFT / RIGHT stand on that side
+        // of the passage; BACK / FRONT stand across the far or entrance wall
+        // with their doors opening into the hall — the owner-diagram banks
+        // (1..4 along the left wall, 5..N along the back wall) without
+        // measuring every spot by hand. Unsaid chambers alternate as before.
+        const wp = (c.wallPosition || '').trim().toUpperCase();
+        if (wp === 'LEFT' || wp === 'RIGHT') {
+          const side = wp.toLowerCase() as Side;
+          along.set(c.key, { side, wall: passageWall(building.door.wall, side) });
+        } else if (wp === 'BACK' || wp === 'FRONT') {
+          along.set(c.key, { side: wp.toLowerCase() as 'back' | 'front', wall: wp === 'BACK' ? building.door.wall : oppositeWall(building.door.wall) });
+        } else {
+          // Unsaid: follows the building's bank setting — alternating, one side, or the L-bank (1..4 left, then the back wall).
+          const side = sideOrder(building.sides, n);
+          if (side === 'back' || side === 'front') {
+            along.set(c.key, { side, wall: side === 'back' ? building.door.wall : oppositeWall(building.door.wall) });
+          } else {
+            along.set(c.key, { side, wall: passageWall(building.door.wall, side) });
+          }
+        }
       });
   }
   const chambers: ModelChamber[] = [];
@@ -600,13 +767,6 @@ export function storeModel(draft: StoreDraft): StoreModel {
   if (building && chambers.length) {
     layout = arrangeStore(building, chambers.map((mc) => ({ key: mc.key, name: mc.name, outline: mc.outline, spot: mc.spot, side: mc.side ?? undefined })));
     for (const p of layout.problems) add('warn', 3, `${p.key}.fit`, p.message);
-    // A chamber standing on a work area: say which, so the owner moves one of them.
-    for (const mc of chambers) {
-      const sp = layout.spots[mc.key];
-      if (!sp) continue;
-      const hit = areas.find((a) => overlaps({ x: sp.x, y: sp.y, w: sp.w, d: sp.d }, { x: a.x, y: a.y, w: a.length, d: a.width }));
-      if (hit) add('warn', 3, `${mc.key}.fit`, `${mc.name} stands on the ${areaName(hit).toLowerCase()}. Put the chambers on the other side of the passage (step 2), or say where ${mc.name} stands under “More details”.`);
-    }
   }
 
   const totals = { bins: 0, crates: 0, tonnes: 0, places: 0 };
@@ -641,43 +801,6 @@ export function storeModel(draft: StoreDraft): StoreModel {
 }
 
 type Add = (level: Issue['level'], step: Issue['step'], field: string, message: string, fix?: Issue['fix']) => void;
-
-const overlaps = (a: { x: number; y: number; w: number; d: number }, b: { x: number; y: number; w: number; d: number }) =>
-  a.x < b.x + b.w - 0.05 && b.x < a.x + a.w - 0.05 && a.y < b.y + b.d - 0.05 && b.y < a.y + a.d - 0.05;
-const r2 = (n: number) => Math.round(n * 100) / 100;
-
-/** The work areas as typed, checked against the building (`bL` × `bW`); only the right ones come back. */
-function readAreas(list: AreaDraft[], bL: number | null, bW: number | null, u: SizeUnit, add: Add): WorkArea[] {
-  const out: WorkArea[] = [];
-  if (list.length > MAX_AREAS) add('error', 2, 'building.areas', `KashRoot keeps up to ${MAX_AREAS} work areas. Join small ones together.`);
-  const show = (m: number) => say(m / (u === 'ft' ? FOOT : 1), u);
-  list.slice(0, MAX_AREAS).forEach((a, i) => {
-    const f = `building.areas.${a.key}`;
-    const title = a.kind === 'other' ? a.name.trim() || `Area ${i + 1}` : AREA_KINDS[a.kind]?.title ?? `Area ${i + 1}`;
-    let ok = true;
-    if (!AREA_KINDS[a.kind]) return add('error', 2, `${f}.kind`, 'Choose what this area is.');
-    if (a.kind === 'other' && !a.name.trim()) ok = (add('error', 2, `${f}.name`, 'Write the name of this area, like “Bin repair”.'), false);
-    if (a.name.trim().length > 40) ok = (add('error', 2, `${f}.name`, 'Keep the name short — 40 letters at most.'), false);
-    const num = (k: 'length' | 'width' | 'x' | 'y', ask: string, zero: boolean): number | null => {
-      const n = readNumber(a[k]);
-      if (n === null) return add('error', 2, `${f}.${k}`, ask), null;
-      if (Number.isNaN(n) || n < 0 || (!zero && n === 0)) return add('error', 2, `${f}.${k}`, 'Write it as a number of the building’s unit.'), null;
-      return metres(n, u);
-    };
-    const L = num('length', `Write how long the ${title.toLowerCase()} is, along the front.`, false);
-    const W = num('width', `Write how wide the ${title.toLowerCase()} is, front to back.`, false);
-    const x = num('x', 'Write how far it is from the building’s left wall (0 at the wall).', true);
-    const y = num('y', 'Write how far it is from the building’s front wall (0 at the wall).', true);
-    if (L === null || W === null || x === null || y === null || !ok) return;
-    if (bL !== null && x + L > bL * 1.01) return add('error', 2, `${f}.x`, `The ${title.toLowerCase()} goes past the right wall: ${show(x)} + ${show(L)} is more than the building’s ${show(bL)}. Check its length or where it is.`);
-    if (bW !== null && y + W > bW * 1.01) return add('error', 2, `${f}.y`, `The ${title.toLowerCase()} goes past the back wall: ${show(y)} + ${show(W)} is more than the building’s ${show(bW)}. Check its width or where it is.`);
-    const area: WorkArea = { kind: a.kind, ...(a.kind === 'other' || a.name.trim() ? { name: a.name.trim() } : {}), x: r2(x), y: r2(y), length: r2(L), width: r2(W) };
-    const clash = out.find((o) => overlaps({ x: o.x, y: o.y, w: o.length, d: o.width }, { x: area.x, y: area.y, w: area.length, d: area.width }));
-    if (clash) add('warn', 2, `${f}.x`, `The ${title.toLowerCase()} overlaps the ${areaName(clash).toLowerCase()}. Check where each one is.`);
-    out.push(area);
-  });
-  return out;
-}
 
 /**
  * A door as typed, checked against its wall (`room` in the building's frame); null until it is right.
@@ -732,7 +855,7 @@ function spotOf(c: Pick<ChamberDraft, 'spotX' | 'spotY'>, u?: SizeUnit): { x: nu
  * One chamber as typed → its outline, floors and rows (null until its length, width and height are right).
  * `onPassage`: it stands on this side of the passage, its door in this wall (the one facing the passage).
  */
-function readChamber(c: ChamberDraft, numbers: Map<number, number>, u: SizeUnit, add: Add, onPassage?: { side: Side; wall: Wall }): ModelChamber | null {
+function readChamber(c: ChamberDraft, numbers: Map<number, number>, u: SizeUnit, add: Add, onPassage?: { side: WallSide; wall: Wall }): ModelChamber | null {
   const k = c.key;
   const P = PACKING[c.storage];
   const W = UNIT_WORDS[c.storage];
@@ -1028,6 +1151,10 @@ function readChamber(c: ChamberDraft, numbers: Map<number, number>, u: SizeUnit,
         capacity_mt: Math.round(tonnes * 1000) / 1000,
         rate: rate ?? 0,
         size,
+        levels_count: Math.max(1, Math.min(10, Math.floor(readNumber(c.rackLevels) ?? 4) || 4)),
+        side_position: c.wallPosition || null,
+        door_type: c.doorType || 'SLIDING_OVERLAP_CA',
+        crates_per_bin: Math.max(1, Math.min(1000, Math.floor(readNumber(c.cratesPerBin) ?? 100) || 100)),
       },
     });
   }
@@ -1046,6 +1173,37 @@ function readChamber(c: ChamberDraft, numbers: Map<number, number>, u: SizeUnit,
     chamber.ready = false;
   }
   return chamber;
+}
+
+/**
+ * The count nearest to `count` (a little less first) whose floors all stand
+ * in equal stacks of at most `most` that fit on a floor with room for `room`
+ * stacks — or null when none is near.
+ */
+export function nearestEven(count: number, floors: number, most: number, room: number): number | null {
+  const even = (n: number) => {
+    if (n < floors) return false;
+    const base = Math.floor(n / floors);
+    const extra = n % floors;
+    for (let f = 1; f <= floors; f++) {
+      const c = base + (f <= extra ? 1 : 0);
+      let k = 1;
+      for (let s = Math.min(most, c); s >= 1; s--) {
+        if (c % s === 0) {
+          k = s;
+          break;
+        }
+      }
+      if (c / k > Math.min(room, GRID_ROWS * MAX_COLS)) return false;
+    }
+    return true;
+  };
+  const span = Math.min(200, Math.max(20, Math.ceil(count * 0.05)));
+  for (let d = 1; d <= span; d++) {
+    if (even(count - d)) return count - d;
+    if (even(count + d)) return count + d;
+  }
+  return null;
 }
 
 /**
@@ -1101,8 +1259,8 @@ export interface Spot {
   fits: boolean;
   /** The owner said where it stands (else it stands along the passage). */
   byOwner: boolean;
-  /** The side of the passage it stands on (not when the owner said where). */
-  side?: Side;
+  /** The side of the passage it stands on, or the wall bank it lines (not when the owner said where). */
+  side?: WallSide;
 }
 
 /**
@@ -1134,13 +1292,14 @@ export const CORRIDOR = 3;
 /** How far in from the main door the way in must be clear. */
 const DOOR_CLEAR = 1.5;
 
-/** The passage from the main door (in the middle of the front wall when the door is not known). */
-export function passageOf(b: { length: number; width: number; door?: DoorAt | null }): Passage {
+/** The passage from the main door (in the middle of the front wall when the door is not known).
+ *  A wider owner-set passage width (`passageWidth`) widens it beyond the door. */
+export function passageOf(b: { length: number; width: number; door?: DoorAt | null; passageWidth?: number | null }): Passage {
   const door = b.door ?? { wall: 'front' as Wall, from: b.length / 2, width: 0, height: 0 };
   const alongFront = door.wall === 'front' || door.wall === 'back';
   const across = alongFront ? b.length : b.width;
   const depth = alongFront ? b.width : b.length;
-  const wide = Math.min(across, Math.max(CORRIDOR, door.width));
+  const wide = Math.min(across, Math.max(CORRIDOR, door.width, b.passageWidth ?? 0));
   const u0 = Math.min(Math.max(0, door.from + door.width / 2 - wide / 2), across - wide);
   const room = { length: b.length, width: b.width };
   const p = fromDoor(door.wall, room, u0, 0);
@@ -1170,7 +1329,7 @@ const SIDE_TEXT: Record<Side, string> = { left: 'Left side', right: 'Right side'
  */
 export function arrangeStore(
   b: Pick<Building, 'length' | 'width' | 'height' | 'unit'> & { door?: DoorAt | null; sides?: Sides },
-  chambers: { key: string; name: string; outline: Outline; spot?: { x: number; y: number }; side?: Side }[],
+  chambers: { key: string; name: string; outline: Outline; spot?: { x: number; y: number }; side?: WallSide }[],
 ): Arrangement {
   const spots: Record<string, Spot> = {};
   const problems: { key: string; message: string }[] = [];
@@ -1178,12 +1337,15 @@ export function arrangeStore(
   const show = (m: number) => say(m / (u === 'ft' ? FOOT : 1), u);
   const slack = 0.02;
   const sides = b.sides ?? 'both';
-  const pass = passageOf(b);
+  let pass = passageOf(b);
   const alongFront = pass.wall === 'front' || pass.wall === 'back';
   const room = { length: b.length, width: b.width };
   const roomOn: Record<Side, number> = { left: pass.u0, right: pass.across - pass.u1 };
   // How far in from the main door's wall each side is taken.
   const taken: Record<Side, number> = { left: 0, right: 0 };
+  // The wall banks (back / front): how far along the wall the row has grown, and how deep into the building its deepest chamber reaches.
+  const rowAt: Record<'back' | 'front', number> = { back: 0, front: 0 };
+  const rowInto: Record<'back' | 'front', number> = { back: 0, front: 0 };
   const sized = new Set<string>();
   const inPassage = new Set<string>();
   let n = 0;
@@ -1202,6 +1364,34 @@ export function arrangeStore(
     // Across the passage (out from it to the wall) and along it.
     const out = alongFront ? w : d;
     const deep = alongFront ? d : w;
+    if (side === 'back' || side === 'front') {
+      // A bank across a wall (the owner diagram: chambers 5..N along the far
+      // wall, doors opening into the hall): lined from the wall's near
+      // corner, each its own length plus a gap. outlineOf has already turned
+      // the chamber — its outline.length runs along the building's front, its
+      // outline.width front to back — so in the passage's own measure (u
+      // along the wall, v in from it) the run and the depth swap when the
+      // main door is in a side wall. A front-bank chamber starts past the
+      // passage, so the way in from the main door stays clear.
+      const run = alongFront ? w : d;
+      const into = alongFront ? d : w;
+      const at = rowAt[side];
+      rowAt[side] = at + run + 0.6;
+      const uu = (side === 'front' ? Math.min(pass.u1 + 0.6, pass.across) : 0) + at;
+      const v = side === 'back' ? Math.max(0, pass.depth - into) : 0;
+      const p = fromDoor(pass.wall, room, uu, v);
+      const q = fromDoor(pass.wall, room, uu + run, v + into);
+      spots[c.key] = { x: Math.min(p.x, q.x), y: Math.min(p.y, q.y), w, d, fits: true, byOwner: false, side };
+      rowInto[side] = Math.max(rowInto[side], into);
+      if (uu + run > pass.across + slack) {
+        spots[c.key].fits = false;
+        problems.push({
+          key: c.key,
+          message: `${c.name} is ${show(run)} long along the ${side === 'back' ? 'far wall' : 'entrance wall'}, but the chambers there reach ${show(uu + run)} and the building is only ${show(pass.across)} that way. Check the sizes, or say where it stands (More details).`,
+        });
+      }
+      continue;
+    }
     const ua = side === 'left' ? 0 : pass.across - out;
     const va = taken[side];
     taken[side] += deep;
@@ -1213,18 +1403,28 @@ export function arrangeStore(
       spots[c.key].fits = false;
       problems.push({
         key: c.key,
-        message: `${c.name} does not fit: the chambers on the ${side} of the passage need ${show(va + deep)} from the main door’s wall inward, but the building is only ${show(pass.depth)} deep that way. ${sides === 'both' ? 'Check the sizes, or say where each chamber stands (More details).' : 'Check the sizes, or choose “Both sides” in step 2 (The building).'}`,
+        message: `${c.name} does not fit: the chambers on the ${side} of the passage need ${show(va + deep)} from the main door’s wall inward, but the building is only ${show(pass.depth)} deep that way. ${sides === 'both' || sides === 'lbank' ? 'Check the sizes, or say where each chamber stands (More details).' : 'Check the sizes, or choose “Both sides” in step 2 (The building).'}`,
       });
     }
     if (out > roomOn[side] + slack) {
       spots[c.key].fits = false;
       inPassage.add(c.key);
       const other: Side = side === 'left' ? 'right' : 'left';
-      const swap = sides !== 'both' && out <= roomOn[other] + slack ? ` or choose “${SIDE_TEXT[other]}” in step 2 (The building),` : '';
+      const swap = (sides === 'left' || sides === 'right') && out <= roomOn[other] + slack ? ` or choose “${SIDE_TEXT[other]}” in step 2 (The building),` : '';
       problems.push({
         key: c.key,
         message: `${c.name} needs ${show(out)} on the ${side} of the passage (as you walk in), but there are only ${show(roomOn[side])} between the passage and the wall on that side, so it stands in the passage. Check the sizes,${swap} or check where the main door is.`,
       });
+    }
+  }
+  // A back bank shortens the passage: the way in from the main door ends
+  // where those chambers stand (their doors open into the hall).
+  if (rowInto.back > 0) {
+    const deep = pass.depth - rowInto.back;
+    if (deep >= 1.2) {
+      const p = fromDoor(pass.wall, room, pass.u0, 0);
+      const q = fromDoor(pass.wall, room, pass.u1, deep);
+      pass = { ...pass, rect: { x: Math.min(p.x, q.x), y: Math.min(p.y, q.y), w: Math.abs(p.x - q.x), d: Math.abs(p.y - q.y) } };
     }
   }
   // Placed by the owner: inside the building, and clear of each other and of the passage.
@@ -1334,17 +1534,33 @@ export function asBuilding(v: unknown): Building | null {
   if (!v || typeof v !== 'object') return null;
   const b = v as Partial<Building>;
   const num = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0;
+  const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
   const d = b.door as Partial<DoorAt> | undefined;
   if (!num(b.length) || !num(b.width) || !num(b.height) || !d || !WALLS.includes(d.wall as Wall) || typeof d.from !== 'number' || !num(d.width) || !num(d.height)) return null;
   // Stores saved before the owner was asked which side the chambers are on: both sides.
   const sides = SIDES.includes(b.sides as Sides) ? (b.sides as Sides) : 'both';
-  const areas = Array.isArray(b.areas)
-    ? b.areas
-        .filter((a): a is WorkArea => Boolean(a) && typeof a === 'object' && a.kind in AREA_KINDS && [a.x, a.y].every((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0) && num(a.length) && num(a.width))
-        .slice(0, MAX_AREAS)
-        .map((a) => ({ kind: a.kind, ...(typeof a.name === 'string' && a.name.trim() ? { name: a.name.trim().slice(0, 40) } : {}), x: a.x, y: a.y, length: a.length, width: a.width }))
-    : [];
-  return { unit: b.unit === 'm' ? 'm' : 'ft', length: b.length, width: b.width, height: b.height, door: { wall: d.wall as Wall, from: d.from, width: d.width, height: d.height }, sides, ...(areas.length ? { areas } : {}) };
+  const wallThickness = num(b.wallThickness) ? clamp(b.wallThickness, BUILDING_LIMITS.wallThickness[0], BUILDING_LIMITS.wallThickness[1]) : undefined;
+  const doorKind = DOOR_KINDS.includes(b.doorKind as DoorKind) ? (b.doorKind as DoorKind) : undefined;
+  const passageWidth = num(b.passageWidth) ? clamp(b.passageWidth, BUILDING_LIMITS.passage[0], BUILDING_LIMITS.passage[1]) : undefined;
+  let workSpaces: WorkSpaces | undefined;
+  if (b.workSpaces && typeof b.workSpaces === 'object') {
+    const ws = b.workSpaces as WorkSpaces;
+    const out: WorkSpaces = {};
+    for (const k of SPACE_KEYS) {
+      const s = ws[k];
+      if (s && num(s.l) && num(s.w)) out[k] = { l: clamp(s.l, BUILDING_LIMITS.space[0], BUILDING_LIMITS.space[1]), w: clamp(s.w, BUILDING_LIMITS.space[0], BUILDING_LIMITS.space[1]) };
+    }
+    if (Object.keys(out).length > 0) workSpaces = out;
+  }
+  return {
+    unit: b.unit === 'm' ? 'm' : 'ft', length: b.length, width: b.width, height: b.height,
+    door: { wall: d.wall as Wall, from: d.from, width: d.width, height: d.height },
+    sides,
+    ...(wallThickness !== undefined && { wallThickness }),
+    ...(doorKind !== undefined && { doorKind }),
+    ...(passageWidth !== undefined && { passageWidth }),
+    ...(workSpaces !== undefined && { workSpaces }),
+  };
 }
 
 // ───────────────────────── saved chambers, grouped ─────────────────────────
@@ -1365,6 +1581,10 @@ export interface ChamberGroup {
   count: number;
   /** The lowest floor's size (all floors share the chamber's size and door), or null. */
   size: ChamberSize | null;
+  /** Where the chamber stands (null = drawn in order), how its door is built, and how many crates one shared bin holds (20261113000007). */
+  sidePosition?: string | null;
+  doorType?: string | null;
+  cratesPerBin?: number | null;
 }
 
 /** Saved rows grouped into chambers, in order (wizard chambers by number, then older ones). */
@@ -1375,7 +1595,7 @@ export function groupChambers(rows: ColdChamber[]): ChamberGroup[] {
     const key = r.chamber_no !== null ? `${r.listing_id}:no:${r.chamber_no}` : r.id;
     let g = groups.get(key);
     if (!g) {
-      g = { key, no: r.chamber_no, name: r.chamber_no !== null ? `Chamber ${r.chamber_no}` : r.name, storage: r.storage, unitKg: r.unit_kg, capacityMt: r.capacity_mt, rate: r.rate, floors: [], count: 0, size: r.size };
+      g = { key, no: r.chamber_no, name: r.chamber_no !== null ? `Chamber ${r.chamber_no}` : r.name, storage: r.storage, unitKg: r.unit_kg, capacityMt: r.capacity_mt, rate: r.rate, floors: [], count: 0, size: r.size, sidePosition: r.side_position ?? null, doorType: r.door_type ?? null, cratesPerBin: r.crates_per_bin ?? null };
       groups.set(key, g);
     }
     g.floors.push(r);
@@ -1417,6 +1637,9 @@ export function previewChambers(m: Pick<StoreModel, 'chambers'> & { building?: B
       unit_kg: f.row.unit_kg,
       capacity_mt: f.row.capacity_mt,
       rate: f.row.rate,
+      side_position: f.row.side_position,
+      door_type: f.row.door_type,
+      crates_per_bin: f.row.crates_per_bin,
     })),
   );
   rows.building = m.building ?? null;
@@ -1454,8 +1677,25 @@ export function draftFromSaved(
     address: l.address ?? '',
     unit,
     building: building
-      ? { length: t(building.length), width: t(building.width), height: t(building.height), door: { wall: building.door.wall, from: t(building.door.from), width: t(building.door.width), height: t(building.door.height) }, sides: building.sides, areas: (building.areas ?? []).map((a, i) => ({ key: `area-${i}`, kind: a.kind, name: a.name ?? '', length: t(a.length), width: t(a.width), x: t(a.x), y: t(a.y) })) }
-      : { length: '', width: '', height: '', door: blankDoor(), sides: '', areas: [] },
+      ? {
+          length: t(building.length), width: t(building.width), height: t(building.height),
+          door: { wall: building.door.wall, from: t(building.door.from), width: t(building.door.width), height: t(building.door.height) },
+          sides: building.sides,
+          wallThickness: building.wallThickness !== undefined ? t(building.wallThickness) : '',
+          passageWidth: building.passageWidth !== undefined ? t(building.passageWidth) : '',
+          doorKind: building.doorKind ?? '',
+          spCleaningL: building.workSpaces?.cleaning ? t(building.workSpaces.cleaning.l) : '',
+          spCleaningW: building.workSpaces?.cleaning ? t(building.workSpaces.cleaning.w) : '',
+          spGradingL: building.workSpaces?.grading ? t(building.workSpaces.grading.l) : '',
+          spGradingW: building.workSpaces?.grading ? t(building.workSpaces.grading.w) : '',
+          spPackingL: building.workSpaces?.packing ? t(building.workSpaces.packing.l) : '',
+          spPackingW: building.workSpaces?.packing ? t(building.workSpaces.packing.w) : '',
+          spMachineryL: building.workSpaces?.machinery ? t(building.workSpaces.machinery.l) : '',
+          spMachineryW: building.workSpaces?.machinery ? t(building.workSpaces.machinery.w) : '',
+          spDockL: building.workSpaces?.dock ? t(building.workSpaces.dock.l) : '',
+          spDockW: building.workSpaces?.dock ? t(building.workSpaces.dock.w) : '',
+        }
+      : { length: '', width: '', height: '', door: blankDoor(), sides: '', wallThickness: '', passageWidth: '', doorKind: '', spCleaningL: '', spCleaningW: '', spGradingL: '', spGradingW: '', spPackingL: '', spPackingW: '', spMachineryL: '', spMachineryW: '', spDockL: '', spDockW: '' },
     chambers: groups.map((g) => {
       const s = g.size!;
       const o = outlineOf(s);
@@ -1474,6 +1714,8 @@ export function draftFromSaved(
         door: o.door ? { wall: o.door.wall, from: t(o.door.from), width: t(o.door.width), height: t(o.door.height) } : blankDoor(),
         rate: g.rate !== null ? String(g.rate) : '',
         stackHigh: s.stackHigh ? String(s.stackHigh) : '',
+        rackLevels: String(Math.max(1, Math.min(10, Math.floor(g.floors[0]?.levels_count ?? 4) || 4))),
+        wallPosition: g.sidePosition === 'LEFT' || g.sidePosition === 'BACK' || g.sidePosition === 'RIGHT' || g.sidePosition === 'FRONT' ? g.sidePosition : '',
         spotX: s.spot ? t(s.spot.x) : '',
         spotY: s.spot ? t(s.spot.y) : '',
         // As saved, so saving again keeps the very same layout.
@@ -1489,6 +1731,8 @@ export function draftFromSaved(
         ca: s.cooling?.ca === undefined ? '' : s.cooling.ca ? 'yes' : 'no',
         temperature: s.cooling?.temperature ?? '',
         humidity: s.cooling?.humidity !== undefined ? String(s.cooling.humidity) : '',
+        doorType: g.doorType === 'INFITTING_PLUG' || g.doorType === 'OVERLAP_HEATED_GASKET' || g.doorType === 'SLIDING_OVERLAP_CA' ? g.doorType : '',
+        cratesPerBin: String(g.cratesPerBin ?? 100),
       };
     }),
   };
@@ -1505,7 +1749,18 @@ export function switchUnit(d: StoreDraft, unit: SizeUnit): StoreDraft {
   return {
     ...d,
     unit,
-    building: { ...d.building, length: conv(d.building.length), width: conv(d.building.width), height: conv(d.building.height), door: door(d.building.door), areas: (d.building.areas ?? []).map((a) => ({ ...a, length: conv(a.length), width: conv(a.width), x: conv(a.x), y: conv(a.y) })) },
+    building: {
+      ...d.building,
+      length: conv(d.building.length), width: conv(d.building.width), height: conv(d.building.height),
+      door: door(d.building.door),
+      wallThickness: conv(d.building.wallThickness),
+      passageWidth: conv(d.building.passageWidth),
+      spCleaningL: conv(d.building.spCleaningL), spCleaningW: conv(d.building.spCleaningW),
+      spGradingL: conv(d.building.spGradingL), spGradingW: conv(d.building.spGradingW),
+      spPackingL: conv(d.building.spPackingL), spPackingW: conv(d.building.spPackingW),
+      spMachineryL: conv(d.building.spMachineryL), spMachineryW: conv(d.building.spMachineryW),
+      spDockL: conv(d.building.spDockL), spDockW: conv(d.building.spDockW),
+    },
     chambers: d.chambers.map((c) => ({
       ...c,
       length: conv(c.length),
@@ -1528,8 +1783,7 @@ export function switchUnit(d: StoreDraft, unit: SizeUnit): StoreDraft {
 /** The value of a field of the draft by its issue name ('title', 'building.door.from', '<key>.count'). */
 export function getField(d: StoreDraft, field: string): string {
   const path = field.split('.');
-  if (path[0] === 'building' && path[1] === 'areas') return String((d.building.areas ?? []).find((a) => a.key === path[2])?.[path[3] as keyof AreaDraft] ?? '');
-  if (path[0] === 'building') return String(path[1] === 'door' ? d.building.door[path[2] as keyof DoorDraft] ?? '' : d.building[path[1] as 'length' | 'width' | 'height' | 'sides'] ?? '');
+  if (path[0] === 'building') return String(path[1] === 'door' ? d.building.door[path[2] as keyof DoorDraft] ?? '' : d.building[path[1] as keyof StoreDraft['building']] ?? '');
   const c = d.chambers.find((x) => x.key === path[0]);
   if (c) return String(path[1] === 'door' ? c.door[path[2] as keyof DoorDraft] ?? '' : c[path[1] as keyof ChamberDraft] ?? '');
   const v = d[path[0] as keyof StoreDraft];
@@ -1540,7 +1794,6 @@ export function getField(d: StoreDraft, field: string): string {
 export function setField(d: StoreDraft, field: string, value: string): StoreDraft {
   const path = field.split('.');
   if (path[0] === 'building') {
-    if (path[1] === 'areas') return { ...d, building: { ...d.building, areas: (d.building.areas ?? []).map((a) => (a.key === path[2] ? { ...a, [path[3]]: value } : a)) } };
     if (path[1] === 'door') return { ...d, building: { ...d.building, door: { ...d.building.door, [path[2]]: value } } };
     return { ...d, building: { ...d.building, [path[1]]: value } };
   }

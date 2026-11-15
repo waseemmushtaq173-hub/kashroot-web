@@ -2,8 +2,9 @@
 
 /**
  * PortalShell — the frame every role portal renders inside, laid out like a
- * work dashboard:
- *   - on large screens a white sidebar: the KashRoot logo and the portal's
+ * work dashboard, in the one KashRoot look (forest green sidebar and top bar,
+ * mist page, white tactile cards, champagne gold accents):
+ *   - on large screens a deep green sidebar: the KashRoot logo and the portal's
  *     name, its sections as the MENU (counts as badges), GENERAL (My details,
  *     Help, Home, Sign out) and the "Install the KashRoot app" card;
  *   - a top bar: search (jumps to a section or button by name, ⌘K) and who is
@@ -14,8 +15,8 @@
  * sidebar opens as a drawer from the Menu button, Sign out stays in the top
  * bar, and the sections are pills that scroll sideways.
  *
- * Behind it, faintly and in the portal's own colours, the valley: chinar
- * leaves, the Zabarwan ridge and a shikara on Dal Lake (portal/KashmirBackdrop).
+ * Behind it, faintly, the valley: chinar leaves, the Zabarwan ridge and a
+ * shikara on Dal Lake (portal/KashmirBackdrop).
  *
  * Same props as before, so every portal keeps working:
  *   - `tabs` / `activeTab` / `onTabChange` for in-page sections;
@@ -30,7 +31,7 @@ import { Children, Fragment, isValidElement, useEffect, useId, useRef, useState,
 
 import { SiteFooter, SiteHeader } from '@/components/layout/SiteHeader';
 import { KashmirBackdrop } from '@/components/layout/portal/KashmirBackdrop';
-import { RegionBackdrop, RegionCredit } from '@/components/layout/portal/RegionBackdrop';
+import { RegionBackdrop } from '@/components/layout/portal/RegionBackdrop';
 import type { SearchItem } from '@/components/layout/portal/ShellSearch';
 import { SidebarContent, SidebarDrawer } from '@/components/layout/portal/ShellSidebar';
 import { ShellTabs } from '@/components/layout/portal/ShellTabs';
@@ -44,6 +45,7 @@ import { MY_DETAILS } from '@/components/portal/myDetailsConfig';
 import { FOCUS, PageHeader, TitleAction, resolveTheme } from '@/components/portal/kit';
 import { loginHref, PORTALS, portalOfPath } from '@/lib/auth/roles';
 import { signOutOfPortal } from '@/lib/auth/session';
+import { isSuperAdmin } from '@/components/admin/SuperAdminPanel';
 import { useRegion } from '@/lib/region';
 import { skinFor } from '@/lib/regionSkins';
 
@@ -136,6 +138,20 @@ export function PortalShell({
   const switcherRef = useRef<HTMLDivElement>(null);
   const [drawer, setDrawer] = useState(false);
   const [details, setDetails] = useState(false);
+  /** Only the KashRoot Super Admin sees "My business" in the sidebar; everyone else falls back to My details / Home. */
+  const [superAdmin, setSuperAdmin] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (signedIn !== true || !portal) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- kept as shipped: changing when this state is set needs its signed-in flow tested
+      setSuperAdmin(null);
+      return;
+    }
+    isSuperAdmin()
+      .then((admin) => setSuperAdmin(admin))
+      .catch(() => setSuperAdmin(false));
+    // Re-check only when sign-in or portal changes; the RPC result is stable for a session.
+  }, [signedIn, portal]);
 
   const portalLabel = portal ? `${PORTALS[portal].label} portal` : null;
   const hasDetails = Boolean(portal && MY_DETAILS[portal]) && signedIn === true;
@@ -233,7 +249,7 @@ export function PortalShell({
                 href={href}
                 aria-current={active ? 'page' : undefined}
                 className={`inline-flex min-h-12 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-5 text-base font-semibold no-underline ring-1 transition hover:no-underline ${FOCUS} ${theme.outline} ${
-                  active ? `${theme.solid} ring-transparent` : 'bg-white/90 text-slate-700 ring-slate-900/10 hover:bg-white'
+                  active ? theme.solid : 'bg-white text-ink ring-forest-line shadow-sm hover:bg-forest-soft'
                 }`}
               >
                 <Icon className="h-[18px] w-[18px]" aria-hidden />
@@ -261,7 +277,7 @@ export function PortalShell({
 
   if (standalone) {
     return (
-      <div data-kr-shell="standalone" className={`kr-light relative isolate min-h-screen text-slate-900 ${theme.canvas}`}>
+      <div data-kr-shell="standalone" className={`kr-light relative isolate min-h-screen text-ink ${theme.canvas}`}>
         <KashmirBackdrop ink={look.ink} leaf={theme.leaf} />
         <SiteHeader tone="light" />
         <main id="main-content" className="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-6 lg:px-8">
@@ -296,18 +312,19 @@ export function PortalShell({
       onSignOut={canSignOut ? () => void signOut() : undefined}
       // My details (where the portal has it), Two-step sign-in and My business; Sign out is held below Home.
       pending={portal && signedIn === null ? (MY_DETAILS[portal] ? 3 : 2) : 0}
+      isSuperAdmin={superAdmin === true}
       onNavigate={() => setDrawer(false)}
       large={large}
     />
   );
 
   return (
-    <div data-kr-shell="portal" className={`kr-light relative isolate min-h-screen text-slate-900 ${theme.canvas}`}>
+    <div data-kr-shell="portal" className={`kr-light relative isolate min-h-screen text-ink ${theme.canvas}`}>
       <KashmirBackdrop ink={look.ink} leaf={theme.leaf} valley={skin.valley} />
       <div className="lg:flex">
         <aside
           aria-label={portalLabel ?? title}
-          className="sticky top-0 hidden h-svh w-60 shrink-0 self-start overflow-y-auto border-r border-slate-900/5 bg-white/90 shadow-[10px_0_40px_-28px_rgba(15,23,42,0.35)] backdrop-blur-xl lg:block xl:w-64"
+          className="sticky top-0 hidden h-svh w-60 shrink-0 self-start overflow-y-auto border-r border-forest-deep bg-forest-deep text-white shadow-[10px_0_40px_-28px_rgba(18,56,46,0.6)] lg:block xl:w-64"
         >
           {sidebar(`${ids}-side`)}
         </aside>
@@ -332,7 +349,6 @@ export function PortalShell({
           <main id="main-content" className="mx-auto min-h-[100svh] max-w-7xl px-4 pb-16 pt-6 sm:px-6 sm:pt-8 xl:px-8">
             {page}
           </main>
-          <RegionCredit skin={skin} />
         </div>
       </div>
       {/* The assistant, in every portal: a guide to this page, read aloud, and answers to questions. */}
