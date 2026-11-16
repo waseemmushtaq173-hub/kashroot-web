@@ -120,13 +120,28 @@ async function datasetsToSearch(env: DataGovEnv, fetcher: Fetcher, now: number):
   return list;
 }
 
+/** Runs `fn` over the items, at most `limit` at once, keeping the order of the answers. */
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, async () => {
+      while (next < items.length) {
+        const i = next++;
+        out[i] = await fn(items[i]);
+      }
+    }),
+  );
+  return out;
+}
+
 async function tableOf(id: string, env: DataGovEnv, fetcher: Fetcher, now: number): Promise<Table | null> {
   const cached = dataGovCache.tables.get(id);
   if (cached && now - cached.at < ROWS_TTL) return cached;
   const key = (env.DATA_GOV_IN_API_KEY ?? '').trim();
   const url = `https://api.data.gov.in/resource/${id}?api-key=${encodeURIComponent(key)}&format=json&offset=0&limit=${ROWS_READ}`;
   try {
-    const res = await fetcher(url, { cache: 'no-store', redirect: 'manual', headers: { accept: 'application/json' }, signal: AbortSignal.timeout(9_000) });
+    const res = await fetcher(url, { cache: 'no-store', redirect: 'manual', headers: { accept: 'application/json' }, signal: AbortSignal.timeout(8_000) });
     if (!res.ok) return null;
     const t = parseTable(await res.json());
     if (!t.columns.length) return null;
@@ -150,7 +165,8 @@ export async function searchDataGov(query: string, env: DataGovEnv, fetcher: Fet
   const datasets = await datasetsToSearch(env, fetcher, now);
   if (!datasets.length) return { ok: false, reason: 'no_datasets', message: 'data.gov.in did not list a dataset on pesticides or fertilisers just now.' };
 
-  const tables = await Promise.all(datasets.map((d) => tableOf(d.id, env, fetcher, now)));
+  // A few at a time: thirty calls at once were refused by data.gov.in (only half came back), and a second try for any that failed.
+  const tables = await mapLimit(datasets, 6, async (d) => (await tableOf(d.id, env, fetcher, now)) ?? (await tableOf(d.id, env, fetcher, now)));
   if (tables.every((t) => t === null)) return { ok: false, reason: 'unreachable', message: 'data.gov.in could not be reached just now. Try again in a minute.' };
 
   const hits: DataGovHit[] = [];

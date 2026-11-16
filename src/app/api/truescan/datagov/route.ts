@@ -10,7 +10,7 @@ import { searchDataGov } from '@/lib/dataGovTruescan';
 import { ipLimited, tooMany } from '@/lib/server/sign';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 export async function GET(request: Request) {
   if (ipLimited(request, 'truescan-datagov', 12)) return tooMany();
