@@ -57,11 +57,10 @@ test('the answer names its source as a KashRoot reference list, never as the off
   }
 });
 
-test('SKUAST-Kashmir doses are shown as typed by KashRoot, never as the university\'s own official text', () => {
+test('TrueScan shows no SKUAST-Kashmir dose that KashRoot typed: only official data is put in front of a farmer', () => {
   const ui = read('src/components/fertilizer/FertilizerChecker.tsx');
   expect(ui).not.toMatch(/SKUAST-Kashmir Official Dosage/);
-  expect(ui).not.toMatch(/aria-label="SKUAST-Kashmir official recommendation"/);
-  expect(ui).toContain('as typed by KashRoot');
+  expect(ui).not.toMatch(/skuast/i);
   const data = read('src/lib/skuast-kashmir-recommendations.ts');
   expect(data).not.toMatch(/Nothing here is invented by KashRoot — these are the official/);
 });
@@ -76,15 +75,21 @@ test('KashRoot\'s typed reference entries are never headed as registered with, o
 });
 
 
-test('the typed lists (about 3 MB of script) are fetched when a check needs them, not with every page that shows TrueScan', () => {
+test('TrueScan\'s answer is built from official data only: nothing KashRoot typed is searched or shown, and the 3 MB typed list is not loaded for a check', () => {
   const ui = read('src/components/fertilizer/FertilizerChecker.tsx');
-  // Only the types are imported at the top; a value import would put the whole list into the home page's script.
-  const imports = ui.match(/^import [^;]*from '@\/lib\/gov-agro-registry';/gm) ?? [];
-  expect(imports.length).toBeGreaterThan(0);
-  for (const line of imports) expect(line).toMatch(/^import type /);
+  // No import of the typed registry at all (the lab tab fetches it lazily, through registryLazy, for its fertiliser standards).
+  expect(ui).not.toMatch(/from '@\/lib\/gov-agro-registry'/);
   expect(ui).toContain("import { loadRegistry } from '@/lib/fertilizer/registryLazy';");
-  // ...and none of its functions is called straight (a call goes through the loaded module: registry.x(…) / r.x(…)).
-  expect(ui).not.toMatch(/(?<![.\w])(searchAllEmbedded|cibrcLookupRegistered|cibrcLookupBanned|fcoLookupEmbedded|fcoLookupMerged|agroRegistryStats)\(/);
+  expect(ui).not.toMatch(/(?<![.\w])(searchAllEmbedded|cibrcLookupRegistered|cibrcLookupBanned|agroRegistryStats)\(/);
+  // A check looks up the official CIB&RC lists and the officially imported rows, and an entry typed by KashRoot is dropped.
+  const scan = ui.slice(ui.indexOf('async function scan(raw: string)'), ui.indexOf('export function FertilizerChecker('));
+  expect(scan).toContain('searchRegistry(typed.text)');
+  expect(scan).toMatch(/filter\(\(h\) => !isReference\(h\)\)/);
+  expect(scan).not.toMatch(/loadRegistry|searchAllEmbedded/);
+  expect(ui).toContain('lookupCibrc(d, typed.text)');
+  // The typed brand/company entries, the typed banned list, the typed SKUAST schedule and the legal-rules box are gone.
+  expect(ui).not.toMatch(/ReferenceProduct|cibrcResult|skuastResult|OfficialChecks|Browse the reference list/);
+  expect(ui).toContain('<OfficialCibrcLists />');
   const lazy = read('src/lib/fertilizer/registryLazy.ts');
   expect(lazy).toContain("import('@/lib/gov-agro-registry')");
   expect(lazy).not.toMatch(/^import [^t].*gov-agro-registry/m);

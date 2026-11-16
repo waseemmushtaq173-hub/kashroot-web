@@ -29,7 +29,7 @@
  * Anyone — signed in or not — can report a suspicious product to the KashRoot admin.
  */
 import { useEffect, useRef, useState } from 'react';
-import { BadgeCheck, Camera, CheckCircle2, CircleAlert, Copy, FileQuestion, Flag, FlaskConical, Loader2, QrCode, ScanLine, ShieldCheck, XCircle } from 'lucide-react';
+import { BadgeCheck, Camera, CheckCircle2, CircleAlert, FileQuestion, Flag, FlaskConical, Loader2, QrCode, ScanLine, ShieldCheck, XCircle } from 'lucide-react';
 
 import { LangPicker, SpeakButton } from '@/components/voice/VoiceButtons';
 import { checkLabel, type LabelFacts, type RuleReport } from '@/lib/fertilizer/labelRules';
@@ -38,15 +38,15 @@ import { compressImageForFastScan } from '@/lib/fastImageCompress';
 import { isRtl, type SpeechLang } from '@/lib/client/speech';
 import { classifyFetchError } from '@/lib/onlineFirstClient';
 import { dbMessage, loadAccount, supabase, supabaseConfigured, type Account } from '@/lib/db/client';
-import { searchRegistry, type OfficialHit, type OfficialKind } from '@/lib/db/registry';
-import type { FcoStandard, CibrcProduct, CibrcBanned } from '@/lib/db/govRegistry';
-// The typed lists are about 3 MB of script: only their types are imported here, and the lists are fetched when a check first needs them.
-import type { AgroRegistryStats, SearchHit } from '@/lib/gov-agro-registry';
+import { registryStats, searchRegistry, type OfficialHit, type RegistryStats } from '@/lib/db/registry';
+import type { FcoStandard } from '@/lib/db/govRegistry';
+// The lab tab's fertiliser standards come from a typed list of about 3 MB of script: fetched only when that tab is used.
 import { REFERENCE_SOURCE } from '@/lib/fertilizer/referenceSource';
 import { loadRegistry } from '@/lib/fertilizer/registryLazy';
+import { CIBRC_META, loadCibrc, lookupCibrc, type CibrcAnswer } from '@/lib/cibrcOfficial';
 import { reportBatch } from '@/lib/db/security';
-import { skuastLookup, skuastLookupAll, skuastSearch, type SkuastRecommendation } from '@/lib/skuast-kashmir-recommendations';
 import { DataGovPanel } from './DataGovPanel';
+import { OfficialCibrcAnswerPanel, OfficialCibrcLists } from './OfficialCibrcPanel';
 
 import { QRCodeScanner, QRCodeResult, type QRCodeVerificationResult } from './QRCodeScanner';
 import { BagMarkingChecklist } from './BagMarkingChecklist';
@@ -80,15 +80,15 @@ type Lookup =
   | { state: 'missing'; code: string }
   | { state: 'error'; message: string };
 
-/** What TrueScan found for what was typed. `hits` and `stats` are null when the lists are not set up on this site. */
+/** What TrueScan found for what was typed. `hits` and `stats` are null when the imported official lists are not set up on this site. */
 type Scan =
   | { state: 'idle' }
   | { state: 'loading' }
   | { state: 'error'; message: string }
-  | { state: 'done'; typed: Typed; hits: OfficialHit[] | null; stats: AgroRegistryStats | null; dealer?: Lookup };
+  | { state: 'done'; typed: Typed; hits: OfficialHit[] | null; stats: RegistryStats | null; dealer?: Lookup };
 
 /** A registration number read from the label photo, looked up in the official list. */
-type RegCheck = { state: 'idle' } | { state: 'loading' } | { state: 'error'; message: string } | { state: 'done'; no: string; hits: OfficialHit[] | null; stats: AgroRegistryStats | null };
+type RegCheck = { state: 'idle' } | { state: 'loading' } | { state: 'error'; message: string } | { state: 'done'; no: string; hits: OfficialHit[] | null; stats: RegistryStats | null };
 
 const INPUT = 'block w-full rounded-xl border-0 bg-white px-4 py-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-forest';
 const ASK = 'Ask the dealer for the registration certificate, or ask your agriculture officer.';
@@ -96,8 +96,6 @@ const ASK = 'Ask the dealer for the registration certificate, or ask your agricu
 /** "26 Oct 2026" */
 const day = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 const count = (n: number) => n.toLocaleString('en-IN');
-/** "1 product", "1,234 products" */
-const products = (n: number) => `${count(n)} product${n === 1 ? '' : 's'}`;
 /** One honest message for a failed request: names the device only when the
  * device itself reports being offline, names KashRoot when it could not be
  * reached, and otherwise passes the real error on — never a blanket
@@ -159,59 +157,24 @@ async function lookupBatch(raw: string): Promise<Lookup> {
   return data ? { state: 'found', row: data as BatchRow } : { state: 'missing', code: batch };
 }
 
-/** Everything TrueScan can say about what was typed — all looked up at once. */
-/** Convert an embedded SearchHit into an OfficialHit for the UI. */
-function toOfficialHit(h: SearchHit): OfficialHit {
-  return {
-    kind: (h.kind === 'fco' ? 'fertiliser' : 'pesticide') as OfficialKind,
-    name: h.brandName ?? h.productName ?? h.active_molecule ?? h.fertiliser_type ?? 'Unknown',
-    registration_no: h.cir_no ?? null,
-    registrant: h.legalManufacturer ?? h.manufacturerCompany ?? h.manufacturer ?? null,
-    details: {},
-    source: h.source,
-    source_url: h.source_url,
-    imported_at: new Date().toISOString(),
-    matched: 'name',
-  };
-}
-
+/**
+ * What the Government's imported lists say about what was typed (official rows only: an entry KashRoot typed itself is
+ * never shown), and, for a batch number, a KashRoot dealer's record as extra information. The CIB&RC lists
+ * (src/lib/cibrcOfficial.ts) are looked up beside this, from the same typed text.
+ */
 async function scan(raw: string): Promise<Scan> {
   const typed = readTyped(raw);
   if (!typed.text) return { state: 'error', message: 'Type what is printed on the label: the registration number (CIR-…), the product name, or the batch number.' };
   if (typed.text.length < 2) return { state: 'error', message: `“${typed.text}” is too short. Type the whole registration number, product name or batch number.` };
   try {
-    // ── Primary: embedded search — always works, fuzzy/typo-tolerant ──
-    const registry = await loadRegistry();
-    const embeddedHits = registry.searchAllEmbedded(typed.text).map(toOfficialHit);
-
-    // ── Supplementary: Supabase registry (if configured) ──
-    let supabaseHits: OfficialHit[] | null = null;
-    if (supabaseConfigured) {
-      try {
-        const { data, error } = await supabase.rpc('kr_registry_search', { p_text: typed.text.slice(0, 200) });
-        if (!error && data) {
-          supabaseHits = ((data ?? []) as OfficialHit[]).map((h) => ({ ...h, details: h.details ?? {} }));
-        }
-      } catch {
-        // ignore Supabase errors — embedded data is authoritative
-      }
-    }
-
-    // ── Merge: embedded first, then Supabase (dedup by kind + name) ──
-    const merged: OfficialHit[] = [];
-    const seen = new Set<string>();
-    const add = (h: OfficialHit) => {
-      const key = `${h.kind}:${(h.name ?? '').toLowerCase()}`;
-      if (!seen.has(key)) { seen.add(key); merged.push(h); }
-    };
-    for (const h of embeddedHits) add(h);
-    for (const h of (supabaseHits ?? [])) add(h);
-
-    const [statsResult, dealer] = await Promise.all([
-      registry.agroRegistryStats(),
+    const [found, stats, dealer] = await Promise.all([
+      searchRegistry(typed.text).catch(() => null),
+      registryStats().catch(() => null),
       typed.kind === 'batch' && typed.text.length >= 3 ? lookupBatch(typed.text) : Promise.resolve(undefined),
     ]);
-    return { state: 'done', typed, hits: merged, stats: statsResult, dealer };
+    // Rows of the older typed catalogue that may have been copied into the database are left out too.
+    const hits = found === null ? null : found.filter((h) => !isReference(h));
+    return { state: 'done', typed, hits, stats, dealer };
   } catch (err) {
     return { state: 'error', message: offline(err) };
   }
@@ -224,29 +187,20 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
   const [result, setResult] = useState<Scan>({ state: 'idle' });
   // A new check starts its answer afresh (e.g. "Show all" closed again).
   const [scans, setScans] = useState(0);
-  // undefined: not read yet; null: the official lists are not set up on this site.
-  const [stats, setStats] = useState<AgroRegistryStats | null | undefined>(undefined);
+  // undefined: not read yet; null: the imported official lists are not set up on this site.
+  const [stats, setStats] = useState<RegistryStats | null | undefined>(undefined);
   // Live FCO standard for the lab tab: null when not set up or not yet fetched.
   const [fcoStandard, setFcoStandard] = useState<FcoStandard | null | undefined>(undefined);
   // Dedicated input state for the Lab tab — never disabled during loading
   const [fcoQuery, setFcoQuery] = useState('');
   // Lab values entered for the loaded FCO standard, keyed by parameter key.
   const [values, setValues] = useState<Record<string, string>>({});
-  // CIBRC check results for what was typed / photographed.
-  const [cibrcResult, setCibrcResult] = useState<{ products: CibrcProduct[] | null; banned: CibrcBanned[] | null } | null>(null);
-  // SKUAST-Kashmir official recommendations for matched molecules.
-  const [skuastResult, setSkuastResult] = useState<SkuastRecommendation[] | null>(null);
-  // Synchronous (0ms) guard: true while the async /api/truescan fetch is in flight.
-  // Prevents the yellow "not in the official list" box from flashing before embedded
-  // CIBRC/Banned/FCO/SKUAST-K results are rendered.
+  // What the official CIB&RC lists say about what was typed.
+  const [official, setOfficial] = useState<CibrcAnswer | null>(null);
+  // True while a check is in flight, so "not in the official lists" never flashes before the answers are in.
   const [isChecking, setIsChecking] = useState(false);
-  // True once a check has fully completed (sync embedded + async API).
+  // True once a check has fully completed.
   const [hasCompletedSearch, setHasCompletedSearch] = useState(false);
-  // Browse official register modal
-  const [browseOpen, setBrowseOpen] = useState(false);
-  const [browseQuery, setBrowseQuery] = useState('');
-  const [browseResults, setBrowseResults] = useState<SearchHit[] | null>(null);
-  const [browseLoading, setBrowseLoading] = useState(false);
   // QR code scanner state
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
   const [qrResult, setQrResult] = useState<QRCodeVerificationResult | null>(null);
@@ -265,7 +219,7 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
   const open = (id: typeof mode) => {
     setMode(id);
     // What the lists hold, said under the box before anything is typed.
-    if (id === 'registry' && stats === undefined) void loadRegistry().then((r) => setStats((s) => s ?? r.agroRegistryStats())).catch(() => undefined);
+    if (id === 'registry' && stats === undefined) void registryStats().then((s) => setStats((old) => old ?? s)).catch(() => setStats(null));
     if (id === 'lab') {
       // The FCO standards come from the embedded lists (no network), fetched with them the first time they are needed.
       if (fcoStandard === undefined) {
@@ -286,70 +240,19 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
     setIsChecking(true);
     setHasCompletedSearch(false);
     setResult({ state: 'loading' });
-    setCibrcResult(null);
-    setSkuastResult(null);
+    setOfficial(null);
 
     const typed = readTyped(code);
-
-    // ── Synchronous embedded lookup (0ms) ──
-    // Run immediately against the embedded CIBRC + Banned + SKUAST-K registries
-    // so results appear the instant "Check" is clicked — no loading flash.
-    if (typed.text && typed.text.length >= 3) {
-      let registry: Awaited<ReturnType<typeof loadRegistry>> | null = null;
-      try {
-        registry = await loadRegistry();
-      } catch {
-        // Offline before the lists were ever fetched: the live lookup below still runs and says what went wrong.
-      }
-      const products = registry ? registry.cibrcLookupRegistered(undefined, typed.text) : [];
-      const banned = registry ? registry.cibrcLookupBanned(typed.text) : [];
-      setCibrcResult({ products, banned });
-
-      const molecules = products.map((p) => p.active_molecule).filter(Boolean);
-      const bannedMolecules = banned.map((b) => b.active_molecule).filter(Boolean);
-      const allMolecules = [...new Set([...molecules, ...bannedMolecules])];
-      // The SKUAST-Kashmir schedule: for the pesticides found, and for what was typed itself (a molecule, a pest or a disease).
-      const skuast = [...skuastLookupAll(allMolecules), ...skuastSearch(typed.text)].filter((r, i, all) => all.findIndex((x) => x.molecule === r.molecule) === i);
-      setSkuastResult(skuast.length > 0 ? skuast : null);
-    }
-
-    // ── Async API call (background, ~1s) ──
-    const r = await scan(code);
+    // The official CIB&RC lists, looked up from what was typed (a name; a registration or batch number is not in them).
+    const lists = typed.kind === 'name' && typed.text.length >= 3 ? loadCibrc().then((d) => lookupCibrc(d, typed.text)).catch(() => null) : Promise.resolve(null);
+    const [r, answer] = await Promise.all([scan(code), lists]);
     if (r.state === 'done') setStats(r.stats);
+    setOfficial(answer);
     setScans((n) => n + 1);
     setResult(r);
 
     setIsChecking(false);
     setHasCompletedSearch(true);
-  };
-
-  const runBrowseSearch = async (q: string) => {
-    if (!q || q.trim().length < 2) {
-      setBrowseResults(null);
-      return;
-    }
-    setBrowseLoading(true);
-    try {
-      // The bundled Government lists (CIB&RC + Fertiliser (Control) Order); the mandi dataset is never mixed in
-      const res = await fetch(`/api/truescan/directory?q=${encodeURIComponent(q.trim())}`, {
-        headers: { Accept: 'application/json' },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setBrowseResults(data.results ?? []);
-      } else {
-        // Fallback to embedded search only
-        setBrowseResults((await loadRegistry()).searchAllEmbedded(q.trim()));
-      }
-    } catch {
-      try {
-        setBrowseResults((await loadRegistry()).searchAllEmbedded(q.trim()));
-      } catch {
-        setBrowseResults([]);
-      }
-    } finally {
-      setBrowseLoading(false);
-    }
   };
 
   return (
@@ -441,18 +344,16 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
 
       {mode === 'registry' && (
         <div className="mt-5">
-          <RegistryForm code={code} setCode={setCode} busy={result.state === 'loading'} onCheck={() => void check()} onBrowse={() => setBrowseOpen(true)} />
-          <ListsHeld stats={stats} fcoAvailable={fcoStandard !== null && fcoStandard !== undefined} />
+          <RegistryForm code={code} setCode={setCode} busy={result.state === 'loading'} onCheck={() => void check()} onBrowse={compact ? undefined : () => document.getElementById('official-lists')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />
+          <ListsHeld stats={stats} />
           <div aria-live="polite" className="mt-4">
             <ScanResult
               key={scans}
               result={result}
               account={account}
               onPhoto={() => setMode('photo')}
-              onLab={() => setMode('lab')}
-              standard={fcoStandard}
-              cibrcResult={cibrcResult}
-              skuastResult={skuastResult}
+              official={official}
+              onPick={(name) => setCode(name)}
               isChecking={isChecking}
               hasCompletedSearch={hasCompletedSearch}
             />
@@ -566,14 +467,6 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
                   )}
                 </div>
               )}
-
-              {/* SKUAST-Kashmir dosage, as typed by KashRoot */}
-              {standard.skuast_kashmir_dosage && (
-                <div className="mt-4 rounded-xl bg-indigo-50 p-3 text-sm text-slate-800 ring-1 ring-indigo-200">
-                  <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-indigo-800 mb-1">SKUAST-Kashmir dosage (as typed by KashRoot)</p>
-                  <p className="font-medium">{standard.skuast_kashmir_dosage}</p>
-                </div>
-              )}
             </>
           ) : (
             <p className="mt-3 text-sm text-slate-500">Type a fertiliser type (e.g. DAP, Urea, MOP) to load its FCO Schedule I standard.</p>
@@ -603,108 +496,8 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
         </div>
       )}
 
-      {!compact && <OfficialChecks />}
+      {!compact && <OfficialCibrcLists />}
 
-      {/* Browse official register panel */}
-      {browseOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setBrowseOpen(false)} />
-          <div className="relative w-full max-w-2xl max-h-[90vh] bg-white rounded-2xl shadow-2xl ring-1 ring-black/10 p-6 overflow-y-auto mx-4 sm:mx-6 lg:mx-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">KashRoot reference list: CIB&RC pesticides & FCO fertilisers</h2>
-              <p className="sr-only">Typed from the Government registers; not yet checked against the official registers.</p>
-              <button
-                type="button"
-                onClick={() => setBrowseOpen(false)}
-                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
-              >
-                <XCircle className="h-6 w-6" aria-hidden />
-              </button>
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Search the register</label>
-              <input
-                id="browse-search"
-                value={browseQuery}
-                onChange={(e) => {
-                  setBrowseQuery(e.target.value);
-                  void runBrowseSearch(e.target.value);
-                }}
-                placeholder="e.g. Dodine, Mancozeb, Urea, DAP, Apple Scab…"
-                className={`${INPUT} w-full`}
-              />
-              {browseLoading && (
-                <p className="mt-1 text-xs text-slate-500"><Loader2 className="h-3 w-3 animate-spin" aria-hidden /> Searching…</p>
-              )}
-            </div>
-            <div>
-              {browseResults === null ? (
-                <p className="text-sm text-slate-500">Type above to search pesticides, banned chemicals and FCO 1985 fertiliser grades. Records marked “reference” were typed by KashRoot and are not yet checked against the official register.</p>
-              ) : browseResults.length === 0 ? (
-                <p className="text-sm text-slate-500">Nothing matches your search.</p>
-              ) : (
-                <>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                    {browseResults.length} record{browseResults.length === 1 ? '' : 's'}{browseResults.some((h) => h.reference) ? ' · “reference” = typed by KashRoot, not yet checked' : ''}
-                  </p>
-                  <div className="space-y-2">
-                    {browseResults.map((h, i) => (
-                      <div key={`${h.kind}-${h.active_molecule || h.fertiliser_type}-${i}`} className="rounded-xl bg-white p-3 ring-1 ring-slate-200">
-                        {h.kind === 'registered' && (
-                          <>
-                            <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-forest">
-                              {h.reference ? 'Reference (not yet checked)' : 'CIB&RC Registered'}
-                            </p>
-                            <p className="text-sm font-semibold text-slate-900">{h.active_molecule}</p>
-                            {h.cir_no && <p className="text-xs text-slate-600">{h.cir_no}</p>}
-                            {h.formulation && <p className="text-xs text-slate-600">{h.formulation}</p>}
-                            {(h.approved_crops ?? []).length > 0 && (
-                              <p className="text-xs text-slate-600">Approved crops: {(h.approved_crops ?? []).join(', ')}</p>
-                            )}
-                            {(h.target_pests ?? []).length > 0 && (
-                              <p className="text-xs text-slate-600">Targets: {(h.target_pests ?? []).join(', ')}</p>
-                            )}
-                            {h.waiting_period_days !== null && (
-                              <p className="text-xs text-slate-600">Waiting period: {h.waiting_period_days} days</p>
-                            )}
-                            <p className="text-xs text-slate-500 mt-1">Source: {h.source}</p>
-                          </>
-                        )}
-                        {h.kind === 'banned' && (
-                          <>
-                            <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-rose-700">
-                              {h.reference ? 'Banned / restricted (reference)' : 'CIB&RC Banned / Restricted'}
-                            </p>
-                            <p className="text-sm font-semibold text-slate-900">{h.active_molecule}</p>
-                            <p className="text-xs text-rose-600">Status: {h.status}</p>
-                            {h.reason_summary && <p className="text-xs text-slate-600">Reason: {h.reason_summary}</p>}
-                            <p className="text-xs text-slate-500 mt-1">Source: {h.source}</p>
-                          </>
-                        )}
-                        {h.kind === 'fco' && (
-                          <>
-                            <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-sky-700">
-                              {h.reference ? 'FCO 1985 grade (reference)' : 'FCO 1985 Schedule I'}
-                            </p>
-                            <p className="text-sm font-semibold text-slate-900">{h.fertiliser_type}</p>
-                            <p className="text-xs text-slate-600">Grade: {h.grade}</p>
-                            {h.total_n_min !== null && <p className="text-xs text-slate-600">Total N (min): {h.total_n_min}%</p>}
-                            {h.ws_p2o5_min !== null && <p className="text-xs text-slate-600">P₂O₅ (min): {h.ws_p2o5_min}%</p>}
-                            {h.ws_k2o_min !== null && <p className="text-xs text-slate-600">K₂O (min): {h.ws_k2o_min}%</p>}
-                            {h.micronutrient_min !== null && <p className="text-xs text-slate-600">Micronutrient (min): {h.micronutrient_min}%</p>}
-                            {h.moisture_max !== null && <p className="text-xs text-slate-600">Moisture (max): {h.moisture_max}%</p>}
-                            <p className="text-xs text-slate-500 mt-1">Source: {h.source}</p>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -713,7 +506,7 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
  * One big box for whatever is printed on the label. Codes are mostly
  * numbers, so a tap switches the phone to its number keypad and back.
  */
-function RegistryForm({ code, setCode, busy, onCheck, onBrowse }: { code: string; setCode: (v: string) => void; busy: boolean; onCheck: () => void; onBrowse: () => void }) {
+function RegistryForm({ code, setCode, busy, onCheck, onBrowse }: { code: string; setCode: (v: string) => void; busy: boolean; onCheck: () => void; onBrowse?: () => void }) {
   const [numbers, setNumbers] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   return (
@@ -754,26 +547,24 @@ function RegistryForm({ code, setCode, busy, onCheck, onBrowse }: { code: string
       <button type="submit" disabled={busy} className="mt-3 inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-chinar px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-chinar-hover disabled:opacity-60 sm:w-auto">
         {busy ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <ShieldCheck className="h-5 w-5" aria-hidden />} {busy ? 'Checking…' : 'Check'}
       </button>
-      <button type="button" onClick={onBrowse} className="mt-2 inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-base font-semibold text-slate-800 shadow-sm ring-1 ring-inset ring-slate-200 hover:bg-slate-50 sm:w-auto">
-        <FileQuestion className="h-5 w-5" aria-hidden />
-        Browse the reference list (CIB&RC & FCO)
-      </button>
+      {onBrowse && (
+        <button type="button" onClick={onBrowse} className="mt-2 inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-base font-semibold text-slate-800 shadow-sm ring-1 ring-inset ring-slate-200 hover:bg-slate-50 sm:w-auto">
+          <FileQuestion className="h-5 w-5" aria-hidden />
+          Browse the official lists
+        </button>
+      )}
     </form>
   );
 }
 
-/** Under the box: which official lists KashRoot holds, and how fresh they are. */
-function ListsHeld({ stats, fcoAvailable }: { stats: AgroRegistryStats | null | undefined; fcoAvailable: boolean }) {
-  if (stats === undefined && !fcoAvailable) return <p id="truescan-lists" className="sr-only" />;
-  const parts: string[] = [];
-  if (stats) {
-    parts.push(`KashRoot’s reference lists, typed from the Government’s CIB&RC (ppqs.gov.in) pesticide registers and the Fertiliser (Control) Order, 1985, Schedule I. They are not the complete registers and are not yet checked against them.`);
-    parts.push(`${products(stats.registeredCount)} registered · ${products(stats.bannedCount)} banned/restricted · ${products(stats.fcoCount)} fertiliser standards.`);
-  }
-  if (fcoAvailable) {
-    parts.push('Fertiliser types are compared with the Fertiliser (Control) Order, 1985, Schedule I standards as typed by KashRoot.');
-  }
-  return <p id="truescan-lists" className="mt-2 text-xs text-slate-500">{parts.join(' — ')}.</p>;
+/** Under the box: which official lists TrueScan reads, with the date printed on each. */
+function ListsHeld({ stats }: { stats: RegistryStats | null | undefined }) {
+  const l = CIBRC_META.lists;
+  const parts = [
+    `Official CIB&RC lists (ppqs.gov.in): ${count(l.pesticides.count)} registered pesticides and ${count(l.formulations.count)} formulations (as on ${l.pesticides.as_on}); ${count(l.banned.banned + l.banned.banned_for_export_only + l.banned.withdrawn + l.banned.refused)} banned, withdrawn or refused and ${count(l.banned.restricted)} restricted (as on ${l.banned.as_on}).`,
+  ];
+  if (stats && stats.total > 0) parts.push(`${count(stats.total)} more rows imported from the Government's own files.`);
+  return <p id="truescan-lists" className="mt-2 text-xs text-slate-600">{parts.join(' ')}</p>;
 }
 
 /** The official-list answer for one product, in one sentence, with its source and date. */
@@ -798,14 +589,12 @@ function HitLine({ hit, strong = false }: { hit: OfficialHit; strong?: boolean }
   );
 }
 
-/** Which lists were checked (kinds that apply), and the newest import among them. */
-function listsFor(stats: AgroRegistryStats | null, kind: Typed['kind']) {
-  const held = stats ? stats.registeredCount > 0 || stats.bannedCount > 0 || stats.fcoCount > 0 : false;
-  const last = stats?.lastUpdated ?? null;
-  return { kinds: [], last, held };
+/** Whether imported official rows exist on this site, and when the newest was imported. */
+function listsFor(stats: RegistryStats | null) {
+  return { last: stats?.last_import ?? null, held: (stats?.total ?? 0) > 0 };
 }
 
-function ScanResult({ result, account, onPhoto, onLab, standard, cibrcResult, skuastResult, isChecking, hasCompletedSearch }: { result: Scan; account: Account | null; onPhoto: () => void; onLab: () => void; standard: FcoStandard | null | undefined; cibrcResult: { products: CibrcProduct[] | null; banned: CibrcBanned[] | null } | null; skuastResult: SkuastRecommendation[] | null; isChecking: boolean; hasCompletedSearch: boolean }) {
+function ScanResult({ result, account, onPhoto, official, onPick, isChecking, hasCompletedSearch }: { result: Scan; account: Account | null; onPhoto: () => void; official: CibrcAnswer | null; onPick: (name: string) => void; isChecking: boolean; hasCompletedSearch: boolean }) {
   const [all, setAll] = useState(false);
   if (result.state === 'idle') return null;
   if (result.state === 'loading') return <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Checking the official lists…</p>;
@@ -814,19 +603,10 @@ function ScanResult({ result, account, onPhoto, onLab, standard, cibrcResult, sk
   const { typed, hits, stats, dealer } = result;
   const byNumber = (hits ?? []).filter((h) => h.matched === 'registration');
   const byName = (hits ?? []).filter((h) => h.matched === 'name');
-  const lists = listsFor(stats, typed.kind);
-  const found = byNumber.length + byName.length > 0;
+  const lists = listsFor(stats);
   const shownNames = all ? byName : byName.slice(0, 5);
-  // Match counts across ALL sources, used to decide whether to show the
-  // "not in the official list" warning. The warning is mutually exclusive:
-  // it only renders when NONE of the official sources have a match AND the
-  // async check has fully completed (isChecking === false).
-  const registeredMatches =
-    byNumber.length + byName.length + (cibrcResult?.products?.length ?? 0);
-  const bannedMatches = cibrcResult?.banned?.length ?? 0;
-  const fcoMatches = standard ? 1 : 0;
-  const matchingResults =
-    registeredMatches + bannedMatches + fcoMatches + (skuastResult?.length ?? 0);
+  // "Not in the official lists" is said only when none of the official sources had a match and every check has finished.
+  const matches = byNumber.length + byName.length + (official?.total ?? 0);
 
   return (
     <div className="space-y-3 text-sm">
@@ -848,6 +628,8 @@ function ScanResult({ result, account, onPhoto, onLab, standard, cibrcResult, sk
           {dealer?.state === 'error' && <p className="mt-3 text-xs text-rose-800">KashRoot’s dealer records could not be checked: {dealer.message}</p>}
         </div>
       )}
+
+      {official && official.total + official.didYouMean.length > 0 && <OfficialCibrcAnswerPanel answer={official} onPick={onPick} />}
 
       {byNumber.map((h, i) => (
         <section key={`${h.source}|${h.registration_no}|${h.name}|${i}`} aria-label={isReference(h) ? 'Found in KashRoot’s reference list' : 'Found in the official list'} className={isReference(h) ? 'rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200' : 'rounded-2xl bg-forest-soft p-4 ring-1 ring-forest-line'}>
@@ -885,196 +667,17 @@ function ScanResult({ result, account, onPhoto, onLab, standard, cibrcResult, sk
         </section>
       )}
 
-      {standard && (
-        <section aria-label="Fertiliser (Control) Order" className="rounded-2xl bg-sky-50 p-4 text-slate-800 ring-1 ring-sky-200">
-          <p className="flex items-center gap-2 text-base font-semibold text-sky-950"><ShieldCheck className="h-5 w-5 shrink-0" aria-hidden /> This fertiliser type is specified in the Fertiliser (Control) Order — check the label photo against its standard</p>
-          <p className="mt-2 font-semibold">Government standard for {standard.fertiliser_type} ({standard.grade})</p>
-          <ul className="mt-1 list-disc ps-5">
-            <li key="n">{`Total nitrogen (N): at least ${standard.total_n_min ?? '—'}%`}</li>
-            <li key="p">{`Total phosphate (P₂O₅): at least ${standard.ws_p2o5_min ?? '—'}%`}</li>
-            <li key="k">{`Water-soluble potash (K₂O): at least ${standard.ws_k2o_min ?? '—'}%`}</li>
-            {standard.moisture_max !== undefined && <li key="moisture">{`Moisture: at most ${standard.moisture_max}%`}</li>}
-            {standard.biuret_max !== undefined && <li key="biuret">{`Biuret: at most ${standard.biuret_max}%`}</li>}
-          </ul>
-          <p className="mt-2 text-xs text-slate-600">Fertiliser (Control) Order, 1985, Schedule I{standard.fco_schedule_clause ? ` — ${standard.fco_schedule_clause}` : ''}{standard.reference ? ' (grade typed by KashRoot — check the gazette)' : ''}. Source: {standard.source}, published {new Date(standard.published_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}. The type being in the Order does not prove a bag is genuine — the label must show it, and only a Government lab test proves what is inside.</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" onClick={onPhoto} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-sky-800 px-4 py-2 font-semibold text-white hover:bg-sky-900">
-              <Camera className="h-4 w-4" aria-hidden /> Check the label photo
-            </button>
-            <button type="button" onClick={onLab} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-white px-4 py-2 font-semibold text-sky-900 ring-1 ring-sky-200 hover:bg-sky-100">
-              <FlaskConical className="h-4 w-4" aria-hidden /> Compare a lab report
-            </button>
-          </div>
-        </section>
-      )}
-
-      {cibrcResult && cibrcResult.products && cibrcResult.products.length > 0 && (
-        <section aria-label="CIB&RC registered product" className="rounded-2xl bg-forest-soft p-4 text-slate-800 ring-1 ring-forest-line">
-          {cibrcResult.products.every((p) => p.reference) ? (
-            <p className="flex items-center gap-2 text-base font-semibold text-slate-900"><FileQuestion className="h-5 w-5 shrink-0 text-amber-700" aria-hidden /> In KashRoot’s reference list — not yet checked against the official register</p>
-          ) : (
-            <p className="flex items-center gap-2 text-base font-semibold text-forest-deep"><BadgeCheck className="h-5 w-5 shrink-0" aria-hidden /> Registered with the Government (CIB&RC, ppqs.gov.in)</p>
-          )}
-          {cibrcResult.products.map((p) => {
-            const brand = (p.brandNames ?? [])[0] ?? p.active_molecule;
-            const legal = p.legalManufacturer ?? p.manufacturer ?? '';
-            if (p.reference) return <ReferenceProduct key={p.id} p={p} brand={brand} company={legal} onPhoto={onPhoto} />;
-            return (
-              <div key={p.id} className="mt-2 rounded-xl bg-forest-soft p-4 ring-1 ring-forest-line">
-                {/* Anti-scam manufacturer & CIR ID verification header */}
-                <div className="mb-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-forest-deep">Brand / Trade name</span>
-                    <span className="text-sm font-semibold text-slate-900">{brand}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-forest-deep">Govt. CIBRC registration ID</span>
-                    <span className="text-xs font-mono bg-forest-soft text-forest-deep px-2 py-1 rounded border border-forest-line break-all">{p.cir_no}</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void navigator.clipboard.writeText(p.cir_no);
-                      }}
-                      aria-label={`Copy ${p.cir_no}`}
-                      className="p-1.5 text-forest hover:bg-forest-soft rounded hover:text-forest-deep"
-                    >
-                      <Copy className="h-3.5 w-3.5" aria-hidden />
-                    </button>
-                  </div>
-                </div>
-                <div className="mb-2 flex items-start gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-forest-deep">Sole authorised manufacturer / registrant</span>
-                  <span className="text-sm font-semibold text-slate-900">{legal}</span>
-                </div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-forest-deep mb-1">{p.active_molecule}{p.formulation ? ` — ${p.formulation}` : ''}</p>
-                {p.approved_crops.length > 0 && <p className="text-xs text-slate-600">Approved crops: {p.approved_crops.join(', ')}</p>}
-                {p.target_pests.length > 0 && <p className="text-xs text-slate-600">Targets: {p.target_pests.join(', ')}</p>}
-                {p.waiting_period_days !== null && <p className="text-xs text-slate-600">Waiting period: {p.waiting_period_days} days</p>}
-                {p.skuast_kashmir_dosage && (
-                  <p className="text-xs text-slate-600">SKUAST-Kashmir dose (as typed): {p.skuast_kashmir_dosage}</p>
-                )}
-                {/* Anti-counterfeit warning banner */}
-                <p className="mt-3 rounded-xl bg-amber-50 p-3 text-amber-900 text-xs font-medium ring-1 ring-amber-200">
-                  ⚠️ <strong>SCAM ALERT CHECK:</strong> verify that the manufacturer printed on your bottle is strictly <strong>{legal}</strong> and the CIR number matches <strong>{p.cir_no}</strong>. If another company name or a different CIR number is printed on a bottle sold as <strong>{brand}</strong>, it is counterfeit / unauthorised —{' '}
-                  <button type="button" onClick={onPhoto} className="underline underline-offset-2 hover:text-amber-800">re-check the label photo</button> immediately.
-                </p>
-                <p className="text-xs text-slate-600 mt-1">Source: <a href={p.source_url} target="_blank" rel="noopener noreferrer" className="font-medium text-sky-800 underline">{p.source}</a>, published {new Date(p.published_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}.</p>
-              </div>
-            );
-          })}
-        </section>
-      )}
-
-      {cibrcResult && cibrcResult.banned && cibrcResult.banned.length > 0 && (
-        <section aria-label="CIB&RC banned/restricted" className="rounded-2xl bg-rose-50 p-4 text-slate-800 ring-1 ring-rose-200">
-          <p className="flex items-center gap-2 text-base font-semibold text-rose-900"><CircleAlert className="h-5 w-5 shrink-0" aria-hidden /> Banned or restricted pesticide</p>
-          {cibrcResult.banned.map((b) => (
-            <div key={b.id} className="mt-2 rounded-xl bg-white/80 p-3 ring-1 ring-rose-100">
-              <p className="text-xs font-semibold uppercase tracking-wider text-rose-800">{b.active_molecule}</p>
-              <p className="text-sm text-slate-900">Status: <span className="font-semibold text-rose-700 capitalize">{b.status}</span>{b.common_name ? ` — ${b.common_name}` : ''}</p>
-              {b.ban_date && <p className="text-xs text-slate-600">Ban notification: {b.ban_notification ?? '—'} ({new Date(b.ban_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })})</p>}
-              {b.reason_summary && <p className="text-xs text-slate-600">Reason: {b.reason_summary}</p>}
-              <p className="text-xs text-slate-600 mt-1">Source: <a href={b.source_url} target="_blank" rel="noopener noreferrer" className="font-medium text-sky-800 underline">{b.source}</a>, published {new Date(b.published_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}.</p>
-            </div>
-          ))}
-        </section>
-      )}
-
-      {skuastResult && skuastResult.length > 0 && (
-        <section aria-label="SKUAST-Kashmir spray schedule, as typed by KashRoot" className="rounded-2xl bg-indigo-50 p-4 text-slate-800 ring-1 ring-indigo-200">
-          <p className="flex items-center gap-2 text-base font-semibold text-indigo-900">
-            <ShieldCheck className="h-5 w-5 shrink-0" aria-hidden />
-            SKUAST-Kashmir spray schedule (as typed by KashRoot)
-          </p>
-          <p className="mt-1 text-slate-600 text-sm">
-            Doses per 100 L of water and timing for Kashmir orchards, typed from the SKUAST-Kashmir spray schedule.
-            Doses change from year to year: check this year’s schedule from the SKUAST-K Directorate of Extension or your Horticulture Development Officer before you spray.
-          </p>
-          <div className="mt-3 space-y-3">
-            {skuastResult.map((r) => (
-              <div key={r.molecule} className="rounded-xl bg-white p-3 ring-1 ring-indigo-100">
-                <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-indigo-700">
-                  {r.molecule}
-                </p>
-                <p className="text-sm font-semibold text-slate-900">
-                  {r.formulations.join(', ')}
-                </p>
-                <p className="text-xs text-slate-600">
-                  <span className="font-semibold">SKUAST-K dosage:</span> {r.dosagePer100L}
-                </p>
-                <p className="text-xs text-slate-600">
-                  <span className="font-semibold">Timing:</span> {r.timing.join(', ')}
-                </p>
-                {r.targets.length > 0 && (
-                  <p className="text-xs text-slate-600">
-                    <span className="font-semibold">Targets:</span> {r.targets.join(', ')}
-                  </p>
-                )}
-                <p className="text-xs text-slate-600">
-                  <span className="font-semibold">Waiting period:</span> {r.waitingPeriodDays} days before harvest
-                </p>
-                <div className="mt-2">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600 mb-1">Mixing rules:</p>
-                  <ul className="text-xs text-slate-600 list-disc ps-5 space-y-1">
-                    {r.mixingRules.map((rule) => (
-                      <li key={rule}>{rule}</li>
-                    ))}
-                  </ul>
-                </div>
-                {r.notes.length > 0 && (
-                  <div className="mt-2">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600 mb-1">Notes:</p>
-                    <ul className="text-xs text-slate-600 list-disc ps-5 space-y-1">
-                      {r.notes.map((note) => (
-                        <li key={note}>{note}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          <p className="mt-3 text-xs text-indigo-600">
-            Follow product label instructions and SKUAST-K guidelines. Rotate fungicides with
-            different modes of action to prevent resistance.
-          </p>
-        </section>
-      )}
-
-      {hasCompletedSearch && !isChecking && registeredMatches === 0 && bannedMatches === 0 && fcoMatches === 0 && typed.kind !== 'batch' && lists.held ? (
-        <section aria-label="Not in the official list" className="rounded-2xl bg-amber-50 p-4 text-amber-950 ring-1 ring-amber-200">
-          <p className="flex items-center gap-2 text-base font-semibold"><CircleAlert className="h-5 w-5 shrink-0" aria-hidden /> Not in the official list KashRoot holds (updated {day(lists.last)})</p>
-          <p className="mt-1">It may be very new — or fake. {ASK}</p>
-          <p className="mt-2 text-xs text-amber-900">Lists checked: CIBRC registered (${products(stats?.registeredCount ?? 0)}), CIBRC banned/restricted (${products(stats?.bannedCount ?? 0)}), FCO standards (${products(stats?.fcoCount ?? 0)}). Check that you typed it exactly as printed.</p>
+      {hasCompletedSearch && !isChecking && matches === 0 && typed.kind !== 'batch' ? (
+        <section aria-label="Not in the official lists" className="rounded-2xl bg-amber-50 p-4 text-amber-950 ring-1 ring-amber-200">
+          <p className="flex items-center gap-2 text-base font-semibold"><CircleAlert className="h-5 w-5 shrink-0" aria-hidden /> Not found in the official lists TrueScan reads</p>
+          <p className="mt-1">{typed.kind === 'registration' ? 'The CIB&RC lists name chemicals and formulations; they do not carry registration numbers. Check this number on ppqs.gov.in. ' : 'A brand name is not in these lists: type the active ingredient printed on the label, for example “Mancozeb 75% WP”. '}{ASK}</p>
+          <p className="mt-2 text-xs text-amber-900">Looked in the CIB&amp;RC registered, banned, restricted, household and locust lists{lists.held ? ` and ${stats?.total.toLocaleString('en-IN')} rows imported from the Government's own files (newest ${day(lists.last)})` : ''}. Check that you typed it exactly as printed.</p>
         </section>
       ) : null}
 
       {/* A dealer's record has its own "Report as suspicious". */}
       {dealer?.state !== 'found' && <ReportBatch code={typed.text} account={account} />}
     </div>
-  );
-}
-
-/**
- * What the law requires and where the Government checks a doubtful product.
- * India publishes no batch-number database, and the pesticide registry
- * (CIB&RC, ppqs.gov.in) refuses automatic access — so KashRoot checks
- * registrations against the official lists its admin imports, and these are
- * the official routes for everything else.
- */
-function OfficialChecks() {
-  return (
-    <section aria-labelledby="official-checks" className="mt-6 rounded-2xl bg-sky-50/80 p-4 text-sm text-slate-800 ring-1 ring-sky-200">
-      <h3 id="official-checks" className="flex items-center gap-2 font-semibold text-sky-950"><ShieldCheck className="h-5 w-5" aria-hidden /> Official checks (Government of India rules)</h3>
-      <ul className="mt-2 list-disc space-y-1.5 pl-5">
-        <li><strong>Fertiliser bag</strong> (Fertiliser Control Order, 1985): must print the manufacturer’s name, the fertiliser and its grade, net weight, batch number, date of manufacture and the MRP.</li>
-        <li><strong>Pesticide bottle or packet</strong> (Insecticides Act, 1968): must print the CIB&amp;RC registration number, batch number, manufacturing and expiry dates, the antidote, and the coloured warning triangle (red = most poisonous, then yellow, blue, green).</li>
-        <li>Buy only from a <strong>licensed dealer</strong> and take a <strong>bill with the batch number</strong> — without it a complaint is hard to prove.</li>
-        <li>Doubtful product: keep the bag/bottle and bill, and tell your district <strong>Chief Agriculture Officer</strong> (fertilisers) or <strong>Chief Horticulture Officer</strong> (orchard sprays). Their inspector can take a sample to the Government quality-control lab — that test is the legal proof.</li>
-        <li>Free advice and complaints: <a href="tel:18001801551" className="font-semibold text-sky-800 underline">Kisan Call Centre 1800-180-1551</a> (Government of India, every day 6 am – 10 pm, Kashmiri, Urdu, Hindi).</li>
-      </ul>
-      <p className="mt-2 text-xs text-slate-500">Registrations are checked against the Government lists the KashRoot team loads — each answer names its source and date. Batch records come from dealers on KashRoot; they are not a Government list.</p>
-    </section>
   );
 }
 
@@ -1179,7 +782,7 @@ function LabelPhoto({ account }: { account: Account | null }) {
   const checkRegistration = async (no: string) => {
     setRegCheck({ state: 'loading' });
     try {
-      const [hits, statsResult] = await Promise.all([searchRegistry(no), loadRegistry().then((r) => r.agroRegistryStats())]);
+      const [hits, statsResult] = await Promise.all([searchRegistry(no), registryStats().catch(() => null)]);
       setRegCheck({ state: 'done', no, hits, stats: statsResult });
     } catch (err) {
       setRegCheck({ state: 'error', message: offline(err) });
@@ -1344,7 +947,7 @@ function LabelRegistration({ check }: { check: RegCheck }) {
       </section>
     );
   }
-  const lists = listsFor(check.stats, 'registration');
+  const lists = listsFor(check.stats);
   if (check.hits !== null && lists.held) {
     return (
       <section aria-label="Registration number not in the official list" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-amber-200">
@@ -1353,7 +956,7 @@ function LabelRegistration({ check }: { check: RegCheck }) {
       </section>
     );
   }
-  return <p className="text-xs text-slate-500">Registration {check.no} is not in the CIBRC registered list — it may be very new, or fake. {ASK} If the photo was unclear, type the number in &quot;Registration / batch&quot;.</p>;
+  return <p className="text-xs text-slate-500">Registration {check.no} could not be checked here: no official list of registration numbers has been loaded on this site. Check it on ppqs.gov.in. {ASK}</p>;
 }
 
 const RULE_ICON = { ok: CheckCircle2, missing: XCircle, problem: XCircle, caution: CircleAlert } as const;
@@ -1400,36 +1003,5 @@ function RuleChecks({ report }: { report: RuleReport }) {
       )}
       <p className="mt-2 text-xs opacity-80">A label can be copied — only a Government lab test proves what is inside. If something is wrong, keep the bag and bill and tell your district agriculture officer.</p>
     </section>
-  );
-}
-
-/**
- * A pesticide from KashRoot's hand-typed reference list: its brand, molecule,
- * crops and advice, but no registration number and no "counterfeit" warning —
- * that list was never checked against CIB&RC, so a real bottle's number must
- * never be called wrong because of it.
- */
-function ReferenceProduct({ p, brand, company, onPhoto }: { p: CibrcProduct; brand: string; company: string; onPhoto: () => void }) {
-  return (
-    <div className="mt-2 rounded-xl bg-white p-4 ring-1 ring-slate-200">
-      <p className="text-sm font-semibold text-slate-900">{brand}</p>
-      <p className="text-xs font-semibold uppercase tracking-wider text-slate-600">{p.active_molecule}{p.formulation ? ` — ${p.formulation}` : ''}</p>
-      {company && <p className="mt-1 text-xs text-slate-700">Company named in KashRoot’s list: {company}</p>}
-      {p.approved_crops.length > 0 && <p className="text-xs text-slate-600">Crops: {p.approved_crops.join(', ')}</p>}
-      {p.target_pests.length > 0 && <p className="text-xs text-slate-600">For: {p.target_pests.join(', ')}</p>}
-      {p.waiting_period_days !== null && <p className="text-xs text-slate-600">Waiting period: {p.waiting_period_days} days (check the label)</p>}
-      {p.skuast_kashmir_dosage && <p className="text-xs text-slate-600">SKUAST-Kashmir dose (as typed): {p.skuast_kashmir_dosage}</p>}
-      <div className="mt-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-950 ring-1 ring-amber-200">
-        <p className="font-semibold">How to check that your bottle is genuine</p>
-        <ul className="mt-1 list-disc space-y-0.5 ps-4">
-          <li>The label must show a registration number that starts with <strong>CIR</strong> and the company that made it.</li>
-          <li>Check that number on the official CIB&RC list at <a href="https://ppqs.gov.in" target="_blank" rel="noopener noreferrer" className="font-semibold underline">ppqs.gov.in</a>, or show the bottle to your Agriculture Extension Officer.</li>
-          <li>Buy only from a licensed dealer, and always take a bill.</li>
-        </ul>
-        <button type="button" onClick={onPhoto} className="mt-2 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-white px-3 font-semibold text-amber-900 ring-1 ring-amber-300 hover:bg-amber-100">
-          <Camera className="h-4 w-4" aria-hidden /> Check the label photo
-        </button>
-      </div>
-    </div>
   );
 }

@@ -33,3 +33,27 @@ not a register of products. Its key (`DATA_GOV_IN_API_KEY`) is for Agmarknet man
 
 TrueScan shows each answer with the list's name, link and "as on" date. Where a list is older than the
 products now on sale (as the March 2024 register is), its name says so.
+
+## The CIB&RC lists in TrueScan (`cibrc/`)
+
+The five lists the CIB&RC publishes at https://ppqs.gov.in/divisions/cib-rc/registered-products are kept here **unchanged**,
+and `scripts/extract-cibrc-lists.py` reads them row for row into `src/data/cibrc-official.json` (the lists) and
+`src/data/cibrc-official-meta.json` (counts and the "as on" date printed on each). TrueScan shows nothing else for
+pesticides: no entry is typed in by KashRoot.
+
+| File | Holds | As on |
+| --- | --- | --- |
+| `list_of_pesticides_as_on_31.03.2026.pdf` | 371 active ingredients registered under section 9(3) | 31.03.2026 |
+| `list_pf_pesticide_formulations_registered_as_on_31.03.2026.pdf` | 1,160 registered formulations (insecticides, fungicides, herbicides, plant growth regulators, nematicides, bio-pesticides) | 31.03.2026 |
+| `list_of_pesticides_which_are_banned_refused_registration_and_restricted_in_use_31.10.26.pdf` | 50 banned, 5 banned for use but made for export, 8 withdrawn, 18 refused registration, 16 restricted in use (with the restriction and its notification) | 31.10.2026 |
+| `7._formulation_approved_for_public_health_household_and_rodenticideUpdated_31.07.2026.pdf` | 133 household, public health and rodent-control formulations | 31.7.2026 |
+| `approved_pesticides_for_desert_locust_control.pdf` | 15 pesticides approved for desert locust control, with doses | (no date printed) |
+
+The Government's PDFs skip some serial numbers (277 in the ingredients list; 17 in the formulations list). That is
+in the PDFs themselves and is recorded in the JSON (`numbers_not_printed`); nothing is filled in.
+
+**To update when the CIB&RC posts newer lists:** replace the PDF here with the newer one (keep the publisher's file
+name), run `python3 scripts/extract-cibrc-lists.py` (it checks its own counts and stops if a list no longer reads),
+and commit the PDF and the two JSON files. The lists name chemicals and formulations, not brands or registration
+numbers, and TrueScan says so under every answer.
+

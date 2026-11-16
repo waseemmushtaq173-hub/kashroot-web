@@ -1,0 +1,40 @@
+{
+ "source": "Central Insecticides Board & Registration Committee (CIB&RC), Directorate of Plant Protection, Quarantine & Storage, Ministry of Agriculture and Farmers Welfare",
+ "page": "https://ppqs.gov.in/divisions/cib-rc/registered-products",
+ "lists": {
+  "pesticides": {
+   "title": "Insecticides / pesticides registered under section 9(3) of the Insecticides Act, 1968, for use in the country",
+   "count": 371,
+   "as_on": "31.03.2026",
+   "file": "list_of_pesticides_as_on_31.03.2026.pdf"
+  },
+  "formulations": {
+   "title": "Pesticide formulations registered for use in the country under the Insecticides Act, 1968",
+   "count": 1160,
+   "as_on": "31.03.2026",
+   "file": "list_pf_pesticide_formulations_registered_as_on_31.03.2026.pdf"
+  },
+  "banned": {
+   "title": "Pesticides which are banned, refused registration and restricted in use",
+   "as_on": "31.10.2026",
+   "file": "list_of_pesticides_which_are_banned_refused_registration_and_restricted_in_use_31.10.26.pdf",
+   "banned": 50,
+   "banned_for_export_only": 5,
+   "withdrawn": 8,
+   "refused": 18,
+   "restricted": 16
+  },
+  "household": {
+   "title": "Insecticides registered under the Insecticides Act for use in household, public health and rodent control",
+   "count": 133,
+   "as_on": "31.7.2026",
+   "file": "7._formulation_approved_for_public_health_household_and_rodenticideUpdated_31.07.2026.pdf"
+  },
+  "locust": {
+   "title": "Pesticides approved for control of Desert Locust",
+   "count": 15,
+   "as_on": null,
+   "file": "approved_pesticides_for_desert_locust_control.pdf"
+  }
+ }
+}

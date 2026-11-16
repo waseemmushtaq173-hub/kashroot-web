@@ -172,7 +172,8 @@ test('the SKUAST-K schedule is searched on its own, by a molecule, a pest or the
   expect(skuastLookup('DODINE 65% WP / 40% SC')?.molecule).toBe('Dodine');
   expect(skuastLookup('Gibberellic Acid 1.8% EC')).toBeNull();
   expect(skuastLookup('')).toBeNull();
+  // TrueScan shows only official data: KashRoot's typed copy of the schedule is not put in front of a farmer as if it were the university's.
   const checker = read('src/components/fertilizer/FertilizerChecker.tsx');
-  expect(checker).toContain('skuastSearch(typed.text)');
+  expect(checker).not.toMatch(/skuast/i);
 });
 
