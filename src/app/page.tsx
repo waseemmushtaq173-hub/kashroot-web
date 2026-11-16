@@ -117,31 +117,31 @@ export default async function HomePage() {
         <SiteHeader tone="light" showRoleSignIn />
 
         {/* Bottom padding leaves room for the season badge (no more). */}
-        <main id="main-content" className="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-6 sm:pt-12 lg:px-8">
-          <section className={`max-w-2xl rounded-[2rem] p-6 sm:p-9 ${GLASS.panel}`}>
+        <main id="main-content" className="mx-auto max-w-7xl px-4 pb-24 pt-4 sm:px-6 sm:pt-6 lg:px-8">
+          <section className={`max-w-xl rounded-3xl p-4 sm:p-6 ${GLASS.panel}`}>
             <p className="inline-flex items-center gap-2 rounded-full bg-white/85 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-ink ring-1 ring-slate-900/10">
               <span aria-hidden className="kr-spectrum h-1.5 w-8 rounded-full" />
               KashRoot · The agri-business ecosystem
             </p>
-            <h1 className="font-display mt-5 text-4xl font-semibold tracking-tight text-ink [text-wrap:balance] sm:text-5xl lg:text-6xl">
+            <h1 className="font-display mt-3 text-3xl font-semibold tracking-tight text-ink [text-wrap:balance] sm:text-4xl lg:text-5xl">
               Every harvest,{' '}
               <span className="kr-spectrum-text">
                 traded with trust.
               </span>
             </h1>
-            <p className="mt-4 max-w-xl text-base leading-relaxed text-ink-soft sm:text-lg">
+            <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink-soft sm:text-base">
               <strong className="font-semibold text-ink">KashRoot</strong> brings pay-after-delivery trade, live mandi rates and
               transparent price comparison to growers, traders and buyers.
             </p>
             {/* The KashRoot identity: the whole spectrum, not one hue. */}
-            <p aria-hidden className="mt-5 flex items-center gap-1.5">
+            <p aria-hidden className="mt-3 flex items-center gap-1.5">
               {['#E11D48', '#F97316', '#FACC15', '#22C55E', '#06B6D4', '#3B82F6', '#8B5CF6'].map((c) => (
-                <span key={c} className="h-2.5 w-7 rounded-full ring-1 ring-slate-900/10" style={{ backgroundColor: c }} />
+                <span key={c} className="h-2 w-6 rounded-full ring-1 ring-slate-900/10" style={{ backgroundColor: c }} />
               ))}
             </p>
             {/* Real live platform counts — each shown only when its table answered. */}
             {(metrics.stores != null || metrics.lots != null || metrics.rates != null) && (
-              <p className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm font-medium text-ink-soft">
+              <p className="mt-3 flex flex-wrap gap-x-4 gap-y-0.5 text-xs font-medium text-ink-soft sm:text-sm">
                 {metrics.stores != null && <span><strong className="font-semibold text-ink">{fmt(metrics.stores)}</strong> cold stores listed</span>}
                 {metrics.lots != null && <span><strong className="font-semibold text-ink">{fmt(metrics.lots)}</strong> produce lots on sale</span>}
                 {metrics.rates != null && <span><strong className="font-semibold text-ink">{fmt(metrics.rates)}</strong> mandi rates today</span>}
@@ -149,10 +149,10 @@ export default async function HomePage() {
             )}
           </section>
 
-          <section aria-label="KashRoot tools" className="mt-6 grid gap-5 sm:mt-8 md:grid-cols-2 lg:grid-cols-3">
-            {/* One column on a phone, two on a tablet (the third card across both), three from 1024 px: a card is never narrower than its buttons. */}
-            {TOOL_ORDER.map((id, i) => (
-              <div key={id} data-portal={TOOL_HUE[id]} className={i === 2 ? 'md:col-span-2 lg:col-span-1' : undefined}>
+          <section aria-label="KashRoot tools" className="mt-3 grid gap-3 sm:mt-4 sm:gap-4 md:grid-cols-3">
+            {/* One column on a phone, three across from 768 px: small cards, so the whole row is seen without scrolling. */}
+            {TOOL_ORDER.map((id) => (
+              <div key={id} data-portal={TOOL_HUE[id]}>
                 <Tilt3D className="rounded-3xl" max={6}>
                   <ToolCard id={id} />
                 </Tilt3D>
@@ -170,7 +170,7 @@ export default async function HomePage() {
           className="pointer-events-none absolute inset-0 -z-10"
           style={{ backgroundImage: 'radial-gradient(38rem 24rem at 0% 8%, rgba(225,29,72,0.08), transparent 60%), radial-gradient(38rem 24rem at 100% 28%, rgba(249,115,22,0.09), transparent 60%), radial-gradient(40rem 26rem at 0% 62%, rgba(6,182,212,0.08), transparent 60%), radial-gradient(40rem 26rem at 100% 92%, rgba(139,92,246,0.09), transparent 60%)' }}
         />
-        <div className="mx-auto max-w-7xl space-y-10 px-4 pb-14 pt-8 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl space-y-8 px-4 pb-12 pt-6 sm:px-6 lg:px-8">
           <section aria-label="Voice assistant" data-portal="kissan">
             <VoiceConcierge />
           </section>
@@ -178,7 +178,7 @@ export default async function HomePage() {
           <section aria-labelledby="fertilizer-heading" data-portal="expert" className="grid gap-6 lg:grid-cols-[1fr_1.6fr] lg:items-start">
             <div className="pt-2 lg:sticky lg:top-24">
               <p className="inline-flex rounded-full bg-champagne-soft px-3 py-1 text-xs font-semibold text-champagne-deep ring-1 ring-champagne/60">Fertilisers and pesticides</p>
-              <h2 id="fertilizer-heading" className="font-display mt-3 text-3xl font-semibold tracking-tight text-ink">KashRoot TrueScan — is it genuine?</h2>
+              <h2 id="fertilizer-heading" className="font-display mt-3 text-2xl font-semibold tracking-tight text-ink">KashRoot TrueScan — is it genuine?</h2>
               <p className="mt-3 leading-relaxed text-ink-soft">
                 Type the registration number or the name from the label: it is checked against the Government list of registered
                 products. Or photograph the label, or compare a lab report with the official Fertiliser (Control) Order standards.
@@ -191,13 +191,13 @@ export default async function HomePage() {
           </section>
 
           <section aria-labelledby="portals-heading">
-            <div className="relative isolate mb-6 overflow-hidden rounded-[2rem] border border-white/30 p-8 text-white [box-shadow:inset_0_1px_0_rgba(255,255,255,0.22),0_2px_0_#2A1B3D,0_18px_40px_-14px_rgba(60,20,80,0.45)] sm:p-10">
+            <div className="relative isolate mb-4 overflow-hidden rounded-3xl border border-white/30 p-5 text-white [box-shadow:inset_0_1px_0_rgba(255,255,255,0.22),0_2px_0_#2A1B3D,0_18px_40px_-14px_rgba(60,20,80,0.45)] sm:p-6">
               <div aria-hidden className="kr-spectrum-deep absolute inset-0 -z-20" />
               <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-b from-black/0 to-black/25" />
               <div aria-hidden className="kr-spectrum absolute inset-x-0 top-0 -z-10 h-1" />
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white">Every portal</p>
-              <h2 id="portals-heading" className="font-display mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">One valley, every trade</h2>
-              <p className="mt-2 max-w-xl text-white/90">Each portal has its own sign-in. Pick yours.</p>
+              <h2 id="portals-heading" className="font-display mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">One valley, every trade</h2>
+              <p className="mt-1 max-w-xl text-sm text-white/90">Each portal has its own sign-in. Pick yours.</p>
             </div>
             <PortalGrid />
           </section>
@@ -216,7 +216,7 @@ function ToolCard({ id }: { id: ToolId }) {
 
   return (
     <article
-      className={`group relative flex h-full flex-col overflow-hidden rounded-3xl p-6 ${GLASS.panel} transition duration-300 [transform-style:preserve-3d] hover:-translate-y-1 hover:bg-white hover:[box-shadow:var(--kr-card-hover-shadow),0_24px_48px_-12px_rgba(30,27,75,0.25)] motion-reduce:transition-none motion-reduce:hover:translate-y-0`}
+      className={`group relative flex h-full flex-col overflow-hidden rounded-3xl p-4 sm:p-5 ${GLASS.panel} transition duration-300 [transform-style:preserve-3d] hover:-translate-y-1 hover:bg-white hover:[box-shadow:var(--kr-card-hover-shadow),0_24px_48px_-12px_rgba(30,27,75,0.25)] motion-reduce:transition-none motion-reduce:hover:translate-y-0`}
     >
       <div
         aria-hidden
@@ -224,20 +224,20 @@ function ToolCard({ id }: { id: ToolId }) {
       />
 
       <div className="relative flex items-start justify-between gap-3">
-        <span data-depth className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl ${theme.iconTile}`}>
-          <Icon className="h-6 w-6" aria-hidden />
+        <span data-depth className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${theme.iconTile}`}>
+          <Icon className="h-5 w-5" aria-hidden />
         </span>
-        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${theme.eyebrow}`}>{tool.eyebrow}</span>
+        <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${theme.eyebrow}`}>{tool.eyebrow}</span>
       </div>
 
-      <h2 className="relative mt-5 font-display text-2xl font-semibold tracking-tight text-ink">{tool.title}</h2>
-      <p className="relative mt-2 text-sm leading-relaxed text-ink-soft">{tool.description}</p>
+      <h2 className="relative mt-3 font-display text-xl font-semibold tracking-tight text-ink">{tool.title}</h2>
+      <p className="relative mt-1.5 text-sm leading-snug text-ink-soft">{tool.description}</p>
 
       {/* The two buttons share the row equally and stack full width when the card is narrow; a long label wraps instead of running past the card. */}
-      <div className="relative mt-auto flex flex-wrap gap-2 pt-6">
+      <div className="relative mt-auto flex flex-wrap gap-2 pt-3">
         <Link
           href={primary.href}
-          className={`min-h-11 min-w-0 flex-1 basis-52 gap-1.5 whitespace-normal text-center ${BUTTON_LINK} ${theme.primaryButton}`}
+          className={`min-h-11 min-w-0 flex-1 basis-32 gap-1.5 whitespace-normal text-center ${BUTTON_LINK} ${theme.primaryButton}`}
         >
           {primary.label}
           <ArrowRight
@@ -247,7 +247,7 @@ function ToolCard({ id }: { id: ToolId }) {
         </Link>
         <Link
           href={secondary.href}
-          className={`min-h-11 min-w-0 flex-1 basis-52 whitespace-normal text-center ${BUTTON_LINK} ${theme.secondaryButton}`}
+          className={`min-h-11 min-w-0 flex-1 basis-32 whitespace-normal text-center ${BUTTON_LINK} ${theme.secondaryButton}`}
         >
           {secondary.label}
         </Link>

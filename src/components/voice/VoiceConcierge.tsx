@@ -264,7 +264,7 @@ export function VoiceConcierge({ compact = false, autoListen = false, onNavigate
   return (
     <div
       data-voice-panel={compact ? undefined : ''}
-      className={compact ? 'relative p-4 sm:p-5' : 'relative overflow-hidden rounded-[2rem] bg-white/80 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.14)] ring-1 ring-white/70 backdrop-blur-xl sm:p-8'}
+      className={compact ? 'relative p-4 sm:p-5' : 'relative overflow-hidden rounded-3xl bg-white/80 p-4 shadow-[0_18px_44px_rgba(15,23,42,0.12)] ring-1 ring-white/70 backdrop-blur-xl sm:p-5'}
     >
       {!compact && <div aria-hidden className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-gradient-to-br from-amber-300/50 to-rose-300/40 blur-3xl" />}
       <div className="relative flex flex-wrap items-center justify-between gap-4">
@@ -276,7 +276,7 @@ export function VoiceConcierge({ compact = false, autoListen = false, onNavigate
             <h2 id="voice-panel-title" className="font-display mt-2 pe-12 text-xl font-semibold tracking-tight text-slate-900">Speak, KashRoot does the rest</h2>
           ) : (
             <>
-              <h2 className="font-display mt-3 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">Ask KashRoot anything</h2>
+              <h2 className="font-display mt-2 text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">Ask KashRoot anything</h2>
               <p className="mt-1 text-sm text-slate-600">Prices, weather, crop care and how to use KashRoot — speak, and hear the answer in Kashmiri, Urdu, Hindi, Dogri or English. Say what you want done, and KashRoot fills in the form for you.</p>
             </>
           )}
@@ -298,14 +298,14 @@ export function VoiceConcierge({ compact = false, autoListen = false, onNavigate
         </p>
       )}
 
-      <div className={`relative grid gap-4 ${compact ? 'mt-4' : 'mt-6 gap-6 md:grid-cols-[auto_1fr] md:items-start'}`}>
+      <div className={`relative grid gap-4 ${compact ? 'mt-4' : 'mt-3 gap-4 md:grid-cols-[auto_1fr] md:items-start'}`}>
         <div className={compact ? 'flex items-center gap-4' : 'flex flex-col items-center gap-3'}>
           <button
             type="button"
             onClick={toggleListening}
             aria-pressed={listening}
             aria-label={listening ? 'Stop listening' : 'Speak your question'}
-            className={`group relative grid shrink-0 cursor-pointer place-items-center rounded-full bg-gradient-to-br from-amber-400 via-orange-500 to-rose-600 text-white shadow-[0_18px_40px_rgba(234,88,12,0.45),inset_0_-8px_20px_rgba(0,0,0,0.2),inset_0_8px_16px_rgba(255,255,255,0.35)] transition hover:scale-105 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-amber-500 motion-reduce:transition-none ${compact ? 'h-20 w-20' : 'h-32 w-32'}`}
+            className={`group relative grid shrink-0 cursor-pointer place-items-center rounded-full bg-gradient-to-br from-amber-400 via-orange-500 to-rose-600 text-white shadow-[0_18px_40px_rgba(234,88,12,0.45),inset_0_-8px_20px_rgba(0,0,0,0.2),inset_0_8px_16px_rgba(255,255,255,0.35)] transition hover:scale-105 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-amber-500 motion-reduce:transition-none ${compact ? 'h-20 w-20' : 'h-20 w-20 sm:h-24 sm:w-24'}`}
           >
             {listening && (
               <>

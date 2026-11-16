@@ -30,9 +30,9 @@ const HUE: Record<string, string> = {
 };
 
 const CARD =
-  'kr-card kr-card-interactive group relative flex h-full min-h-[11.5rem] flex-col overflow-hidden rounded-3xl p-5 text-ink no-underline hover:no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest';
+  'kr-card kr-card-interactive group relative flex h-full min-h-[9rem] flex-col overflow-hidden rounded-3xl p-4 text-ink no-underline hover:no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest';
 // A forest and gold badge standing on its own ledge (globals.css .kr-icon-badge).
-const ICON = 'kr-icon-badge relative grid h-12 w-12 place-items-center rounded-2xl';
+const ICON = 'kr-icon-badge relative grid h-10 w-10 place-items-center rounded-xl';
 const BADGE = 'relative rounded-full border border-champagne/60 bg-champagne-soft px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-champagne-deep';
 // The button inside a card lifts and sinks with the card (the card is the link).
 const CTA = 'kr-btn-primary relative mt-auto w-full justify-between group-hover:[transform:translateY(-1px)] group-hover:[box-shadow:var(--kr-btn-primary-hover-shadow)] group-active:[transform:translateY(1.5px)] group-active:[box-shadow:var(--kr-btn-primary-active-shadow)] motion-reduce:group-hover:[transform:none] motion-reduce:group-active:[transform:none]';
@@ -41,7 +41,7 @@ export function PortalGrid() {
   // Admin appears only on an admin's own phone or computer (see adminDevice).
   const showAdmin = useShowAdmin();
   return (
-    <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {EIGHT_PORTALS_CONFIG.map((card) => {
         const Icon = card.icon;
         return (
@@ -51,12 +51,12 @@ export function PortalGrid() {
                 <span aria-hidden className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-champagne to-transparent" />
                 <span className="flex items-start justify-between gap-3">
                   <span className={ICON}>
-                    <Icon className="h-6 w-6" aria-hidden />
+                    <Icon className="h-5 w-5" aria-hidden />
                   </span>
                   <span aria-hidden className={BADGE}>{card.tag}</span>
                 </span>
-                <span className="relative mt-4 block text-lg font-semibold tracking-tight text-ink">{card.name}</span>
-                <span className="relative mb-4 mt-1 block text-sm leading-relaxed text-ink-soft">{card.purpose}</span>
+                <span className="relative mt-3 block text-base font-semibold tracking-tight text-ink">{card.name}</span>
+                <span className="relative mb-3 mt-1 block text-sm leading-snug text-ink-soft">{card.purpose}</span>
                 <span className={CTA}>
                   {card.actionLabel}
                   <ArrowUpRight className="h-4 w-4 text-champagne transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden />
@@ -81,12 +81,12 @@ function AdminCard() {
           <span aria-hidden className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-champagne to-transparent" />
           <span className="flex items-start justify-between gap-3">
             <span className={ICON}>
-              <ArrowUpRight className="h-6 w-6 rotate-45" aria-hidden />
+              <ArrowUpRight className="h-5 w-5 rotate-45" aria-hidden />
             </span>
             <span aria-hidden className={BADGE}>Staff</span>
           </span>
-          <span className="relative mt-4 block text-lg font-semibold tracking-tight text-ink">{admin.label}</span>
-          <span className="relative mb-4 mt-1 block text-sm leading-relaxed text-ink-soft">{admin.tagline}</span>
+          <span className="relative mt-3 block text-base font-semibold tracking-tight text-ink">{admin.label}</span>
+          <span className="relative mb-3 mt-1 block text-sm leading-snug text-ink-soft">{admin.tagline}</span>
           <span className={CTA}>
             Open Admin Console
             <ArrowUpRight className="h-4 w-4 text-champagne transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden />
