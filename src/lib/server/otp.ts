@@ -171,6 +171,21 @@ function smtpRelay(): { host: string; port: number; user: string; pass: string }
   return { host: process.env.SMTP_HOST?.trim() || 'smtp.gmail.com', port: Number(process.env.SMTP_PORT) || 465, user, pass };
 }
 
+/** Which sender each email route uses, without any secret: the relay's host and port, and the
+ *  domain (never the name) of the account each route sends from. For /api/otp/status. */
+export function emailSenderInfo(): { relay: { host: string; port: number; accountDomain: string } | null; gmailAccountDomain: string | null; resendFromDomain: string | null } {
+  const domain = (v?: string) => {
+    const at = (v ?? '').trim().lastIndexOf('@');
+    return at > 0 ? (v ?? '').trim().slice(at + 1).toLowerCase() : null;
+  };
+  const r = smtpRelay();
+  return {
+    relay: r ? { host: r.host, port: r.port, accountDomain: domain(r.user) ?? 'unknown' } : null,
+    gmailAccountDomain: process.env.GMAIL_USER?.trim() ? domain(process.env.GMAIL_USER) : null,
+    resendFromDomain: process.env.RESEND_FROM?.trim() ? domain(process.env.RESEND_FROM.replace(/^.*</, '').replace(/>.*$/, '')) : null,
+  };
+}
+
 /** A send failure's own words — its code and the server's first reply line, never a
  *  credential — with the fix spelled out when the login was refused (535). */
 function mailFailure(err: unknown): string {
@@ -190,9 +205,9 @@ const UNREACHABLE = ['ETIMEDOUT', 'ECONNECTION', 'ESOCKET', 'EDNS', 'ECONNREFUSE
  *  reached — the same port pair lib/server/mail uses. Every attempt is bounded
  *  (8 s to connect and greet, 12 s per socket), so a hung mail server can never
  *  eat the whole 15-second budget. */
-async function smtpSend(s: { host: string; port: number; user: string; pass: string }, email: string, subject: string, html: string) {
+async function smtpSend(s: { host: string; port: number; user: string; pass: string }, email: string, subject: string, html: string, text?: string) {
   const nodemailer = (await import('nodemailer')).default;
-  const message = { from: `KashRoot <${s.user}>`, to: email, subject, html };
+  const message = { from: `KashRoot <${s.user}>`, to: email, subject, html, ...(text ? { text } : {}) };
   const ports = s.port === 465 ? [465, 587] : [s.port];
   let last: unknown = null;
   for (const port of ports) {
@@ -255,6 +270,7 @@ export async function checkEmailRoutes(): Promise<Record<string, string>> {
  */
 async function sendEmail(email: string, code: string): Promise<{ routedVia?: string }> {
   const subject = `${code} is your KashRoot verification code`;
+  const text = `Your KashRoot verification code is ${code}\n\nIt expires in 10 minutes. Never share it with anyone — KashRoot staff will never ask for it.\nIf you did not ask for this code, you can ignore this email.`;
   const html = `<div style="font-family:system-ui,sans-serif;font-size:16px;color:#0f172a"><p>Your KashRoot verification code is</p><p style="font-size:28px;font-weight:700;letter-spacing:6px">${code}</p><p>It expires in 10 minutes. Never share it with anyone — KashRoot staff will never ask for it.</p></div>`;
   const resend = Boolean(process.env.RESEND_API_KEY?.trim());
   const gmail = Boolean(process.env.GMAIL_USER?.trim() && process.env.GMAIL_APP_PASSWORD?.trim());
@@ -279,7 +295,7 @@ async function sendEmail(email: string, code: string): Promise<{ routedVia?: str
   }
   if (gmail) {
     try {
-      await smtpSend({ host: 'smtp.gmail.com', port: 465, user: process.env.GMAIL_USER!.trim(), pass: process.env.GMAIL_APP_PASSWORD!.replace(/\s/g, '') }, email, subject, html);
+      await smtpSend({ host: 'smtp.gmail.com', port: 465, user: process.env.GMAIL_USER!.trim(), pass: process.env.GMAIL_APP_PASSWORD!.replace(/\s/g, '') }, email, subject, html, text);
       return {};
     } catch (err) {
       failures.push(`Gmail: ${mailFailure(err)}`);
@@ -287,7 +303,7 @@ async function sendEmail(email: string, code: string): Promise<{ routedVia?: str
   }
   if (relay) {
     try {
-      await smtpSend(relay, email, subject, html);
+      await smtpSend(relay, email, subject, html, text);
       return {};
     } catch (err) {
       failures.push(`SMTP: ${mailFailure(err)}`);

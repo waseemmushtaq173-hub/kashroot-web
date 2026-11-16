@@ -252,7 +252,7 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
               {routedVia ? null : fallback ? (
                 <p className="mt-3 text-sm text-emerald-700">SMS limit reached — we sent the 6-digit verification code to your email instead.</p>
               ) : (
-                <p className="mt-3 text-sm text-slate-600">OTP sent{sms && sentVia.length ? ` by ${joinNames(sentVia)}` : ''} to <span className="font-semibold text-slate-900">{sentTo}</span>. It expires in 10 minutes.</p>
+                <p className="mt-3 text-sm text-slate-600">OTP sent{sms && sentVia.length ? ` by ${joinNames(sentVia)}` : ''} to <span className="font-semibold text-slate-900">{sentTo}</span>. It expires in 10 minutes.{!sms && ' It can take a minute: if it is not in your inbox, look in Spam or Promotions (the sender is KashRoot).'}</p>
               )}
               <button type="button" onClick={() => void verify()} disabled={code.length !== 6 || busy !== null} className={`${BUTTON} mt-4 w-full py-3 text-base ${accent.button}`}>
                 {busy === 'verify' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <ShieldCheck className="h-4 w-4" aria-hidden />}

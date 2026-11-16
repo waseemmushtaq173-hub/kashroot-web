@@ -5,7 +5,7 @@
  */
 import { NextResponse } from 'next/server';
 
-import { checkEmailRoutes, emailConfigured, emailProvider as pickEmailProvider, smsConfigured, whatsappConfigured } from '@/lib/server/otp';
+import { checkEmailRoutes, emailConfigured, emailSenderInfo, emailProvider as pickEmailProvider, smsConfigured, whatsappConfigured } from '@/lib/server/otp';
 import { sharedIpLimited } from '@/lib/server/sharedLimit';
 import { hasSigningSecret } from '@/lib/server/sign';
 
@@ -40,6 +40,8 @@ export async function GET(request: Request) {
     emailOtp: secret && emailConfigured() ? `on (${emailProvider})` : 'off',
     found: { OTP_SECRET: has('OTP_SECRET'), FAST2SMS_API_KEY: has('FAST2SMS_API_KEY'), GMAIL_USER: has('GMAIL_USER'), GMAIL_APP_PASSWORD: has('GMAIL_APP_PASSWORD'), RESEND_API_KEY: has('RESEND_API_KEY'), RESEND_FROM: has('RESEND_FROM'), MSG91_AUTH_KEY: has('MSG91_AUTH_KEY'), TWILIO_ACCOUNT_SID: has('TWILIO_ACCOUNT_SID'), WHATSAPP_TOKEN: has('WHATSAPP_TOKEN'), WHATSAPP_PHONE_NUMBER_ID: has('WHATSAPP_PHONE_NUMBER_ID'), WHATSAPP_TEMPLATE: has('WHATSAPP_TEMPLATE') },
     problems,
+    // Which sender each email route uses (host and the account's domain only — no names, no passwords).
+    emailSenders: emailSenderInfo(),
     ...(routes ? { emailRoutes: routes } : { tip: 'Add ?check=1 to this address to test the email login for real.' }),
     note: 'Vercel applies new or changed variables only to deployments made after the change — redeploy after editing them.',
   });
