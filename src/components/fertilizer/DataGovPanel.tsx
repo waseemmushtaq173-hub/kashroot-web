@@ -9,7 +9,7 @@
 import { useEffect, useState } from 'react';
 import { Database, Loader2 } from 'lucide-react';
 
-import type { DataGovAnswer } from '@/lib/dataGovTruescan';
+import { isSkuastDataset, type DataGovAnswer } from '@/lib/dataGovTruescan';
 
 type State = { s: 'loading' } | { s: 'done'; answer: DataGovAnswer } | { s: 'failed' };
 
@@ -64,7 +64,10 @@ export function DataGovPanel({ query }: { query: string }) {
           ) : (
             state.answer.hits.map((h) => (
               <div key={h.dataset.id}>
-                <p className="font-semibold text-slate-900">{h.dataset.title}</p>
+                <p className="font-semibold text-slate-900">
+                  {h.dataset.title}
+                  {isSkuastDataset(h.dataset) && <span className="ml-2 inline-flex rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-900 ring-1 ring-indigo-300">SKUAST-Kashmir</span>}
+                </p>
                 <p className="text-xs text-slate-600">
                   {[h.dataset.org, when(h.dataset.updated) ? `updated ${when(h.dataset.updated)}` : null].filter(Boolean).join(' · ')}
                 </p>
@@ -104,6 +107,9 @@ export function DataGovPanel({ query }: { query: string }) {
             </ul>
           </details>
           <p className="text-xs text-slate-600">
+            {state.answer.datasets.some(isSkuastDataset)
+              ? 'SKUAST-Kashmir datasets are among those looked in.'
+              : 'No dataset published by SKUAST-Kashmir turned up in this search. KashRoot’s typed copy of the SKUAST-K spray schedule is shown separately, when it has the product.'}{' '}
             Published by the Government of India on data.gov.in and shown as published, read just now. Many of these datasets are statistics (production, imports, consumption), not a register of products: they do not show that a product on a shelf is genuine. For that, check the registration number on the label.
           </p>
         </div>

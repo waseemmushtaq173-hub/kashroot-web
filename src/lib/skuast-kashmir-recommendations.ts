@@ -33,8 +33,9 @@ export interface SkuastRecommendation {
 }
 
 /**
- * Official SKUAST-Kashmir approved fungicides & insecticides for Kashmir
- * horticulture (apple, pear, cherry, walnut, saffron, etc.).
+ * The fungicides, insecticides and miticides of the SKUAST-Kashmir spray schedule for Kashmir
+ * horticulture (apple, pear, cherry, walnut, saffron, etc.), as typed into KashRoot (see the
+ * note at the top of this file: not re-checked against this year's schedule).
  */
 export const SKUAST_RECOMMENDATIONS: SkuastRecommendation[] = [
   {
@@ -213,13 +214,28 @@ export const SKUAST_GUIDELINES = {
  * fuzzy substring match).
  */
 export function skuastLookup(moleculeOrName: string): SkuastRecommendation | null {
-  const q = moleculeOrName.toLowerCase();
+  const q = moleculeOrName.toLowerCase().trim();
+  if (!q) return null;
   return (
-    SKUAST_RECOMMENDATIONS.find((r) =>
-      r.molecule.toLowerCase().includes(q) ||
-      r.formulations.some((f) => f.toLowerCase().includes(q)),
-    ) ?? null
+    SKUAST_RECOMMENDATIONS.find((r) => {
+      const molecule = r.molecule.toLowerCase();
+      // Either way round: "dodine" is in "Dodine 65 WP", and "Dodine" is in the longer name a pesticide list gives ("DODINE 65% WP / 40% SC").
+      return molecule.includes(q) || q.includes(molecule) || r.formulations.some((f) => f.toLowerCase().includes(q) || q.includes(f.toLowerCase()));
+    }) ?? null
   );
+}
+
+/**
+ * The schedule's own search for what was typed in TrueScan, independent of any other list: every word typed
+ * (three letters or more) must be in the molecule, a formulation, a target pest or disease, or a timing.
+ */
+export function skuastSearch(query: string): SkuastRecommendation[] {
+  const words = query.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 3);
+  if (!words.length) return [];
+  return SKUAST_RECOMMENDATIONS.filter((r) => {
+    const hay = [r.molecule, ...r.formulations, ...r.targets, ...r.timing].join(' ').toLowerCase();
+    return words.every((w) => hay.includes(w));
+  });
 }
 
 /**

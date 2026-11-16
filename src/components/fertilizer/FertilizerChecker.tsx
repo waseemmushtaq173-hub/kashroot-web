@@ -52,7 +52,7 @@ import {
   type SearchHit,
 } from '@/lib/gov-agro-registry';
 import { reportBatch } from '@/lib/db/security';
-import { skuastLookup, skuastLookupAll, type SkuastRecommendation } from '@/lib/skuast-kashmir-recommendations';
+import { skuastLookup, skuastLookupAll, skuastSearch, type SkuastRecommendation } from '@/lib/skuast-kashmir-recommendations';
 import { DataGovPanel } from './DataGovPanel';
 
 import { QRCodeScanner, QRCodeResult, type QRCodeVerificationResult } from './QRCodeScanner';
@@ -308,10 +308,9 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
       const molecules = products.map((p) => p.active_molecule).filter(Boolean);
       const bannedMolecules = banned.map((b) => b.active_molecule).filter(Boolean);
       const allMolecules = [...new Set([...molecules, ...bannedMolecules])];
-      if (allMolecules.length > 0) {
-        const skuast = skuastLookupAll(allMolecules);
-        setSkuastResult(skuast.length > 0 ? skuast : null);
-      }
+      // The SKUAST-Kashmir schedule: for the pesticides found, and for what was typed itself (a molecule, a pest or a disease).
+      const skuast = [...skuastLookupAll(allMolecules), ...skuastSearch(typed.text)].filter((r, i, all) => all.findIndex((x) => x.molecule === r.molecule) === i);
+      setSkuastResult(skuast.length > 0 ? skuast : null);
     }
 
     // ── Async API call (background, ~1s) ──

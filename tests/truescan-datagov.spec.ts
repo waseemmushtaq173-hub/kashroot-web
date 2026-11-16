@@ -8,7 +8,8 @@ import { join } from 'node:path';
 
 import { expect, test } from '@playwright/test';
 
-import { dataGovCache, parseTable, searchDataGov, wordsOf } from '@/lib/dataGovTruescan';
+import { dataGovCache, isSkuastDataset, parseTable, searchDataGov, wordsOf } from '@/lib/dataGovTruescan';
+import { skuastLookup, skuastSearch } from '@/lib/skuast-kashmir-recommendations';
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8');
 const KEY = 'test-key-9876543210';
@@ -136,3 +137,36 @@ test('the route is held to a few searches a minute, and TrueScan shows the panel
   expect(panel).toMatch(/not a register of products/);
   expect(panel).not.toMatch(/api-key|DATA_GOV_IN_API_KEY/);
 });
+
+test('a dataset published by SKUAST-Kashmir is looked for, found and named', async () => {
+  const D = '44444444-4444-4444-8444-444444444444';
+  const fetcher = async (u: string) => {
+    const url = new URL(u);
+    if (url.pathname === '/lists') {
+      return json({ records: String(url.searchParams.get('filters[title]')).toLowerCase() === 'skuast' ? [{ index_name: D, title: 'SKUAST-K apple spray schedule', org: ['SKUAST-Kashmir'], updated: '2026-04-01' }] : [] });
+    }
+    return json({ title: 'SKUAST-K apple spray schedule', org: 'SKUAST-Kashmir', field: [{ id: 'molecule', name: 'Molecule' }, { id: 'dose', name: 'Dose' }], records: [{ molecule: 'Dodine', dose: '60 g / 100 L' }] });
+  };
+  const r = await searchDataGov('dodine', ENV, fetcher);
+  expect(r.ok).toBe(true);
+  if (!r.ok) return;
+  expect(r.hits).toHaveLength(1);
+  expect(isSkuastDataset(r.hits[0].dataset)).toBe(true);
+  expect(r.hits[0].rows).toEqual([['Dodine', '60 g / 100 L']]);
+  expect(isSkuastDataset({ title: 'Fertilizer sales', org: 'Department of Fertilizers' })).toBe(false);
+});
+
+test('the SKUAST-K schedule is searched on its own, by a molecule, a pest or the longer name a pesticide list gives', () => {
+  expect(skuastSearch('dodine').map((r) => r.molecule)).toEqual(['Dodine']);
+  expect(skuastSearch('apple scab').map((r) => r.molecule)).toContain('Dodine');
+  expect(skuastSearch('mancozeb').map((r) => r.molecule)).toContain('Mancozeb');
+  expect(skuastSearch('zzzz-nothing')).toEqual([]);
+  expect(skuastSearch('ab')).toEqual([]);
+  // "DODINE 65% WP / 40% SC" (the CIB&RC list's name) finds the SKUAST entry; an unrelated name does not.
+  expect(skuastLookup('DODINE 65% WP / 40% SC')?.molecule).toBe('Dodine');
+  expect(skuastLookup('Gibberellic Acid 1.8% EC')).toBeNull();
+  expect(skuastLookup('')).toBeNull();
+  const checker = read('src/components/fertilizer/FertilizerChecker.tsx');
+  expect(checker).toContain('skuastSearch(typed.text)');
+});
+
