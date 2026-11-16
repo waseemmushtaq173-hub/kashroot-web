@@ -149,8 +149,9 @@ export default function RentalPage() {
   const [incoming, setIncoming] = useState<RentalBooking[]>([]);
   const [owned, setOwned] = useState<RentalListing[]>([]);
   // The store being booked, and "just give me 40 bins" when asked from its card.
-  const [booking, setBookingState] = useState<{ listing: RentalListing; quick: { want: number; storage: Storage | null } | null } | null>(null);
-  const setBooking = (listing: RentalListing | null, quick: { want: number; storage: Storage | null } | null = null) => setBookingState(listing ? { listing, quick } : null);
+  const [booking, setBookingState] = useState<{ listing: RentalListing; quick: { want: number; storage: Storage | null } | null; preview: boolean } | null>(null);
+  // `preview`: the owner looking at their own store as a customer sees it (nothing can be booked).
+  const setBooking = (listing: RentalListing | null, quick: { want: number; storage: Storage | null } | null = null, preview = false) => setBookingState(listing ? { listing, quick, preview } : null);
   // Bins / crates / boxes free today on each chamber floor of the stores shown.
   const [free, setFree] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(false);
@@ -319,7 +320,7 @@ export default function RentalPage() {
           ) : (
             <div className="space-y-4">
               {visible.map((l) => (
-                <StoreCard key={l.id} listing={l} chambers={chambers.filter((c) => c.listing_id === l.id)} free={free} own={l.owner_id === account.id} want={want} onBook={(quick) => setBooking(l, quick)} />
+                <StoreCard key={l.id} listing={l} chambers={chambers.filter((c) => c.listing_id === l.id)} free={free} own={l.owner_id === account.id} want={want} onBook={(quick) => setBooking(l, quick)} onPreview={() => setBooking(l, null, true)} />
               ))}
             </div>
           )}
@@ -364,6 +365,7 @@ export default function RentalPage() {
           chambers={chambers.filter((c) => c.listing_id === booking.listing.id && c.storage !== 'boxes' && ownerMeasured(c.size))}
           account={account}
           quick={booking.quick}
+          preview={booking.preview}
           onClose={() => setBooking(null)}
           onBooked={() => {
             setBooking(null);
@@ -410,6 +412,7 @@ function StoreCard({
   own,
   want,
   onBook,
+  onPreview,
 }: {
   listing: RentalListing;
   chambers: ColdChamber[];
@@ -419,6 +422,8 @@ function StoreCard({
   /** How many the voice assistant was told ("40 bins"), filled in where the store holds that kind. */
   want?: { n: number; storage: Storage | null } | null;
   onBook: (quick?: { want: number; storage: Storage | null }) => void;
+  /** An owner opens their own store as a customer sees it. */
+  onPreview?: () => void;
 }) {
   const unit = UNIT_LABEL[l.unit];
   const map = chambers.length > 0;
@@ -532,7 +537,10 @@ function StoreCard({
           </p>
           <TwinPeek store={l.title} />
           {own ? (
-            <p className="mt-3"><Badge tone="violet">Your listing</Badge></p>
+            <div className="mt-4 flex flex-col gap-2 rounded-2xl bg-violet-50 p-3 ring-1 ring-violet-200 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-violet-950"><Badge tone="violet">Your listing</Badge> <span className="ml-1">You cannot book your own store. A customer sees “Choose your place”, then pays you.</span></p>
+              {onPreview && <Btn theme={theme} variant="soft" icon={MapIcon} className="min-h-[44px] shrink-0" onClick={onPreview}>Preview what customers see</Btn>}
+            </div>
           ) : (
             <div className="mt-4 flex flex-col gap-3 border-t border-slate-900/5 pt-4 lg:flex-row lg:items-end lg:justify-between">
               <Btn theme={theme} icon={MapIcon} className="min-h-[48px] text-base" onClick={() => onBook()}>Choose your place</Btn>

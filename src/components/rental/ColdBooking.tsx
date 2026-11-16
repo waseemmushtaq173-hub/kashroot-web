@@ -256,6 +256,7 @@ export function ColdBooking({
   chambers,
   account,
   quick,
+  preview = false,
   onClose,
   onBooked,
 }: {
@@ -264,6 +265,8 @@ export function ColdBooking({
   account: Account;
   /** "Just give me 40 bins": choose the places nearest the door straight away (only chambers holding `storage`, when given). */
   quick?: { want: number; storage: Storage | null } | null;
+  /** The owner looking at their own store as a customer sees it: every screen works, but nothing can be booked. */
+  preview?: boolean;
   onClose: () => void;
   /** After a booking is made (the window then closes). */
   onBooked: () => void;
@@ -618,6 +621,7 @@ export function ColdBooking({
   const nameProblem = !form.name.trim() ? 'Write your name, as the owner will know you.' : form.name.trim().length > 80 ? 'Your name is too long. Keep it under 80 letters.' : null;
   const phoneProblem = mobileProblem(form.phone, 'your');
   const book = async () => {
+    if (preview) return toast.error('This is a preview: you cannot book your own store.');
     setTried(true);
     if (nameProblem || phoneProblem) return toast.error(nameProblem ?? phoneProblem!);
     setBusy(true);
@@ -700,7 +704,7 @@ export function ColdBooking({
         ) : step === 'confirm' ? (
           <div className="flex w-full flex-wrap items-center justify-between gap-3">
             <Btn theme={theme} variant="ghost" className="min-h-[44px]" icon={ArrowLeft} onClick={() => setStep('choose')}>Back to the map</Btn>
-            <Btn theme={theme} className="min-h-[44px]" icon={CheckCircle2} disabled={busy} onClick={() => void book()}>{busy ? 'Booking…' : `Book for ${inr(price.total)}`}</Btn>
+            <Btn theme={theme} className="min-h-[44px]" icon={CheckCircle2} disabled={busy || preview} onClick={() => void book()}>{preview ? `Preview only · ${inr(price.total)}` : busy ? 'Booking…' : `Book for ${inr(price.total)}`}</Btn>
           </div>
         ) : (
           <div className="flex w-full flex-wrap items-center justify-end gap-3">
@@ -711,6 +715,7 @@ export function ColdBooking({
     >
       {step === 'choose' ? (
         <div className="space-y-4">
+          {preview && <PreviewNote />}
           <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
             {chambers.some((c) => c.rate !== null) ? (
               <span>Each chamber has its own rent: tap a chamber to see it.</span>
@@ -848,6 +853,7 @@ export function ColdBooking({
         </div>
       ) : step === 'confirm' ? (
         <div className="space-y-4">
+          {preview && <PreviewNote />}
           {error && <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">{error}</p>}
           <div className="rounded-2xl bg-ivory p-4 text-sm text-slate-800 ring-1 ring-[#E8A317]/30">
             <p className="font-semibold">{l.title}</p>
@@ -984,5 +990,14 @@ export function MyPlaces({ places, chambers, listingId, start, months, name }: {
         </div>
       )}
     </div>
+  );
+}
+
+/** Shown to an owner who opened their own store as a customer: what they are looking at, and what happens next for a real customer. */
+function PreviewNote() {
+  return (
+    <p role="note" className="rounded-xl bg-violet-50 p-3 text-sm text-violet-950 ring-1 ring-violet-200">
+      <strong>Preview: this is what a customer sees.</strong> They choose their places on the plan, confirm, then pay you directly by UPI or bank and write the payment reference; you confirm when the money arrives. You cannot book your own store, so the last button is switched off.
+    </p>
   );
 }
