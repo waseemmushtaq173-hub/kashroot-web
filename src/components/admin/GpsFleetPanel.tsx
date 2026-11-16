@@ -11,6 +11,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { RefreshCw, Satellite, ShieldCheck, ShieldX, Truck } from 'lucide-react';
 
+import { supabase } from '@/lib/supabase';
+
 interface DriverRow {
   id: string;
   full_name: string;
@@ -73,6 +75,8 @@ interface EventRow {
 
 interface Overview {
   ok: boolean;
+  /** The Super Admin may approve vehicles and certify devices; everyone else with a team pass only watches. */
+  canManage?: boolean;
   drivers: DriverRow[];
   vehicles: VehicleRow[];
   shipments: ShipmentRow[];
@@ -95,6 +99,13 @@ const statusChip = (s: string) => {
   return 'bg-slate-100 text-slate-700';
 };
 
+/** The signed-in person's token: the server asks the database who they are before it lets anyone change the fleet. */
+async function authHeaders(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return token ? { authorization: `Bearer ${token}` } : {};
+}
+
 export function GpsFleetPanel() {
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -105,7 +116,7 @@ export function GpsFleetPanel() {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch('/api/tracking/portal?mode=SUPER_ADMIN_OVERVIEW&admin=1', { cache: 'no-store' });
+      const res = await fetch('/api/tracking/portal?mode=SUPER_ADMIN_OVERVIEW&admin=1', { cache: 'no-store', headers: await authHeaders() });
       const json = (await res.json()) as Overview & { error?: string };
       if (!res.ok || !json.ok) {
         setError(json.error || 'Could not load the fleet overview.');
@@ -130,7 +141,7 @@ export function GpsFleetPanel() {
     try {
       const res = await fetch('/api/tracking/portal', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
         body: JSON.stringify({ action: 'ADMIN_APPROVE_VEHICLE', vehicleId, status }),
       });
       const json = await res.json();
@@ -146,7 +157,7 @@ export function GpsFleetPanel() {
     try {
       const res = await fetch('/api/tracking/portal', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
         body: JSON.stringify({ action: 'ADMIN_VERIFY_GPS_DEVICE', deviceId, status }),
       });
       const json = await res.json();
@@ -231,7 +242,9 @@ export function GpsFleetPanel() {
                     <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${statusChip(v.verification_status)}`}>{v.verification_status}</span>
                   </td>
                   <td className={td}>
-                    {v.verification_status === 'ADMIN_APPROVED' ? (
+                    {!data.canManage ? (
+                      <span className="text-[11px] text-slate-600">View only</span>
+                    ) : v.verification_status === 'ADMIN_APPROVED' ? (
                       <button type="button" onClick={() => void approveVehicle(v.id, 'SELF_DECLARED')} className="text-[11px] font-semibold text-slate-500 underline">Reset to SELF_DECLARED</button>
                     ) : v.verification_status === 'REJECTED' ? (
                       <button type="button" onClick={() => void approveVehicle(v.id, 'ADMIN_APPROVED')} className="inline-flex items-center gap-1 rounded-lg bg-forest px-2.5 py-1 text-[11px] font-bold text-white"><ShieldCheck size={12} /> Approve</button>
@@ -353,7 +366,9 @@ export function GpsFleetPanel() {
                     <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${statusChip(d.ais140_certification_status)}`}>{d.ais140_certification_status}</span>
                   </td>
                   <td className={td}>
-                    {d.ais140_certification_status === 'UNVERIFIED' ? (
+                    {!data.canManage ? (
+                      <span className="text-[11px] text-slate-600">View only</span>
+                    ) : d.ais140_certification_status === 'UNVERIFIED' ? (
                       <button type="button" onClick={() => void verifyDevice(d.id, 'AIS140_VERIFIED_BY_ADMIN')} className="inline-flex items-center gap-1 rounded-lg bg-forest px-2.5 py-1 text-[11px] font-bold text-white"><ShieldCheck size={12} /> Certify AIS-140</button>
                     ) : (
                       <button type="button" onClick={() => void verifyDevice(d.id, 'UNVERIFIED')} className="text-[11px] font-semibold text-slate-500 underline">Reset</button>

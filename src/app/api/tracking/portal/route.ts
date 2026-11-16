@@ -23,6 +23,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createHash } from 'node:crypto';
 
 import { haversineDistanceKm } from '@/lib/tracking/haversine';
+import { isSuperAdminCaller } from '@/lib/server/callerRole';
 import { hasTeamPass } from '@/lib/server/teamPass';
 import { listPickupJobs, pickupAction } from '@/lib/server/pickupJobs';
 import { ipLimited, tooMany } from '@/lib/server/sign';
@@ -111,19 +112,26 @@ export async function GET(request: Request) {
       return NextResponse.json({ ok: false, error: 'Super Admin team pass required.' }, { status: 403 });
     }
 
+    // Asked of the database as the person: only the Super Admin manages the fleet and sees full licence numbers.
+    // Everyone else with a team pass (Hub staff) gets a read-only view. Columns are named, never "*": a driver's
+    // password hash, a device's secret hash and a buyer's tracking PIN never leave the server.
+    const canManage = await isSuperAdminCaller(request);
     const [driversRes, vehiclesRes, shipmentsRes, sessionsRes, devicesRes, eventsRes] =
       await Promise.all([
-        supabase.from('drivers').select('*').order('created_at', { ascending: false }).limit(50),
-        supabase.from('vehicles').select('*').order('created_at', { ascending: false }).limit(50),
-        supabase.from('gps_shipments').select('*').order('updated_at', { ascending: false }).limit(50),
-        supabase.from('tracking_sessions').select('*').order('updated_at', { ascending: false }).limit(50),
-        supabase.from('gps_devices').select('*').order('created_at', { ascending: false }).limit(50),
-        supabase.from('tracking_events').select('*').order('created_at', { ascending: false }).limit(100),
+        supabase.from('drivers').select('id, full_name, phone, license_number, license_category, home_district, account_status, created_at').order('created_at', { ascending: false }).limit(50),
+        supabase.from('vehicles').select('id, registration_number, vehicle_category, make_and_model, owner_name, verification_status, is_active, created_at').order('created_at', { ascending: false }).limit(50),
+        supabase.from('gps_shipments').select('id, shipment_tracking_id, commodity_name, origin_name, destination_name, shipment_status, distance_travelled_km, remaining_distance_km, updated_at').order('updated_at', { ascending: false }).limit(50),
+        supabase.from('tracking_sessions').select('id, shipment_id, vehicle_id, tracking_status, last_latitude, last_longitude, last_speed_kmh, last_location_update_at, source_type, updated_at').order('updated_at', { ascending: false }).limit(50),
+        supabase.from('gps_devices').select('id, device_imei_or_serial, vehicle_id, provider_name, device_protocol, ais140_certification_status, created_at').order('created_at', { ascending: false }).limit(50),
+        supabase.from('tracking_events').select('id, event_type, event_message, created_at').order('created_at', { ascending: false }).limit(100),
       ]);
 
+    // Licence numbers: whole for the Super Admin, the last three characters for the rest.
+    const maskTail = (v: unknown) => { const t = String(v ?? ''); return t.length <= 3 ? '••••' : `••••${t.slice(-3)}`; };
     return NextResponse.json({
       ok: true,
-      drivers: driversRes.data ?? [],
+      canManage,
+      drivers: (driversRes.data ?? []).map((d) => (canManage ? d : { ...d, license_number: maskTail(d.license_number) })),
       vehicles: vehiclesRes.data ?? [],
       shipments: shipmentsRes.data ?? [],
       sessions: sessionsRes.data ?? [],
@@ -281,6 +289,10 @@ export async function POST(request: Request) {
   if (body.action === 'ADMIN_APPROVE_VEHICLE' || body.action === 'ADMIN_VERIFY_GPS_DEVICE') {
     if (!hasTeamPass(request.headers.get('cookie'), request.headers.get('user-agent'))) {
       return NextResponse.json({ ok: false, error: 'Super Admin team pass required.' }, { status: 403 });
+    }
+    // The pass only opens pages: approving a vehicle or certifying a device is the Super Admin's alone, asked of the database.
+    if (!(await isSuperAdminCaller(request))) {
+      return NextResponse.json({ ok: false, error: 'Only the Super Admin can approve vehicles or certify devices.' }, { status: 403 });
     }
   }
 
