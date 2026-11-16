@@ -221,7 +221,7 @@ export function LiveGpsTrips() {
                   key={t.id}
                   type="button"
                   onClick={() => setSelected(t)}
-                  className="cursor-pointer rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-900/10 transition hover:ring-emerald-400"
+                  className="cursor-pointer rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-900/10 transition hover:ring-forest-mid"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p className="font-mono text-xs font-bold text-slate-500">{t.shipment_code}</p>
@@ -300,8 +300,8 @@ function TripCreate({ onDone }: { onDone: (trip: Trip | null) => void }) {
         <div />
         <PlaceInput label="Origin (pickup)" value={origin.text} point={origin.point} onChange={(text, point) => setOrigin({ text, point })} gps placeholder="e.g. Chitragam, Shopian" />
         <PlaceInput label="Destination (delivery)" value={dest.text} point={dest.point} onChange={(text, point) => setDest({ text, point })} placeholder="e.g. Azadpur Mandi, Delhi" />
-        <label className="sm:col-span-2 flex cursor-pointer items-start gap-2.5 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900 ring-1 ring-emerald-200">
-          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 h-4 w-4 cursor-pointer accent-emerald-700" />
+        <label className="sm:col-span-2 flex cursor-pointer items-start gap-2.5 rounded-xl bg-forest-soft p-3 text-sm text-forest-deep ring-1 ring-forest-line">
+          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 h-4 w-4 cursor-pointer accent-forest" />
           <span>
             <strong>Driver consent:</strong> the driver agrees that this phone shares its live GPS location until the load is
             delivered (or the trip is cancelled). Consent can be withdrawn by stopping the trip.
@@ -427,7 +427,7 @@ function TripCard({ trip, onBack, onChange }: { trip: Trip; onBack: () => void; 
         </p>
         <p className="mt-1 text-xs text-slate-500">
           <Truck className="mr-1 inline h-3.5 w-3.5" aria-hidden />
-          {t.vehicle_registration_no} · {t.driver_name} · <a href={`tel:${t.driver_phone}`} className="font-semibold text-emerald-700 underline underline-offset-2">{t.driver_phone}</a>
+          {t.vehicle_registration_no} · {t.driver_name} · <a href={`tel:${t.driver_phone}`} className="font-semibold text-forest underline underline-offset-2">{t.driver_phone}</a>
         </p>
         {t.rto_verified_status === 'VERIFIED_RTO_RECORD' && t.rto_metadata && (t.rto_metadata.owner_name || t.rto_metadata.rto_office) && (
           <p className="mt-1 text-xs text-slate-500">
@@ -466,8 +466,8 @@ function TripCard({ trip, onBack, onChange }: { trip: Trip; onBack: () => void; 
         {consentNow ? (
           sharing ? (
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <p className="flex items-center gap-2 text-sm font-semibold text-emerald-800">
-                <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-600" /></span>
+              <p className="flex items-center gap-2 text-sm font-semibold text-forest-deep">
+                <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-forest-mid opacity-75" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-forest" /></span>
                 Sharing live GPS — one ping every 15 s.
               </p>
               <Btn theme={theme} size="sm" variant="soft" onClick={() => { stopSharing(); toast.info('Live sharing stopped on this device'); }}>
@@ -483,8 +483,8 @@ function TripCard({ trip, onBack, onChange }: { trip: Trip; onBack: () => void; 
             </div>
           )
         ) : (
-          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900 ring-1 ring-emerald-200">
-            <input type="checkbox" checked={consentNow} onChange={(e) => setConsentNow(e.target.checked)} className="mt-0.5 h-4 w-4 cursor-pointer accent-emerald-700" />
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl bg-forest-soft p-3 text-sm text-forest-deep ring-1 ring-forest-line">
+            <input type="checkbox" checked={consentNow} onChange={(e) => setConsentNow(e.target.checked)} className="mt-0.5 h-4 w-4 cursor-pointer accent-forest" />
             <span>
               <strong>Driver consent:</strong> I agree that this phone shares its live GPS location until the load is delivered.
               (Required before any ping is accepted.)

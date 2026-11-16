@@ -56,7 +56,7 @@ export interface Tool {
 export const GLASS = {
   /** Large frosted panel over a photograph or colour field. */
   panel:
-    'bg-gradient-to-b from-white/95 to-[#F2F8F5]/95 backdrop-blur-xl [box-shadow:inset_0_1px_0_#fff,inset_0_0_0_1px_#C2D8CD,0_3px_0_#174C3C,0_14px_36px_-10px_rgba(18,56,46,0.3)]',
+    'bg-gradient-to-b from-white/95 to-[#F2F8F5]/95 backdrop-blur-xl [box-shadow:inset_0_1px_0_#fff,inset_0_0_0_1px_#CBD0F2,0_3px_0_#3730A3,0_14px_36px_-10px_rgba(30, 27, 75,0.3)]',
   /** Content card inside a tool — pair with text-slate-900 / text-slate-600. */
   card: 'kr-card kr-card-flat rounded-3xl bg-white/90 backdrop-blur-xl',
 } as const;

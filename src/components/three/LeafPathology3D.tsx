@@ -124,8 +124,8 @@ function SceneContents({ stage }: { stage: Stage }) {
 function Leaf2DFallback({ stage }: { stage: Stage }) {
   const info = STAGES.find((s) => s.id === stage) ?? STAGES[0];
   return (
-    <div className="flex h-full w-full flex-col justify-center gap-2 bg-gradient-to-b from-green-50 to-white p-5">
-      <span className="w-fit rounded-full bg-green-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-green-900">2D view — {info.label}</span>
+    <div className="flex h-full w-full flex-col justify-center gap-2 bg-gradient-to-b from-forest-soft to-white p-5">
+      <span className="w-fit rounded-full bg-forest-soft px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-forest-deep">2D view — {info.label}</span>
       <svg viewBox="0 0 300 160" className="w-full flex-1" role="img" aria-label={`Diagram of a leaf: ${info.label}`}>
         <ellipse cx="150" cy="80" rx="110" ry="52" fill={stage === 'advanced' ? '#c9a227' : '#3d8a4d'} />
         <line x1="45" y1="80" x2="255" y2="80" stroke="#e9f5ec" strokeWidth="3" />
@@ -167,7 +167,7 @@ export function LeafPathology3D({ className = '' }: { className?: string }) {
     <section className={`space-y-3 ${className}`} aria-label="3D plant pathology viewer">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-green-700">3D pathology stage viewer — turn the leaf</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-forest">3D pathology stage viewer — turn the leaf</p>
           <h2 className="font-display mt-1 text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">See the disease before it spreads</h2>
         </div>
         <div role="group" aria-label="Choose a stage" className="flex flex-wrap gap-1.5">
@@ -177,7 +177,7 @@ export function LeafPathology3D({ className = '' }: { className?: string }) {
               type="button"
               aria-pressed={stage === s.id}
               onClick={() => setStage(s.id)}
-              className={`min-h-10 cursor-pointer rounded-xl px-3 text-xs font-bold ring-1 transition ${stage === s.id ? 'bg-green-800 text-white ring-green-800 shadow-md' : 'bg-white text-slate-700 ring-slate-200 hover:bg-green-50'}`}
+              className={`min-h-10 cursor-pointer rounded-xl px-3 text-xs font-bold ring-1 transition ${stage === s.id ? 'bg-forest-deep text-white ring-forest-deep shadow-md' : 'bg-white text-slate-700 ring-slate-200 hover:bg-forest-soft'}`}
             >
               {s.label}
             </button>

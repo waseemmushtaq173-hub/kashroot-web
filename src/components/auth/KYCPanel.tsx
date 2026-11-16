@@ -365,8 +365,8 @@ const ROLE_OPTIONS: readonly {
     title: 'Buyer',
     description: 'I source produce for my business, store or exports.',
     Icon: ShoppingBagIcon,
-    tile: 'bg-gradient-to-br from-[#286B54] to-[#286B54]',
-    selected: 'peer-checked:bg-[#EAF3EE]/90 peer-checked:ring-[#286B54]',
+    tile: 'bg-gradient-to-br from-forest-mid to-forest-mid',
+    selected: 'peer-checked:bg-forest-soft/90 peer-checked:ring-forest-mid',
   },
   {
     id: 'SELLER',
@@ -787,7 +787,7 @@ function IdentityStep({
               type="button"
               onClick={model.startDigiLocker}
               disabled={model.digiLocker === 'connecting'}
-              className={`flex w-full cursor-pointer items-center gap-4 rounded-2xl bg-gradient-to-r from-[#174C3C] via-blue-700 to-[#174C3C] p-5 text-left text-white shadow-lg shadow-blue-700/25 transition hover:shadow-xl hover:shadow-blue-700/30 disabled:cursor-not-allowed disabled:opacity-80 ${FOCUS}`}
+              className={`flex w-full cursor-pointer items-center gap-4 rounded-2xl bg-gradient-to-r from-forest via-blue-700 to-forest p-5 text-left text-white shadow-lg shadow-blue-700/25 transition hover:shadow-xl hover:shadow-blue-700/30 disabled:cursor-not-allowed disabled:opacity-80 ${FOCUS}`}
             >
               <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/15 ring-1 ring-white/30">
                 <FileCheckIcon className="h-6 w-6" />
@@ -862,7 +862,7 @@ function IdentityStep({
                   type="button"
                   onClick={model.startDigiLocker}
                   disabled={model.digiLocker === 'connecting'}
-                  className={`flex w-full cursor-pointer items-center gap-4 rounded-2xl bg-gradient-to-r from-[#174C3C] via-blue-700 to-[#174C3C] p-4 text-left text-white shadow-lg shadow-blue-700/25 transition hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-80 ${FOCUS}`}
+                  className={`flex w-full cursor-pointer items-center gap-4 rounded-2xl bg-gradient-to-r from-forest via-blue-700 to-forest p-4 text-left text-white shadow-lg shadow-blue-700/25 transition hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-80 ${FOCUS}`}
                 >
                   <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/15 ring-1 ring-white/30">
                     <FileCheckIcon className="h-6 w-6" />
@@ -945,8 +945,8 @@ function IdentityStep({
 
         {model.online && model.verified && (
           model.synced === 'yes' ? (
-            <div role="status" className="flex items-center gap-4 rounded-2xl bg-gradient-to-r from-[#EAF3EE] to-[#EAF3EE] p-4 ring-1 ring-[#C6DBD0]">
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#174C3C] text-white shadow-md shadow-[#286B54]/30">
+            <div role="status" className="flex items-center gap-4 rounded-2xl bg-gradient-to-r from-forest-soft to-forest-soft p-4 ring-1 ring-forest-line">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-forest text-white shadow-md shadow-forest-mid/30">
                 <CheckIcon className="h-5 w-5" />
               </span>
               <div className="min-w-0 flex-1">
@@ -956,14 +956,14 @@ function IdentityStep({
               </div>
             </div>
           ) : model.synced === 'no' ? (
-            <div className="space-y-3 rounded-2xl bg-white/80 p-4 ring-1 ring-[#C6DBD0] sm:p-5">
+            <div className="space-y-3 rounded-2xl bg-white/80 p-4 ring-1 ring-forest-line sm:p-5">
               <p className="text-sm font-semibold text-slate-900">Next: sync with DigiLocker</p>
               <p className="text-sm text-slate-600">Sign in to DigiLocker and allow KashRoot to fetch your Aadhaar details and PAN — no papers to upload.</p>
               <button
                 type="button"
                 onClick={model.startDigiLocker}
                 disabled={busy}
-                className={`flex w-full cursor-pointer items-center gap-4 rounded-2xl bg-gradient-to-r from-[#174C3C] via-blue-700 to-[#174C3C] p-4 text-left text-white shadow-lg shadow-blue-700/25 transition hover:shadow-xl hover:shadow-blue-700/30 disabled:cursor-not-allowed disabled:opacity-80 ${FOCUS}`}
+                className={`flex w-full cursor-pointer items-center gap-4 rounded-2xl bg-gradient-to-r from-forest via-blue-700 to-forest p-4 text-left text-white shadow-lg shadow-blue-700/25 transition hover:shadow-xl hover:shadow-blue-700/30 disabled:cursor-not-allowed disabled:opacity-80 ${FOCUS}`}
               >
                 <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/15 ring-1 ring-white/30">
                   <FileCheckIcon className="h-6 w-6" />

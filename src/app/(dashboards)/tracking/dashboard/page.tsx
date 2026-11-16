@@ -419,7 +419,7 @@ function MyConsignments({ list, draft, onChange, onTrack }: { list: Consignment[
             <PlaceInput label="To" value={form.destination} point={to} placeholder="e.g. Azadpur, Delhi" onChange={(text, p) => { setForm((f) => ({ ...f, destination: text })); setTo(p); }} />
           </div>
           {form.origin.trim().length > 1 && form.destination.trim().length > 1 && (
-            <a href={googleRoute({ name: form.origin, ...from }, { name: form.destination, ...to })} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 self-start rounded-xl bg-white px-3 text-sm font-semibold text-emerald-800 no-underline ring-1 ring-emerald-200 hover:bg-emerald-50 hover:no-underline">
+            <a href={googleRoute({ name: form.origin, ...from }, { name: form.destination, ...to })} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 self-start rounded-xl bg-white px-3 text-sm font-semibold text-forest-deep no-underline ring-1 ring-forest-line hover:bg-forest-soft hover:no-underline">
               <Navigation className="h-4 w-4" aria-hidden /> See the route in Google Maps
               {from && to && <span className="font-normal text-slate-600">· about {roadEstimate(from, to).km} km</span>}
             </a>
@@ -470,11 +470,11 @@ function MyConsignments({ list, draft, onChange, onTrack }: { list: Consignment[
                     {open && <Btn theme={theme} size="sm" variant="soft" icon={Copy} onClick={() => void copy(driverUrl(c.driver_token))}>Copy driver link</Btn>}
                     <Btn theme={theme} size="sm" variant="soft" icon={Share2} onClick={() => whatsapp(null, receiverText)}>Send to receiver</Btn>
                     <Btn theme={theme} size="sm" variant="ghost" icon={MapPinned} onClick={() => onTrack(c.code)}>Track</Btn>
-                    <a href={googleRoute({ name: c.origin, lat: c.origin_lat, lng: c.origin_lng }, { name: c.destination, lat: c.dest_lat, lng: c.dest_lng })} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-sm font-semibold text-emerald-800 no-underline hover:bg-emerald-50 hover:no-underline">
+                    <a href={googleRoute({ name: c.origin, lat: c.origin_lat, lng: c.origin_lng }, { name: c.destination, lat: c.dest_lat, lng: c.dest_lng })} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-sm font-semibold text-forest-deep no-underline hover:bg-forest-soft hover:no-underline">
                       <Navigation className="h-4 w-4" aria-hidden /> Route in Google Maps
                     </a>
                     {c.last_lat != null && c.last_lng != null && (
-                      <a href={googlePoint(c.last_lat, c.last_lng)} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-sm font-semibold text-emerald-800 no-underline hover:bg-emerald-50 hover:no-underline">
+                      <a href={googlePoint(c.last_lat, c.last_lng)} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-sm font-semibold text-forest-deep no-underline hover:bg-forest-soft hover:no-underline">
                         <MapPin className="h-4 w-4" aria-hidden /> Last position in Google Maps
                       </a>
                     )}

@@ -63,7 +63,7 @@ export const PORTALS: Record<PortalId, PortalInfo> = {
   farmer: {
     label: 'Farmer', requiredRole: 'FARMER', home: '/farmer/dashboard', segment: 'farmer',
     tagline: 'Orchards, produce sales, escrow & season planner',
-    theme: { badge: 'from-emerald-800 to-emerald-500', wash: 'hover:bg-emerald-50', ring: 'ring-emerald-700/30', text: 'text-emerald-900' },
+    theme: { badge: 'from-forest-deep to-forest-mid', wash: 'hover:bg-forest-soft', ring: 'ring-forest/30', text: 'text-forest-deep' },
   },
   buyer: {
     label: 'Buyer', requiredRole: 'BUYER', home: '/buyer/dashboard', segment: 'buyer',
@@ -93,7 +93,7 @@ export const PORTALS: Record<PortalId, PortalInfo> = {
   expert: {
     label: 'Advisory', requiredRole: null, home: '/expert', segment: 'expert',
     tagline: 'Crop advisories, soil health & verified expert advice',
-    theme: { badge: 'from-green-800 to-green-600', wash: 'hover:bg-green-50', ring: 'ring-green-800/30', text: 'text-green-900' },
+    theme: { badge: 'from-forest-deep to-forest', wash: 'hover:bg-forest-soft', ring: 'ring-forest-deep/30', text: 'text-forest-deep' },
   },
   trader: {
     label: 'Mandi Helpers', requiredRole: null, home: '/trader/dashboard', segment: 'trader',

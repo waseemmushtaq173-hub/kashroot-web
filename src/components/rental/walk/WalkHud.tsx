@@ -102,7 +102,7 @@ function Hold({ press, k, label, size, children }: { press: Press; k: keyof Walk
       }}
       onKeyUp={() => set(false)}
       onBlur={() => set(false)}
-      className="pointer-events-auto grid cursor-pointer touch-none select-none place-items-center rounded-2xl bg-white/90 text-slate-900 shadow-lg ring-1 ring-slate-900/15 backdrop-blur transition active:scale-95 active:bg-[#EAF3EE]"
+      className="pointer-events-auto grid cursor-pointer touch-none select-none place-items-center rounded-2xl bg-white/90 text-slate-900 shadow-lg ring-1 ring-slate-900/15 backdrop-blur transition active:scale-95 active:bg-forest-soft"
     >
       {children}
     </button>
@@ -162,7 +162,7 @@ export function WalkHud({
                 onClick={() => onMeasure(!measure)}
                 aria-pressed={Boolean(measure)}
                 style={{ minHeight: Math.round(44 * z), fontSize: Math.round(13 * z) }}
-                className={`pointer-events-auto inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3 font-bold shadow-lg ring-1 transition ${measure ? 'bg-[#174C3C] text-white ring-[#174C3C]' : 'bg-white/90 text-slate-900 ring-slate-900/15 hover:bg-[#EAF3EE]'}`}
+                className={`pointer-events-auto inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3 font-bold shadow-lg ring-1 transition ${measure ? 'bg-forest text-white ring-forest' : 'bg-white/90 text-slate-900 ring-slate-900/15 hover:bg-forest-soft'}`}
               >
                 <Ruler style={{ width: Math.round(18 * z), height: Math.round(18 * z) }} aria-hidden />
                 {measure ? 'Stop measuring' : 'Measure'}
@@ -172,7 +172,7 @@ export function WalkHud({
                   type="button"
                   onClick={onMark}
                   style={{ minHeight: Math.round(44 * z), fontSize: Math.round(13 * z) }}
-                  className="pointer-events-auto inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-white/90 px-3 font-bold text-slate-900 shadow-lg ring-1 ring-slate-900/15 transition hover:bg-[#EAF3EE]"
+                  className="pointer-events-auto inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-white/90 px-3 font-bold text-slate-900 shadow-lg ring-1 ring-slate-900/15 transition hover:bg-forest-soft"
                 >
                   <MapPin style={{ width: Math.round(18 * z), height: Math.round(18 * z) }} aria-hidden />
                   {measure.fromMark === null ? 'Mark here' : 'Mark again'}
@@ -180,7 +180,7 @@ export function WalkHud({
               )}
             </div>
             {measure && (
-              <p data-measure role="status" aria-live="polite" className="max-w-[min(15rem,46vw)] rounded-lg bg-[#12382E]/90 px-3 py-1.5 text-right font-semibold leading-snug text-white shadow-lg" style={{ fontSize: Math.round(12 * Math.min(z, 1.7)) }}>
+              <p data-measure role="status" aria-live="polite" className="max-w-[min(15rem,46vw)] rounded-lg bg-forest-deep/90 px-3 py-1.5 text-right font-semibold leading-snug text-white shadow-lg" style={{ fontSize: Math.round(12 * Math.min(z, 1.7)) }}>
                 <span data-measure-ahead={measure.ahead?.d ?? ''}>{measure.ahead ? `Ahead: ${measureText(measure.ahead.d, unit)} to the ${measure.ahead.what === 'stack' ? 'stack' : 'wall'}` : 'Ahead: open space'}</span>
                 <br />
                 <span data-measure-mark={measure.fromMark ?? ''}>
@@ -200,7 +200,7 @@ export function WalkHud({
                 onClick={() => onFloor(n)}
                 aria-pressed={where.level === n}
                 style={{ minHeight: Math.round(44 * z), fontSize: Math.round(14 * z) }}
-                className={`pointer-events-auto cursor-pointer rounded-xl px-3 font-bold shadow-lg ring-1 transition ${where.level === n ? 'bg-[#174C3C] text-white ring-[#174C3C]' : 'bg-white/90 text-slate-900 ring-slate-900/15 hover:bg-[#EAF3EE]'}`}
+                className={`pointer-events-auto cursor-pointer rounded-xl px-3 font-bold shadow-lg ring-1 transition ${where.level === n ? 'bg-forest text-white ring-forest' : 'bg-white/90 text-slate-900 ring-slate-900/15 hover:bg-forest-soft'}`}
               >
                 {where.level === n ? `Floor ${n} · here` : `Go to floor ${n}`}
               </button>
@@ -236,7 +236,7 @@ export function WalkHud({
             type="button"
             onClick={onChoose}
             style={{ minHeight: btn, fontSize: Math.round(14 * z) }}
-            className={`pointer-events-auto inline-flex cursor-pointer items-center gap-2 rounded-2xl px-4 font-bold text-white shadow-lg transition active:scale-95 ${target.chosen ? 'bg-slate-700' : 'bg-[#174C3C] hover:bg-[#174C3C]'}`}
+            className={`pointer-events-auto inline-flex cursor-pointer items-center gap-2 rounded-2xl px-4 font-bold text-white shadow-lg transition active:scale-95 ${target.chosen ? 'bg-slate-700' : 'bg-forest hover:bg-forest'}`}
           >
             <Check style={icon} aria-hidden />
             {mode === 'owner' ? 'Who is on this place?' : target.chosen ? 'Remove from my choice' : 'Choose this place'}

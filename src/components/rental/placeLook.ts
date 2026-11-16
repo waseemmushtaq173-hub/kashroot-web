@@ -9,17 +9,17 @@ export type Look = PlaceState | 'selected';
 /**
  * The one palette of the bin map (the drawing, the top view, the 3D view and
  * the walk all read it from here):
- *   free      soft green #EAF3EE, green edge #286B54
+ *   free      soft green #EEF0FF, green edge #6358E0
  *   part      shared: cream #FEF3C7, gold edge #C6A45B (filled from the bottom as it fills)
  *   booked    full: muted slate #E2E8F0 / #64748B
- *   selected  the viewer's choice: forest green #174C3C with a gold ring #C6A45B
- *   mine      the viewer's own stored bins: deep green #12382E with the same gold ring
+ *   selected  the viewer's choice: forest green #3730A3 with a gold ring #C6A45B
+ *   mine      the viewer's own stored bins: deep green #1E1B4B with the same gold ring
  *   held      someone's 24-hour hold: slate, dashed edge
  *   blocked   no place here: pale red #FEE2E2 / #991B1B, striped
  * `mini` (the top view's fill) and `fill` must differ for every look: the top view groups places by fill.
  */
 export const PLACE_LOOK: Record<Look, { label: string; cell: string; swatch: string; mini: string; hex: string; fill: string; stroke: string; text: string }> = {
-  free: { label: 'Free', cell: 'bg-[#EAF3EE] text-[#174C3C] ring-1 ring-[#286B54] hover:bg-[#DCEBE3]', swatch: 'bg-[#EAF3EE] ring-1 ring-[#286B54]', mini: '#CFE5D9', hex: '#5FA98A', fill: '#EAF3EE', stroke: '#286B54', text: '#174C3C' },
+  free: { label: 'Free', cell: 'bg-forest-soft text-forest ring-1 ring-forest-mid hover:bg-[#DCEBE3]', swatch: 'bg-forest-soft ring-1 ring-forest-mid', mini: '#CFE5D9', hex: '#5FA98A', fill: '#EEF0FF', stroke: '#6358E0', text: '#3730A3' },
   part: {
     label: 'Shared — room for more boxes',
     cell: 'bg-[linear-gradient(to_top,#E9D8A6_0_var(--full,50%),#FEF3C7_var(--full,50%))] text-[#6B4F0F] ring-1 ring-[#C6A45B] hover:ring-2',
@@ -30,10 +30,10 @@ export const PLACE_LOOK: Record<Look, { label: string; cell: string; swatch: str
     stroke: '#C6A45B',
     text: '#6B4F0F',
   },
-  selected: { label: 'Your choice', cell: 'bg-[#174C3C] text-white ring-2 ring-[#C6A45B] shadow-md', swatch: 'bg-[#174C3C] ring-2 ring-[#C6A45B]', mini: '#174C3C', hex: '#174C3C', fill: '#174C3C', stroke: '#C6A45B', text: '#ffffff' },
+  selected: { label: 'Your choice', cell: 'bg-forest text-white ring-2 ring-[#C6A45B] shadow-md', swatch: 'bg-forest ring-2 ring-[#C6A45B]', mini: '#3730A3', hex: '#3730A3', fill: '#3730A3', stroke: '#C6A45B', text: '#ffffff' },
   held: { label: 'Waiting for payment', cell: 'bg-[#CBD5E1] text-[#334155] ring-1 ring-[#64748B]', swatch: 'bg-[#CBD5E1] ring-1 ring-[#64748B]', mini: '#CBD5E1', hex: '#94A3B8', fill: '#CBD5E1', stroke: '#64748B', text: '#334155' },
   booked: { label: 'Booked', cell: 'bg-[#E2E8F0] text-[#475569] ring-1 ring-[#64748B]', swatch: 'bg-[#E2E8F0] ring-1 ring-[#64748B]', mini: '#E2E8F0', hex: '#64748B', fill: '#E2E8F0', stroke: '#64748B', text: '#475569' },
-  mine: { label: 'Your boxes', cell: 'bg-[#12382E] text-white ring-2 ring-[#C6A45B] shadow-sm', swatch: 'bg-[#12382E] ring-2 ring-[#C6A45B]', mini: '#12382E', hex: '#12382E', fill: '#12382E', stroke: '#C6A45B', text: '#ffffff' },
+  mine: { label: 'Your boxes', cell: 'bg-forest-deep text-white ring-2 ring-[#C6A45B] shadow-sm', swatch: 'bg-forest-deep ring-2 ring-[#C6A45B]', mini: '#1E1B4B', hex: '#1E1B4B', fill: '#1E1B4B', stroke: '#C6A45B', text: '#ffffff' },
   blocked: {
     label: 'No place here (pillar, walkway)',
     cell: 'bg-[repeating-linear-gradient(45deg,#FEE2E2_0_4px,#ffffff_4px_8px)] text-[#991B1B] ring-1 ring-[#991B1B]/40',

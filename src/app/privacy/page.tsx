@@ -33,7 +33,7 @@ export default function PrivacyPage() {
       <section>
         <h2>Contact</h2>
         <p>
-          Use <Link className="font-semibold text-emerald-800 underline" href="/support">Help &amp; support</Link> — at the top of every page — to ask KashRoot, follow your request, or find KashRoot’s official contacts. {NEVER_ASKS}
+          Use <Link className="font-semibold text-forest-deep underline" href="/support">Help &amp; support</Link> — at the top of every page — to ask KashRoot, follow your request, or find KashRoot’s official contacts. {NEVER_ASKS}
         </p>
       </section>
     </InfoPage>

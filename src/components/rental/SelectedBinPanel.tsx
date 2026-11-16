@@ -78,17 +78,17 @@ export function SelectedBinPanel({
   const row = (label: string, value: string, strong = false) => (
     <>
       <dt className="text-[#718078]">{label}</dt>
-      <dd className={strong ? 'font-semibold text-[#174C3C]' : 'text-[#25332F]'}>{value}</dd>
+      <dd className={strong ? 'font-semibold text-forest' : 'text-[#25332F]'}>{value}</dd>
     </>
   );
-  const step = 'grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-xl bg-white text-[#174C3C] ring-1 ring-[#E2EAE5] transition hover:bg-[#EAF3EE] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40';
+  const step = 'grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-xl bg-white text-forest ring-1 ring-[#E2EAE5] transition hover:bg-forest-soft active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40';
 
   return (
     <section aria-label={`Selected bin ${binCode(c, slot)}`} data-testid="selected-bin-panel" className="rounded-2xl bg-white p-4 text-sm ring-2 ring-[#C6A45B]">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#718078]">Selected bin</p>
-          <h4 className="text-xl font-bold tabular-nums tracking-wide text-[#174C3C]" data-testid="selected-bin-id">{binCode(c, slot)}</h4>
+          <h4 className="text-xl font-bold tabular-nums tracking-wide text-forest" data-testid="selected-bin-id">{binCode(c, slot)}</h4>
           <p className="text-[#718078]">{c.name} · {placeLabel(slot)}</p>
         </div>
         <button type="button" onClick={onRemove} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl px-3 font-semibold text-[#991B1B] hover:bg-[#FEE2E2]">
@@ -109,18 +109,18 @@ export function SelectedBinPanel({
 
       {/* Capacity bar: taken, this choice, still free. */}
       <div className="mt-3" aria-hidden>
-        <div className="flex h-3 overflow-hidden rounded-full bg-[#EAF3EE] ring-1 ring-[#E2EAE5]">
+        <div className="flex h-3 overflow-hidden rounded-full bg-forest-soft ring-1 ring-[#E2EAE5]">
           <span style={{ width: pct(taken) }} className="bg-[#64748B]" />
-          <span style={{ width: pct(boxes) }} className="bg-[#174C3C]" />
+          <span style={{ width: pct(boxes) }} className="bg-forest" />
         </div>
         <p className="mt-1 flex flex-wrap gap-x-4 text-xs text-[#718078]">
           <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-[#64748B]" />taken {taken.toLocaleString('en-IN')}</span>
-          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-[#174C3C]" />your choice {boxes.toLocaleString('en-IN')}</span>
-          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-[#EAF3EE] ring-1 ring-[#286B54]" />free after {left.toLocaleString('en-IN')}</span>
+          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-forest" />your choice {boxes.toLocaleString('en-IN')}</span>
+          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-forest-soft ring-1 ring-forest-mid" />free after {left.toLocaleString('en-IN')}</span>
         </p>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-end justify-between gap-3 rounded-xl bg-[#EAF3EE] p-3">
+      <div className="mt-4 flex flex-wrap items-end justify-between gap-3 rounded-xl bg-forest-soft p-3">
         <div>
           <label htmlFor="kr-bin-qty" className="block text-xs font-semibold text-[#25332F]">How many {words.many} here? (1 to {room.toLocaleString('en-IN')})</label>
           <div className="mt-1 flex items-center gap-2">
@@ -134,15 +134,15 @@ export function SelectedBinPanel({
               max={room}
               value={boxes || ''}
               onChange={(e) => onBoxes(Math.min(room, Math.max(0, Math.floor(Number(e.target.value)) || 0)))}
-              className="min-h-[44px] w-24 rounded-xl border-0 bg-white px-3 text-center text-base font-bold tabular-nums text-[#25332F] ring-1 ring-inset ring-[#E2EAE5] focus:ring-2 focus:ring-[#286B54]"
+              className="min-h-[44px] w-24 rounded-xl border-0 bg-white px-3 text-center text-base font-bold tabular-nums text-[#25332F] ring-1 ring-inset ring-[#E2EAE5] focus:ring-2 focus:ring-forest-mid"
             />
             <button type="button" aria-label={`One ${words.one} more`} className={step} disabled={boxes >= room} onClick={() => set(boxes + 1)}><Plus className="h-4 w-4" aria-hidden /></button>
-            <button type="button" className="min-h-[44px] cursor-pointer rounded-xl px-3 text-sm font-semibold text-[#174C3C] hover:bg-white" onClick={() => set(room)}>All {room.toLocaleString('en-IN')}</button>
+            <button type="button" className="min-h-[44px] cursor-pointer rounded-xl px-3 text-sm font-semibold text-forest hover:bg-white" onClick={() => set(room)}>All {room.toLocaleString('en-IN')}</button>
           </div>
         </div>
         <div className="text-right">
           <p className="text-xs text-[#718078]">{boxes.toLocaleString('en-IN')} × {inr(rate)} × {months} month{months === 1 ? '' : 's'}</p>
-          <p className="text-2xl font-bold tabular-nums text-[#174C3C]" data-testid="selected-bin-price" aria-live="polite">{inr(price)}</p>
+          <p className="text-2xl font-bold tabular-nums text-forest" data-testid="selected-bin-price" aria-live="polite">{inr(price)}</p>
         </div>
       </div>
 

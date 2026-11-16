@@ -342,7 +342,7 @@ export function OwnerSharedBinDesk({
                       {b.farmer_name} · {b.requested_crates} crates of {b.apple_variety}
                       <span className="ml-2 font-mono text-xs font-normal text-slate-500">{b.booking_reference}</span>
                     </p>
-                    <span className="text-sm font-semibold text-[#12382E]">{inr(b.total_estimated_charge_inr)}</span>
+                    <span className="text-sm font-semibold text-forest-deep">{inr(b.total_estimated_charge_inr)}</span>
                   </div>
                   <p className="mt-0.5 text-sm text-slate-600">
                     {b.farmer_phone} · {b.duration_months} month{b.duration_months === 1 ? '' : 's'} · {b.crate_weight_kg} kg per crate · {b.total_weight_kg} kg total
@@ -405,7 +405,7 @@ export function OwnerSharedBinDesk({
                     </span>
                   </div>
                   <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-slate-100" role="presentation">
-                    <div className={`h-full rounded-full ${pct >= 100 ? 'bg-[#286B54]' : pct > 0 ? 'bg-amber-400' : 'bg-emerald-400'}`} style={{ width: `${pct}%` }} />
+                    <div className={`h-full rounded-full ${pct >= 100 ? 'bg-forest-mid' : pct > 0 ? 'bg-amber-400' : 'bg-forest-mid'}`} style={{ width: `${pct}%` }} />
                   </div>
                   {bin.dominant_apple_variety && <p className="mt-2 text-sm text-slate-600">Dominant variety: {bin.dominant_apple_variety}</p>}
                   {(bin.allocations ?? []).length === 0 ? (
@@ -458,7 +458,7 @@ export function OwnerSharedBinDesk({
           </ul>
         )}
         {releaseWanted.length > 0 && (
-          <p className="mt-3 rounded-xl bg-[#EAF3EE] px-3 py-2 text-sm text-[#12382E] ring-1 ring-[#C6DBD0]">
+          <p className="mt-3 rounded-xl bg-forest-soft px-3 py-2 text-sm text-forest-deep ring-1 ring-forest-line">
             {releaseWanted.length} release request{releaseWanted.length === 1 ? '' : 's'} waiting — confirm the dispatch on the bin above.
           </p>
         )}
@@ -637,7 +637,7 @@ function EngineeringCalculator({
               ))}
             </ul>
           ) : (
-            <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-900 ring-1 ring-emerald-200">All values are inside the safe apple CA window. Setpoints still need cultivar-specific agronomic validation.</p>
+            <p className="rounded-xl bg-forest-soft px-3 py-2 text-sm text-forest-deep ring-1 ring-forest-line">All values are inside the safe apple CA window. Setpoints still need cultivar-specific agronomic validation.</p>
           )}
         </div>
       )}
@@ -647,9 +647,9 @@ function EngineeringCalculator({
 
 function CalcCard({ label, value, hint, strong }: { label: string; value: string; hint?: string; strong?: boolean }) {
   return (
-    <div className={`rounded-2xl p-4 ring-1 ${strong ? 'bg-[#EAF3EE] ring-[#C6DBD0]' : 'bg-white/85 ring-slate-900/5'}`}>
+    <div className={`rounded-2xl p-4 ring-1 ${strong ? 'bg-forest-soft ring-forest-line' : 'bg-white/85 ring-slate-900/5'}`}>
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className={`mt-1 font-display ${strong ? 'text-xl font-bold text-[#12382E]' : 'text-lg font-semibold text-slate-900'}`}>{value}</p>
+      <p className={`mt-1 font-display ${strong ? 'text-xl font-bold text-forest-deep' : 'text-lg font-semibold text-slate-900'}`}>{value}</p>
       {hint && <p className="mt-0.5 text-xs text-slate-500">{hint}</p>}
     </div>
   );
@@ -923,13 +923,13 @@ export function FarmerStoredApplesDesk({
                     <li key={bin.id} className="rounded-2xl bg-white/85 p-4 ring-1 ring-slate-900/5">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="font-semibold text-slate-900">Chamber {bin.chamber_code} · Bin {bin.bin_code}</p>
-                        <span className="text-sm text-slate-600">Bin capacity {bin.max_crates} crates · <strong className="text-emerald-900">{bin.available_crates} free</strong></span>
+                        <span className="text-sm text-slate-600">Bin capacity {bin.max_crates} crates · <strong className="text-forest-deep">{bin.available_crates} free</strong></span>
                       </div>
                       <ul className="mt-2 space-y-2">
                         {mine.map((a) => {
                           const draft = releaseFor[a.id] ?? String(a.active_crates);
                           return (
-                            <li key={a.id} className="flex flex-col gap-2 rounded-xl bg-[#EAF3EE]/70 px-3 py-2 ring-1 ring-[#C6DBD0] lg:flex-row lg:items-center lg:justify-between">
+                            <li key={a.id} className="flex flex-col gap-2 rounded-xl bg-forest-soft/70 px-3 py-2 ring-1 ring-forest-line lg:flex-row lg:items-center lg:justify-between">
                               <p className="text-sm text-slate-800">
                                 <strong>Your allocation: {a.active_crates} crates</strong> ({a.active_weight_kg} kg) · {a.apple_variety} · since {niceDate(a.received_at)} · {a.released_crates} already dispatched
                               </p>
@@ -1014,7 +1014,7 @@ export function FarmerStoredApplesDesk({
                   <li key={m.id} className="rounded-xl bg-white/85 px-3 py-2 ring-1 ring-slate-900/5">
                     <p className="text-sm font-semibold text-slate-900">
                       {m.movement_type.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
-                      {m.crates_delta !== 0 && <span className={m.crates_delta > 0 ? 'ml-2 text-emerald-700' : 'ml-2 text-rose-700'}>{m.crates_delta > 0 ? '+' : ''}{m.crates_delta} crates</span>}
+                      {m.crates_delta !== 0 && <span className={m.crates_delta > 0 ? 'ml-2 text-forest' : 'ml-2 text-rose-700'}>{m.crates_delta > 0 ? '+' : ''}{m.crates_delta} crates</span>}
                     </p>
                     <p className="text-sm text-slate-600">{m.notes}</p>
                     <p className="text-xs text-slate-400">{m.chamber_code} · {m.bin_code === 'PENDING' ? 'awaiting placement' : `bin ${m.bin_code}`} · {niceDate(m.recorded_at)}</p>

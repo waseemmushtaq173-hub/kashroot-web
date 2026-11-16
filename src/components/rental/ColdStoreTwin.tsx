@@ -428,7 +428,7 @@ export function ColdStoreTwin({ grower = null }: ColdStoreTwinProps) {
   }, [ready, entered]);
 
   const chip = (on: boolean) =>
-    `min-h-[40px] cursor-pointer rounded-xl px-3 text-xs font-semibold ring-2 transition ${on ? 'bg-[#12382E] text-white ring-[#174C3C]' : 'bg-white/90 text-[#12382E] ring-[#C6DBD0] hover:bg-[#EAF3EE]'}`;
+    `min-h-[40px] cursor-pointer rounded-xl px-3 text-xs font-semibold ring-2 transition ${on ? 'bg-forest-deep text-white ring-forest' : 'bg-white/90 text-forest-deep ring-forest-line hover:bg-forest-soft'}`;
 
   if (failed) {
     return (
@@ -469,7 +469,7 @@ export function ColdStoreTwin({ grower = null }: ColdStoreTwinProps) {
       </div>
 
       {(picked || enteredChamber) && (
-        <div className={picked ? 'rounded-2xl bg-white/95 p-4 text-sm ring-1 ring-amber-200' : 'rounded-2xl bg-white/95 p-4 text-sm ring-1 ring-[#C6DBD0]'}>
+        <div className={picked ? 'rounded-2xl bg-white/95 p-4 text-sm ring-1 ring-amber-200' : 'rounded-2xl bg-white/95 p-4 text-sm ring-1 ring-forest-line'}>
           {picked ? (
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0 space-y-1">
@@ -479,7 +479,7 @@ export function ColdStoreTwin({ grower = null }: ColdStoreTwinProps) {
                 </p>
                 {picked.grower ? (
                   <p className="text-slate-800">
-                    <span className="font-semibold text-[#174C3C]">{picked.grower.name}</span> ({picked.grower.grower_id}) · {picked.grower.product_type}
+                    <span className="font-semibold text-forest">{picked.grower.name}</span> ({picked.grower.grower_id}) · {picked.grower.product_type}
                   </p>
                 ) : (
                   <p className="text-slate-600">An empty place — nobody has booked this crate yet.</p>

@@ -95,7 +95,7 @@ function ExpertCredit({ from, lang }: { from: { name: string; reviewed: boolean 
         ? `KashRoot ماہر ${from.name} کا جواب`
         : `Answer from KashRoot expert ${from.name}`;
   return (
-    <span dir={lang === 'ur' ? 'rtl' : undefined} className="mt-1 inline-flex max-w-[85%] items-center gap-1 text-xs font-semibold text-emerald-800">
+    <span dir={lang === 'ur' ? 'rtl' : undefined} className="mt-1 inline-flex max-w-[85%] items-center gap-1 text-xs font-semibold text-forest-deep">
       <Check className="h-3.5 w-3.5 shrink-0" aria-hidden /> {text}
     </span>
   );

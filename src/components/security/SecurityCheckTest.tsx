@@ -114,7 +114,7 @@ export function SecurityCheckTest() {
       {error && <p role="alert" className="mt-3 text-sm text-amber-300">{error}</p>}
       {result && (
         <div className="mt-4 space-y-2 text-sm" data-security-check-result={result.ok ? 'ok' : 'problem'}>
-          <p className={`rounded-xl p-3 font-semibold ${result.ok ? 'bg-emerald-500/15 text-emerald-200' : 'bg-amber-500/15 text-amber-100'}`}>{result.verdict}</p>
+          <p className={`rounded-xl p-3 font-semibold ${result.ok ? 'bg-forest-mid/15 text-forest-line' : 'bg-amber-500/15 text-amber-100'}`}>{result.verdict}</p>
           <ul className="space-y-1 text-white/80">
             <li>Token received in {result.took} s — {result.mode}</li>
             <li>KashRoot’s server (Vercel secret): {fmt(result.server)}</li>

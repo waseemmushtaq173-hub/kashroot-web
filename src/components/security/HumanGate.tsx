@@ -67,7 +67,7 @@ function GateCheck({ className, onPassed }: { className: string; onPassed: () =>
   return (
     <div className={quiet ? 'sr-only' : `rounded-2xl bg-chinar-soft p-3 ring-1 ring-chinar-line ${className}`} data-human-gate={quiet ? 'quiet' : 'shown'}>
       {!quiet && (
-        <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-emerald-950">
+        <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-forest-pine">
           <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden /> One quick check, so KashRoot’s answers and voice serve people, not machines.
         </p>
       )}

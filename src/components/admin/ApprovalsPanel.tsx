@@ -34,9 +34,9 @@ interface RoleRequest {
 }
 
 const ROLE_LOOK: Record<RoleRequest['role'], { label: string; tone: 'violet' | 'red' | 'green'; icon: LucideIcon; colour: string }> = {
-  EXPERT: { label: 'Agronomist', tone: 'violet', icon: GraduationCap, colour: 'text-emerald-700' },
+  EXPERT: { label: 'Agronomist', tone: 'violet', icon: GraduationCap, colour: 'text-forest' },
   DEALER: { label: 'Dealer', tone: 'red', icon: Store, colour: 'text-rose-700' },
-  REPORTER: { label: 'Mandi Helper', tone: 'green', icon: Megaphone, colour: 'text-emerald-700' },
+  REPORTER: { label: 'Mandi Helper', tone: 'green', icon: Megaphone, colour: 'text-forest' },
 };
 
 interface StaffRole {
@@ -134,7 +134,7 @@ export function ApprovalsPanel() {
                   )}
                   <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
                     {r.phone && (
-                      <a href={`tel:+91${r.phone.replace(/\D/g, '').slice(-10)}`} className="inline-flex items-center gap-1 font-semibold text-[#174C3C]">
+                      <a href={`tel:+91${r.phone.replace(/\D/g, '').slice(-10)}`} className="inline-flex items-center gap-1 font-semibold text-forest">
                         <Phone className="h-3.5 w-3.5" aria-hidden /> Call {r.phone}
                       </a>
                     )}

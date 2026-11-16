@@ -275,12 +275,12 @@ export default function LiveLogisticsMap({ trip, className = '' }: { trip: TripL
             {accR > 2 && (
               <div
                 aria-hidden
-                className="pointer-events-none absolute rounded-full bg-[#286B54]/20"
+                className="pointer-events-none absolute rounded-full bg-forest-mid/20"
                 style={{ left: truck.x - accR, top: truck.y - accR, width: accR * 2, height: accR * 2, border: '1.5px solid rgba(79,70,229,0.55)' }}
               />
             )}
             <span
-              className="pointer-events-none absolute z-[7] grid h-9 w-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-[#174C3C] shadow-lg ring-2 ring-[#286B54]"
+              className="pointer-events-none absolute z-[7] grid h-9 w-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-forest shadow-lg ring-2 ring-forest-mid"
               style={{ left: truck.x, top: truck.y }}
             >
               <Truck className="h-5 w-5" aria-hidden />
@@ -314,7 +314,7 @@ export default function LiveLogisticsMap({ trip, className = '' }: { trip: TripL
           <button type="button" aria-label="Zoom out" disabled={zoom <= MIN_Z} onClick={() => setZoom((z) => Math.max(MIN_Z, z - 1))} className="grid h-8 w-8 cursor-pointer place-items-center rounded-lg bg-white text-slate-800 shadow ring-1 ring-slate-300 hover:bg-slate-50 disabled:opacity-40">
             <Minus className="h-4 w-4" aria-hidden />
           </button>
-          <button type="button" aria-label={follow ? 'Following the truck' : 'Centre back on the truck'} onClick={() => { setFollow(true); if (truckLat !== null && truckLng !== null) setCenter({ lat: truckLat, lng: truckLng }); }} className={`grid h-8 w-8 cursor-pointer place-items-center rounded-lg shadow ring-1 ring-slate-300 ${follow ? 'bg-[#174C3C] text-white' : 'bg-white text-slate-700 hover:bg-[#EAF3EE]'}`}>
+          <button type="button" aria-label={follow ? 'Following the truck' : 'Centre back on the truck'} onClick={() => { setFollow(true); if (truckLat !== null && truckLng !== null) setCenter({ lat: truckLat, lng: truckLng }); }} className={`grid h-8 w-8 cursor-pointer place-items-center rounded-lg shadow ring-1 ring-slate-300 ${follow ? 'bg-forest text-white' : 'bg-white text-slate-700 hover:bg-forest-soft'}`}>
             <Crosshair className="h-4 w-4" aria-hidden />
           </button>
         </div>
@@ -326,7 +326,7 @@ export default function LiveLogisticsMap({ trip, className = '' }: { trip: TripL
             : 'Waiting for the first driver ping…'}
         </p>
         {trip.geofence_status && (
-          <p className={`pointer-events-none absolute left-1.5 top-1.5 z-10 rounded-lg px-2 py-1 text-[10px] font-bold shadow-sm ring-1 ${trip.geofence_status === 'ARRIVED' ? 'bg-emerald-600 text-white ring-emerald-700' : trip.geofence_status === 'INSIDE_GEOFENCE' ? 'bg-emerald-50 text-emerald-900 ring-emerald-300' : trip.geofence_status === 'APPROACHING_GEOFENCE' ? 'bg-amber-50 text-amber-900 ring-amber-300' : 'bg-white/90 text-slate-700 ring-slate-300'}`}>
+          <p className={`pointer-events-none absolute left-1.5 top-1.5 z-10 rounded-lg px-2 py-1 text-[10px] font-bold shadow-sm ring-1 ${trip.geofence_status === 'ARRIVED' ? 'bg-forest text-white ring-forest' : trip.geofence_status === 'INSIDE_GEOFENCE' ? 'bg-forest-soft text-forest-deep ring-forest-line' : trip.geofence_status === 'APPROACHING_GEOFENCE' ? 'bg-amber-50 text-amber-900 ring-amber-300' : 'bg-white/90 text-slate-700 ring-slate-300'}`}>
             🧭 {trip.geofence_status.replaceAll('_', ' ')}
           </p>
         )}
@@ -342,7 +342,7 @@ export default function LiveLogisticsMap({ trip, className = '' }: { trip: TripL
             href={`https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}&travelmode=driving`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 font-bold text-emerald-700 underline underline-offset-2"
+            className="inline-flex items-center gap-1 font-bold text-forest underline underline-offset-2"
           >
             Turn-by-turn in Google Maps ↗
           </a>

@@ -127,10 +127,10 @@ export function PhotoDiagnosis({ account }: { account: Account | null }) {
             </button>
           </div>
         ) : (
-          <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50/60 p-8 text-center text-emerald-900 hover:bg-emerald-50">
+          <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-forest-line bg-forest-soft/60 p-8 text-center text-forest-deep hover:bg-forest-soft">
             <Camera className="h-10 w-10" aria-hidden />
             <span className="text-base font-semibold">Take a photo of the leaf, fruit or bark</span>
-            <span className="text-xs text-emerald-800">Close up, in daylight, one leaf filling the picture</span>
+            <span className="text-xs text-forest-deep">Close up, in daylight, one leaf filling the picture</span>
             <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => void choose(e.target.files?.[0])} />
           </label>
         )}
@@ -165,7 +165,7 @@ export function PhotoDiagnosis({ account }: { account: Account | null }) {
         ) : (
           <div className="space-y-4 rounded-2xl bg-white/85 p-5 ring-1 ring-slate-900/5" dir={rtl}>
             <div className="flex flex-wrap items-center gap-2">
-              {result.healthy ? <CheckCircle2 className="h-5 w-5 text-emerald-700" aria-hidden /> : <AlertTriangle className="h-5 w-5 text-amber-600" aria-hidden />}
+              {result.healthy ? <CheckCircle2 className="h-5 w-5 text-forest" aria-hidden /> : <AlertTriangle className="h-5 w-5 text-amber-600" aria-hidden />}
               <h3 className="font-display text-lg font-semibold text-slate-900">{result.likely_problem}</h3>
               <Badge tone={CONFIDENCE[result.confidence].tone}>{CONFIDENCE[result.confidence].label}</Badge>
             </div>
@@ -193,7 +193,7 @@ export function PhotoDiagnosis({ account }: { account: Account | null }) {
               ) : account ? (
                 <Btn theme={theme} icon={Send} variant={result.see_expert ? 'solid' : 'soft'} disabled={busy} onClick={() => void sendToExpert()}>Send to an agronomist</Btn>
               ) : (
-                <p className="text-sm text-slate-600"><Link href="/login/farmer?next=/farmer/orchard-health?tab=diagnose" className="font-semibold text-emerald-800 underline">Sign in</Link> to send this photo to an agronomist.</p>
+                <p className="text-sm text-slate-600"><Link href="/login/farmer?next=/farmer/orchard-health?tab=diagnose" className="font-semibold text-forest-deep underline">Sign in</Link> to send this photo to an agronomist.</p>
               )}
             </div>
           </div>

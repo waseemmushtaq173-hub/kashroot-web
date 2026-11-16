@@ -114,7 +114,7 @@ export function ContributorsPanel() {
                     </p>
                     <p className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-slate-500">
                       <span>By {r.reporter_name}</span>
-                      {r.phone && <a href={`tel:+91${r.phone.replace(/\D/g, '').slice(-10)}`} className="inline-flex items-center gap-1 font-semibold text-[#174C3C]"><Phone className="h-3 w-3" aria-hidden /> {r.phone}</a>}
+                      {r.phone && <a href={`tel:+91${r.phone.replace(/\D/g, '').slice(-10)}`} className="inline-flex items-center gap-1 font-semibold text-forest"><Phone className="h-3 w-3" aria-hidden /> {r.phone}</a>}
                       <span>{r.confirms ?? 0} said correct · {r.reports ?? 0} said wrong</span>
                     </p>
                     {checks.filter((c) => c.verdict === 'wrong').map((c) => (
@@ -184,7 +184,7 @@ export function ContributorsPanel() {
                   <tr key={p.user_id} className="bg-white/70">
                     <td className="px-3 py-2">
                       <span className="font-semibold text-slate-900">{p.name}</span> {(p.roles ?? []).map((r) => <Badge key={r} tone={r === 'REPORTER' ? 'green' : r === 'EXPERT' ? 'violet' : r === 'KASHMIRI' ? 'amber' : 'blue'}>{r === 'REPORTER' ? 'Mandi Helper' : r === 'EXPERT' ? 'Agronomist' : r === 'KASHMIRI' ? 'Kashmiri editor' : r}</Badge>)}
-                      <span className="block text-xs text-slate-500">{p.phone ? <a href={`tel:+91${p.phone.replace(/\D/g, '').slice(-10)}`} className="text-[#174C3C]">{p.phone}</a> : p.email} · active {ago(p.last_at)}</span>
+                      <span className="block text-xs text-slate-500">{p.phone ? <a href={`tel:+91${p.phone.replace(/\D/g, '').slice(-10)}`} className="text-forest">{p.phone}</a> : p.email} · active {ago(p.last_at)}</span>
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">{p.accepted}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{p.pending}</td>

@@ -363,7 +363,7 @@ export function QRCodeScanner({ onResult, onClose, allowedDomains = [], isOfflin
 
           {cameraState === 'starting' && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70 text-center">
-              <Loader2 className="h-10 w-10 animate-spin text-emerald-400" aria-hidden />
+              <Loader2 className="h-10 w-10 animate-spin text-forest-mid" aria-hidden />
               <p className="text-sm text-white/90">Starting camera…</p>
             </div>
           )}
@@ -389,7 +389,7 @@ export function QRCodeScanner({ onResult, onClose, allowedDomains = [], isOfflin
               {/* Scanning frame + hint */}
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                 <div
-                  className={`relative h-[70%] w-[70%] rounded-xl border-4 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] ${scanning ? 'animate-pulse border-emerald-500' : 'border-white/50'}`}
+                  className={`relative h-[70%] w-[70%] rounded-xl border-4 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] ${scanning ? 'animate-pulse border-forest-mid' : 'border-white/50'}`}
                   aria-hidden
                 />
                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-center text-white">
@@ -404,7 +404,7 @@ export function QRCodeScanner({ onResult, onClose, allowedDomains = [], isOfflin
               {/* Controls */}
               <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-3 bg-gradient-to-t from-black/80 via-black/20 to-transparent p-4">
                 {lastResult && (
-                  <div className="animate-slide-up rounded-xl bg-emerald-600 px-4 py-3 text-center text-white">
+                  <div className="animate-slide-up rounded-xl bg-forest px-4 py-3 text-center text-white">
                     <div className="mb-1 flex items-center justify-center gap-2">
                       <CheckCircle2 className="h-5 w-5" aria-hidden />
                       <span className="font-semibold">QR code detected</span>
@@ -545,7 +545,7 @@ export function QRCodeResult({ result, onReportFake, onLabTest, onClose }: {
             {result.cibrcStatus && (
               <div>
                 <dt className="text-slate-500">CIB&RC Status</dt>
-                <dd className={`font-medium ${result.cibrcStatus === 'banned' ? 'text-rose-700' : result.cibrcStatus === 'registered' ? 'text-emerald-700' : 'text-slate-900'}`}>{result.cibrcStatus}</dd>
+                <dd className={`font-medium ${result.cibrcStatus === 'banned' ? 'text-rose-700' : result.cibrcStatus === 'registered' ? 'text-forest' : 'text-slate-900'}`}>{result.cibrcStatus}</dd>
               </div>
             )}
           </dl>

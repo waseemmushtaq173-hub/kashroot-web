@@ -35,7 +35,7 @@ interface ScabAnswer {
 
 /** Colour-coded risk chips: honest labels for the Mills-model verdict. */
 const SCAB_STYLE: Record<ScabLevel, { label: string; chip: string; note: string }> = {
-  none: { label: 'Low', chip: 'bg-emerald-50 text-emerald-800 ring-emerald-200', note: 'Dry conditions — no infection window open.' },
+  none: { label: 'Low', chip: 'bg-forest-soft text-forest-deep ring-forest-line', note: 'Dry conditions — no infection window open.' },
   watch: { label: 'Watch', chip: 'bg-lime-50 text-lime-800 ring-lime-200', note: 'Leaf wetness is building — keep an eye on the forecast.' },
   light: { label: 'Light', chip: 'bg-amber-50 text-amber-800 ring-amber-200', note: 'A light infection window is likely — check your spray plan.' },
   moderate: { label: 'Moderate', chip: 'bg-orange-50 text-orange-800 ring-orange-200', note: 'A moderate infection window is likely — protect before the rain.' },
@@ -45,7 +45,7 @@ const SCAB_STYLE: Record<ScabLevel, { label: string; chip: string; note: string 
 /** The season and the orchard work it calls for (Kashmir apple calendar). */
 const SEASON_STYLE: Record<SeasonId, { label: string; chip: string; note: string }> = {
   spring: { label: 'Bud break to bloom', chip: 'bg-lime-50 text-lime-900 ring-lime-200', note: 'Scab watch matters most now — thinning sprays and beehive time.' },
-  summer: { label: 'Fruit development', chip: 'bg-[#EAF3EE] text-[#12382E] ring-[#C6DBD0]', note: 'Irrigation, cover sprays and summer pruning.' },
+  summer: { label: 'Fruit development', chip: 'bg-forest-soft text-forest-deep ring-forest-line', note: 'Irrigation, cover sprays and summer pruning.' },
   autumn: { label: 'Harvest', chip: 'bg-amber-50 text-amber-900 ring-amber-200', note: 'Pick by colour, grade well — book cold storage early.' },
   winter: { label: 'Dormant', chip: 'bg-slate-100 text-slate-800 ring-slate-200', note: 'Pruning, dormant-oil spray, tool and equipment care.' },
 };
@@ -100,7 +100,7 @@ export function OrchardAnalyticsPanel({ district }: { district?: string | null }
       ? { chip: 'bg-rose-50 text-rose-800 ring-rose-200', note: 'Topsoil is dry — plan irrigation.' }
       : soilPct < 28
         ? { chip: 'bg-amber-50 text-amber-800 ring-amber-200', note: 'Topsoil moisture is moderate.' }
-        : { chip: 'bg-emerald-50 text-emerald-800 ring-emerald-200', note: 'Topsoil is well supplied.' };
+        : { chip: 'bg-forest-soft text-forest-deep ring-forest-line', note: 'Topsoil is well supplied.' };
 
   const spell = nextSpell ? `Next wet spell ${spellWhen(nextSpell.start)}: ${nextSpell.hours} wet hour${nextSpell.hours === 1 ? '' : 's'} around ${Math.round(nextSpell.meanTemp)}°C.` : null;
 
@@ -158,7 +158,7 @@ export function OrchardAnalyticsPanel({ district }: { district?: string | null }
           )}
 
           <p className="mt-3 text-xs text-slate-500">
-            Scab risk from the leaf-wetness (Mills) model on Open-Meteo hourly weather · <Link href="/farmer/season-planner" className="font-semibold text-emerald-800 underline">Season planner</Link> for tasks and costs.
+            Scab risk from the leaf-wetness (Mills) model on Open-Meteo hourly weather · <Link href="/farmer/season-planner" className="font-semibold text-forest-deep underline">Season planner</Link> for tasks and costs.
           </p>
         </>
       )}

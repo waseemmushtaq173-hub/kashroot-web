@@ -38,7 +38,7 @@ export default async function LoginChooserPage({ searchParams }: { searchParams:
             <li key={id}>
               <Link
                 href={loginHref(id, next)}
-                className="group flex items-center gap-3 rounded-2xl bg-white/90 p-3.5 text-slate-900 no-underline shadow-sm ring-1 ring-slate-900/5 transition hover:-translate-y-0.5 hover:no-underline hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+                className="group flex items-center gap-3 rounded-2xl bg-white/90 p-3.5 text-slate-900 no-underline shadow-sm ring-1 ring-slate-900/5 transition hover:-translate-y-0.5 hover:no-underline hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest"
               >
                 <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${copy.theme.iconTile}`}>
                   <Icon className="h-5 w-5" aria-hidden />

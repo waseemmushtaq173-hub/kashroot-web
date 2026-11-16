@@ -41,7 +41,7 @@ export function IdentityStatus({ account, theme, purpose }: { account: Account; 
 
   if (!missing && aadhaar) {
     return (
-      <p className="flex items-center gap-2 rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900 ring-1 ring-emerald-200">
+      <p className="flex items-center gap-2 rounded-2xl bg-forest-soft px-4 py-3 text-sm text-forest-deep ring-1 ring-forest-line">
         <BadgeCheck className="h-4 w-4 shrink-0" aria-hidden /> Identity verified{status?.aadhaar_last4 ? <> (Aadhaar <span className="font-mono">•••• {status.aadhaar_last4}</span>)</> : null} — you can {purpose}.
       </p>
     );
@@ -50,7 +50,7 @@ export function IdentityStatus({ account, theme, purpose }: { account: Account; 
   return (
     <section aria-label="Identity check" className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm ring-1 ${required ? 'bg-amber-50 text-amber-950 ring-amber-200' : 'bg-white/80 text-slate-700 ring-slate-900/10'}`}>
       <p className="flex min-w-0 flex-1 items-start gap-2">
-        {required ? <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" aria-hidden /> : <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" aria-hidden />}
+        {required ? <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" aria-hidden /> : <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-forest" aria-hidden />}
         <span>
           {required
             ? `Verify your ${missing === 'pan' ? 'PAN' : 'Aadhaar'} to ${purpose}. KashRoot does not allow it until then.`

@@ -141,8 +141,8 @@ function SceneContents() {
 
 function Inspector2DFallback() {
   return (
-    <div className="flex h-full w-full flex-col gap-2 bg-gradient-to-b from-emerald-950 via-emerald-900 to-emerald-800 p-4 text-white">
-      <span className="w-fit rounded-full bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-emerald-100">2D view — orchard health</span>
+    <div className="flex h-full w-full flex-col gap-2 bg-gradient-to-b from-forest-pine via-forest-deep to-forest-deep p-4 text-white">
+      <span className="w-fit rounded-full bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-forest-soft">2D view — orchard health</span>
       <svg viewBox="0 0 640 200" className="w-full flex-1" role="img" aria-label="Diagram of the orchard: apple rows, walnut trees and soil layers">
         {[
           [70, 60],

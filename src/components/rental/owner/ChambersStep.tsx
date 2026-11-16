@@ -76,7 +76,7 @@ export function ChambersStep({
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
       <div className="min-w-0 space-y-5">
         <p className="flex items-start gap-2 text-base text-slate-700">
-          <BoxIcon className="mt-1 h-5 w-5 shrink-0 text-[#174C3C]" aria-hidden /> Add each chamber: what it holds, its floors, its size and its door. KashRoot lays out the stacks — always exactly your count.
+          <BoxIcon className="mt-1 h-5 w-5 shrink-0 text-forest" aria-hidden /> Add each chamber: what it holds, its floors, its size and its door. KashRoot lays out the stacks — always exactly your count.
         </p>
         <div role="tablist" aria-label="Your chambers" className="flex flex-wrap gap-2">
           {draft.chambers.map((c) => {
@@ -84,14 +84,14 @@ export function ChambersStep({
             const on = open?.key === c.key;
             const mc = model.chambers.find((x) => x.key === c.key);
             return (
-              <button key={c.key} type="button" role="tab" aria-selected={on} onClick={() => onSelect(c.key)} className={`inline-flex min-h-[48px] cursor-pointer items-center gap-2 rounded-xl px-3.5 text-sm font-semibold ring-2 transition ${on ? 'bg-[#12382E] text-white ring-[#174C3C]' : 'bg-white text-slate-800 ring-slate-200 hover:ring-[#C6DBD0]'}`}>
-                {st === 'ok' ? <CheckCircle2 className={`h-4 w-4 ${on ? 'text-white' : 'text-emerald-700'}`} aria-label="ready" /> : st === 'warn' ? <TriangleAlert className={`h-4 w-4 ${on ? 'text-amber-200' : 'text-amber-600'}`} aria-label="please check" /> : <CircleAlert className={`h-4 w-4 ${on ? 'text-rose-200' : 'text-rose-600'}`} aria-label="needs fixing" />}
+              <button key={c.key} type="button" role="tab" aria-selected={on} onClick={() => onSelect(c.key)} className={`inline-flex min-h-[48px] cursor-pointer items-center gap-2 rounded-xl px-3.5 text-sm font-semibold ring-2 transition ${on ? 'bg-forest-deep text-white ring-forest' : 'bg-white text-slate-800 ring-slate-200 hover:ring-forest-line'}`}>
+                {st === 'ok' ? <CheckCircle2 className={`h-4 w-4 ${on ? 'text-white' : 'text-forest'}`} aria-label="ready" /> : st === 'warn' ? <TriangleAlert className={`h-4 w-4 ${on ? 'text-amber-200' : 'text-amber-600'}`} aria-label="please check" /> : <CircleAlert className={`h-4 w-4 ${on ? 'text-rose-200' : 'text-rose-600'}`} aria-label="needs fixing" />}
                 Chamber {c.no || '?'}
-                {mc?.count ? <span className={`font-normal ${on ? 'text-[#EAF3EE]' : 'text-slate-500'}`}>· {countText(mc.count, c.storage)}</span> : null}
+                {mc?.count ? <span className={`font-normal ${on ? 'text-forest-soft' : 'text-slate-500'}`}>· {countText(mc.count, c.storage)}</span> : null}
               </button>
             );
           })}
-          <button type="button" onClick={add} className="inline-flex min-h-[48px] cursor-pointer items-center gap-1.5 rounded-xl bg-[#EAF3EE] px-3.5 text-sm font-semibold text-[#174C3C] ring-2 ring-[#C6DBD0] hover:bg-[#EAF3EE]">
+          <button type="button" onClick={add} className="inline-flex min-h-[48px] cursor-pointer items-center gap-1.5 rounded-xl bg-forest-soft px-3.5 text-sm font-semibold text-forest ring-2 ring-forest-line hover:bg-forest-soft">
             <Plus className="h-4 w-4" aria-hidden /> Add a chamber
           </button>
         </div>
@@ -126,7 +126,7 @@ export function ChambersStep({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div role="tablist" aria-label="See your store" className="flex gap-1 rounded-2xl bg-ivory p-1 ring-1 ring-[#E8A317]/30">
             {([['drawing', 'Drawing', MapIcon], ['3d', '3D view', Layers]] as const).map(([id, label, Icon]) => (
-              <button key={id} type="button" role="tab" aria-selected={view === id} onClick={() => setView(id)} className={`inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-xl px-4 text-sm font-semibold transition ${view === id ? 'bg-[#174C3C] text-white shadow' : 'text-[#12382E] hover:bg-[#EAF3EE]'}`}>
+              <button key={id} type="button" role="tab" aria-selected={view === id} onClick={() => setView(id)} className={`inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-xl px-4 text-sm font-semibold transition ${view === id ? 'bg-forest text-white shadow' : 'text-forest-deep hover:bg-forest-soft'}`}>
                 <Icon className="h-4 w-4" aria-hidden /> {label}
               </button>
             ))}
@@ -254,7 +254,7 @@ function ChamberEditor({
 
       <fieldset className="space-y-4 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-900/5">
         <legend className="sr-only">Size</legend>
-        <p className="flex items-center gap-2 text-base font-semibold text-slate-900"><Ruler className="h-5 w-5 text-[#174C3C]" aria-hidden /> Size inside the chamber</p>
+        <p className="flex items-center gap-2 text-base font-semibold text-slate-900"><Ruler className="h-5 w-5 text-forest" aria-hidden /> Size inside the chamber</p>
         <div className="grid gap-5 sm:grid-cols-3">
           <KitBox kit={kit} field={`${k}.length`} label={`Length, along the front (${u})`} number />
           <KitBox kit={kit} field={`${k}.width`} label={`Width, front to back (${u})`} number />
@@ -284,8 +284,8 @@ function ChamberEditor({
 
       <fieldset className="space-y-4 rounded-2xl bg-ivory/80 p-4 ring-1 ring-[#E8A317]/30">
         <legend className="sr-only">One {W.one} and how you stack</legend>
-        <p className="flex items-center gap-2 text-base font-semibold text-[#12382E]"><BoxIcon className="h-5 w-5" aria-hidden /> One {W.one} and how you stack</p>
-        <p className="text-sm text-[#12382E]">Enter the exact container measurements and safe stacking limit used in this chamber.</p>
+        <p className="flex items-center gap-2 text-base font-semibold text-forest-deep"><BoxIcon className="h-5 w-5" aria-hidden /> One {W.one} and how you stack</p>
+        <p className="text-sm text-forest-deep">Enter the exact container measurements and safe stacking limit used in this chamber.</p>
         <div className="grid gap-5 sm:grid-cols-3">
           <KitBox kit={kit} field={`${k}.unitL`} label={`Exact ${W.title.slice(0, -1)} length (${u})`} number />
           <KitBox kit={kit} field={`${k}.unitW`} label={`Exact ${W.title.slice(0, -1)} width (${u})`} number />
@@ -309,12 +309,12 @@ function ChamberEditor({
       <KitBox kit={kit} field={`${k}.rate`} label={`Rent for one ${W.one} for one month (₹)`} number hint={`Farmers pay this for each ${W.one} they keep here, each month.`} />
 
       {done && done.floors.length > 0 && (
-        <div className="rounded-2xl bg-[#EAF3EE] p-4 text-sm text-[#12382E] ring-1 ring-[#C6DBD0]" aria-live="polite">
+        <div className="rounded-2xl bg-forest-soft p-4 text-sm text-forest-deep ring-1 ring-forest-line" aria-live="polite">
           <p className="font-semibold">How {name} is laid out</p>
           <ul className="mt-1 space-y-0.5">
             {done.floors.map((f) => <li key={f.floor}>{floorText(done, f)}</li>)}
           </ul>
-          <p className="mt-1 text-[#12382E]">Farmers book any number of {W.many}; a stack can be shared.</p>
+          <p className="mt-1 text-forest-deep">Farmers book any number of {W.many}; a stack can be shared.</p>
         </div>
       )}
       <Problems issues={[...kit.issuesOf(`${k}.fit`), ...kit.issuesOf(`${k}.spot`)]} onFix={kit.fix} />
@@ -334,7 +334,7 @@ function ChamberEditor({
             <KitBox kit={kit} field={`${k}.spotX`} label={`From the building's left wall (${u})`} number />
             <KitBox kit={kit} field={`${k}.spotY`} label={`From the building's front wall (${u})`} number />
           </div>
-          <p className="flex items-center gap-2 pt-2 text-sm font-semibold text-slate-900"><Snowflake className="h-4 w-4 text-[#174C3C]" aria-hidden /> Cooling (optional — shown to farmers when you fill it in)</p>
+          <p className="flex items-center gap-2 pt-2 text-sm font-semibold text-slate-900"><Snowflake className="h-4 w-4 text-forest" aria-hidden /> Cooling (optional — shown to farmers when you fill it in)</p>
           <Pick
             label="Which wall are the cooling units on?"
             name={`${k}.coolerWall`}
@@ -358,7 +358,7 @@ function ChamberEditor({
         <div className="flex items-end gap-2">
           <label className="block">
             <span className="block text-sm font-semibold text-slate-800">How many more chambers like this?</span>
-            <input className="mt-1.5 block min-h-[48px] w-20 rounded-xl border-0 bg-white px-3 text-center text-base font-bold text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 focus:outline-none focus:ring-2 focus:ring-[#174C3C]" inputMode="numeric" value={more} onChange={(e) => setMore(e.target.value.replace(/\D/g, '').slice(0, 2))} />
+            <input className="mt-1.5 block min-h-[48px] w-20 rounded-xl border-0 bg-white px-3 text-center text-base font-bold text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 focus:outline-none focus:ring-2 focus:ring-forest" inputMode="numeric" value={more} onChange={(e) => setMore(e.target.value.replace(/\D/g, '').slice(0, 2))} />
           </label>
           <Btn theme={theme} variant="soft" className="min-h-[48px]" icon={Plus} onClick={onMore}>Add {Math.min(50, Math.max(1, Math.floor(Number(more)) || 1))} more like this</Btn>
         </div>
@@ -383,14 +383,14 @@ function FloorHeights({ kit, c, floors }: { kit: Kit; c: ChamberDraft; floors: n
   return (
     <fieldset data-field={field} className="space-y-3 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-900/5">
       <legend className="sr-only">Height of each floor</legend>
-      <p className="flex items-center gap-2 text-base font-semibold text-slate-900"><Layers className="h-5 w-5 text-[#174C3C]" aria-hidden /> Height of each floor ({u})</p>
+      <p className="flex items-center gap-2 text-base font-semibold text-slate-900"><Layers className="h-5 w-5 text-forest" aria-hidden /> Height of each floor ({u})</p>
       <p className="text-sm text-slate-700">Enter the measured usable stacking height from the floor or grating to the next grating, or to the ceiling for the top floor.</p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {values.map((v, i) => (
           <label key={i} className="block">
             <span className="block text-sm font-semibold text-slate-800">Floor {i + 1}</span>
             <input
-              className="mt-1.5 block min-h-[48px] w-full rounded-xl border-0 bg-white px-3 text-base text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#174C3C]"
+              className="mt-1.5 block min-h-[48px] w-full rounded-xl border-0 bg-white px-3 text-base text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-forest"
               inputMode="decimal"
               value={v === '?' ? '' : v}
               onChange={(e) => put(i, e.target.value.replace(/[^\d.]/g, ''))}
@@ -411,7 +411,7 @@ function Pick<V extends string>({ label, name, value, options, onChange }: { lab
       <p className="text-sm font-semibold text-slate-800">{label}</p>
       <div className="mt-1.5 flex flex-wrap gap-2">
         {options.map(([v, text]) => (
-          <button key={v || 'none'} type="button" role="radio" aria-checked={value === v} onClick={() => onChange(v)} className={`min-h-[44px] cursor-pointer rounded-xl px-3 text-sm font-semibold ring-2 transition ${value === v ? 'bg-[#12382E] text-white ring-[#174C3C]' : 'bg-white text-slate-800 ring-slate-200 hover:ring-[#C6DBD0]'}`}>
+          <button key={v || 'none'} type="button" role="radio" aria-checked={value === v} onClick={() => onChange(v)} className={`min-h-[44px] cursor-pointer rounded-xl px-3 text-sm font-semibold ring-2 transition ${value === v ? 'bg-forest-deep text-white ring-forest' : 'bg-white text-slate-800 ring-slate-200 hover:ring-forest-line'}`}>
             {text}
           </button>
         ))}

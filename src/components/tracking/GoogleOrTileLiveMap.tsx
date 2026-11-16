@@ -226,7 +226,7 @@ export default function GoogleOrTileLiveMap({
               type="button"
               onClick={() => setLayer(mode)}
               className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                layer === mode ? 'bg-emerald-500 text-slate-950 shadow' : 'text-slate-200 hover:bg-slate-800'
+                layer === mode ? 'bg-forest-mid text-slate-950 shadow' : 'text-slate-200 hover:bg-slate-800'
               }`}
             >
               {mode === 'ROAD' ? '🗺️ Road Map' : mode === 'SATELLITE' ? '🛰️ Satellite' : '🌐 Hybrid'}
@@ -241,7 +241,7 @@ export default function GoogleOrTileLiveMap({
               setCenterOnVehicle(true);
               if (hasVehicle) setZoom(14);
             }}
-            className="rounded-xl border border-emerald-500/40 bg-slate-900/90 px-3 py-1.5 text-xs font-semibold text-emerald-300 shadow hover:bg-slate-800"
+            className="rounded-xl border border-forest-mid/40 bg-slate-900/90 px-3 py-1.5 text-xs font-semibold text-forest-line shadow hover:bg-slate-800"
           >
             🎯 Focus Vehicle
           </button>
@@ -251,7 +251,7 @@ export default function GoogleOrTileLiveMap({
               setCenterOnVehicle(false);
               setZoom(5);
             }}
-            className="rounded-xl border border-[#286B54]/40 bg-slate-900/90 px-3 py-1.5 text-xs font-semibold text-[#8DB09F] shadow hover:bg-slate-800"
+            className="rounded-xl border border-forest-mid/40 bg-slate-900/90 px-3 py-1.5 text-xs font-semibold text-[#A5ADE8] shadow hover:bg-slate-800"
           >
             🇮🇳 Full India Route
           </button>
@@ -379,7 +379,7 @@ export default function GoogleOrTileLiveMap({
         <div>
           {hasVehicle ? (
             <span>
-              <strong className="text-emerald-400">Live Vehicle GPS:</strong> {liveLabel.replace('Live Vehicle GPS: ', '')}
+              <strong className="text-forest-mid">Live Vehicle GPS:</strong> {liveLabel.replace('Live Vehicle GPS: ', '')}
             </span>
           ) : (
             <span className="text-amber-300">{liveLabel}</span>
@@ -395,7 +395,7 @@ export default function GoogleOrTileLiveMap({
               href={`https://www.google.com/maps/dir/?api=1&origin=${originLat},${originLng}&destination=${destLat},${destLng}&waypoints=${vehicleLat},${vehicleLng}&travelmode=driving`}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-emerald-500"
+              className="rounded-lg bg-forest px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-forest-mid"
             >
               Open Full Navigation ↗
             </a>

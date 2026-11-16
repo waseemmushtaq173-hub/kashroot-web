@@ -60,8 +60,8 @@ interface BlockRisk {
 const STATUS_LOOK: Record<Status, { label: string; tone: 'red' | 'amber' | 'green' | 'slate' | 'blue'; cell: string }> = {
   infection: { label: 'Infection likely — spray now', tone: 'red', cell: 'bg-red-50 ring-red-300' },
   upcoming: { label: 'Wet weather coming — protect', tone: 'amber', cell: 'bg-amber-50 ring-amber-300' },
-  covered: { label: 'Protected by your spray', tone: 'blue', cell: 'bg-[#EAF3EE] ring-[#C6DBD0]' },
-  safe: { label: 'No scab risk', tone: 'green', cell: 'bg-emerald-50 ring-emerald-300' },
+  covered: { label: 'Protected by your spray', tone: 'blue', cell: 'bg-forest-soft ring-forest-line' },
+  safe: { label: 'No scab risk', tone: 'green', cell: 'bg-forest-soft ring-forest-line' },
   unknown: { label: 'Set the location', tone: 'slate', cell: 'bg-white ring-slate-200' },
 };
 
@@ -450,7 +450,7 @@ function BlockModal({ value: v, onChange, onClose, onSave, onDelete }: { value: 
           </Field>
         </div>
         <div>
-          <p className="text-sm font-medium text-slate-800">Location {v.lat != null && <span className="text-emerald-700">· {v.place ?? `${v.lat}, ${v.lng}`} ✓</span>}</p>
+          <p className="text-sm font-medium text-slate-800">Location {v.lat != null && <span className="text-forest">· {v.place ?? `${v.lat}, ${v.lng}`} ✓</span>}</p>
           <div className="mt-2 flex flex-wrap gap-2">
             <Btn theme={theme} variant="soft" icon={LocateFixed} disabled={busy} onClick={useGps}>Use my location (stand in the orchard)</Btn>
           </div>
@@ -462,7 +462,7 @@ function BlockModal({ value: v, onChange, onClose, onSave, onDelete }: { value: 
             <ul className="mt-2 max-h-40 overflow-y-auto rounded-xl ring-1 ring-slate-200">
               {places.map((p) => (
                 <li key={`${p.lat},${p.lng}`}>
-                  <button type="button" className="w-full cursor-pointer px-3 py-2 text-left text-sm hover:bg-emerald-50" onClick={() => { onChange({ ...v, lat: p.lat, lng: p.lng, place: p.note ? `${query.trim()} (near ${p.name})` : `${p.name}${p.admin ? `, ${p.admin}` : ''}` }); setPlaces([]); }}>
+                  <button type="button" className="w-full cursor-pointer px-3 py-2 text-left text-sm hover:bg-forest-soft" onClick={() => { onChange({ ...v, lat: p.lat, lng: p.lng, place: p.note ? `${query.trim()} (near ${p.name})` : `${p.name}${p.admin ? `, ${p.admin}` : ''}` }); setPlaces([]); }}>
                     {p.name} <span className="text-slate-500">{p.admin}</span>
                     {p.note && <span className="mt-0.5 block text-xs text-amber-800">{p.note}</span>}
                   </button>
@@ -475,8 +475,8 @@ function BlockModal({ value: v, onChange, onClose, onSave, onDelete }: { value: 
           <legend className="text-sm font-medium text-slate-800">How fast do the leaves dry here?</legend>
           <div className="mt-2 grid gap-2">
             {WETNESS.map((w) => (
-              <label key={w.value} className={`flex cursor-pointer items-center gap-2 rounded-xl p-2.5 text-sm ring-1 ${v.wet_bias === w.value ? 'bg-emerald-50 ring-emerald-400' : 'ring-slate-200'}`}>
-                <input type="radio" name="wet" className="text-emerald-700" checked={v.wet_bias === w.value} onChange={() => onChange({ ...v, wet_bias: w.value })} />
+              <label key={w.value} className={`flex cursor-pointer items-center gap-2 rounded-xl p-2.5 text-sm ring-1 ${v.wet_bias === w.value ? 'bg-forest-soft ring-forest-mid' : 'ring-slate-200'}`}>
+                <input type="radio" name="wet" className="text-forest" checked={v.wet_bias === w.value} onChange={() => onChange({ ...v, wet_bias: w.value })} />
                 {w.label}
               </label>
             ))}

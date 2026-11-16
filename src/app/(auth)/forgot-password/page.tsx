@@ -45,12 +45,12 @@ export default function ForgotPasswordPage() {
   if (sent) {
     return (
       <div className="py-4 text-center">
-        <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 text-white shadow-lg shadow-emerald-600/30">
+        <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-forest-mid to-teal-600 text-white shadow-lg shadow-forest/30">
           <MailCheck className="h-8 w-8" aria-hidden />
         </span>
         <h1 className="font-display mt-5 text-2xl font-semibold tracking-tight text-slate-900">Check your email</h1>
         <p className="mt-2 text-slate-600">If an account exists for <strong className="text-slate-900">{email.trim()}</strong>, a reset link is on its way. Check Spam and Promotions too.</p>
-        <Link href="/login" className="mt-6 inline-flex items-center gap-2 font-semibold text-emerald-800 hover:underline">
+        <Link href="/login" className="mt-6 inline-flex items-center gap-2 font-semibold text-forest-deep hover:underline">
           <ArrowLeft className="h-4 w-4" aria-hidden /> Back to sign in
         </Link>
       </div>

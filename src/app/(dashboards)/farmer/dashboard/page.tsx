@@ -173,7 +173,7 @@ function FarmerDashboard() {
               }
             >
               {toAct ? (
-                <p className="text-slate-700"><strong>{toAct}</strong> order{toAct === 1 ? '' : 's'} need you. Open <button type="button" onClick={() => setTab('orders')} className="cursor-pointer font-semibold text-emerald-800 underline">Orders</button> to accept, ship or confirm payment.</p>
+                <p className="text-slate-700"><strong>{toAct}</strong> order{toAct === 1 ? '' : 's'} need you. Open <button type="button" onClick={() => setTab('orders')} className="cursor-pointer font-semibold text-forest-deep underline">Orders</button> to accept, ship or confirm payment.</p>
               ) : (
                 <p className="text-slate-600">No orders need you right now. When a buyer orders your produce, it appears in Orders.</p>
               )}
@@ -287,7 +287,7 @@ function TodayWeather({ district }: { district?: string }) {
               <p className="text-xs text-slate-600">Rain today · humidity {Math.round(w.current.humidity)}%</p>
             </div>
           </div>
-          <p className={`mt-4 rounded-xl p-3 text-center text-sm font-medium ring-1 ${dry ? 'bg-emerald-50 text-emerald-800 ring-emerald-100' : 'bg-amber-50 text-amber-900 ring-amber-100'}`}>
+          <p className={`mt-4 rounded-xl p-3 text-center text-sm font-medium ring-1 ${dry ? 'bg-forest-soft text-forest-deep ring-forest-soft' : 'bg-amber-50 text-amber-900 ring-amber-100'}`}>
             {dry ? `Dry hours for spraying today: ${dry}` : sprayDayOver(w.current.time) ? 'Too late in the day to spray now — check again in the morning.' : 'Rain likely for the rest of today — better not to spray.'}
           </p>
           <p className="mt-2 text-center text-xs text-slate-500">Open-Meteo forecast{district ? '' : ' · add your district in My details for your own village'}</p>

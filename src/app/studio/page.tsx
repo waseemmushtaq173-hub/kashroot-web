@@ -245,7 +245,7 @@ export default function StudioPage() {
                   key={dt.type}
                   type="button"
                   onClick={() => setDesignType(dt.type)}
-                  className={`flex flex-col items-center gap-2 min-h-[80px] cursor-pointer rounded-xl p-3 text-sm font-semibold transition ${designType === dt.type ? 'bg-emerald-50 ring-2 ring-emerald-600' : 'bg-white hover:bg-emerald-50 ring-1 ring-slate-200'}`}
+                  className={`flex flex-col items-center gap-2 min-h-[80px] cursor-pointer rounded-xl p-3 text-sm font-semibold transition ${designType === dt.type ? 'bg-forest-soft ring-2 ring-forest' : 'bg-white hover:bg-forest-soft ring-1 ring-slate-200'}`}
                 >
                   <span className="text-2xl">{dt.icon}</span>
                   <span>{dt.label}</span>
@@ -278,7 +278,7 @@ export default function StudioPage() {
                   key={l}
                   type="button"
                   onClick={() => handleLocaleChange(l)}
-                  className={`min-h-10 min-w-10 cursor-pointer rounded-lg px-3 py-1.5 text-sm font-bold ring-1 transition ${locale === l ? 'bg-emerald-600 text-white ring-emerald-600' : 'bg-white text-slate-600 ring-slate-900/10 hover:bg-emerald-50'}`}
+                  className={`min-h-10 min-w-10 cursor-pointer rounded-lg px-3 py-1.5 text-sm font-bold ring-1 transition ${locale === l ? 'bg-forest text-white ring-forest' : 'bg-white text-slate-600 ring-slate-900/10 hover:bg-forest-soft'}`}
                 >
                   {LANG_LABELS[l]}
                 </button>
@@ -293,14 +293,14 @@ export default function StudioPage() {
               <button
                 type="button"
                 onClick={() => setShowMeasurements(!showMeasurements)}
-                className={`min-h-10 cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold transition ${showMeasurements ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600 hover:bg-emerald-50 ring-1 ring-slate-200'}`}
+                className={`min-h-10 cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold transition ${showMeasurements ? 'bg-forest text-white' : 'bg-white text-slate-600 hover:bg-forest-soft ring-1 ring-slate-200'}`}
               >
                 📏 Measurements
               </button>
               <button
                 type="button"
                 onClick={() => setShowWireframe(!showWireframe)}
-                className={`min-h-10 cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold transition ${showWireframe ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600 hover:bg-emerald-50 ring-1 ring-slate-200'}`}
+                className={`min-h-10 cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold transition ${showWireframe ? 'bg-forest text-white' : 'bg-white text-slate-600 hover:bg-forest-soft ring-1 ring-slate-200'}`}
               >
                 🔍 Wireframe
               </button>
@@ -323,19 +323,19 @@ export default function StudioPage() {
               <button
                 type="button"
                 onClick={handleExport}
-                className="min-h-11 cursor-pointer flex-1 rounded-xl bg-white px-4 py-2 font-semibold text-slate-600 ring-1 ring-slate-200 hover:bg-emerald-50"
+                className="min-h-11 cursor-pointer flex-1 rounded-xl bg-white px-4 py-2 font-semibold text-slate-600 ring-1 ring-slate-200 hover:bg-forest-soft"
               >
                 <Download className="inline h-4 w-4 mr-1" /> Export
               </button>
               <button
                 type="button"
                 onClick={() => setShowImport(true)}
-                className="min-h-11 cursor-pointer rounded-xl bg-white px-4 py-2 font-semibold text-slate-600 ring-1 ring-slate-200 hover:bg-emerald-50"
+                className="min-h-11 cursor-pointer rounded-xl bg-white px-4 py-2 font-semibold text-slate-600 ring-1 ring-slate-200 hover:bg-forest-soft"
               >
                 <Upload className="inline h-4 w-4 mr-1" /> Import
               </button>
             </div>
-            <button type="button" onClick={handleReset} className="w-full min-h-10 cursor-pointer rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 hover:bg-emerald-50">
+            <button type="button" onClick={handleReset} className="w-full min-h-10 cursor-pointer rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 hover:bg-forest-soft">
               <RotateCcw className="inline h-4 w-4 mr-1" /> Reset to Defaults
             </button>
             <SpeakButton
@@ -345,11 +345,11 @@ export default function StudioPage() {
           </div>
 
           {/* Summary Card */}
-          <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
-            <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
+          <div className="rounded-2xl bg-forest-soft p-4 ring-1 ring-forest-line">
+            <p className="flex items-center gap-2 text-sm font-semibold text-forest-deep">
               <CheckCircle2 className="h-4 w-4" /> Summary
             </p>
-            <p className="mt-2 text-sm text-emerald-800 leading-relaxed">{getSummaryText(locale)}</p>
+            <p className="mt-2 text-sm text-forest-deep leading-relaxed">{getSummaryText(locale)}</p>
           </div>
 
           {/* Voice */}
@@ -396,7 +396,7 @@ export default function StudioPage() {
                       link.click();
                     }
                   }}
-                  className="min-h-10 cursor-pointer inline-flex items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-50"
+                  className="min-h-10 cursor-pointer inline-flex items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-forest-deep ring-1 ring-forest-line hover:bg-forest-soft"
                 >
                   📸 Screenshot
                 </button>
@@ -424,7 +424,7 @@ export default function StudioPage() {
               </div>
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {savedDesigns.map((d) => (
-                  <div key={d.id} className={`rounded-xl p-3 flex items-center justify-between gap-2 ${selectedDesignId === d.id ? 'bg-emerald-50 ring-2 ring-emerald-600' : 'bg-white hover:bg-emerald-50 ring-1 ring-slate-200'}`}>
+                  <div key={d.id} className={`rounded-xl p-3 flex items-center justify-between gap-2 ${selectedDesignId === d.id ? 'bg-forest-soft ring-2 ring-forest' : 'bg-white hover:bg-forest-soft ring-1 ring-slate-200'}`}>
                     <button onClick={() => handleLoad(d.id)} className="flex-1 text-left flex items-center gap-2">
                       <span className="text-lg">{DESIGN_TYPES.find(t => t.type === d.type)?.icon || '📦'}</span>
                       <div>
@@ -433,8 +433,8 @@ export default function StudioPage() {
                       </div>
                     </button>
                     <div className="flex items-center gap-1">
-                      <button onClick={() => handleDuplicate(d.id)} title="Duplicate" className="p-1.5 rounded hover:bg-emerald-100"><Copy className="h-4 w-4" /></button>
-                      <button onClick={() => { navigator.clipboard.writeText(exportDesign({ id: d.id, user_id: '', type: d.type as never, params: {} as never, version: 1, created_at: d.created_at, updated_at: d.updated_at })); }} title="Export JSON" className="p-1.5 rounded hover:bg-emerald-100"><Download className="h-4 w-4" /></button>
+                      <button onClick={() => handleDuplicate(d.id)} title="Duplicate" className="p-1.5 rounded hover:bg-forest-soft"><Copy className="h-4 w-4" /></button>
+                      <button onClick={() => { navigator.clipboard.writeText(exportDesign({ id: d.id, user_id: '', type: d.type as never, params: {} as never, version: 1, created_at: d.created_at, updated_at: d.updated_at })); }} title="Export JSON" className="p-1.5 rounded hover:bg-forest-soft"><Download className="h-4 w-4" /></button>
                       <button onClick={() => handleDelete(d.id)} title="Delete" className="p-1.5 rounded hover:bg-rose-100 text-rose-600"><Trash2 className="h-4 w-4" /></button>
                     </div>
                   </div>

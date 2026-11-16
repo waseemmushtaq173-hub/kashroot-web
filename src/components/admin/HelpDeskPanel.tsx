@@ -67,7 +67,7 @@ function Request({ r, onDone }: { r: DeskRequest; onDone: () => void }) {
       </div>
       <p className="text-sm text-slate-700">
         <strong className="text-slate-900">{r.name}</strong> ·{' '}
-        <a href={`tel:+91${r.phone}`} className="inline-flex min-h-11 items-center gap-1 font-semibold text-[#174C3C] underline">
+        <a href={`tel:+91${r.phone}`} className="inline-flex min-h-11 items-center gap-1 font-semibold text-forest underline">
           <Phone className="h-4 w-4" aria-hidden /> {r.phone}
         </a>
         {r.email && <> · {r.email}</>} · {r.signedIn ? 'signed in' : 'not signed in'} · writes in {r.lang}
@@ -76,7 +76,7 @@ function Request({ r, onDone }: { r: DeskRequest; onDone: () => void }) {
       {r.messages.map((m, i) => (
         <p
           key={i}
-          className={`whitespace-pre-line rounded-xl p-3 text-sm ${m.author === 'kashroot' ? 'bg-emerald-50 text-emerald-950' : m.author === 'internal' ? 'border border-dashed border-amber-400 bg-amber-50 text-amber-950' : 'bg-slate-50 text-slate-800'}`}
+          className={`whitespace-pre-line rounded-xl p-3 text-sm ${m.author === 'kashroot' ? 'bg-forest-soft text-forest-pine' : m.author === 'internal' ? 'border border-dashed border-amber-400 bg-amber-50 text-amber-950' : 'bg-slate-50 text-slate-800'}`}
         >
           <span className="block text-xs font-semibold text-slate-500">
             {m.author === 'kashroot' ? 'KashRoot' : m.author === 'internal' ? 'Internal note — the customer does not see this' : r.name} · {when(m.created_at)}
@@ -106,7 +106,7 @@ function Request({ r, onDone }: { r: DeskRequest; onDone: () => void }) {
         <div className="space-y-2">
           <label className="grid gap-1 text-sm font-semibold text-slate-800">
             Reply to the customer (plain words — many listen rather than read)
-            <textarea value={reply} onChange={(e) => setReply(e.target.value)} maxLength={2000} className="min-h-24 rounded-xl border-0 p-3 text-sm ring-1 ring-slate-300 focus:ring-2 focus:ring-emerald-700" />
+            <textarea value={reply} onChange={(e) => setReply(e.target.value)} maxLength={2000} className="min-h-24 rounded-xl border-0 p-3 text-sm ring-1 ring-slate-300 focus:ring-2 focus:ring-forest" />
           </label>
           <div className="flex flex-wrap gap-2">
             <Btn theme={theme} icon={Send} className="min-h-11" disabled={busy || !reply.trim()} onClick={() => sendReply(false)}>

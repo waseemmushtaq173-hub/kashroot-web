@@ -52,7 +52,7 @@ const config: Config = {
         gold: '#D4AF37',
         // KashRoot's one look (portal kit, every portal): chinar green for actions and accents, saffron
         // gold for hairlines, ivory surfaces, copper for the chinar leaf. White text on chinar is 7.7:1.
-        chinar: { DEFAULT: '#065F46', hover: '#064E3B', deep: '#052E26', soft: '#ECFDF5', line: '#A7F3D0' },
+        chinar: { DEFAULT: 'rgb(var(--kr-forest-rgb) / <alpha-value>)', hover: 'rgb(var(--kr-deep-rgb) / <alpha-value>)', deep: 'rgb(var(--kr-pine-rgb) / <alpha-value>)', soft: 'rgb(var(--kr-soft-rgb) / <alpha-value>)', line: 'rgb(var(--kr-line-rgb) / <alpha-value>)' },
         ivory: { DEFAULT: '#FBF8F0', deep: '#F6F1E3' },
         copper: '#B4532A',
         saffron: '#E05A3E',
@@ -60,10 +60,10 @@ const config: Config = {
         // headers, sidebars and primary actions, soft green panels, champagne gold accents, a cool mist page.
         // Gold is for lines, dots and badges (2.2:1 on white); its text pair is champagne-deep.
         // ink-soft is #718078 darkened to 5.3:1 on white so small secondary text keeps WCAG AA.
-        forest: { DEFAULT: '#174C3C', mid: '#286B54', deep: '#12382E', pine: '#0B241D', soft: '#EAF3EE', line: '#C6DBD0' },
+        forest: { DEFAULT: 'rgb(var(--kr-forest-rgb) / <alpha-value>)', mid: 'rgb(var(--kr-mid-rgb) / <alpha-value>)', deep: 'rgb(var(--kr-deep-rgb) / <alpha-value>)', pine: 'rgb(var(--kr-pine-rgb) / <alpha-value>)', soft: 'rgb(var(--kr-soft-rgb) / <alpha-value>)', line: 'rgb(var(--kr-line-rgb) / <alpha-value>)' },
         champagne: { DEFAULT: '#C6A45B', soft: '#F6EFDC', deep: '#6B5421' },
-        mist: '#E8F0EC',
-        ink: { DEFAULT: '#1E2D28', soft: '#52665E' },
+        mist: 'rgb(var(--kr-mist-rgb) / <alpha-value>)',
+        ink: { DEFAULT: 'rgb(var(--kr-ink-rgb) / <alpha-value>)', soft: '#5A5A80' },
         // Raw palette scales (accessible as bg-kr-primary-500, etc.)
         'kr-primary':   colors.primary,
         'kr-secondary': colors.secondary,

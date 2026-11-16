@@ -32,7 +32,7 @@ export function SocialIcons() {
               rel="noopener noreferrer me"
               aria-label={`KashRoot on ${s.label}`}
               title={`KashRoot on ${s.label}`}
-              className="group grid h-11 w-11 place-items-center rounded-[12px] no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-emerald-700 hover:no-underline"
+              className="group grid h-11 w-11 place-items-center rounded-[12px] no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-forest hover:no-underline"
             >
               <span className="relative grid h-10 w-10 place-items-center overflow-hidden rounded-[10px] border border-[#E8A317]/60 bg-[#FBF8F0] text-[#0B4D3A] shadow-sm transition-[border-color,color,box-shadow] duration-200 group-hover:border-transparent group-hover:text-white group-hover:shadow-md group-focus-visible:border-transparent group-focus-visible:text-white motion-reduce:transition-none">
                 {mark && <span aria-hidden className={`absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100 motion-reduce:transition-none ${mark.brand}`} />}

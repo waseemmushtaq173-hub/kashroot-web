@@ -96,7 +96,7 @@ export function ShellTabs({
             tabIndex={id === current ? 0 : -1}
             onClick={() => onSelect(id)}
             className={`relative flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left font-semibold transition ${large ? 'min-h-14 text-lg' : 'min-h-11 text-[15px]'} ${FOCUS} ${theme.outline} ${
-              active ? 'bg-[#EAF3EE] text-[#174C3C] shadow-[inset_0_1px_0_#fff,0_3px_0_#C6A45B]' : 'text-white/85 hover:bg-white/10 hover:text-white'
+              active ? 'bg-forest-soft text-forest shadow-[inset_0_1px_0_#fff,0_3px_0_#C6A45B]' : 'text-white/85 hover:bg-white/10 hover:text-white'
             }`}
           >
             {/* The coloured bar at the sidebar's edge marks the open section. */}

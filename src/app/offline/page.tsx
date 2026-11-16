@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 
 export default function OfflinePage() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-amber-50 px-4 py-12 text-slate-900">
+    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-forest-soft via-white to-amber-50 px-4 py-12 text-slate-900">
       <div className="w-full max-w-xl rounded-3xl bg-white/90 p-8 shadow-[0_8px_30px_rgba(15,23,42,0.08)] ring-1 ring-slate-900/5">
         <span className="grid h-16 w-16 place-items-center rounded-2xl bg-amber-100 text-amber-800">
           <WifiOff className="h-8 w-8" aria-hidden />
@@ -24,7 +24,7 @@ export default function OfflinePage() {
         <p className="mt-3 text-lg text-slate-700">There is no internet on this phone right now, and this page was not saved on it yet.</p>
         <p className="mt-2 text-lg text-slate-700">Pages you opened before still work. Try one of them, or try again when you have signal.</p>
         <OfflineHelp />
-        <p className="mt-6 rounded-2xl bg-emerald-50 p-4 text-base text-emerald-950 ring-1 ring-emerald-200">
+        <p className="mt-6 rounded-2xl bg-forest-soft p-4 text-base text-forest-pine ring-1 ring-forest-line">
           A question to the experts, a Mandi Helper’s rate, or a listing draft written now is kept on this phone and sent when you are back online. Orders, bookings and payments need the internet.
         </p>
       </div>

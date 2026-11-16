@@ -32,7 +32,7 @@ const OSM_URL = 'https://www.openstreetmap.org';
 /** The server gives each source up to 25 seconds; the browser waits a little longer before it gives up. */
 const READ_WAIT_MS = 45_000;
 const blank = { name: '', district: '', place: '', capacity: '', phone: '', source: 'Checked by the KashRoot team', sourceUrl: '' };
-const FILE_INPUT = 'block min-h-11 w-full text-sm file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-lg file:border-0 file:bg-emerald-100 file:px-3 file:py-2 file:font-semibold file:text-emerald-900';
+const FILE_INPUT = 'block min-h-11 w-full text-sm file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-lg file:border-0 file:bg-forest-soft file:px-3 file:py-2 file:font-semibold file:text-forest-deep';
 
 type Live = { entries: DirEntry[]; sources: SourceState[] };
 type ListFile = { name: string; parsed: ParsedList; onlyJK: boolean };
@@ -191,7 +191,7 @@ export function ColdDirectoryPanel() {
       );
     if (s.ok && entries.length > 0) {
       return (
-        <li key={s.id} className="space-y-2 rounded-xl bg-emerald-50 p-3 text-emerald-950 ring-1 ring-emerald-200">
+        <li key={s.id} className="space-y-2 rounded-xl bg-forest-soft p-3 text-forest-pine ring-1 ring-forest-line">
           <p className="flex items-center gap-2 font-semibold"><Icon className="h-4 w-4 shrink-0" aria-hidden /> {name}</p>
           <p><strong>{entries.length.toLocaleString('en-IN')}</strong> cold stores in Jammu &amp; Kashmir {where}.</p>
           {add}
@@ -275,7 +275,7 @@ export function ColdDirectoryPanel() {
                   <p className="font-medium text-slate-900">{r.name}</p>
                   <p className="text-xs text-slate-500">
                     {[r.place, r.district].filter(Boolean).join(' · ')}
-                    {r.phone ? <> · <a href={`tel:${r.phone}`} className="font-semibold text-emerald-700">{r.phone}</a></> : null} · sent {new Date(r.created_at).toLocaleDateString('en-IN')}
+                    {r.phone ? <> · <a href={`tel:${r.phone}`} className="font-semibold text-forest">{r.phone}</a></> : null} · sent {new Date(r.created_at).toLocaleDateString('en-IN')}
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -296,7 +296,7 @@ export function ColdDirectoryPanel() {
             {reading ? 'Reading…' : 'Read the official list now'}
           </Btn>
           {reading && (
-            <p role="status" className="flex items-center gap-2 rounded-xl bg-emerald-50 p-3 font-medium text-emerald-950 ring-1 ring-emerald-200">
+            <p role="status" className="flex items-center gap-2 rounded-xl bg-forest-soft p-3 font-medium text-forest-pine ring-1 ring-forest-line">
               <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
               <span>Reading the official list… this can take up to 30 seconds.{waited > 0 ? ` (${waited} s)` : ''}</span>
             </p>

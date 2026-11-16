@@ -269,12 +269,12 @@ export default function RentalPage() {
         <p role="alert" className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-800 ring-1 ring-rose-200">{listError}</p>
       ) : tab === 'cold' ? (
         <div className="space-y-5">
-          <div role="tablist" aria-label="Which cold stores" className="flex w-full gap-1 rounded-2xl bg-[#EAF3EE] p-1 ring-1 ring-[#C6DBD0] sm:w-auto sm:max-w-xl">
+          <div role="tablist" aria-label="Which cold stores" className="flex w-full gap-1 rounded-2xl bg-forest-soft p-1 ring-1 ring-forest-line sm:w-auto sm:max-w-xl">
             {([
               ['all', `All cold stores (${directory.entries.length.toLocaleString('en-IN')}${directory.reading ? '…' : ''})`],
               ['kashroot', `Book on KashRoot (${listings.length})`],
             ] as const).map(([id, label]) => (
-              <button key={id} type="button" role="tab" aria-selected={findView === id} onClick={() => setFindView(id)} className={`flex-1 cursor-pointer rounded-xl px-4 py-2.5 text-sm font-semibold transition ${findView === id ? 'bg-[#12382E] text-white shadow' : 'text-[#12382E] hover:bg-[#EAF3EE]'}`}>
+              <button key={id} type="button" role="tab" aria-selected={findView === id} onClick={() => setFindView(id)} className={`flex-1 cursor-pointer rounded-xl px-4 py-2.5 text-sm font-semibold transition ${findView === id ? 'bg-forest-deep text-white shadow' : 'text-forest-deep hover:bg-forest-soft'}`}>
                 {label}
               </button>
             ))}
@@ -384,11 +384,11 @@ export default function RentalPage() {
 /** Someone at the store to call: their name, number and a big Call button. */
 function CallPerson({ role, name, phone }: { role: string; name: string | null; phone: string }) {
   return (
-    <a href={`tel:${phone}`} aria-label={`Call the ${role}${name ? `, ${name}` : ''}, ${phone}`} className="flex min-h-[48px] w-full min-w-0 items-center gap-3 rounded-xl bg-[#EAF3EE] px-3 py-2 text-sm text-slate-800 no-underline ring-1 ring-[#C6DBD0] hover:bg-[#EAF3EE] hover:no-underline sm:w-auto">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#12382E] text-white"><Phone className="h-4 w-4" aria-hidden /></span>
+    <a href={`tel:${phone}`} aria-label={`Call the ${role}${name ? `, ${name}` : ''}, ${phone}`} className="flex min-h-[48px] w-full min-w-0 items-center gap-3 rounded-xl bg-forest-soft px-3 py-2 text-sm text-slate-800 no-underline ring-1 ring-forest-line hover:bg-forest-soft hover:no-underline sm:w-auto">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-forest-deep text-white"><Phone className="h-4 w-4" aria-hidden /></span>
       <span className="min-w-0">
         <span className="block text-xs text-slate-600">{role[0].toUpperCase() + role.slice(1)}{name ? `: ${name}` : ''}</span>
-        <span className="block font-semibold tabular-nums text-[#12382E]">Call {phone}</span>
+        <span className="block font-semibold tabular-nums text-forest-deep">Call {phone}</span>
       </span>
     </a>
   );
@@ -487,7 +487,7 @@ function StoreCard({
 
       {map ? (
         <>
-          <p className="mt-4 flex items-center gap-1.5 text-sm font-semibold text-[#12382E]"><MapIcon className="h-4 w-4" aria-hidden /> {groups.length} chamber{groups.length === 1 ? '' : 's'} · {known ? `${freeAll.toLocaleString('en-IN')} ${anyOf(kinds)} free today` : `${l.available.toLocaleString('en-IN')} of ${l.capacity.toLocaleString('en-IN')} free`}</p>
+          <p className="mt-4 flex items-center gap-1.5 text-sm font-semibold text-forest-deep"><MapIcon className="h-4 w-4" aria-hidden /> {groups.length} chamber{groups.length === 1 ? '' : 's'} · {known ? `${freeAll.toLocaleString('en-IN')} ${anyOf(kinds)} free today` : `${l.available.toLocaleString('en-IN')} of ${l.capacity.toLocaleString('en-IN')} free`}</p>
           {/* A table on wider screens, a short card per chamber on a phone. */}
           <table aria-label="What each chamber holds" className="mt-2 hidden w-full text-left text-sm sm:table">
             <thead className="bg-ivory text-xs font-semibold uppercase tracking-wider text-slate-600">
@@ -509,7 +509,7 @@ function StoreCard({
                   <td className="py-1.5 pr-2">{g.unitKg ? `${nice(g.unitKg)} kg` : '—'}</td>
                   <td className="py-1.5 pr-2">{tonnes(g) ?? '—'}</td>
                   <td className="py-1.5 pr-2">{g.floors.length}</td>
-                  <td className={`py-1.5 pr-2 font-semibold ${known && freeIn(g) === 0 ? 'text-rose-700' : 'text-emerald-800'}`}>{known ? (freeIn(g) ? countText(freeIn(g), g.storage) : `0 ${UNIT_WORDS[g.storage].many} (full)`) : '—'}</td>
+                  <td className={`py-1.5 pr-2 font-semibold ${known && freeIn(g) === 0 ? 'text-rose-700' : 'text-forest-deep'}`}>{known ? (freeIn(g) ? countText(freeIn(g), g.storage) : `0 ${UNIT_WORDS[g.storage].many} (full)`) : '—'}</td>
                   <td className="py-1.5">{rentOf(g)}</td>
                 </tr>
               ))}
@@ -520,11 +520,11 @@ function StoreCard({
               <li key={g.key} className="rounded-xl bg-ivory p-3 text-sm text-slate-800 ring-1 ring-[#E8A317]/30">
                 <p className="flex justify-between gap-2"><strong className="text-slate-900">{g.name}</strong> <span>{rentOf(g)} a month</span></p>
                 <p>Holds {countText(g.count, g.storage)}{g.unitKg ? ` of ${nice(g.unitKg)} kg` : ''}{tonnes(g) ? ` (${tonnes(g)} tonnes)` : ''} · {g.floors.length} floor{g.floors.length === 1 ? '' : 's'}</p>
-                <p>Free now: <strong className={known && freeIn(g) === 0 ? 'text-rose-700' : 'text-emerald-800'}>{known ? (freeIn(g) ? countText(freeIn(g), g.storage) : `0 ${UNIT_WORDS[g.storage].many} (full)`) : '—'}</strong></p>
+                <p>Free now: <strong className={known && freeIn(g) === 0 ? 'text-rose-700' : 'text-forest-deep'}>{known ? (freeIn(g) ? countText(freeIn(g), g.storage) : `0 ${UNIT_WORDS[g.storage].many} (full)`) : '—'}</strong></p>
               </li>
             ))}
           </ul>
-          <p className="mt-2 text-xs font-medium text-emerald-800">
+          <p className="mt-2 text-xs font-medium text-forest-deep">
             Any number of {anyOf(kinds)}{l.min_units > 1 ? ` from ${l.min_units.toLocaleString('en-IN')}` : ''}: share a place, pay only for your own {anyOf(kinds)}
           </p>
           <TwinPeek store={l.title} />
@@ -534,7 +534,7 @@ function StoreCard({
             <div className="mt-4 flex flex-col gap-3 border-t border-slate-900/5 pt-4 lg:flex-row lg:items-end lg:justify-between">
               <Btn theme={theme} icon={MapIcon} className="min-h-[48px] text-base" onClick={() => onBook()}>Choose your place</Btn>
               <form
-                className="flex flex-col gap-2 rounded-2xl bg-[#EAF3EE] p-3 ring-1 ring-[#C6DBD0] lg:max-w-xl"
+                className="flex flex-col gap-2 rounded-2xl bg-forest-soft p-3 ring-1 ring-forest-line lg:max-w-xl"
                 onSubmit={(e) => {
                   e.preventDefault();
                   quick();
@@ -543,7 +543,7 @@ function StoreCard({
                 {kinds.length > 1 && (
                   <div role="radiogroup" aria-label="What will you bring?" className="flex gap-2">
                     {kinds.map((k) => (
-                      <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className={`min-h-[44px] flex-1 cursor-pointer rounded-xl px-3 text-sm font-semibold ring-2 ${kind === k ? 'bg-[#12382E] text-white ring-[#174C3C]' : 'bg-white text-[#12382E] ring-[#C6DBD0]'}`}>
+                      <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className={`min-h-[44px] flex-1 cursor-pointer rounded-xl px-3 text-sm font-semibold ring-2 ${kind === k ? 'bg-forest-deep text-white ring-forest' : 'bg-white text-forest-deep ring-forest-line'}`}>
                         {UNIT_WORDS[k].title}
                       </button>
                     ))}
@@ -551,11 +551,11 @@ function StoreCard({
                 )}
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <div className="flex items-center gap-2">
-                    <label htmlFor={`quick-${l.id}`} className="shrink-0 text-base font-semibold text-[#12382E]">Just give me</label>
+                    <label htmlFor={`quick-${l.id}`} className="shrink-0 text-base font-semibold text-forest-deep">Just give me</label>
                     <span className="w-24 shrink-0">
                       <input id={`quick-${l.id}`} aria-label={`How many ${word} do you need?`} inputMode="numeric" className={`${INPUT} min-h-[44px] text-base`} value={count} onChange={(e) => setCount(e.target.value)} placeholder="40" />
                     </span>
-                    <span className="text-base font-semibold text-[#12382E]">{word}</span>
+                    <span className="text-base font-semibold text-forest-deep">{word}</span>
                   </div>
                   <Btn theme={theme} type="submit" variant="soft" icon={Sparkles} className="min-h-[44px] w-full sm:w-auto">Book nearest the door</Btn>
                 </div>
@@ -569,7 +569,7 @@ function StoreCard({
           <div className="mt-3">
             <p className="flex justify-between text-sm"><span className="font-semibold text-slate-900">{l.available.toLocaleString('en-IN')} boxes free</span><span className="text-slate-500">of {l.capacity.toLocaleString('en-IN')}</span></p>
             <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100" role="meter" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Free space">
-              <div className="h-full rounded-full bg-[#12382E]" style={{ width: `${pct}%` }} />
+              <div className="h-full rounded-full bg-forest-deep" style={{ width: `${pct}%` }} />
             </div>
           </div>
           {l.details && <p className="mt-2 line-clamp-2 text-sm text-slate-600">{l.details}</p>}
@@ -633,10 +633,10 @@ function RenterBooking({ booking: b, places, chambers, onChange }: { booking: Re
         </p>
       )}
       {b.owner_note && <p className="mt-2 text-sm text-slate-700">Owner: {b.owner_note}</p>}
-      {b.status === 'confirmed' && <p className="mt-2 text-sm font-semibold text-emerald-800">Confirmed by the owner{b.confirmed_at ? ` on ${new Date(b.confirmed_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}. Show your receipt at the cold store.</p>}
+      {b.status === 'confirmed' && <p className="mt-2 text-sm font-semibold text-forest-deep">Confirmed by the owner{b.confirmed_at ? ` on ${new Date(b.confirmed_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}. Show your receipt at the cold store.</p>}
       {(b.status === 'requested' || b.status === 'paid') && l && (
         <details className="mt-3 rounded-2xl bg-slate-50 ring-1 ring-slate-900/5" open={b.status === 'requested'}>
-          <summary className="min-h-[44px] cursor-pointer px-4 py-3 text-sm font-semibold text-[#174C3C]">{b.status === 'requested' ? 'Pay the owner' : `You said you paid · reference ${b.payment_ref ?? ''}`}</summary>
+          <summary className="min-h-[44px] cursor-pointer px-4 py-3 text-sm font-semibold text-forest">{b.status === 'requested' ? 'Pay the owner' : `You said you paid · reference ${b.payment_ref ?? ''}`}</summary>
           <div className="px-4 pb-4">
             <PayOwner bookingId={b.id} amount={Number(b.amount)} owner={{ name: l.owner_name, phone: l.phone }} paidRef={b.status === 'paid' ? b.payment_ref : null} onPaid={() => onChange()} />
           </div>
@@ -736,10 +736,10 @@ function OwnerPanel({
                 <li key={b.id} className="flex flex-col gap-3 rounded-2xl bg-white/85 p-4 ring-1 ring-slate-900/5 lg:flex-row lg:items-center lg:justify-between">
                   <div className="min-w-0">
                     <p className="font-semibold text-slate-900">{b.renter_name} · {what} · {b.duration} month{b.duration === 1 ? '' : 's'} <span className="font-mono text-xs font-normal text-slate-500">{bookingCode(b.id)}</span></p>
-                    <p className="text-sm text-slate-600">{b.rental_listings?.title} · {niceDate(b.start_date)} to {niceDate(lastDay(b.start_date, b.duration))} · <strong>{inr(b.amount)}</strong> · <a href={`tel:${b.renter_phone}`} className="inline-flex min-h-[44px] items-center gap-1 font-semibold text-[#174C3C]"><Phone className="h-3.5 w-3.5" aria-hidden />{b.renter_phone}</a></p>
+                    <p className="text-sm text-slate-600">{b.rental_listings?.title} · {niceDate(b.start_date)} to {niceDate(lastDay(b.start_date, b.duration))} · <strong>{inr(b.amount)}</strong> · <a href={`tel:${b.renter_phone}`} className="inline-flex min-h-[44px] items-center gap-1 font-semibold text-forest"><Phone className="h-3.5 w-3.5" aria-hidden />{b.renter_phone}</a></p>
                     {lines.length > 0 && <p className="text-sm text-slate-700">Places: <strong>{lines.map((x) => x.text).join('. ')}</strong></p>}
                     {b.payment_ref ? (
-                      <p className="mt-1 text-sm text-emerald-800">Farmer says paid · reference <span className="font-mono font-semibold">{b.payment_ref}</span> — check it in your bank or UPI app first.</p>
+                      <p className="mt-1 text-sm text-forest-deep">Farmer says paid · reference <span className="font-mono font-semibold">{b.payment_ref}</span> — check it in your bank or UPI app first.</p>
                     ) : (
                       <p className="mt-1 text-sm text-amber-800">Not paid yet.</p>
                     )}
@@ -831,7 +831,7 @@ function OwnerPanel({
                   )}
                   {mapped ? (
                     <p className="mt-3 text-sm text-slate-700">
-                      Free now: <strong className="text-lg tabular-nums text-slate-900"><Boxes className="mr-1 inline h-4 w-4 text-emerald-700" aria-hidden />{l.available.toLocaleString('en-IN')}</strong> of {l.capacity.toLocaleString('en-IN')} {words} — counted from your chambers
+                      Free now: <strong className="text-lg tabular-nums text-slate-900"><Boxes className="mr-1 inline h-4 w-4 text-forest" aria-hidden />{l.available.toLocaleString('en-IN')}</strong> of {l.capacity.toLocaleString('en-IN')} {words} — counted from your chambers
                     </p>
                   ) : wizardStore ? (
                     <p className="mt-3 text-sm text-amber-800">No chambers yet — add them so farmers can book.</p>
@@ -839,7 +839,7 @@ function OwnerPanel({
                   <div className="mt-3 flex flex-wrap items-center gap-3">
                     <span className="text-sm text-slate-700">Free now:</span>
                     <button type="button" aria-label={`${step} fewer free`} disabled={busy} onClick={() => void run(() => setAvailability(l.id, Math.max(0, l.available - step)), 'Vacancy updated')} className="grid h-11 w-11 cursor-pointer place-items-center rounded-lg bg-slate-100 hover:bg-slate-200"><Minus className="h-4 w-4" aria-hidden /></button>
-                    <span className="min-w-[6rem] text-center text-lg font-bold tabular-nums text-slate-900"><Boxes className="mr-1 inline h-4 w-4 text-emerald-700" aria-hidden />{l.available.toLocaleString('en-IN')}</span>
+                    <span className="min-w-[6rem] text-center text-lg font-bold tabular-nums text-slate-900"><Boxes className="mr-1 inline h-4 w-4 text-forest" aria-hidden />{l.available.toLocaleString('en-IN')}</span>
                     <button type="button" aria-label={`${step} more free`} disabled={busy} onClick={() => void run(() => setAvailability(l.id, Math.min(l.capacity, l.available + step)), 'Vacancy updated')} className="grid h-11 w-11 cursor-pointer place-items-center rounded-lg bg-slate-100 hover:bg-slate-200"><Plus className="h-4 w-4" aria-hidden /></button>
                     <span className="text-sm text-slate-500">of {l.capacity.toLocaleString('en-IN')} {unit.unit}</span>
                   </div>
@@ -1008,17 +1008,17 @@ function SideSwitch({ side, waiting, onChange }: { side: Side; waiting: number; 
         role="radio"
         aria-checked={on}
         onClick={() => !on && onChange(id)}
-        className={`flex flex-1 cursor-pointer items-start gap-3 rounded-2xl p-4 text-left ring-2 transition ${on ? 'bg-[#12382E] text-white shadow-lg ring-[#174C3C]' : 'bg-white/80 text-slate-800 ring-slate-900/10 hover:ring-[#C6DBD0]'}`}
+        className={`flex flex-1 cursor-pointer items-start gap-3 rounded-2xl p-4 text-left ring-2 transition ${on ? 'bg-forest-deep text-white shadow-lg ring-forest' : 'bg-white/80 text-slate-800 ring-slate-900/10 hover:ring-forest-line'}`}
       >
-        <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${on ? 'bg-white/15' : 'bg-[#EAF3EE] text-[#174C3C]'}`}>
+        <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${on ? 'bg-white/15' : 'bg-forest-soft text-forest'}`}>
           <Icon className="h-5 w-5" aria-hidden />
         </span>
         <span className="min-w-0">
           <span className="flex items-center gap-2 text-base font-semibold">
             {title}
-            {badge ? <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${on ? 'bg-white text-[#174C3C]' : 'bg-amber-400 text-amber-950'}`}>{badge} waiting</span> : null}
+            {badge ? <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${on ? 'bg-white text-forest' : 'bg-amber-400 text-amber-950'}`}>{badge} waiting</span> : null}
           </span>
-          <span className={`mt-0.5 block text-sm ${on ? 'text-[#EAF3EE]' : 'text-slate-600'}`}>{text}</span>
+          <span className={`mt-0.5 block text-sm ${on ? 'text-forest-soft' : 'text-slate-600'}`}>{text}</span>
         </span>
       </button>
     );

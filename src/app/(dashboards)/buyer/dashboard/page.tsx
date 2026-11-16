@@ -165,8 +165,8 @@ function BuyerDashboard() {
 
       {tab === 'shop' && (
         <div className="space-y-5">
-          <p className="flex items-start gap-2 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-950 ring-1 ring-emerald-200">
-            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" aria-hidden />
+          <p className="flex items-start gap-2 rounded-2xl bg-forest-soft p-4 text-sm text-forest-pine ring-1 ring-forest-line">
+            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-forest" aria-hidden />
             <span><strong>Pay after delivery.</strong> Farmers list their produce in the Farmer portal and it shows here by itself. Order now — your payment locks in KashRoot escrow. The farmer dispatches with live GPS; press “✅ Confirm Delivery Received” after the goods reach you, and the escrow releases to the farmer.</span>
           </p>
           <ListingBrowser

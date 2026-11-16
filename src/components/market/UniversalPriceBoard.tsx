@@ -103,7 +103,7 @@ function Sparkline({ history }: { history: PricePoint[] | null | undefined }) {
       <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden className="rounded bg-slate-50 ring-1 ring-slate-200">
         <path d={path} fill="none" stroke={up ? '#059669' : '#e11d48'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      <span className={`text-[10px] font-bold ${up ? 'text-emerald-700' : 'text-rose-700'}`}>
+      <span className={`text-[10px] font-bold ${up ? 'text-forest' : 'text-rose-700'}`}>
         {up ? '▲' : '▼'} {Math.round(((points[points.length - 1] - points[0]) / points[0]) * 100)}%
       </span>
     </span>
@@ -176,7 +176,7 @@ export function UniversalPriceBoard({ account }: { account?: Account | null }) {
               aria-pressed={category === c}
               onClick={() => setCategory(c)}
               className={`min-h-9 cursor-pointer rounded-full px-3 py-1 text-xs font-semibold transition ${
-                category === c ? 'bg-[#174C3C] text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                category === c ? 'bg-forest text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
               {c === 'ALL' ? '🌐 All 14 categories' : `${CATEGORY_ICON[c]} ${CATEGORY_LABEL[c]}`}
@@ -263,12 +263,12 @@ export function UniversalPriceBoard({ account }: { account?: Account | null }) {
                   {[r.variety && r.variety !== 'Standard' ? r.variety : null, r.grade].filter(Boolean).join(' · ') || '—'}
                   {r.packing_layers ? ` · ${r.packing_layers}` : ''}
                 </p>
-                <p className="text-lg font-extrabold text-emerald-700">
+                <p className="text-lg font-extrabold text-forest">
                   {inr(r.price_inr)} <span className="text-xs font-semibold text-slate-500">/ {r.unit_label}</span>
                 </p>
                 {(Number.isFinite(transport) && transport > 0) && (
                   <p className="text-xs font-semibold text-slate-700">
-                    + {inr(transport)} transport per unit → <span className="text-emerald-800">landed {inr(landed)}</span>
+                    + {inr(transport)} transport per unit → <span className="text-forest-deep">landed {inr(landed)}</span>
                   </p>
                 )}
                 <div className="flex items-center justify-between gap-2">
@@ -286,7 +286,7 @@ export function UniversalPriceBoard({ account }: { account?: Account | null }) {
                 {marketplace ? (
                   <a
                     href="/buyer/dashboard?tab=shop"
-                    className="mt-1 inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl bg-emerald-50 px-3 text-xs font-bold text-emerald-800 no-underline ring-1 ring-emerald-200 hover:bg-emerald-100"
+                    className="mt-1 inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl bg-forest-soft px-3 text-xs font-bold text-forest-deep no-underline ring-1 ring-forest-line hover:bg-forest-soft"
                   >
                     🛒 Order with escrow protection ↗
                   </a>

@@ -222,10 +222,10 @@ function AdminOrderCard({ o, canRelease, busy, onEscrow }: { o: AdminOrder; canR
 
       {/* From where — the seller / origin, with payout details and live GPS. */}
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-xl bg-emerald-50/70 p-3 ring-1 ring-emerald-100">
-          <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">From where · Seller / Origin</p>
+        <div className="rounded-xl bg-forest-soft/70 p-3 ring-1 ring-forest-soft">
+          <p className="text-xs font-bold uppercase tracking-wide text-forest-deep">From where · Seller / Origin</p>
           <p className="mt-1 text-sm font-semibold text-slate-900">{o.seller_name ?? '—'} {o.seller_district ? <span className="font-normal text-slate-600">· {o.seller_district}</span> : null}</p>
-          <p className="text-sm text-slate-700"><a href={`tel:${o.seller_phone ?? ''}`} className="inline-flex items-center gap-1 font-semibold text-[#174C3C]"><Phone className="h-3.5 w-3.5" aria-hidden /> {o.seller_phone ?? '—'}</a></p>
+          <p className="text-sm text-slate-700"><a href={`tel:${o.seller_phone ?? ''}`} className="inline-flex items-center gap-1 font-semibold text-forest"><Phone className="h-3.5 w-3.5" aria-hidden /> {o.seller_phone ?? '—'}</a></p>
           <p className="mt-1 text-xs text-slate-700">📍 {o.seller_live_address ?? o.seller_district ?? 'No origin GPS yet'}
             {o.seller_live_lat != null && <span className="block font-mono">{Number(o.seller_live_lat).toFixed(5)}, {Number(o.seller_live_lng).toFixed(5)}{o.seller_gps_accuracy ? ` (±${Math.round(Number(o.seller_gps_accuracy))} m)` : ''}</span>}
             {o.seller_gps_updated_at && <span className="block">GPS {ago(o.seller_gps_updated_at)}</span>}
@@ -238,10 +238,10 @@ function AdminOrderCard({ o, canRelease, busy, onEscrow }: { o: AdminOrder; canR
         </div>
 
         {/* To whom — the buyer / destination, with live GPS. */}
-        <div className="rounded-xl bg-[#EAF3EE]/70 p-3 ring-1 ring-[#C6DBD0]">
-          <p className="text-xs font-bold uppercase tracking-wide text-[#174C3C]">To whom · Buyer / Destination</p>
+        <div className="rounded-xl bg-forest-soft/70 p-3 ring-1 ring-forest-line">
+          <p className="text-xs font-bold uppercase tracking-wide text-forest">To whom · Buyer / Destination</p>
           <p className="mt-1 text-sm font-semibold text-slate-900">{o.buyer_name}</p>
-          <p className="text-sm text-slate-700"><a href={`tel:${o.buyer_phone}`} className="inline-flex items-center gap-1 font-semibold text-[#174C3C]"><Phone className="h-3.5 w-3.5" aria-hidden /> {o.buyer_phone}</a></p>
+          <p className="text-sm text-slate-700"><a href={`tel:${o.buyer_phone}`} className="inline-flex items-center gap-1 font-semibold text-forest"><Phone className="h-3.5 w-3.5" aria-hidden /> {o.buyer_phone}</a></p>
           <p className="mt-1 text-xs text-slate-700">📍 {(o.buyer_live_address ?? o.delivery_address) || '—'}
             {o.buyer_live_lat != null && <span className="block font-mono">{Number(o.buyer_live_lat).toFixed(5)}, {Number(o.buyer_live_lng).toFixed(5)}{o.buyer_gps_accuracy ? ` (±${Math.round(Number(o.buyer_gps_accuracy))} m)` : ''}</span>}
             {o.buyer_gps_updated_at && <span className="block">GPS {ago(o.buyer_gps_updated_at)}</span>}
@@ -256,14 +256,14 @@ function AdminOrderCard({ o, canRelease, busy, onEscrow }: { o: AdminOrder; canR
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
             {est && <span className="font-semibold text-slate-800">🛣 ~{est.km.toFixed(1)} km · ETA ~{Math.max(1, Math.round(est.hours * 60))} min <span className="font-normal text-slate-500">(road estimate)</span></span>}
             {toGo !== null && <span>🚚 {toGo.toFixed(1)} km to go</span>}
-            <a href={googleRoute(sellerSpot, buyerSpot)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-bold text-emerald-700 underline underline-offset-2">Open Live Turn-by-Turn Route in Google Maps ↗</a>
+            <a href={googleRoute(sellerSpot, buyerSpot)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-bold text-forest underline underline-offset-2">Open Live Turn-by-Turn Route in Google Maps ↗</a>
           </div>
         </div>
       )}
 
       {/* The escrow ledger — locked / released / refunded, with the Super Admin's controls. */}
       <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
-        <ShieldCheck className="h-4 w-4 text-emerald-700" aria-hidden />
+        <ShieldCheck className="h-4 w-4 text-forest" aria-hidden />
         <span className="text-sm text-slate-700">
           {o.escrow_status === 'locked' && <span><strong>🔒 {inr(o.amount)} locked</strong> since {o.escrow_locked_at ? ago(o.escrow_locked_at) : 'the order'}</span>}
           {o.escrow_status === 'released' && <span><strong>✅ Released to farmer</strong>{o.escrow_released_at ? ` · ${ago(o.escrow_released_at)}` : ''}{o.escrow_tx_ref ? ` · UTR ${o.escrow_tx_ref}` : ''}</span>}

@@ -115,7 +115,7 @@ export function VehicleTracker({
       {/* Header */}
       <div className="flex items-center justify-between gap-4 rounded-2xl bg-white p-4 ring-1 ring-slate-200">
         <div className="flex items-center gap-2">
-          <Truck className="h-6 w-6 text-emerald-700" aria-hidden />
+          <Truck className="h-6 w-6 text-forest" aria-hidden />
           <div>
             <p className="text-sm font-semibold text-slate-900">Vehicle {registration}</p>
             <p className="text-xs text-slate-500">{events.length} real event{events.length === 1 ? '' : 's'}</p>
@@ -126,7 +126,7 @@ export function VehicleTracker({
             href={googlePoint(currentLat!, currentLng!)}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-50"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-forest-deep ring-1 ring-forest-line hover:bg-forest-soft"
           >
             <MapPin className="h-4 w-4" aria-hidden /> In Google Maps
           </a>
@@ -135,15 +135,15 @@ export function VehicleTracker({
 
       {/* Current Position */}
       {hasPosition && current && (
-        <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
-          <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
+        <div className="rounded-2xl bg-forest-soft p-4 ring-1 ring-forest-line">
+          <p className="flex items-center gap-2 text-sm font-semibold text-forest-deep">
             <CheckCircle2 className="h-4 w-4" aria-hidden /> Current position
           </p>
           <p className="mt-1 text-base font-mono text-slate-900">
             {currentLat.toFixed(5)}, {currentLng.toFixed(5)}
           </p>
-          <p className="mt-1 text-sm text-emerald-800">{current.locationName}</p>
-          <p className="text-xs text-emerald-700">
+          <p className="mt-1 text-sm text-forest-deep">{current.locationName}</p>
+          <p className="text-xs text-forest">
             Last update: {new Date(current.timestamp).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
             {current.speedKmph ? ` · ${current.speedKmph} km/h` : ''}
           </p>
@@ -166,9 +166,9 @@ export function VehicleTracker({
             {displayEvents.map((event, idx) => (
               <li
                 key={`${event.type}-${event.timestamp}-${idx}`}
-                className={`flex items-start gap-3 rounded-xl p-3 ${event.type === 'fastag' ? 'bg-sky-50' : event.type === 'gps' ? 'bg-emerald-50' : 'bg-amber-50'} ring-1 ${event.type === 'fastag' ? 'ring-sky-200' : event.type === 'gps' ? 'ring-emerald-200' : 'ring-amber-200'}`}
+                className={`flex items-start gap-3 rounded-xl p-3 ${event.type === 'fastag' ? 'bg-sky-50' : event.type === 'gps' ? 'bg-forest-soft' : 'bg-amber-50'} ring-1 ${event.type === 'fastag' ? 'ring-sky-200' : event.type === 'gps' ? 'ring-forest-line' : 'ring-amber-200'}`}
               >
-                <span className={`flex-shrink-0 mt-0.5 h-8 w-8 rounded-full flex items-center justify-center ${event.type === 'fastag' ? 'bg-sky-100 text-sky-700' : event.type === 'gps' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                <span className={`flex-shrink-0 mt-0.5 h-8 w-8 rounded-full flex items-center justify-center ${event.type === 'fastag' ? 'bg-sky-100 text-sky-700' : event.type === 'gps' ? 'bg-forest-soft text-forest' : 'bg-amber-100 text-amber-700'}`}>
                   {event.type === 'fastag' && <MapPin className="h-5 w-5" aria-hidden />}
                   {event.type === 'gps' && <Truck className="h-5 w-5" aria-hidden />}
                   {event.type === 'planned' && <Clock className="h-5 w-5" aria-hidden />}

@@ -27,7 +27,7 @@ export function ReviewStep({ model, payout, listingId, warnings }: { model: Stor
   const len = (m: number) => `${nice(Math.round((m / (u === 'ft' ? FOOT : 1)) * 10) / 10)} ${u}`;
   const row = (Icon: typeof Store, title: string, body: ReactNode, key?: string) => (
     <div key={key} className="flex gap-3 rounded-2xl bg-white/90 p-4 ring-1 ring-slate-900/5">
-      <Icon className="mt-0.5 h-5 w-5 shrink-0 text-[#174C3C]" aria-hidden />
+      <Icon className="mt-0.5 h-5 w-5 shrink-0 text-forest" aria-hidden />
       <div className="min-w-0 text-base text-slate-800">
         <p className="font-semibold text-slate-900">{title}</p>
         {body}
@@ -74,7 +74,7 @@ export function ReviewStep({ model, payout, listingId, warnings }: { model: Stor
       <section aria-label="Your cold store as farmers will see it" className="min-w-0 space-y-3 lg:sticky lg:top-4 lg:self-start">
         <div role="tablist" aria-label="See your store" className="flex w-fit gap-1 rounded-2xl bg-ivory p-1 ring-1 ring-[#E8A317]/30">
           {([['drawing', 'Drawing', MapIcon], ['3d', '3D view', Layers]] as const).map(([id, label, Icon]) => (
-            <button key={id} type="button" role="tab" aria-selected={view === id} onClick={() => setView(id)} className={`inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-xl px-4 text-sm font-semibold transition ${view === id ? 'bg-[#174C3C] text-white shadow' : 'text-[#12382E] hover:bg-[#EAF3EE]'}`}>
+            <button key={id} type="button" role="tab" aria-selected={view === id} onClick={() => setView(id)} className={`inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-xl px-4 text-sm font-semibold transition ${view === id ? 'bg-forest text-white shadow' : 'text-forest-deep hover:bg-forest-soft'}`}>
               <Icon className="h-4 w-4" aria-hidden /> {label}
             </button>
           ))}

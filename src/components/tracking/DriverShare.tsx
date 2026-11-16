@@ -234,7 +234,7 @@ export function DriverShare({ token }: { token: string }) {
     }
   };
 
-  if (view === undefined && !loadError) return <main className="grid min-h-screen place-items-center"><Loader2 className="h-8 w-8 animate-spin text-emerald-700" aria-label="Loading" /></main>;
+  if (view === undefined && !loadError) return <main className="grid min-h-screen place-items-center"><Loader2 className="h-8 w-8 animate-spin text-forest" aria-label="Loading" /></main>;
   if (!view) return <main className="grid min-h-screen place-items-center p-6 text-center text-lg text-slate-800">{loadError ?? 'This driver link is not valid. Ask the transporter for a new one.'}</main>;
 
   const secs = lastSent ? Math.max(0, Math.round((now - lastSent) / 1000)) : null;
@@ -252,13 +252,13 @@ export function DriverShare({ token }: { token: string }) {
       </header>
 
       {done ? (
-        <p className="flex items-center gap-2 rounded-2xl bg-emerald-50 p-5 text-lg font-semibold text-emerald-900 ring-1 ring-emerald-200">
+        <p className="flex items-center gap-2 rounded-2xl bg-forest-soft p-5 text-lg font-semibold text-forest-deep ring-1 ring-forest-line">
           <CheckCircle2 className="h-6 w-6" aria-hidden /> {status === 'cancelled' ? 'The sender cancelled this trip. You can close this page.' : 'Delivered. Thank you! You can close this page.'}
         </p>
       ) : !started ? (
         <section aria-label="Start the trip" className="space-y-4">
           <div className="rounded-2xl bg-white p-4 text-[15px] leading-relaxed ring-1 ring-slate-200">
-            <p className="flex items-center gap-2 font-semibold"><ShieldCheck className="h-5 w-5 text-emerald-700" aria-hidden /> Before you start</p>
+            <p className="flex items-center gap-2 font-semibold"><ShieldCheck className="h-5 w-5 text-forest" aria-hidden /> Before you start</p>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-700">
               <li>Your live location is shared with the sender and the receiver for this load only, from now until delivery.</li>
               <li>You cannot stop sharing in KashRoot. The trip ends when the receiver gives you their 6-digit delivery code.</li>
@@ -267,13 +267,13 @@ export function DriverShare({ token }: { token: string }) {
             <p className="mt-2 text-slate-700">यह ट्रिप डिलीवरी तक आपकी लोकेशन भेजती है। · یہ ٹرپ ڈیلیوری تک آپ کی لوکیشن بھیجتا ہے۔</p>
           </div>
           <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-2xl bg-white p-4 ring-1 ring-slate-200">
-            <input type="checkbox" className="mt-1 h-5 w-5 accent-emerald-700" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+            <input type="checkbox" className="mt-1 h-5 w-5 accent-forest" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
             <span>I agree to share my live location for this trip until delivery. · मैं सहमत हूँ · میں متفق ہوں</span>
           </label>
           <button type="button" disabled={!agreed || starting} onClick={() => void start()} className="inline-flex w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-3xl bg-chinar px-6 py-7 text-2xl font-bold text-white shadow-xl hover:bg-chinar-hover disabled:cursor-not-allowed disabled:opacity-50">
             {starting ? <Loader2 className="h-10 w-10 animate-spin" aria-hidden /> : <MapPin className="h-10 w-10" aria-hidden />}
             Start trip
-            <span className="text-base font-normal text-emerald-50">ट्रिप शुरू करें · ٹرپ شروع کریں</span>
+            <span className="text-base font-normal text-forest-soft">ट्रिप शुरू करें · ٹرپ شروع کریں</span>
           </button>
         </section>
       ) : (
@@ -282,9 +282,9 @@ export function DriverShare({ token }: { token: string }) {
             <div className="rounded-2xl bg-chinar p-6 text-center text-white shadow-lg">
               <MapPin className="mx-auto h-10 w-10 animate-pulse" aria-hidden />
               <p className="mt-2 text-xl font-bold">Sharing your location</p>
-              <p className="mt-1 text-emerald-50">{secs === null ? 'Getting GPS…' : `Last sent ${secs < 60 ? `${secs} s` : `${Math.round(secs / 60)} min`} ago`}</p>
+              <p className="mt-1 text-forest-soft">{secs === null ? 'Getting GPS…' : `Last sent ${secs < 60 ? `${secs} s` : `${Math.round(secs / 60)} min`} ago`}</p>
               {accuracy !== null && (
-                <p className="mt-1 text-sm text-emerald-50">GPS accuracy ±{accuracy} m{accuracy > 100 ? ' — waiting for a better signal (stand in the open)' : ''}</p>
+                <p className="mt-1 text-sm text-forest-soft">GPS accuracy ±{accuracy} m{accuracy > 100 ? ' — waiting for a better signal (stand in the open)' : ''}</p>
               )}
             </div>
           ) : (
@@ -297,7 +297,7 @@ export function DriverShare({ token }: { token: string }) {
           <p className="rounded-2xl bg-amber-50 p-4 text-amber-950 ring-1 ring-amber-200">
             Keep this page open until delivery. · यह पेज डिलीवरी तक खुला रखें। · یہ صفحہ ڈیلیوری تک کھلا رکھیں۔
           </p>
-          <a href={navigate} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-lg font-semibold text-emerald-800 no-underline ring-1 ring-emerald-300 hover:bg-emerald-50 hover:no-underline">
+          <a href={navigate} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-lg font-semibold text-forest-deep no-underline ring-1 ring-forest-line hover:bg-forest-soft hover:no-underline">
             <Navigation className="h-5 w-5" aria-hidden /> Navigate in Google Maps
           </a>
           <p className="-mt-3 text-center text-xs text-slate-500">On some phones sharing pauses while Google Maps is in front — come back to this page now and then. The sender is told if it stops.</p>
@@ -312,7 +312,7 @@ export function DriverShare({ token }: { token: string }) {
 
       {!done && started && (
         <section aria-label="Load delivered" className="mt-auto space-y-3 rounded-2xl bg-white p-4 ring-1 ring-slate-200">
-          <p className="flex items-center gap-2 font-semibold"><PackageCheck className="h-5 w-5 text-emerald-700" aria-hidden /> Load delivered? · माल पहुँच गया? · مال پہنچ گیا؟</p>
+          <p className="flex items-center gap-2 font-semibold"><PackageCheck className="h-5 w-5 text-forest" aria-hidden /> Load delivered? · माल पहुँच गया? · مال پہنچ گیا؟</p>
           {legacy ? (
             <button type="button" disabled={ending} onClick={() => { setEnding(true); void driverDelivered(token, '').then(() => { setStatus('delivered'); halt(); }, (err: Error) => setCodeNote(err.message)).finally(() => setEnding(false)); }} className="inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-chinar px-4 font-semibold text-white hover:bg-chinar-hover">
               <PackageCheck className="h-5 w-5" aria-hidden /> Load delivered
@@ -323,7 +323,7 @@ export function DriverShare({ token }: { token: string }) {
             <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); void deliver(); }}>
               <label className="min-w-0 flex-1">
                 <span className="sr-only">Delivery code from the receiver</span>
-                <input inputMode="numeric" autoComplete="one-time-code" maxLength={7} value={code} onChange={(e) => setCode(e.target.value.replace(/[^\d ]/g, ''))} placeholder="Receiver’s 6-digit code" className="min-h-12 w-full rounded-xl border-0 bg-slate-50 px-4 text-center font-mono text-xl tracking-[0.3em] ring-1 ring-slate-300 focus:ring-2 focus:ring-emerald-600" />
+                <input inputMode="numeric" autoComplete="one-time-code" maxLength={7} value={code} onChange={(e) => setCode(e.target.value.replace(/[^\d ]/g, ''))} placeholder="Receiver’s 6-digit code" className="min-h-12 w-full rounded-xl border-0 bg-slate-50 px-4 text-center font-mono text-xl tracking-[0.3em] ring-1 ring-slate-300 focus:ring-2 focus:ring-forest" />
               </label>
               <button type="submit" disabled={ending} className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-xl bg-chinar px-4 font-semibold text-white hover:bg-chinar-hover disabled:opacity-60">
                 {ending ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <KeyRound className="h-5 w-5" aria-hidden />} Done

@@ -67,8 +67,8 @@ export interface PortalTheme {
 const T = (t: PortalTheme) => t;
 
 /**
- * One KashRoot frame for every portal: a cool mist page (#F4F7F8), forest green (#174C3C / #12382E)
- * headers, sidebars and primary actions, soft green (#EAF3EE) panels, champagne gold (#C6A45B)
+ * One KashRoot frame for every portal: a cool mist page (#F4F7F8), forest green (#3730A3 / #1E1B4B)
+ * headers, sidebars and primary actions, soft green (#EEF0FF) panels, champagne gold (#C6A45B)
  * accents, ink text (#25332F) and #E2EAE5 borders. A portal keeps a subtle identity of its own
  * through its icon, its badge word and the season of its 3D valley scene (`mood`), nothing louder.
  * Gold is for lines and badges; text on gold-tinted surfaces is champagne-deep (6.3:1).
@@ -80,7 +80,7 @@ const BRAND = {
   // The forest and gold icon badge on its own ledge (globals.css .kr-icon-badge).
   tile: 'kr-icon-badge',
   // A flat-fronted, bevelled green for chips and tabs; buttons (Btn) use the full tactile .kr-btn-primary.
-  solid: 'bg-gradient-to-b from-forest-mid to-forest text-white ring-1 ring-forest-deep shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_2px_0_#12382E] hover:from-[#2F7A60] hover:to-[#1B5A47]',
+  solid: 'bg-gradient-to-b from-forest-mid to-forest text-white ring-1 ring-forest-deep shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_2px_0_#1E1B4B] hover:from-[#2F7A60] hover:to-[#1B5A47]',
   soft: 'bg-forest-soft text-forest ring-1 ring-forest-line hover:bg-[#DDEBE3]',
   accent: 'text-forest',
   outline: 'focus-visible:outline-forest',
@@ -279,7 +279,7 @@ export function Badge({ tone = 'slate', children }: { tone?: 'slate' | 'green' |
     green: 'bg-forest-soft text-forest ring-forest-line',
     amber: 'bg-amber-50 text-amber-900 ring-amber-200',
     red: 'bg-rose-50 text-rose-800 ring-rose-200',
-    blue: 'bg-[#EAF3EE] text-[#174C3C] ring-[#C6DBD0]',
+    blue: 'bg-forest-soft text-forest ring-forest-line',
     violet: 'bg-champagne-soft text-champagne-deep ring-champagne/60',
   };
   return (
@@ -387,7 +387,7 @@ export function Modal({
       onClick={(e) => {
         if (e.target === e.currentTarget) ref.current?.close();
       }}
-      className={`kr-sheet m-auto max-h-[calc(100svh-2rem)] w-[calc(100%-2rem)] overflow-hidden rounded-3xl border border-forest-line bg-white p-0 text-ink shadow-[inset_0_1px_0_#fff,0_30px_90px_rgba(18,56,46,0.3)] backdrop:bg-forest-deep/40 backdrop:backdrop-blur-sm max-sm:mb-0 max-sm:max-h-[92svh] max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none ${wide ? 'max-w-3xl' : 'max-w-lg'}[will-change:transform,opacity][transform:translate3d(0,0,0)]`}
+      className={`kr-sheet m-auto max-h-[calc(100svh-2rem)] w-[calc(100%-2rem)] overflow-hidden rounded-3xl border border-forest-line bg-white p-0 text-ink shadow-[inset_0_1px_0_#fff,0_30px_90px_rgba(30, 27, 75,0.3)] backdrop:bg-forest-deep/40 backdrop:backdrop-blur-sm max-sm:mb-0 max-sm:max-h-[92svh] max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none ${wide ? 'max-w-3xl' : 'max-w-lg'}[will-change:transform,opacity][transform:translate3d(0,0,0)]`}
     >
       <div className="flex max-h-[calc(100svh-2rem)] flex-col max-sm:max-h-[92svh]">
         <span aria-hidden className="mx-auto mt-2 h-1.5 w-10 shrink-0 rounded-full bg-slate-300 sm:hidden" />
@@ -435,7 +435,7 @@ export function PageHeader({
     <div className="kr-hero relative isolate flex flex-col gap-5 overflow-hidden rounded-3xl p-5 sm:flex-row sm:items-end sm:justify-between sm:p-7">
       <ChinarLeaf className="pointer-events-none absolute -right-6 -top-8 -z-10 h-40 w-40 rotate-12 opacity-[0.14]" color={theme.leaf} />
       <div className="min-w-0 max-w-3xl">
-        {eyebrow && <p className="inline-flex items-center rounded-full bg-[#EAF3EE] px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-[#174C3C] ring-1 ring-[#C6A45B]">{eyebrow}</p>}
+        {eyebrow && <p className="inline-flex items-center rounded-full bg-forest-soft px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-forest ring-1 ring-[#C6A45B]">{eyebrow}</p>}
         <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight text-white [text-wrap:balance] sm:text-4xl">{title}</h1>
         {description && <p className="mt-2 max-w-2xl text-base leading-relaxed text-[#D9E8E0]">{description}</p>}
         <span aria-hidden className="mt-4 block h-0.5 w-24 rounded-full bg-gradient-to-r from-champagne to-transparent" />

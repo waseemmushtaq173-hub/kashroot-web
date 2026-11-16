@@ -55,9 +55,9 @@ export function PageGuide({ path }: { path: string }) {
 
   if (!guide) return null;
   return (
-    <section aria-labelledby="page-guide-title" data-page-guide className="mx-4 mt-14 rounded-3xl bg-emerald-50 p-4 ring-1 ring-emerald-200 sm:mx-5">
+    <section aria-labelledby="page-guide-title" data-page-guide className="mx-4 mt-14 rounded-3xl bg-forest-soft p-4 ring-1 ring-forest-line sm:mx-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="page-guide-title" className="text-base font-extrabold text-emerald-950">{TITLE[lang]}</h2>
+        <h2 id="page-guide-title" className="text-base font-extrabold text-forest-pine">{TITLE[lang]}</h2>
         <div role="group" aria-label="Language" className="flex flex-wrap gap-1.5">
           {LANGS.map((l) => (
             <button
@@ -69,7 +69,7 @@ export function PageGuide({ path }: { path: string }) {
                 rememberLang(l);
                 read(l);
               }}
-              className={`min-h-11 min-w-11 cursor-pointer rounded-xl px-3 text-sm font-bold ring-1 transition ${lang === l ? 'bg-emerald-700 text-white ring-emerald-800' : 'bg-white text-slate-800 ring-slate-900/10 hover:bg-emerald-100'}`}
+              className={`min-h-11 min-w-11 cursor-pointer rounded-xl px-3 text-sm font-bold ring-1 transition ${lang === l ? 'bg-forest text-white ring-forest-deep' : 'bg-white text-slate-800 ring-slate-900/10 hover:bg-forest-soft'}`}
             >
               {LANG_LABEL[l]}
             </button>

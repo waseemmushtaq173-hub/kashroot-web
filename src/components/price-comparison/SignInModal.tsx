@@ -86,7 +86,7 @@ export function SignInModal({ reason, onClose, onSignedIn }: { reason: SignInRea
   );
   const sell = (
     <Link key="sell" href={AUTH_ROUTES.register('farmer')} className={BIG_LINK}>
-      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-emerald-400 to-green-700 text-white"><Store className="h-5 w-5" aria-hidden /></span>
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-forest-mid to-forest text-white"><Store className="h-5 w-5" aria-hidden /></span>
       <span>
         <span className="block font-semibold text-slate-900">I want to sell</span>
         <span className="block text-sm text-slate-600">Create a Farmer account (produce and farm inputs)</span>

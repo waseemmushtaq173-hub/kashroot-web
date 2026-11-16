@@ -166,7 +166,7 @@ export function OrchardPickupJobs() {
         </label>
       </div>
 
-      {message && <p role="status" className="rounded-xl bg-[#EAF3EE] px-4 py-2.5 text-sm font-semibold text-[#174C3C] ring-1 ring-[#C6DBD0]">{message}</p>}
+      {message && <p role="status" className="rounded-xl bg-forest-soft px-4 py-2.5 text-sm font-semibold text-forest ring-1 ring-forest-line">{message}</p>}
       {notSetUp && <p className="rounded-xl bg-amber-50 px-4 py-2.5 text-sm text-amber-950 ring-1 ring-amber-300">The hub pickup update has not been run on the database yet (supabase/RUN_THIS_ONCE.sql), so no pickup jobs can be listed.</p>}
 
       {mine.length > 0 && (
@@ -176,8 +176,8 @@ export function OrchardPickupJobs() {
             const gate = mapLink(j.seller_live_lat, j.seller_live_lng);
             const dest = mapLink(j.delivery_lat, j.delivery_lon);
             return (
-              <div key={j.id} className="space-y-2 rounded-xl border border-[#C6DBD0] bg-[#F3F8F5] p-3 text-sm text-slate-800" data-kr-plain>
-                <p className="font-bold text-[#174C3C]">{j.quantity} {j.unit} · {j.product} · {STAGE_WORDS[j.pickup_stage] ?? j.pickup_stage}</p>
+              <div key={j.id} className="space-y-2 rounded-xl border border-forest-line bg-[#F6F7FF] p-3 text-sm text-slate-800" data-kr-plain>
+                <p className="font-bold text-forest">{j.quantity} {j.unit} · {j.product} · {STAGE_WORDS[j.pickup_stage] ?? j.pickup_stage}</p>
                 <p className="text-xs text-slate-600">
                   Grower: {j.seller_name ?? '—'}{j.seller_phone ? <> · <a className="font-semibold underline" href={`tel:${j.seller_phone}`}>📞 {j.seller_phone}</a></> : ''} · {j.seller_live_address ?? j.seller_district ?? 'orchard GPS not recorded on this order'}
                   {gate && <> · <a className="font-semibold underline" href={gate} target="_blank" rel="noopener noreferrer">Route to the orchard gate ↗</a></>}
@@ -218,7 +218,7 @@ export function OrchardPickupJobs() {
                     </p>
                     {streaming === j.id ? (
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-bold text-emerald-800">
+                        <span className="text-xs font-bold text-forest-deep">
                           ● Sharing this phone’s GPS{lastFix ? `: ${lastFix.lat.toFixed(5)}, ${lastFix.lng.toFixed(5)} (±${Math.round(lastFix.accuracy)} m) at ${lastFix.at}` : ' — waiting for the first position'}
                         </span>
                         <button type="button" onClick={stopGps} className="kr-btn-secondary kr-btn-sm min-h-11">Stop sharing GPS</button>
@@ -240,7 +240,7 @@ export function OrchardPickupJobs() {
         {open === null ? (
           <p className="text-sm text-slate-500">Loading…</p>
         ) : open.length === 0 ? (
-          <p data-testid="no-pickup-jobs" className="rounded-xl bg-[#EAF3EE] px-4 py-3 text-sm text-[#174C3C] ring-1 ring-[#C6DBD0]">
+          <p data-testid="no-pickup-jobs" className="rounded-xl bg-forest-soft px-4 py-3 text-sm text-forest ring-1 ring-forest-line">
             No orchard pickup is waiting right now. A job appears here when a grower marks an order’s boxes packed and ready in the Farmer portal.
           </p>
         ) : (

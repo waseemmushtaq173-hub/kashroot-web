@@ -123,7 +123,7 @@ export function ChamberDiagram({
             act();
           }
         }}
-        className={clickable ? 'cursor-pointer outline-none [&:focus-visible>rect]:stroke-[#12382E] [&:focus-visible>rect]:[stroke-width:3]' : 'cursor-default'}
+        className={clickable ? 'cursor-pointer outline-none [&:focus-visible>rect]:stroke-forest-deep [&:focus-visible>rect]:[stroke-width:3]' : 'cursor-default'}
       >
         <title>{`${name} · ${lookLabel(look, words.many)}${look === 'part' ? ` · room for ${countText(spare, c.storage)}` : ''}${label ? ` · ${label}` : ''}`}</title>
         <rect x={x} y={y} width={pw} height={pd} rx={Math.min(6, pw / 6)} fill={look === 'blocked' && !quiet ? `url(#${hatch})` : f.fill} stroke={f.stroke} strokeWidth={!quiet && (look === 'selected' || look === 'mine') ? 2.5 : 1.5} strokeDasharray={!quiet && look === 'held' ? '4 3' : undefined} />
@@ -270,7 +270,7 @@ export function ChamberDiagram({
         {plan.crowded ? ` · ${words.title} are drawn closer together than they stand: there are more of them than fit on this floor.` : ''}
       </p>
       {plan.windows.length > 0 && (
-        <ul aria-label={`${c.name}: windows`} className="mt-1 space-y-0.5 text-center text-xs text-[#12382E]">
+        <ul aria-label={`${c.name}: windows`} className="mt-1 space-y-0.5 text-center text-xs text-forest-deep">
           {plan.windows.map((win, i) => <li key={i}>{windowText(win, i, u)}</li>)}
         </ul>
       )}

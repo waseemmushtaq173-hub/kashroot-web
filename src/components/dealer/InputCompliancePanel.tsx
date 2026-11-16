@@ -39,7 +39,7 @@ const LABEL_RULES: { pack: string; badge: string; badgeClass: string; rule: stri
   {
     pack: 'Pesticide canister',
     badge: 'CIB&RC',
-    badgeClass: 'bg-[#EAF3EE] text-[#12382E] ring-[#C6DBD0]',
+    badgeClass: 'bg-forest-soft text-forest-deep ring-forest-line',
     rule: 'Toxicity colour band: blue = moderately toxic, yellow = slightly, red = highly, green = low.',
     reg: 'Insecticides Act 1968 — CIB&RC reg. no.',
   },
@@ -57,7 +57,7 @@ const TOXICITY_BANDS: { colour: string; chip: string; label: string }[] = [
   { colour: '#1d4ed8', chip: 'bg-blue-100 text-blue-900', label: 'Blue · moderately toxic' },
   { colour: '#eab308', chip: 'bg-yellow-100 text-yellow-900', label: 'Yellow · slightly toxic' },
   { colour: '#dc2626', chip: 'bg-red-100 text-red-900', label: 'Red · highly toxic' },
-  { colour: '#16a34a', chip: 'bg-green-100 text-green-900', label: 'Green · low toxicity' },
+  { colour: '#16a34a', chip: 'bg-forest-soft text-forest-deep', label: 'Green · low toxicity' },
 ];
 
 const TYPE_ROWS: { key: string; label: string }[] = [
@@ -106,7 +106,7 @@ export function InputCompliancePanel({ batches }: { batches: PanelBatch[] }) {
 
           {/* Registry + expiry watch. */}
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            <p className="flex items-center gap-2 rounded-2xl bg-emerald-50 px-3 py-2.5 text-xs font-semibold text-emerald-900 ring-1 ring-emerald-200">
+            <p className="flex items-center gap-2 rounded-2xl bg-forest-soft px-3 py-2.5 text-xs font-semibold text-forest-deep ring-1 ring-forest-line">
               <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden /> {registered} batch{registered === 1 ? '' : 'es'} in the authenticity registry
             </p>
             {unregistered > 0 && (

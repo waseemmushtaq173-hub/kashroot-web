@@ -46,8 +46,8 @@ interface Portal3DSceneProps {
 
 function SceneSkeleton() {
   return (
-    <div className="grid h-full w-full place-items-center bg-emerald-950/60" aria-hidden>
-      <div className="flex flex-col items-center gap-3 text-emerald-100/80">
+    <div className="grid h-full w-full place-items-center bg-forest-pine/60" aria-hidden>
+      <div className="flex flex-col items-center gap-3 text-forest-soft/80">
         <Box className="h-8 w-8 animate-pulse" aria-hidden />
         <p className="text-xs font-semibold uppercase tracking-[0.18em]">Opening the 3D scene…</p>
       </div>
@@ -152,7 +152,7 @@ export function Portal3DScene({
 
       {/* Corner chip: the scene's name + the 3D/2D toggle the user always owns. */}
       <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-2">
-        <span className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-emerald-950/70 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-emerald-100 ring-1 ring-emerald-400/30 backdrop-blur">
+        <span className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-forest-pine/70 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-forest-soft ring-1 ring-forest-mid/30 backdrop-blur">
           <Box className="h-3.5 w-3.5" aria-hidden /> {label}
         </span>
         <button

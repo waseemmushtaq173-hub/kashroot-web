@@ -577,7 +577,7 @@ export default function MandiWeatherPage() {
         {f && (
           <div className="mt-6 space-y-5 border-t border-slate-200 pt-4">
             <div className="flex items-center gap-2 text-xs text-slate-500">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" aria-hidden />
+              <ShieldCheck className="h-3.5 w-3.5 text-forest" aria-hidden />
               <span>Source: {f.source}, CC BY 4.0</span>
               {f.stale && <span className="ml-2 text-amber-600">(stale)</span>}
               {f.stale && <LastUpdated at={f.fetchedAt} source={f.source} className="ml-auto" />}
@@ -646,14 +646,14 @@ export default function MandiWeatherPage() {
         {imd && (
           <div className="mt-6 space-y-5 border-t border-slate-200 pt-4">
             <div className="flex items-center gap-2 text-xs text-slate-500">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" aria-hidden />
+              <ShieldCheck className="h-3.5 w-3.5 text-forest" aria-hidden />
               <span>Source: {imd.source} — Station: {imd.stationName} ({imd.stationCode})</span>
               {imd.stale && <LastUpdated at={imd.observationTime} source="Open-Meteo" className="ml-auto" />}
             </div>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,2fr)]">
               <Tilt3D className="min-w-0 rounded-3xl" max={6}>
-                <div className="relative h-full overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-600 p-6 text-white shadow-lg [transform-style:preserve-3d]">
-                  <p className="flex items-center gap-1.5 text-sm text-emerald-100">
+                <div className="relative h-full overflow-hidden rounded-3xl bg-gradient-to-br from-forest-mid to-teal-600 p-6 text-white shadow-lg [transform-style:preserve-3d]">
+                  <p className="flex items-center gap-1.5 text-sm text-forest-soft">
                     <MapPin className="h-4 w-4" aria-hidden />
                     {imd.district} district · {imd.stationName}
                   </p>
@@ -661,14 +661,14 @@ export default function MandiWeatherPage() {
                     <span className="text-5xl" aria-hidden>🌡️</span>
                     <div>
                       <p className="text-5xl font-semibold tabular-nums">{Math.round(imd.current.temperature)}°</p>
-                      <p className="text-emerald-100">{imd.current.condition}</p>
+                      <p className="text-forest-soft">{imd.current.condition}</p>
                     </div>
                   </div>
                   <dl className="mt-5 grid grid-cols-3 gap-2 text-sm">
-                    <div><dt className="flex items-center gap-1 text-emerald-100"><Droplets className="h-3.5 w-3.5" aria-hidden /> Humidity</dt><dd className="font-semibold">{imd.current.humidity}%</dd></div>
-                    <div><dt className="flex items-center gap-1 text-emerald-100"><Wind className="h-3.5 w-3.5" aria-hidden /> Wind</dt><dd className="font-semibold">{Math.round(imd.current.windSpeed)} km/h @ {imd.current.windDirection}°</dd></div>
-                    <div><dt className="flex items-center gap-1 text-emerald-100"><CloudRain className="h-3.5 w-3.5" aria-hidden /> Rain</dt><dd className="font-semibold">{imd.current.rainfall} mm</dd></div>
-                    <div style={{ gridColumn: 'span 2' }}><dt className="flex items-center gap-1 text-emerald-100"><FileQuestion className="h-3.5 w-3.5" aria-hidden /> Pressure</dt><dd className="font-semibold">{imd.current.pressure} hPa</dd></div>
+                    <div><dt className="flex items-center gap-1 text-forest-soft"><Droplets className="h-3.5 w-3.5" aria-hidden /> Humidity</dt><dd className="font-semibold">{imd.current.humidity}%</dd></div>
+                    <div><dt className="flex items-center gap-1 text-forest-soft"><Wind className="h-3.5 w-3.5" aria-hidden /> Wind</dt><dd className="font-semibold">{Math.round(imd.current.windSpeed)} km/h @ {imd.current.windDirection}°</dd></div>
+                    <div><dt className="flex items-center gap-1 text-forest-soft"><CloudRain className="h-3.5 w-3.5" aria-hidden /> Rain</dt><dd className="font-semibold">{imd.current.rainfall} mm</dd></div>
+                    <div style={{ gridColumn: 'span 2' }}><dt className="flex items-center gap-1 text-forest-soft"><FileQuestion className="h-3.5 w-3.5" aria-hidden /> Pressure</dt><dd className="font-semibold">{imd.current.pressure} hPa</dd></div>
                   </dl>
                 </div>
               </Tilt3D>
@@ -711,7 +711,7 @@ export default function MandiWeatherPage() {
                     <div key={h.time} className="min-w-[4.5rem] shrink-0 rounded-2xl bg-white/80 p-2.5 text-center ring-1 ring-slate-900/5">
                       <p className="text-xs text-slate-500">{h.time.slice(11, 16)}</p>
                       <p className="text-sm font-semibold tabular-nums text-slate-900">{Math.round(h.temperature)}°</p>
-                      <p className="text-[11px] text-emerald-700">{h.precipitationProbability}% 🌧️</p>
+                      <p className="text-[11px] text-forest">{h.precipitationProbability}% 🌧️</p>
                       <p className="text-[11px] text-slate-600">{h.condition}</p>
                     </div>
                   ))}
@@ -723,7 +723,7 @@ export default function MandiWeatherPage() {
                         <p className="text-xs font-semibold text-slate-600">{dayName(d.date)}</p>
                         <p className="text-2xl my-1" aria-hidden>{d.condition === 'Rain' ? '🌧️' : d.condition === 'Clear sky' ? '☀️' : '⛅'}</p>
                         <p className="text-sm font-semibold tabular-nums text-slate-900">{Math.round(d.maxTemperature)}° / <span className="text-slate-500">{Math.round(d.minTemperature)}°</span></p>
-                        <p className="text-[11px] text-emerald-700">{d.totalRainfall} mm</p>
+                        <p className="text-[11px] text-forest">{d.totalRainfall} mm</p>
                       </div>
                     </Tilt3D>
                   ))}
@@ -825,10 +825,10 @@ export default function MandiWeatherPage() {
           )}
           {stats && (
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
-                <p className="text-xs uppercase tracking-wider text-emerald-800">Best price</p>
-                <p className="text-xl font-bold tabular-nums text-emerald-950">{inr.format(stats.hi.modalPrice * factor)}</p>
-                <p className="text-xs text-emerald-800">{mandiName(stats.hi.market)}, {stats.hi.district} · per {unitLabel}</p>
+              <div className="rounded-2xl bg-forest-soft p-4 ring-1 ring-forest-line">
+                <p className="text-xs uppercase tracking-wider text-forest-deep">Best price</p>
+                <p className="text-xl font-bold tabular-nums text-forest-pine">{inr.format(stats.hi.modalPrice * factor)}</p>
+                <p className="text-xs text-forest-deep">{mandiName(stats.hi.market)}, {stats.hi.district} · per {unitLabel}</p>
               </div>
               <div className="rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-200">
                 <p className="text-xs uppercase tracking-wider text-sky-800">Average modal</p>

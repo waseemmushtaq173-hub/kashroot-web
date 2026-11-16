@@ -121,7 +121,7 @@ function GatePassQR({
     <div className="rounded-xl bg-white p-4 ring-1 ring-slate-200 text-center">
       {loading ? (
         <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#174C3C] border-t-transparent" />
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-forest border-t-transparent" />
           <span className="ml-2 text-sm text-slate-600">Generating Gate Pass...</span>
         </div>
       ) : qrDataUrl ? (
@@ -134,11 +134,11 @@ function GatePassQR({
             title="Click to copy booking data"
           />
           <p className="mt-2 text-xs text-slate-500">Click to copy booking data</p>
-          <div className="mt-3 p-3 rounded-lg bg-emerald-50 ring-1 ring-emerald-200 text-left text-xs text-emerald-900">
-            <p className="font-semibold text-emerald-900 mb-1">Gate Pass: {code}</p>
-            <p className="text-xs text-emerald-800">Booking: {bookingId.slice(0, 8)}...</p>
-            <p className="text-xs text-emerald-800">Amount: ₹{amount.toLocaleString('en-IN')}</p>
-            <p className="text-xs text-emerald-800">Scan at gate for entry</p>
+          <div className="mt-3 p-3 rounded-lg bg-forest-soft ring-1 ring-forest-line text-left text-xs text-forest-deep">
+            <p className="font-semibold text-forest-deep mb-1">Gate Pass: {code}</p>
+            <p className="text-xs text-forest-deep">Booking: {bookingId.slice(0, 8)}...</p>
+            <p className="text-xs text-forest-deep">Amount: ₹{amount.toLocaleString('en-IN')}</p>
+            <p className="text-xs text-forest-deep">Scan at gate for entry</p>
           </div>
         </>
       ) : (
@@ -158,7 +158,7 @@ const IndustrialColdStoreTwin3D = dynamic(
     loading: () => (
       <div className="grid h-[420px] place-items-center rounded-3xl bg-slate-100" role="status" aria-live="polite">
         <div className="flex flex-col items-center gap-3">
-          <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#CFE0D6] border-t-[#286B54]" aria-hidden />
+          <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#CFE0D6] border-t-forest-mid" aria-hidden />
           <p className="text-sm font-semibold text-slate-600">Initializing Industrial 3D Digital Twin...</p>
         </div>
       </div>
@@ -232,7 +232,7 @@ export function PlaceDirections({ places, chambers }: { places: Placed[]; chambe
   const first = items[0];
   const kinds = [...new Set(items.map((x) => x.c.storage))];
   return (
-    <div className="mt-2 rounded-xl bg-[#EAF3EE] p-3 text-sm text-[#25332F] ring-1 ring-[#CFE0D6]">
+    <div className="mt-2 rounded-xl bg-forest-soft p-3 text-sm text-[#25332F] ring-1 ring-[#CFE0D6]">
       <p className="flex items-center gap-1.5 font-semibold"><Navigation className="h-4 w-4" aria-hidden /> Where to put your {wordFor(kinds)}</p>
       <ul className="mt-1 space-y-0.5">
         {items.map(({ c, p, size, plan, row, stack }) => (
@@ -242,7 +242,7 @@ export function PlaceDirections({ places, chambers }: { places: Placed[]; chambe
           </li>
         ))}
       </ul>
-      <p className="mt-1 text-xs text-[#12382E]/80">
+      <p className="mt-1 text-xs text-forest-deep/80">
         A full place takes {countText(first.c.boxes_per_slot, first.c.storage)}: {layersText(first.plan)} ({showLength(first.plan.stackHeight, first.size.unit)} high).
       </p>
     </div>
@@ -663,7 +663,7 @@ export function ColdBooking({
   const fitNote =
     wanted > 0 && picked.size ? (
       boxes >= wanted ? (
-        <span className="font-semibold text-emerald-700"> · room for all your {countText(wanted, kind ?? kinds[0] ?? 'boxes')}</span>
+        <span className="font-semibold text-forest"> · room for all your {countText(wanted, kind ?? kinds[0] ?? 'boxes')}</span>
       ) : (
         <span className="font-semibold text-amber-700"> · {(wanted - boxes).toLocaleString('en-IN')} of your {word} still need a place</span>
       )
@@ -731,13 +731,13 @@ export function ColdBooking({
           </div>
           <p className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
             <span>Showing which places are free from {niceDate(start)} to {niceDate(lastDay(start, months))}.</span>
-            <button type="button" onClick={() => void load()} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1 rounded-lg px-2 text-sm font-semibold text-[#174C3C] hover:bg-ivory"><RefreshCw className="h-4 w-4" aria-hidden /> Refresh</button>
+            <button type="button" onClick={() => void load()} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1 rounded-lg px-2 text-sm font-semibold text-forest hover:bg-ivory"><RefreshCw className="h-4 w-4" aria-hidden /> Refresh</button>
           </p>
-          <div className="flex flex-wrap items-end gap-2 rounded-2xl bg-[#EAF3EE] p-3 ring-1 ring-[#CFE0D6]">
+          <div className="flex flex-wrap items-end gap-2 rounded-2xl bg-forest-soft p-3 ring-1 ring-[#CFE0D6]">
             {kinds.length > 1 && (
               <div role="radiogroup" aria-label="What will you bring?" className="flex basis-full gap-2">
                 {kinds.map((k) => (
-                  <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className={`min-h-[48px] flex-1 cursor-pointer rounded-xl px-4 text-base font-semibold ring-2 ${kind === k ? 'bg-[#174C3C] text-white ring-[#174C3C]' : 'bg-white text-[#12382E] ring-[#CFE0D6] hover:ring-[#CFE0D6]'}`}>
+                  <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className={`min-h-[48px] flex-1 cursor-pointer rounded-xl px-4 text-base font-semibold ring-2 ${kind === k ? 'bg-forest text-white ring-forest' : 'bg-white text-forest-deep ring-[#CFE0D6] hover:ring-[#CFE0D6]'}`}>
                     {UNIT_WORDS[k].title}
                   </button>
                 ))}
@@ -750,7 +750,7 @@ export function ColdBooking({
             </div>
             <Btn theme={theme} className="min-h-[44px]" icon={Sparkles} disabled={!taken} onClick={chooseForMe}>Choose places for me</Btn>
             {picked.size > 0 && <Btn theme={theme} variant="ghost" className="min-h-[44px]" icon={X} onClick={() => setPicked(new Map())}>Clear my choice</Btn>}
-            <p className="basis-full text-xs text-[#12382E]">
+            <p className="basis-full text-xs text-forest-deep">
               Any number of {word}{l.min_units > 1 ? ` from ${l.min_units.toLocaleString('en-IN')}` : ''} — 50 or 5,000. A small lot shares a place with others, and you pay only for your own {word}.
             </p>
           </div>
@@ -776,7 +776,7 @@ export function ColdBooking({
             <section aria-label="3D digital twin" className="rounded-xl bg-white p-3 text-sm text-slate-800 ring-1 ring-slate-900/10">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-semibold">3D Digital Twin — the whole facility</p>
-                <button type="button" onClick={() => setTwinOpen((v) => !v)} aria-expanded={twinOpen} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-[#174C3C] hover:bg-ivory">
+                <button type="button" onClick={() => setTwinOpen((v) => !v)} aria-expanded={twinOpen} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-forest hover:bg-ivory">
                   {twinOpen ? 'Hide the 3D twin' : 'Open the 3D twin'}
                 </button>
               </div>
@@ -906,7 +906,7 @@ export function ColdBooking({
         </div>
       ) : booked ? (
         <div className="space-y-4 text-center">
-          <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-700" aria-hidden />
+          <CheckCircle2 className="mx-auto h-14 w-14 text-forest" aria-hidden />
           <p className="text-lg font-semibold text-slate-900">Thank you. We told the owner you paid.</p>
           <p className="text-sm text-slate-700">The owner checks the money in their bank or UPI app and confirms. Your receipt {bookingCode(booked.id)} is ready: show it at the cold store when you bring your apples.</p>
           <Btn theme={theme} href={`/rental/receipt/${booked.id}`} icon={ReceiptText} className="min-h-[48px] text-base">See your receipt</Btn>
@@ -974,7 +974,7 @@ export function MyPlaces({ places, chambers, listingId, start, months, name }: {
       )}
       <PlaceDirections places={places} chambers={chambers} />
       {chambers.length > 0 && (
-        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="mt-1 inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 text-sm font-semibold text-[#174C3C] hover:underline">
+        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="mt-1 inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 text-sm font-semibold text-forest hover:underline">
           <MapIcon className="h-4 w-4" aria-hidden /> {open ? 'Hide the cold store' : `See where your ${wordFor(kinds.length ? kinds : ['boxes'])} are (drawing & 3D)`}
         </button>
       )}

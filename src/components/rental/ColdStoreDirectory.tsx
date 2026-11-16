@@ -134,7 +134,7 @@ export function ColdStoreDirectory({
         <div>
           <h2 className="font-display text-xl font-semibold text-slate-900">All cold stores in Jammu &amp; Kashmir</h2>
           <p className="text-sm text-slate-600">
-            <strong className="text-slate-900">{entries.length.toLocaleString('en-IN')}</strong> cold store{entries.length === 1 ? '' : 's'} found · <strong className="text-[#174C3C]">{onKashRoot}</strong> on KashRoot, ready to book
+            <strong className="text-slate-900">{entries.length.toLocaleString('en-IN')}</strong> cold store{entries.length === 1 ? '' : 's'} found · <strong className="text-forest">{onKashRoot}</strong> on KashRoot, ready to book
           </p>
           <p className="mt-1 text-xs text-slate-500">Stores on KashRoot show every chamber on a floor plan and in 3D, and you choose your own place. The others are listed so you know they exist — their owner can join with “Your store? List it”.</p>
           {reading && (
@@ -188,10 +188,10 @@ export function ColdStoreDirectory({
               const listing = e.listingId ? byId.get(e.listingId) : undefined;
               const where = [e.place, e.district].filter(Boolean).join(' · ');
               return (
-                <li key={`${e.listingId ?? e.source}:${e.name}:${e.district ?? ''}:${i}`} className={`flex flex-col rounded-2xl bg-white/85 p-4 shadow-sm ring-1 ${listing ? 'ring-[#C6DBD0]' : 'ring-slate-900/5'}`}>
+                <li key={`${e.listingId ?? e.source}:${e.name}:${e.district ?? ''}:${i}`} className={`flex flex-col rounded-2xl bg-white/85 p-4 shadow-sm ring-1 ${listing ? 'ring-forest-line' : 'ring-slate-900/5'}`}>
                   <div className="flex items-start justify-between gap-2">
                     <p className="flex items-start gap-1.5 font-semibold text-slate-900">
-                      {listing ? <Snowflake className="mt-0.5 h-4 w-4 shrink-0 text-[#174C3C]" aria-hidden /> : <Warehouse className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" aria-hidden />}
+                      {listing ? <Snowflake className="mt-0.5 h-4 w-4 shrink-0 text-forest" aria-hidden /> : <Warehouse className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" aria-hidden />}
                       {e.name}
                     </p>
                     {listing && <Badge tone="violet">On KashRoot</Badge>}
@@ -206,14 +206,14 @@ export function ColdStoreDirectory({
                   <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 pt-3 text-sm">
                     {listing && <Btn theme={theme} size="sm" onClick={() => onBook(listing)}>Choose your place</Btn>}
                     {!listing && (
-                      <button type="button" onClick={() => onClaim(e)} className="inline-flex cursor-pointer items-center gap-1 font-semibold text-[#174C3C] hover:underline">
+                      <button type="button" onClick={() => onClaim(e)} className="inline-flex cursor-pointer items-center gap-1 font-semibold text-forest hover:underline">
                         <Store className="h-3.5 w-3.5" aria-hidden /> Your store? List it
                       </button>
                     )}
                     {e.phone === undefined && <SignInToCall portal="rental" compact />}
-                    {e.phone && <a href={`tel:${e.phone}`} className="inline-flex items-center gap-1 font-semibold text-[#174C3C]"><Phone className="h-3.5 w-3.5" aria-hidden /> Call</a>}
+                    {e.phone && <a href={`tel:${e.phone}`} className="inline-flex items-center gap-1 font-semibold text-forest"><Phone className="h-3.5 w-3.5" aria-hidden /> Call</a>}
                     {e.lat !== null && e.lon !== null && (
-                      <a href={`https://www.google.com/maps/search/?api=1&query=${e.lat},${e.lon}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-semibold text-[#174C3C]">
+                      <a href={`https://www.google.com/maps/search/?api=1&query=${e.lat},${e.lon}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-semibold text-forest">
                         <MapPin className="h-3.5 w-3.5" aria-hidden /> Map
                       </a>
                     )}
@@ -280,9 +280,9 @@ function SuggestStore({ waiting, reload }: { waiting: DirectoryRow[]; reload: ()
     }
   };
   return (
-    <section aria-label="Suggest a cold store" className="rounded-2xl bg-[#EAF3EE]/70 p-4 text-sm ring-1 ring-[#C6DBD0]">
+    <section aria-label="Suggest a cold store" className="rounded-2xl bg-forest-soft/70 p-4 text-sm ring-1 ring-forest-line">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="flex items-start gap-2 text-[#12382E]">
+        <p className="flex items-start gap-2 text-forest-deep">
           <MessageSquarePlus className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           <span><strong>Missing a cold store?</strong> Tell us its name and place — the KashRoot team checks it, then every farmer sees it.</span>
         </p>
@@ -312,7 +312,7 @@ function SuggestStore({ waiting, reload }: { waiting: DirectoryRow[]; reload: ()
         </form>
       )}
       {waiting.length > 0 && (
-        <p className="mt-2 text-xs text-[#12382E]">
+        <p className="mt-2 text-xs text-forest-deep">
           Waiting for the KashRoot team’s check: {waiting.map((w) => `${w.name}${w.district ? ` (${w.district})` : ''}`).join(' · ')}
         </p>
       )}

@@ -149,7 +149,7 @@ export default function VehiclePage() {
               spellCheck={false}
               maxLength={16}
               placeholder="JK01AB1234"
-              className="block w-full rounded-xl border-0 bg-white px-4 py-3 text-lg font-mono font-semibold tracking-wider placeholder:text-slate-400 shadow-sm ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-emerald-700"
+              className="block w-full rounded-xl border-0 bg-white px-4 py-3 text-lg font-mono font-semibold tracking-wider placeholder:text-slate-400 shadow-sm ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-forest"
             />
             <p className="text-xs text-slate-500">Format: JK-01-AB-1234 (separators added automatically)</p>
             {error && <p className="text-sm text-rose-700" role="alert">{error}</p>}
@@ -176,8 +176,8 @@ export default function VehiclePage() {
       case 'linked':
         return (
           <div className="space-y-4 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
-              <Link2 className="h-8 w-8 text-emerald-700" aria-hidden />
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-forest-soft">
+              <Link2 className="h-8 w-8 text-forest" aria-hidden />
             </div>
             <p className="text-lg font-semibold text-slate-900">Vehicle linked to your account</p>
             <p className="text-sm text-slate-600">

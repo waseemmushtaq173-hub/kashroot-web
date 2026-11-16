@@ -358,7 +358,7 @@ export default function DealerDashboardPage() {
             {licences.map((l) => (
               <li key={l.id} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-start gap-3">
-                  {l.verified ? <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-700" aria-hidden /> : <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-500" aria-hidden />}
+                  {l.verified ? <CheckCircle2 className="mt-0.5 h-5 w-5 text-forest" aria-hidden /> : <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-500" aria-hidden />}
                   <div>
                     <p className="font-semibold text-slate-900">{l.name}</p>
                     <p className="text-sm text-slate-500">{l.file ? `On file: ${l.file}` : 'Not uploaded'}</p>
@@ -455,7 +455,7 @@ function DealerVerification({ account }: { account: Account }) {
   return (
     <Panel theme={theme} title="KashRoot verified dealer" icon={ShieldCheck} className="mb-6">
       {verified ? (
-        <p className="flex items-center gap-2 text-sm font-semibold text-emerald-800"><CheckCircle2 className="h-5 w-5" aria-hidden /> You are verified. Farmers checking your batches see “KashRoot-verified dealer”.</p>
+        <p className="flex items-center gap-2 text-sm font-semibold text-forest-deep"><CheckCircle2 className="h-5 w-5" aria-hidden /> You are verified. Farmers checking your batches see “KashRoot-verified dealer”.</p>
       ) : status === 'pending' ? (
         <p className="text-sm text-slate-700">Your request is with the KashRoot admin. Until then farmers see your batches as registered by a dealer not yet verified.</p>
       ) : status === undefined ? null : (

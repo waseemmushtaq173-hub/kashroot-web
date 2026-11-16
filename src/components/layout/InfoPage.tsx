@@ -6,7 +6,7 @@ import { LATTICE_BG } from '@/components/portal/lattice';
 /** Plain bright page for policy and help content. */
 export function InfoPage({ title, intro, children }: { title: string; intro: string; children: ReactNode }) {
   return (
-    <div className="kr-light relative isolate min-h-screen bg-gradient-to-br from-amber-50 via-white to-emerald-50 text-slate-900">
+    <div className="kr-light relative isolate min-h-screen bg-gradient-to-br from-amber-50 via-white to-forest-soft text-slate-900">
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10" style={LATTICE_BG} />
       <SiteHeader tone="light" />
       <main className="mx-auto max-w-3xl px-4 py-12 sm:px-6">

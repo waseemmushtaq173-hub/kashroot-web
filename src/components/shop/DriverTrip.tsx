@@ -136,7 +136,7 @@ export function DriverTrip({ token }: { token: string }) {
         </div>
 
         {done ? (
-          <p className="flex items-center gap-2 rounded-2xl bg-emerald-50 p-5 text-lg font-semibold text-emerald-900 ring-1 ring-emerald-200">
+          <p className="flex items-center gap-2 rounded-2xl bg-forest-soft p-5 text-lg font-semibold text-forest-deep ring-1 ring-forest-line">
             <CheckCircle2 className="h-6 w-6" aria-hidden /> The buyer received it. Thank you! You can close this page.
           </p>
         ) : notYet ? (
@@ -148,7 +148,7 @@ export function DriverTrip({ token }: { token: string }) {
             <div className="rounded-2xl bg-chinar p-6 text-center text-white shadow-lg" role="status">
               <MapPin className="mx-auto h-10 w-10 animate-pulse" aria-hidden />
               <p className="mt-2 text-xl font-bold">Sharing your location</p>
-              <p className="mt-1 text-emerald-50">{sentAt ? `Last sent ${ago(sentAt)}` : 'Getting GPS…'}</p>
+              <p className="mt-1 text-forest-soft">{sentAt ? `Last sent ${ago(sentAt)}` : 'Getting GPS…'}</p>
             </div>
             <p className="space-y-1 rounded-2xl bg-amber-50 p-4 text-amber-950 ring-1 ring-amber-200">
               <span className="block font-semibold">Keep this page open.</span>

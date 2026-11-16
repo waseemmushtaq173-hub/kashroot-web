@@ -260,7 +260,7 @@ export function VideoCall({ requestId, me, role, otherName, otherPhone, onClose 
         {!live && (
           <div className="absolute inset-0 grid place-items-center p-6 text-center">
             <div>
-              {['starting', 'waiting', 'connecting'].includes(phase) && <Loader2 className="mx-auto h-8 w-8 animate-spin text-emerald-300" aria-hidden />}
+              {['starting', 'waiting', 'connecting'].includes(phase) && <Loader2 className="mx-auto h-8 w-8 animate-spin text-forest-line" aria-hidden />}
               <p className="mt-3 text-lg font-semibold">{PHASE_TEXT[phase]}</p>
               <p className="mt-1 text-sm text-slate-300">{phase === 'waiting' ? `${otherName} will appear here when they open the call.` : null}</p>
               {error && <p role="alert" className="mt-3 text-sm text-rose-300">{error}</p>}
@@ -270,7 +270,7 @@ export function VideoCall({ requestId, me, role, otherName, otherPhone, onClose 
                   {whatsapp && (
                     <>
                       {' '}Or{' '}
-                      <a href={whatsapp} target="_blank" rel="noreferrer" className="font-semibold text-emerald-300 underline">
+                      <a href={whatsapp} target="_blank" rel="noreferrer" className="font-semibold text-forest-line underline">
                         video call on WhatsApp
                       </a>
                       .

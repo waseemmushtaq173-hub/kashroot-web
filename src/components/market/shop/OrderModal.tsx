@@ -260,9 +260,9 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
         </Field>
         {fix && (
           <>
-            <p className="rounded-xl bg-[#EAF3EE] p-3 text-sm text-[#12382E]">
+            <p className="rounded-xl bg-forest-soft p-3 text-sm text-forest-deep">
               <strong>📍 Live GPS locked:</strong> {fix.address} · {fix.lat.toFixed(5)}, {fix.lng.toFixed(5)} (±{Math.round(fix.accuracy ?? 0)} m). Your pin goes on the live map the farmer follows to you.
-              <button type="button" onClick={() => void takeFix()} disabled={fixing} className="ms-2 inline-flex min-h-8 items-center gap-1 rounded-lg bg-[#EAF3EE] px-2 font-semibold text-[#12382E] underline-offset-2 hover:bg-[#CFE0D6] disabled:opacity-50">
+              <button type="button" onClick={() => void takeFix()} disabled={fixing} className="ms-2 inline-flex min-h-8 items-center gap-1 rounded-lg bg-forest-soft px-2 font-semibold text-forest-deep underline-offset-2 hover:bg-[#CFE0D6] disabled:opacity-50">
                 <Crosshair className="h-3.5 w-3.5" aria-hidden /> {fixing ? 'Capturing…' : 'Capture again'}
               </button>
             </p>
@@ -272,7 +272,7 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
         {fixError && (
           <div>
             <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm font-medium text-rose-800 ring-1 ring-rose-200">{fixError}</p>
-            <button type="button" onClick={() => void takeFix()} disabled={fixing} className="mt-2 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#174C3C] px-4 font-bold text-white hover:bg-[#174C3C] disabled:opacity-50">
+            <button type="button" onClick={() => void takeFix()} disabled={fixing} className="mt-2 inline-flex min-h-11 items-center gap-2 rounded-xl bg-forest px-4 font-bold text-white hover:bg-forest disabled:opacity-50">
               <Crosshair className="h-4 w-4" aria-hidden /> {fixing ? 'Capturing your live GPS…' : 'Capture my live GPS'}
             </button>
           </div>
@@ -280,8 +280,8 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
         {settlement && l.unit === 'box' && qty > 0 && (() => {
           const s = calculateClusterSettlement({ produceSubtotalInr: qty * Number(l.price), totalBoxes: qty, freightPerBoxInr: freightPerBox ?? 0 });
           return (
-            <section aria-label="Settlement" data-testid="order-settlement" className="rounded-xl bg-[#F3F8F5] p-3 text-sm text-[#1E2D28] ring-1 ring-[#C6DBD0]">
-              <p className="font-bold text-[#174C3C]">Settlement for this order</p>
+            <section aria-label="Settlement" data-testid="order-settlement" className="rounded-xl bg-[#F6F7FF] p-3 text-sm text-[#1E2D28] ring-1 ring-forest-line">
+              <p className="font-bold text-forest">Settlement for this order</p>
               <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5">
                 <dt>Apple Boxes Subtotal (100% paid to Growers — 0% Grower Deduction)</dt>
                 <dd className="text-right font-bold tabular-nums">{inr(s.produceSubtotalInr)}</dd>
@@ -298,7 +298,7 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
               <p className="mt-2 text-xs text-[#52665E]">
                 The escrow on this order holds the growers’ {inr(s.produceSubtotalInr)} only. The service fee and the freight are recorded on the order for you to see; they are not collected through this order.
               </p>
-              <p className="mt-2 rounded-lg bg-[#EAF3EE] px-2.5 py-1.5 text-xs font-semibold text-[#174C3C]">
+              <p className="mt-2 rounded-lg bg-forest-soft px-2.5 py-1.5 text-xs font-semibold text-forest">
                 Orchard Gates ({CLUSTER_RADIUS_KM} km Cluster) → KashRoot Local Pickup Vehicle → Nearest KashRoot Hub Consolidation → Direct Highway Truck to Buyer
               </p>
             </section>
@@ -306,9 +306,9 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
         })()}
         {(gone || problem) && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm font-medium text-rose-800 ring-1 ring-rose-200">{gone ? GONE : problem}</p>}
         {fix ? (
-          <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-950">🔒 <strong>{inr(qty * Number(l.price))} goes into KashRoot Escrow</strong> when you press Order. It releases to the farmer only when you press “✅ Confirm Delivery Received” after the goods reach you at {form.address.trim() || fix.address}.</p>
+          <p className="rounded-xl bg-forest-soft p-3 text-sm text-forest-pine">🔒 <strong>{inr(qty * Number(l.price))} goes into KashRoot Escrow</strong> when you press Order. It releases to the farmer only when you press “✅ Confirm Delivery Received” after the goods reach you at {form.address.trim() || fix.address}.</p>
         ) : (
-          <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-950">You pay nothing now. When the goods reach you and you have checked them, press “✅ Confirm Delivery Received” and the escrow releases to the farmer.</p>
+          <p className="rounded-xl bg-forest-soft p-3 text-sm text-forest-pine">You pay nothing now. When the goods reach you and you have checked them, press “✅ Confirm Delivery Received” and the escrow releases to the farmer.</p>
         )}
       </div>
     </Modal>

@@ -40,7 +40,7 @@ export default function StatusPage() {
   }, [fetchStatus]);
 
   const getIcon = (status: string) => {
-    if (status === "ok" || status === "configured") return <CheckCircle className="w-6 h-6 text-green-500" />;
+    if (status === "ok" || status === "configured") return <CheckCircle className="w-6 h-6 text-forest-mid" />;
     if (status === "degraded") return <AlertTriangle className="w-6 h-6 text-yellow-500" />;
     return <XCircle className="w-6 h-6 text-red-500" />;
   };

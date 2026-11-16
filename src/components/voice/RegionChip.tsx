@@ -15,7 +15,7 @@ export function RegionChip({ district, className = '' }: { district?: string | n
   return (
     <div className={`flex flex-wrap items-center gap-2 text-sm text-slate-700 ${className}`}>
       <p className="flex items-center gap-1.5" aria-live="polite">
-        <MapPin className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden />
+        <MapPin className="h-4 w-4 shrink-0 text-forest" aria-hidden />
         {region ? (
           <span>
             Your area: <strong className="text-slate-900">{stateLabel(region.state)}</strong>
@@ -30,14 +30,14 @@ export function RegionChip({ district, className = '' }: { district?: string | n
         type="button"
         onClick={() => void locate()}
         disabled={locating}
-        className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3 font-semibold text-slate-800 ring-1 ring-slate-900/10 transition hover:bg-emerald-50 disabled:cursor-wait disabled:opacity-60"
+        className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3 font-semibold text-slate-800 ring-1 ring-slate-900/10 transition hover:bg-forest-soft disabled:cursor-wait disabled:opacity-60"
       >
         {locating ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <LocateFixed className="h-4 w-4" aria-hidden />}
         {locating ? 'Finding…' : 'Use my location'}
       </button>
       <label className="inline-flex items-center">
         <span className="sr-only">Your state</span>
-        <select value={region?.state ?? ''} onChange={(e) => choose(e.target.value)} className="min-h-11 max-w-[14rem] cursor-pointer rounded-xl border-0 bg-white px-3 py-2 text-sm text-slate-800 ring-1 ring-inset ring-slate-900/10 focus:ring-2 focus:ring-emerald-700">
+        <select value={region?.state ?? ''} onChange={(e) => choose(e.target.value)} className="min-h-11 max-w-[14rem] cursor-pointer rounded-xl border-0 bg-white px-3 py-2 text-sm text-slate-800 ring-1 ring-inset ring-slate-900/10 focus:ring-2 focus:ring-forest">
           <option value="">Choose your state</option>
           {STATES.map((s) => (
             <option key={s.name} value={s.name}>{stateLabel(s.name)}</option>

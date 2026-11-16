@@ -131,7 +131,7 @@ export default async function HomePage() {
             </p>
             {/* The KashRoot identity: forest greens, soft green and champagne gold. */}
             <p aria-hidden className="mt-5 flex items-center gap-1.5">
-              {['#12382E', '#174C3C', '#286B54', '#EAF3EE', '#C6A45B'].map((c) => (
+              {['#1E1B4B', '#3730A3', '#6358E0', '#EEF0FF', '#C6A45B'].map((c) => (
                 <span key={c} className="h-2.5 w-8 rounded-full ring-1 ring-forest-line" style={{ backgroundColor: c }} />
               ))}
             </p>
@@ -178,7 +178,7 @@ export default async function HomePage() {
           </section>
 
           <section aria-labelledby="portals-heading">
-            <div className="relative isolate mb-6 overflow-hidden rounded-[2rem] border border-forest-deep p-8 text-white [box-shadow:inset_0_1px_0_rgba(255,255,255,0.14),0_2px_0_#0C2A22,0_18px_40px_-14px_rgba(18,56,46,0.45)] sm:p-10">
+            <div className="relative isolate mb-6 overflow-hidden rounded-[2rem] border border-forest-deep p-8 text-white [box-shadow:inset_0_1px_0_rgba(255,255,255,0.14),0_2px_0_#0C2A22,0_18px_40px_-14px_rgba(30, 27, 75,0.45)] sm:p-10">
               <div aria-hidden className="absolute inset-0 -z-20 bg-gradient-to-br from-forest-deep via-forest to-forest" />
               <div aria-hidden className="absolute inset-x-8 top-0 -z-10 h-px bg-gradient-to-r from-transparent via-champagne to-transparent" />
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-champagne">Every portal</p>
@@ -202,7 +202,7 @@ function ToolCard({ id }: { id: ToolId }) {
 
   return (
     <article
-      className={`group relative flex h-full flex-col overflow-hidden rounded-3xl p-6 ${GLASS.panel} transition duration-300 [transform-style:preserve-3d] hover:-translate-y-1 hover:bg-white hover:[box-shadow:var(--kr-card-hover-shadow),0_24px_48px_-12px_rgba(18,56,46,0.25)] motion-reduce:transition-none motion-reduce:hover:translate-y-0`}
+      className={`group relative flex h-full flex-col overflow-hidden rounded-3xl p-6 ${GLASS.panel} transition duration-300 [transform-style:preserve-3d] hover:-translate-y-1 hover:bg-white hover:[box-shadow:var(--kr-card-hover-shadow),0_24px_48px_-12px_rgba(30, 27, 75,0.25)] motion-reduce:transition-none motion-reduce:hover:translate-y-0`}
     >
       <div
         aria-hidden

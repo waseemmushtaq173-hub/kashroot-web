@@ -246,12 +246,12 @@ export function DriverConsole() {
         </form>
         {check?.done && (
           check.found && check.vehicle ? (
-            <div className="mt-4 rounded-xl bg-emerald-50 p-3 ring-1 ring-emerald-200">
-              <p className="flex items-center gap-2 text-sm font-bold text-emerald-900">
+            <div className="mt-4 rounded-xl bg-forest-soft p-3 ring-1 ring-forest-line">
+              <p className="flex items-center gap-2 text-sm font-bold text-forest-deep">
                 <CheckCircle2 className="h-4 w-4" aria-hidden /> {check.vehicle.vehicle_registration_no} is registered
                 <Badge tone="blue">{check.vehicle.source.replaceAll('_', ' ')}</Badge>
               </p>
-              <dl className="mt-2 grid gap-x-6 gap-y-1 text-xs text-emerald-900 sm:grid-cols-2">
+              <dl className="mt-2 grid gap-x-6 gap-y-1 text-xs text-forest-deep sm:grid-cols-2">
                 {[
                   ['Type', check.vehicle.vehicle_type],
                   ['Owner', check.vehicle.owner_name],
@@ -264,8 +264,8 @@ export function DriverConsole() {
                 ]
                   .filter(([, v]) => Boolean(v))
                   .map(([k, v]) => (
-                    <div key={k as string} className="flex justify-between gap-3 border-b border-emerald-900/10 pb-1">
-                      <dt className="text-emerald-700">{k}</dt>
+                    <div key={k as string} className="flex justify-between gap-3 border-b border-forest-deep/10 pb-1">
+                      <dt className="text-forest">{k}</dt>
                       <dd className="text-right font-semibold">{v}</dd>
                     </div>
                   ))}

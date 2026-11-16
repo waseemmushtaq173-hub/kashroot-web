@@ -99,7 +99,7 @@ export function StudioForm<T extends Record<string, unknown>>({
             <button
               key={l}
               type="button"
-              className={`min-h-9 min-w-9 cursor-pointer rounded-lg px-2 py-1 text-xs font-semibold transition ${locale === l ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600 hover:bg-emerald-50 ring-1 ring-slate-200'}`}
+              className={`min-h-9 min-w-9 cursor-pointer rounded-lg px-2 py-1 text-xs font-semibold transition ${locale === l ? 'bg-forest text-white' : 'bg-white text-slate-600 hover:bg-forest-soft ring-1 ring-slate-200'}`}
               onClick={() => window.dispatchEvent(new CustomEvent('studio:locale', { detail: l }))}
             >
               {LANG_LABELS[l]}
@@ -132,7 +132,7 @@ export function StudioForm<T extends Record<string, unknown>>({
                       <button
                         key={preset}
                         type="button"
-                        className={`min-h-8 cursor-pointer rounded-lg px-2 py-0.5 text-xs font-semibold transition ${values[field.key] === preset ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600 hover:bg-emerald-50 ring-1 ring-slate-200'}`}
+                        className={`min-h-8 cursor-pointer rounded-lg px-2 py-0.5 text-xs font-semibold transition ${values[field.key] === preset ? 'bg-forest text-white' : 'bg-white text-slate-600 hover:bg-forest-soft ring-1 ring-slate-200'}`}
                         onClick={() => handlePreset(field.key, preset)}
                         disabled={disabled}
                         aria-pressed={values[field.key] === preset}
@@ -187,7 +187,7 @@ export function StudioForm<T extends Record<string, unknown>>({
                       type="checkbox"
                       checked={values[field.key] as boolean}
                       onChange={(e) => handleChange(field.key, e.target.checked)}
-                      className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                      className="h-4 w-4 rounded border-slate-300 text-forest focus:ring-forest-mid"
                       disabled={disabled}
                     />
                     <span className="text-sm text-slate-700">{t({ en: 'Yes', hi: 'हाँ', ur: 'جی ہاں', ks: 'ہ۠' }, locale)}</span>

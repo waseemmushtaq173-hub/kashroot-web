@@ -175,7 +175,7 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
             {crops.length > 0 && region && (
               <div role="group" aria-label={`Grown in ${stateLabel(region.state)}`} className="flex flex-wrap gap-2">
                 {crops.map((c) => (
-                  <button key={c.name} type="button" aria-pressed={picked(c)} onClick={() => pickCrop(c)} className={`min-h-11 cursor-pointer rounded-full px-4 text-sm font-semibold ring-1 transition ${picked(c) ? 'bg-emerald-700 text-white ring-emerald-700' : 'bg-white text-emerald-900 ring-emerald-200 hover:bg-emerald-50'}`}>
+                  <button key={c.name} type="button" aria-pressed={picked(c)} onClick={() => pickCrop(c)} className={`min-h-11 cursor-pointer rounded-full px-4 text-sm font-semibold ring-1 transition ${picked(c) ? 'bg-forest text-white ring-forest' : 'bg-white text-forest-deep ring-forest-line hover:bg-forest-soft'}`}>
                     {c.name}
                   </button>
                 ))}
@@ -221,7 +221,7 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <label className="flex min-h-11 cursor-pointer items-center gap-2 whitespace-nowrap text-sm font-medium text-slate-700">
-              <input type="checkbox" checked={verifiedOnly} onChange={(e) => setVerifiedOnly(e.target.checked)} className="h-5 w-5 rounded border-slate-300 text-[#174C3C]" /> Verified sellers only
+              <input type="checkbox" checked={verifiedOnly} onChange={(e) => setVerifiedOnly(e.target.checked)} className="h-5 w-5 rounded border-slate-300 text-forest" /> Verified sellers only
             </label>
             {cluster && (
               <button type="button" aria-pressed={nearOnly && Boolean(anchor)} disabled={!anchor} title={anchor ? undefined : 'Choose a 1st order first: “Set as 1st Order Anchor” on a listing with GPS'} onClick={() => setNearOnly(!nearOnly)} className="kr-btn-secondary kr-btn-sm min-h-11">
@@ -229,7 +229,7 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
               </button>
             )}
             {cluster && anchor && (
-              <button type="button" onClick={() => { setAnchorId(null); setNearOnly(false); }} className="min-h-11 cursor-pointer rounded-xl px-3 text-sm font-semibold text-[#52665E] hover:bg-[#EAF3EE]">Clear the 1st order anchor</button>
+              <button type="button" onClick={() => { setAnchorId(null); setNearOnly(false); }} className="min-h-11 cursor-pointer rounded-xl px-3 text-sm font-semibold text-[#52665E] hover:bg-forest-soft">Clear the 1st order anchor</button>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">

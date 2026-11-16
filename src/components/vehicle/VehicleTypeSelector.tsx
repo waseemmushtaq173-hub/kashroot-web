@@ -71,18 +71,18 @@ export function VehicleTypeSelector({
                 relative group min-h-[110px] cursor-pointer flex flex-col items-center justify-center gap-3 rounded-2xl p-4
                 transition-all duration-200
                 ${isSelected
-                  ? 'bg-emerald-50 ring-2 ring-emerald-600 shadow-lg'
-                  : 'bg-white ring-1 ring-slate-200 hover:ring-emerald-300 hover:bg-emerald-50/50'
+                  ? 'bg-forest-soft ring-2 ring-forest shadow-lg'
+                  : 'bg-white ring-1 ring-slate-200 hover:ring-forest-line hover:bg-forest-soft/50'
                 }
                 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
               `}
             >
               <span className="text-4xl sm:text-5xl" aria-hidden>{VEHICLE_TYPE_ICONS[type]}</span>
-              <span className={`font-semibold text-center ${isSelected ? 'text-emerald-800' : 'text-slate-800'}`}>
+              <span className={`font-semibold text-center ${isSelected ? 'text-forest-deep' : 'text-slate-800'}`}>
                 {VEHICLE_TYPE_LABELS[type]}
               </span>
               {isSelected && (
-                <div className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white">
+                <div className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-forest text-white">
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                 </div>
               )}
@@ -92,7 +92,7 @@ export function VehicleTypeSelector({
       </div>
 
       {selected && (
-        <p className="text-xs text-emerald-700 flex items-center gap-1">
+        <p className="text-xs text-forest flex items-center gap-1">
           <HelpCircle className="h-3.5 w-3.5" aria-hidden />
           Selected: <strong>{VEHICLE_TYPE_LABELS[selected]}</strong>. Now enter the registration number.
         </p>
@@ -176,7 +176,7 @@ export function VehicleVerificationCard({
           <p className="text-sm text-slate-500">Registration</p>
           <p className="text-lg font-mono font-semibold text-slate-900">{formatted}</p>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
+        <span className="inline-flex items-center gap-1 rounded-full bg-forest-soft px-3 py-1 text-xs font-semibold text-forest-deep">
           Verified ✓
         </span>
       </div>

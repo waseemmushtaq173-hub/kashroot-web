@@ -37,44 +37,44 @@ const ROLE_STYLE: Record<RegisterRole, { icon: LucideIcon; label: string; theme:
     label: 'Farmer',
     theme: 'farmer',
     hint: 'Sell my harvest',
-    tile: 'from-emerald-700 to-[#052E26] shadow-emerald-950/30',
-    selected: 'bg-gradient-to-br from-[#FBF8F0] to-emerald-50 ring-2 ring-amber-400',
-    button: 'from-emerald-700 to-emerald-900 shadow-emerald-900/30',
-    ring: 'focus:ring-emerald-700',
-    text: 'text-emerald-800',
+    tile: 'from-forest to-[#14123A] shadow-forest-pine/30',
+    selected: 'bg-gradient-to-br from-[#FBF8F0] to-forest-soft ring-2 ring-amber-400',
+    button: 'from-forest to-forest-deep shadow-forest-deep/30',
+    ring: 'focus:ring-forest',
+    text: 'text-forest-deep',
   },
   BUYER: {
     icon: ShoppingBag,
     label: 'Buyer',
     theme: 'buyer',
     hint: 'Source produce',
-    tile: 'from-emerald-700 to-[#052E26] shadow-emerald-950/30',
-    selected: 'bg-gradient-to-br from-[#FBF8F0] to-emerald-50 ring-2 ring-amber-400',
-    button: 'from-emerald-700 to-emerald-900 shadow-emerald-900/30',
-    ring: 'focus:ring-emerald-700',
-    text: 'text-emerald-800',
+    tile: 'from-forest to-[#14123A] shadow-forest-pine/30',
+    selected: 'bg-gradient-to-br from-[#FBF8F0] to-forest-soft ring-2 ring-amber-400',
+    button: 'from-forest to-forest-deep shadow-forest-deep/30',
+    ring: 'focus:ring-forest',
+    text: 'text-forest-deep',
   },
   SELLER: {
     icon: Store,
     label: 'Seller',
     theme: 'seller',
     hint: 'Sell inputs & packaging',
-    tile: 'from-emerald-700 to-[#052E26] shadow-emerald-950/30',
-    selected: 'bg-gradient-to-br from-[#FBF8F0] to-emerald-50 ring-2 ring-amber-400',
-    button: 'from-emerald-700 to-emerald-900 shadow-emerald-900/30',
-    ring: 'focus:ring-emerald-700',
-    text: 'text-emerald-800',
+    tile: 'from-forest to-[#14123A] shadow-forest-pine/30',
+    selected: 'bg-gradient-to-br from-[#FBF8F0] to-forest-soft ring-2 ring-amber-400',
+    button: 'from-forest to-forest-deep shadow-forest-deep/30',
+    ring: 'focus:ring-forest',
+    text: 'text-forest-deep',
   },
   PROVIDER: {
     icon: Truck,
     label: 'Logistics',
     theme: 'logistics',
     hint: 'Transport & cold chain',
-    tile: 'from-emerald-700 to-[#052E26] shadow-emerald-950/30',
-    selected: 'bg-gradient-to-br from-[#FBF8F0] to-emerald-50 ring-2 ring-amber-400',
-    button: 'from-emerald-700 to-emerald-900 shadow-emerald-900/30',
-    ring: 'focus:ring-emerald-700',
-    text: 'text-emerald-800',
+    tile: 'from-forest to-[#14123A] shadow-forest-pine/30',
+    selected: 'bg-gradient-to-br from-[#FBF8F0] to-forest-soft ring-2 ring-amber-400',
+    button: 'from-forest to-forest-deep shadow-forest-deep/30',
+    ring: 'focus:ring-forest',
+    text: 'text-forest-deep',
   },
 };
 
@@ -257,7 +257,7 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
               </button>
             </div>
             <div className="mx-auto mt-3 max-w-sm">{resendHuman.element}</div>
-            {resend.isSuccess && resendIn > 0 && <p className="mt-3 text-sm text-emerald-700">Sent again — it can take a minute to arrive.</p>}
+            {resend.isSuccess && resendIn > 0 && <p className="mt-3 text-sm text-forest">Sent again — it can take a minute to arrive.</p>}
             {resend.error && <p role="alert" className="mt-3 text-sm text-rose-700">{(resend.error as Error).message}</p>}
           </>
         ) : (
@@ -446,7 +446,7 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
           </div>
 
           <label htmlFor="terms" className="flex items-start gap-2.5 text-sm text-slate-700">
-            <input id="terms" type="checkbox" checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-700" />
+            <input id="terms" type="checkbox" checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-forest focus:ring-forest" />
             <span>
               I agree to the <Link href="/terms" className={`font-semibold hover:underline ${look.text}`}>Terms</Link> and <Link href="/privacy" className={`font-semibold hover:underline ${look.text}`}>Privacy Policy</Link>
             </span>

@@ -18,7 +18,7 @@ export interface ShellLook {
 
 /** Every portal wears the one KashRoot green (see BRAND in components/portal/kit). */
 const FOREST: ShellLook = {
-  ink: '#174C3C',
+  ink: '#3730A3',
   feature: 'bg-gradient-to-br from-forest-mid via-forest to-forest-deep ring-1 ring-champagne/40',
 };
 

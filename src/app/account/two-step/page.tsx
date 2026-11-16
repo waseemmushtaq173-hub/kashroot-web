@@ -71,7 +71,7 @@ export default function TwoStepPage() {
       <section>
         <ul className="!list-none space-y-2 !pl-0">
           {PROTECT.map((p) => (
-            <li key={p.lang} lang={p.lang} dir={p.dir} className={`rounded-xl bg-emerald-50 p-3 text-emerald-950 ring-1 ring-emerald-200 ${p.lang === 'en' ? 'font-semibold' : ''}`}>
+            <li key={p.lang} lang={p.lang} dir={p.dir} className={`rounded-xl bg-forest-soft p-3 text-forest-pine ring-1 ring-forest-line ${p.lang === 'en' ? 'font-semibold' : ''}`}>
               {p.text}
             </li>
           ))}
@@ -82,7 +82,7 @@ export default function TwoStepPage() {
         <p className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Checking…</p>
       ) : !signedIn ? (
         <p>
-          Sign in to your portal first, then come back here. <Link className="font-semibold text-emerald-800 underline" href="/login">Sign in</Link>
+          Sign in to your portal first, then come back here. <Link className="font-semibold text-forest-deep underline" href="/login">Sign in</Link>
         </p>
       ) : mode === 'add' ? (
         <section>
@@ -96,7 +96,7 @@ export default function TwoStepPage() {
         </section>
       ) : (
         <section data-two-step-list>
-          <h2 className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-emerald-700" aria-hidden /> {factors.length ? 'Two-step sign-in is on' : 'Two-step sign-in is off'}</h2>
+          <h2 className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-forest" aria-hidden /> {factors.length ? 'Two-step sign-in is on' : 'Two-step sign-in is off'}</h2>
           {factors.length > 0 && (
             <ul className="!list-none space-y-2 !pl-0">
               {factors.map((f) => (

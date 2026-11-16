@@ -86,7 +86,7 @@ export function SafePayment({ as, account, theme, children }: { as: 'buyer' | 'f
                 <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> Verify your {missing === 'pan' ? 'PAN' : 'Aadhaar'} before you {as === 'buyer' ? 'order or pay' : 'sell or add payment details'}. KashRoot does not allow it until then.
               </p>
             ) : aadhaar ? (
-              <p className="flex items-center gap-2 rounded-xl bg-emerald-50 p-3 text-emerald-900 ring-1 ring-emerald-200"><BadgeCheck className="h-4 w-4" aria-hidden /> You are verified. Buyers and farmers see that you are a verified person.</p>
+              <p className="flex items-center gap-2 rounded-xl bg-forest-soft p-3 text-forest-deep ring-1 ring-forest-line"><BadgeCheck className="h-4 w-4" aria-hidden /> You are verified. Buyers and farmers see that you are a verified person.</p>
             ) : null}
             {(!aadhaar || (rules?.pan_required && !pan)) && (
               <Btn theme={theme} icon={ShieldCheck} onClick={() => setOpen(true)}>Verify now</Btn>

@@ -175,8 +175,8 @@ function ComparePrices() {
 
       {tab === 'compare' && (
         <div className="space-y-5">
-          <p className="flex items-start gap-2 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-950 ring-1 ring-emerald-200">
-            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" aria-hidden />
+          <p className="flex items-start gap-2 rounded-2xl bg-forest-soft p-4 text-sm text-forest-pine ring-1 ring-forest-line">
+            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-forest" aria-hidden />
             <span><strong>Pay after delivery.</strong> Order now; pay the seller directly by UPI only when the goods reach you and you have checked them. KashRoot never holds your money.</span>
           </p>
           <ListingBrowser
@@ -300,9 +300,9 @@ function WhereToGo({ cameFor }: { cameFor: 'produce' | 'supplies' }) {
       <p className="text-sm font-semibold text-slate-900">{cameFor === 'produce' ? 'Buying or selling produce? Each has its own place now:' : 'Farm supplies have their own shop now:'}</p>
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
         {choices.map((m, i) => (
-          <Link key={m.href} href={m.href} className={`flex min-h-12 flex-col justify-center rounded-xl px-4 py-2 no-underline ring-1 transition hover:no-underline ${i === 0 ? 'bg-emerald-700 text-white ring-emerald-700 hover:bg-emerald-800' : 'bg-white text-slate-900 ring-slate-200 hover:ring-emerald-300'}`}>
+          <Link key={m.href} href={m.href} className={`flex min-h-12 flex-col justify-center rounded-xl px-4 py-2 no-underline ring-1 transition hover:no-underline ${i === 0 ? 'bg-forest text-white ring-forest hover:bg-forest-deep' : 'bg-white text-slate-900 ring-slate-200 hover:ring-forest-line'}`}>
             <span className="text-base font-semibold">{m.label}</span>
-            <span className={`text-xs ${i === 0 ? 'text-emerald-100' : 'text-slate-600'}`}>{m.where}</span>
+            <span className={`text-xs ${i === 0 ? 'text-forest-soft' : 'text-slate-600'}`}>{m.where}</span>
           </Link>
         ))}
       </div>

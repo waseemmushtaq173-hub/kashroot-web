@@ -167,10 +167,10 @@ export default function SeasonPlannerPage() {
                   const done = ticks.includes(key(t));
                   return (
                     <li key={t}>
-                      <label className={`flex cursor-pointer items-start gap-3 rounded-2xl p-4 ring-1 transition ${done ? 'bg-emerald-50 ring-emerald-200' : 'bg-white/70 ring-slate-900/5 hover:bg-orange-50'}`}>
-                        <input type="checkbox" className="mt-0.5 h-5 w-5 rounded border-slate-300 text-chinar focus:ring-emerald-700" checked={done} onChange={() => { toggle(t); if (!done) toast.success('Task done'); }} />
-                        <span className={`text-sm ${done ? 'text-emerald-900 line-through decoration-emerald-400' : 'text-slate-800'}`}>{t}</span>
-                        {done && <CheckCircle2 className="ml-auto h-5 w-5 shrink-0 text-emerald-700" aria-hidden />}
+                      <label className={`flex cursor-pointer items-start gap-3 rounded-2xl p-4 ring-1 transition ${done ? 'bg-forest-soft ring-forest-line' : 'bg-white/70 ring-slate-900/5 hover:bg-orange-50'}`}>
+                        <input type="checkbox" className="mt-0.5 h-5 w-5 rounded border-slate-300 text-chinar focus:ring-forest" checked={done} onChange={() => { toggle(t); if (!done) toast.success('Task done'); }} />
+                        <span className={`text-sm ${done ? 'text-forest-deep line-through decoration-forest-mid' : 'text-slate-800'}`}>{t}</span>
+                        {done && <CheckCircle2 className="ml-auto h-5 w-5 shrink-0 text-forest" aria-hidden />}
                       </label>
                     </li>
                   );
@@ -211,7 +211,7 @@ export default function SeasonPlannerPage() {
                 <div key={k} className="flex justify-between border-b border-slate-900/5 pb-2"><dt className="text-slate-500">{k}</dt><dd className="font-semibold tabular-nums text-slate-900">{v}</dd></div>
               ))}
             </dl>
-            <div className={`mt-4 rounded-2xl p-5 ${profit >= 0 ? 'bg-emerald-50 text-emerald-950 ring-1 ring-emerald-200' : 'bg-red-50 text-red-950 ring-1 ring-red-200'}`}>
+            <div className={`mt-4 rounded-2xl p-5 ${profit >= 0 ? 'bg-forest-soft text-forest-pine ring-1 ring-forest-line' : 'bg-red-50 text-red-950 ring-1 ring-red-200'}`}>
               <p className="text-xs font-semibold uppercase tracking-wider">{profit >= 0 ? 'Profit' : 'Loss'}</p>
               <p className="mt-1 text-3xl font-bold tabular-nums">{inr.format(Math.abs(profit))}</p>
               <p className="mt-1 text-sm">{roiPct.toFixed(1)}% return on cost</p>

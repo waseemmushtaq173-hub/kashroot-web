@@ -35,12 +35,12 @@ export function ClusterTruckBar({ lines, anchor, onBoxes, onRemove, onOrder, onC
   const value = lines.reduce((n, l) => n + l.boxes * Number(l.listing.price), 0);
   // Where the load is brought together: the hub nearest the anchor's own GPS.
   const anchorHub = anchor ? getNearestVerifiedHub(anchor.captured_lat, anchor.captured_lng) : null;
-  const step = 'grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-lg bg-white text-[#174C3C] ring-1 ring-[#C6DBD0] disabled:cursor-not-allowed disabled:opacity-40';
+  const step = 'grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-lg bg-white text-forest ring-1 ring-forest-line disabled:cursor-not-allowed disabled:opacity-40';
 
   return (
     <section aria-label="2,000-box truck consolidation" data-testid="truck-bar" className="kr-card kr-card-flat rounded-2xl p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="flex items-center gap-2 font-display text-lg font-semibold text-[#174C3C]">
+        <h3 className="flex items-center gap-2 font-display text-lg font-semibold text-forest">
           <Truck className="h-5 w-5" aria-hidden /> 2,000-Box Truck Consolidation
         </h3>
         {lines.length > 0 && (
@@ -50,8 +50,8 @@ export function ClusterTruckBar({ lines, anchor, onBoxes, onRemove, onOrder, onC
       <p className="mt-1 text-sm font-semibold text-[#1E2D28]" data-testid="truck-load">
         Current Truck Load: {total.toLocaleString('en-IN')} / {TRUCK_CAPACITY_BOXES.toLocaleString('en-IN')} Boxes ({pct.toFixed(pct > 0 && pct < 10 ? 1 : 0)}%)
       </p>
-      <div className="mt-2 h-3 overflow-hidden rounded-full bg-[#EAF3EE] ring-1 ring-[#C6DBD0]" aria-hidden>
-        <span className="block h-full rounded-full bg-gradient-to-r from-[#286B54] to-[#174C3C]" style={{ width: `${pct}%` }} />
+      <div className="mt-2 h-3 overflow-hidden rounded-full bg-forest-soft ring-1 ring-forest-line" aria-hidden>
+        <span className="block h-full rounded-full bg-gradient-to-r from-forest-mid to-forest" style={{ width: `${pct}%` }} />
       </div>
       <p className="mt-2 text-xs text-[#52665E]">
         {total === 0
@@ -62,7 +62,7 @@ export function ClusterTruckBar({ lines, anchor, onBoxes, onRemove, onOrder, onC
       </p>
 
       {anchor && (
-        <p className="mt-3 rounded-xl bg-[#EAF3EE] px-3 py-2 text-sm text-[#174C3C] ring-1 ring-[#C6DBD0]">
+        <p className="mt-3 rounded-xl bg-forest-soft px-3 py-2 text-sm text-forest ring-1 ring-forest-line">
           <strong>1st Order Anchor:</strong> {anchor.product}{anchor.variety ? ` · ${anchor.variety}` : ''} from {anchor.seller_name}, {anchor.district}.{' '}
           {anchorHub
             ? <>Assigned Nearest KashRoot Hub: <strong>{anchorHub.hub.name}</strong> ({anchorHub.distanceKm.toFixed(1)} km from the anchor’s orchard GPS).</>
@@ -77,7 +77,7 @@ export function ClusterTruckBar({ lines, anchor, onBoxes, onRemove, onOrder, onC
             const km = anchor && !isAnchor ? computeRealDistanceKm(anchor.captured_lat, anchor.captured_lng, l.listing.captured_lat, l.listing.captured_lng) : null;
             const max = Math.max(1, Math.min(Number(l.listing.quantity), l.boxes + left));
             return (
-              <li key={l.listing.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-white px-3 py-2 ring-1 ring-[#C6DBD0]" data-kr-plain>
+              <li key={l.listing.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-white px-3 py-2 ring-1 ring-forest-line" data-kr-plain>
                 <span className="min-w-0 flex-1 text-sm text-[#1E2D28]">
                   <strong>Order #{i + 1}</strong>
                   {' — '}
@@ -94,11 +94,11 @@ export function ClusterTruckBar({ lines, anchor, onBoxes, onRemove, onOrder, onC
                     max={max}
                     value={l.boxes}
                     onChange={(e) => onBoxes(l.listing.id, Math.min(max, Math.max(1, Math.floor(Number(e.target.value)) || 1)))}
-                    className="h-9 w-20 rounded-lg border-0 bg-white px-2 text-center text-sm font-bold tabular-nums text-[#1E2D28] ring-1 ring-inset ring-[#C6DBD0]"
+                    className="h-9 w-20 rounded-lg border-0 bg-white px-2 text-center text-sm font-bold tabular-nums text-[#1E2D28] ring-1 ring-inset ring-forest-line"
                   />
                   <button type="button" aria-label="One box more" className={step} disabled={l.boxes >= max} onClick={() => onBoxes(l.listing.id, l.boxes + 1)}><Plus className="h-4 w-4" aria-hidden /></button>
                 </span>
-                <span className="w-24 text-right text-sm font-bold tabular-nums text-[#174C3C]">{inr(l.boxes * Number(l.listing.price))}</span>
+                <span className="w-24 text-right text-sm font-bold tabular-nums text-forest">{inr(l.boxes * Number(l.listing.price))}</span>
                 <button type="button" onClick={() => onOrder(l.listing, l.boxes)} className="kr-btn-primary kr-btn-sm min-h-9">
                   <ShoppingCart className="h-3.5 w-3.5" aria-hidden /> Order
                 </button>

@@ -186,7 +186,7 @@ export function SidebarDrawer({ onClose, label, children }: { onClose: () => voi
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="kr-drawer fixed inset-y-0 left-0 m-0 h-full max-h-none w-[min(26rem,90vw)] max-w-none overflow-y-auto border-0 bg-forest-deep p-0 text-white shadow-[0_30px_90px_rgba(18,56,46,0.5)] backdrop:bg-forest-deep/50 backdrop:backdrop-blur-sm"
+      className="kr-drawer fixed inset-y-0 left-0 m-0 h-full max-h-none w-[min(26rem,90vw)] max-w-none overflow-y-auto border-0 bg-forest-deep p-0 text-white shadow-[0_30px_90px_rgba(30, 27, 75,0.5)] backdrop:bg-forest-deep/50 backdrop:backdrop-blur-sm"
     >
       <div className="relative flex min-h-full flex-col">
         <button

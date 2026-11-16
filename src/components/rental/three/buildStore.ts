@@ -195,7 +195,7 @@ export function makeKit(T: Three, phone: boolean, protos: ColdKitGeos | null = n
     // Dark polished concrete-epoxy (#384349 once the concrete's own grain is over it).
     hall: new T.MeshStandardMaterial({ map: tex.concrete, color: '#465359', roughness: 0.42, metalness: 0.12 }),
     // The compound: orchard green round the building, dark asphalt where the trucks stand.
-    yard: new T.MeshStandardMaterial({ color: '#2D4C3E', roughness: 1 }),
+    yard: new T.MeshStandardMaterial({ color: '#2F2E58', roughness: 1 }),
     apron: new T.MeshStandardMaterial({ color: '#2C3338', roughness: 0.95 }),
     walk: new T.MeshStandardMaterial({ color: '#EAB308', roughness: 1, transparent: true, opacity: 0.3, depthWrite: false }),
     passage: new T.MeshStandardMaterial({ color: '#EAB308', roughness: 1, transparent: true, opacity: 0.22, depthWrite: false }),
@@ -207,19 +207,19 @@ export function makeKit(T: Three, phone: boolean, protos: ColdKitGeos | null = n
     wallNear: new T.MeshStandardMaterial({ color: '#D5CEC2', roughness: 0.5, metalness: 0.18, ...see, opacity: 0.2 }),
     chamberWall: new T.MeshStandardMaterial({ map: tex.panel, color: '#DED8CD', roughness: 0.5, metalness: 0.18 }),
     chamberNear: new T.MeshStandardMaterial({ map: tex.panel, color: '#DED8CD', roughness: 0.5, metalness: 0.18, ...see, opacity: 0.3 }),
-    wainscot: new T.MeshStandardMaterial({ color: '#174C3C', roughness: 0.55, metalness: 0.1 }),
-    wainscotNear: new T.MeshStandardMaterial({ color: '#174C3C', roughness: 0.55, metalness: 0.1, ...see, opacity: 0.32 }),
+    wainscot: new T.MeshStandardMaterial({ color: '#3730A3', roughness: 0.55, metalness: 0.1 }),
+    wainscotNear: new T.MeshStandardMaterial({ color: '#3730A3', roughness: 0.55, metalness: 0.1, ...see, opacity: 0.32 }),
     trim: new T.MeshStandardMaterial({ color: '#C6A45B', roughness: 0.35, metalness: phone ? 0.3 : 0.7 }),
-    paint: new T.MeshStandardMaterial({ color: '#174C3C', roughness: 0.45, metalness: paint }),
+    paint: new T.MeshStandardMaterial({ color: '#3730A3', roughness: 0.45, metalness: paint }),
     gold: new T.MeshStandardMaterial({ color: '#C6A45B', roughness: 0.35, metalness: phone ? 0.3 : 0.65 }),
     timber: new T.MeshStandardMaterial({ color: '#C89B62', roughness: 0.85 }),
-    guide: new T.MeshBasicMaterial({ color: '#34A37A' }),
+    guide: new T.MeshBasicMaterial({ color: '#F59E0B' }),
     door: new T.MeshStandardMaterial({ color: '#f59e0b', roughness: 0.45, metalness: paint }),
     leaf: new T.MeshStandardMaterial({ color: '#f1f5f9', roughness: 0.42, metalness: 0.04 }),
     doorYellow: new T.MeshStandardMaterial({ color: '#facc15', roughness: 0.42 }),
     deck: new T.MeshStandardMaterial({ map: tex.grating, roughness: 0.45, ...see, opacity: 1, metalness: phone ? 0.15 : 0.4 }),
     // Racking and deck beams: forest green powder coat (was blue).
-    beam: new T.MeshStandardMaterial({ color: '#1F5E4A', roughness: 0.42, metalness: galv }),
+    beam: new T.MeshStandardMaterial({ color: '#4F46C8', roughness: 0.42, metalness: galv }),
     glass: new T.MeshStandardMaterial({ color: '#38bdf8', emissive: '#0ea5e9', emissiveIntensity: 0.25, transparent: true, opacity: 0.7, roughness: 0.2 }),
     hit: new T.MeshBasicMaterial({ visible: false }),
     shutter: new T.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.35, metalness: phone ? 0.35 : 0.7 }),
@@ -240,7 +240,7 @@ export function makeKit(T: Three, phone: boolean, protos: ColdKitGeos | null = n
     rubber: new T.MeshStandardMaterial({ color: '#15191f', roughness: 0.92, metalness: 0 }),
   };
   const edge = new T.LineBasicMaterial({ color: '#334155', transparent: true, opacity: 0.55 });
-  const edgeOn = new T.LineBasicMaterial({ color: '#174C3C' });
+  const edgeOn = new T.LineBasicMaterial({ color: '#3730A3' });
   const textures = Object.values(tex);
   return {
     T,
@@ -837,7 +837,7 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
       // Its name on a sign over the door, flat on the wall outside (as stores paint them): read
       // from the passage, so a farmer finds "Chamber 2" without counting doors.
       const signW = Math.min(1.8, Math.max(1.1, dw * 0.9));
-      const can = labelCanvas(c.name, '', true, '#0f3b2e');
+      const can = labelCanvas(c.name, '', true, '#1E1B4B');
       const signH = (signW * can.height) / can.width;
       const overDoor = H - c.doorH;
       if (overDoor > signH * 0.6) {
@@ -995,10 +995,10 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
 const MARK: Record<Look, { tile: string; tint: string | null; amount: number }> = {
   free: { tile: PLACE_LOOK.free.hex, tint: null, amount: 0 },
   part: { tile: '#D97706', tint: '#D97706', amount: 0.6 },
-  selected: { tile: '#C6A45B', tint: '#3FA47F', amount: 1 },
+  selected: { tile: '#C6A45B', tint: '#2563EB', amount: 1 },
   held: { tile: PLACE_LOOK.held.hex, tint: '#94A3B8', amount: 1 },
-  booked: { tile: PLACE_LOOK.booked.hex, tint: '#174C3C', amount: 0.7 },
-  mine: { tile: '#C6A45B', tint: '#174C3C', amount: 0.85 },
+  booked: { tile: PLACE_LOOK.booked.hex, tint: '#3730A3', amount: 0.7 },
+  mine: { tile: '#C6A45B', tint: '#3730A3', amount: 0.85 },
   blocked: { tile: PLACE_LOOK.blocked.hex, tint: null, amount: 0 },
 };
 

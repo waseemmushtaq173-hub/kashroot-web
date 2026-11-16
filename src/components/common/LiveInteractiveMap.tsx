@@ -179,7 +179,7 @@ export default function LiveInteractiveMap({ lat, lng, accuracy = null, label, d
                   <path d="M14 1C7.4 1 2 6.4 2 13c0 9 12 22 12 22s12-13 12-22C26 6.4 20.6 1 14 1z" fill="#047857" stroke="#ffffff" strokeWidth="2" />
                   <circle cx="14" cy="13" r="4.5" fill="#ffffff" />
                 </svg>
-                <span className="pointer-events-none absolute z-10 -translate-x-1/2 whitespace-nowrap rounded-md bg-emerald-700/90 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow" style={{ left: dx, top: dy, transform: 'translate(-50%, -100%) translateY(-38px)' }}>
+                <span className="pointer-events-none absolute z-10 -translate-x-1/2 whitespace-nowrap rounded-md bg-forest/90 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow" style={{ left: dx, top: dy, transform: 'translate(-50%, -100%) translateY(-38px)' }}>
                   🏁 {destLabel || 'Destination'} · {destKm < 1 ? `${Math.round(destKm * 1000)} m` : `${destKm.toFixed(1)} km`}
                 </span>
               </>
@@ -215,7 +215,7 @@ export default function LiveInteractiveMap({ lat, lng, accuracy = null, label, d
           href={mapsUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 font-bold text-emerald-700 underline underline-offset-2"
+          className="inline-flex items-center gap-1 font-bold text-forest underline underline-offset-2"
         >
           {hasDest ? 'Open live route in Google Maps' : 'Open in Google Maps'} <ExternalLink className="h-3 w-3" aria-hidden /> ↗
         </a>

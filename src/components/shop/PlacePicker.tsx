@@ -118,7 +118,7 @@ export function PlacePicker({ value, onChange, theme }: { value: DeliveryPin | n
       {problem && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800 ring-1 ring-rose-200">{problem}</p>}
       {value ? (
         <>
-          <p className="flex items-center gap-1.5 text-sm font-semibold text-emerald-800">
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-forest-deep">
             <MapPin className="h-4 w-4" aria-hidden /> Pin set: {value.label}
           </p>
           <ShopMap target={value} onPick={(p) => onChange({ ...p, label: 'Pin moved on the map' })} />

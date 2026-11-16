@@ -186,11 +186,11 @@ function BuyerCheckoutForm({ listing: l, theme }: { listing: ShopListing; theme:
 
   if (placed) {
     return (
-      <div className="grid gap-2 rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
-        <p className="flex items-center gap-2 text-sm font-bold text-emerald-900">
+      <div className="grid gap-2 rounded-2xl bg-forest-soft p-4 ring-1 ring-forest-line">
+        <p className="flex items-center gap-2 text-sm font-bold text-forest-deep">
           <CheckCircle2 className="h-5 w-5 shrink-0" aria-hidden /> Order placed — {inr(placed.amount)} locked in KashRoot Escrow
         </p>
-        <p className="text-sm text-emerald-950">The test order went through the real escrow: it is in the seller&apos;s orders and in the buyer&apos;s “My orders” now. You pay nothing yet — when the goods reach you, press “✅ Confirm Delivery Received” there and the escrow releases to the farmer.</p>
+        <p className="text-sm text-forest-pine">The test order went through the real escrow: it is in the seller&apos;s orders and in the buyer&apos;s “My orders” now. You pay nothing yet — when the goods reach you, press “✅ Confirm Delivery Received” there and the escrow releases to the farmer.</p>
         <div className="flex flex-wrap gap-2">
           <Btn theme={theme} variant="soft" icon={ShoppingCart} className="min-h-10 text-sm" onClick={() => { window.location.href = '/buyer/dashboard?tab=orders'; }}>
             Open My orders in the Buyer portal
@@ -204,10 +204,10 @@ function BuyerCheckoutForm({ listing: l, theme }: { listing: ShopListing; theme:
   }
 
   return (
-    <div className="grid gap-3 rounded-2xl bg-[#EAF3EE]/70 p-4 ring-1 ring-[#C6DBD0]">
+    <div className="grid gap-3 rounded-2xl bg-forest-soft/70 p-4 ring-1 ring-forest-line">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-bold text-slate-900">🛒 Buyer Order &amp; Escrow Checkout</p>
-        <span className="rounded-full bg-[#EAF3EE] px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-[#174C3C]">Test the real order flow</span>
+        <span className="rounded-full bg-forest-soft px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-forest">Test the real order flow</span>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <label className="flex flex-col gap-1 text-xs text-slate-500">
@@ -215,7 +215,7 @@ function BuyerCheckoutForm({ listing: l, theme }: { listing: ShopListing; theme:
           <select
             value={String(qty)}
             onChange={(e) => { setQty(Math.max(1, Math.min(max, Number(e.target.value)))); setProblem(null); }}
-            className="rounded border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#286B54]"
+            className="rounded border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-forest-mid"
           >
             {stockRange.map((n) => (
               <option key={n} value={String(n)}>{n}</option>
@@ -224,30 +224,30 @@ function BuyerCheckoutForm({ listing: l, theme }: { listing: ShopListing; theme:
         </label>
         <div className="text-right">
           <p className="text-xs text-slate-500">Total</p>
-          <p className="text-xl font-bold text-emerald-700">{total}</p>
+          <p className="text-xl font-bold text-forest">{total}</p>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <label className="flex flex-col gap-1 text-xs text-slate-500">
           Your mobile
-          <input type="tel" inputMode="numeric" autoComplete="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="10-digit mobile number" className="min-h-11 w-full rounded-xl border-0 bg-white px-3 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-[#286B54]" />
+          <input type="tel" inputMode="numeric" autoComplete="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="10-digit mobile number" className="min-h-11 w-full rounded-xl border-0 bg-white px-3 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-forest-mid" />
         </label>
         <label className="flex flex-col gap-1 text-xs text-slate-500">
           Your name
-          <input autoComplete="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Full name" className="min-h-11 w-full rounded-xl border-0 bg-white px-3 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-[#286B54]" />
+          <input autoComplete="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Full name" className="min-h-11 w-full rounded-xl border-0 bg-white px-3 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-forest-mid" />
         </label>
       </div>
       <label className="flex flex-col gap-1 text-xs text-slate-500">
         Delivery address
-        <textarea rows={2} value={form.address} onChange={(e) => { setForm({ ...form, address: e.target.value }); setAddrTouched(true); }} placeholder="Village, tehsil, district, landmark" className="w-full rounded-xl border-0 bg-white px-3 py-2 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-[#286B54]" />
+        <textarea rows={2} value={form.address} onChange={(e) => { setForm({ ...form, address: e.target.value }); setAddrTouched(true); }} placeholder="Village, tehsil, district, landmark" className="w-full rounded-xl border-0 bg-white px-3 py-2 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-forest-mid" />
       </label>
       <div className="grid gap-1.5">
-        <button type="button" onClick={() => void takeFix()} disabled={fixing} className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#174C3C] px-4 text-sm font-bold text-white hover:bg-[#174C3C] disabled:opacity-50">
+        <button type="button" onClick={() => void takeFix()} disabled={fixing} className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl bg-forest px-4 text-sm font-bold text-white hover:bg-forest disabled:opacity-50">
           <Crosshair className="h-4 w-4" aria-hidden /> {fixing ? 'Locking your live GPS…' : 'Lock Live Buyer GPS'}
         </button>
         {fix && (
           <>
-            <p className="rounded-xl bg-white p-2.5 text-xs font-semibold text-[#12382E] ring-1 ring-[#C6DBD0]">
+            <p className="rounded-xl bg-white p-2.5 text-xs font-semibold text-forest-deep ring-1 ring-forest-line">
               ✓ Live GPS Locked: {addressIsCoords(fix.address) ? fix.address : `${fix.address} · ${coordsText(fix)}`} (±{Math.round(fix.accuracy ?? 0)} m)
             </p>
             <LiveInteractiveMap lat={fix.lat} lng={fix.lng} accuracy={fix.accuracy} label="Your exact delivery pin" />
@@ -256,10 +256,10 @@ function BuyerCheckoutForm({ listing: l, theme }: { listing: ShopListing; theme:
         {fixError && <p role="alert" className="rounded-xl bg-rose-50 p-2.5 text-xs font-medium text-rose-800 ring-1 ring-rose-200">{fixError}</p>}
       </div>
       {problem && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm font-medium text-rose-800 ring-1 ring-rose-200">{problem}</p>}
-      <button type="button" onClick={() => void place()} disabled={busy || max <= 0} className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white hover:bg-emerald-800 disabled:opacity-50">
+      <button type="button" onClick={() => void place()} disabled={busy || max <= 0} className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-forest px-4 text-sm font-bold text-white hover:bg-forest-deep disabled:opacity-50">
         <ShoppingCart className="h-4 w-4" aria-hidden /> {busy ? 'Placing…' : `Place Order in Escrow — ${total} locked`}
       </button>
-      <p className="text-xs font-medium text-emerald-900">🔒 You pay nothing now. The total locks in KashRoot Escrow when the order is placed; it releases to the farmer only after the goods reach you and you press “✅ Confirm Delivery Received”.</p>
+      <p className="text-xs font-medium text-forest-deep">🔒 You pay nothing now. The total locks in KashRoot Escrow when the order is placed; it releases to the farmer only after the goods reach you and you press “✅ Confirm Delivery Received”.</p>
     </div>
   );
 }
@@ -331,8 +331,8 @@ const ListingDetailModalInner = React.memo(function ListingDetailModalInner({ li
 
         {/* Identity + verified badge. */}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-[#174C3C]">{l.subcategory ?? l.category}</span>
-          {verified && <BadgeCheck className="h-4 w-4 text-emerald-700" aria-hidden />}
+          <span className="text-xs font-bold uppercase tracking-wider text-forest">{l.subcategory ?? l.category}</span>
+          {verified && <BadgeCheck className="h-4 w-4 text-forest" aria-hidden />}
           {verified && <Badge tone="green">Verified seller</Badge>}
           {l.is_live_camera_verified && <Badge tone="green">🛡️ Live Camera & GPS Verified at Orchard</Badge>}
           <span className="text-sm font-semibold text-slate-900">{l.seller_name}</span>
@@ -347,7 +347,7 @@ const ListingDetailModalInner = React.memo(function ListingDetailModalInner({ li
             <FarmMap lat={Number(l.captured_lat)} lng={Number(l.captured_lng)} label="Live camera capture point" />
             <figcaption className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
               <span>📍 Farm gate on the map — where the live photo was taken, shown the same to farmer and buyer.</span>
-              <a href={`https://www.google.com/maps?q=${l.captured_lat},${l.captured_lng}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-700 underline underline-offset-2">Open in Google Maps</a>
+              <a href={`https://www.google.com/maps?q=${l.captured_lat},${l.captured_lng}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-forest underline underline-offset-2">Open in Google Maps</a>
             </figcaption>
           </figure>
         )}
@@ -361,7 +361,7 @@ const ListingDetailModalInner = React.memo(function ListingDetailModalInner({ li
         {/* Price + stock. */}
         <div className="flex items-baseline gap-2">
           <span className="text-2xl font-bold text-slate-900">{inr(l.price)}</span>
-          <span className="text-sm font-normal text-slate-500">/ {l.unit}</span>{l.box_capacity_kg && <span className="text-xs text-emerald-600 font-semibold ml-2">({l.box_capacity_kg} kg / box)</span>}
+          <span className="text-sm font-normal text-slate-500">/ {l.unit}</span>{l.box_capacity_kg && <span className="text-xs text-forest font-semibold ml-2">({l.box_capacity_kg} kg / box)</span>}
         </div>
         <p className="text-sm text-slate-500">{stockText} in stock{l.box_capacity_kg ? ` · ${totalWeightKg!.toLocaleString('en-IN')} kg total` : ''}</p>
         {l.details && <p className="mt-2 line-clamp-3 text-sm text-slate-600">{l.details}</p>}
@@ -398,7 +398,7 @@ const ListingDetailModalInner = React.memo(function ListingDetailModalInner({ li
               {l.box_capacity_kg && Number(l.price) > 0 && (
                 <div className="flex items-center gap-1">
                   <span className="text-slate-500">Rate per kg:</span>
-                  <span className="font-semibold text-emerald-700">₹{pricePerKg!.toFixed(2)}</span>
+                  <span className="font-semibold text-forest">₹{pricePerKg!.toFixed(2)}</span>
                 </div>
               )}
             </div>
@@ -432,7 +432,7 @@ const ListingDetailModalInner = React.memo(function ListingDetailModalInner({ li
                 {showCheckout ? (
                   <BuyerCheckoutForm listing={l} theme={theme} />
                 ) : (
-                  <button type="button" onClick={() => setShowCheckout(true)} className="cursor-pointer text-sm font-semibold text-emerald-700 underline underline-offset-2">
+                  <button type="button" onClick={() => setShowCheckout(true)} className="cursor-pointer text-sm font-semibold text-forest underline underline-offset-2">
                     Show the Buyer Checkout form
                   </button>
                 )}
@@ -446,7 +446,7 @@ const ListingDetailModalInner = React.memo(function ListingDetailModalInner({ li
                   <select
                     value={String(qty)}
                     onChange={(e) => setQty(Math.max(1, Math.min(max, Number(e.target.value))))}
-                    className="bg-white border border-slate-200 rounded px-2 py-1.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="bg-white border border-slate-200 rounded px-2 py-1.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-forest-mid"
                   >
                     {stockRange.map((n) => (
                       <option key={n} value={String(n)}>
@@ -457,7 +457,7 @@ const ListingDetailModalInner = React.memo(function ListingDetailModalInner({ li
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-slate-500">Total</p>
-                  <p className="text-xl font-bold text-emerald-700">{inr(total)}</p>
+                  <p className="text-xl font-bold text-forest">{inr(total)}</p>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -472,11 +472,11 @@ const ListingDetailModalInner = React.memo(function ListingDetailModalInner({ li
                   <SignInToCall portal="buyer" />
                 )}
                 <a href={whatsapp} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 min-h-10 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition">
-                  <MessageCircle className="h-4 w-4 text-emerald-600" aria-hidden />
+                  <MessageCircle className="h-4 w-4 text-forest" aria-hidden />
                   <span>Message on WhatsApp</span>
                 </a>
               </div>
-              <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-950">
+              <p className="rounded-xl bg-forest-soft p-3 text-sm text-forest-pine">
                 You pay nothing now. When the goods reach you and you have checked them, press “I received the goods” and pay the seller by UPI.
               </p>
             </>

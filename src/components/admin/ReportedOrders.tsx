@@ -88,11 +88,11 @@ export function ReportedOrders() {
               {o.buyer_note && <p className="mt-1 text-rose-800">Buyer: “{o.buyer_note}”</p>}
               {o.seller_note && <p className="mt-1 text-rose-800">Seller: “{o.seller_note}”</p>}
               <p className="mt-2 text-slate-700">
-                Buyer: {o.buyer_name} · <a href={`tel:${o.buyer_phone}`} className="inline-flex items-center gap-1 font-semibold text-[#174C3C]"><Phone className="h-3.5 w-3.5" aria-hidden /> {o.buyer_phone}</a>
+                Buyer: {o.buyer_name} · <a href={`tel:${o.buyer_phone}`} className="inline-flex items-center gap-1 font-semibold text-forest"><Phone className="h-3.5 w-3.5" aria-hidden /> {o.buyer_phone}</a>
               </p>
               {(o.seller_phone || o.market_listings) && (
                 <p className="text-slate-700">
-                  Seller: {o.seller_name ?? o.market_listings?.seller_name} · <a href={`tel:${o.seller_phone ?? o.market_listings?.phone}`} className="inline-flex items-center gap-1 font-semibold text-[#174C3C]"><Phone className="h-3.5 w-3.5" aria-hidden /> {o.seller_phone ?? o.market_listings?.phone}</a>
+                  Seller: {o.seller_name ?? o.market_listings?.seller_name} · <a href={`tel:${o.seller_phone ?? o.market_listings?.phone}`} className="inline-flex items-center gap-1 font-semibold text-forest"><Phone className="h-3.5 w-3.5" aria-hidden /> {o.seller_phone ?? o.market_listings?.phone}</a>
                 </p>
               )}
               <p className="text-xs text-slate-500">Deliver to: {o.delivery_address}{o.payment_ref ? ` · Payment reference: ${o.payment_ref}` : ' · Not paid yet'}</p>

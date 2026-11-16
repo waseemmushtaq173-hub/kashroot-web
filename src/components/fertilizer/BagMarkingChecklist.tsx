@@ -231,10 +231,10 @@ export function BagMarkingChecklist({ productName, onLabTest, onClose, isRtl = f
           return (
             <div
               key={item.id}
-              className={`rounded-xl p-4 transition ${failed ? 'bg-rose-50 ring-2 ring-rose-200' : done ? 'bg-emerald-50 ring-1 ring-emerald-200' : 'bg-slate-50 ring-1 ring-slate-200'}`}
+              className={`rounded-xl p-4 transition ${failed ? 'bg-rose-50 ring-2 ring-rose-200' : done ? 'bg-forest-soft ring-1 ring-forest-line' : 'bg-slate-50 ring-1 ring-slate-200'}`}
             >
               <div className="flex items-start gap-3">
-                <span className={`flex-shrink-0 mt-1 h-6 w-6 rounded-full border-2 flex items-center justify-center ${done ? 'text-emerald-600 border-emerald-600 bg-emerald-50' : failed ? 'text-rose-600 border-rose-600 bg-rose-50' : 'text-slate-300 border-slate-300'}`}>
+                <span className={`flex-shrink-0 mt-1 h-6 w-6 rounded-full border-2 flex items-center justify-center ${done ? 'text-forest border-forest bg-forest-soft' : failed ? 'text-rose-600 border-rose-600 bg-rose-50' : 'text-slate-300 border-slate-300'}`}>
                   {done && <CheckCircle2 className="h-4 w-4" aria-hidden />}
                   {failed && <XCircle className="h-4 w-4" aria-hidden />}
                 </span>
@@ -264,7 +264,7 @@ export function BagMarkingChecklist({ productName, onLabTest, onClose, isRtl = f
                     />
                   )}
                   {result && (
-                    <p className={`mt-1.5 text-xs ${result.pass ? 'text-emerald-700' : 'text-rose-700'}`}>
+                    <p className={`mt-1.5 text-xs ${result.pass ? 'text-forest' : 'text-rose-700'}`}>
                       {result.pass ? `✓ ${result.detail}` : `✗ ${result.detail || 'Missing or invalid'}`}
                     </p>
                   )}

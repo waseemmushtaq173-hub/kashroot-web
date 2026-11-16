@@ -309,8 +309,8 @@ export function OwnerWizard({
         </div>
 
         <nav aria-label="Steps">
-          <div className="h-2.5 overflow-hidden rounded-full bg-[#EAF3EE]" role="progressbar" aria-valuemin={1} aria-valuemax={5} aria-valuenow={step} aria-label={`Step ${step} of 5`}>
-            <div className="h-full rounded-full bg-[#174C3C] transition-all" style={{ width: `${(step / 5) * 100}%` }} />
+          <div className="h-2.5 overflow-hidden rounded-full bg-forest-soft" role="progressbar" aria-valuemin={1} aria-valuemax={5} aria-valuenow={step} aria-label={`Step ${step} of 5`}>
+            <div className="h-full rounded-full bg-forest transition-all" style={{ width: `${(step / 5) * 100}%` }} />
           </div>
           <ol className="mt-3 grid grid-cols-5 gap-1 text-center">
             {STEPS.map(({ n, title: t }) => {
@@ -322,9 +322,9 @@ export function OwnerWizard({
                     disabled={!can || busy}
                     aria-current={n === step ? 'step' : undefined}
                     onClick={() => go(n)}
-                    className={`flex min-h-[44px] w-full flex-col items-center gap-1 rounded-xl px-1 py-1.5 text-[11px] font-semibold leading-tight transition sm:text-xs ${n === step ? 'bg-[#12382E] text-white' : can ? 'cursor-pointer text-[#12382E] hover:bg-[#EAF3EE]' : 'cursor-not-allowed text-slate-400'}`}
+                    className={`flex min-h-[44px] w-full flex-col items-center gap-1 rounded-xl px-1 py-1.5 text-[11px] font-semibold leading-tight transition sm:text-xs ${n === step ? 'bg-forest-deep text-white' : can ? 'cursor-pointer text-forest-deep hover:bg-forest-soft' : 'cursor-not-allowed text-slate-400'}`}
                   >
-                    <span className={`grid h-6 w-6 place-items-center rounded-full text-xs ${n === step ? 'bg-white text-[#174C3C]' : n < step || (n === 5 && done.published) ? 'bg-[#12382E] text-white' : 'bg-slate-200 text-slate-700'}`}>{n < step ? '✓' : n}</span>
+                    <span className={`grid h-6 w-6 place-items-center rounded-full text-xs ${n === step ? 'bg-white text-forest' : n < step || (n === 5 && done.published) ? 'bg-forest-deep text-white' : 'bg-slate-200 text-slate-700'}`}>{n < step ? '✓' : n}</span>
                     <span className="hidden sm:block">{t}</span>
                   </button>
                 </li>
@@ -388,7 +388,7 @@ export function OwnerWizard({
             </Btn>
           ) : done.published ? (
             <div className="flex flex-wrap items-center gap-3">
-              <p className="text-sm font-semibold text-emerald-800">Your store is published. Your changes are saved.</p>
+              <p className="text-sm font-semibold text-forest-deep">Your store is published. Your changes are saved.</p>
               <Btn theme={theme} className="min-h-[52px] px-6 text-base" icon={CheckCircle2} onClick={onClose}>Done</Btn>
             </div>
           ) : (

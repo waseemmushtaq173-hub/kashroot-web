@@ -126,7 +126,7 @@ function OptionalServices() {
       <ul className="divide-y divide-slate-200 rounded-xl text-sm ring-1 ring-slate-200" data-optional-services>
         {rows.map((r) => (
           <li key={r.name} className="grid grid-cols-[1.5rem_1fr] items-start gap-2 px-3 py-2">
-            {r.on ? <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-700" aria-label="On" /> : r.optional ? <Info className="mt-0.5 h-4 w-4 text-[#174C3C]" aria-label="Optional" /> : <XCircle className="mt-0.5 h-4 w-4 text-amber-700" aria-label="Missing" />}
+            {r.on ? <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-700" aria-label="On" /> : r.optional ? <Info className="mt-0.5 h-4 w-4 text-forest" aria-label="Optional" /> : <XCircle className="mt-0.5 h-4 w-4 text-amber-700" aria-label="Missing" />}
             <span>
               <span className="font-semibold text-slate-900">{r.name}</span>
               <span className="text-slate-600"> — {r.on ? r.onText : r.offText}</span>

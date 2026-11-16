@@ -104,7 +104,7 @@ export function LiveTrack({ code }: { code: string }) {
       <div className="flex flex-wrap items-start justify-between gap-3 rounded-2xl bg-white/85 p-4 ring-1 ring-slate-900/5">
         <div>
           <p className="flex flex-wrap items-center gap-2 text-lg font-semibold text-slate-900">
-            <Truck className="h-5 w-5 text-emerald-700" aria-hidden /> {data.origin} → {data.destination}
+            <Truck className="h-5 w-5 text-forest" aria-hidden /> {data.origin} → {data.destination}
             <Badge tone={TONE[data.status]}>{STATUS_LABEL[data.status]}</Badge>
           </p>
           <p className="mt-1 text-sm text-slate-600">
@@ -115,7 +115,7 @@ export function LiveTrack({ code }: { code: string }) {
           </p>
           {data.last_seen && near && data.status !== 'delivered' && (
             <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-slate-900">
-              <MapPinned className="h-4 w-4 text-emerald-700" aria-hidden /> Near {near}
+              <MapPinned className="h-4 w-4 text-forest" aria-hidden /> Near {near}
             </p>
           )}
           {data.last_lat != null && data.last_lng != null && dest && data.status === 'in_transit' && (() => {
@@ -132,11 +132,11 @@ export function LiveTrack({ code }: { code: string }) {
             </p>
           )}
           <div className="mt-2 flex flex-wrap gap-2">
-            <a href={route} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-emerald-800 no-underline ring-1 ring-emerald-200 hover:bg-emerald-50 hover:no-underline">
+            <a href={route} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-forest-deep no-underline ring-1 ring-forest-line hover:bg-forest-soft hover:no-underline">
               <Navigation className="h-4 w-4" aria-hidden /> Route in Google Maps
             </a>
             {data.last_lat != null && data.last_lng != null && (
-              <a href={googlePoint(data.last_lat, data.last_lng)} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-emerald-800 no-underline ring-1 ring-emerald-200 hover:bg-emerald-50 hover:no-underline">
+              <a href={googlePoint(data.last_lat, data.last_lng)} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-forest-deep no-underline ring-1 ring-forest-line hover:bg-forest-soft hover:no-underline">
                 <MapPin className="h-4 w-4" aria-hidden /> Truck in Google Maps
               </a>
             )}
@@ -173,7 +173,7 @@ export function LiveTrack({ code }: { code: string }) {
         </>
       ) : (
         <div className="grid place-items-center rounded-2xl bg-white/70 p-10 text-center text-sm text-slate-600 ring-1 ring-slate-900/5">
-          <MapPinned className="mb-2 h-8 w-8 text-emerald-700" aria-hidden />
+          <MapPinned className="mb-2 h-8 w-8 text-forest" aria-hidden />
           The map appears as soon as the driver taps “Start sharing location”.
         </div>
       )}

@@ -173,7 +173,7 @@ export function OwnerHierarchyPanel() {
             </div>
           ))}
         </div>
-        {note && <p className="mt-3 rounded-xl bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-800 ring-1 ring-emerald-200">{note}</p>}
+        {note && <p className="mt-3 rounded-xl bg-forest-soft px-4 py-2.5 text-sm font-medium text-forest-deep ring-1 ring-forest-line">{note}</p>}
         {error && <p role="alert" className="mt-3 rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-800 ring-1 ring-rose-200">{error}</p>}
       </Panel>
 

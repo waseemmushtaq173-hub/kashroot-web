@@ -100,7 +100,7 @@ export default function ContributionsPage() {
                       <li key={c.id} className="flex items-start justify-between gap-3 py-3">
                         <span className="min-w-0">
                           <span className="flex flex-wrap items-center gap-2 font-semibold text-slate-900">
-                            <Icon className={`h-4 w-4 ${c.status === 'accepted' ? 'text-emerald-600' : c.status === 'rejected' ? 'text-rose-600' : 'text-amber-600'}`} aria-hidden />
+                            <Icon className={`h-4 w-4 ${c.status === 'accepted' ? 'text-forest' : c.status === 'rejected' ? 'text-rose-600' : 'text-amber-600'}`} aria-hidden />
                             {c.title ?? WORK_LABEL[c.kind]}
                           </span>
                           <span className="block text-xs text-slate-500">{WORK_LABEL[c.kind]} · {ago(c.created_at)}</span>
@@ -124,7 +124,7 @@ export default function ContributionsPage() {
                 <li><strong>Answers, soil tests and video calls</strong> are accepted when the farmer presses “Yes, it helped”, or when KashRoot checks them.</li>
               </ul>
               {payDecided ? (
-                <ul className="mt-4 space-y-1 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900 ring-1 ring-emerald-100">
+                <ul className="mt-4 space-y-1 rounded-xl bg-forest-soft p-3 text-sm text-forest-deep ring-1 ring-forest-soft">
                   {pay.filter((p) => p.amount > 0).map((p) => <li key={p.kind}>{WORK_LABEL[p.kind]}: <strong>{rupees(p.amount)}</strong> each</li>)}
                 </ul>
               ) : (

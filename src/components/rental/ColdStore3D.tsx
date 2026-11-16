@@ -182,7 +182,7 @@ function InfoCard({ c, free, rate, unit, onClose, onWalk, zoom }: { c: SceneCham
           </>
         ) : null}
         <dt className="text-slate-500">Free now</dt>
-        <dd className="font-semibold text-[#174C3C]">{countText(free, st)}</dd>
+        <dd className="font-semibold text-forest">{countText(free, st)}</dd>
         {r ? (
           <>
             <dt className="text-slate-500">Rent</dt>
@@ -197,7 +197,7 @@ function InfoCard({ c, free, rate, unit, onClose, onWalk, zoom }: { c: SceneCham
         )}
       </dl>
       {onWalk && (
-        <button type="button" onClick={onWalk} className="mt-2 inline-flex min-h-[44px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#174C3C] px-3 font-semibold text-white hover:bg-[#12382E]">
+        <button type="button" onClick={onWalk} className="mt-2 inline-flex min-h-[44px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-forest px-3 font-semibold text-white hover:bg-forest-deep">
           <Footprints className="h-4 w-4" aria-hidden /> Walk in here
         </button>
       )}
@@ -299,12 +299,12 @@ function CrateCard({
         {owner ? (
           <>
             <dt className="text-slate-500">Stored Quantity</dt>
-            <dd className={standing ? 'font-semibold text-emerald-800' : ''}>{standing.toLocaleString('en-IN')} {unitWord(st, standing)} · {kg(standing)}</dd>
+            <dd className={standing ? 'font-semibold text-forest-deep' : ''}>{standing.toLocaleString('en-IN')} {unitWord(st, standing)} · {kg(standing)}</dd>
           </>
         ) : (
           <>
             <dt className="text-slate-500">Your {unitWord(st, 2)}</dt>
-            <dd className={mineUnits ? 'font-semibold text-[#12382E]' : ''}>
+            <dd className={mineUnits ? 'font-semibold text-forest-deep' : ''}>
               {mineUnits ? `${mineUnits.toLocaleString('en-IN')} ${unitWord(st, mineUnits)} · ${kg(mineUnits)}` : cell.look === 'mine' ? 'Yours' : 'None'}
             </dd>
             <dt className="text-slate-500">Occupied now</dt>
@@ -312,7 +312,7 @@ function CrateCard({
           </>
         )}
         <dt className="text-slate-500">{owner ? 'Available Capacity' : 'Free in this place'}</dt>
-        <dd className={!owner ? 'font-semibold text-[#174C3C]' : ''}>{cell.free.toLocaleString('en-IN')} {unitWord(st, cell.free)} · {kg(cell.free)}</dd>
+        <dd className={!owner ? 'font-semibold text-forest' : ''}>{cell.free.toLocaleString('en-IN')} {unitWord(st, cell.free)} · {kg(cell.free)}</dd>
         <dt className="text-slate-500">Occupancy Status</dt>
         <dd>{PLACE_LOOK[cell.look].label}{owner && whose ? ` · ${whose}` : ''}</dd>
         {!owner && cell.look === 'mine' && whose && (
@@ -1731,7 +1731,7 @@ export function ColdStore3D({
             : 'You have not chosen a place yet.'
         : '';
   const ww = WAY_WORDS[guideLang];
-  const chip = (on: boolean) => `inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition ${on ? 'bg-[#174C3C] text-white' : 'bg-[#EAF3EE] text-[#12382E] ring-1 ring-[#CFE0D6] hover:bg-[#EAF3EE]'}`;
+  const chip = (on: boolean) => `inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition ${on ? 'bg-forest text-white' : 'bg-forest-soft text-forest-deep ring-1 ring-[#CFE0D6] hover:bg-forest-soft'}`;
   const shownInfo = info !== null ? scene.chambers[info] : null;
   const note = scene.problems.length ? (mode === 'owner' ? scene.problems.slice(0, 2).join(' ') : 'As the owner measured them, some chambers do not fit inside the building, so they are drawn outside it.') : '';
   const big = zoom > 1.3;
@@ -1759,7 +1759,7 @@ export function ColdStore3D({
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2" role="group" aria-label={walking ? 'Walk to' : 'Look at'}>
         {route && onView && (
-          <button type="button" onClick={showWay} className={`${chip(true)} shadow-sm hover:bg-[#12382E]`}>
+          <button type="button" onClick={showWay} className={`${chip(true)} shadow-sm hover:bg-forest-deep`}>
             <Footprints className="h-4 w-4" aria-hidden /> {wayLabel}
           </button>
         )}
@@ -1862,13 +1862,13 @@ export function ColdStore3D({
       <div
         ref={host}
         tabIndex={walking ? 0 : -1}
-        className="relative w-full touch-none select-none overflow-hidden rounded-3xl bg-gradient-to-b from-[#BDD6E2] to-[#E4EFEA] outline-none ring-1 ring-slate-900/10 focus-visible:ring-2 focus-visible:ring-[#286B54]"
+        className="relative w-full touch-none select-none overflow-hidden rounded-3xl bg-gradient-to-b from-[#BDD6E2] to-[#E4EFEA] outline-none ring-1 ring-slate-900/10 focus-visible:ring-2 focus-visible:ring-forest-mid"
         style={{ height }}
       >
         {!ready && (
           <div className="absolute inset-0 grid place-items-center rounded-3xl bg-slate-100/80" role="status" aria-live="polite">
             <div className="flex flex-col items-center gap-3">
-              <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#CFE0D6] border-t-[#286B54]" aria-hidden />
+              <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#CFE0D6] border-t-forest-mid" aria-hidden />
               <p className="text-sm font-semibold text-slate-600">Initializing the 3D cold store...</p>
             </div>
           </div>
@@ -1921,11 +1921,11 @@ export function ColdStore3D({
         />
       )}
       {route && guideAt !== null && (
-        <section aria-label="The way to your place" className="rounded-2xl bg-[#EAF3EE] p-3 ring-1 ring-[#CFE0D6]">
+        <section aria-label="The way to your place" className="rounded-2xl bg-forest-soft p-3 ring-1 ring-[#CFE0D6]">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h4 dir={rtl} className="font-semibold text-[#12382E]">{guideDone ? ww.here : ww.follow}</h4>
+            <h4 dir={rtl} className="font-semibold text-forest-deep">{guideDone ? ww.here : ww.follow}</h4>
             <div className="flex gap-2">
-              <button type="button" onClick={() => void speak(route.steps[guideAt]?.text[guideLang] ?? '', guideLang)} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-[#12382E] ring-1 ring-[#CFE0D6] hover:bg-[#EAF3EE]">
+              <button type="button" onClick={() => void speak(route.steps[guideAt]?.text[guideLang] ?? '', guideLang)} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-forest-deep ring-1 ring-[#CFE0D6] hover:bg-forest-soft">
                 <Volume2 className="h-4 w-4" aria-hidden /> {ww.again}
               </button>
               <button type="button" onClick={stopWay} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100">
@@ -1935,14 +1935,14 @@ export function ColdStore3D({
           </div>
           <div role="radiogroup" aria-label="Language of the steps" className="mt-2 flex flex-wrap gap-1.5">
             {GUIDE_LANGS.map(([l, name]) => (
-              <button key={l} type="button" role="radio" aria-checked={guideLang === l} onClick={() => sayIn(l)} className={`min-h-[44px] cursor-pointer rounded-xl px-3 text-sm font-semibold ring-1 ${guideLang === l ? 'bg-[#174C3C] text-white ring-[#174C3C]' : 'bg-white text-[#12382E] ring-[#CFE0D6] hover:bg-[#EAF3EE]'}`}>
+              <button key={l} type="button" role="radio" aria-checked={guideLang === l} onClick={() => sayIn(l)} className={`min-h-[44px] cursor-pointer rounded-xl px-3 text-sm font-semibold ring-1 ${guideLang === l ? 'bg-forest text-white ring-forest' : 'bg-white text-forest-deep ring-[#CFE0D6] hover:bg-forest-soft'}`}>
                 {name}
               </button>
             ))}
           </div>
           <ol dir={rtl} aria-live="polite" className="mt-2 space-y-1 text-sm">
             {route.steps.map((s, k) => (
-              <li key={k} className={`rounded-lg px-2 py-1 ${k === guideAt ? 'bg-[#174C3C] font-semibold text-white' : k < guideAt ? 'text-[#174C3C]' : 'text-slate-600'}`}>
+              <li key={k} className={`rounded-lg px-2 py-1 ${k === guideAt ? 'bg-forest font-semibold text-white' : k < guideAt ? 'text-forest' : 'text-slate-600'}`}>
                 {k + 1}. {s.text[guideLang]}
               </li>
             ))}

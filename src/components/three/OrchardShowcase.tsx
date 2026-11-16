@@ -172,9 +172,9 @@ function SceneContents() {
 /** The 2D twin: a labelled orchard → packing → cold-store diagram. */
 function Orchard2DFallback() {
   return (
-    <div className="flex h-full w-full flex-col justify-between gap-3 bg-gradient-to-b from-emerald-950 via-emerald-900 to-emerald-800 p-5 text-white">
+    <div className="flex h-full w-full flex-col justify-between gap-3 bg-gradient-to-b from-forest-pine via-forest-deep to-forest-deep p-5 text-white">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-emerald-100">2D view — orchard to cold store</span>
+        <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-forest-soft">2D view — orchard to cold store</span>
       </div>
       <svg viewBox="0 0 640 190" className="w-full flex-1" role="img" aria-label="Diagram: apple orchard, 2–5 layer packing boxes and a cold store">
         {/* trees */}
@@ -218,14 +218,14 @@ function Orchard2DFallback() {
 
 export function OrchardShowcase() {
   return (
-    <section aria-labelledby="showcase-heading" className="overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#0A3D2E] via-emerald-900 to-emerald-950 p-5 shadow-[0_24px_60px_rgba(10,61,46,0.35)] sm:p-7">
+    <section aria-labelledby="showcase-heading" className="overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#0A3D2E] via-forest-deep to-forest-pine p-5 shadow-[0_24px_60px_rgba(10,61,46,0.35)] sm:p-7">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-300">KashRoot in 3D</p>
           <h2 id="showcase-heading" className="font-display mt-1.5 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
             From the orchard to the cold store
           </h2>
-          <p className="mt-1.5 max-w-xl text-sm text-emerald-100/90">
+          <p className="mt-1.5 max-w-xl text-sm text-forest-soft/90">
             Turn the valley: see the orchard your fruit grows in, how the 2–5 layer boxes are packed, and where your crates rest in the cold store.
           </p>
         </div>

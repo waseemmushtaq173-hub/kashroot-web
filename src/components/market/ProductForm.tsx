@@ -356,14 +356,14 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
             {/* The 6 quick presets directly below the input. */}
             <div className="pointer-events-auto relative z-10 mt-1.5 flex flex-wrap gap-1.5">
               {CAPACITY_PRESETS.map((p) => (
-                <button key={p} type="button" aria-pressed={capacityKg === p} onClick={(e) => { e.preventDefault(); e.stopPropagation(); set('box_capacity_kg', p); }} className={`relative z-10 min-h-9 cursor-pointer rounded-lg border px-3 text-sm font-bold transition-colors ${capacityKg === p ? 'bg-emerald-600 text-white border-emerald-600 shadow-md ring-2 ring-emerald-400' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>
+                <button key={p} type="button" aria-pressed={capacityKg === p} onClick={(e) => { e.preventDefault(); e.stopPropagation(); set('box_capacity_kg', p); }} className={`relative z-10 min-h-9 cursor-pointer rounded-lg border px-3 text-sm font-bold transition-colors ${capacityKg === p ? 'bg-forest text-white border-forest shadow-md ring-2 ring-forest-mid' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>
                   {p} kg
                 </button>
               ))}
             </div>
             {/* Live auto-calculated banner: whenever a weight and a price exist. */}
             {capacityKg > 0 && ratePerKg !== null && v.price > 0 && (
-              <p className="mt-2 rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-950 ring-1 ring-emerald-200">
+              <p className="mt-2 rounded-xl bg-forest-soft p-3 text-sm font-semibold text-forest-pine ring-1 ring-forest-line">
                 📦 1 box = {commaNum(capacityKg)} kg · Rate: ₹{ratePerKg.toFixed(2)} / kg
                 {totalWeight !== null && <span> · Total stock weight: {commaNum(Math.round(totalWeight))} kg ({(totalWeight / 100).toFixed(1)} Quintals)</span>}
               </p>
@@ -378,7 +378,7 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
                   // stale value and wipe the layer choice back off.
                   e.preventDefault(); e.stopPropagation();
                   onChange({ ...v, packing_layers: preset.value, apples_per_box: preset.hint.split('·')[1]?.trim() ?? null });
-                }} className={`relative z-10 min-h-10 cursor-pointer rounded-lg border-2 px-3 py-1 text-start text-xs leading-tight transition-colors ${v.packing_layers === preset.value ? 'bg-emerald-600 text-white border-emerald-600 font-semibold shadow-sm' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>
+                }} className={`relative z-10 min-h-10 cursor-pointer rounded-lg border-2 px-3 py-1 text-start text-xs leading-tight transition-colors ${v.packing_layers === preset.value ? 'bg-forest text-white border-forest font-semibold shadow-sm' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>
                   <span className="block font-bold">{v.packing_layers === preset.value ? '✓ ' : ''}{preset.label}</span>
                   <span className={`block text-[10px] ${v.packing_layers === preset.value ? 'text-white/85' : 'text-slate-400'}`}>{preset.hint}</span>
                 </button>
@@ -389,7 +389,7 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
               const chosen = LAYER_PRESETS.find((p) => p.value === v.packing_layers);
               if (!chosen) return null;
               return (
-                <p className="mt-2 rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-950 ring-1 ring-emerald-200">
+                <p className="mt-2 rounded-xl bg-forest-soft p-3 text-sm font-semibold text-forest-pine ring-1 ring-forest-line">
                   ✓ Selected packing: {chosen.label} ({chosen.hint})
                 </p>
               );
@@ -407,7 +407,7 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
             {/* Phase 6 privacy choice: masking is always applied to anything public;
                 this keeps even the private raw copy out of the audit row. */}
             <label className="mt-2 flex cursor-pointer items-start gap-2.5 rounded-xl bg-slate-50 p-3 text-xs text-slate-700 ring-1 ring-slate-200">
-              <input type="checkbox" checked={privacyMasked} onChange={(e) => setPrivacyMasked(e.target.checked)} className="mt-0.5 h-4 w-4 cursor-pointer accent-emerald-700" />
+              <input type="checkbox" checked={privacyMasked} onChange={(e) => setPrivacyMasked(e.target.checked)} className="mt-0.5 h-4 w-4 cursor-pointer accent-forest" />
               <span>
                 <strong>Privacy:</strong> keep my exact orchard coordinates out of the photo audit. Buyers only ever see the
                 masked location (about 1 km) either way — this also drops the private copy the audit keeps for verification.
@@ -416,16 +416,16 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
 
             {/* Top status & action bar — always visible. */}
             <div className="mt-2 flex flex-wrap gap-2">
-              <button type="button" disabled={gpsLoading} onClick={() => void lockGps()} className={`relative z-10 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-4 text-sm font-bold ring-1 transition-colors ${gps ? 'bg-emerald-50 text-emerald-900 ring-emerald-400 hover:bg-emerald-100' : 'bg-emerald-700 text-white ring-emerald-700 hover:bg-emerald-800 disabled:opacity-50'}`}>
+              <button type="button" disabled={gpsLoading} onClick={() => void lockGps()} className={`relative z-10 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-4 text-sm font-bold ring-1 transition-colors ${gps ? 'bg-forest-soft text-forest-deep ring-forest-mid hover:bg-forest-soft' : 'bg-forest text-white ring-forest hover:bg-forest-deep disabled:opacity-50'}`}>
                 📍 1. Lock Live GPS Location
               </button>
-              <button type="button" disabled={cameraBusy} onClick={() => void openCamera()} className={`relative z-10 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-4 text-sm font-bold ring-1 transition-colors ${cameraStream ? 'bg-[#EAF3EE] text-[#12382E] ring-[#286B54] hover:bg-[#EAF3EE]' : 'bg-[#174C3C] text-white ring-[#174C3C] hover:bg-[#12382E] disabled:opacity-50'}`}>
+              <button type="button" disabled={cameraBusy} onClick={() => void openCamera()} className={`relative z-10 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-4 text-sm font-bold ring-1 transition-colors ${cameraStream ? 'bg-forest-soft text-forest-deep ring-forest-mid hover:bg-forest-soft' : 'bg-forest text-white ring-forest hover:bg-forest-deep disabled:opacity-50'}`}>
                 📷 2. Open Live Camera
               </button>
               {gpsLoading && <span className="self-center text-xs font-bold text-slate-600">Locking GPS… allow location access if the browser asks.</span>}
             </div>
             {gps && (
-              <p className="mt-1.5 text-xs font-bold text-emerald-700">
+              <p className="mt-1.5 text-xs font-bold text-forest">
                 ✓ Live GPS Locked: {addressIsCoords(gps.address) ? gps.address : `${gps.address} · ${coordsText(gps)}`} (±{Math.round(gps.accuracy)} m)
               </p>
             )}
@@ -435,7 +435,7 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
               const near = getNearestVerifiedHub(gps.lat, gps.lng);
               if (!near) return null;
               return (
-                <div data-testid="grower-hub-card" className="mt-2 space-y-1.5 rounded-xl bg-[#F3F8F5] p-3 text-sm text-[#1E2D28] ring-1 ring-[#C6DBD0]">
+                <div data-testid="grower-hub-card" className="mt-2 space-y-1.5 rounded-xl bg-[#F6F7FF] p-3 text-sm text-[#1E2D28] ring-1 ring-forest-line">
                   <p>🏢 <strong>Assigned Nearest Hub: {near.hub.name} ({near.distanceKm.toFixed(1)} km from your captured orchard GPS)</strong></p>
                   <p>🚛 <strong>Doorstep Orchard Pickup:</strong> When a buyer orders your boxes, a KashRoot pickup vehicle will collect them from your orchard gate and take them to this KashRoot Hub. You have zero transport responsibility.</p>
                   <p>💰 <strong>0% Grower Commission:</strong> You receive 100% of your listed box price (KashRoot charges 1% to the buyer and ₹0 to the grower).</p>
@@ -450,14 +450,14 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
                 <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-900 aspect-[4/5]">
                   <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
                   <div className="absolute inset-x-0 bottom-0 px-3 pb-3">
-                    <p className="rounded-lg bg-emerald-950/85 px-3 py-1.5 text-xs font-semibold text-white">
+                    <p className="rounded-lg bg-forest-pine/85 px-3 py-1.5 text-xs font-semibold text-white">
                       🛡️ {gps ? (addressIsCoords(gps.address) ? gps.address : `${coordsText(gps)} · ${gps.address}`) : 'Lock GPS for the stamp'}{gps && gps.accuracy > 0 ? ` ±${Math.round(gps.accuracy)}m` : ''} · {v.seller_name} · {nowIST()}
                     </p>
                   </div>
                   {recording && <span className="absolute left-3 top-3 flex items-center gap-1.5 rounded-lg bg-rose-600/90 px-2.5 py-1 text-xs font-bold text-white">⏺ Recording · stops at 30 s</span>}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" onClick={() => void capturePhoto()} className="relative z-10 min-h-11 flex-1 flex-[2_1_0%] cursor-pointer rounded-xl bg-emerald-700 px-3 text-sm font-bold text-white hover:bg-emerald-800">
+                  <button type="button" onClick={() => void capturePhoto()} className="relative z-10 min-h-11 flex-1 flex-[2_1_0%] cursor-pointer rounded-xl bg-forest px-3 text-sm font-bold text-white hover:bg-forest-deep">
                     📸 Capture Live Photo (with GPS Stamp)
                   </button>
                   <button type="button" onClick={() => void toggleVideo()} className={`relative z-10 min-h-11 flex-1 cursor-pointer rounded-xl px-3 text-sm font-bold text-white ${recording ? 'bg-rose-700 hover:bg-rose-800' : 'bg-slate-800 hover:bg-slate-900'}`}>
@@ -478,9 +478,9 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
                 {captured.map((m, i) => (
                   <div key={`${m.kind}-${i}`} className="relative" style={{ width: 140 }}>
                     {m.kind === 'photo' ? (
-                      <img src={m.src} alt="GPS-stamped live capture" className="h-24 w-32 rounded-xl object-cover ring-2 ring-emerald-500" />
+                      <img src={m.src} alt="GPS-stamped live capture" className="h-24 w-32 rounded-xl object-cover ring-2 ring-forest-mid" />
                     ) : (
-                      <video src={m.src} controls playsInline className="h-24 w-32 rounded-xl bg-slate-900 object-cover ring-2 ring-emerald-500" />
+                      <video src={m.src} controls playsInline className="h-24 w-32 rounded-xl bg-slate-900 object-cover ring-2 ring-forest-mid" />
                     )}
                     <button type="button" aria-label="Remove / Retake" onClick={() => removeCaptured(i)} className="absolute -right-1.5 -top-1.5 z-10 grid h-7 w-7 cursor-pointer place-items-center rounded-full bg-white shadow ring-1 ring-slate-300 hover:bg-rose-50">
                       <X className="h-3.5 w-3.5" aria-hidden />
@@ -496,7 +496,7 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
 
           {/* Mandatory payout account: the escrow releases the order money into it. */}
           {onPayoutChange && (
-            <div className="sm:col-span-2 rounded-2xl bg-white/90 p-3 ring-1 ring-emerald-200">
+            <div className="sm:col-span-2 rounded-2xl bg-white/90 p-3 ring-1 ring-forest-line">
               <p className="text-sm font-bold text-slate-900">🏦 Farmer Payout Account <span className="text-xs font-medium text-slate-500">(where the escrow releases your payment)</span></p>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
                 <Field label="Account holder name">
@@ -549,7 +549,7 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
       </div>
       {produce && !needsLiveMedia && (
         <div className="sm:col-span-2">
-          <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-950 ring-1 ring-emerald-100">
+          <p className="rounded-xl bg-forest-soft p-3 text-sm text-forest-pine ring-1 ring-forest-soft">
             ✅ Live camera capture verified with GPS. Buyers will see the burned-in location stamp on every photo/video.
           </p>
         </div>

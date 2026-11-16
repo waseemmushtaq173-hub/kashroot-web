@@ -89,8 +89,8 @@ const KINDS: { value: string; label: string }[] = [
   { value: 'helper', label: 'Helper team (picking, packing, transport)' },
 ];
 const kindLabel = (k: string) => KINDS.find((x) => x.value === k)?.label ?? k;
-const INPUT = 'min-h-11 w-full rounded-xl border-0 bg-white px-3 ring-1 ring-slate-300 focus:ring-2 focus:ring-emerald-700';
-const BUTTON = 'inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-700 px-4 font-semibold text-white hover:bg-emerald-800 disabled:opacity-60';
+const INPUT = 'min-h-11 w-full rounded-xl border-0 bg-white px-3 ring-1 ring-slate-300 focus:ring-2 focus:ring-forest';
+const BUTTON = 'inline-flex min-h-11 items-center gap-2 rounded-xl bg-forest px-4 font-semibold text-white hover:bg-forest-deep disabled:opacity-60';
 const GHOST = 'inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold ring-1 ring-slate-300 hover:bg-slate-50 disabled:opacity-60';
 const THEME = PORTAL_THEMES.seller;
 const day = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -153,18 +153,18 @@ export default function BusinessPage() {
         <p className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Checking…</p>
       ) : !signedIn ? (
         <p>
-          Sign in to your portal first, then come back here. <Link className="font-semibold text-emerald-800 underline" href="/login">Sign in</Link>
+          Sign in to your portal first, then come back here. <Link className="font-semibold text-forest-deep underline" href="/login">Sign in</Link>
         </p>
       ) : missing ? (
         <p role="alert" className="rounded-xl bg-amber-50 p-3 text-amber-950 ring-1 ring-amber-200">Businesses are not switched on yet. Please try again later.</p>
       ) : (
         <>
           {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-rose-900 ring-1 ring-rose-200">{error}</p>}
-          {note && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-emerald-950 ring-1 ring-emerald-200">{note}</p>}
+          {note && <p role="status" className="rounded-xl bg-forest-soft p-3 text-forest-pine ring-1 ring-forest-line">{note}</p>}
 
           {waiting.length > 0 && (
             <section data-business-invites-waiting>
-              <h2 className="flex items-center gap-2"><Mail className="h-5 w-5 text-emerald-700" aria-hidden /> Invitations for you</h2>
+              <h2 className="flex items-center gap-2"><Mail className="h-5 w-5 text-forest" aria-hidden /> Invitations for you</h2>
               <ul className="!list-none space-y-2 !pl-0">
                 {waiting.map((i) => (
                   <li key={i.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white p-3 ring-1 ring-slate-200">
@@ -211,7 +211,7 @@ function NewBusiness({ first, busy, act }: { first: boolean; busy: string | null
   }
   return (
     <section data-business-new>
-      <h2 className="flex items-center gap-2"><Building2 className="h-5 w-5 text-emerald-700" aria-hidden /> {first ? 'Set up your business' : 'Add a business'}</h2>
+      <h2 className="flex items-center gap-2"><Building2 className="h-5 w-5 text-forest" aria-hidden /> {first ? 'Set up your business' : 'Add a business'}</h2>
       <p className="text-sm text-slate-600">You become its owner. Then invite the people who work with you.</p>
       <form
         className="grid gap-3 sm:grid-cols-2"
@@ -280,7 +280,7 @@ function BusinessView({ org, busy, act }: { org: Org & { role: Role }; busy: str
   return (
     <>
       <section data-business-view>
-        <h2 className="flex items-center gap-2"><Building2 className="h-5 w-5 text-emerald-700" aria-hidden /> {org.name}</h2>
+        <h2 className="flex items-center gap-2"><Building2 className="h-5 w-5 text-forest" aria-hidden /> {org.name}</h2>
         <p className="text-sm text-slate-600">{kindLabel(org.kind)} · you are <strong>{org.role}</strong></p>
         {suspended && (
           <p role="alert" className="mt-2 rounded-xl bg-rose-50 p-3 text-rose-900 ring-1 ring-rose-200">
@@ -330,7 +330,7 @@ function BusinessView({ org, busy, act }: { org: Org & { role: Role }; busy: str
 
       {lead && !suspended && (
         <section data-business-invite>
-          <h3 className="flex items-center gap-2 font-semibold"><UserPlus className="h-5 w-5 text-emerald-700" aria-hidden /> Give access to this business</h3>
+          <h3 className="flex items-center gap-2 font-semibold"><UserPlus className="h-5 w-5 text-forest" aria-hidden /> Give access to this business</h3>
           <p className="text-sm text-slate-600">
             This gives access to <strong>{org.name}</strong>&apos;s console only — never to KashRoot Admin. They sign in to KashRoot with this email or phone and open <strong>My business</strong> to join. The invitation lasts 7 days.
             {org.role === 'manager' && ' As a manager you can invite staff.'}
@@ -390,7 +390,7 @@ function PayoutSection({ org, payout, suspended, busy, run }: { org: Org & { rol
 
   return (
     <section data-business-payout>
-      <h3 className="flex items-center gap-2 font-semibold"><Landmark className="h-5 w-5 text-emerald-700" aria-hidden /> Where the business is paid</h3>
+      <h3 className="flex items-center gap-2 font-semibold"><Landmark className="h-5 w-5 text-forest" aria-hidden /> Where the business is paid</h3>
       <p className="text-sm text-slate-600">KashRoot never holds money: buyers pay the business directly. Only the owner can change these details, after two-step sign-in, and every owner gets an email when they change.</p>
       {payout ? (
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
@@ -412,7 +412,7 @@ function PayoutSection({ org, payout, suspended, busy, run }: { org: Org & { rol
 
       {editing && needCode && (
         <div className="mt-2 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
-          <p className="text-sm">First type the code from your authenticator app. No app yet? <Link className="font-semibold text-emerald-800 underline" href="/account/two-step">Turn on two-step sign-in</Link>.</p>
+          <p className="text-sm">First type the code from your authenticator app. No app yet? <Link className="font-semibold text-forest-deep underline" href="/account/two-step">Turn on two-step sign-in</Link>.</p>
           <TwoStepVerify onDone={() => setNeedCode(false)} />
         </div>
       )}
@@ -507,7 +507,7 @@ function StoresSection({ org, members, suspended, busy, act }: { org: Org & { ro
   return (
     <>
       <section data-business-stores>
-        <h3 className="flex items-center gap-2 font-semibold"><Snowflake className="h-5 w-5 text-emerald-700" aria-hidden /> Cold stores and machines</h3>
+        <h3 className="flex items-center gap-2 font-semibold"><Snowflake className="h-5 w-5 text-forest" aria-hidden /> Cold stores and machines</h3>
         {stores.length === 0 && <p className="text-sm">None in this business yet.{org.role === 'owner' ? ' Put in a store you listed (below).' : ' The owner puts them in.'}</p>}
         <ul className="!list-none space-y-2 !pl-0">
           {stores.map((x) => (
@@ -545,7 +545,7 @@ function StoresSection({ org, members, suspended, busy, act }: { org: Org & { ro
 
       {stores.length > 0 && (
         <section data-business-bookings>
-          <h3 className="flex items-center gap-2 font-semibold"><CalendarCheck className="h-5 w-5 text-emerald-700" aria-hidden /> Bookings</h3>
+          <h3 className="flex items-center gap-2 font-semibold"><CalendarCheck className="h-5 w-5 text-forest" aria-hidden /> Bookings</h3>
           <p className="text-sm text-slate-600">Confirm only after the money has reached the business&apos;s account — check the reference number in your bank or UPI app. KashRoot never holds money.</p>
           {bookings.length === 0 && <p className="text-sm">No bookings yet.</p>}
           <ul className="!list-none space-y-2 !pl-0">
@@ -660,7 +660,7 @@ function ShopSection({ org, members, suspended, busy, act }: { org: Org & { role
   return (
     <>
       <section data-business-products>
-        <h3 className="flex items-center gap-2 font-semibold"><Package className="h-5 w-5 text-emerald-700" aria-hidden /> Shop and dealer products</h3>
+        <h3 className="flex items-center gap-2 font-semibold"><Package className="h-5 w-5 text-forest" aria-hidden /> Shop and dealer products</h3>
         {products.length === 0 && <p className="text-sm">None in this business yet.{org.role === 'owner' ? ' Put in a product you sell (below).' : ' The owner puts them in.'}</p>}
         <ul className="!list-none space-y-2 !pl-0">
           {products.map((x) => (
@@ -698,7 +698,7 @@ function ShopSection({ org, members, suspended, busy, act }: { org: Org & { role
 
       {(products.length > 0 || orders.length > 0) && (
         <section data-business-orders>
-          <h3 className="flex items-center gap-2 font-semibold"><ShoppingBag className="h-5 w-5 text-emerald-700" aria-hidden /> Orders</h3>
+          <h3 className="flex items-center gap-2 font-semibold"><ShoppingBag className="h-5 w-5 text-forest" aria-hidden /> Orders</h3>
           <p className="text-sm text-slate-600">Press “Money received” only after it has reached the business&apos;s account — check the reference in your bank or UPI app. KashRoot never holds money.</p>
           {suspended && <p className="text-sm font-semibold text-rose-800">While the business is paused, its team cannot change orders.</p>}
           {baskets.length === 0 && <p className="text-sm">No orders yet.</p>}
@@ -716,7 +716,7 @@ function ShopSection({ org, members, suspended, busy, act }: { org: Org & { role
       )}
 
       <section data-business-drivers>
-        <h3 className="flex items-center gap-2 font-semibold"><Truck className="h-5 w-5 text-emerald-700" aria-hidden /> Drivers</h3>
+        <h3 className="flex items-center gap-2 font-semibold"><Truck className="h-5 w-5 text-forest" aria-hidden /> Drivers</h3>
         <p className="text-sm text-slate-600">Anyone in the business ships an order with one of these drivers: the buyer sees their name and can call them, and the driver gets a link that shows the buyer where the vehicle is.{lead ? '' : ' The owner or a manager keeps this list.'}</p>
         {drivers.length === 0 && <p className="text-sm">No drivers yet.</p>}
         <ul className="!list-none space-y-2 !pl-0">

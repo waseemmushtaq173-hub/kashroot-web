@@ -152,7 +152,7 @@ export function PlaceInput({
           }}
         />
         <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
-          {busy === 'search' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : point ? <Check className="h-4 w-4 text-emerald-700" aria-label="Place picked on the map" /> : <MapPin className="h-4 w-4" aria-hidden />}
+          {busy === 'search' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : point ? <Check className="h-4 w-4 text-forest" aria-label="Place picked on the map" /> : <MapPin className="h-4 w-4" aria-hidden />}
         </span>
       </div>
       {open && found.length > 0 && (
@@ -163,13 +163,13 @@ export function PlaceInput({
               id={`${listId}-${i}`}
               role="option"
               aria-selected={i === active}
-              className={`flex min-h-11 cursor-pointer items-start gap-2 px-3 py-2 text-sm ${i === active ? 'bg-emerald-50' : 'hover:bg-slate-50'}`}
+              className={`flex min-h-11 cursor-pointer items-start gap-2 px-3 py-2 text-sm ${i === active ? 'bg-forest-soft' : 'hover:bg-slate-50'}`}
               onMouseDown={(e) => {
                 e.preventDefault();
                 pick(f);
               }}
             >
-              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" aria-hidden />
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-forest" aria-hidden />
               <span>
                 <span className="font-medium text-slate-900">{f.name}</span> <span className="text-slate-500">{f.admin}</span>
                 {f.note && <span className="block text-xs text-amber-800">{f.note}</span>}
@@ -179,12 +179,12 @@ export function PlaceInput({
         </ul>
       )}
       {gps && (
-        <button type="button" onClick={useGps} disabled={busy !== null} className="mt-1.5 inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg px-1 text-sm font-semibold text-emerald-800 hover:underline disabled:opacity-60">
+        <button type="button" onClick={useGps} disabled={busy !== null} className="mt-1.5 inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg px-1 text-sm font-semibold text-forest-deep hover:underline disabled:opacity-60">
           {busy === 'gps' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <LocateFixed className="h-4 w-4" aria-hidden />}
           {busy === 'gps' ? 'Finding where you are…' : 'Use my location'}
         </button>
       )}
-      {point && !hint && <p className="mt-1 text-xs text-emerald-800">On the map: {point.name}</p>}
+      {point && !hint && <p className="mt-1 text-xs text-forest-deep">On the map: {point.name}</p>}
       {hint && <p className="mt-1 text-xs text-amber-800">{hint}</p>}
     </div>
   );

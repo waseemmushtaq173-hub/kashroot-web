@@ -20,7 +20,7 @@ import { KeyRound, Loader2, ShieldCheck, Smartphone } from 'lucide-react';
 
 import { supabase } from '@/lib/supabase';
 
-const INPUT = 'min-h-12 w-full rounded-xl border-0 bg-white px-4 text-center font-mono text-2xl tracking-[0.4em] text-slate-900 ring-1 ring-slate-300 focus:ring-2 focus:ring-emerald-700';
+const INPUT = 'min-h-12 w-full rounded-xl border-0 bg-white px-4 text-center font-mono text-2xl tracking-[0.4em] text-slate-900 ring-1 ring-slate-300 focus:ring-2 focus:ring-forest';
 const BUTTON = 'inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-chinar px-5 font-semibold text-white hover:bg-chinar-hover disabled:cursor-not-allowed disabled:opacity-60';
 
 /** Plain words for Supabase's MFA errors. */
@@ -163,7 +163,7 @@ export function TwoStepVerify({ onDone }: { onDone: () => void }) {
       }}
     >
       <p className="flex items-start gap-2 text-sm text-slate-700">
-        <Smartphone className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" aria-hidden /> Open your authenticator app and type the 6 digits it shows for KashRoot.
+        <Smartphone className="mt-0.5 h-4 w-4 shrink-0 text-forest" aria-hidden /> Open your authenticator app and type the 6 digits it shows for KashRoot.
       </p>
       <CodeField value={code} onChange={setCode} />
       {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-900 ring-1 ring-rose-200">{error}</p>}

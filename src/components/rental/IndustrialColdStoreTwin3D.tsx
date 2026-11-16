@@ -296,10 +296,10 @@ export function IndustrialColdStoreTwin3D({
   const inspectedChamber = inspectedSlot ? chambers.find((ch) => ch.code === inspectedSlot.chamberCode) ?? null : null;
 
   return (
-    <div className="w-full rounded-2xl border border-[#174C3C]/15 bg-slate-950 text-white overflow-hidden shadow-xl">
-      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-[#12382E]/90 border-b border-[#174C3C]/40 text-xs">
+    <div className="w-full rounded-2xl border border-forest/15 bg-slate-950 text-white overflow-hidden shadow-xl">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-forest-deep/90 border-b border-forest/40 text-xs">
         <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Which chamber to show">
-          <span className="font-semibold text-[#8DB09F] mr-1">
+          <span className="font-semibold text-[#A5ADE8] mr-1">
             {facilityCode ? `${facilityCode} · ` : ''}{facilityName}:
           </span>
           <button
@@ -308,7 +308,7 @@ export function IndustrialColdStoreTwin3D({
             onClick={() => setActiveChamberId('ALL')}
             className={`px-2.5 py-1 rounded-full transition ${
               activeChamberId === 'ALL'
-                ? 'bg-[#286B54] text-slate-950 font-semibold'
+                ? 'bg-forest-mid text-slate-950 font-semibold'
                 : 'bg-white/10 hover:bg-white/20 text-white'
             }`}
           >
@@ -322,7 +322,7 @@ export function IndustrialColdStoreTwin3D({
               onClick={() => setActiveChamberId(ch.code)}
               className={`px-2.5 py-1 rounded-full transition ${
                 activeChamberId === ch.code
-                  ? 'bg-[#286B54] text-slate-950 font-semibold'
+                  ? 'bg-forest-mid text-slate-950 font-semibold'
                   : 'bg-white/10 hover:bg-white/20 text-white'
               }`}
             >
@@ -332,7 +332,7 @@ export function IndustrialColdStoreTwin3D({
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Which level to show">
-          <span className="text-[#8DB09F]">Level:</span>
+          <span className="text-[#A5ADE8]">Level:</span>
           <button
             type="button"
             aria-pressed={activeLevel === 'ALL'}
@@ -357,7 +357,7 @@ export function IndustrialColdStoreTwin3D({
             </button>
           ))}
 
-          <span className="mx-1 text-[#174C3C]">|</span>
+          <span className="mx-1 text-forest">|</span>
 
           <div role="group" aria-label="Wall view" className="flex flex-wrap items-center gap-1.5">
           {(['SOLID', 'TRANSPARENT', 'CUTAWAY'] as const).map((mode) => (
@@ -368,7 +368,7 @@ export function IndustrialColdStoreTwin3D({
               onClick={() => setWallMode(mode)}
               className={`px-2.5 py-1 rounded-full ${
                 wallMode === mode
-                  ? 'bg-[#286B54] text-slate-950 font-semibold'
+                  ? 'bg-forest-mid text-slate-950 font-semibold'
                   : 'bg-white/10 hover:bg-white/20'
               }`}
             >
@@ -476,9 +476,9 @@ export function IndustrialColdStoreTwin3D({
               ]}
               center
             >
-              <div className="w-64 rounded-xl bg-slate-950/95 border border-[#286B54]/60 p-3 text-xs text-white shadow-2xl pointer-events-auto">
+              <div className="w-64 rounded-xl bg-slate-950/95 border border-forest-mid/60 p-3 text-xs text-white shadow-2xl pointer-events-auto">
                 <div className="flex items-center justify-between border-b border-white/10 pb-1.5 mb-1.5">
-                  <span className="font-bold text-[#8DB09F]">
+                  <span className="font-bold text-[#A5ADE8]">
                     {inspectedSlot.facilityCode} → {inspectedSlot.chamberCode}
                   </span>
                   <button
@@ -551,7 +551,7 @@ export function IndustrialColdStoreTwin3D({
           <OrbitControls makeDefault maxPolarAngle={Math.PI / 2 - 0.04} />
         </Canvas>
         {capped.summary && (
-          <p role="status" className="pointer-events-none absolute inset-x-3 top-3 z-10 mx-auto w-fit max-w-full rounded-full bg-slate-950/80 px-3.5 py-1.5 text-center text-[11px] font-semibold text-[#EAF3EE] shadow-lg ring-1 ring-[#286B54]/30">
+          <p role="status" className="pointer-events-none absolute inset-x-3 top-3 z-10 mx-auto w-fit max-w-full rounded-full bg-slate-950/80 px-3.5 py-1.5 text-center text-[11px] font-semibold text-forest-soft shadow-lg ring-1 ring-forest-mid/30">
             Showing optimized 3D instanced view of {capped.summary.total.toLocaleString('en-IN')} storage units · {capped.summary.kg.toLocaleString('en-IN')} kg total capacity
           </p>
         )}
@@ -564,9 +564,9 @@ export function IndustrialColdStoreTwin3D({
       <section
         role="region"
         aria-label="Quick unit and level selector"
-        className="max-h-64 overflow-y-auto border-t border-[#174C3C]/40 bg-[#12382E]/70 px-4 py-3"
+        className="max-h-64 overflow-y-auto border-t border-forest/40 bg-forest-deep/70 px-4 py-3"
       >
-        <p className="text-xs font-semibold text-[#8DB09F]">
+        <p className="text-xs font-semibold text-[#A5ADE8]">
           Select units — Tab / Enter / Space or tap: {Math.min(capped.slots.length, 200)} of {capped.summary ? capped.summary.total.toLocaleString('en-IN') : capped.slots.length} shown in 3D
         </p>
         <div className="mt-2 flex flex-wrap gap-1.5">
@@ -593,7 +593,7 @@ export function IndustrialColdStoreTwin3D({
                 }}
                 className={`min-h-[36px] rounded-lg px-2.5 py-1 text-xs font-semibold tabular-nums transition ${
                   selected
-                    ? 'bg-[#286B54] text-slate-950 ring-2 ring-[#C6DBD0]'
+                    ? 'bg-forest-mid text-slate-950 ring-2 ring-forest-line'
                     : s.status === 'OCCUPIED'
                       ? 'bg-rose-950/70 text-rose-300 ring-1 ring-rose-500/40 hover:bg-rose-900/70'
                       : 'bg-white/10 text-white ring-1 ring-white/15 hover:bg-white/20'

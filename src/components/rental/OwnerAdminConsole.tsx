@@ -187,7 +187,7 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
           action={<Btn theme={theme} icon={PlusCircle} onClick={() => setShowRegister(true)}>Register your business</Btn>}
         />
         <RegistrationModal open={showRegister} onClose={() => setShowRegister(false)} onDone={(msg) => { setShowRegister(false); setNote(msg); void load(); }} />
-        {note && <p className="mt-4 rounded-xl bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800 ring-1 ring-emerald-200">{note}</p>}
+        {note && <p className="mt-4 rounded-xl bg-forest-soft px-4 py-2.5 text-sm text-forest-deep ring-1 ring-forest-line">{note}</p>}
       </Panel>
     );
   }
@@ -270,7 +270,7 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
                   type="button"
                   onClick={() => setFacilityId(f.id)}
                   aria-pressed={facilityId === f.id}
-                  className={`cursor-pointer rounded-xl px-4 py-2.5 text-sm font-semibold transition ring-1 ${facilityId === f.id ? 'bg-[#12382E] text-white ring-[#174C3C] shadow' : 'bg-white text-slate-800 ring-slate-300 hover:bg-[#EAF3EE]'}`}
+                  className={`cursor-pointer rounded-xl px-4 py-2.5 text-sm font-semibold transition ring-1 ${facilityId === f.id ? 'bg-forest-deep text-white ring-forest shadow' : 'bg-white text-slate-800 ring-slate-300 hover:bg-forest-soft'}`}
                 >
                   {f.title}
                   <span className="ml-2 text-[11px] font-medium opacity-80">{f.district ?? ''}</span>
@@ -309,7 +309,7 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
               : 'No grading, packing or stock movement recorded yet for this packhouse.'}
           </p>
         )}
-        {note && <p className="mt-3 rounded-xl bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800 ring-1 ring-emerald-200">{note}</p>}
+        {note && <p className="mt-3 rounded-xl bg-forest-soft px-4 py-2.5 text-sm text-forest-deep ring-1 ring-forest-line">{note}</p>}
       </Panel>
 
       {/* 2. Facility management */}
@@ -481,7 +481,7 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
                     <td className="py-2.5 pr-3 text-slate-800">{m.farmer_name}<span className="block text-xs text-slate-500">{m.apple_variety}</span></td>
                     <td className="py-2.5 pr-3 text-xs text-slate-600">{titleCase(m.movement_type)}</td>
                     <td className="py-2.5 pr-3 text-xs text-slate-600">{m.chamber_code} · {m.bin_code}</td>
-                    <td className={`py-2.5 pr-3 font-semibold ${m.crates_delta >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{m.crates_delta > 0 ? '+' : ''}{m.crates_delta} ({num(m.weight_kg_delta)} kg)</td>
+                    <td className={`py-2.5 pr-3 font-semibold ${m.crates_delta >= 0 ? 'text-forest' : 'text-rose-700'}`}>{m.crates_delta > 0 ? '+' : ''}{m.crates_delta} ({num(m.weight_kg_delta)} kg)</td>
                     <td className="py-2.5 text-slate-700">{num(m.balance_crates_after)}</td>
                   </tr>
                 ))}
@@ -783,7 +783,7 @@ function StaffModal({ open, staff, organizationId, category, facilities, onClose
         {(Object.keys(ROLE_DEFAULT_PERMISSIONS.COLD_STORAGE_OWNER) as (keyof StaffPermissionsMatrix)[]).filter((perm) => permissionAppliesTo(perm, category)).map((perm) => (
           <label key={perm} className="flex items-center justify-between gap-2 rounded-xl bg-white/80 px-3 py-2 text-sm text-slate-800 ring-1 ring-slate-200">
             {titleCase(perm)}
-            <input type="checkbox" className="h-4 w-4 accent-[#174C3C]" checked={Boolean(perms[perm])} onChange={(e) => setPerms((p) => ({ ...p, [perm]: e.target.checked }))} />
+            <input type="checkbox" className="h-4 w-4 accent-forest" checked={Boolean(perms[perm])} onChange={(e) => setPerms((p) => ({ ...p, [perm]: e.target.checked }))} />
           </label>
         ))}
       </div>

@@ -277,7 +277,7 @@ export function PortalShell({
 
   if (standalone) {
     return (
-      <div data-kr-shell="standalone" className={`kr-light relative isolate min-h-screen text-ink ${theme.canvas}`}>
+      <div data-kr-shell="standalone" data-portal={themeId} className={`kr-light relative isolate min-h-screen text-ink ${theme.canvas}`}>
         <KashmirBackdrop ink={look.ink} leaf={theme.leaf} />
         <SiteHeader tone="light" />
         <main id="main-content" className="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-6 lg:px-8">
@@ -319,12 +319,12 @@ export function PortalShell({
   );
 
   return (
-    <div data-kr-shell="portal" className={`kr-light relative isolate min-h-screen text-ink ${theme.canvas}`}>
+    <div data-kr-shell="portal" data-portal={themeId} className={`kr-light relative isolate min-h-screen text-ink ${theme.canvas}`}>
       <KashmirBackdrop ink={look.ink} leaf={theme.leaf} valley={skin.valley} />
       <div className="lg:flex">
         <aside
           aria-label={portalLabel ?? title}
-          className="sticky top-0 hidden h-svh w-60 shrink-0 self-start overflow-y-auto border-r border-forest-deep bg-forest-deep text-white shadow-[10px_0_40px_-28px_rgba(18,56,46,0.6)] lg:block xl:w-64"
+          className="sticky top-0 hidden h-svh w-60 shrink-0 self-start overflow-y-auto border-r border-forest-deep bg-forest-deep text-white shadow-[10px_0_40px_-28px_rgba(30, 27, 75,0.6)] lg:block xl:w-64"
         >
           {sidebar(`${ids}-side`)}
         </aside>

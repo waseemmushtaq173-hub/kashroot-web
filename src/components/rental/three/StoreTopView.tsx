@@ -176,10 +176,10 @@ export const StoreTopView = memo(function StoreTopView({
             onPick(c.index);
           }
         }}
-        className="cursor-pointer outline-none [&:focus-visible>rect:first-child]:stroke-[#174C3C]"
+        className="cursor-pointer outline-none [&:focus-visible>rect:first-child]:stroke-forest"
       >
         <title>{label}</title>
-        <rect x={X(r.x)} y={Y(r.y + r.d)} width={r.w * k} height={r.d * k} fill={c.fits ? (f ? '#ffffff' : '#f1f5f9') : '#fff1f2'} stroke={c.fits ? (on ? '#174C3C' : '#475569') : '#e11d48'} strokeWidth={on ? 5 : 3} strokeDasharray={c.fits ? undefined : '8 5'} />
+        <rect x={X(r.x)} y={Y(r.y + r.d)} width={r.w * k} height={r.d * k} fill={c.fits ? (f ? '#ffffff' : '#f1f5f9') : '#fff1f2'} stroke={c.fits ? (on ? '#3730A3' : '#475569') : '#e11d48'} strokeWidth={on ? 5 : 3} strokeDasharray={c.fits ? undefined : '8 5'} />
         {f?.walkway && <rect x={X(f.walkway.x)} y={Y(f.walkway.y + f.walkway.d)} width={f.walkway.w * k} height={f.walkway.d * k} fill="#fef3c7" />}
         {on && f?.walkway && walkwayDim(c, f.walkway)}
         {[...paths].map(([fill, d]) => <path key={fill} d={d} fill={fill} stroke={fill === PLACE_LOOK.blocked.mini ? PLACE_LOOK.blocked.stroke : 'none'} strokeWidth={0.6} />)}

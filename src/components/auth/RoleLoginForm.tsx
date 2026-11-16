@@ -474,13 +474,13 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
         Every KashRoot portal has its own sign-in. No {info.label} account yet? Sign in with your KashRoot email and password and create it, or use Create an account below.
       </p>
       {elsewhere.length > 0 && (
-        <p role="status" className="mt-4 rounded-xl bg-[#EAF3EE] p-3 text-sm text-[#12382E] ring-1 ring-[#C6DBD0]">
+        <p role="status" className="mt-4 rounded-xl bg-forest-soft p-3 text-sm text-forest-deep ring-1 ring-forest-line">
           You are signed in to <strong>{elsewhere.map((p) => PORTALS[p].label).join(', ')}</strong> on this device. The {info.label} portal has its own sign-in — enter your password to open it.
         </p>
       )}
 
       {verified && (
-        <p role="status" className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800 ring-1 ring-emerald-200">
+        <p role="status" className="mt-4 rounded-xl bg-forest-soft p-3 text-sm text-forest-deep ring-1 ring-forest-line">
           Email verified successfully! You can now sign in.
         </p>
       )}
@@ -491,7 +491,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
         </p>
       )}
       {!checking && remembered && (
-        <p className="mt-6 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900 ring-1 ring-emerald-200">
+        <p className="mt-6 rounded-xl bg-forest-soft p-3 text-sm text-forest-deep ring-1 ring-forest-line">
           Welcome back, <strong>{remembered.name}</strong>. Your email is filled in — just enter your password.
           <button
             type="button"

@@ -95,10 +95,10 @@ interface AssignmentRecord {
 const INGEST_URL = `${(process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://kashroot-web.vercel.app').replace(/\/$/, '')}/api/tracking/ingest`;
 
 const STATUS_BADGE_MAP: Record<string, { bg: string; label: string }> = {
-  WAITING_FOR_DRIVER_GPS: { bg: 'bg-[#EAF3EE] text-[#174C3C] ring-1 ring-[#C6A45B]', label: '… WAITING FOR DRIVER GPS (not started yet)' },
+  WAITING_FOR_DRIVER_GPS: { bg: 'bg-forest-soft text-forest ring-1 ring-[#C6A45B]', label: '… WAITING FOR DRIVER GPS (not started yet)' },
   DELAYED: { bg: 'bg-amber-200 text-amber-950', label: '◔ LAST PING OVER 30 SECONDS AGO' },
-  LIVE: { bg: 'bg-emerald-600 text-white', label: '● LIVE GPS STREAMING' },
-  UPDATING: { bg: 'bg-[#174C3C] text-white', label: '↻ UPDATING POSITION' },
+  LIVE: { bg: 'bg-forest text-white', label: '● LIVE GPS STREAMING' },
+  UPDATING: { bg: 'bg-forest text-white', label: '↻ UPDATING POSITION' },
   STALE: { bg: 'bg-amber-500 text-slate-950', label: '⚠ LOCATION STALE (NO RECENT PING)' },
   GPS_PERMISSION_DENIED: { bg: 'bg-rose-600 text-white', label: '✕ GPS PERMISSION DENIED' },
   DISCONNECTED: { bg: 'bg-slate-600 text-white', label: '⚡ DEVICE DISCONNECTED' },
@@ -650,13 +650,13 @@ export default function UnifiedLiveTrackingPortal() {
   const badgeStyle = STATUS_BADGE_MAP[currentStatusKey] || STATUS_BADGE_MAP.TRACKING_STOPPED;
 
   return (
-    <div data-kr-shell="standalone" className="kr-light min-h-screen">
+    <div data-kr-shell="standalone" data-portal="tracking" className="kr-light min-h-screen">
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-6">
       {/* Header banner and tab switch */}
       <div className="kr-hero rounded-3xl p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <span className="inline-block rounded-full bg-[#EAF3EE] px-3 py-1 text-xs font-bold uppercase tracking-wider text-[#174C3C] ring-1 ring-[#C6A45B]">
+            <span className="inline-block rounded-full bg-forest-soft px-3 py-1 text-xs font-bold uppercase tracking-wider text-forest ring-1 ring-[#C6A45B]">
               KashRoot Pan-India Cold-Chain &amp; Produce Logistics
             </span>
             <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
@@ -708,12 +708,12 @@ export default function UnifiedLiveTrackingPortal() {
                   value={trackingIdInput}
                   onChange={(e) => setTrackingIdInput(e.target.value.toUpperCase())}
                   placeholder="e.g. Enter your Shipment ID from your Buyer/Farmer Order or Driver Trip"
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 font-mono text-sm font-semibold text-slate-900 focus:border-emerald-600 focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 font-mono text-sm font-semibold text-slate-900 focus:border-forest focus:outline-none"
                 />
               </div>
               <button
                 type="submit"
-                className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white shadow hover:bg-emerald-700"
+                className="rounded-xl bg-forest px-5 py-2.5 text-sm font-bold text-white shadow hover:bg-forest"
               >
                 Track Authorized Shipment
               </button>
@@ -733,7 +733,7 @@ export default function UnifiedLiveTrackingPortal() {
                       setTrackingIdInput(s.shipment_tracking_id);
                       void lookupShipmentByCode(s.shipment_tracking_id);
                     }}
-                    className="rounded-lg border border-slate-200 bg-slate-100 px-2.5 py-1 font-mono text-xs font-semibold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800"
+                    className="rounded-lg border border-slate-200 bg-slate-100 px-2.5 py-1 font-mono text-xs font-semibold text-slate-800 hover:bg-forest-soft hover:text-forest-deep"
                   >
                     {s.shipment_tracking_id} ({s.origin_name.split(',')[0]} → {s.destination_name.split(',')[0]})
                   </button>
@@ -742,7 +742,7 @@ export default function UnifiedLiveTrackingPortal() {
             )}
 
             {listLoaded && availableShipments.length === 0 && (
-              <p data-testid="no-active-shipments" className="mt-3 rounded-xl bg-[#EAF3EE] px-4 py-3 text-sm text-[#174C3C] ring-1 ring-[#C6DBD0]">
+              <p data-testid="no-active-shipments" className="mt-3 rounded-xl bg-forest-soft px-4 py-3 text-sm text-forest ring-1 ring-forest-line">
                 No active shipments registered yet. Switch to &apos;Driver / Vehicle Owner Login &amp; Start GPS&apos; to register a real vehicle and start
                 live browser GPS broadcasting, or dispatch an order from the Farmer/Buyer portal.
               </p>
@@ -788,7 +788,7 @@ export default function UnifiedLiveTrackingPortal() {
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="text-xs font-semibold text-slate-500">Distance Progress</div>
-                  <div className="mt-1 text-base font-extrabold text-emerald-700">{trackedShipment.distance_travelled_km} km covered</div>
+                  <div className="mt-1 text-base font-extrabold text-forest">{trackedShipment.distance_travelled_km} km covered</div>
                   <div className="text-xs text-slate-600">
                     {trackedShipment.remaining_distance_km} km remaining of {trackedShipment.total_route_distance_km} km
                   </div>
@@ -809,7 +809,7 @@ export default function UnifiedLiveTrackingPortal() {
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="text-xs font-semibold text-slate-500">Estimated Arrival (ETA)</div>
-                  <div className="mt-1 text-sm font-extrabold text-[#12382E]">
+                  <div className="mt-1 text-sm font-extrabold text-forest-deep">
                     {trackedShipment.estimated_arrival_at ? new Date(trackedShipment.estimated_arrival_at).toLocaleString() : 'Not estimated yet'}
                   </div>
                   <div className="text-xs text-slate-600">
@@ -975,7 +975,7 @@ export default function UnifiedLiveTrackingPortal() {
               </form>
 
               {driverAuthMsg && (
-                <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-semibold text-emerald-800">
+                <div className="mt-3 rounded-xl border border-forest-line bg-forest-soft px-3.5 py-2 text-xs font-semibold text-forest-deep">
                   {driverAuthMsg}
                 </div>
               )}
@@ -1057,7 +1057,7 @@ export default function UnifiedLiveTrackingPortal() {
                     />
                   </div>
 
-                  <button type="submit" className="w-full rounded-xl bg-emerald-600 py-2.5 text-sm font-bold text-white hover:bg-emerald-700">
+                  <button type="submit" className="w-full rounded-xl bg-forest py-2.5 text-sm font-bold text-white hover:bg-forest">
                     + Register &amp; Link Vehicle to My Driver Profile
                   </button>
                 </form>
@@ -1154,7 +1154,7 @@ export default function UnifiedLiveTrackingPortal() {
                       className="rounded-xl border border-slate-300 px-3 py-2 text-xs"
                     />
                   </div>
-                  <button type="submit" className="w-full rounded-xl bg-[#174C3C] py-2 text-xs font-bold text-white hover:bg-[#174C3C]">
+                  <button type="submit" className="w-full rounded-xl bg-forest py-2 text-xs font-bold text-white hover:bg-forest">
                     Create &amp; Assign Shipment Tracking ID
                   </button>
                 </form>
@@ -1162,8 +1162,8 @@ export default function UnifiedLiveTrackingPortal() {
             </div>
 
             {/* 4. START / STOP controls */}
-            <div className="rounded-2xl border border-[#C6DBD0] bg-white p-6 text-slate-900 shadow-sm">
-              <h2 className="text-base font-extrabold text-[#174C3C]">4. Live GPS Broadcast Controls (Explicit Consent)</h2>
+            <div className="rounded-2xl border border-forest-line bg-white p-6 text-slate-900 shadow-sm">
+              <h2 className="text-base font-extrabold text-forest">4. Live GPS Broadcast Controls (Explicit Consent)</h2>
               <p className="mt-1 text-xs text-slate-600">
                 Location sharing runs ONLY while an authorized trip is active. Pressing <strong>STOP TRACKING</strong> immediately
                 terminates the device location watcher.
@@ -1174,7 +1174,7 @@ export default function UnifiedLiveTrackingPortal() {
                   <button
                     type="button"
                     onClick={() => void handleStartLiveGpsTracking()}
-                    className="flex-1 rounded-xl bg-emerald-700 px-5 py-3.5 text-sm font-extrabold text-white shadow-lg"
+                    className="flex-1 rounded-xl bg-forest px-5 py-3.5 text-sm font-extrabold text-white shadow-lg"
                   >
                     ▶ START TRACKING (Share Actual Live GPS)
                   </button>
@@ -1199,26 +1199,26 @@ export default function UnifiedLiveTrackingPortal() {
               </div>
 
               {gpsStatusMessage && (
-                <div role="status" className="mt-4 rounded-xl border border-[#C6DBD0] bg-[#EAF3EE] px-4 py-3 font-mono text-xs text-[#174C3C]">
+                <div role="status" className="mt-4 rounded-xl border border-forest-line bg-forest-soft px-4 py-3 font-mono text-xs text-forest">
                   {gpsStatusMessage}
                 </div>
               )}
 
               {liveDriverCoords && (
                 <div className="mt-3 grid grid-cols-2 gap-2 text-center text-xs sm:grid-cols-4">
-                  <div className="rounded-lg border border-[#C6DBD0] bg-[#F3F8F5] p-2">
+                  <div className="rounded-lg border border-forest-line bg-[#F6F7FF] p-2">
                     <div className="text-slate-600">Latitude</div>
                     <div className="font-mono font-bold">{liveDriverCoords.lat.toFixed(5)}°</div>
                   </div>
-                  <div className="rounded-lg border border-[#C6DBD0] bg-[#F3F8F5] p-2">
+                  <div className="rounded-lg border border-forest-line bg-[#F6F7FF] p-2">
                     <div className="text-slate-600">Longitude</div>
                     <div className="font-mono font-bold">{liveDriverCoords.lng.toFixed(5)}°</div>
                   </div>
-                  <div className="rounded-lg border border-[#C6DBD0] bg-[#F3F8F5] p-2">
+                  <div className="rounded-lg border border-forest-line bg-[#F6F7FF] p-2">
                     <div className="text-slate-600">Accuracy</div>
                     <div className="font-mono font-bold">±{Math.round(liveDriverCoords.accuracy)} m</div>
                   </div>
-                  <div className="rounded-lg border border-[#C6DBD0] bg-[#F3F8F5] p-2">
+                  <div className="rounded-lg border border-forest-line bg-[#F6F7FF] p-2">
                     <div className="text-slate-600">Speed</div>
                     <div className="font-mono font-bold">
                       {liveDriverCoords.speedKmh !== null ? `${liveDriverCoords.speedKmh} km/h` : 'not reported'}
@@ -1243,7 +1243,7 @@ export default function UnifiedLiveTrackingPortal() {
             paired to a vehicle by its registered driver/owner below; devices are recorded <strong>UNVERIFIED</strong> until their
             AIS-140 certificate is verified by a Super Admin.
           </p>
-          <p className="max-w-3xl rounded-xl bg-[#EAF3EE] px-4 py-3 text-xs text-[#174C3C] ring-1 ring-[#C6DBD0]">
+          <p className="max-w-3xl rounded-xl bg-forest-soft px-4 py-3 text-xs text-forest ring-1 ring-forest-line">
             No hardware tracker is connected to KashRoot unless one is paired here and has sent a position. This page shows the
             endpoint and its format; it does not show devices that do not exist. Every device request must carry the secret given
             once at pairing, as <code className="font-mono">apiSecretToken</code> in the JSON or as an{' '}
@@ -1299,14 +1299,14 @@ export default function UnifiedLiveTrackingPortal() {
               </select>
             </div>
             <div className="flex items-end">
-              <button type="submit" className="w-full rounded-xl bg-[#174C3C] py-2.5 text-xs font-bold text-white hover:bg-[#286B54]">
+              <button type="submit" className="w-full rounded-xl bg-forest py-2.5 text-xs font-bold text-white hover:bg-forest-mid">
                 🔗 Pair Device to Vehicle
               </button>
             </div>
           </form>
 
           {deviceMsg && (
-            <div className="rounded-xl border border-[#C6DBD0] bg-[#EAF3EE] px-4 py-2.5 text-xs font-semibold text-[#174C3C]">{deviceMsg}</div>
+            <div className="rounded-xl border border-forest-line bg-forest-soft px-4 py-2.5 text-xs font-semibold text-forest">{deviceMsg}</div>
           )}
           {webhookSecretOnce && (
             <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 font-mono text-xs text-amber-900">
@@ -1315,7 +1315,7 @@ export default function UnifiedLiveTrackingPortal() {
             </div>
           )}
 
-          <pre className="overflow-x-auto rounded-xl bg-[#12382E] p-4 font-mono text-xs text-[#EAF3EE]">{`POST ${INGEST_URL}
+          <pre className="overflow-x-auto rounded-xl bg-forest-deep p-4 font-mono text-xs text-forest-soft">{`POST ${INGEST_URL}
 Content-Type: application/json
 Authorization: Bearer <secret shown once when the device was paired>
 

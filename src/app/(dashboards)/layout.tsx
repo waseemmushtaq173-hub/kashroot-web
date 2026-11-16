@@ -184,9 +184,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     // already drawn here (the same picture the page shows at its top), so the page's largest
     // paint does not wait for the sign-in check.
     return (
-      <div className="relative isolate flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-amber-50">
+      <div className="relative isolate flex min-h-screen items-center justify-center bg-gradient-to-br from-forest-soft via-white to-amber-50">
         <RegionBackdrop />
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-forest border-t-transparent" />
       </div>
     );
   }
@@ -216,7 +216,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   if (!authorized) {
     return (
-      <div className="kr-light flex min-h-screen flex-col bg-gradient-to-br from-amber-50 via-white to-emerald-50 text-slate-900">
+      <div className="kr-light flex min-h-screen flex-col bg-gradient-to-br from-amber-50 via-white to-forest-soft text-slate-900">
         <SiteHeader tone="light" portal={portal} />
         <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
           <div className="max-w-lg rounded-3xl bg-white/80 p-8 shadow-[0_20px_60px_rgba(15,23,42,0.12)] ring-1 ring-slate-900/5 backdrop-blur-xl">
@@ -274,15 +274,15 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   // Every portal renders inside PortalShell (bright, kr-light scoped); the
   // layout only adds the site chrome around it.
   return (
-    <div className="kr-light flex min-h-screen flex-col bg-gradient-to-br from-emerald-50 via-white to-amber-50 text-slate-900">
+    <div className="kr-light flex min-h-screen flex-col bg-gradient-to-br from-forest-soft via-white to-amber-50 text-slate-900">
       {ownBar && <SiteHeader tone="light" portal={portal} />}
       {portal && KYC_PORTALS.includes(portal) && (kyc?.rules?.kyc_required ? kycMissing(kyc.rules, kyc.status) : MONEY_PORTALS.includes(portal) && !kycDone && !kyc?.status?.aadhaar_verified_at) && (
         <Suspense fallback={null}>
           <NotOnSafePayment>
-            <div className={`border-b ${kyc?.rules?.kyc_required ? 'border-amber-900/10 bg-amber-50' : 'border-emerald-900/10 bg-emerald-50/90'}`}>
+            <div className={`border-b ${kyc?.rules?.kyc_required ? 'border-amber-900/10 bg-amber-50' : 'border-forest-deep/10 bg-forest-soft/90'}`}>
               <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2.5 text-sm sm:px-6 lg:px-8">
-                <p className={`flex items-center gap-2 ${kyc?.rules?.kyc_required ? 'text-amber-950' : 'text-emerald-950'}`}>
-                  <ShieldCheck className={`h-4 w-4 shrink-0 ${kyc?.rules?.kyc_required ? 'text-amber-700' : 'text-emerald-700'}`} aria-hidden />
+                <p className={`flex items-center gap-2 ${kyc?.rules?.kyc_required ? 'text-amber-950' : 'text-forest-pine'}`}>
+                  <ShieldCheck className={`h-4 w-4 shrink-0 ${kyc?.rules?.kyc_required ? 'text-amber-700' : 'text-forest'}`} aria-hidden />
                   {kyc?.rules?.kyc_required
                     ? kycMissing(kyc.rules, kyc.status) === 'pan'
                       ? `Your Aadhaar is verified. Verify your PAN too before you ${KYC_FOR[portal] ?? KYC_FOR.default} on KashRoot.`

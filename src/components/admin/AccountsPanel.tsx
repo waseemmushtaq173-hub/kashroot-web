@@ -198,7 +198,7 @@ export function AccountsPanel({ onRefreshed }: { onRefreshed?: () => Promise<unk
                       </p>
                       <p className="mt-0.5 truncate text-slate-600">
                         {r.email}
-                        {r.email_confirmed && <CheckCircle2 className="ml-1 inline h-3.5 w-3.5 text-emerald-700" aria-label="email confirmed" />}
+                        {r.email_confirmed && <CheckCircle2 className="ml-1 inline h-3.5 w-3.5 text-forest" aria-label="email confirmed" />}
                         {r.district ? ` · ${r.district}` : ''}
                         {r.portals.length ? ` · details in: ${r.portals.join(', ')}` : ''}
                       </p>
@@ -207,7 +207,7 @@ export function AccountsPanel({ onRefreshed }: { onRefreshed?: () => Promise<unk
                       <span>Joined {date(r.joined_at)}</span>
                       <span className={lastSeen(r) ? 'font-semibold text-slate-800' : ''}>{lastSeen(r) ? `Active ${ago(lastSeen(r)!)}` : 'Not signed in yet'}</span>
                       {/^[6-9]\d{9}$/.test(tel) && (
-                        <a href={`tel:+91${tel}`} className="inline-flex items-center gap-1 font-semibold text-[#174C3C] no-underline hover:underline">
+                        <a href={`tel:+91${tel}`} className="inline-flex items-center gap-1 font-semibold text-forest no-underline hover:underline">
                           <Phone className="h-3.5 w-3.5" aria-hidden /> {tel}
                         </a>
                       )}

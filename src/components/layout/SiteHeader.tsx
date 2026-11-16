@@ -308,7 +308,7 @@ export function SiteHeader({
     <header
       className={
         light
-          ? 'sticky top-0 z-40 border-b-2 border-champagne bg-[#F2F8F5]/85 backdrop-blur-xl shadow-[0_8px_30px_-12px_rgba(18,56,46,0.3)]'
+          ? 'sticky top-0 z-40 border-b-2 border-champagne bg-[#F2F8F5]/85 backdrop-blur-xl shadow-[0_8px_30px_-12px_rgba(30, 27, 75,0.3)]'
           : 'sticky top-0 z-40 border-b border-white/25 bg-kr-bg-surface/75 backdrop-blur-xl supports-[backdrop-filter]:bg-kr-bg-surface/65 shadow-[0_8px_30px_-12px_rgba(7,11,26,0.35)]'
       }
     >
@@ -414,7 +414,7 @@ function PortalHeader({ portal }: { portal: PortalId }) {
     router.replace(loginHref(portal));
   };
   return (
-    <header className="sticky top-0 z-40 border-b-2 border-champagne bg-[#F2F8F5]/85 shadow-[0_8px_30px_-12px_rgba(18,56,46,0.3)] backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b-2 border-champagne bg-[#F2F8F5]/85 shadow-[0_8px_30px_-12px_rgba(30, 27, 75,0.3)] backdrop-blur-xl">
       <nav aria-label="Portal" className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
           <Link href="/" aria-label="KashRoot home" className="shrink-0 text-slate-900 no-underline hover:no-underline">

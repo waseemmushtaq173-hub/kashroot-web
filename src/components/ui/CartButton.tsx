@@ -52,8 +52,8 @@ export function CartButton({
     >
       {done ? (
         <span className="kr-cart-in inline-flex items-center gap-2">
-          <span className="grid h-5 w-5 place-items-center rounded-full ring-2 ring-emerald-400">
-            <Check className="h-3 w-3 text-emerald-300" strokeWidth={3} aria-hidden />
+          <span className="grid h-5 w-5 place-items-center rounded-full ring-2 ring-forest-mid">
+            <Check className="h-3 w-3 text-forest-line" strokeWidth={3} aria-hidden />
           </span>
           {doneLabel}
         </span>
@@ -61,7 +61,7 @@ export function CartButton({
         <>
           {/* The scanner: a barcode, a light, and a beam that sweeps when pressed. */}
           <span aria-hidden className="relative h-4 w-6 shrink-0 overflow-hidden rounded-[4px] bg-slate-950 ring-1 ring-white/20">
-            <span className={`absolute left-[3px] top-[3px] h-[3px] w-[3px] rounded-full ${phase === 'scan' ? 'bg-emerald-400' : 'kr-cart-led bg-amber-300'}`} />
+            <span className={`absolute left-[3px] top-[3px] h-[3px] w-[3px] rounded-full ${phase === 'scan' ? 'bg-forest-mid' : 'kr-cart-led bg-amber-300'}`} />
             <span className="absolute bottom-[3px] left-[3px] flex h-[6px] w-[17px] gap-[1px] overflow-hidden rounded-[1px]">
               {[2, 1, 1, 2, 1, 2, 1, 1, 2].map((w, i) => (
                 <span key={i} className="h-full bg-slate-200/90" style={{ width: w }} />

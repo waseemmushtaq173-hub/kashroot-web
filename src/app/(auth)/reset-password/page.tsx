@@ -51,10 +51,10 @@ export default function ResetPasswordPage() {
   if (done) {
     return (
       <div className="py-4 text-center">
-        <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-600" aria-hidden />
+        <CheckCircle2 className="mx-auto h-14 w-14 text-forest" aria-hidden />
         <h1 className="font-display mt-4 text-2xl font-semibold tracking-tight text-slate-900">Password updated</h1>
         <p className="mt-2 text-slate-600">Sign in with your new password.</p>
-        <Link href="/login" className="mt-6 inline-flex rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-3 font-semibold text-white no-underline shadow-lg hover:no-underline">Choose your sign-in</Link>
+        <Link href="/login" className="mt-6 inline-flex rounded-xl bg-gradient-to-r from-forest to-teal-600 px-6 py-3 font-semibold text-white no-underline shadow-lg hover:no-underline">Choose your sign-in</Link>
       </div>
     );
   }
@@ -69,10 +69,10 @@ export default function ResetPasswordPage() {
     );
   }
 
-  const input = 'block min-h-11 w-full rounded-xl border-0 bg-white px-4 py-3.5 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-emerald-500';
+  const input = 'block min-h-11 w-full rounded-xl border-0 bg-white px-4 py-3.5 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-forest-mid';
   return (
     <div>
-      <span className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 text-white shadow-lg shadow-emerald-600/30">
+      <span className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-forest-mid to-teal-600 text-white shadow-lg shadow-forest/30">
         <KeyRound className="h-6 w-6" aria-hidden />
       </span>
       <h1 className="font-display mt-5 text-3xl font-semibold tracking-tight text-slate-900">Set a new password</h1>
@@ -94,7 +94,7 @@ export default function ResetPasswordPage() {
             <input type={show ? 'text' : 'password'} autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} className={`${input} mt-1.5`} />
           </label>
           {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800 ring-1 ring-rose-200">{error}</p>}
-          <button type="submit" disabled={busy} className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-5 py-3.5 font-semibold text-white shadow-lg shadow-emerald-600/30 disabled:opacity-60">
+          <button type="submit" disabled={busy} className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-forest to-teal-600 px-5 py-3.5 font-semibold text-white shadow-lg shadow-forest/30 disabled:opacity-60">
             {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} Save new password
           </button>
         </form>

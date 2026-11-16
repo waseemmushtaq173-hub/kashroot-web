@@ -95,7 +95,7 @@ type Scan =
 /** A registration number read from the label photo, looked up in the official list. */
 type RegCheck = { state: 'idle' } | { state: 'loading' } | { state: 'error'; message: string } | { state: 'done'; no: string; hits: OfficialHit[] | null; stats: AgroRegistryStats | null };
 
-const INPUT = 'block w-full rounded-xl border-0 bg-white px-4 py-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-700';
+const INPUT = 'block w-full rounded-xl border-0 bg-white px-4 py-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-forest';
 const ASK = 'Ask the dealer for the registration certificate, or ask your agriculture officer.';
 
 /** "26 Oct 2026" */
@@ -522,7 +522,7 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
                     <span className="relative mt-1.5 block">
                       <input type="number" inputMode="decimal" step="0.01" min={0} max={100} value={values[r.key] ?? ''} onChange={(e) => setValues({ ...values, [r.key]: e.target.value })} placeholder="Lab value %" className={`${INPUT} pr-10`} />
                       <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-                        {r.verdict === 'pass' && <CheckCircle2 className="h-5 w-5 text-emerald-600" aria-label="Meets FCO" />}
+                        {r.verdict === 'pass' && <CheckCircle2 className="h-5 w-5 text-forest" aria-label="Meets FCO" />}
                         {r.verdict === 'fail' && <XCircle className="h-5 w-5 text-rose-600" aria-label="Fails FCO" />}
                       </span>
                     </span>
@@ -530,7 +530,7 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
                 ))}
               </div>
               {report.rows.some((r) => r.verdict !== 'missing') && (
-                <p aria-live="polite" className={`mt-4 rounded-2xl p-4 text-sm font-medium ring-1 ${report.pass ? 'bg-emerald-50 text-emerald-900 ring-emerald-200' : 'bg-rose-50 text-rose-900 ring-rose-200'}`}>
+                <p aria-live="polite" className={`mt-4 rounded-2xl p-4 text-sm font-medium ring-1 ${report.pass ? 'bg-forest-soft text-forest-deep ring-forest-line' : 'bg-rose-50 text-rose-900 ring-rose-200'}`}>
                   {report.pass
                     ? report.complete
                       ? 'Every tested value meets the Fertiliser (Control) Order minimums.'
@@ -542,8 +542,8 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
 
               {/* Authorised registered manufacturer */}
               {(standard.manufacturerCompany || standard.brandName) && (
-                <div className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-slate-800 ring-1 ring-emerald-200">
-                  <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-emerald-800 mb-1">Authorised Registered Manufacturer</p>
+                <div className="mt-4 rounded-xl bg-forest-soft p-3 text-sm text-slate-800 ring-1 ring-forest-line">
+                  <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-forest-deep mb-1">Authorised Registered Manufacturer</p>
                   <p className="font-medium">{standard.manufacturerCompany}</p>
                   {standard.brandName && standard.brandName !== standard.manufacturerCompany && (
                     <p className="text-xs text-slate-600">Brand: {standard.brandName}</p>
@@ -635,7 +635,7 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
                       <div key={`${h.kind}-${h.active_molecule || h.fertiliser_type}-${i}`} className="rounded-xl bg-white p-3 ring-1 ring-slate-200">
                         {h.kind === 'registered' && (
                           <>
-                            <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                            <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-forest">
                               {h.reference ? 'Reference (not yet checked)' : 'CIB&RC Registered'}
                             </p>
                             <p className="text-sm font-semibold text-slate-900">{h.active_molecule}</p>
@@ -833,29 +833,29 @@ function ScanResult({ result, account, onPhoto, onLab, standard, cibrcResult, sk
       )}
 
       {byNumber.map((h, i) => (
-        <section key={`${h.source}|${h.registration_no}|${h.name}|${i}`} aria-label="Found in the official list" className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
-          <p className="flex items-center gap-2 text-base font-semibold text-emerald-900"><BadgeCheck className="h-5 w-5 shrink-0" aria-hidden /> {REGISTERED[h.kind]}</p>
+        <section key={`${h.source}|${h.registration_no}|${h.name}|${i}`} aria-label="Found in the official list" className="rounded-2xl bg-forest-soft p-4 ring-1 ring-forest-line">
+          <p className="flex items-center gap-2 text-base font-semibold text-forest-deep"><BadgeCheck className="h-5 w-5 shrink-0" aria-hidden /> {REGISTERED[h.kind]}</p>
           <div className="mt-1"><HitLine hit={h} strong /></div>
-          <p className="mt-2 text-xs text-emerald-950">A fake can copy a real number. Check that the company on the label is exactly the same, and buy only with a bill.</p>
+          <p className="mt-2 text-xs text-forest-pine">A fake can copy a real number. Check that the company on the label is exactly the same, and buy only with a bill.</p>
         </section>
       ))}
 
       {byName.length > 0 && (
-        <section aria-label="Found by name in the official list" className="rounded-2xl bg-emerald-50/70 p-4 ring-1 ring-emerald-200">
-          <p className="flex items-center gap-2 text-base font-semibold text-emerald-900"><BadgeCheck className="h-5 w-5 shrink-0" aria-hidden /> Found by name in the Government list</p>
+        <section aria-label="Found by name in the official list" className="rounded-2xl bg-forest-soft/70 p-4 ring-1 ring-forest-line">
+          <p className="flex items-center gap-2 text-base font-semibold text-forest-deep"><BadgeCheck className="h-5 w-5 shrink-0" aria-hidden /> Found by name in the Government list</p>
           <p className="mt-1 text-slate-800">
             {byName.length === 1 ? 'One registered product has this name.' : `${byName.length === 20 ? '20 or more' : byName.length} registered products have this name.`} The company and the registration number on your label must match {byName.length === 1 ? 'it' : 'one of these'}.
           </p>
           <ul className="mt-3 space-y-3">
             {shownNames.map((h, i) => (
-              <li key={`${h.source}|${h.registration_no}|${h.name}|${i}`} className="rounded-xl bg-white/80 p-3 ring-1 ring-emerald-100">
-                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-800">{REGISTERED[h.kind]}</p>
+              <li key={`${h.source}|${h.registration_no}|${h.name}|${i}`} className="rounded-xl bg-white/80 p-3 ring-1 ring-forest-soft">
+                <p className="text-xs font-semibold uppercase tracking-wider text-forest-deep">{REGISTERED[h.kind]}</p>
                 <HitLine hit={h} />
               </li>
             ))}
           </ul>
           {byName.length > shownNames.length && (
-            <button type="button" onClick={() => setAll(true)} className="mt-3 min-h-11 cursor-pointer rounded-xl bg-white px-4 py-2 font-semibold text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-50">
+            <button type="button" onClick={() => setAll(true)} className="mt-3 min-h-11 cursor-pointer rounded-xl bg-white px-4 py-2 font-semibold text-forest-deep ring-1 ring-forest-line hover:bg-forest-soft">
               Show all {byName.length}
             </button>
           )}
@@ -887,44 +887,44 @@ function ScanResult({ result, account, onPhoto, onLab, standard, cibrcResult, sk
       )}
 
       {cibrcResult && cibrcResult.products && cibrcResult.products.length > 0 && (
-        <section aria-label="CIB&RC registered product" className="rounded-2xl bg-emerald-50 p-4 text-slate-800 ring-1 ring-emerald-200">
+        <section aria-label="CIB&RC registered product" className="rounded-2xl bg-forest-soft p-4 text-slate-800 ring-1 ring-forest-line">
           {cibrcResult.products.every((p) => p.reference) ? (
             <p className="flex items-center gap-2 text-base font-semibold text-slate-900"><FileQuestion className="h-5 w-5 shrink-0 text-amber-700" aria-hidden /> In KashRoot’s reference list — not yet checked against the official register</p>
           ) : (
-            <p className="flex items-center gap-2 text-base font-semibold text-emerald-900"><BadgeCheck className="h-5 w-5 shrink-0" aria-hidden /> Registered with the Government (CIB&RC, ppqs.gov.in)</p>
+            <p className="flex items-center gap-2 text-base font-semibold text-forest-deep"><BadgeCheck className="h-5 w-5 shrink-0" aria-hidden /> Registered with the Government (CIB&RC, ppqs.gov.in)</p>
           )}
           {cibrcResult.products.map((p) => {
             const brand = (p.brandNames ?? [])[0] ?? p.active_molecule;
             const legal = p.legalManufacturer ?? p.manufacturer ?? '';
             if (p.reference) return <ReferenceProduct key={p.id} p={p} brand={brand} company={legal} onPhoto={onPhoto} />;
             return (
-              <div key={p.id} className="mt-2 rounded-xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
+              <div key={p.id} className="mt-2 rounded-xl bg-forest-soft p-4 ring-1 ring-forest-line">
                 {/* Anti-scam manufacturer & CIR ID verification header */}
                 <div className="mb-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-emerald-800">Brand / Trade name</span>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-forest-deep">Brand / Trade name</span>
                     <span className="text-sm font-semibold text-slate-900">{brand}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-emerald-800">Govt. CIBRC registration ID</span>
-                    <span className="text-xs font-mono bg-emerald-100 text-emerald-900 px-2 py-1 rounded border border-emerald-200 break-all">{p.cir_no}</span>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-forest-deep">Govt. CIBRC registration ID</span>
+                    <span className="text-xs font-mono bg-forest-soft text-forest-deep px-2 py-1 rounded border border-forest-line break-all">{p.cir_no}</span>
                     <button
                       type="button"
                       onClick={() => {
                         void navigator.clipboard.writeText(p.cir_no);
                       }}
                       aria-label={`Copy ${p.cir_no}`}
-                      className="p-1.5 text-emerald-600 hover:bg-emerald-100 rounded hover:text-emerald-800"
+                      className="p-1.5 text-forest hover:bg-forest-soft rounded hover:text-forest-deep"
                     >
                       <Copy className="h-3.5 w-3.5" aria-hidden />
                     </button>
                   </div>
                 </div>
                 <div className="mb-2 flex items-start gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-emerald-800">Sole authorised manufacturer / registrant</span>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-forest-deep">Sole authorised manufacturer / registrant</span>
                   <span className="text-sm font-semibold text-slate-900">{legal}</span>
                 </div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-800 mb-1">{p.active_molecule}{p.formulation ? ` — ${p.formulation}` : ''}</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-forest-deep mb-1">{p.active_molecule}{p.formulation ? ` — ${p.formulation}` : ''}</p>
                 {p.approved_crops.length > 0 && <p className="text-xs text-slate-600">Approved crops: {p.approved_crops.join(', ')}</p>}
                 {p.target_pests.length > 0 && <p className="text-xs text-slate-600">Targets: {p.target_pests.join(', ')}</p>}
                 {p.waiting_period_days !== null && <p className="text-xs text-slate-600">Waiting period: {p.waiting_period_days} days</p>}
@@ -1061,8 +1061,8 @@ function DealerRecord({ row, account }: { row: BatchRow; account: Account | null
   const expired = row.expiry_date && row.expiry_date < new Date().toISOString().slice(0, 10);
   const good = row.dealer_verified && !expired && row.reports === 0;
   return (
-    <div className={`rounded-2xl p-4 ring-1 ${good ? 'bg-emerald-50 ring-emerald-200' : 'bg-amber-50 ring-amber-200'}`}>
-      <p className={`flex items-center gap-2 font-semibold ${good ? 'text-emerald-900' : 'text-amber-900'}`}>
+    <div className={`rounded-2xl p-4 ring-1 ${good ? 'bg-forest-soft ring-forest-line' : 'bg-amber-50 ring-amber-200'}`}>
+      <p className={`flex items-center gap-2 font-semibold ${good ? 'text-forest-deep' : 'text-amber-900'}`}>
         {good ? <CheckCircle2 className="h-5 w-5" aria-hidden /> : <CircleAlert className="h-5 w-5" aria-hidden />}
         {expired ? 'Listed by a dealer — but past its expiry date' : row.dealer_verified ? 'Listed by a KashRoot-verified dealer' : 'Listed by a dealer KashRoot has not verified yet'}
       </p>
@@ -1091,7 +1091,7 @@ function ReportBatch({ code, account }: { code: string; account: Account | null 
   const [note, setNote] = useState('');
   const [phone, setPhone] = useState('');
   const [state, setState] = useState<'idle' | 'sending' | 'sent' | string>('idle');
-  if (state === 'sent') return <p className="mt-3 text-sm font-semibold text-emerald-800">Reported to the KashRoot admin. Thank you. Please also tell your district agriculture officer.</p>;
+  if (state === 'sent') return <p className="mt-3 text-sm font-semibold text-forest-deep">Reported to the KashRoot admin. Thank you. Please also tell your district agriculture officer.</p>;
   if (!open) {
     return (
       <button type="button" onClick={() => setOpen(true)} className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-1.5 text-sm font-semibold text-rose-800 hover:underline">
@@ -1216,7 +1216,7 @@ function LabelPhoto({ account }: { account: Account | null }) {
       <div className="flex flex-wrap items-center gap-3">
         <LangPicker value={lang} onChange={setLang} />
       </div>
-      <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50/60 p-6 text-center text-emerald-900 hover:bg-emerald-50">
+      <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-forest-line bg-forest-soft/60 p-6 text-center text-forest-deep hover:bg-forest-soft">
         {photo ? (
           // eslint-disable-next-line @next/next/no-img-element -- local preview
           <img src={photo} alt="Label photo" className="max-h-48 rounded-xl object-contain" />
@@ -1224,7 +1224,7 @@ function LabelPhoto({ account }: { account: Account | null }) {
           <Camera className="h-9 w-9" aria-hidden />
         )}
         <span className="font-semibold">{busy ? 'Reading the label…' : photo ? 'Take another photo' : 'Photograph the label on the bag or bottle'}</span>
-        <span className="text-xs text-emerald-800">The side with the batch number, dates and registration number</span>
+        <span className="text-xs text-forest-deep">The side with the batch number, dates and registration number</span>
         <input type="file" accept="image/*" capture="environment" className="sr-only" disabled={busy} onChange={(e) => void read(e.target.files?.[0])} />
       </label>
       {busy && (
@@ -1235,7 +1235,7 @@ function LabelPhoto({ account }: { account: Account | null }) {
               const done = stage > n;
               const active = stage === n;
               return (
-                <li key={label} className={`flex items-center gap-2 ${done ? 'text-emerald-700' : active ? 'font-semibold text-slate-900' : 'text-slate-400'}`}>
+                <li key={label} className={`flex items-center gap-2 ${done ? 'text-forest' : active ? 'font-semibold text-slate-900' : 'text-slate-400'}`}>
                   {done ? (
                     <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden />
                   ) : active ? (
@@ -1315,10 +1315,10 @@ function LabelRegistration({ check }: { check: RegCheck }) {
   const hit = (check.hits ?? []).find((h) => h.matched === 'registration');
   if (hit) {
     return (
-      <section aria-label="Registration number in the official list" className="rounded-xl bg-emerald-50 p-3 text-sm ring-1 ring-emerald-200">
-        <p className="flex items-center gap-2 font-semibold text-emerald-900"><BadgeCheck className="h-5 w-5 shrink-0" aria-hidden /> {REGISTERED[hit.kind]}</p>
+      <section aria-label="Registration number in the official list" className="rounded-xl bg-forest-soft p-3 text-sm ring-1 ring-forest-line">
+        <p className="flex items-center gap-2 font-semibold text-forest-deep"><BadgeCheck className="h-5 w-5 shrink-0" aria-hidden /> {REGISTERED[hit.kind]}</p>
         <div className="mt-1"><HitLine hit={hit} /></div>
-        <p className="mt-1 text-xs text-emerald-950">Check that the company on the label is exactly the same — a fake can copy a real number.</p>
+        <p className="mt-1 text-xs text-forest-pine">Check that the company on the label is exactly the same — a fake can copy a real number.</p>
       </section>
     );
   }
@@ -1335,9 +1335,9 @@ function LabelRegistration({ check }: { check: RegCheck }) {
 }
 
 const RULE_ICON = { ok: CheckCircle2, missing: XCircle, problem: XCircle, caution: CircleAlert } as const;
-const RULE_COLOUR = { ok: 'text-emerald-600', missing: 'text-amber-600', problem: 'text-rose-600', caution: 'text-amber-600' } as const;
+const RULE_COLOUR = { ok: 'text-forest', missing: 'text-amber-600', problem: 'text-rose-600', caution: 'text-amber-600' } as const;
 const VERDICT = {
-  good: { text: 'The label has everything the law requires', box: 'bg-emerald-50 ring-emerald-200 text-emerald-950' },
+  good: { text: 'The label has everything the law requires', box: 'bg-forest-soft ring-forest-line text-forest-pine' },
   incomplete: { text: 'Some details the law requires are missing or unclear', box: 'bg-amber-50 ring-amber-200 text-amber-950' },
   warning: { text: 'Warning: this label breaks the Government rules', box: 'bg-rose-50 ring-rose-200 text-rose-950' },
   unknown: { text: 'The label could not be checked', box: 'bg-slate-50 ring-slate-200 text-slate-900' },

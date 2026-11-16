@@ -1,3 +1,131 @@
+/* ── KashRoot palette: royal indigo by default; each portal sets its own hue (PortalShell data-portal). ── */
+:root {
+  --kr-forest-rgb: 55 48 163;
+  --kr-deep-rgb: 30 27 75;
+  --kr-mid-rgb: 99 88 224;
+  --kr-soft-rgb: 238 240 255;
+  --kr-line-rgb: 211 216 247;
+  --kr-pine-rgb: 20 18 58;
+  --kr-edge-rgb: 165 173 232;
+  --kr-edge-soft-rgb: 203 208 242;
+  --kr-mist-rgb: 236 235 250;
+  --kr-mist-deep-rgb: 227 226 247;
+  --kr-paper-rgb: 246 247 255;
+  --kr-ink-rgb: 27 27 58;
+}
+:is([data-portal="farmer"],[data-portal="seller"]) {
+  --kr-forest-rgb: 190 18 60;
+  --kr-deep-rgb: 136 19 55;
+  --kr-mid-rgb: 225 29 72;
+  --kr-soft-rgb: 255 241 242;
+  --kr-line-rgb: 254 205 211;
+  --kr-pine-rgb: 76 5 25;
+  --kr-edge-rgb: 244 143 163;
+  --kr-edge-soft-rgb: 250 190 200;
+  --kr-mist-rgb: 253 238 240;
+  --kr-mist-deep-rgb: 252 226 230;
+  --kr-paper-rgb: 255 247 248;
+  --kr-ink-rgb: 58 20 30;
+}
+:is([data-portal="buyer"]) {
+  --kr-forest-rgb: 29 78 216;
+  --kr-deep-rgb: 30 58 138;
+  --kr-mid-rgb: 59 130 246;
+  --kr-soft-rgb: 239 246 255;
+  --kr-line-rgb: 191 219 254;
+  --kr-pine-rgb: 23 37 84;
+  --kr-edge-rgb: 147 181 245;
+  --kr-edge-soft-rgb: 191 210 250;
+  --kr-mist-rgb: 234 242 253;
+  --kr-mist-deep-rgb: 222 233 252;
+  --kr-paper-rgb: 246 250 255;
+  --kr-ink-rgb: 20 35 70;
+}
+:is([data-portal="rental"],[data-portal="provider"]) {
+  --kr-forest-rgb: 14 116 144;
+  --kr-deep-rgb: 22 78 99;
+  --kr-mid-rgb: 6 182 212;
+  --kr-soft-rgb: 236 254 255;
+  --kr-line-rgb: 165 243 252;
+  --kr-pine-rgb: 8 51 68;
+  --kr-edge-rgb: 103 214 232;
+  --kr-edge-soft-rgb: 165 225 238;
+  --kr-mist-rgb: 229 247 250;
+  --kr-mist-deep-rgb: 216 240 245;
+  --kr-paper-rgb: 245 253 254;
+  --kr-ink-rgb: 16 50 62;
+}
+:is([data-portal="kissan"]) {
+  --kr-forest-rgb: 194 65 12;
+  --kr-deep-rgb: 124 45 18;
+  --kr-mid-rgb: 249 115 22;
+  --kr-soft-rgb: 255 247 237;
+  --kr-line-rgb: 254 215 170;
+  --kr-pine-rgb: 67 20 7;
+  --kr-edge-rgb: 245 170 110;
+  --kr-edge-soft-rgb: 250 205 170;
+  --kr-mist-rgb: 253 242 232;
+  --kr-mist-deep-rgb: 252 232 216;
+  --kr-paper-rgb: 255 250 245;
+  --kr-ink-rgb: 60 28 14;
+}
+:is([data-portal="tracking"]) {
+  --kr-forest-rgb: 109 40 217;
+  --kr-deep-rgb: 76 29 149;
+  --kr-mid-rgb: 139 92 246;
+  --kr-soft-rgb: 245 243 255;
+  --kr-line-rgb: 221 214 254;
+  --kr-pine-rgb: 46 16 101;
+  --kr-edge-rgb: 183 160 245;
+  --kr-edge-soft-rgb: 215 205 250;
+  --kr-mist-rgb: 240 237 252;
+  --kr-mist-deep-rgb: 230 225 249;
+  --kr-paper-rgb: 249 247 255;
+  --kr-ink-rgb: 40 22 80;
+}
+:is([data-portal="dealer"]) {
+  --kr-forest-rgb: 162 28 175;
+  --kr-deep-rgb: 112 26 117;
+  --kr-mid-rgb: 217 70 239;
+  --kr-soft-rgb: 253 244 255;
+  --kr-line-rgb: 245 208 254;
+  --kr-pine-rgb: 74 4 78;
+  --kr-edge-rgb: 230 150 240;
+  --kr-edge-soft-rgb: 240 190 248;
+  --kr-mist-rgb: 250 238 252;
+  --kr-mist-deep-rgb: 246 226 250;
+  --kr-paper-rgb: 254 249 255;
+  --kr-ink-rgb: 60 18 64;
+}
+:is([data-portal="expert"]) {
+  --kr-forest-rgb: 13 148 136;
+  --kr-deep-rgb: 19 78 74;
+  --kr-mid-rgb: 20 184 166;
+  --kr-soft-rgb: 240 253 250;
+  --kr-line-rgb: 153 246 228;
+  --kr-pine-rgb: 6 48 46;
+  --kr-edge-rgb: 100 210 198;
+  --kr-edge-soft-rgb: 170 232 224;
+  --kr-mist-rgb: 230 248 245;
+  --kr-mist-deep-rgb: 216 240 236;
+  --kr-paper-rgb: 246 253 252;
+  --kr-ink-rgb: 16 52 50;
+}
+:is([data-portal="trader"]) {
+  --kr-forest-rgb: 180 83 9;
+  --kr-deep-rgb: 120 53 15;
+  --kr-mid-rgb: 245 158 11;
+  --kr-soft-rgb: 255 251 235;
+  --kr-line-rgb: 253 230 138;
+  --kr-pine-rgb: 69 26 3;
+  --kr-edge-rgb: 240 190 90;
+  --kr-edge-soft-rgb: 248 220 150;
+  --kr-mist-rgb: 252 246 228;
+  --kr-mist-deep-rgb: 250 238 208;
+  --kr-paper-rgb: 255 253 245;
+  --kr-ink-rgb: 62 38 12;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -13,8 +141,8 @@
   --kr-pir-panjal-navy: #0B1F3A;
   --kr-walnut-brown: #6B4423;
   /* The one KashRoot look (tailwind: chinar, ivory, copper, saffron-gold). */
-  --kr-chinar: #065F46;
-  --kr-chinar-deep: #052E26;
+  --kr-chinar: rgb(var(--kr-forest-rgb));
+  --kr-chinar-deep: rgb(var(--kr-pine-rgb));
   --kr-ivory: #FBF8F0;
   --kr-copper: #B4532A;
 }
@@ -27,39 +155,39 @@
  * which win inside it; these :root values apply everywhere else.
  */
 :root {
-  --kr-forest-green: #174C3C;
-  --kr-secondary-green: #286B54;
-  --kr-deep-green: #12382E;
-  --kr-soft-green: #EAF3EE;
+  --kr-forest-green: rgb(var(--kr-forest-rgb));
+  --kr-secondary-green: rgb(var(--kr-mid-rgb));
+  --kr-deep-green: rgb(var(--kr-deep-rgb));
+  --kr-soft-green: rgb(var(--kr-soft-rgb));
   --kr-surface-white: #FFFFFF;
-  --kr-pine: #0B241D;
-  --kr-main-bg: #E8F0EC;
+  --kr-pine: rgb(var(--kr-pine-rgb));
+  --kr-main-bg: rgb(var(--kr-mist-rgb));
   --kr-champagne-gold: #C6A45B;
-  --kr-text-primary: #1E2D28;
-  --kr-text-secondary: #52665E;
-  --kr-border: #C6DBD0;
-  --kr-card-border: #C2D8CD;
-  --kr-card-bg: linear-gradient(180deg, #FFFFFF 0%, #F3F8F5 100%);
+  --kr-text-primary: rgb(var(--kr-ink-rgb));
+  --kr-text-secondary: #5A5A80;
+  --kr-border: rgb(var(--kr-line-rgb));
+  --kr-card-border: rgb(var(--kr-edge-soft-rgb));
+  --kr-card-bg: linear-gradient(180deg, #FFFFFF 0%, rgb(var(--kr-paper-rgb)) 100%);
   /* The page: Kashmiri sage-ivory, lit softly by champagne gold (top left) and forest green (bottom right). Never plain white. */
   --kr-canvas:
     radial-gradient(60rem 36rem at 12% -6%, rgba(198, 164, 91, .12), transparent 62%),
-    radial-gradient(54rem 34rem at 96% 104%, rgba(23, 76, 60, .10), transparent 60%),
-    linear-gradient(180deg, #E8F0EC 0%, #DFECE5 100%);
+    radial-gradient(54rem 34rem at 96% 104%, rgb(var(--kr-forest-rgb) / .10), transparent 60%),
+    linear-gradient(180deg, rgb(var(--kr-mist-rgb)) 0%, rgb(var(--kr-mist-deep-rgb)) 100%);
 
-  --kr-btn-primary-bg: linear-gradient(180deg, #2B725A 0%, #174C3C 65%, #12382E 100%);
-  --kr-btn-primary-shadow: inset 0 1px 0 rgba(255, 255, 255, .32), 0 3px 0 #091F18, 0 8px 16px -3px rgba(18, 56, 46, .30);
-  --kr-btn-primary-hover-shadow: inset 0 1px 0 rgba(255, 255, 255, .38), 0 4px 0 #091F18, 0 12px 22px -4px rgba(18, 56, 46, .36), 0 0 0 1px rgba(198, 164, 91, .55), 0 0 18px -2px rgba(198, 164, 91, .45);
-  --kr-btn-primary-active-shadow: inset 0 2px 5px rgba(0, 0, 0, .32), 0 1px 0 #091F18;
-  --kr-btn-secondary-bg: linear-gradient(180deg, #FFFFFF 0%, #E6F1EC 100%);
-  --kr-btn-secondary-shadow: inset 0 1px 0 #FFFFFF, 0 3px 0 #8DB09F, 0 6px 12px -3px rgba(23, 76, 60, .14);
+  --kr-btn-primary-bg: linear-gradient(180deg, rgb(var(--kr-mid-rgb)) 0%, rgb(var(--kr-forest-rgb)) 65%, rgb(var(--kr-deep-rgb)) 100%);
+  --kr-btn-primary-shadow: inset 0 1px 0 rgba(255, 255, 255, .32), 0 3px 0 rgb(var(--kr-pine-rgb)), 0 8px 16px -3px rgb(var(--kr-deep-rgb) / .30);
+  --kr-btn-primary-hover-shadow: inset 0 1px 0 rgba(255, 255, 255, .38), 0 4px 0 rgb(var(--kr-pine-rgb)), 0 12px 22px -4px rgb(var(--kr-deep-rgb) / .36), 0 0 0 1px rgba(198, 164, 91, .55), 0 0 18px -2px rgba(198, 164, 91, .45);
+  --kr-btn-primary-active-shadow: inset 0 2px 5px rgba(0, 0, 0, .32), 0 1px 0 rgb(var(--kr-pine-rgb));
+  --kr-btn-secondary-bg: linear-gradient(180deg, #FFFFFF 0%, rgb(var(--kr-soft-rgb)) 100%);
+  --kr-btn-secondary-shadow: inset 0 1px 0 #FFFFFF, 0 3px 0 rgb(var(--kr-edge-rgb)), 0 6px 12px -3px rgb(var(--kr-forest-rgb) / .14);
   /* A chosen tab or pill: forest green standing on a champagne gold ledge. */
-  --kr-btn-on-bg: linear-gradient(180deg, #1F5E4A 0%, #174C3C 60%, #12382E 100%);
-  --kr-btn-on-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 3px 0 #C6A45B, 0 8px 16px -4px rgba(18, 56, 46, .32);
+  --kr-btn-on-bg: linear-gradient(180deg, rgb(var(--kr-mid-rgb)) 0%, rgb(var(--kr-forest-rgb)) 60%, rgb(var(--kr-deep-rgb)) 100%);
+  --kr-btn-on-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 3px 0 #C6A45B, 0 8px 16px -4px rgb(var(--kr-deep-rgb) / .32);
   /* A card: a white top light, a 3px forest ledge under it (the bevel), a soft drop. Drawn as shadows, so no size changes. */
-  --kr-card-shadow: inset 0 1px 0 #FFFFFF, inset 0 0 0 1px #C2D8CD, 0 3px 0 #174C3C, 0 10px 24px -6px rgba(18, 56, 46, .14);
-  --kr-card-hover-shadow: inset 0 1px 0 #FFFFFF, inset 0 0 0 1px #C2D8CD, 0 3px 0 #C6A45B, 0 16px 30px -8px rgba(18, 56, 46, .22);
+  --kr-card-shadow: inset 0 1px 0 #FFFFFF, inset 0 0 0 1px rgb(var(--kr-edge-soft-rgb)), 0 3px 0 rgb(var(--kr-forest-rgb)), 0 10px 24px -6px rgb(var(--kr-deep-rgb) / .14);
+  --kr-card-hover-shadow: inset 0 1px 0 #FFFFFF, inset 0 0 0 1px rgb(var(--kr-edge-soft-rgb)), 0 3px 0 #C6A45B, 0 16px 30px -8px rgb(var(--kr-deep-rgb) / .22);
   /* A card inside a card: the same build with a lighter sage ledge, so a list is not a stack of heavy green lines. */
-  --kr-inset-card-shadow: inset 0 1px 0 #FFFFFF, inset 0 0 0 1px #C2D8CD, 0 2px 0 #8DB09F, 0 6px 14px -6px rgba(18, 56, 46, .12);
+  --kr-inset-card-shadow: inset 0 1px 0 #FFFFFF, inset 0 0 0 1px rgb(var(--kr-edge-soft-rgb)), 0 2px 0 rgb(var(--kr-edge-rgb)), 0 6px 14px -6px rgb(var(--kr-deep-rgb) / .12);
 }
 
 /* Figures line up in every table. */
@@ -89,8 +217,8 @@ body {
 
 body {
   background: var(--kr-canvas) fixed;
-  background-color: #E8F0EC;
-  color: #1E2D28;
+  background-color: rgb(var(--kr-mist-rgb));
+  color: rgb(var(--kr-ink-rgb));
   min-height: 100vh;
   margin: 0;
 }
@@ -100,7 +228,7 @@ body {
 .kr-light.min-h-screen,
 :is(main, div).min-h-screen:is([class~='bg-white'], [class~='bg-slate-50'], [class~='bg-gray-50'], [class~='bg-mist']) {
   background: var(--kr-canvas) fixed;
-  background-color: #E8F0EC;
+  background-color: rgb(var(--kr-mist-rgb));
 }
 
 /* KASHROOT DYNAMIC PORTAL THEMES */
@@ -177,7 +305,7 @@ body {
   --kr-text-disabled: #8E94A6;
   --kr-text-inverse: #FFFFFF;
   --kr-text-brand: #0F766E;
-  --kr-text-success: #225531;
+  --kr-text-success: #4F46C8;
   --kr-text-warning: #92400E;
   --kr-text-danger: #9E2D22;
   --kr-border-default: #D6D9E0;
@@ -196,8 +324,8 @@ body {
   --kr-fill-danger-hover: #9E2D22;
   --kr-badge-draft-bg: #EDEEF2;
   --kr-badge-draft-text: #4A5568;
-  --kr-badge-published-bg: #EDFAF3;
-  --kr-badge-published-text: #225531;
+  --kr-badge-published-bg: rgb(var(--kr-paper-rgb));
+  --kr-badge-published-text: #4F46C8;
   --kr-badge-pending-bg: #FFFBEB;
   --kr-badge-pending-text: #92400E;
   --kr-badge-rejected-bg: #FDF2F0;
@@ -376,7 +504,7 @@ dialog.kr-drawer[open] { animation: kr-drawer-in 0.22s ease-out; }
   .kr-btn-primary {
     background: var(--kr-btn-primary-bg);
     color: #FFFFFF;
-    border: 1px solid #0E2F25;
+    border: 1px solid rgb(var(--kr-pine-rgb));
     box-shadow: var(--kr-btn-primary-shadow);
   }
   .kr-btn-primary:hover:not(:disabled):not([aria-disabled='true']) {
@@ -391,31 +519,31 @@ dialog.kr-drawer[open] { animation: kr-drawer-in 0.22s ease-out; }
 
   .kr-btn-secondary {
     background: var(--kr-btn-secondary-bg);
-    color: #174C3C;
-    border: 1px solid #BDD4C8;
+    color: rgb(var(--kr-forest-rgb));
+    border: 1px solid rgb(var(--kr-edge-soft-rgb));
     box-shadow: var(--kr-btn-secondary-shadow);
   }
   .kr-btn-secondary:hover:not(:disabled):not([aria-disabled='true']) {
     transform: translateY(-1.5px);
     border-color: #C6A45B;
-    box-shadow: inset 0 1px 0 #FFFFFF, 0 4px 0 #8DB09F, 0 10px 18px -4px rgba(23, 76, 60, .2);
+    box-shadow: inset 0 1px 0 #FFFFFF, 0 4px 0 rgb(var(--kr-edge-rgb)), 0 10px 18px -4px rgb(var(--kr-forest-rgb) / .2);
     text-decoration: none;
   }
   .kr-btn-secondary:active:not(:disabled):not([aria-disabled='true']) {
     transform: translateY(2px);
-    box-shadow: inset 0 2px 3px rgba(23, 76, 60, .18), 0 1px 0 #8DB09F;
+    box-shadow: inset 0 2px 3px rgb(var(--kr-forest-rgb) / .18), 0 1px 0 rgb(var(--kr-edge-rgb));
   }
   .kr-btn-secondary:is([aria-pressed='true'], [aria-selected='true'], [aria-current='page']) {
     background: var(--kr-btn-on-bg);
     color: #FFFFFF;
-    border-color: #0E2F25;
+    border-color: rgb(var(--kr-pine-rgb));
     box-shadow: var(--kr-btn-on-shadow);
   }
 
   /* Forest outline: 9.8:1 on white; on a dark bar add focus-visible:outline-white. */
   .kr-btn-primary:focus-visible,
   .kr-btn-secondary:focus-visible {
-    outline: 2px solid #174C3C;
+    outline: 2px solid rgb(var(--kr-forest-rgb));
     outline-offset: 2px;
   }
 
@@ -423,7 +551,7 @@ dialog.kr-drawer[open] { animation: kr-drawer-in 0.22s ease-out; }
   .kr-btn-primary[aria-disabled='true'] {
     cursor: not-allowed;
     opacity: 0.5;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 1px 0 #12382E;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 1px 0 rgb(var(--kr-deep-rgb));
   }
   .kr-btn-secondary:disabled,
   .kr-btn-secondary[aria-disabled='true'] {
@@ -444,18 +572,18 @@ dialog.kr-drawer[open] { animation: kr-drawer-in 0.22s ease-out; }
 
   /* A number on a card. In a row of them they alternate: forest green (white figure, gold name), then soft sage. */
   .kr-kpi {
-    --kpi-label: #174C3C;
-    --kpi-value: #174C3C;
-    --kpi-hint: #286B54;
-    background: linear-gradient(180deg, #F4F9F6 0%, #EAF3EE 100%);
-    box-shadow: inset 0 1px 0 #FFFFFF, inset 0 0 0 1px #C2D8CD, 0 3px 0 #174C3C, 0 10px 22px -8px rgba(18, 56, 46, .18);
+    --kpi-label: rgb(var(--kr-forest-rgb));
+    --kpi-value: rgb(var(--kr-forest-rgb));
+    --kpi-hint: rgb(var(--kr-mid-rgb));
+    background: linear-gradient(180deg, rgb(var(--kr-paper-rgb)) 0%, rgb(var(--kr-soft-rgb)) 100%);
+    box-shadow: inset 0 1px 0 #FFFFFF, inset 0 0 0 1px rgb(var(--kr-edge-soft-rgb)), 0 3px 0 rgb(var(--kr-forest-rgb)), 0 10px 22px -8px rgb(var(--kr-deep-rgb) / .18);
   }
   .kr-kpi:nth-child(odd) {
     --kpi-label: #D9BE7C;
     --kpi-value: #FFFFFF;
-    --kpi-hint: #D9E8E0;
-    background: linear-gradient(160deg, #1F5E4A 0%, #174C3C 55%, #12382E 100%);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), inset 0 0 0 1px #0E2F25, 0 3px 0 #C6A45B, 0 12px 26px -8px rgba(18, 56, 46, .4);
+    --kpi-hint: rgb(var(--kr-soft-rgb));
+    background: linear-gradient(160deg, rgb(var(--kr-mid-rgb)) 0%, rgb(var(--kr-forest-rgb)) 55%, rgb(var(--kr-deep-rgb)) 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), inset 0 0 0 1px rgb(var(--kr-pine-rgb)), 0 3px 0 #C6A45B, 0 12px 26px -8px rgb(var(--kr-deep-rgb) / .4);
   }
   .kr-kpi-label { color: var(--kpi-label); }
   .kr-kpi-value { color: var(--kpi-value); }
@@ -463,29 +591,30 @@ dialog.kr-drawer[open] { animation: kr-drawer-in 0.22s ease-out; }
 
   /* The forest hero banner at the top of every portal page (portal kit PageHeader). */
   .kr-hero {
+    /* A rainbow stripe along the bottom edge, then a soft gold glow, then the portal's own deep-to-bright gradient. */
     background:
-      radial-gradient(40rem 18rem at 100% 0%, rgba(198, 164, 91, .22), transparent 60%),
-      linear-gradient(135deg, #12382E 0%, #174C3C 100%);
-    border-bottom: 3px solid #C6A45B;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), 0 14px 30px -12px rgba(18, 56, 46, .5);
+      linear-gradient(90deg, #EF4444 0%, #F97316 16%, #FACC15 32%, #22C55E 48%, #06B6D4 64%, #3B82F6 80%, #8B5CF6 92%, #EC4899 100%) bottom / 100% 5px no-repeat,
+      radial-gradient(40rem 18rem at 100% 0%, rgba(250, 204, 21, .24), transparent 60%),
+      linear-gradient(135deg, rgb(var(--kr-deep-rgb)) 0%, rgb(var(--kr-forest-rgb)) 62%, rgb(var(--kr-mid-rgb)) 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 14px 30px -12px rgb(var(--kr-deep-rgb) / .55);
     color: #FFFFFF;
   }
 
   /* On the forest banner a green button would vanish: there the main button is the light sage one on a gold ledge. */
   .kr-hero .kr-btn-primary {
     background: var(--kr-btn-secondary-bg);
-    color: #174C3C;
+    color: rgb(var(--kr-forest-rgb));
     border-color: #C6A45B;
     box-shadow: inset 0 1px 0 #FFFFFF, 0 3px 0 #C6A45B, 0 8px 16px -4px rgba(0, 0, 0, .35);
   }
   .kr-hero .kr-btn-primary:hover:not(:disabled) { box-shadow: inset 0 1px 0 #FFFFFF, 0 4px 0 #C6A45B, 0 12px 20px -4px rgba(0, 0, 0, .4); }
-  .kr-hero .kr-btn-primary:active:not(:disabled) { box-shadow: inset 0 2px 3px rgba(23, 76, 60, .2), 0 1px 0 #C6A45B; }
+  .kr-hero .kr-btn-primary:active:not(:disabled) { box-shadow: inset 0 2px 3px rgb(var(--kr-forest-rgb) / .2), 0 1px 0 #C6A45B; }
 
   /* A chosen tab, pill or radio on the forest banner: forest green would melt into it, so it is gold with a white edge. */
   .kr-hero :is(button, a, [role="tab"], [role="radio"]):is([aria-pressed="true"], [aria-selected="true"], [aria-checked="true"], [aria-current="page"]) {
     background-color: #C6A45B !important;
     background-image: linear-gradient(180deg, #EBD28E 0%, #C6A45B 100%) !important;
-    color: #12382E !important;
+    color: rgb(var(--kr-deep-rgb)) !important;
     border: 2px solid #FFFFFF !important;
     font-weight: 800;
     box-shadow: 0 3px 0 #8E7230, 0 8px 14px -4px rgba(0, 0, 0, .45) !important;
@@ -493,10 +622,10 @@ dialog.kr-drawer[open] { animation: kr-drawer-in 0.22s ease-out; }
 
   /* A forest and gold icon badge standing on its own ledge (portal cards, panel titles). */
   .kr-icon-badge {
-    background: linear-gradient(135deg, #174C3C 0%, #286B54 100%);
+    background: linear-gradient(135deg, rgb(var(--kr-forest-rgb)) 0%, rgb(var(--kr-mid-rgb)) 100%);
     color: #FFFFFF;
     border: 1px solid #C6A45B;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 4px 0 #0F2E24, 0 8px 14px -4px rgba(18, 56, 46, .35);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 4px 0 rgb(var(--kr-pine-rgb)), 0 8px 14px -4px rgb(var(--kr-deep-rgb) / .35);
   }
   .kr-card:hover { box-shadow: var(--kr-card-hover-shadow); }
   /* A card that holds content and does nothing when pointed at (panels, tables). */
@@ -504,7 +633,7 @@ dialog.kr-drawer[open] { animation: kr-drawer-in 0.22s ease-out; }
   .kr-card-interactive { cursor: pointer; }
   .kr-card-interactive:hover { transform: translateY(-2px); }
   .kr-card-interactive:active { transform: translateY(0); box-shadow: var(--kr-card-shadow); }
-  .kr-card-interactive:focus-visible { outline: 2px solid #174C3C; outline-offset: 2px; }
+  .kr-card-interactive:focus-visible { outline: 2px solid rgb(var(--kr-forest-rgb)); outline-offset: 2px; }
 }
 
 /* Reduced motion: the press and the hover change the shadow only, nothing moves. */
@@ -541,13 +670,13 @@ dialog.kr-drawer[open] { animation: kr-drawer-in 0.22s ease-out; }
   [class~="bg-green-600"], [class~="bg-green-700"], [class~="bg-green-800"],
   [class~="bg-teal-700"], [class~="bg-teal-800"],
   [class~="bg-chinar"], [class~="bg-forest"], [class~="bg-forest-mid"], [class~="bg-forest-deep"],
-  [class~="bg-[#174C3C]"], [class~="bg-[#12382E]"], [class~="bg-[#286B54]"], [class~="bg-[#065F46]"],
+  [class~="bg-[rgb(var(--kr-forest-rgb))]"], [class~="bg-[rgb(var(--kr-deep-rgb))]"], [class~="bg-[rgb(var(--kr-mid-rgb))]"], [class~="bg-[rgb(var(--kr-forest-rgb))]"],
   [class~="bg-slate-900"], [class~="bg-slate-800"]
 ):not([class*="kr-btn"]):not([data-kr-plain]):not([data-kr-plain] *) {
-  background-color: #174C3C;
+  background-color: rgb(var(--kr-forest-rgb));
   background-image: var(--kr-btn-primary-bg);
   color: #FFFFFF;
-  border: 1px solid #0E2F25;
+  border: 1px solid rgb(var(--kr-pine-rgb));
   box-shadow: var(--kr-btn-primary-shadow);
   transition: transform 150ms ease, box-shadow 150ms ease;
 }
@@ -557,7 +686,7 @@ dialog.kr-drawer[open] { animation: kr-drawer-in 0.22s ease-out; }
   [class~="bg-green-600"], [class~="bg-green-700"], [class~="bg-green-800"],
   [class~="bg-teal-700"], [class~="bg-teal-800"],
   [class~="bg-chinar"], [class~="bg-forest"], [class~="bg-forest-mid"], [class~="bg-forest-deep"],
-  [class~="bg-[#174C3C]"], [class~="bg-[#12382E]"], [class~="bg-[#286B54]"], [class~="bg-[#065F46]"],
+  [class~="bg-[rgb(var(--kr-forest-rgb))]"], [class~="bg-[rgb(var(--kr-deep-rgb))]"], [class~="bg-[rgb(var(--kr-mid-rgb))]"], [class~="bg-[rgb(var(--kr-forest-rgb))]"],
   [class~="bg-slate-900"], [class~="bg-slate-800"]
 ):not([class*="kr-btn"]):not([data-kr-plain]):not([data-kr-plain] *):not(:disabled):hover {
   transform: translateY(-1.5px);
@@ -569,7 +698,7 @@ dialog.kr-drawer[open] { animation: kr-drawer-in 0.22s ease-out; }
   [class~="bg-green-600"], [class~="bg-green-700"], [class~="bg-green-800"],
   [class~="bg-teal-700"], [class~="bg-teal-800"],
   [class~="bg-chinar"], [class~="bg-forest"], [class~="bg-forest-mid"], [class~="bg-forest-deep"],
-  [class~="bg-[#174C3C]"], [class~="bg-[#12382E]"], [class~="bg-[#286B54]"], [class~="bg-[#065F46]"],
+  [class~="bg-[rgb(var(--kr-forest-rgb))]"], [class~="bg-[rgb(var(--kr-deep-rgb))]"], [class~="bg-[rgb(var(--kr-mid-rgb))]"], [class~="bg-[rgb(var(--kr-forest-rgb))]"],
   [class~="bg-slate-900"], [class~="bg-slate-800"]
 ):not([class*="kr-btn"]):not([data-kr-plain]):not([data-kr-plain] *):not(:disabled):active {
   transform: translateY(2px);
@@ -577,29 +706,29 @@ dialog.kr-drawer[open] { animation: kr-drawer-in 0.22s ease-out; }
 }
 
 /* Soft-sage buttons: white pills, tabs and choices. */
-:is([data-kr-shell], .kr-light) :is(button, a[class~="rounded-full"], a[class~="rounded-xl"], [role="tab"], [role="radio"]):is([class~="bg-white"], [class~="bg-white/85"], [class~="bg-forest-soft"], [class~="bg-[#EAF3EE]"], [role="tab"], [role="radio"]):not([class*="kr-btn"]):not([class*="kr-card"]):not([class*="kr-kpi"]):not([data-kr-plain]):not([data-kr-plain] *):not(aside *):not(.kr-drawer *):not([class*="text-rose"]):not([class*="text-red"]):not([aria-pressed="true"]):not([aria-selected="true"]):not([aria-checked="true"]):not([aria-current="page"]) {
+:is([data-kr-shell], .kr-light) :is(button, a[class~="rounded-full"], a[class~="rounded-xl"], [role="tab"], [role="radio"]):is([class~="bg-white"], [class~="bg-white/85"], [class~="bg-forest-soft"], [class~="bg-[rgb(var(--kr-soft-rgb))]"], [role="tab"], [role="radio"]):not([class*="kr-btn"]):not([class*="kr-card"]):not([class*="kr-kpi"]):not([data-kr-plain]):not([data-kr-plain] *):not(aside *):not(.kr-drawer *):not([class*="text-rose"]):not([class*="text-red"]):not([aria-pressed="true"]):not([aria-selected="true"]):not([aria-checked="true"]):not([aria-current="page"]) {
   background-color: #FFFFFF;
   background-image: var(--kr-btn-secondary-bg);
-  color: #174C3C;
+  color: rgb(var(--kr-forest-rgb));
   font-weight: 600;
-  border: 1px solid #BDD4C8;
+  border: 1px solid rgb(var(--kr-edge-soft-rgb));
   box-shadow: var(--kr-btn-secondary-shadow);
   transition: transform 150ms ease, box-shadow 150ms ease;
 }
-:is([data-kr-shell], .kr-light) :is(button, a[class~="rounded-full"], a[class~="rounded-xl"], [role="tab"], [role="radio"]):is([class~="bg-white"], [class~="bg-white/85"], [class~="bg-forest-soft"], [class~="bg-[#EAF3EE]"], [role="tab"], [role="radio"]):not([class*="kr-btn"]):not([class*="kr-card"]):not([class*="kr-kpi"]):not([data-kr-plain]):not([data-kr-plain] *):not(aside *):not(.kr-drawer *):not([class*="text-rose"]):not([class*="text-red"]):not([aria-pressed="true"]):not([aria-selected="true"]):not([aria-checked="true"]):not([aria-current="page"]):not(:disabled):hover {
+:is([data-kr-shell], .kr-light) :is(button, a[class~="rounded-full"], a[class~="rounded-xl"], [role="tab"], [role="radio"]):is([class~="bg-white"], [class~="bg-white/85"], [class~="bg-forest-soft"], [class~="bg-[rgb(var(--kr-soft-rgb))]"], [role="tab"], [role="radio"]):not([class*="kr-btn"]):not([class*="kr-card"]):not([class*="kr-kpi"]):not([data-kr-plain]):not([data-kr-plain] *):not(aside *):not(.kr-drawer *):not([class*="text-rose"]):not([class*="text-red"]):not([aria-pressed="true"]):not([aria-selected="true"]):not([aria-checked="true"]):not([aria-current="page"]):not(:disabled):hover {
   transform: translateY(-1.5px);
   border-color: #C6A45B;
 }
-:is([data-kr-shell], .kr-light) :is(button, a[class~="rounded-full"], a[class~="rounded-xl"], [role="tab"], [role="radio"]):is([class~="bg-white"], [class~="bg-white/85"], [class~="bg-forest-soft"], [class~="bg-[#EAF3EE]"], [role="tab"], [role="radio"]):not([class*="kr-btn"]):not([class*="kr-card"]):not([class*="kr-kpi"]):not([data-kr-plain]):not([data-kr-plain] *):not(aside *):not(.kr-drawer *):not([class*="text-rose"]):not([class*="text-red"]):not([aria-pressed="true"]):not([aria-selected="true"]):not([aria-checked="true"]):not([aria-current="page"]):not(:disabled):active {
+:is([data-kr-shell], .kr-light) :is(button, a[class~="rounded-full"], a[class~="rounded-xl"], [role="tab"], [role="radio"]):is([class~="bg-white"], [class~="bg-white/85"], [class~="bg-forest-soft"], [class~="bg-[rgb(var(--kr-soft-rgb))]"], [role="tab"], [role="radio"]):not([class*="kr-btn"]):not([class*="kr-card"]):not([class*="kr-kpi"]):not([data-kr-plain]):not([data-kr-plain] *):not(aside *):not(.kr-drawer *):not([class*="text-rose"]):not([class*="text-red"]):not([aria-pressed="true"]):not([aria-selected="true"]):not([aria-checked="true"]):not([aria-current="page"]):not(:disabled):active {
   transform: translateY(2px);
-  box-shadow: inset 0 2px 3px rgba(23, 76, 60, .18), 0 1px 0 #8DB09F;
+  box-shadow: inset 0 2px 3px rgb(var(--kr-forest-rgb) / .18), 0 1px 0 rgb(var(--kr-edge-rgb));
 }
 /* Chosen (pressed, selected, checked, the open page): forest green on a champagne gold ledge. */
 :is([data-kr-shell], .kr-light) :is(button, a, [role="tab"], [role="radio"]):is([aria-pressed="true"], [aria-selected="true"], [aria-checked="true"], [aria-current="page"]):not([class*="kr-card"]):not([class*="kr-kpi"]):not([data-kr-plain]):not([data-kr-plain] *):not(aside *):not(.kr-drawer *):not([hidden]):not(:disabled) {
-  background-color: #174C3C;
+  background-color: rgb(var(--kr-forest-rgb));
   background-image: var(--kr-btn-on-bg);
   color: #FFFFFF;
-  border: 1px solid #0E2F25;
+  border: 1px solid rgb(var(--kr-pine-rgb));
   box-shadow: var(--kr-btn-on-shadow);
 }
 

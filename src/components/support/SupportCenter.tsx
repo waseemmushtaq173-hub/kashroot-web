@@ -60,7 +60,7 @@ interface Request {
 const STATUS: Record<Request['status'], { text: string; tone: string }> = {
   open: { text: 'Received', tone: 'bg-amber-100 text-amber-900' },
   in_progress: { text: 'Being looked at', tone: 'bg-sky-100 text-sky-900' },
-  answered: { text: 'Answered', tone: 'bg-emerald-100 text-emerald-900' },
+  answered: { text: 'Answered', tone: 'bg-forest-soft text-forest-deep' },
   closed: { text: 'Resolved', tone: 'bg-slate-200 text-slate-800' },
 };
 const STEPS: Request['status'][] = ['open', 'in_progress', 'answered', 'closed'];
@@ -71,7 +71,7 @@ function Steps({ status }: { status: Request['status'] }) {
   return (
     <ol aria-label="Where your request is" className="flex list-none flex-wrap gap-1.5 !pl-0 text-sm" data-support-status={status}>
       {STEPS.map((s, i) => (
-        <li key={s} aria-current={i === at ? 'step' : undefined} className={`rounded-full px-3 py-1 font-semibold ${i < at ? 'bg-emerald-50 text-emerald-800' : i === at ? STATUS[s].tone + ' ring-2 ring-offset-1 ring-slate-400' : 'bg-slate-100 text-slate-400'}`}>
+        <li key={s} aria-current={i === at ? 'step' : undefined} className={`rounded-full px-3 py-1 font-semibold ${i < at ? 'bg-forest-soft text-forest-deep' : i === at ? STATUS[s].tone + ' ring-2 ring-offset-1 ring-slate-400' : 'bg-slate-100 text-slate-400'}`}>
           {i < at ? '✓ ' : ''}
           {STATUS[s].text}
         </li>
@@ -118,7 +118,7 @@ function markSeen(codes: string[]) {
 }
 
 const when = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
-const input = 'min-h-12 w-full rounded-xl border-0 bg-white px-4 text-base text-slate-900 ring-1 ring-slate-300 focus:ring-2 focus:ring-emerald-700';
+const input = 'min-h-12 w-full rounded-xl border-0 bg-white px-4 text-base text-slate-900 ring-1 ring-slate-300 focus:ring-2 focus:ring-forest';
 const button = 'inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-2xl px-5 text-base font-bold transition disabled:cursor-not-allowed disabled:opacity-60';
 
 async function post(body: Record<string, unknown>): Promise<{ ok: boolean; data: Record<string, unknown> }> {
@@ -139,7 +139,7 @@ function Thread({ r }: { r: Request }) {
         {r.message}
       </p>
       {r.messages.filter((m) => m.author !== 'internal').map((m, i) => (
-        <p key={i} className={`rounded-2xl p-3 ${m.author === 'kashroot' ? 'bg-emerald-50 text-emerald-950 ring-1 ring-emerald-200' : 'bg-slate-100 text-slate-800'}`}>
+        <p key={i} className={`rounded-2xl p-3 ${m.author === 'kashroot' ? 'bg-forest-soft text-forest-pine ring-1 ring-forest-line' : 'bg-slate-100 text-slate-800'}`}>
           <span className="block text-xs font-semibold text-slate-500">{m.author === 'kashroot' ? m.author_name || 'KashRoot support' : 'You'} · {when(m.created_at)}</span>
           {m.body}
         </p>
@@ -298,7 +298,7 @@ export function SupportCenter() {
               setLang(l);
               rememberLang(l);
             }}
-            className={`min-h-11 min-w-11 cursor-pointer rounded-xl px-4 text-sm font-bold ring-1 ${lang === l ? 'bg-emerald-700 text-white ring-emerald-800' : 'bg-white text-slate-800 ring-slate-300 hover:bg-emerald-50'}`}
+            className={`min-h-11 min-w-11 cursor-pointer rounded-xl px-4 text-sm font-bold ring-1 ${lang === l ? 'bg-forest text-white ring-forest-deep' : 'bg-white text-slate-800 ring-slate-300 hover:bg-forest-soft'}`}
           >
             {LANG_LABEL[l]}
           </button>
@@ -308,7 +308,7 @@ export function SupportCenter() {
       {/* 1. Common problems */}
       <section aria-labelledby="common-title">
         <h2 id="common-title" className="flex items-center gap-2 text-2xl">
-          <LifeBuoy className="h-6 w-6 text-emerald-700" aria-hidden /> Choose your problem
+          <LifeBuoy className="h-6 w-6 text-forest" aria-hidden /> Choose your problem
         </h2>
         <ul className="mt-4 list-none space-y-3 !pl-0">
           {HELP_TOPICS.map((t) => {
@@ -320,7 +320,7 @@ export function SupportCenter() {
                   aria-expanded={isOpen}
                   onClick={() => setOpen(isOpen ? null : t.id)}
                   dir={isRtl(lang) ? 'rtl' : undefined}
-                  className="flex min-h-14 w-full cursor-pointer items-center justify-between gap-3 rounded-2xl px-4 py-3 text-start text-lg font-semibold text-slate-900 hover:bg-emerald-50"
+                  className="flex min-h-14 w-full cursor-pointer items-center justify-between gap-3 rounded-2xl px-4 py-3 text-start text-lg font-semibold text-slate-900 hover:bg-forest-soft"
                 >
                   {pick(t.title, lang)}
                   <ChevronDown className={`h-5 w-5 shrink-0 transition ${isOpen ? 'rotate-180' : ''}`} aria-hidden />
@@ -348,12 +348,12 @@ export function SupportCenter() {
       </section>
 
       {/* 2. Ask KashRoot */}
-      <section id="ask-kashroot" aria-labelledby="ask-title" className="scroll-mt-24 rounded-3xl bg-emerald-50/70 p-5 ring-1 ring-emerald-200 sm:p-6">
+      <section id="ask-kashroot" aria-labelledby="ask-title" className="scroll-mt-24 rounded-3xl bg-forest-soft/70 p-5 ring-1 ring-forest-line sm:p-6">
         <h2 id="ask-title" className="text-2xl">Ask KashRoot</h2>
         <p className="mt-1 text-slate-700">A person from KashRoot’s team reads it and replies here, or calls you. You do not need to be signed in.</p>
         {sent ? (
-          <div role="status" className="mt-4 rounded-2xl bg-white p-5 ring-1 ring-emerald-300">
-            <p className="flex items-center gap-2 text-lg font-bold text-emerald-900">
+          <div role="status" className="mt-4 rounded-2xl bg-white p-5 ring-1 ring-forest-line">
+            <p className="flex items-center gap-2 text-lg font-bold text-forest-deep">
               <CheckCircle2 className="h-6 w-6" aria-hidden /> Sent. Your request number:
             </p>
             <p data-support-code className="mt-2 font-mono text-3xl font-bold tracking-wider text-slate-900">{sent}</p>
@@ -480,7 +480,7 @@ export function SupportCenter() {
       {/* 5. Official contacts — the only place on the site with KashRoot's email address */}
       <section id="official" aria-labelledby="official-title" className="scroll-mt-24 rounded-3xl bg-white p-5 ring-1 ring-slate-200 sm:p-6">
         <h2 id="official-title" className="flex items-center gap-2 text-2xl">
-          <ShieldCheck className="h-6 w-6 text-emerald-700" aria-hidden /> Official contacts
+          <ShieldCheck className="h-6 w-6 text-forest" aria-hidden /> Official contacts
         </h2>
         <p className="mt-3 rounded-2xl bg-amber-50 p-4 font-semibold text-amber-950 ring-1 ring-amber-200">{NEVER_ASKS}</p>
         <ul className="mt-4 space-y-3 !pl-0 text-slate-800 [list-style:none]">
@@ -498,7 +498,7 @@ export function SupportCenter() {
           <li className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <span className="font-semibold">Social pages:</span>
             {SOCIAL_LINKS.map((l) => (
-              <a key={l.href} href={l.href} target="_blank" rel="noopener noreferrer me" className="inline-flex min-h-11 items-center font-semibold text-emerald-800 underline">
+              <a key={l.href} href={l.href} target="_blank" rel="noopener noreferrer me" className="inline-flex min-h-11 items-center font-semibold text-forest-deep underline">
                 {l.label}
               </a>
             ))}

@@ -46,7 +46,7 @@ const STAGES: StageInfo[] = [
 ];
 
 const SEVERITY: Record<StageInfo['severity'], { label: string; chip: string }> = {
-  low: { label: 'Low pressure', chip: 'bg-emerald-50 text-emerald-800 ring-emerald-200' },
+  low: { label: 'Low pressure', chip: 'bg-forest-soft text-forest-deep ring-forest-line' },
   medium: { label: 'Moderate pressure', chip: 'bg-amber-50 text-amber-800 ring-amber-200' },
   high: { label: 'High pressure', chip: 'bg-rose-50 text-rose-800 ring-rose-200' },
 };
@@ -90,10 +90,10 @@ export function PhenologyPanel({ className = '' }: { className?: string }) {
             const past = current ? STAGES.indexOf(current) > i : false;
             const sev = SEVERITY[s.severity];
             return (
-              <li key={s.id} className={`flex flex-col gap-1.5 rounded-2xl p-3 ring-1 ${now ? 'bg-emerald-50 ring-emerald-300 shadow-sm' : past ? 'bg-slate-50 ring-slate-200' : 'bg-white ring-slate-200'}`}>
-                <p className={`text-sm font-bold ${now ? 'text-emerald-900' : 'text-slate-900'}`}>
+              <li key={s.id} className={`flex flex-col gap-1.5 rounded-2xl p-3 ring-1 ${now ? 'bg-forest-soft ring-forest-line shadow-sm' : past ? 'bg-slate-50 ring-slate-200' : 'bg-white ring-slate-200'}`}>
+                <p className={`text-sm font-bold ${now ? 'text-forest-deep' : 'text-slate-900'}`}>
                   {i + 1}. {s.label}
-                  {now && <span className="ml-1 inline-block rounded-full bg-emerald-700 px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wide text-white">Now</span>}
+                  {now && <span className="ml-1 inline-block rounded-full bg-forest px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wide text-white">Now</span>}
                 </p>
                 <span className={`w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${sev.chip}`}>{sev.label}</span>
                 <p className="text-[11px] leading-relaxed text-slate-600">{s.watch}</p>
@@ -114,7 +114,7 @@ export function PhenologyPanel({ className = '' }: { className?: string }) {
               type="button"
               aria-pressed={leaf === s.id}
               onClick={() => setLeaf(s.id)}
-              className={`min-h-10 cursor-pointer rounded-xl px-3 text-xs font-bold ring-1 transition ${leaf === s.id ? 'bg-green-800 text-white ring-green-800 shadow-md' : 'bg-white text-slate-700 ring-slate-200 hover:bg-green-50'}`}
+              className={`min-h-10 cursor-pointer rounded-xl px-3 text-xs font-bold ring-1 transition ${leaf === s.id ? 'bg-forest-deep text-white ring-forest-deep shadow-md' : 'bg-white text-slate-700 ring-slate-200 hover:bg-forest-soft'}`}
             >
               {s.label}
             </button>
@@ -125,7 +125,7 @@ export function PhenologyPanel({ className = '' }: { className?: string }) {
           <div className="rounded-2xl bg-white/85 p-4 text-sm ring-1 ring-slate-900/5">
             <p className="font-semibold text-slate-900">{info.label}</p>
             <p className="mt-1 text-slate-700">{info.note}</p>
-            <p className={`mt-2 inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ring-1 ${info.source === 'verified' ? 'bg-emerald-50 text-emerald-900 ring-emerald-200' : 'bg-amber-50 text-amber-900 ring-amber-200'}`}>
+            <p className={`mt-2 inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ring-1 ${info.source === 'verified' ? 'bg-forest-soft text-forest-deep ring-forest-line' : 'bg-amber-50 text-amber-900 ring-amber-200'}`}>
               {info.source === 'verified' ? <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> : <CircleAlert className="h-3.5 w-3.5" aria-hidden />}
               {info.source === 'verified' ? 'Verified by agronomists' : 'AI agronomic suggestion — verify doses with an agronomist'}
             </p>
@@ -139,7 +139,7 @@ export function PhenologyPanel({ className = '' }: { className?: string }) {
 /** Labelled 2D leaf diagram per pathology stage (pure SVG, instant render). */
 function LeafDiagram({ stage }: { stage: LeafStage }) {
   return (
-    <svg viewBox="0 0 300 160" className="w-full rounded-2xl bg-gradient-to-b from-green-50 to-white ring-1 ring-slate-200" role="img" aria-label={`Diagram of a leaf: ${LEAF_STAGES.find((s) => s.id === stage)?.label}`}>
+    <svg viewBox="0 0 300 160" className="w-full rounded-2xl bg-gradient-to-b from-forest-soft to-white ring-1 ring-slate-200" role="img" aria-label={`Diagram of a leaf: ${LEAF_STAGES.find((s) => s.id === stage)?.label}`}>
       <ellipse cx="150" cy="80" rx="110" ry="52" fill={stage === 'advanced' ? '#c9a227' : '#3d8a4d'} />
       <line x1="45" y1="80" x2="255" y2="80" stroke="#e9f5ec" strokeWidth="3" />
       {[70, 100, 130, 160, 190, 220].map((x, i) => (

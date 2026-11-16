@@ -55,7 +55,7 @@ const ListingCardInner = React.memo(function ListingCardInner({ listing: l, veri
         </div>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-bold uppercase tracking-wider text-[#174C3C]">{l.subcategory ?? l.category}</span>
+        <span className="text-xs font-bold uppercase tracking-wider text-forest">{l.subcategory ?? l.category}</span>
         {lowest && <Badge tone="green">Lowest price</Badge>}
         {isNewToday(l) && <Badge tone="amber"><Sparkles className="h-3 w-3" aria-hidden /> New today</Badge>}
       </div>
@@ -65,14 +65,14 @@ const ListingCardInner = React.memo(function ListingCardInner({ listing: l, veri
           pack at a glance (ListingDetailModal has the full breakdown). */}
       {(l.grade || l.packing_layers || l.box_capacity_kg) && (
         <p className="mt-1 flex flex-wrap gap-1.5">
-          {l.grade && <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-800 ring-1 ring-emerald-200">{/^grade /i.test(l.grade) ? l.grade : `Grade ${l.grade}`}</span>}
-          {l.packing_layers && <span className="rounded-full bg-[#EAF3EE] px-2.5 py-0.5 text-xs font-bold text-[#174C3C] ring-1 ring-[#C6DBD0]">{l.packing_layers}</span>}
+          {l.grade && <span className="rounded-full bg-forest-soft px-2.5 py-0.5 text-xs font-bold text-forest-deep ring-1 ring-forest-line">{/^grade /i.test(l.grade) ? l.grade : `Grade ${l.grade}`}</span>}
+          {l.packing_layers && <span className="rounded-full bg-forest-soft px-2.5 py-0.5 text-xs font-bold text-forest ring-1 ring-forest-line">{l.packing_layers}</span>}
           {l.box_capacity_kg && <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-800 ring-1 ring-amber-200">{l.box_capacity_kg} kg box</span>}
           {l.apples_per_box && <span className="rounded-full bg-slate-50 px-2.5 py-0.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">{l.apples_per_box}</span>}
         </p>
       )}
       <p className="flex items-center gap-1.5 text-sm text-slate-700">
-        {verified ? <ShieldCheck className="h-4 w-4 text-emerald-700" aria-hidden /> : <Store className="h-4 w-4 text-slate-400" aria-hidden />}
+        {verified ? <ShieldCheck className="h-4 w-4 text-forest" aria-hidden /> : <Store className="h-4 w-4 text-slate-400" aria-hidden />}
         {l.seller_name}
         {verified && <Badge tone="green">Verified seller</Badge>}
         {l.is_live_camera_verified && <Badge tone="green">🛡️ Live GPS Verified</Badge>}
@@ -80,17 +80,17 @@ const ListingCardInner = React.memo(function ListingCardInner({ listing: l, veri
       <p className="flex items-center gap-1.5 text-sm text-slate-600"><MapPin className="h-4 w-4" aria-hidden /> {l.district}</p>
       {l.details && <p className="mt-2 line-clamp-2 text-sm text-slate-600">{l.details}</p>}
       {cluster && (
-        <div data-testid="cluster-on-card" className="mt-3 space-y-1.5 rounded-xl bg-[#F3F8F5] p-3 text-sm ring-1 ring-[#C6DBD0]" onClick={(e) => e.stopPropagation()}>
+        <div data-testid="cluster-on-card" className="mt-3 space-y-1.5 rounded-xl bg-[#F6F7FF] p-3 text-sm ring-1 ring-forest-line" onClick={(e) => e.stopPropagation()}>
           {!hasGps ? (
             <p className="font-semibold text-[#52665E]">Orchard GPS not recorded on this listing</p>
           ) : (
             <>
               {cluster.isAnchor ? (
-                <p className="font-bold text-[#174C3C]">⭐ Your 1st Order Anchor ({CLUSTER_RADIUS_KM} km cluster is measured from here)</p>
+                <p className="font-bold text-forest">⭐ Your 1st Order Anchor ({CLUSTER_RADIUS_KM} km cluster is measured from here)</p>
               ) : cluster.kmFromAnchor !== null ? (
                 <p className="flex flex-wrap items-center gap-2 text-[#1E2D28]">
                   <span>📍 <strong>{cluster.kmFromAnchor.toFixed(1)} km</strong> from your 1st order</span>
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ring-1 ${cluster.kmFromAnchor <= CLUSTER_RADIUS_KM ? 'bg-emerald-50 text-emerald-800 ring-emerald-300' : 'bg-amber-50 text-amber-900 ring-amber-300'}`}>
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ring-1 ${cluster.kmFromAnchor <= CLUSTER_RADIUS_KM ? 'bg-forest-soft text-forest-deep ring-forest-line' : 'bg-amber-50 text-amber-900 ring-amber-300'}`}>
                     {cluster.kmFromAnchor <= CLUSTER_RADIUS_KM ? `Within ${CLUSTER_RADIUS_KM} km Cluster` : `Outside ${CLUSTER_RADIUS_KM} km Cluster`}
                   </span>
                 </p>
@@ -98,7 +98,7 @@ const ListingCardInner = React.memo(function ListingCardInner({ listing: l, veri
                 <p className="text-[#52665E]">The 1st order has no GPS recorded, so no distance can be worked out from it.</p>
               ) : null}
               {hub && (
-                <p className="flex items-start gap-1.5 text-[#1E2D28]"><Building2 className="mt-0.5 h-4 w-4 shrink-0 text-[#174C3C]" aria-hidden /> <span>Nearest KashRoot Hub: <strong>{hub.hub.name}</strong> ({hub.distanceKm.toFixed(1)} km away)</span></p>
+                <p className="flex items-start gap-1.5 text-[#1E2D28]"><Building2 className="mt-0.5 h-4 w-4 shrink-0 text-forest" aria-hidden /> <span>Nearest KashRoot Hub: <strong>{hub.hub.name}</strong> ({hub.distanceKm.toFixed(1)} km away)</span></p>
               )}
             </>
           )}
@@ -123,7 +123,7 @@ const ListingCardInner = React.memo(function ListingCardInner({ listing: l, veri
               the same price per kg — no mental arithmetic for the buyer. */}
           {l.box_capacity_kg && Number(l.price) > 0 ? (
             <p className="text-xs text-slate-600">
-              <span className="font-semibold text-emerald-700">≈ {inr(Number(l.price) / Number(l.box_capacity_kg))} / kg</span>
+              <span className="font-semibold text-forest">≈ {inr(Number(l.price) / Number(l.box_capacity_kg))} / kg</span>
               <span className="text-slate-400"> · </span>
               {l.box_capacity_kg} kg × {amountOf(Number(l.quantity), l.unit)} = {totalWeightKg!.toLocaleString('en-IN')} kg
             </p>

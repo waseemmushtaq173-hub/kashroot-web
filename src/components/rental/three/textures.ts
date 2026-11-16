@@ -374,7 +374,7 @@ export function labelCanvas(title: string, sub: string, dark = false, fill?: str
   if (fill) dark = true;
   if (g) {
     dark = true;
-    g.fillStyle = fill ?? 'rgba(18,56,46,0.95)';
+    g.fillStyle = fill ?? 'rgba(30, 27, 75,0.95)';
     g.strokeStyle = '#C6A45B';
     g.lineWidth = 6;
     if (g.roundRect) {

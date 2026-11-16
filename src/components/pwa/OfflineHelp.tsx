@@ -75,7 +75,7 @@ export function OfflineHelp() {
       <ul className="mt-3 grid gap-2 sm:grid-cols-2">
         {saved.map((p) => (
           <li key={p.path}>
-            <a href={p.path} className="flex min-h-12 items-center rounded-xl bg-white px-4 text-base font-semibold text-emerald-900 ring-1 ring-emerald-200 hover:bg-emerald-50">
+            <a href={p.path} className="flex min-h-12 items-center rounded-xl bg-white px-4 text-base font-semibold text-forest-deep ring-1 ring-forest-line hover:bg-forest-soft">
               {p.name}
             </a>
           </li>

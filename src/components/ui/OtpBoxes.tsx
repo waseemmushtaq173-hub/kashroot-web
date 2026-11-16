@@ -71,14 +71,14 @@ export function OtpBoxes({
               <span
                 className={`relative grid aspect-[10/11] min-w-0 max-w-10 flex-1 basis-0 place-items-center overflow-hidden rounded-xl text-lg font-bold tabular-nums transition duration-200 min-[380px]:text-xl sm:max-w-11 sm:text-2xl ${
                   digit
-                    ? 'bg-gradient-to-b from-[#2B725A] via-[#174C3C] to-[#12382E] text-white shadow-[0_3px_0_#C6A45B,0_8px_14px_-4px_rgba(18,56,46,0.4)]'
+                    ? 'bg-gradient-to-b from-[#5249D0] via-forest to-forest-deep text-white shadow-[0_3px_0_#C6A45B,0_8px_14px_-4px_rgba(30, 27, 75,0.4)]'
                     : 'bg-white text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200'
-                } ${invalid ? 'ring-2 ring-rose-400' : active ? 'ring-2 ring-[#286B54] ring-offset-2' : ''} ${disabled ? 'opacity-60' : ''}`}
+                } ${invalid ? 'ring-2 ring-rose-400' : active ? 'ring-2 ring-forest-mid ring-offset-2' : ''} ${disabled ? 'opacity-60' : ''}`}
               >
                 {/* A soft shine across the top of a filled box. */}
                 {digit && <span className="absolute inset-x-1 top-1 h-2/5 rounded-lg bg-gradient-to-b from-white/45 to-white/0" />}
                 {digit && <span key={digit} className="kr-otp-pop relative">{digit}</span>}
-                {active && !digit && <span className="h-6 w-0.5 animate-pulse rounded-full bg-[#286B54]" />}
+                {active && !digit && <span className="h-6 w-0.5 animate-pulse rounded-full bg-forest-mid" />}
               </span>
             </Fragment>
           );
@@ -107,7 +107,7 @@ export function OtpCard({
 }) {
   return (
     <div className="rounded-3xl bg-white/95 px-3.5 py-5 text-center shadow-[0_18px_50px_-20px_rgba(15,23,42,0.35)] ring-1 ring-slate-900/5 sm:p-6">
-      <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-b from-[#EAF3EE] to-[#DCEBE3] shadow-inner ring-1 ring-[#C6DBD0]">
+      <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-b from-forest-soft to-[#DCEBE3] shadow-inner ring-1 ring-forest-line">
         <Lock className="h-8 w-8 text-[#C6A45B] drop-shadow-sm" strokeWidth={2.4} aria-hidden />
       </span>
       <p className="mt-3 text-lg font-bold text-slate-900">{title}</p>
@@ -119,7 +119,7 @@ export function OtpCard({
           {resendIn > 0 ? (
             <span className="font-semibold text-slate-500">Resend in {resendIn}s</span>
           ) : (
-            <button type="button" onClick={onResend} disabled={resending} className="cursor-pointer font-semibold text-[#174C3C] underline underline-offset-4 hover:text-[#12382E] disabled:cursor-wait disabled:opacity-60">
+            <button type="button" onClick={onResend} disabled={resending} className="cursor-pointer font-semibold text-forest underline underline-offset-4 hover:text-forest-deep disabled:cursor-wait disabled:opacity-60">
               {resending ? 'Sending…' : 'Resend OTP'}
             </button>
           )}

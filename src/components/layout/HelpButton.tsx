@@ -24,9 +24,9 @@ export function HelpButton({ size = 'md', className = '' }: { size?: 'md' | 'lg'
         onClick={() => setOpen(true)}
         aria-label="Help & support"
         data-help-button
-        className={`inline-flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-xl bg-white/90 px-3 font-semibold text-slate-800 no-underline shadow-sm ring-1 ring-slate-900/10 transition hover:bg-white hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 ${size === 'lg' ? 'h-12 text-base lg:h-11 lg:text-sm' : 'min-h-11 text-sm'} ${className}`}
+        className={`inline-flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-xl bg-white/90 px-3 font-semibold text-slate-800 no-underline shadow-sm ring-1 ring-slate-900/10 transition hover:bg-white hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest ${size === 'lg' ? 'h-12 text-base lg:h-11 lg:text-sm' : 'min-h-11 text-sm'} ${className}`}
       >
-        <LifeBuoy className="h-5 w-5 shrink-0 text-emerald-700" aria-hidden />
+        <LifeBuoy className="h-5 w-5 shrink-0 text-forest" aria-hidden />
         <span className="sm:hidden">Help</span>
         <span className="hidden sm:inline">Help &amp; support</span>
       </button>
@@ -35,12 +35,12 @@ export function HelpButton({ size = 'md', className = '' }: { size?: 'md' | 'lg'
         <div className="space-y-3 overflow-y-auto px-6 pb-6">
           <a
             href="tel:18001801551"
-            className="flex items-center gap-3 rounded-2xl bg-emerald-50 p-4 no-underline ring-1 ring-emerald-200 transition hover:bg-emerald-100"
+            className="flex items-center gap-3 rounded-2xl bg-forest-soft p-4 no-underline ring-1 ring-forest-line transition hover:bg-forest-soft"
           >
-            <Phone className="h-6 w-6 shrink-0 text-emerald-700" aria-hidden />
+            <Phone className="h-6 w-6 shrink-0 text-forest" aria-hidden />
             <span>
-              <span className="block font-semibold text-emerald-950">Helpline: 1800-180-1551</span>
-              <span className="block text-sm text-emerald-900/80">Kisan Call Centre (Government of India), every day 6 am–10 pm — Kashmiri, Urdu, Hindi, English.</span>
+              <span className="block font-semibold text-forest-pine">Helpline: 1800-180-1551</span>
+              <span className="block text-sm text-forest-deep/80">Kisan Call Centre (Government of India), every day 6 am–10 pm — Kashmiri, Urdu, Hindi, English.</span>
             </span>
           </a>
 
@@ -48,7 +48,7 @@ export function HelpButton({ size = 'md', className = '' }: { size?: 'md' | 'lg'
             href="/support"
             className="flex items-center gap-3 rounded-2xl bg-white p-4 no-underline ring-1 ring-slate-200 transition hover:bg-slate-50"
           >
-            <LifeBuoy className="h-6 w-6 shrink-0 text-[#174C3C]" aria-hidden />
+            <LifeBuoy className="h-6 w-6 shrink-0 text-forest" aria-hidden />
             <span>
               <span className="block font-semibold text-slate-900">Ask KashRoot</span>
               <span className="block text-sm text-slate-600">Common problems, check my request, and the help desk that answers you here in the app.</span>

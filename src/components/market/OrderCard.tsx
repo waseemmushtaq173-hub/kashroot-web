@@ -153,7 +153,7 @@ function PayAfterDeliveryOrder({ order: o, as, theme, onChange, listingGps }: { 
           <p className="text-sm text-slate-600"><strong>{inr(o.amount)}</strong> ({inr(o.unit_price)} per {o.unit}) · {ago(o.created_at)}</p>
           <p className="mt-1 text-sm text-slate-700">
             {sellerSide ? `${o.buyer_name} · ` : `Sold by ${o.seller_name ?? 'the farmer'}${o.seller_district ? `, ${o.seller_district}` : ''} · `}
-            <a href={`tel:${sellerSide ? o.buyer_phone : o.seller_phone || o.buyer_phone}`} className="inline-flex items-center gap-1 font-semibold text-[#174C3C]"><Phone className="h-3.5 w-3.5" aria-hidden /> {sellerSide ? o.buyer_phone : o.seller_phone || o.buyer_phone}</a>
+            <a href={`tel:${sellerSide ? o.buyer_phone : o.seller_phone || o.buyer_phone}`} className="inline-flex items-center gap-1 font-semibold text-forest"><Phone className="h-3.5 w-3.5" aria-hidden /> {sellerSide ? o.buyer_phone : o.seller_phone || o.buyer_phone}</a>
             <span className="block text-slate-600">Deliver to: {o.buyer_live_address ?? o.delivery_address} · {o.buyer_name} 📞 {o.buyer_phone}</span>
           </p>
         </div>
@@ -163,7 +163,7 @@ function PayAfterDeliveryOrder({ order: o, as, theme, onChange, listingGps }: { 
         </div>
       </div>
       {!sellerSide && o.pickup_stage && (
-        <p className="mt-2 rounded-xl bg-[#EAF3EE] p-3 text-sm text-[#174C3C]" data-testid="buyer-pickup-stage">
+        <p className="mt-2 rounded-xl bg-forest-soft p-3 text-sm text-forest" data-testid="buyer-pickup-stage">
           <strong>🚛 {PICKUP_STAGE_LABEL[o.pickup_stage]}</strong>
           {o.assigned_hub_name ? ` · via ${o.assigned_hub_name}` : ''}
           {o.pickup_vehicle_number ? <> · vehicle <strong className="font-mono">{o.pickup_vehicle_number}</strong></> : ''}
@@ -218,8 +218,8 @@ function PayAfterDeliveryOrder({ order: o, as, theme, onChange, listingGps }: { 
           }
         };
         return (
-          <section aria-label="KashRoot Hub pickup and payout" data-testid="hub-pickup-card" className="mt-3 space-y-2 rounded-xl bg-[#F3F8F5] p-3 text-sm text-[#1E2D28] ring-1 ring-[#C6DBD0]">
-            <p className="font-bold text-[#174C3C]">KashRoot Hub Pickup &amp; Payout</p>
+          <section aria-label="KashRoot Hub pickup and payout" data-testid="hub-pickup-card" className="mt-3 space-y-2 rounded-xl bg-[#F6F7FF] p-3 text-sm text-[#1E2D28] ring-1 ring-forest-line">
+            <p className="font-bold text-forest">KashRoot Hub Pickup &amp; Payout</p>
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
               <dt className="text-[#52665E]">Ordered</dt>
               <dd><strong>{o.quantity} {o.unit}</strong> · gross {inr(o.amount)}</dd>
@@ -237,7 +237,7 @@ function PayAfterDeliveryOrder({ order: o, as, theme, onChange, listingGps }: { 
                 <span className="block text-xs font-semibold text-emerald-800">Now: {PICKUP_STAGE_LABEL[stage!]}{vehicle ? ` · vehicle ${vehicle}` : ''}</span>
               </p>
             ) : stage === 'PICKUP_VEHICLE_ASSIGNED' ? (
-              <p className="rounded-lg bg-[#EAF3EE] px-2.5 py-1.5 text-[#174C3C]">
+              <p className="rounded-lg bg-forest-soft px-2.5 py-1.5 text-forest">
                 <strong>Status: Pickup vehicle assigned</strong> · Vehicle <strong className="font-mono">{vehicle}</strong>
                 {driverName ? ` · Driver ${driverName}` : ''}
                 {driverPhone ? <> · <a href={`tel:${driverPhone}`} className="font-semibold underline underline-offset-2">📞 {driverPhone}</a></> : ''}
@@ -250,12 +250,12 @@ function PayAfterDeliveryOrder({ order: o, as, theme, onChange, listingGps }: { 
             ) : o.status === 'accepted' ? (
               <p className="text-[#52665E]">Step 1: pack the boxes, then mark them ready. You do not transport anything: a KashRoot pickup vehicle collects from your orchard gate.</p>
             ) : (
-              <p className="rounded-lg bg-[#EAF3EE] px-2.5 py-1.5 font-semibold text-[#174C3C]">Status: {ORDER_STATUS[o.status].label}{vehicle ? ` · vehicle ${vehicle}` : ' · no pickup vehicle is recorded on this order'}</p>
+              <p className="rounded-lg bg-forest-soft px-2.5 py-1.5 font-semibold text-forest">Status: {ORDER_STATUS[o.status].label}{vehicle ? ` · vehicle ${vehicle}` : ' · no pickup vehicle is recorded on this order'}</p>
             )}
 
             {handover && !handedOver && (
               <p className="rounded-lg bg-white px-2.5 py-2 ring-2 ring-[#C6A45B]">
-                Handover code for the pickup driver: <strong className="font-mono text-xl tracking-[0.3em] text-[#174C3C]" data-testid="handover-code">{handover}</strong>
+                Handover code for the pickup driver: <strong className="font-mono text-xl tracking-[0.3em] text-forest" data-testid="handover-code">{handover}</strong>
                 <span className="block text-xs text-[#52665E]">Give it only to the KashRoot driver at your gate, after the boxes are on the vehicle. The buyer cannot see it.</span>
               </p>
             )}
@@ -331,7 +331,7 @@ function PayAfterDeliveryOrder({ order: o, as, theme, onChange, listingGps }: { 
         {!sellerSide && !escrowed && (o.status === 'accepted' || o.status === 'shipped') && (
           <Btn theme={theme} size="sm" icon={PackageCheck} disabled={busy} onClick={() => { if (window.confirm('Have the goods reached you, and have you checked them?')) void act('delivered', 'Thanks — now pay the seller'); }}>I received the goods</Btn>
         )}
-        {wantBuyerLive && <span className="self-center text-xs font-bold text-[#174C3C]">📡 Your live GPS is shared with the farmer{buyers.error ? '' : ' — tracking active'}</span>}
+        {wantBuyerLive && <span className="self-center text-xs font-bold text-forest">📡 Your live GPS is shared with the farmer{buyers.error ? '' : ' — tracking active'}</span>}
         {!sellerSide && !['completed', 'cancelled', 'rejected', 'disputed', 'placed'].includes(o.status) && (
           <Btn theme={theme} size="sm" variant="ghost" icon={Flag} disabled={busy} onClick={() => { const n = ask('What went wrong? (wrong item, damaged, not delivered…)'); if (n === null) return; if (!n) return toast.error('Write what went wrong, for example: wrong item, broken, not delivered. Then press OK.'); void act('dispute', 'Problem reported to the farmer and KashRoot', n); }}>Report a problem</Btn>
         )}

@@ -37,7 +37,7 @@ function Steps({ at }: { at: number }) {
         <li
           key={label}
           aria-current={i === at ? 'step' : undefined}
-          className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold ${i <= at ? 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200' : 'bg-slate-50 text-slate-500 ring-1 ring-slate-200'}`}
+          className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold ${i <= at ? 'bg-forest-soft text-forest-deep ring-1 ring-forest-line' : 'bg-slate-50 text-slate-500 ring-1 ring-slate-200'}`}
         >
           {i <= at ? <Check className="h-3.5 w-3.5 shrink-0" aria-hidden /> : <span className="w-3.5 shrink-0 text-center">{i + 1}</span>}
           {label}
@@ -149,9 +149,9 @@ export function PayFirstOrder({ lines, as, theme, seller, onChange, drivers }: {
       )}
       {buyer && unpaid && <ShopPay orderId={o.id} amount={total} note={`KashRoot order ${(o.basket ?? o.id).slice(0, 8)}`} theme={theme} paidRef={o.payment_ref} onPaid={async (ref) => { await orderAction(o.id, 'pay', ref); onChange(); }} />}
       {buyer && o.status === 'accepted' && o.payment_state === 'paid' && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-amber-200">You paid. The seller is checking that the money reached them. Then they ship your order.</p>}
-      {buyer && o.status === 'accepted' && o.payment_state === 'received' && <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-950 ring-1 ring-emerald-200">The seller got your money and is packing your order.</p>}
+      {buyer && o.status === 'accepted' && o.payment_state === 'received' && <p className="rounded-xl bg-forest-soft p-3 text-sm text-forest-pine ring-1 ring-forest-line">The seller got your money and is packing your order.</p>}
       {buyer && o.status === 'shipped' && <TrackDelivery order={o} />}
-      {o.status === 'completed' && <p className="flex items-center gap-2 text-sm font-medium text-emerald-800"><CheckCircle2 className="h-4 w-4" aria-hidden /> {buyer ? 'You received this order.' : 'The buyer received this order.'}{o.delivered_at ? ` ${new Date(o.delivered_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}.` : ''}</p>}
+      {o.status === 'completed' && <p className="flex items-center gap-2 text-sm font-medium text-forest-deep"><CheckCircle2 className="h-4 w-4" aria-hidden /> {buyer ? 'You received this order.' : 'The buyer received this order.'}{o.delivered_at ? ` ${new Date(o.delivered_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}.` : ''}</p>}
 
       {/* ── The seller's next step ── */}
       {!buyer && o.status === 'placed' && <p className="text-sm text-slate-700">Accept only if you have it in stock. The buyer then pays you, and you ship after the money arrives.</p>}

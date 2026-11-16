@@ -162,7 +162,7 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
           <div className="space-y-4">
             {byMandi.map(([mandi, list]) => (
               <div key={mandi} className="overflow-x-auto rounded-2xl ring-1 ring-slate-900/5">
-                <p className="bg-emerald-50/80 px-4 py-2 font-semibold text-emerald-950">{mandi} <span className="text-xs font-normal text-emerald-800">{list[0].district ? `${list[0].district}, ` : ''}{list[0].state}</span></p>
+                <p className="bg-forest-soft/80 px-4 py-2 font-semibold text-forest-pine">{mandi} <span className="text-xs font-normal text-forest-deep">{list[0].district ? `${list[0].district}, ` : ''}{list[0].state}</span></p>
                 <table className="w-full min-w-[780px] bg-white/80 text-left text-sm">
                   <thead className="bg-ivory text-xs font-semibold uppercase tracking-wider text-slate-600">
                     <tr>
@@ -187,7 +187,7 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
                           <td className="px-4 py-2 text-right font-semibold tabular-nums text-slate-900">{rupees(r.modal_price)}</td>
                           <td className="px-4 py-2 text-right tabular-nums text-slate-600">{rupees(r.max_price)}</td>
                           <td className="px-4 py-2 text-xs text-slate-600">
-                            <span className="font-semibold text-slate-800">{when(r.rate_date)}</span> · <BadgeCheck className="inline h-3.5 w-3.5 text-emerald-700" aria-label="Approved Mandi Helper" /> {r.reporter_name}
+                            <span className="font-semibold text-slate-800">{when(r.rate_date)}</span> · <BadgeCheck className="inline h-3.5 w-3.5 text-forest" aria-label="Approved Mandi Helper" /> {r.reporter_name}
                             {r.note && <span className="block text-slate-500">{r.note}</span>}
                             {account && (r.posted_by === account.id || account.staff.includes('ADMIN')) && (
                               <button type="button" onClick={() => { if (window.confirm('Remove this rate?')) void removeRate(r.id).then(load).catch((e: Error) => toast.error(e.message)); }} className="ms-1 inline-flex cursor-pointer items-center gap-1 text-rose-700 hover:underline">
@@ -199,7 +199,7 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
                             <CheckBadge status={r.status} />
                             {account && r.posted_by !== account.id && (
                               <span className="mt-1.5 flex gap-1.5">
-                                <button type="button" aria-pressed={myChecks.get(r.id) === 'correct'} onClick={() => void verify(r, true)} className={`inline-flex cursor-pointer items-center gap-1 rounded-full px-2 py-1 font-semibold ring-1 ${myChecks.get(r.id) === 'correct' ? 'bg-emerald-700 text-white ring-emerald-600' : 'bg-white text-emerald-800 ring-emerald-200 hover:bg-emerald-50'}`}>
+                                <button type="button" aria-pressed={myChecks.get(r.id) === 'correct'} onClick={() => void verify(r, true)} className={`inline-flex cursor-pointer items-center gap-1 rounded-full px-2 py-1 font-semibold ring-1 ${myChecks.get(r.id) === 'correct' ? 'bg-forest text-white ring-forest' : 'bg-white text-forest-deep ring-forest-line hover:bg-forest-soft'}`}>
                                   <ThumbsUp className="h-3 w-3" aria-hidden /> Correct
                                 </button>
                                 <button type="button" aria-pressed={myChecks.get(r.id) === 'wrong'} onClick={() => setReporting(r)} className={`inline-flex cursor-pointer items-center gap-1 rounded-full px-2 py-1 font-semibold ring-1 ${myChecks.get(r.id) === 'wrong' ? 'bg-rose-600 text-white ring-rose-600' : 'bg-white text-rose-800 ring-rose-200 hover:bg-rose-50'}`}>

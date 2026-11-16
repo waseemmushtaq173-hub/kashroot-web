@@ -59,7 +59,7 @@ export function ProductCard({ listing: l, verified, own, inCart, onAdd, onOpen }
         </p>
         <p className="text-sm text-slate-600">{amountOf(Number(l.quantity), l.unit)} in stock</p>
         <p className="mt-2 flex flex-wrap items-center gap-1.5 text-sm text-slate-700">
-          {verified ? <BadgeCheck className="h-4 w-4 text-emerald-700" aria-hidden /> : <Store className="h-4 w-4 text-slate-400" aria-hidden />}
+          {verified ? <BadgeCheck className="h-4 w-4 text-forest" aria-hidden /> : <Store className="h-4 w-4 text-slate-400" aria-hidden />}
           {l.seller_name}
           {verified && <Badge tone="green">Verified seller</Badge>}
         </p>

@@ -92,7 +92,7 @@ export function PayoutForm({ theme, payout, onSaved, intro = 'Only farmers with 
           {twoStep === 'setup' && (
             <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-amber-200">
               To change where you are paid, turn on two-step sign-in first — it keeps your payments safe if someone learns your password.{' '}
-              <Link className="inline-flex min-h-11 items-center font-semibold text-emerald-800 underline" href="/account/two-step">Turn on two-step sign-in</Link>
+              <Link className="inline-flex min-h-11 items-center font-semibold text-forest-deep underline" href="/account/two-step">Turn on two-step sign-in</Link>
             </p>
           )}
           <Btn theme={theme} type="submit" icon={Banknote} disabled={busy}>{busy ? 'Saving…' : 'Save payment details'}</Btn>

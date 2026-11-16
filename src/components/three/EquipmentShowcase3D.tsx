@@ -381,7 +381,7 @@ export function EquipmentShowcase3D({ className = '' }: { className?: string }) 
         <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Engine</dt><dd className="font-semibold text-slate-900">{spec.hp}</dd></div>
         <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tank</dt><dd className="font-semibold text-slate-900">{spec.tank}</dd></div>
         <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Flow / output</dt><dd className="font-semibold text-slate-900">{spec.flow}</dd></div>
-        <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Subsidy</dt><dd className="font-semibold text-emerald-800">{spec.subsidy}</dd></div>
+        <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Subsidy</dt><dd className="font-semibold text-forest-deep">{spec.subsidy}</dd></div>
         <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Dealer price</dt><dd className="font-semibold text-slate-900">{spec.price}</dd></div>
         <div className="sm:col-span-2 lg:col-span-3"><dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Why it fits Kashmir orchards</dt><dd className="text-slate-700">{spec.note}</dd></div>
       </dl>

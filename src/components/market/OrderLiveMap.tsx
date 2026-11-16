@@ -46,7 +46,7 @@ function Pin({ p, colour }: { p: OrderPin; colour: string }) {
       <Tooltip permanent direction="top" offset={[0, -12]}>
         <span className="block font-bold">{p.label}</span>
         {p.sub && <span className="block">{p.sub}</span>}
-        {p.live && <span className="block font-bold text-emerald-700">Live Now</span>}
+        {p.live && <span className="block font-bold text-forest">Live Now</span>}
       </Tooltip>
     </CircleMarker>
   );
