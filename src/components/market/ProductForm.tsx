@@ -5,7 +5,7 @@ import { X } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { Field, INPUT } from '@/components/portal/kit';
-import { AppleBox3DLazy } from '@/components/three/AppleBox3DLazy';
+import { applesFor, GRADE_CHOICES, LAYER_CHOICES } from '@/lib/packing';
 import { reverseGeocode, nowIST, type GeoResult, engravePhotoFrame, startEngravedVideo } from '@/lib/geoStampMedia';
 import { PRODUCE, SUBCATEGORIES, UNITS, type ListingInput } from '@/lib/db/market';
 import { getNearestVerifiedHub } from '@/lib/clusterConsolidation';
@@ -33,15 +33,6 @@ const WHOLE_UNITS: ListingInput['unit'][] = ['box', 'piece', 'bag'];
 
 /** Quick presets for box capacity in kg. */
 const CAPACITY_PRESETS = [8, 10, 15, 16, 18, 20] as const;
-
-/** Packing layer presets with apple count hints. */
-const LAYER_PRESETS: { label: string; value: string; hint: string }[] = [
-  { label: '4 Layer', value: '4 Layer', hint: 'Large / Extra Fancy · ~80–100 apples' },
-  { label: '5 Layer', value: '5 Layer', hint: 'Medium / Standard · ~125–150 apples' },
-  { label: '3 Layer', value: '3 Layer', hint: 'Super Large · ~60–75 apples' },
-  { label: '2 Layer (Half Box)', value: '2 Layer (Half Box)', hint: '~40–50 apples' },
-  { label: 'Loose / Crate Packed', value: 'Loose / Crate Packed', hint: 'No fixed layer count' },
-];
 
 /** The listing's photos: the list, or the single photo of an older listing. */
 export const photosOf = (v: Pick<ListingInput, 'photo' | 'photos'>): string[] => (v.photos?.length ? v.photos : v.photo ? [v.photo] : []);
@@ -345,9 +336,22 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
       <Field label={produce ? 'Variety (optional)' : 'Brand / size (optional)'}>
         <input className={`${INPUT} min-h-11`} value={v.variety ?? ''} onChange={(e) => set('variety', e.target.value)} />
       </Field>
-      <Field label="Grade (optional)">
-        <input className={`${INPUT} min-h-11`} value={v.grade ?? ''} onChange={(e) => set('grade', e.target.value)} placeholder="e.g. A, Premium" />
-      </Field>
+      {produce ? (
+        <Field label="Grade">
+          <div role="group" aria-label="Grade of the apples" className="flex gap-2">
+            {GRADE_CHOICES.map((g) => (
+              <button key={g} type="button" aria-pressed={v.grade === g} onClick={(e) => { e.preventDefault(); e.stopPropagation(); set('grade', v.grade === g ? null : g); }} className={`relative z-10 min-h-11 flex-1 cursor-pointer rounded-xl border-2 px-3 text-base font-bold transition-colors ${v.grade === g ? 'border-forest bg-forest text-white shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}>
+                {v.grade === g ? '✓ ' : ''}{g} grade
+              </button>
+            ))}
+          </div>
+          {v.grade && !(GRADE_CHOICES as readonly string[]).includes(v.grade) && <p className="mt-1 text-xs text-slate-600">Saved earlier as “{v.grade}”. Choose A or B to change it.</p>}
+        </Field>
+      ) : (
+        <Field label="Grade (optional)">
+          <input className={`${INPUT} min-h-11`} value={v.grade ?? ''} onChange={(e) => set('grade', e.target.value)} placeholder="e.g. A, Premium" />
+        </Field>
+      )}
 
       {produce && (
         <>
@@ -370,33 +374,26 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
             )}
             <p className="text-xs text-slate-500">Net weight of one box. Buyers see the rate per kg and total lot weight.</p>
           </Field>
-          <Field label="Packing layers (per box)">
-            <div className="pointer-events-auto relative z-10 flex flex-wrap gap-1.5">
-              {LAYER_PRESETS.map((preset) => (
-                <button key={preset.value} type="button" aria-pressed={v.packing_layers === preset.value} onClick={(e) => {
-                  // Both fields in ONE patch: a second `set` would spread the
-                  // stale value and wipe the layer choice back off.
-                  e.preventDefault(); e.stopPropagation();
-                  onChange({ ...v, packing_layers: preset.value, apples_per_box: preset.hint.split('·')[1]?.trim() ?? null });
-                }} className={`relative z-10 min-h-10 cursor-pointer rounded-lg border-2 px-3 py-1 text-start text-xs leading-tight transition-colors ${v.packing_layers === preset.value ? 'bg-forest text-white border-forest font-semibold shadow-sm' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>
-                  <span className="block font-bold">{v.packing_layers === preset.value ? '✓ ' : ''}{preset.label}</span>
-                  <span className={`block text-[10px] ${v.packing_layers === preset.value ? 'text-white/85' : 'text-slate-400'}`}>{preset.hint}</span>
-                </button>
-              ))}
+          <Field label="Box layers">
+            <div role="group" aria-label="Box layers" className="pointer-events-auto relative z-10 grid grid-cols-3 gap-2">
+              {LAYER_CHOICES.map((c) => {
+                const on = v.packing_layers === c.value;
+                return (
+                  <button key={c.value} type="button" aria-pressed={on} onClick={(e) => {
+                    // Both fields in ONE patch: a second `set` would spread the stale value and wipe the choice back off.
+                    e.preventDefault(); e.stopPropagation();
+                    onChange(on ? { ...v, packing_layers: null, apples_per_box: null } : { ...v, packing_layers: c.value, apples_per_box: c.apples });
+                  }} className={`relative z-10 min-h-11 cursor-pointer rounded-xl border-2 px-2 py-2 text-center leading-tight transition-colors ${on ? 'border-forest bg-forest text-white shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}>
+                    <span className="block text-sm font-bold">{on ? '✓ ' : ''}{c.label}</span>
+                  </button>
+                );
+              })}
             </div>
-            {/* Permanent green confirmation, exactly like the box-capacity bar above. */}
-            {(() => {
-              const chosen = LAYER_PRESETS.find((p) => p.value === v.packing_layers);
-              if (!chosen) return null;
-              return (
-                <p className="mt-2 rounded-xl bg-forest-soft p-3 text-sm font-semibold text-forest-pine ring-1 ring-forest-line">
-                  ✓ Selected packing: {chosen.label} ({chosen.hint})
-                </p>
-              );
-            })()}
-            {/* The chosen packing, seen in 3D: rotate the box and inspect the layers. */}
-            <AppleBox3DLazy layers={v.packing_layers ?? ''} className="mt-3" />
-            <p className="text-xs text-slate-500">How the fruit is packed inside one box. 4 Layer = larger fruit, fewer per box; 5 Layer = standard.</p>
+            <p className="mt-1.5 text-xs text-slate-500">
+              {v.packing_layers && applesFor(v.packing_layers) ? `Usually ${applesFor(v.packing_layers)} in a box. ` : ''}
+              4 layer = larger fruit, fewer in a box; 5 layer = the standard. Choose “Both” if this lot has both kinds of box.
+            </p>
+            {v.packing_layers && !applesFor(v.packing_layers) && <p className="mt-1 text-xs text-slate-600">Saved earlier as “{v.packing_layers}”. Choose one above to change it.</p>}
           </Field>
 
           {/* ── Live GPS & Camera: both step buttons are ALWAYS here — nothing waits on a mount-time prompt. ── */}

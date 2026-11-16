@@ -22,5 +22,5 @@ test('the 3D apple box is only ever imported through its lazy wrapper', () => {
   expect(lazy).toContain("import('./AppleBox3D')");
   expect(lazy).toContain('ssr: false');
   // "Loose / Crate Packed" has no layer count: nothing is shown and nothing is fetched.
-  expect(lazy).toMatch(/Number\.isFinite\(parseInt\(String\(layers\)\.trim\(\), 10\)\)\) return null/);
+  expect(lazy).toContain('singleLayerCount(String(layers)) === null) return null');
 });
