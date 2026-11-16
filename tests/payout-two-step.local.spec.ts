@@ -25,13 +25,17 @@ const env: Record<string, string> = LOCAL
 test('changing saved payment details without two-step sign-in says what is needed (cold store owner)', async ({ page }) => {
   test.setTimeout(120_000);
   // The Farmer portal's own form says so before sending; the cold store owner's Payment details had no such check.
-  await page.goto('/login/rental');
+  // The owner's tools are under the Business admin sign-in (the customer Cold Storage portal has none).
+  await page.goto('/login/business');
   await page.getByLabel('Email address').fill('test-farmer@example.test', { timeout: 30_000 });
   await page.getByLabel('Password', { exact: true }).fill(env.TEST_FARMER_PASSWORD);
   await page.waitForTimeout(3_200); // a person takes a few seconds (lib/client/formGuard)
   await page.getByRole('button', { name: /^Sign in to/ }).click();
-  await page.waitForURL(/\/rental\/dashboard/, { timeout: 60_000 });
-  await page.getByText('I run a cold store', { exact: true }).filter({ visible: true }).first().click();
+  // The first time, an account without a Business admin account is offered to create it (same email and password).
+  const create = page.getByRole('button', { name: /^Create my Business admin account/ });
+  await create.waitFor({ timeout: 15_000 }).then(() => create.click()).catch(() => undefined);
+  await page.waitForURL(/\/business\//, { timeout: 60_000 });
+  await page.goto('/business/cold-store?tab=payments');
   await page.locator('[role="tab"]:visible').filter({ hasText: 'Payment details' }).first().click();
   const upi = page.getByLabel(/UPI ID/).first();
   await expect(upi).toBeVisible({ timeout: 30_000 });

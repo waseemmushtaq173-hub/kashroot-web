@@ -181,7 +181,7 @@ export function OwnerHierarchyPanel() {
         theme={theme}
         title="Owner onboarding & approval queue"
         icon={ShieldCheck}
-        action={<Btn theme={theme} variant="soft" size="sm" icon={ClipboardList} href="/rental/dashboard?as=owner&tab=bizadmin">Owner onboarding & business admin</Btn>}
+        action={<Btn theme={theme} variant="soft" size="sm" icon={ClipboardList} href="/business/cold-store?tab=bizadmin">Owner onboarding & business admin</Btn>}
       >
         <p className="mb-4 text-sm text-slate-600">
           Every registered business, of every category. Approve, request information, suspend or
@@ -208,7 +208,7 @@ export function OwnerHierarchyPanel() {
           </div>
         )}
         {orgs.length === 0 ? (
-          <EmptyState theme={theme} icon={Building2} title="No owner business registered yet" text="Business owners register from the rental portal's Business admin tab, choosing their category; their application lands in this queue for your decision." />
+          <EmptyState theme={theme} icon={Building2} title="No owner business registered yet" text="Business owners register from the Business admin portal (Cold stores → Owner administration), choosing their category; their application lands in this queue for your decision." />
         ) : shownOrgs.length === 0 ? (
           <EmptyState theme={theme} icon={Building2} title={`No ${categoryFilter === 'ALL' ? '' : BUSINESS_CATEGORY_LABEL[categoryFilter].toLowerCase() + ' '}business registered yet`} text="Pick another category above to see the other businesses." />
         ) : (

@@ -1875,7 +1875,7 @@ export function ColdStore3D({
         )}
         <p id={textId} data-scene-text className="sr-only">{sceneText(scene)}</p>
         <div ref={tip} aria-live="polite" className="pointer-events-none absolute z-30 max-w-[228px] whitespace-pre-line rounded-xl bg-slate-900/90 px-3 py-2 text-xs font-semibold text-white opacity-0 shadow-lg transition-opacity" />
-        {instSummary && ready && (
+        {instSummary && ready && !walking && (
           <p role="status" className="pointer-events-none absolute left-1/2 top-3 z-30 w-fit max-w-[calc(100%-1rem)] -translate-x-1/2 rounded-full bg-slate-900/85 px-3.5 py-1.5 text-center text-[11px] font-semibold text-white shadow-lg">
             Showing optimized 3D instanced view of {instSummary.total.toLocaleString('en-IN')} storage places · {instSummary.boxes.toLocaleString('en-IN')} total box capacity
           </p>

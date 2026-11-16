@@ -53,7 +53,8 @@ export function drawMiniMap(cv: HTMLCanvasElement, scene: StoreScene, at: Vec, h
       g.lineTo(X(c.door.x2), Y(c.door.y2));
       g.stroke();
     }
-    const label = c.no !== null ? String(c.no) : c.name.slice(0, 3);
+    // The chamber's number; an older chamber has none, so the number in its name ("Chamber 1" → 1), else its first letter.
+    const label = c.no !== null ? String(c.no) : (/\d+/.exec(c.name)?.[0] ?? c.name.trim().charAt(0).toUpperCase());
     const px = Math.max(8 * dpr, Math.min(14 * dpr, Math.min(r.w, r.d) * k * 0.5));
     g.font = `700 ${px}px system-ui, sans-serif`;
     g.textAlign = 'center';

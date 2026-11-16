@@ -105,7 +105,8 @@ export function ColdStoreDirectory({
   listings: RentalListing[];
   onBook: (l: RentalListing) => void;
   /** "Your cold store? List it on KashRoot" — opens My cold store with its details. */
-  onClaim: (e: DirectoryItem) => void;
+  /** Owners are not offered anything here: the customer's list only shows stores to book or call. */
+  onClaim?: (e: DirectoryItem) => void;
 }) {
   const [q, setQ] = useState('');
   const [district, setDistrict] = useState('');
@@ -136,7 +137,7 @@ export function ColdStoreDirectory({
           <p className="text-sm text-slate-600">
             <strong className="text-slate-900">{entries.length.toLocaleString('en-IN')}</strong> cold store{entries.length === 1 ? '' : 's'} found · <strong className="text-forest">{onKashRoot}</strong> on KashRoot, ready to book
           </p>
-          <p className="mt-1 text-xs text-slate-500">Stores on KashRoot show every chamber on a floor plan and in 3D, and you choose your own place. The others are listed so you know they exist — their owner can join with “Your store? List it”.</p>
+          <p className="mt-1 text-xs text-slate-500">Stores on KashRoot show every chamber on a floor plan and in 3D, and you choose your own place. The others are listed so you know they exist.</p>
           {reading && (
             <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Reading the official list (National Horticulture Board) and OpenStreetMap — more stores appear here when they arrive.
@@ -205,7 +206,7 @@ export function ColdStoreDirectory({
                   <p className="mt-2 text-xs text-slate-500">Source: {sourcesOf(e).join(' · ')}</p>
                   <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 pt-3 text-sm">
                     {listing && <Btn theme={theme} size="sm" onClick={() => onBook(listing)}>Choose your place</Btn>}
-                    {!listing && (
+                    {!listing && onClaim && (
                       <button type="button" onClick={() => onClaim(e)} className="inline-flex cursor-pointer items-center gap-1 font-semibold text-forest hover:underline">
                         <Store className="h-3.5 w-3.5" aria-hidden /> Your store? List it
                       </button>

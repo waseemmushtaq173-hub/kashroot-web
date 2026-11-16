@@ -9,6 +9,7 @@ import { MyDetailsPanel } from '@/components/portal/MyDetailsPanel';
 import { MY_DETAILS } from '@/components/portal/myDetailsConfig';
 import { FloatingVoice } from '@/components/voice/FloatingVoice';
 import { loginHref, PORTALS, PUBLIC_PORTAL_IDS, type PortalId } from '@/lib/auth/roles';
+import { useBusinessMember } from '@/lib/auth/businessMember';
 import { PORTAL_CARD_FOR } from '@/lib/portalCardsConfig';
 import { useSecretAdminTap, useShowAdmin } from '@/lib/client/adminDevice';
 import { signOutOfPortal, useMyPortal, useRecentPortal, useSignedIn } from '@/lib/auth/session';
@@ -369,6 +370,7 @@ export function SiteHeader({
  */
 export function SiteFooter({ tone = 'dark' }: { tone?: SiteTone; portal?: PortalId | null }) {
   const light = tone === 'light';
+  const businessMember = useBusinessMember();
 
   return (
     <footer
@@ -388,10 +390,12 @@ export function SiteFooter({ tone = 'dark' }: { tone?: SiteTone; portal?: Portal
           <p className={`mt-2 text-caption ${light ? 'text-slate-600' : 'text-kr-text-secondary'}`}>
             &copy; 2026 KashRoot Pvt Ltd
           </p>
-          {/* The sign-in for the team of a cold store, dealership or shop: its own door, apart from the customer portals. */}
-          <Link href="/login/business" className={`-ml-1 inline-flex min-h-11 items-center px-1 text-caption underline underline-offset-4 ${light ? 'text-slate-600 hover:text-slate-900' : 'text-kr-text-secondary hover:text-kr-text-primary'}`}>
-            Business admin sign-in
-          </Link>
+          {/* The way into the Business admin is shown only to a person who is part of a business: customers never see it. */}
+          {businessMember === true && (
+            <Link href="/business/dashboard" className={`-ml-1 inline-flex min-h-11 items-center px-1 text-caption underline underline-offset-4 ${light ? 'text-slate-600 hover:text-slate-900' : 'text-kr-text-secondary hover:text-kr-text-primary'}`}>
+              Business admin
+            </Link>
+          )}
         </div>
         {/* Only the social pages: help is in every top bar (Help & support), the portals in the Portals menu.
             Room on the right, so the floating voice button never covers the last link. */}

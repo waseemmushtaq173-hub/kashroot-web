@@ -345,8 +345,8 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
         </p>
         {!oversightOrgId && (
           <div className="mt-3 flex flex-wrap gap-2">
-            <Btn theme={theme} variant="soft" size="sm" icon={Eye} onClick={() => { window.location.href = '/rental/dashboard?as=owner&tab=stores'; }}>Open the 3D twin (My cold stores)</Btn>
-            <Btn theme={theme} variant="soft" size="sm" icon={Boxes} onClick={() => { window.location.href = '/rental/dashboard?as=owner&tab=operations'; }}>Chamber diagram & shared bins</Btn>
+            <Btn theme={theme} variant="soft" size="sm" icon={Eye} onClick={() => { window.location.href = '/business/cold-store?tab=stores'; }}>Open the 3D twin (My cold stores)</Btn>
+            <Btn theme={theme} variant="soft" size="sm" icon={Boxes} onClick={() => { window.location.href = '/business/cold-store?tab=operations'; }}>Chamber diagram & shared bins</Btn>
           </div>
         )}
         <ul className="mt-3 space-y-1 text-xs text-slate-600">

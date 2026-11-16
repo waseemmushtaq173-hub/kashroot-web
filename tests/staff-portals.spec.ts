@@ -15,16 +15,18 @@ test('the customers\' sign-in chooser lists the customer portals only', async ({
   for (const customer of ['Farmer', 'Buyer', 'Cold Storage', 'Agro-dealer']) expect(text).toContain(customer);
 });
 
-test('the Portals menu does not list the staff portals; the footer has the business sign-in', async ({ page }) => {
+test('a visitor is shown nothing of the Business admin: not in the Portals menu, not in the footer, not on the Cold Storage page', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /Portals/ }).first().click();
-  const menu = page.locator('nav, [role="menu"], header').first();
   const html = await page.locator('header').first().innerText();
   expect(html).not.toContain('KashRoot Hub');
   expect(html).not.toContain('Business admin');
-  void menu;
-  const footerLink = page.getByRole('link', { name: 'Business admin sign-in' });
-  await expect(footerLink).toHaveAttribute('href', '/login/business');
+  await expect(page.getByRole('link', { name: /Business admin/ })).toHaveCount(0);
+  await expect(page.locator('footer').last()).not.toContainText('Business admin');
+  // The customer Cold Storage portal has no owner side: an older owner link goes to the Business admin sign-in.
+  await page.goto('/rental/dashboard?as=owner&tab=stores');
+  await page.waitForURL((u) => /^\/(login\/(rental|business)|business\/cold-store)/.test(u.pathname), { timeout: 20_000 });
+  await expect(page.getByText('I run a cold store')).toHaveCount(0);
 });
 
 test('Business admin has its own sign-in page, apart from the customers\'', async ({ page }) => {

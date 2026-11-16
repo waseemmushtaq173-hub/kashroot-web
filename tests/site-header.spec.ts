@@ -67,13 +67,14 @@ for (const width of [1280, 390, 360]) {
       await expect(page.locator('body')).toContainText('kashrootsupport@gmail.com');
     });
 
-    test('the footer holds only the brand, ©, the social pages and the Business admin sign-in', async ({ page }) => {
+    test('the footer holds only the brand, © and the social pages — nothing of the Business admin is shown to a visitor', async ({ page }) => {
       await page.goto('/');
       const footer = page.locator('footer').last();
-      // Besides the brand, only the three social pages, shown as their logos (components/layout/SocialIcons), and the one
-      // door for the team of a cold store, dealership or shop (the customer portals are in the Portals menu).
+      // Besides the brand, only the three social pages, shown as their logos (components/layout/SocialIcons). The way into
+      // the Business admin is shown only to a signed-in member of a business, never to a customer or a visitor.
       const names = await footer.getByRole('link').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label') ?? e.textContent?.trim() ?? ''));
-      expect(names.filter((n) => !/^KashRoot$/i.test(n)).sort()).toEqual(['Business admin sign-in', 'KashRoot on Facebook', 'KashRoot on Instagram', 'KashRoot on LinkedIn']);
+      expect(names.filter((n) => !/^KashRoot$/i.test(n)).sort()).toEqual(['KashRoot on Facebook', 'KashRoot on Instagram', 'KashRoot on LinkedIn']);
+      await expect(page.locator('body')).not.toContainText('Business admin');
       await expect(footer).toContainText('© 2026 KashRoot Pvt Ltd');
       await expect(footer).not.toContainText('@');
       for (const name of ['Instagram', 'Facebook', 'LinkedIn']) {

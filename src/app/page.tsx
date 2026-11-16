@@ -145,11 +145,14 @@ export default async function HomePage() {
             )}
           </section>
 
-          <section aria-label="KashRoot tools" className="mt-6 grid gap-5 sm:mt-8 md:grid-cols-3">
-            {TOOL_ORDER.map((id) => (
-              <Tilt3D key={id} className="rounded-3xl" max={6}>
-                <ToolCard id={id} />
-              </Tilt3D>
+          <section aria-label="KashRoot tools" className="mt-6 grid gap-5 sm:mt-8 md:grid-cols-2 lg:grid-cols-3">
+            {/* One column on a phone, two on a tablet (the third card across both), three from 1024 px: a card is never narrower than its buttons. */}
+            {TOOL_ORDER.map((id, i) => (
+              <div key={id} className={i === 2 ? 'md:col-span-2 lg:col-span-1' : undefined}>
+                <Tilt3D className="rounded-3xl" max={6}>
+                  <ToolCard id={id} />
+                </Tilt3D>
+              </div>
             ))}
           </section>
         </main>
@@ -219,20 +222,21 @@ function ToolCard({ id }: { id: ToolId }) {
       <h2 className="relative mt-5 font-display text-2xl font-semibold tracking-tight text-ink">{tool.title}</h2>
       <p className="relative mt-2 text-sm leading-relaxed text-ink-soft">{tool.description}</p>
 
+      {/* The two buttons share the row equally and stack full width when the card is narrow; a long label wraps instead of running past the card. */}
       <div className="relative mt-auto flex flex-wrap gap-2 pt-6">
         <Link
           href={primary.href}
-          className={`min-h-11 gap-1.5 ${BUTTON_LINK} ${theme.primaryButton}`}
+          className={`min-h-11 min-w-0 flex-1 basis-52 gap-1.5 whitespace-normal text-center ${BUTTON_LINK} ${theme.primaryButton}`}
         >
           {primary.label}
           <ArrowRight
-            className="h-4 w-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none"
+            className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none"
             aria-hidden
           />
         </Link>
         <Link
           href={secondary.href}
-          className={`min-h-11 ${BUTTON_LINK} ${theme.secondaryButton}`}
+          className={`min-h-11 min-w-0 flex-1 basis-52 whitespace-normal text-center ${BUTTON_LINK} ${theme.secondaryButton}`}
         >
           {secondary.label}
         </Link>

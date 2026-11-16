@@ -16,6 +16,7 @@ import { ColdStoreExplorer, type Look } from '@/components/rental/ColdStoreMap';
 import type { PlaceHolder } from '@/components/rental/ColdStore3D';
 import { niceDate, placesText } from '@/components/rental/ColdBooking';
 import { Badge, Btn, Field, INPUT, Modal, PORTAL_THEMES } from '@/components/portal/kit';
+import { ownerMeasured } from '@/lib/coldLayout';
 import { unitWord } from '@/lib/coldStore';
 import { inr } from '@/lib/db/client';
 import { periodEnd, placeKey, roomOn, takenPlaces, type BookedPlace, type ColdChamber, type PlaceInfo } from '@/lib/db/coldMap';
@@ -130,6 +131,8 @@ export function ColdMapEditor({
     [holder],
   );
 
+  // Chambers from before the wizard (boxes only) or without the owner's own measurements.
+  const oldSetup = chambers.filter((c) => c.storage === 'boxes' || !ownerMeasured(c.size));
   const who = picked ? holder.get(picked) ?? [] : [];
   const unit = chambers.find((c) => picked?.startsWith(`${c.id}:`))?.storage ?? 'boxes';
   return (
@@ -139,6 +142,16 @@ export function ColdMapEditor({
           <p className="text-sm text-slate-700">Your whole store as farmers see it. Tap a booked stack to see whose boxes they are.</p>
           <Btn theme={theme} variant="soft" className="min-h-[44px]" icon={Pencil} onClick={onEdit}>Change chambers</Btn>
         </div>
+        {oldSetup.length > 0 && (
+          <div role="note" className="rounded-2xl bg-amber-50 p-4 text-amber-950 ring-2 ring-amber-300">
+            <p className="font-semibold">This store is still the old setup</p>
+            <p className="mt-1 text-sm">
+              {oldSetup.length === 1 ? `${oldSetup[0].name} is` : `${oldSetup.length} chambers are`} only “rows × stacks × boxes”: no bins or crates, no floors, no measured sizes. So farmers cannot book {oldSetup.length === 1 ? 'it' : 'them'}, and the 3D below is a rough picture, not your real store.
+              Set it up the new way — your building, each chamber’s bins or crates, floors and door — and the 3D, the walk inside and booking all come from your own numbers. About 5 minutes.
+            </p>
+            <Btn theme={theme} className="mt-3 min-h-[48px] w-full text-base sm:w-auto" icon={Pencil} onClick={onEdit}>Set up the new way</Btn>
+          </div>
+        )}
         {chambers.length === 0 ? (
           <p className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-950 ring-1 ring-amber-200">No chambers yet. Tap “Change chambers” and add your first chamber: how many bins or crates it holds, its floors, size and door. KashRoot draws it to scale and in 3D, and farmers choose their own places.</p>
         ) : (

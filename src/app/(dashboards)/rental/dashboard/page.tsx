@@ -22,10 +22,12 @@
  * Data: rental_listings, rental_bookings, payout_accounts (shared database).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Apple, ArrowRight, Boxes, Building2, CalendarDays, Camera, CheckCircle2, ClipboardCheck, Factory, IndianRupee, Landmark, Map as MapIcon, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, ReceiptText, Search, Snowflake, Sparkles, Store, Trash2, Warehouse, XCircle } from 'lucide-react';
+import { ArrowRight, Boxes, Building2, CalendarDays, Camera, CheckCircle2, ClipboardCheck, Factory, IndianRupee, Landmark, Map as MapIcon, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, ReceiptText, Search, Snowflake, Sparkles, Store, Trash2, Warehouse, XCircle } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { IdentityStatus } from '@/components/auth/IdentityStatus';
+import { useRouter } from 'next/navigation';
+
 import { PortalShell } from '@/components/layout/PortalShell';
 import { ColdBooking, MyPlaces, niceDate } from '@/components/rental/ColdBooking';
 import { PayOwner } from '@/components/rental/receipt/PayOwner';
@@ -63,8 +65,6 @@ import {
 
 const theme = PORTAL_THEMES.rental;
 type Side = 'farmer' | 'owner';
-/** The side last chosen on this device. */
-const SIDE_KEY = 'kr_cold_side';
 
 /** Only cold stores are booked here (older machinery listings are not shown). */
 const isCold = (l: { kind: string }) => l.kind === 'cold_store';
@@ -88,18 +88,27 @@ export default function RentalPage() {
       return null;
     }
   });
-  // Two sides of the portal: farmers who store apples, and owners who run a cold store.
-  const [side, setSideState] = useState<Side>(() => {
+  // Two views of one page: the customer's Cold Storage portal (find a cold store, book your bins or crates) and the
+  // owner's tools, which live under the Business admin sign-in (/business/cold-store) and are never offered to a customer.
+  // The Super Admin's oversight link opens the owner's console where it is.
+  const [side] = useState<Side>(() => {
     try {
       const p = new URLSearchParams(window.location.search);
       if (p.get('oversight') === '1' && p.get('oversightOrgId')) return 'owner';
-      const asked = p.get('as');
-      if (asked === 'owner' || asked === 'farmer') return asked;
-      return localStorage.getItem(SIDE_KEY) === 'owner' ? 'owner' : 'farmer';
+      return window.location.pathname.startsWith('/business') ? 'owner' : 'farmer';
     } catch {
       return 'farmer';
     }
   });
+  const router = useRouter();
+  // An older link or bookmark to the owner side of the customer portal goes to the Business admin's.
+  useEffect(() => {
+    if (side === 'owner') return;
+    const p = new URLSearchParams(window.location.search);
+    if (p.get('as') !== 'owner') return;
+    p.delete('as');
+    router.replace(`/business/cold-store${p.toString() ? `?${p.toString()}` : ''}`);
+  }, [side, router]);
   const [tab, setTab] = useState(() => {
     // A link back from a receipt opens My bookings or Bookings to confirm.
     try {
@@ -127,7 +136,15 @@ export default function RentalPage() {
   // Find a cold store: every cold store in J&K, or only those on KashRoot (bookable).
   const [findView, setFindView] = useState<'all' | 'kashroot'>(want ? 'kashroot' : 'all');
   // "Your store? List it": a directory entry opened in My cold store, ready to list.
-  const [claim, setClaim] = useState<{ title: string; district: string; address: string } | null>(null);
+  const [claim, setClaim] = useState<{ title: string; district: string; address: string } | null>(() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      const title = p.get('claimTitle');
+      return title ? { title, district: p.get('claimDistrict') ?? '', address: p.get('claimAddress') ?? '' } : null;
+    } catch {
+      return null;
+    }
+  });
   const [mine, setMine] = useState<RentalBooking[]>([]);
   const [incoming, setIncoming] = useState<RentalBooking[]>([]);
   const [owned, setOwned] = useState<RentalListing[]>([]);
@@ -190,16 +207,6 @@ export default function RentalPage() {
   }, [listings, search]);
 
   const waiting = incoming.filter((b) => b.status === 'requested' || b.status === 'paid').length;
-  const setSide = (next: Side, to?: string) => {
-    setSideState(next);
-    setTab(to ?? (next === 'owner' ? (waiting ? 'requests' : 'stores') : 'cold'));
-    setClaim(null);
-    try {
-      localStorage.setItem(SIDE_KEY, next);
-    } catch {
-      /* private mode */
-    }
-  };
   const activeBookings = mine.filter((b) => b.status === 'requested' || b.status === 'paid' || b.status === 'confirmed');
   const directory = useColdDirectory(listings);
   // What the owner's stores hold: "bins and crates", or "boxes" for older stores.
@@ -218,7 +225,7 @@ export default function RentalPage() {
 
   return (
     <PortalShell
-      title="Cold storage booking"
+      title={side === 'owner' ? 'Your cold stores' : 'Cold storage booking'}
       description={
         side === 'farmer'
           ? 'Find a cold store, see every chamber drawn and in 3D, book your bins or crates, and pay the owner directly. Then show your receipt at the store.'
@@ -226,7 +233,7 @@ export default function RentalPage() {
       }
       eyebrow="Cold storage"
       theme="rental"
-      switcher={<SideSwitch side={side} waiting={waiting} onChange={(s) => setSide(s)} />}
+      navItems={side === 'owner' ? [{ label: 'Business admin', href: '/business/dashboard', icon: Building2 }] : []}
       kpis={
         side === 'farmer'
           ? [
@@ -249,7 +256,7 @@ export default function RentalPage() {
             ]
           : [
               { id: 'stores', label: 'My cold stores', icon: Warehouse },
-              { id: 'bizadmin', label: 'Business admin', icon: Building2 },
+              { id: 'bizadmin', label: 'Owner administration', icon: Building2 },
               { id: 'operations', label: 'Shared bins & CA desk', icon: Factory },
               { id: 'requests', label: 'Bookings to confirm', icon: ClipboardCheck, count: waiting || undefined },
               { id: 'payments', label: 'Payment details', icon: Landmark },
@@ -290,10 +297,6 @@ export default function RentalPage() {
               reload={directory.reload}
               listings={listings}
               onBook={setBooking}
-              onClaim={(e) => {
-                setSide('owner', 'stores');
-                setClaim({ title: e.name, district: e.district ?? '', address: e.place ?? '' });
-              }}
             />
           ) : (
           <>
@@ -311,7 +314,7 @@ export default function RentalPage() {
               icon={Snowflake}
               title={listings.length ? `No cold store on KashRoot matches “${search.trim()}”` : 'No cold store on KashRoot yet'}
               text={listings.length ? 'Try another name or district — or look in All cold stores.' : 'When an owner lists their cold store (My cold store) and enters each chamber’s length, breadth and height, it appears here: every chamber on a floor plan and in 3D, and farmers choose their own place. Meanwhile, All cold stores shows every cold store in Jammu & Kashmir.'}
-              action={<Btn theme={theme} variant="soft" onClick={() => (listings.length ? setFindView('all') : setSide('owner', 'stores'))}>{listings.length ? 'All cold stores' : 'List your cold store'}</Btn>}
+              action={listings.length ? <Btn theme={theme} variant="soft" onClick={() => setFindView('all')}>All cold stores</Btn> : undefined}
             />
           ) : (
             <div className="space-y-4">
@@ -1006,38 +1009,5 @@ function OlderRent({ listing: l, mapped, onClose, onSaved }: { listing: RentalLi
         <p className="text-sm text-slate-600">To set a rent for each chamber, with bins or crates, tap “Add chambers” and set up your store step by step.</p>
       </form>
     </Modal>
-  );
-}
-
-/** The two sides of the Cold Storage portal: farmers who store apples, owners who run a cold store. */
-function SideSwitch({ side, waiting, onChange }: { side: Side; waiting: number; onChange: (s: Side) => void }) {
-  const option = (id: Side, title: string, text: string, Icon: typeof Apple, badge?: number) => {
-    const on = side === id;
-    return (
-      <button
-        type="button"
-        role="radio"
-        aria-checked={on}
-        onClick={() => !on && onChange(id)}
-        className={`flex flex-1 cursor-pointer items-start gap-3 rounded-2xl p-4 text-left ring-2 transition ${on ? 'bg-forest-deep text-white shadow-lg ring-forest' : 'bg-white/80 text-slate-800 ring-slate-900/10 hover:ring-forest-line'}`}
-      >
-        <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${on ? 'bg-white/15' : 'bg-forest-soft text-forest'}`}>
-          <Icon className="h-5 w-5" aria-hidden />
-        </span>
-        <span className="min-w-0">
-          <span className="flex items-center gap-2 text-base font-semibold">
-            {title}
-            {badge ? <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${on ? 'bg-white text-forest' : 'bg-amber-400 text-amber-950'}`}>{badge} waiting</span> : null}
-          </span>
-          <span className={`mt-0.5 block text-sm ${on ? 'text-forest-soft' : 'text-slate-600'}`}>{text}</span>
-        </span>
-      </button>
-    );
-  };
-  return (
-    <div role="radiogroup" aria-label="I am" className="flex flex-col gap-3 sm:flex-row">
-      {option('farmer', 'I store my apples', 'Farmers: find a cold store, choose your place on the plan or in 3D, see your bookings.', Apple)}
-      {option('owner', 'I run a cold store', 'Owners: list your store, enter its chambers (plan & 3D), confirm bookings, get paid.', Warehouse, waiting)}
-    </div>
   );
 }

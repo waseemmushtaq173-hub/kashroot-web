@@ -99,7 +99,7 @@ export function ReceiptView({ id }: { id: string }) {
     }
   };
 
-  const back = receipt?.viewer === 'owner' ? '/rental/dashboard?as=owner&tab=requests' : '/rental/dashboard?as=farmer&tab=bookings';
+  const back = receipt?.viewer === 'owner' ? '/business/cold-store?tab=requests' : '/rental/dashboard?as=farmer&tab=bookings';
   const backLabel = receipt?.viewer === 'owner' ? 'Back to bookings' : 'Back to My bookings';
 
   if (error) {

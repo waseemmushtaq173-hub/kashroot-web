@@ -254,6 +254,8 @@ function BusinessView({ org, busy, act }: { org: Org & { role: Role }; busy: str
   const [contact, setContact] = useState('');
   const [inviteRole, setInviteRole] = useState<Role>('staff');
   const lead = org.role === 'owner' || org.role === 'manager';
+  // The address people are given: the Business admin sign-in is not offered to customers anywhere, so it is passed on by the owner.
+  const loginLink = typeof window === 'undefined' ? '/login/business' : `${window.location.origin}/login/business`;
 
   const load = useCallback(async () => {
     const [m, i, p] = await Promise.all([
@@ -340,14 +342,14 @@ function BusinessView({ org, busy, act }: { org: Org & { role: Role }; busy: str
         <section data-business-invite>
           <h3 className="flex items-center gap-2 font-semibold"><UserPlus className="h-5 w-5 text-forest" aria-hidden /> Give access to this business</h3>
           <p className="text-sm text-slate-600">
-            This gives access to <strong>{org.name}</strong>&apos;s console only — never to KashRoot Admin. They sign in at <strong>Business admin</strong> (the link at the bottom of every KashRoot page) with this email or phone, and join from there. The invitation lasts 7 days.
+            This gives access to <strong>{org.name}</strong>&apos;s console only — never to KashRoot Admin. They sign in at <strong className="break-all">{loginLink}</strong> with this email or phone, and join from there — send them this address: customers are never shown it. The invitation lasts 7 days.
             {org.role === 'manager' && ' As a manager you can invite staff.'}
           </p>
           <form
             className="grid gap-3 sm:grid-cols-[1fr_auto_auto]"
             onSubmit={(e) => {
               e.preventDefault();
-              void run('invite', () => supabase.rpc('kr_org_invite', { p_org: org.id, p_contact: contact.trim(), p_role: inviteRole }), `Access to ${org.name} offered to ${contact.trim()}. Tell them to open My business after signing in.`).then(() => setContact(''));
+              void run('invite', () => supabase.rpc('kr_org_invite', { p_org: org.id, p_contact: contact.trim(), p_role: inviteRole }), `Access to ${org.name} offered to ${contact.trim()}. Send them ${loginLink} — they sign in there with that email or phone and join.`).then(() => setContact(''));
             }}
           >
             <label className="block">
@@ -370,6 +372,18 @@ function BusinessView({ org, busy, act }: { org: Org & { role: Role }; busy: str
               {invites.map((i) => <li key={i.id}>Waiting: {i.contact} as {i.role} · until {day(i.expires_at)}</li>)}
             </ul>
           )}
+        </section>
+      )}
+
+      {org.kind === 'cold_store' && !suspended && (
+        <section data-business-coldstore>
+          <h3 className="flex items-center gap-2 font-semibold"><Snowflake className="h-5 w-5 text-forest" aria-hidden /> Set up and run your cold stores</h3>
+          <p className="text-sm text-slate-600">List a cold store step by step — the building, each chamber with its bins or crates, floors and doors — see it drawn and in 3D, then confirm bookings and get paid directly.</p>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/business/cold-store" className={`${BUTTON} no-underline hover:no-underline`}><Snowflake className="h-4 w-4" aria-hidden /> My cold stores</Link>
+            <Link href="/business/cold-store?tab=requests" className={`${GHOST} no-underline hover:no-underline`}><CalendarCheck className="h-4 w-4" aria-hidden /> Bookings to confirm</Link>
+            <Link href="/business/cold-store?tab=operations" className={`${GHOST} no-underline hover:no-underline`}>Shared bins &amp; CA desk</Link>
+          </div>
         </section>
       )}
 

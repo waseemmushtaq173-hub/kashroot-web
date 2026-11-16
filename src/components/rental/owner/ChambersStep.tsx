@@ -19,7 +19,7 @@ import { Preview3D } from '@/components/rental/owner/Preview3D';
 import { TwinCapacity } from '@/components/rental/owner/TwinCapacity';
 import { StoreDrawing } from '@/components/rental/owner/StoreDrawing';
 import { KitBox, type Kit } from '@/components/rental/owner/StoreSteps';
-import { blankChamber, copyChamber, countText, nextNumber, nice, readNumber, UNIT_WORDS, type ChamberDraft, type Packed } from '@/lib/coldStore';
+import { blankChamber, copyChamber, countText, nextNumber, nice, readNumber, typed, UNIT_WORDS, type ChamberDraft, type Packed } from '@/lib/coldStore';
 import type { ColdChamber } from '@/lib/db/coldMap';
 
 const theme = PORTAL_THEMES.rental;
@@ -51,6 +51,15 @@ export function ChambersStep({
 
   const add = () => {
     const c = blankChamber(nextNumber(draft.chambers, taken), draft.chambers.at(-1)?.storage ?? 'bins');
+    kit.update((d) => ({ ...d, chambers: [...d.chambers, c] }));
+    onSelect(c.key);
+  };
+  /** A new chamber begun from an old one: only what the owner already entered for it — its number and its size. The rent was per box, so it is not carried over. */
+  const startFrom = (o: ColdChamber) => {
+    const no = Number(o.chamber_no ?? /\d+/.exec(o.name)?.[0]) || nextNumber(draft.chambers, taken);
+    const c = blankChamber(draft.chambers.some((x) => Number(x.no) === no) ? nextNumber(draft.chambers, taken) : no, 'bins');
+    const sz = o.size;
+    if (sz && sz.length > 0 && sz.width > 0 && sz.height > 0) Object.assign(c, { length: typed(sz.length, draft.unit), width: typed(sz.width, draft.unit), height: typed(sz.height, draft.unit) });
     kit.update((d) => ({ ...d, chambers: [...d.chambers, c] }));
     onSelect(c.key);
   };
@@ -103,13 +112,16 @@ export function ChambersStep({
 
         {older.length > 0 && (
           <div className="space-y-2 rounded-2xl bg-ivory p-3 text-sm text-slate-800 ring-1 ring-[#E8A317]/30">
-            <p className="font-semibold">Chambers you set up before (kept as they are)</p>
-            <p>These were set up before a chamber could have floors, bins or crates, so farmers see each as one plain room of boxes. Add your real chambers below — each with its size, floors and bins or crates — then remove the old ones.</p>
+            <p className="font-semibold">Old setup — chambers you set up before (kept as they are)</p>
+            <p>These were set up before a chamber could have floors, bins or crates, so farmers see each as one plain room of boxes. Tap “Start the new setup from this chamber” to begin a new chamber with the size you already entered, then add its bins or crates, floors and door. Or add your real chambers below — each with its size, floors and bins or crates — then remove the old ones.</p>
             <ul className="space-y-1.5">
               {older.map((c) => (
                 <li key={c.id} className="flex flex-wrap items-center justify-between gap-2">
                   <span>{c.name} · {c.rows} rows × {c.cols} stacks · {((c.rows * c.cols - c.blocked.length) * c.boxes_per_slot).toLocaleString('en-IN')} boxes</span>
-                  <Btn theme={theme} size="sm" variant="danger" icon={Trash2} onClick={() => onRemoveOlder(c)}>Remove {c.name}</Btn>
+                  <span className="flex flex-wrap gap-2">
+                    <Btn theme={theme} size="sm" icon={BoxIcon} onClick={() => startFrom(c)}>Start the new setup from this chamber</Btn>
+                    <Btn theme={theme} size="sm" variant="danger" icon={Trash2} onClick={() => onRemoveOlder(c)}>Remove {c.name}</Btn>
+                  </span>
                 </li>
               ))}
             </ul>
