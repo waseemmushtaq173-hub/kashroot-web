@@ -5,7 +5,7 @@ import { X } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { Field, INPUT } from '@/components/portal/kit';
-import { AppleBox3D } from '@/components/three/AppleBox3D';
+import { AppleBox3DLazy } from '@/components/three/AppleBox3DLazy';
 import { reverseGeocode, nowIST, type GeoResult, engravePhotoFrame, startEngravedVideo } from '@/lib/geoStampMedia';
 import { PRODUCE, SUBCATEGORIES, UNITS, type ListingInput } from '@/lib/db/market';
 import { getNearestVerifiedHub } from '@/lib/clusterConsolidation';
@@ -395,7 +395,7 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
               );
             })()}
             {/* The chosen packing, seen in 3D: rotate the box and inspect the layers. */}
-            <AppleBox3D layers={v.packing_layers ?? ''} className="mt-3" />
+            <AppleBox3DLazy layers={v.packing_layers ?? ''} className="mt-3" />
             <p className="text-xs text-slate-500">How the fruit is packed inside one box. 4 Layer = larger fruit, fewer per box; 5 Layer = standard.</p>
           </Field>
 

@@ -12,7 +12,7 @@ import dynamic from 'next/dynamic';
 import { CheckCircle2, CreditCard, Crosshair, ExternalLink, MapPin, MessageCircle, Phone, ShoppingCart, ShieldCheck } from 'lucide-react';
 
 import { Btn, Badge, Modal, type PortalTheme } from '@/components/portal/kit';
-import { AppleBox3D } from '@/components/three/AppleBox3D';
+import { AppleBox3DLazy } from '@/components/three/AppleBox3DLazy';
 import { NEEDS_INTERNET, offlineNow } from '@/components/pwa/net';
 import { toast } from '@/lib/client/toast';
 import { capturePoint, type LiveFix } from '@/lib/client/liveGps';
@@ -404,7 +404,7 @@ const ListingDetailModalInner = React.memo(function ListingDetailModalInner({ li
             </div>
             {/* Rotate the actual box: packing layers, fruit size and the origin pin below. */}
             <div className="mt-3">
-              <AppleBox3D layers={l.packing_layers ?? ''} />
+              <AppleBox3DLazy layers={l.packing_layers ?? ''} />
               <p className="mt-1 text-xs text-slate-500">
                 Turn the box to see how the fruit is packed. Origin: {l.district}.
               </p>
