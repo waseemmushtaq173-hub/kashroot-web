@@ -53,6 +53,7 @@ import {
 } from '@/lib/gov-agro-registry';
 import { reportBatch } from '@/lib/db/security';
 import { skuastLookup, skuastLookupAll, type SkuastRecommendation } from '@/lib/skuast-kashmir-recommendations';
+import { DataGovPanel } from './DataGovPanel';
 
 import { QRCodeScanner, QRCodeResult, type QRCodeVerificationResult } from './QRCodeScanner';
 import { BagMarkingChecklist } from './BagMarkingChecklist';
@@ -145,7 +146,7 @@ function checkAgainstFcoStandard(standard: FcoStandard, measured: Record<string,
 }
 
 /** An entry from KashRoot's own typed reference list (never called "registered with the Government"). */
-const isReference = (h: { source: string }) => h.source === REFERENCE_SOURCE;
+const isReference = (h: { source: string }) => h.source === REFERENCE_SOURCE || /typed by KashRoot/i.test(h.source);
 const REFERENCE_HEADING = 'In KashRoot’s reference list — not yet checked against the official register';
 
 /** The heading of a product found in an official list. */
@@ -452,6 +453,8 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
               isChecking={isChecking}
               hasCompletedSearch={hasCompletedSearch}
             />
+            {/* What the Government's open-data portal publishes about the word typed (read live with the site's key). */}
+            {result.state === 'done' && result.typed.kind !== 'batch' && !isChecking && <DataGovPanel key={`${scans}-${result.typed.text}`} query={result.typed.text} />}
           </div>
         </div>
       )}

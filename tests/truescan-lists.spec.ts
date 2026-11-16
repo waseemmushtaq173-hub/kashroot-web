@@ -71,7 +71,7 @@ test('KashRoot\'s typed reference entries are never headed as registered with, o
   expect(ui).not.toMatch(/Official Govt-Approved/);
   expect(ui).not.toMatch(/Synced with official/);
   // A reference entry gets its own heading; "Registered with the Government" is for imported official lists only.
-  expect(ui).toContain('const isReference = (h: { source: string }) => h.source === REFERENCE_SOURCE');
+  expect(ui).toContain('const isReference = (h: { source: string }) => h.source === REFERENCE_SOURCE || /typed by KashRoot/i.test(h.source);');
   expect(ui).toMatch(/isReference\(h\) \? REFERENCE_HEADING : REGISTERED\[h\.kind\]/);
 });
 
