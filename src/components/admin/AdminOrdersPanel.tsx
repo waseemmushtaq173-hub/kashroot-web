@@ -17,7 +17,7 @@ import { toast } from '@/lib/client/toast';
 import type { OrderPin } from '@/components/market/OrderLiveMap';
 import { Badge, Btn, EmptyState, Panel, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
 import { ago, dbMessage, inr, supabase } from '@/lib/db/client';
-import { ORDER_STATUS, type OrderStatus } from '@/lib/db/market';
+import { ORDER_STATUS, PICKUP_STAGE_LABEL, type OrderStatus, type PickupStage } from '@/lib/db/market';
 import { googleRoute, kmBetween, roadEstimate, type MapSpot } from '@/lib/maps';
 
 const OrderLiveMap = dynamic(() => import('@/components/market/OrderLiveMap').then((m) => m.default), {
@@ -83,6 +83,13 @@ export interface AdminOrder {
   payee_account_number: string | null;
   payee_ifsc: string | null;
   payee_bank_name: string | null;
+  /** Orchard-gate pickup (hub desk): needs 20261124000000_admin_pickup_view.sql; absent before it is run. */
+  pickup_stage?: PickupStage | null;
+  assigned_hub_name?: string | null;
+  boxes_packed_at?: string | null;
+  pickup_vehicle_number?: string | null;
+  pickup_driver_name?: string | null;
+  pickup_driver_phone?: string | null;
 }
 
 export async function loadAdminOrders(): Promise<AdminOrder[]> {
@@ -105,6 +112,7 @@ export function AdminOrdersPanel({ canRelease = false, onRefreshed }: { canRelea
   const [orders, setOrders] = useState<AdminOrder[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState<PickupStage | 'all'>('all');
 
   const load = useCallback(async () => {
     try {
@@ -129,6 +137,8 @@ export function AdminOrdersPanel({ canRelease = false, onRefreshed }: { canRelea
       window.clearInterval(id);
     };
   }, [load]);
+
+  const shown = stage === 'all' || !orders ? orders ?? [] : orders.filter((o) => o.pickup_stage === stage);
 
   const escrow = async (o: AdminOrder, action: 'release' | 'refund') => {
     const why = action === 'release' ? `Release ${inr(o.amount)} of the escrow to the farmer? Write why (goes in the audit log):` : `Refund the escrow of ${inr(o.amount)} to ${o.buyer_name}? Write why (goes in the audit log):`;
@@ -157,13 +167,42 @@ export function AdminOrdersPanel({ canRelease = false, onRefreshed }: { canRelea
         <EmptyState theme={PORTAL_THEMES.admin ?? PORTAL_THEMES.expert} icon={Package} title="No orders yet" text="Every order placed across KashRoot appears here — with the seller origin, the buyer destination, both live GPS pins and the escrow ledger." />
       ) : (
         <>
-          <p className="mb-3 text-sm text-slate-600">{orders.length} order{orders.length === 1 ? '' : 's'} on the platform — every one of them, newest first.</p>
+          <HubDesk orders={orders} stage={stage} onStage={setStage} />
+          <p className="mb-3 text-sm text-slate-600">{shown.length} order{shown.length === 1 ? '' : 's'}{stage === 'all' ? ' on the platform — every one of them, newest first.' : ` at “${PICKUP_STAGE_LABEL[stage]}”.`}</p>
           <ul className="space-y-4">
-            {orders.map((o) => <AdminOrderCard key={o.id} o={o} canRelease={canRelease} busy={busy} onEscrow={escrow} />)}
+            {shown.map((o) => <AdminOrderCard key={o.id} o={o} canRelease={canRelease} busy={busy} onEscrow={escrow} />)}
           </ul>
         </>
       )}
     </Panel>
+  );
+}
+
+const PICKUP_STAGES: PickupStage[] = ['AWAITING_HUB_VEHICLE', 'PICKUP_VEHICLE_ASSIGNED', 'PICKED_UP_FROM_ORCHARD_GATE', 'CONSOLIDATED_AT_KASHROOT_HUB', 'IN_TRANSIT_TO_BUYER', 'DELIVERED'];
+
+/**
+ * The hub desk: how many orders are at each step of the orchard-gate pickup, from
+ * waiting for a vehicle to delivered. Counted from real orders; tap a step to list them.
+ * Hidden until at least one order has a pickup stage.
+ */
+function HubDesk({ orders, stage, onStage }: { orders: AdminOrder[]; stage: PickupStage | 'all'; onStage: (s: PickupStage | 'all') => void }) {
+  const counts = new Map<PickupStage, number>();
+  for (const o of orders) if (o.pickup_stage) counts.set(o.pickup_stage, (counts.get(o.pickup_stage) ?? 0) + 1);
+  if (!counts.size) return null;
+  const chip = (id: PickupStage | 'all', label: string, n: number) => (
+    <button key={id} type="button" aria-pressed={stage === id} onClick={() => onStage(id)} className="min-h-11 cursor-pointer rounded-xl bg-white px-3 py-2 text-left text-xs font-semibold text-slate-800 ring-1 ring-slate-900/10 hover:bg-forest-soft">
+      <span className="block text-lg font-extrabold tabular-nums text-forest">{n}</span>
+      {label}
+    </button>
+  );
+  return (
+    <section aria-label="Hub desk: orchard-gate pickups by step" className="mb-4 rounded-2xl bg-forest-soft/60 p-3 ring-1 ring-forest-line">
+      <p className="mb-2 text-xs font-bold uppercase tracking-wide text-forest-deep">Hub desk · pickups by step (live, every 30 s)</p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+        {chip('all', 'All orders', orders.length)}
+        {PICKUP_STAGES.map((st) => chip(st, PICKUP_STAGE_LABEL[st], counts.get(st) ?? 0))}
+      </div>
+    </section>
   );
 }
 
@@ -217,8 +256,18 @@ function AdminOrderCard({ o, canRelease, busy, onEscrow }: { o: AdminOrder; canR
         <div className="flex flex-col items-end gap-1">
           <Badge tone={s.tone}>{s.label}</Badge>
           {esc && <Badge tone={esc.tone}>{esc.label}</Badge>}
+          {o.pickup_stage && <Badge tone="blue">🚛 {PICKUP_STAGE_LABEL[o.pickup_stage]}</Badge>}
         </div>
       </div>
+      {o.pickup_stage && (
+        <p className="mt-2 rounded-xl bg-forest-soft/60 px-3 py-2 text-xs text-slate-800 ring-1 ring-forest-line">
+          Pickup · Hub: <strong>{o.assigned_hub_name ?? 'not recorded'}</strong>
+          {o.pickup_vehicle_number ? <> · Vehicle <strong>{o.pickup_vehicle_number}</strong></> : ' · no vehicle yet'}
+          {o.pickup_driver_name ? <> · {o.pickup_driver_name}</> : null}
+          {o.pickup_driver_phone ? <> · <a href={`tel:${o.pickup_driver_phone}`} className="font-semibold underline">{o.pickup_driver_phone}</a></> : null}
+          {o.boxes_packed_at ? <> · packed {ago(o.boxes_packed_at)}</> : null}
+        </p>
+      )}
 
       {/* From where — the seller / origin, with payout details and live GPS. */}
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
