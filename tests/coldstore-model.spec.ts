@@ -10,7 +10,7 @@ import { buildScene, PLATE_GAP, rowPlates, type StoreScene } from '@/components/
 import { routeTo } from '@/components/rental/walk/route';
 import { ownerMeasured, planOf } from '@/lib/coldLayout';
 import { pickNearest } from '@/lib/db/coldMap';
-import { blankChamber, blankStore, draftFromSaved, previewChambers, storeModel, type ChamberDraft, type StoreDraft } from '@/lib/coldStore';
+import { blankChamber, blankStore, completeDraft, draftFromSaved, previewChambers, storeModel, type ChamberDraft, type StoreDraft } from '@/lib/coldStore';
 
 const CM = 0.01;
 
@@ -308,4 +308,42 @@ test('crates on 3 floors: one floor when it has room, lowest first', () => {
   expect(placed).toBe(600);
   const floors = new Set([...picked.values()].map((p) => p.chamber.floor));
   expect([...floors]).toEqual([1]);
+});
+
+test('a draft kept by an older version opens: every box it lacks comes back empty and nothing crashes', () => {
+  // What an older wizard left on the phone: the building without wall thickness, passage width, door kind or the
+  // work-space sizes; chambers without their newer boxes; numbers typed as numbers; no unit or manager phone.
+  const old = JSON.parse(JSON.stringify(sample())) as Record<string, unknown> & { building: Record<string, unknown>; chambers: Record<string, unknown>[] };
+  const b = old.building as { length: string; width: string; height: string; door: unknown };
+  old.building = { length: b.length, width: b.width, height: b.height, door: b.door };
+  delete old.unit;
+  delete old.managerPhone;
+  old.chambers = old.chambers.map((c) => ({ no: c.no, storage: c.storage, count: 480, kg: c.kg, floors: c.floors, length: c.length, width: c.width, height: c.height, rate: c.rate }));
+
+  // The error on a phone was "Cannot read properties of undefined (reading 'replace')": every reader of a box that is not there.
+  expect(() => storeModel(old as unknown as StoreDraft)).not.toThrow();
+
+  const done = completeDraft(old);
+  expect(done).not.toBeNull();
+  expect(done!.building.wallThickness).toBe('');
+  expect(done!.building.passageWidth).toBe('');
+  expect(done!.building.spCleaningL).toBe('');
+  expect(done!.unit).toBe('ft');
+  expect(done!.chambers[0].count).toBe('480'); // a number is kept as the text it was
+  expect(done!.chambers[0].door.wall).toBeDefined();
+  expect(done!.chambers[0].floorHeights).toBe('');
+
+  // What the owner typed survives.
+  expect(done!.building.length).toBe('40');
+  expect(done!.title).toBe('Test cold store');
+
+  // Completing a whole draft changes nothing.
+  const whole = sample();
+  expect(JSON.stringify({ ...completeDraft(whole)!, chambers: [] })).toBe(JSON.stringify({ ...whole, chambers: [] }));
+
+  // Not a draft at all: nothing to open.
+  expect(completeDraft(null)).toBeNull();
+  expect(completeDraft('x')).toBeNull();
+  expect(completeDraft({ chambers: 'x', building: {} })).toBeNull();
+  expect(completeDraft({ chambers: [], building: 3 })).toBeNull();
 });

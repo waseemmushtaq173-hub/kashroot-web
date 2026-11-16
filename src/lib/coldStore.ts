@@ -288,7 +288,7 @@ export const blankPayout = (name = ''): PayoutDraft => ({ name, account: '', acc
 
 /** A typed number: null when empty, NaN when not a number. Commas and spaces are fine ("1,200"). */
 export function readNumber(s: string): number | null {
-  const t = s.replace(/[,\s]/g, '');
+  const t = String(s ?? '').replace(/[,\s]/g, '');
   if (!t) return null;
   return /^\d*\.?\d+$|^\d+\.$/.test(t) ? Number(t) : NaN;
 }
@@ -314,7 +314,7 @@ const say = (v: number, unit: SizeUnit) => `${nice(Math.round(v * 10) / 10)} ${u
 
 /** A 10-digit mobile number without +91, 91 or 0 in front. */
 export function cleanMobile(v: string): string {
-  let d = v.replace(/[\s\-()]/g, '');
+  let d = String(v ?? '').replace(/[\s\-()]/g, '');
   if (d.startsWith('+91')) d = d.slice(3);
   else if (d.length === 12 && d.startsWith('91')) d = d.slice(2);
   else if (d.length === 11 && d.startsWith('0')) d = d.slice(1);
@@ -624,9 +624,38 @@ function meant(v: number, unit: SizeUnit, typicalLo: number, typicalHi: number):
  */
 export const withAllBoxes = (c: ChamberDraft): ChamberDraft => ({ ...blankChamber(0, c.storage), ...c, door: { ...blankDoor(), ...c.door } });
 
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/** `given` with every box of `blank` that it lacks put back, level by level; a number typed as a number is kept as the text it was. */
+function fillBoxes<T extends Record<string, unknown>>(blank: T, given: unknown): T {
+  if (!isObj(given)) return blank;
+  const out: Record<string, unknown> = { ...given };
+  for (const [k, b] of Object.entries(blank)) {
+    const g = given[k];
+    if (isObj(b)) out[k] = fillBoxes(b, g);
+    else if (typeof b === 'string') out[k] = typeof g === 'string' ? g : typeof g === 'number' && Number.isFinite(g) ? String(g) : b;
+    else if (g === undefined || g === null) out[k] = b;
+  }
+  return out as T;
+}
+
+/**
+ * A draft kept by an older version of the wizard (on the phone, or from the database) has fewer boxes than
+ * today's: no wall thickness, no work-space sizes, no door kind. Every box it lacks is put back empty, at
+ * every level (the store, the building and its door, each chamber and its door), so nothing reads a box that
+ * is not there. Null when it is not a draft at all.
+ */
+export function completeDraft(raw: unknown): StoreDraft | null {
+  if (!isObj(raw) || !Array.isArray(raw.chambers) || !isObj(raw.building)) return null;
+  const store = fillBoxes(blankStore() as unknown as Record<string, unknown>, raw) as unknown as StoreDraft;
+  const chambers = (raw.chambers as unknown[]).filter(isObj).map((c, i) => withAllBoxes(fillBoxes(blankChamber(i + 1, c.storage === 'crates' ? 'crates' : 'bins') as unknown as Record<string, unknown>, c) as unknown as ChamberDraft));
+  return { ...store, chambers };
+}
+
 /** The store, its building and chambers from what the owner typed. */
 export function storeModel(draft: StoreDraft): StoreModel {
-  const d: StoreDraft = { ...draft, chambers: draft.chambers.map(withAllBoxes) };
+  // Whatever an older draft lacks is put back empty first: nothing below reads a box that is not there.
+  const d: StoreDraft = completeDraft(draft) ?? { ...blankStore(), chambers: [] };
   const issues: Issue[] = [];
   const add = (level: Issue['level'], step: Issue['step'], field: string, message: string, fix?: Issue['fix']) => issues.push({ level, step, field, message, ...(fix ? { fix } : {}) });
   const u = d.unit;
@@ -1832,12 +1861,12 @@ export function payoutIssues(p: PayoutDraft): Issue[] {
   const name = p.name.trim();
   if (name.length < 2) add('name', 'Write the account holder’s name, as the bank has it.');
   else if (name.length > 80) add('name', 'The name is too long. Keep it under 80 letters.');
-  const acc = p.account.replace(/[\s-]/g, '');
+  const acc = String(p.account ?? '').replace(/[\s-]/g, '');
   const upi = p.upi.trim();
   if (acc) {
     if (!/^\d+$/.test(acc)) add('account', 'A bank account number has only digits. Check it.');
     else if (acc.length < 9 || acc.length > 18) add('account', `A bank account number has 9 to 18 digits. Yours has ${acc.length}. Check it.`);
-    if (p.account2.replace(/[\s-]/g, '') !== acc) add('account2', p.account2.trim() ? 'The two account numbers are not the same. Please type it again.' : 'Type the account number again, to be sure it is right.');
+    if (String(p.account2 ?? '').replace(/[\s-]/g, '') !== acc) add('account2', p.account2.trim() ? 'The two account numbers are not the same. Please type it again.' : 'Type the account number again, to be sure it is right.');
     const ifsc = p.ifsc.trim().toUpperCase();
     if (!ifsc) add('ifsc', 'Write the IFSC of the bank branch (on the passbook or cheque book).');
     else if (ifsc.length !== 11) add('ifsc', `An IFSC has 11 letters and numbers, like JAKA0SHOPIA. Yours has ${ifsc.length}.`);

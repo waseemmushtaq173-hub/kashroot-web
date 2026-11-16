@@ -26,7 +26,7 @@ export const payoutDraftOf = (p: PayoutAccount | null | undefined, name = ''): P
 /** Save the payment details; the saved row, or a thrown error with a plain message. */
 export async function savePayoutDraft(p: PayoutDraft): Promise<PayoutAccount> {
   const ifsc = p.ifsc.trim().toUpperCase();
-  const acc = p.account.replace(/[\s-]/g, '');
+  const acc = String(p.account ?? '').replace(/[\s-]/g, '');
   const row: PayoutAccount = {
     account_name: p.name.trim(),
     account_number: acc || null,

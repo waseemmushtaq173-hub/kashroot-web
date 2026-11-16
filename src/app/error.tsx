@@ -98,28 +98,28 @@ export default function GlobalError({
 
   return (
     <div className="flex min-h-[50vh] flex-col items-center justify-center p-4 text-center">
-      <div className="bg-red-500/10 p-4 rounded-full mb-6">
-        <AlertTriangle className="w-12 h-12 text-red-500" />
+      <div className="mb-6 rounded-full bg-red-100 p-4">
+        <AlertTriangle className="h-12 w-12 text-red-700" aria-hidden />
       </div>
-      <h2 className="text-2xl font-bold text-white mb-2">Something went wrong!</h2>
-      <p className="text-white/60 mb-4 max-w-md">
+      <h2 className="mb-2 text-2xl font-bold text-slate-900">Something went wrong!</h2>
+      <p className="mb-4 max-w-md text-slate-700">
         {recovered
           ? 'The portal was holding files from an older update. Reloading it fresh…'
           : 'We encountered an unexpected error while rendering this portal. Please try again or return home.'}
       </p>
 
       <div className="mb-6 w-full max-w-2xl rounded-xl bg-slate-950/80 p-4 text-left ring-1 ring-red-500/30">
-        <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-red-400">
+        <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-red-300">
           <Trash2 className="h-3.5 w-3.5" aria-hidden /> Error details
         </p>
         <pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-xs text-slate-200">{message}</pre>
-        {digest && <p className="mt-2 font-mono text-[11px] text-slate-500">digest: {digest}</p>}
+        {digest && <p className="mt-2 font-mono text-[11px] text-slate-400">digest: {digest}</p>}
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-3">
         <button
           onClick={() => reset()}
-          className="flex items-center gap-2 bg-[#D4AF37] hover:bg-[#B37A0B] text-black px-6 py-3 rounded-xl font-bold transition-colors shadow-lg"
+          className="flex min-h-12 items-center gap-2 rounded-xl bg-[#D4AF37] px-6 py-3 font-bold text-black shadow-lg transition-colors hover:bg-[#c29b2e]"
         >
           <RotateCcw className="w-5 h-5" /> Try Again
         </button>
@@ -127,13 +127,13 @@ export default function GlobalError({
         {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a
           href="/"
-          className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-bold transition-colors ring-1 ring-white/20"
+          className="flex min-h-12 items-center gap-2 rounded-xl bg-white px-6 py-3 font-bold text-slate-900 no-underline shadow-sm ring-1 ring-slate-300 transition-colors hover:bg-slate-50 hover:no-underline"
         >
           <Home className="w-5 h-5" /> Return Home
         </a>
         <button
           onClick={clearPortalState}
-          className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white px-6 py-3 rounded-xl font-bold transition-colors shadow-lg"
+          className="flex min-h-12 items-center gap-2 rounded-xl bg-red-700 px-6 py-3 font-bold text-white shadow-lg transition-colors hover:bg-red-800"
         >
           <RefreshCw className="w-5 h-5" /> Clear Portal State &amp; Reload
         </button>

@@ -25,7 +25,7 @@
  * unless it is URGENT (a fix people must get at once): then it takes over
  * straight away.
  */
-const VERSION = '2026-11-16.10';
+const VERSION = '2026-11-16.11';
 /** This version ships the royal-indigo palette, the stacked-bin 3D cold store, the L-bank plan and the hub desk: older ones kept saved pages and files from before. It takes over at once and drops them. */
 const URGENT = true;
 const SHELL = `kr-shell-${VERSION}`; // the offline page and its files
@@ -273,10 +273,10 @@ async function offlinePage(url) {
   // Not even the offline page is saved yet (installed with no signal).
   return new Response(
     '<!doctype html><html lang="en-IN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Offline | KashRoot</title>' +
-      '<body style="margin:0;font:18px/1.5 system-ui,sans-serif;background:#f7fdf9;color:#0f172a;display:grid;place-items:center;min-height:100vh;padding:24px;box-sizing:border-box">' +
+      '<body style="margin:0;font:18px/1.5 system-ui,sans-serif;background:#F4F3FF;color:#0f172a;display:grid;place-items:center;min-height:100vh;padding:24px;box-sizing:border-box">' +
       '<main style="max-width:28rem;text-align:center"><h1 style="font-size:28px;margin:0 0 8px">You are offline</h1>' +
       '<p>This page needs the internet. Try again when you have signal.</p>' +
-      '<p><button onclick="location.reload()" style="font:inherit;font-weight:700;min-height:48px;padding:0 24px;border:0;border-radius:12px;background:#047857;color:#fff">Try again</button></p></main></body></html>',
+      '<p><button onclick="location.reload()" style="font:inherit;font-weight:700;min-height:48px;padding:0 24px;border:0;border-radius:12px;background:#3730A3;color:#fff">Try again</button></p></main></body></html>',
     { status: 503, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } },
   );
 }

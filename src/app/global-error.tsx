@@ -24,7 +24,7 @@ export default function GlobalError({
               <ShieldCheck className="w-10 h-10 text-[#E76F51]" />
             </div>
             
-            <h1 className="text-3xl font-extrabold text-[#1B4332] mb-3 font-heading tracking-tight">
+            <h1 className="text-3xl font-extrabold text-slate-900 mb-3 font-heading tracking-tight">
               Something went wrong on our end
             </h1>
             

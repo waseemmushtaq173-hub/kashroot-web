@@ -33,9 +33,9 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 export function render(l: Letter): { text: string; html: string } {
   const text = [...l.lines, ...(l.action ? ['', `${l.action.label}: ${l.action.href}`] : []), '', '—', NEVER_ASKS].join('\n');
   const html = `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#1e293b;max-width:560px">
-<p style="font-size:18px;font-weight:bold;color:#14532d;margin:0 0 12px">KashRoot</p>
+<p style="font-size:18px;font-weight:bold;color:#3730A3;margin:0 0 12px">KashRoot</p>
 ${l.lines.map((line) => (line ? `<p style="margin:0 0 8px">${esc(line)}</p>` : '<br>')).join('\n')}
-${l.action ? `<p style="margin:16px 0"><a href="${esc(l.action.href)}" style="background:#14532d;color:#fff;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:bold;display:inline-block">${esc(l.action.label)}</a></p>` : ''}
+${l.action ? `<p style="margin:16px 0"><a href="${esc(l.action.href)}" style="background:#3730A3;color:#fff;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:bold;display:inline-block">${esc(l.action.label)}</a></p>` : ''}
 <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0">
 <p style="font-size:13px;color:#475569">${esc(NEVER_ASKS)}</p>
 </div>`;

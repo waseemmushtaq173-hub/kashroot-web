@@ -24,7 +24,7 @@ import { ChambersStep } from '@/components/rental/owner/ChambersStep';
 import { PayoutFields, payoutDraftOf, savePayoutDraft } from '@/components/rental/owner/PaymentStep';
 import { ReviewStep } from '@/components/rental/owner/ReviewStep';
 import { BuildingStep, StoreStep, type Kit } from '@/components/rental/owner/StoreSteps';
-import { blankStore, draftFromSaved, payoutIssues, setField, storeModel, twinPayload, withAllBoxes, type Issue, type PayoutDraft, type StoreDraft } from '@/lib/coldStore';
+import { blankStore, completeDraft, draftFromSaved, payoutIssues, setField, storeModel, twinPayload, type Issue, type PayoutDraft, type StoreDraft } from '@/lib/coldStore';
 import type { Account } from '@/lib/db/client';
 import { deleteChamber, saveColdStore, type ColdChamber } from '@/lib/db/coldMap';
 import { publishStore, saveStore, type PayoutAccount, type RentalListing } from '@/lib/db/rentals';
@@ -43,10 +43,17 @@ const STEPS: { n: Step; title: string }[] = [
 const keyOf = (owner: string, listing: string | null) => `kr_cold_wizard:${owner}:${listing ?? 'new'}`;
 function readLocal(key: string): StoreDraft | null {
   try {
-    const v = JSON.parse(localStorage.getItem(key) ?? 'null') as StoreDraft | null;
-    // A draft kept before newer boxes were added gets them, empty (the defaults).
-    return v && typeof v === 'object' && Array.isArray(v.chambers) && v.building && typeof v.building === 'object' ? { ...v, chambers: v.chambers.map(withAllBoxes) } : null;
+    // A draft kept before newer boxes were added gets them, empty (the defaults), at every level.
+    const d = completeDraft(JSON.parse(localStorage.getItem(key) ?? 'null'));
+    if (!d) return null;
+    storeModel(d); // a draft that still cannot be read is dropped below, not allowed to lock the owner out
+    return d;
   } catch {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      /* private mode */
+    }
     return null;
   }
 }
