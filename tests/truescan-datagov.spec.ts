@@ -156,6 +156,11 @@ test('a dataset published by SKUAST-Kashmir is looked for, found and named', asy
   expect(isSkuastDataset({ title: 'Fertilizer sales', org: 'Department of Fertilizers' })).toBe(false);
 });
 
+test('SKUAST datasets are asked for first, so many others cannot crowd them out', () => {
+  const src = read('src/lib/dataGovTruescan.ts');
+  expect(src).toMatch(/const SUBJECTS = \['SKUAST', 'Sher-e-Kashmir', 'spray schedule', 'pesticide'/);
+});
+
 test('the SKUAST-K schedule is searched on its own, by a molecule, a pest or the longer name a pesticide list gives', () => {
   expect(skuastSearch('dodine').map((r) => r.molecule)).toEqual(['Dodine']);
   expect(skuastSearch('apple scab').map((r) => r.molecule)).toContain('Dodine');

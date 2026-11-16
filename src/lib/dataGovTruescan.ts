@@ -39,7 +39,8 @@ export interface DataGovEnv {
 
 type Fetcher = (url: string, init?: RequestInit) => Promise<Response>;
 
-const SUBJECTS = ['pesticide', 'insecticide', 'fungicide', 'herbicide', 'fertilizer', 'fertiliser', 'SKUAST', 'Sher-e-Kashmir', 'spray schedule'];
+// SKUAST first: there are few such datasets, and they must not be crowded out of the twenty places by the many on pesticides and fertilisers.
+const SUBJECTS = ['SKUAST', 'Sher-e-Kashmir', 'spray schedule', 'pesticide', 'insecticide', 'fungicide', 'herbicide', 'fertilizer', 'fertiliser'];
 const SUBJECT_TITLE = /pesticid|insecticid|fungicid|herbicid|fertili[sz]er|agro-?chemical|manure|npk|urea|skuast|sher-e-kashmir|spray schedule/i;
 /** A dataset published by SKUAST-Kashmir (named in the panel). */
 export const isSkuastDataset = (d: { title: string; org: string }) => /skuast|sher-e-kashmir/i.test(`${d.title} ${d.org}`);
