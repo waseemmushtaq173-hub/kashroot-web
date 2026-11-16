@@ -129,7 +129,7 @@ test('when data.gov.in cannot be reached the answer says so, and the key is neve
 
 test('the route is held to a few searches a minute, and TrueScan shows the panel under its answer', () => {
   const route = read('src/app/api/truescan/datagov/route.ts');
-  expect(route).toContain("ipLimited(request, 'truescan-datagov', 12)");
+  expect(route).toContain("ipLimited(request, 'truescan-datagov', 30)");
   expect(route).toContain("'cache-control': 'no-store'");
   const checker = read('src/components/fertilizer/FertilizerChecker.tsx');
   expect(checker).toContain('<DataGovPanel');

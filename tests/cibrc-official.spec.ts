@@ -107,3 +107,29 @@ test('a chemical on the banned list and in an older registered list is shown as 
   expect(lookupCibrc(data, 'paraquat dichloride').pesticides.length).toBeGreaterThan(0);
   expect(lookupCibrc(data, 'paraquat dichloride').banned.length).toBeGreaterThan(0);
 });
+
+test('the official answer appears while the word is typed: looked up on the phone at once, data.gov.in once typing pauses', () => {
+  const ui = read('src/components/fertilizer/FertilizerChecker.tsx');
+  const onType = ui.slice(ui.indexOf('const onType = (value: string) => {'), ui.indexOf('const check = async () => {'));
+  // At once (150 ms, local, no network): the CIB&RC lists. Once typing pauses (700 ms): data.gov.in, only for four letters or more.
+  expect(onType).toContain('lookupCibrc(d, typed.text)');
+  expect(onType).toContain('}, 150);');
+  expect(onType).toContain('}, 700);');
+  expect(onType).toContain('typed.text.length >= 4');
+  // A slower, older answer never replaces a newer one.
+  expect(onType).toContain('t.seq === asked');
+  expect(ui).toContain('setCode={onType}');
+  expect(ui).toContain('{liveQuery && <DataGovPanel key={liveQuery} query={liveQuery} />}');
+  expect(read('src/components/fertilizer/OfficialCibrcPanel.tsx')).not.toContain('OfficialCibrcLists');
+});
+
+test('a fertiliser typed in the box says where the Government\'s standard is and shows none KashRoot has not read from the Government\'s own file', () => {
+  const ui = read('src/components/fertilizer/FertilizerChecker.tsx');
+  expect(ui).toContain('fcoTypeOf(typedNow.text)');
+  expect(ui).toContain('Schedule I of the Fertiliser (Inorganic, Organic or Mixed) (Control) Order, 1985, as amended');
+  expect(ui).toContain('https://egazette.gov.in');
+  expect(ui).toContain('KashRoot shows only what it has read from the Government’s own files');
+  // The typed standard itself is never put in the answer (the lab tab, which compares a report with a standard, is another screen).
+  const answer = ui.slice(ui.indexOf("{mode === 'registry' && ("), ui.indexOf("{mode === 'lab' && ("));
+  expect(answer).not.toMatch(/FCO_PRODUCTS|total_n_min|ws_p2o5_min|fcoLookup/);
+});

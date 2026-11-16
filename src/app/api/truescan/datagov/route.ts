@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 export async function GET(request: Request) {
-  if (ipLimited(request, 'truescan-datagov', 12)) return tooMany();
+  if (ipLimited(request, 'truescan-datagov', 30)) return tooMany();
   const q = new URL(request.url).searchParams.get('q') ?? '';
   const answer = await searchDataGov(q, {
     DATA_GOV_IN_API_KEY: process.env.DATA_GOV_IN_API_KEY,

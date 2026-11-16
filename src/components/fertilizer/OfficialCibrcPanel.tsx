@@ -5,13 +5,11 @@
  * Central Insecticides Board & Registration Committee (CIB&RC, ppqs.gov.in) publishes them. Everything shown is read
  * row for row from the Government's own PDFs (src/lib/cibrcOfficial.ts); KashRoot adds no entry of its own, and each
  * list carries the date printed on it.
- *   OfficialCibrcAnswerPanel  what the lists say about the word typed
- *   OfficialCibrcLists        the lists themselves, one tap each, with a filter
  */
-import { useEffect, useMemo, useState } from 'react';
-import { BadgeCheck, CircleAlert, Loader2, TriangleAlert } from 'lucide-react';
+import { useState } from 'react';
+import { BadgeCheck, CircleAlert, TriangleAlert } from 'lucide-react';
 
-import { BANNED_LABEL, CIBRC_META, CIBRC_SOURCE_NAME, loadCibrc, type CibrcAnswer, type CibrcData } from '@/lib/cibrcOfficial';
+import { BANNED_LABEL, CIBRC_META, CIBRC_SOURCE_NAME, type CibrcAnswer } from '@/lib/cibrcOfficial';
 
 const count = (n: number) => n.toLocaleString('en-IN');
 const asOn = (d: string | null | undefined) => (d ? `as on ${d}` : '');
@@ -169,146 +167,5 @@ export function OfficialCibrcAnswerPanel({ answer, onPick }: { answer: CibrcAnsw
 
       <OfficialSourceLine />
     </div>
-  );
-}
-
-type ListId = 'banned' | 'banned_for_export_only' | 'withdrawn' | 'refused' | 'restricted' | 'pesticides' | 'formulations' | 'household' | 'locust';
-
-interface Line {
-  key: string;
-  name: string;
-  detail: string;
-}
-
-function linesOf(data: CibrcData, id: ListId): Line[] {
-  switch (id) {
-    case 'banned':
-    case 'banned_for_export_only':
-    case 'withdrawn':
-    case 'refused':
-      return data.banned[id].map((r) => ({ key: `${id}${r.n}`, name: r.name, detail: [r.notification, r.note].filter(Boolean).join(' · ') }));
-    case 'restricted':
-      return data.banned.restricted.map((r) => ({ key: `r${r.n}`, name: r.name, detail: r.details }));
-    case 'pesticides':
-      return data.pesticides.rows.map((r) => ({ key: `p${r.n}`, name: r.name, detail: '' }));
-    case 'formulations':
-      return data.formulations.rows.map((r) => ({ key: `f${r.n}`, name: r.name, detail: r.category }));
-    case 'household':
-      return data.household.rows.map((r) => ({ key: `h${r.n}`, name: r.name, detail: r.category }));
-    case 'locust':
-      return data.locust.rows.map((r) => ({ key: `l${r.n}`, name: r.name, detail: `${r.group}: ${r.ai_g_per_ha} g active ingredient and ${r.formulation_per_ha} g or ml of the product per hectare` }));
-  }
-}
-
-const L = CIBRC_META.lists;
-const LISTS: { id: ListId; label: string; n: number; asOn: string | null; tone: string }[] = [
-  { id: 'banned', label: 'Banned', n: L.banned.banned, asOn: L.banned.as_on, tone: 'text-rose-800' },
-  { id: 'banned_for_export_only', label: 'Banned, export only', n: L.banned.banned_for_export_only, asOn: L.banned.as_on, tone: 'text-rose-800' },
-  { id: 'withdrawn', label: 'Withdrawn', n: L.banned.withdrawn, asOn: L.banned.as_on, tone: 'text-rose-800' },
-  { id: 'refused', label: 'Refused registration', n: L.banned.refused, asOn: L.banned.as_on, tone: 'text-rose-800' },
-  { id: 'restricted', label: 'Restricted in use', n: L.banned.restricted, asOn: L.banned.as_on, tone: 'text-amber-800' },
-  { id: 'pesticides', label: 'Registered pesticides', n: L.pesticides.count, asOn: L.pesticides.as_on, tone: 'text-forest-deep' },
-  { id: 'formulations', label: 'Registered formulations', n: L.formulations.count, asOn: L.formulations.as_on, tone: 'text-forest-deep' },
-  { id: 'household', label: 'Household and public health', n: L.household.count, asOn: L.household.as_on, tone: 'text-sky-800' },
-  { id: 'locust', label: 'Desert locust control', n: L.locust.count, asOn: null, tone: 'text-sky-800' },
-];
-
-/** The lists themselves: tap one, filter it, read it. The data is fetched when one is first opened. */
-export function OfficialCibrcLists() {
-  const [open, setOpen] = useState<ListId | null>(null);
-  const [data, setData] = useState<CibrcData | null>(null);
-  const [failed, setFailed] = useState(false);
-  const [filter, setFilter] = useState('');
-  const [limit, setLimit] = useState(100);
-
-  useEffect(() => {
-    if (!open || data) return;
-    let live = true;
-    loadCibrc().then((d) => live && setData(d)).catch(() => live && setFailed(true));
-    return () => {
-      live = false;
-    };
-  }, [open, data]);
-
-  const all = useMemo(() => (data && open ? linesOf(data, open) : []), [data, open]);
-  const shown = useMemo(() => {
-    const f = filter.trim().toLowerCase();
-    return f ? all.filter((l) => `${l.name} ${l.detail}`.toLowerCase().includes(f)) : all;
-  }, [all, filter]);
-  const chosen = LISTS.find((l) => l.id === open);
-
-  return (
-    <section id="official-lists" aria-labelledby="official-lists-title" className="mt-6 rounded-2xl bg-sky-50/80 p-4 text-sm text-slate-800 ring-1 ring-sky-200">
-      <h3 id="official-lists-title" className="flex items-center gap-2 text-base font-semibold text-sky-950">
-        <BadgeCheck className="h-5 w-5" aria-hidden /> Official Government lists
-      </h3>
-      <p className="mt-1 text-xs text-slate-600">Central Insecticides Board &amp; Registration Committee (CIB&amp;RC), ppqs.gov.in, as the Government published them. Tap a list.</p>
-      <div role="group" aria-label="Official lists" className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {LISTS.map((l) => (
-          <button
-            key={l.id}
-            type="button"
-            aria-pressed={open === l.id}
-            onClick={() => {
-              setOpen(open === l.id ? null : l.id);
-              setFilter('');
-              setLimit(100);
-            }}
-            className={`min-h-11 cursor-pointer rounded-xl px-3 py-2 text-left ring-1 transition ${open === l.id ? 'bg-white ring-2 ring-sky-700' : 'bg-white/70 ring-sky-200 hover:bg-white'}`}
-          >
-            <span className={`block text-lg font-extrabold tabular-nums ${l.tone}`}>{count(l.n)}</span>
-            <span className="block text-xs font-semibold text-slate-900">{l.label}</span>
-            {l.asOn && <span className="block text-[11px] text-slate-600">{asOn(l.asOn)}</span>}
-          </button>
-        ))}
-      </div>
-
-      {open && chosen && (
-        <div className="mt-3 rounded-xl bg-white p-3 ring-1 ring-sky-200">
-          <label htmlFor="official-filter" className="block text-xs font-semibold text-slate-700">Search “{chosen.label}”</label>
-          <input
-            id="official-filter"
-            value={filter}
-            onChange={(e) => {
-              setFilter(e.target.value);
-              setLimit(100);
-            }}
-            autoComplete="off"
-            spellCheck={false}
-            placeholder="e.g. Mancozeb"
-            className="mt-1 block min-h-11 w-full rounded-xl border-0 bg-white px-3 text-slate-900 ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-forest"
-          />
-          {failed && <p role="alert" className="mt-2 text-rose-800">The list could not be loaded. Check your internet and try again.</p>}
-          {!data && !failed && (
-            <p role="status" className="mt-2 flex items-center gap-2 text-slate-600">
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading the list…
-            </p>
-          )}
-          {data && (
-            <>
-              <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                {count(shown.length)} of {count(all.length)}
-                {chosen.asOn ? ` · ${asOn(chosen.asOn)}` : ''}
-              </p>
-              <ul className="mt-1 max-h-96 divide-y divide-slate-100 overflow-y-auto rounded-lg ring-1 ring-slate-100">
-                {shown.slice(0, limit).map((l) => (
-                  <li key={l.key} className="px-3 py-2">
-                    <p className="font-semibold text-slate-900">{l.name}</p>
-                    {l.detail && <p className="whitespace-pre-line text-xs text-slate-700">{l.detail}</p>}
-                  </li>
-                ))}
-                {shown.length === 0 && <li className="px-3 py-2 text-slate-600">Nothing in this list matches.</li>}
-              </ul>
-              {shown.length > limit && (
-                <button type="button" onClick={() => setLimit(limit + 200)} className="mt-2 min-h-11 cursor-pointer rounded-xl bg-white px-4 font-semibold text-sky-900 ring-1 ring-sky-200 hover:bg-sky-100">
-                  Show more
-                </button>
-              )}
-            </>
-          )}
-        </div>
-      )}
-      <OfficialSourceLine />
-    </section>
   );
 }

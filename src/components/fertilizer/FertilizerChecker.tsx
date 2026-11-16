@@ -33,7 +33,7 @@ import { BadgeCheck, Camera, CheckCircle2, CircleAlert, FileQuestion, Flag, Flas
 
 import { LangPicker, SpeakButton } from '@/components/voice/VoiceButtons';
 import { checkLabel, type LabelFacts, type RuleReport } from '@/lib/fertilizer/labelRules';
-import { readTyped, type Typed } from '@/lib/fertilizer/trueScan';
+import { fcoTypeOf, readTyped, type Typed } from '@/lib/fertilizer/trueScan';
 import { compressImageForFastScan } from '@/lib/fastImageCompress';
 import { isRtl, type SpeechLang } from '@/lib/client/speech';
 import { classifyFetchError } from '@/lib/onlineFirstClient';
@@ -46,7 +46,7 @@ import { loadRegistry } from '@/lib/fertilizer/registryLazy';
 import { CIBRC_META, loadCibrc, lookupCibrc, type CibrcAnswer } from '@/lib/cibrcOfficial';
 import { reportBatch } from '@/lib/db/security';
 import { DataGovPanel } from './DataGovPanel';
-import { OfficialCibrcAnswerPanel, OfficialCibrcLists } from './OfficialCibrcPanel';
+import { OfficialCibrcAnswerPanel } from './OfficialCibrcPanel';
 
 import { QRCodeScanner, QRCodeResult, type QRCodeVerificationResult } from './QRCodeScanner';
 import { BagMarkingChecklist } from './BagMarkingChecklist';
@@ -195,8 +195,16 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
   const [fcoQuery, setFcoQuery] = useState('');
   // Lab values entered for the loaded FCO standard, keyed by parameter key.
   const [values, setValues] = useState<Record<string, string>>({});
-  // What the official CIB&RC lists say about what was typed.
+  // What the official CIB&RC lists say about what is being typed: looked up on this phone as the letters are typed, so the
+  // answer is on screen before "Check" is pressed.
   const [official, setOfficial] = useState<CibrcAnswer | null>(null);
+  // The word data.gov.in is asked about once typing pauses (it is read from the server, so not on every letter).
+  const [liveQuery, setLiveQuery] = useState('');
+  const typing = useRef<{ fast?: number; slow?: number; seq: number }>({ seq: 0 });
+  useEffect(() => () => {
+    window.clearTimeout(typing.current.fast);
+    window.clearTimeout(typing.current.slow);
+  }, []);
   // True while a check is in flight, so "not in the official lists" never flashes before the answers are in.
   const [isChecking, setIsChecking] = useState(false);
   // True once a check has fully completed.
@@ -236,13 +244,42 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
       setBagChecklistProduct(code || fcoQuery || '');
     }
   };
+  const typedNow = readTyped(code);
+
+  /** Typing in the box: the official lists answer at once, data.gov.in once the typing pauses. */
+  const onType = (value: string) => {
+    setCode(value);
+    const t = typing.current;
+    window.clearTimeout(t.fast);
+    window.clearTimeout(t.slow);
+    const typed = readTyped(value);
+    const asked = ++t.seq;
+    if (typed.kind !== 'name' || typed.text.length < 3) {
+      setOfficial(null);
+      setLiveQuery('');
+      return;
+    }
+    t.fast = window.setTimeout(() => {
+      void loadCibrc()
+        .then((d) => {
+          if (t.seq === asked) setOfficial(lookupCibrc(d, typed.text));
+        })
+        .catch(() => undefined);
+    }, 150);
+    t.slow = window.setTimeout(() => {
+      if (t.seq === asked && typed.text.length >= 4) setLiveQuery(typed.text);
+    }, 700);
+  };
+
   const check = async () => {
     setIsChecking(true);
     setHasCompletedSearch(false);
     setResult({ state: 'loading' });
-    setOfficial(null);
 
     const typed = readTyped(code);
+    window.clearTimeout(typing.current.slow);
+    // Pressing Check asks data.gov.in at once.
+    setLiveQuery(typed.kind !== 'batch' && typed.text.length >= 3 ? typed.text : '');
     // The official CIB&RC lists, looked up from what was typed (a name; a registration or batch number is not in them).
     const lists = typed.kind === 'name' && typed.text.length >= 3 ? loadCibrc().then((d) => lookupCibrc(d, typed.text)).catch(() => null) : Promise.resolve(null);
     const [r, answer] = await Promise.all([scan(code), lists]);
@@ -344,21 +381,28 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
 
       {mode === 'registry' && (
         <div className="mt-5">
-          <RegistryForm code={code} setCode={setCode} busy={result.state === 'loading'} onCheck={() => void check()} onBrowse={compact ? undefined : () => document.getElementById('official-lists')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />
+          <RegistryForm code={code} setCode={onType} busy={result.state === 'loading'} onCheck={() => void check()} />
           <ListsHeld stats={stats} />
-          <div aria-live="polite" className="mt-4">
+          <div aria-live="polite" className="mt-4 space-y-3">
+            {/* The official answer, as it is typed: banned, restricted, registered (CIB&RC lists, row for row from the Government's PDFs). */}
+            {official && official.total + official.didYouMean.length > 0 && <OfficialCibrcAnswerPanel answer={official} onPick={onType} />}
             <ScanResult
               key={scans}
               result={result}
               account={account}
               onPhoto={() => setMode('photo')}
-              official={official}
-              onPick={(name) => setCode(name)}
+              officialTotal={official?.total ?? 0}
               isChecking={isChecking}
               hasCompletedSearch={hasCompletedSearch}
             />
+            {/* A fertiliser: the Government's standard is in its Order; KashRoot shows none it has not read from the Government's own file. */}
+            {typedNow.kind === 'name' && typedNow.text.length >= 3 && official?.total === 0 && fcoTypeOf(typedNow.text) && (
+              <p className="rounded-2xl bg-sky-50 p-4 text-sm text-slate-800 ring-1 ring-sky-200">
+                <strong className="text-sky-950">Fertiliser.</strong> The Government’s standard for a fertiliser is in Schedule I of the Fertiliser (Inorganic, Organic or Mixed) (Control) Order, 1985, as amended, published in the Gazette of India (<a href="https://egazette.gov.in" target="_blank" rel="noopener noreferrer" className="font-semibold text-sky-800 underline">egazette.gov.in</a>). KashRoot shows only what it has read from the Government’s own files: below is what data.gov.in publishes about “{typedNow.text}”.
+              </p>
+            )}
             {/* What the Government's open-data portal publishes about the word typed (read live with the site's key). */}
-            {result.state === 'done' && result.typed.kind !== 'batch' && !isChecking && <DataGovPanel key={`${scans}-${result.typed.text}`} query={result.typed.text} />}
+            {liveQuery && <DataGovPanel key={liveQuery} query={liveQuery} />}
           </div>
         </div>
       )}
@@ -496,7 +540,6 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
         </div>
       )}
 
-      {!compact && <OfficialCibrcLists />}
 
     </div>
   );
@@ -506,7 +549,7 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
  * One big box for whatever is printed on the label. Codes are mostly
  * numbers, so a tap switches the phone to its number keypad and back.
  */
-function RegistryForm({ code, setCode, busy, onCheck, onBrowse }: { code: string; setCode: (v: string) => void; busy: boolean; onCheck: () => void; onBrowse?: () => void }) {
+function RegistryForm({ code, setCode, busy, onCheck }: { code: string; setCode: (v: string) => void; busy: boolean; onCheck: () => void }) {
   const [numbers, setNumbers] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   return (
@@ -547,12 +590,6 @@ function RegistryForm({ code, setCode, busy, onCheck, onBrowse }: { code: string
       <button type="submit" disabled={busy} className="mt-3 inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-chinar px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-chinar-hover disabled:opacity-60 sm:w-auto">
         {busy ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <ShieldCheck className="h-5 w-5" aria-hidden />} {busy ? 'Checking…' : 'Check'}
       </button>
-      {onBrowse && (
-        <button type="button" onClick={onBrowse} className="mt-2 inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-base font-semibold text-slate-800 shadow-sm ring-1 ring-inset ring-slate-200 hover:bg-slate-50 sm:w-auto">
-          <FileQuestion className="h-5 w-5" aria-hidden />
-          Browse the official lists
-        </button>
-      )}
     </form>
   );
 }
@@ -594,7 +631,7 @@ function listsFor(stats: RegistryStats | null) {
   return { last: stats?.last_import ?? null, held: (stats?.total ?? 0) > 0 };
 }
 
-function ScanResult({ result, account, onPhoto, official, onPick, isChecking, hasCompletedSearch }: { result: Scan; account: Account | null; onPhoto: () => void; official: CibrcAnswer | null; onPick: (name: string) => void; isChecking: boolean; hasCompletedSearch: boolean }) {
+function ScanResult({ result, account, onPhoto, officialTotal, isChecking, hasCompletedSearch }: { result: Scan; account: Account | null; onPhoto: () => void; officialTotal: number; isChecking: boolean; hasCompletedSearch: boolean }) {
   const [all, setAll] = useState(false);
   if (result.state === 'idle') return null;
   if (result.state === 'loading') return <p className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Checking the official lists…</p>;
@@ -606,7 +643,7 @@ function ScanResult({ result, account, onPhoto, official, onPick, isChecking, ha
   const lists = listsFor(stats);
   const shownNames = all ? byName : byName.slice(0, 5);
   // "Not in the official lists" is said only when none of the official sources had a match and every check has finished.
-  const matches = byNumber.length + byName.length + (official?.total ?? 0);
+  const matches = byNumber.length + byName.length + officialTotal;
 
   return (
     <div className="space-y-3 text-sm">
@@ -628,8 +665,6 @@ function ScanResult({ result, account, onPhoto, official, onPick, isChecking, ha
           {dealer?.state === 'error' && <p className="mt-3 text-xs text-rose-800">KashRoot’s dealer records could not be checked: {dealer.message}</p>}
         </div>
       )}
-
-      {official && official.total + official.didYouMean.length > 0 && <OfficialCibrcAnswerPanel answer={official} onPick={onPick} />}
 
       {byNumber.map((h, i) => (
         <section key={`${h.source}|${h.registration_no}|${h.name}|${i}`} aria-label={isReference(h) ? 'Found in KashRoot’s reference list' : 'Found in the official list'} className={isReference(h) ? 'rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200' : 'rounded-2xl bg-forest-soft p-4 ring-1 ring-forest-line'}>

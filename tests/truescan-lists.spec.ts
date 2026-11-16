@@ -89,7 +89,10 @@ test('TrueScan\'s answer is built from official data only: nothing KashRoot type
   expect(ui).toContain('lookupCibrc(d, typed.text)');
   // The typed brand/company entries, the typed banned list, the typed SKUAST schedule and the legal-rules box are gone.
   expect(ui).not.toMatch(/ReferenceProduct|cibrcResult|skuastResult|OfficialChecks|Browse the reference list/);
-  expect(ui).toContain('<OfficialCibrcLists />');
+  // No separate panel of lists: the official answer appears while the word is typed.
+  expect(ui).not.toMatch(/OfficialCibrcLists|Browse the official lists/);
+  expect(ui).toContain('onType');
+  expect(ui).toContain('<OfficialCibrcAnswerPanel answer={official}');
   const lazy = read('src/lib/fertilizer/registryLazy.ts');
   expect(lazy).toContain("import('@/lib/gov-agro-registry')");
   expect(lazy).not.toMatch(/^import [^t].*gov-agro-registry/m);
