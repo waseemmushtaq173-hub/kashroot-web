@@ -481,6 +481,16 @@ dialog.kr-drawer[open] { animation: kr-drawer-in 0.22s ease-out; }
   .kr-hero .kr-btn-primary:hover:not(:disabled) { box-shadow: inset 0 1px 0 #FFFFFF, 0 4px 0 #C6A45B, 0 12px 20px -4px rgba(0, 0, 0, .4); }
   .kr-hero .kr-btn-primary:active:not(:disabled) { box-shadow: inset 0 2px 3px rgba(23, 76, 60, .2), 0 1px 0 #C6A45B; }
 
+  /* A chosen tab, pill or radio on the forest banner: forest green would melt into it, so it is gold with a white edge. */
+  .kr-hero :is(button, a, [role="tab"], [role="radio"]):is([aria-pressed="true"], [aria-selected="true"], [aria-checked="true"], [aria-current="page"]) {
+    background-color: #C6A45B !important;
+    background-image: linear-gradient(180deg, #EBD28E 0%, #C6A45B 100%) !important;
+    color: #12382E !important;
+    border: 2px solid #FFFFFF !important;
+    font-weight: 800;
+    box-shadow: 0 3px 0 #8E7230, 0 8px 14px -4px rgba(0, 0, 0, .45) !important;
+  }
+
   /* A forest and gold icon badge standing on its own ledge (portal cards, panel titles). */
   .kr-icon-badge {
     background: linear-gradient(135deg, #174C3C 0%, #286B54 100%);
