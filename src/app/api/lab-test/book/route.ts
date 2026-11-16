@@ -43,42 +43,39 @@ interface LabTestBookingResponse {
   ok: boolean;
   bookingId?: string;
   message: string;
-  labContact?: { name: string; phone: string; address: string };
+  labContact?: { name: string; address: string };
   nextSteps?: string[];
 }
 
-const LAB_CONTACTS: Record<string, { name: string; phone: string; address: string; districts: string[] }> = {
+// The lab's name and town only: no telephone number is shown until one is confirmed from an official source.
+const LAB_CONTACTS: Record<string, { name: string; address: string; districts: string[] }> = {
   srinagar: {
     name: 'State Fertiliser Quality Control Laboratory, Srinagar',
-    phone: '0194-245XXXX',
     address: 'Lal Mandi, Srinagar, J&K',
     districts: ['Srinagar', 'Ganderbal', 'Budgam'],
   },
   anantnag: {
     name: 'District Quality Control Lab, Anantnag',
-    phone: '01932-22XXXX',
     address: 'Anantnag, J&K',
     districts: ['Anantnag', 'Kulgam', 'Shopian', 'Pulwama'],
   },
   baramulla: {
     name: 'District Quality Control Lab, Baramulla',
-    phone: '01952-23XXXX',
     address: 'Baramulla, J&K',
     districts: ['Baramulla', 'Bandipora', 'Kupwara'],
   },
   jammu: {
     name: 'State Fertiliser Quality Control Laboratory, Jammu',
-    phone: '0191-247XXXX',
     address: 'Jammu, J&K',
     districts: ['Jammu', 'Samba', 'Kathua', 'Udhampur', 'Reasi', 'Doda', 'Kishtwar', 'Ramban', 'Rajouri', 'Poonch'],
   },
 };
 
-function findLab(district: string): { name: string; phone: string; address: string } | null {
+function findLab(district: string): { name: string; address: string } | null {
   const d = district.toLowerCase().trim();
   for (const [, lab] of Object.entries(LAB_CONTACTS)) {
     if (lab.districts.some((dist) => dist.toLowerCase() === d)) {
-      return { name: lab.name, phone: lab.phone, address: lab.address };
+      return { name: lab.name, address: lab.address };
     }
   }
   // Default to Srinagar for Kashmir, Jammu for Jammu region
@@ -154,7 +151,7 @@ export async function POST(request: Request): Promise<NextResponse<LabTestBookin
         notes,
         photos: photos ?? [],
         lab_name: lab?.name,
-        lab_phone: lab?.phone,
+        lab_phone: null,
         lab_address: lab?.address,
         status: 'pending',
         created_at: new Date().toISOString(),
@@ -186,7 +183,7 @@ export async function POST(request: Request): Promise<NextResponse<LabTestBookin
 
   const nextSteps = [
     `Booking reference: ${bookingId}`,
-    `Contact lab: ${lab?.name} (${lab?.phone})`,
+    `Lab: ${lab?.name}`,
     `Address: ${lab?.address}`,
     'Bring the complete bag with label intact for sampling',
     'Carry ID proof and this booking reference',
@@ -199,7 +196,7 @@ export async function POST(request: Request): Promise<NextResponse<LabTestBookin
     message: saved
       ? 'Lab test booking request submitted. An expert will confirm the appointment.'
       : 'Booking request saved locally. An expert will contact you to arrange the test.',
-    labContact: lab ? { name: lab.name, phone: lab.phone, address: lab.address } : undefined,
+    labContact: lab ? { name: lab.name, address: lab.address } : undefined,
     nextSteps,
   });
 }
