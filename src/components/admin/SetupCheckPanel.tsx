@@ -117,7 +117,7 @@ function OptionalServices() {
             ? 'half set up — HCAPTCHA_SECRET_KEY is set, but NEXT_PUBLIC_HCAPTCHA_SITE_KEY is not in this deployment, so forms show no check. Keep Supabase CAPTCHA OFF; add the site key in Vercel and redeploy'
             : 'half set up — the site key is in the pages, but HCAPTCHA_SECRET_KEY is missing on the server, so codes, help requests and the assistant are not checked. Add it in Vercel and redeploy',
         },
-    { name: 'Support email', on: state.mail, onText: `set — emails are sent from ${state.mailFrom}; help requests go to ${state.inbox}`, offText: 'not set — the site works, but sends no emails: add SMTP_HOST, SMTP_PORT, SMTP_USER and SMTP_PASS in Vercel and redeploy' },
+    { name: 'Support email', on: state.mail, onText: `set — emails are sent from ${state.mailFrom}; help requests go to ${state.inbox}`, offText: 'not set — the site works, but sends no emails. Easiest: add RESEND_API_KEY and RESEND_FROM (an address on a domain verified in Resend) in Vercel and redeploy. Or: SMTP_USER and SMTP_PASS (a Gmail App Password)' },
     { name: 'Voice', on: state.voice, onText: 'KashRoot voice (Google neural voices)', offText: 'browser voice (optional upgrade) — answers are read by the phone’s own voice; adding GOOGLE_TTS_API_KEY in Vercel switches to KashRoot’s voice', optional: true },
   ];
   return (
@@ -136,6 +136,7 @@ function OptionalServices() {
       </ul>
       <TestEmail />
       <BotCheckTiming />
+      <SignInSpeed />
     </div>
   );
 }
@@ -187,6 +188,45 @@ function BotCheckTiming() {
       {human.element}
       <p className={state ? (state.ok ? 'text-emerald-800' : 'text-amber-800') : 'text-slate-600'}>{state?.text ?? 'Bot check: waiting for a token…'}</p>
     </div>
+  );
+}
+
+/**
+ * "Sign-in speed": how long KashRoot's server takes to reach the database and the sign-in service. Every sign-in makes three
+ * or four such calls one after another, so a slow answer here is a slow sign-in for everyone. The server runs in Mumbai (vercel.json):
+ * the Supabase project should be in Mumbai too (Supabase → Project Settings → General → Region).
+ */
+function SignInSpeed() {
+  const [state, setState] = useState<{ ok: boolean; text: string } | null>(null);
+  useEffect(() => {
+    let live = true;
+    void fetch('/api/health?speed=1', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j: { speed?: { dbMs: number; authMs: number; dbOk: boolean; authOk: boolean; region: string | null } }) => {
+        if (!live) return;
+        const s = j.speed;
+        if (!s) return setState({ ok: false, text: 'Sign-in speed: could not be measured (the health check did not answer).' });
+        if (!s.dbOk || !s.authOk) return setState({ ok: false, text: `Sign-in speed: the server could not reach ${!s.authOk ? 'the sign-in service' : 'the database'}. If the Supabase project is paused, open the Supabase dashboard and press Restore.` });
+        const worst = Math.max(s.dbMs, s.authMs);
+        const from = s.region ? ` from the ${s.region} server` : '';
+        const numbers = `database ${s.dbMs} ms, sign-in service ${s.authMs} ms${from}`;
+        setState(
+          worst <= 150
+            ? { ok: true, text: `Sign-in speed: fast — ${numbers}. If sign-in is slow for someone, it is their network.` }
+            : worst <= 400
+              ? { ok: true, text: `Sign-in speed: acceptable — ${numbers}. Each sign-in makes 3 to 4 such calls.` }
+              : { ok: false, text: `Sign-in speed: slow — ${numbers}. Each sign-in makes 3 to 4 such calls one after another. Check that the Supabase project's region is Mumbai (Project Settings → General), like this server.` },
+        );
+      })
+      .catch(() => live && setState({ ok: false, text: 'Sign-in speed: could not be measured.' }));
+    return () => {
+      live = false;
+    };
+  }, []);
+  return (
+    <p className={`mt-3 text-sm ${state ? (state.ok ? 'text-emerald-800' : 'text-amber-800') : 'text-slate-600'}`} data-sign-in-speed>
+      {state?.text ?? 'Sign-in speed: measuring…'}
+    </p>
   );
 }
 

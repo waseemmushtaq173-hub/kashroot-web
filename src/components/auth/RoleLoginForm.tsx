@@ -43,12 +43,15 @@ import { GUARD_TEXT, useFormGuard } from '@/lib/client/formGuard';
 import { authApi, SELF_JOIN_ROLES, tokenStore } from '@/lib/api/auth';
 import { isMember, joinPortal, markPortalSignedIn, portalAccess, PORTAL_SIGNIN_LIMIT_MS, signedInPortals } from '@/lib/auth/portalAccess';
 import { AUTH_ROUTES, loginHref, PORTALS, portalForRole, portalOfPath, safeNextPath, type PortalId } from '@/lib/auth/roles';
+import { describeTimings, STEP_NOW, timingEntries } from '@/lib/auth/signinTiming';
 import { forgetPerson, rememberedPerson, rememberSignedIn, restoreSession, signOutCompletely, type RememberedPerson } from '@/lib/auth/session';
 
 /** Sign-in: after this long the person is told it is slow; after the limit it stops with a message and can be tried again. */
 const SLOW_AFTER_MS = 4_000;
 const SIGN_IN_LIMIT_MS = 25_000;
 const SIGN_IN_TOO_SLOW = 'KashRoot is taking too long to answer. Check your internet and press Sign in again.';
+/** Which call was waiting when it stopped. */
+const STOPPED_AT: Record<'password' | 'account', string> = { password: 'the password check', account: 'loading your account' };
 const LEGACY_OK: PortalId[] = ['farmer', 'buyer'];
 
 type JoinRole = (typeof SELF_JOIN_ROLES)[number];
@@ -104,6 +107,9 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   const [pending, setPending] = useState(false);
   // Signing in is taking longer than usual (a slow network): the person is told, and it never hangs without an answer.
   const [slow, setSlow] = useState(false);
+  // Which call sign-in is waiting for now, and (after a slow sign-in) where the time went, from the browser's own timings.
+  const [stepNow, setStepNow] = useState<'password' | 'account' | null>(null);
+  const [timeWent, setTimeWent] = useState<string[]>([]);
   const [error, setError] = useState<{ text: string; portal?: PortalId } | null>(null);
   // Second step: a one-time code to the account's mobile (SMS + WhatsApp) or email.
   const [step, setStep] = useState<OtpStep | null>(null);
@@ -249,16 +255,27 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
     }
     setPending(true);
     setError(null);
+    setTimeWent([]);
     let navigating = false;
-    const slowTimer = window.setTimeout(() => setSlow(true), SLOW_AFTER_MS);
+    let wasSlow = false;
+    let waitingFor: 'password' | 'account' | null = null;
+    // The press, on the same clock as the browser's timings (milliseconds since the page opened).
+    const startedAt = event.timeStamp;
+    const slowTimer = window.setTimeout(() => {
+      wasSlow = true;
+      setSlow(true);
+    }, SLOW_AFTER_MS);
     let limitTimer: number | undefined;
     try {
       // The password check and the roles lookup are two calls to the database: on a weak network they can take long, so
       // there is a time limit (the person can press Sign in again) instead of a spinner that never ends.
       const data = await Promise.race([
-        authApi.login({ email: email.trim(), password }),
+        authApi.login({ email: email.trim(), password }, (s) => {
+          waitingFor = s;
+          setStepNow(s);
+        }),
         new Promise<never>((_, reject) => {
-          limitTimer = window.setTimeout(() => reject(new Error(SIGN_IN_TOO_SLOW)), SIGN_IN_LIMIT_MS);
+          limitTimer = window.setTimeout(() => reject(new Error(`${SIGN_IN_TOO_SLOW}${waitingFor ? ` (It stopped at ${STOPPED_AT[waitingFor]}.)` : ''}`)), SIGN_IN_LIMIT_MS);
         }),
       ]);
       if (!data.accessToken) throw new Error('Sign-in did not return a session. Please try again.');
@@ -301,6 +318,9 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
       window.clearTimeout(slowTimer);
       window.clearTimeout(limitTimer);
       setSlow(false);
+      setStepNow(null);
+      // A slow sign-in says where the time went (the steps that finished; the one that did not is named in the message).
+      if (wasSlow) setTimeWent(describeTimings(timingEntries(performance.getEntriesByType('resource').filter((e) => e.startTime >= startedAt - 50))));
       if (!navigating) setPending(false);
     }
   };
@@ -603,8 +623,18 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
             {!pending && <ArrowRight className="h-4 w-4" aria-hidden />}
           </button>
           <p role="status" aria-live="polite" className="text-center text-xs text-slate-600">
-            {pending && slow ? 'Still signing in: your connection is slow. This can take up to 25 seconds. Please wait.' : ''}
+            {pending && slow ? `${stepNow ? STEP_NOW[stepNow] : 'Still signing in…'} Your connection is slow: this can take up to 25 seconds. Please wait.` : ''}
           </p>
+          {timeWent.length > 0 && (
+            <div role="note" className="rounded-xl bg-slate-50 p-3 text-xs text-slate-700 ring-1 ring-slate-200">
+              <p className="font-semibold text-slate-800">Where the time went. If sign-in stays slow, tell KashRoot support these lines:</p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                {timeWent.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </form>
       </SecurityGate>
 

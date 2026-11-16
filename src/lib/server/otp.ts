@@ -249,7 +249,9 @@ export async function checkEmailRoutes(): Promise<Record<string, string>> {
   if (process.env.RESEND_API_KEY?.trim()) {
     try {
       const res = await fetch('https://api.resend.com/domains', { headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY.trim()}` }, signal: AbortSignal.timeout(10_000) });
-      out.resend = res.ok ? (process.env.RESEND_FROM?.trim() ? 'works (key accepted, sender set)' : 'key accepted, but RESEND_FROM is not set: it can only email your own Resend address') : `FAILS — Resend answered ${res.status} (a rejected API key answers 401)`;
+      // A key limited to "sending access" answers 401 "restricted_api_key" when it lists domains: the key is good.
+      const restricted = res.status === 401 && /restricted_api_key/.test(await res.text().catch(() => ''));
+      out.resend = res.ok || restricted ? (process.env.RESEND_FROM?.trim() ? 'works (key accepted, sender set)' : 'key accepted, but RESEND_FROM is not set: it can only email your own Resend address') : `FAILS — Resend answered ${res.status} (a rejected API key answers 401)`;
     } catch (err) {
       out.resend = `FAILS — ${mailFailure(err)}`;
     }

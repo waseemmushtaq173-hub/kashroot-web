@@ -202,8 +202,10 @@ export const authApi = {
       needsEmailConfirmation: !data.session,
     };
   },
-  login: async (dto: LoginDto) => {
+  /** `onStep` hears which call is running ('password', then 'account'), so a slow sign-in can say where it waits. */
+  login: async (dto: LoginDto, onStep?: (step: 'password' | 'account') => void) => {
     if (!supabaseConfigured) throw new Error(NOT_SET_UP);
+    onStep?.('password');
     const { data, error } = await supabase.auth.signInWithPassword({
       email: dto.email,
       password: dto.password,
@@ -227,6 +229,7 @@ export const authApi = {
     const metadataRole = (data.user.app_metadata?.role ?? data.user.user_metadata?.role) as UserRole | undefined;
     // Staff roles (admin, expert, dealer) are granted by an admin in the database.
     // Asked afresh at every sign-in (a role granted since shows now), then kept for the portals.
+    onStep?.('account');
     const staffRoles = await staffRolesOf(data.user.id, true);
     return {
       accessToken: data.session.access_token,

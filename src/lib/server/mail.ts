@@ -1,9 +1,11 @@
 /**
  * Emails from KashRoot's support address (lib/supportEmail), server-only.
- * Sent through SMTP from Vercel's SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS
- * (GMAIL_USER / GMAIL_APP_PASSWORD, used for the email codes, also work). The
- * password is never logged or returned: a failure is reported by its kind
- * ("the login was refused"), never by the server's words.
+ * Two routes, so one dead password does not stop every email: Resend (an API key and
+ * a verified sender: RESEND_API_KEY + RESEND_FROM, over HTTPS, no Gmail App Password
+ * needed) is tried first when it is set up, then SMTP from Vercel's SMTP_HOST /
+ * SMTP_PORT / SMTP_USER / SMTP_PASS (GMAIL_USER / GMAIL_APP_PASSWORD, used for the
+ * email codes, also work). The key and the password are never logged or returned: a
+ * failure is reported by its kind ("the login was refused"), never by the server's words.
  *
  * Everything but the Setup check's test email is queued first
  * (20261108000000_email_outbox.sql) and sent by flushOutbox(): a failed send
@@ -47,6 +49,18 @@ export function smtp(): Smtp | null {
   return null;
 }
 
+/**
+ * The Resend route, when both the API key and a verified sender (RESEND_FROM, an address on a domain verified in Resend)
+ * are set. Without a sender Resend can only email its own account holder, which is no use for the site's emails.
+ */
+export function resend(): { key: string; from: string } | null {
+  const key = process.env.RESEND_API_KEY?.trim();
+  const from = process.env.RESEND_FROM?.trim();
+  return key && from ? { key, from } : null;
+}
+/** The plain address inside "KashRoot <mail@example.com>" (or the address itself). */
+const addressOf = (from: string) => (/<([^>]+)>/.exec(from)?.[1] ?? from).trim();
+
 /** Which settings are there (true/false only) and what the password looks like — never a value. */
 export function mailSettings(): Record<string, boolean | number | string> {
   const has = (n: string) => Boolean(process.env[n]?.trim());
@@ -65,15 +79,18 @@ export function mailSettings(): Record<string, boolean | number | string> {
     // A Gmail app password is 16 letters (Google shows it in 4 groups of 4).
     SMTP_PASS_looks_like_app_password: /^[a-z]{16}$/i.test(p),
     SUPPORT_EMAIL: has('SUPPORT_EMAIL'),
+    RESEND_API_KEY: has('RESEND_API_KEY'),
+    RESEND_FROM: has('RESEND_FROM'),
     port: Number(process.env.SMTP_PORT) || 465,
-    using: smtp()?.from ?? 'none',
+    using: [resend() ? 'Resend' : null, smtp()?.from ?? null].filter(Boolean).join(', then ') || 'none',
   };
 }
 
 /** Whether emails can be sent, and from which address (no secret). */
 export function mailStatus(): { configured: boolean; from: string | null; inbox: string; settings: Record<string, boolean | number | string> } {
   const s = smtp();
-  return { configured: Boolean(s), from: s?.user ?? null, inbox: supportInbox(), settings: mailSettings() };
+  const r = resend();
+  return { configured: Boolean(s || r), from: r ? addressOf(r.from) : (s?.user ?? null), inbox: supportInbox(), settings: mailSettings() };
 }
 
 /**
@@ -89,7 +106,7 @@ function failureOf(err: unknown, port: number): string {
     .trim();
   const hint =
     e?.code === 'EAUTH' || e?.responseCode === 535
-      ? ' — Gmail refused the login: SMTP_PASS must be a 16-letter App Password of SMTP_USER’s account, with 2-Step Verification on'
+      ? ' — Gmail refused the login: SMTP_PASS must be a 16-letter App Password of SMTP_USER’s account, with 2-Step Verification on (or set up Resend instead: RESEND_API_KEY and RESEND_FROM)'
       : e?.code === 'ETIMEDOUT' || e?.code === 'ECONNECTION' || e?.code === 'ESOCKET'
         ? ' — could not reach the mail server'
         : '';
@@ -104,7 +121,20 @@ const unreachable = (err: unknown) => ['ETIMEDOUT', 'ECONNECTION', 'ESOCKET', 'E
  */
 export async function verifyLogin(): Promise<{ ok: boolean; code?: string }> {
   const s = smtp();
-  if (!s) return { ok: false, code: 'not-set-up' };
+  const r = resend();
+  let resendCode: string | null = null;
+  if (r) {
+    try {
+      const res = await fetch('https://api.resend.com/domains', { headers: { Authorization: `Bearer ${r.key}` }, signal: AbortSignal.timeout(10_000) });
+      // A key limited to sending answers 401 "restricted_api_key" here: the key is good, it just may not list domains.
+      const restricted = res.status === 401 && /restricted_api_key/.test(await res.text().catch(() => ''));
+      if (res.ok || restricted) return { ok: true };
+      resendCode = `resend ${res.status}`;
+    } catch {
+      resendCode = 'resend unreachable';
+    }
+  }
+  if (!s) return { ok: false, code: resendCode ?? 'not-set-up' };
   const nodemailer = (await import('nodemailer')).default;
   const ports = s.port === 465 ? [465, 587] : [s.port];
   let code = 'other';
@@ -120,26 +150,64 @@ export async function verifyLogin(): Promise<{ ok: boolean; code?: string }> {
   return { ok: false, code };
 }
 
-/** Send one email now; tried on port 587 (STARTTLS) when 465 cannot be reached. Never throws. */
+/** Send one email through Resend (HTTPS). Never throws; the reason is a status, never Resend's words. */
+async function sendViaResend(l: Letter, r: { key: string; from: string }): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const { text, html } = render(l);
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${r.key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: r.from.includes('<') ? r.from : `KashRoot <${r.from}>`, to: [l.to], reply_to: l.replyTo ?? supportInbox(), subject: l.subject, text, html }),
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (res.ok) return { ok: true };
+    const hint =
+      res.status === 401 || res.status === 403
+        ? ' — Resend refused: check RESEND_API_KEY, and that RESEND_FROM is on a domain verified in Resend'
+        : res.status === 422
+          ? ' — Resend refused the sender or the address: RESEND_FROM must be an address on a domain verified in Resend'
+          : res.status === 429
+            ? ' — Resend’s sending limit was reached'
+            : '';
+    return { ok: false, reason: `Resend ${res.status}${hint}` };
+  } catch {
+    return { ok: false, reason: 'Resend unreachable — could not reach api.resend.com' };
+  }
+}
+
+/**
+ * Send one email now: Resend first when it is set up, then SMTP (tried on port 587, STARTTLS, when 465 cannot be reached).
+ * It is sent if any route works; when none does, the reasons of all of them are given. Never throws.
+ */
 export async function sendLetter(l: Letter): Promise<{ ok: true } | { ok: false; reason: string }> {
   const s = smtp();
-  if (!s) return { ok: false, reason: 'email is not set up (SMTP_USER and SMTP_PASS in Vercel)' };
-  const nodemailer = (await import('nodemailer')).default;
-  const { text, html } = render(l);
-  const message = { from: `KashRoot <${s.user}>`, to: l.to, replyTo: l.replyTo ?? supportInbox(), subject: l.subject, text, html };
-  const ports = s.port === 465 ? [465, 587] : [s.port];
-  let reason = '';
-  for (const port of ports) {
-    try {
-      const t = nodemailer.createTransport({ host: s.host, port, secure: port === 465, requireTLS: port !== 465, auth: { user: s.user, pass: s.pass }, connectionTimeout: 8_000, greetingTimeout: 8_000, socketTimeout: 12_000 });
-      await t.sendMail(message);
-      return { ok: true };
-    } catch (err) {
-      reason = failureOf(err, port);
-      if (!unreachable(err)) break; // a refusal is the same on any port
-    }
+  const r = resend();
+  if (!s && !r) return { ok: false, reason: 'email is not set up (RESEND_API_KEY and RESEND_FROM, or SMTP_USER and SMTP_PASS, in Vercel)' };
+  const reasons: string[] = [];
+  if (r) {
+    const sent = await sendViaResend(l, r);
+    if (sent.ok) return sent;
+    reasons.push(sent.reason);
   }
-  return { ok: false, reason };
+  if (s) {
+    const nodemailer = (await import('nodemailer')).default;
+    const { text, html } = render(l);
+    const message = { from: `KashRoot <${s.user}>`, to: l.to, replyTo: l.replyTo ?? supportInbox(), subject: l.subject, text, html };
+    const ports = s.port === 465 ? [465, 587] : [s.port];
+    let reason = '';
+    for (const port of ports) {
+      try {
+        const t = nodemailer.createTransport({ host: s.host, port, secure: port === 465, requireTLS: port !== 465, auth: { user: s.user, pass: s.pass }, connectionTimeout: 8_000, greetingTimeout: 8_000, socketTimeout: 12_000 });
+        await t.sendMail(message);
+        return { ok: true };
+      } catch (err) {
+        reason = failureOf(err, port);
+        if (!unreachable(err)) break; // a refusal is the same on any port
+      }
+    }
+    reasons.push(reason);
+  }
+  return { ok: false, reason: reasons.join(' | ').slice(0, 220) };
 }
 
 // ── The queue ──
@@ -181,14 +249,15 @@ export async function queueLockNotice(email: string, pause: string): Promise<voi
  * A failure's short code, safe to show anyone: "EAUTH 535", "ETIMEDOUT",
  * "no-address" — never the mail server's words, an address or content.
  */
-const shortCode = (reason: string) => reason.match(/^port \d+: ((?:E[A-Z]+ ?)?(?:\d{3})?)/)?.[1]?.trim() || (reason.startsWith('no address') ? 'no-address' : reason.startsWith('email is not set up') ? 'not-set-up' : 'other');
+const shortCode = (reason: string) =>
+  reason.match(/^Resend (\d{3})/) ? `resend ${reason.match(/^Resend (\d{3})/)![1]}` : reason.startsWith('Resend unreachable') ? 'resend unreachable' : reason.match(/^port \d+: ((?:E[A-Z]+ ?)?(?:\d{3})?)/)?.[1]?.trim() || (reason.startsWith('no address') ? 'no-address' : reason.startsWith('email is not set up') ? 'not-set-up' : 'other');
 
 export async function flushOutbox(limit = 10): Promise<{ sent: number; failed: number; codes: string[] }> {
   // Trips with no position for 5 minutes are marked lost and an email to the sender is queued
   // (20261120000000_trip_lock.sql; nothing happens before that SQL is run). Done even when email
   // is not set up, so the senders' pages show "Location lost".
   await rpc('kr_trip_watch', {});
-  if (!smtp()) return { sent: 0, failed: 0, codes: [] }; // Kept queued until email is set up.
+  if (!smtp() && !resend()) return { sent: 0, failed: 0, codes: [] }; // Kept queued until email is set up.
   const due = (await rpc('kr_email_claim', { p_limit: limit })) as Queued[] | null;
   let sent = 0;
   let failed = 0;

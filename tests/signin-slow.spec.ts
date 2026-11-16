@@ -12,8 +12,12 @@ test('sign-in tells the person when it is slow and stops after a time limit', ()
   expect(form).toContain('const SLOW_AFTER_MS = 4_000;');
   expect(form).toContain('const SIGN_IN_LIMIT_MS = 25_000;');
   expect(form).toContain('Promise.race([');
-  expect(form).toContain('reject(new Error(SIGN_IN_TOO_SLOW))');
-  expect(form).toContain('Still signing in: your connection is slow.');
+  expect(form).toContain('reject(new Error(`${SIGN_IN_TOO_SLOW}');
+  expect(form).toContain('Your connection is slow: this can take up to 25 seconds. Please wait.');
+  // It says which call it is waiting for, and where the time went once it finishes slow.
+  expect(form).toContain('STEP_NOW[stepNow]');
+  expect(form).toContain('describeTimings(timingEntries(');
+  expect(form).toContain('(It stopped at ${STOPPED_AT[waitingFor]}.)');
   // Both timers are cleared however the attempt ends, and the spinner is released.
   const finallyBlock = form.slice(form.indexOf('window.clearTimeout(slowTimer);'), form.indexOf('/** One-time code to the account'));
   expect(finallyBlock).toContain('window.clearTimeout(limitTimer);');

@@ -4,6 +4,10 @@
  * manager (src/lib/connectivity.ts): the probe must verify an actual
  * database table read, not just the auth service, so "online" always
  * means "the data layer answers". Never cached.
+ *
+ * ?speed=1 (Admin → Setup check) also times what a sign-in waits for, from this server: a read of the data API and the
+ * sign-in service's own health call, each timed twice (the second is the steady speed, the first includes opening the
+ * connection). Milliseconds and the server's region only.
  */
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
@@ -36,6 +40,28 @@ export async function GET(request: Request) {
 
   try {
     const supabase = createClient(url, key, { auth: { persistSession: false } });
+    if (new URL(request.url).searchParams.get('speed') === '1') {
+      const read = async () => {
+        const t = Date.now();
+        const { error: e } = await supabase.from('rental_listings').select('id').limit(1);
+        return { ms: Date.now() - t, ok: !e };
+      };
+      const authCall = async () => {
+        const t = Date.now();
+        const ok = await fetch(`${url.replace(/\/+$/, '')}/auth/v1/health`, { headers: { apikey: key }, cache: 'no-store', signal: AbortSignal.timeout(8_000) })
+          .then((r) => r.ok)
+          .catch(() => false);
+        return { ms: Date.now() - t, ok };
+      };
+      const first = await read();
+      const second = await read();
+      const a1 = await authCall();
+      const a2 = await authCall();
+      return NextResponse.json(
+        { ok: first.ok && a1.ok, speed: { dbMs: second.ms, dbFirstMs: first.ms, authMs: a2.ms, authFirstMs: a1.ms, dbOk: first.ok && second.ok, authOk: a1.ok && a2.ok, region: process.env.VERCEL_REGION ?? null } },
+        { headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
     const { error } = await supabase.from('rental_listings').select('id').limit(1);
     const connected = !error;
     return NextResponse.json(

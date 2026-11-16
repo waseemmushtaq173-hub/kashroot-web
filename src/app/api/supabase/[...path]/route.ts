@@ -33,6 +33,8 @@ function account(body: ArrayBuffer | undefined): string {
     return '';
   }
 }
+import { after } from 'next/server';
+
 import { afterPasswordSignIn, afterUserChange } from '@/lib/server/accountNotices';
 import { recordWrongPassword, rightPassword, signinBlock } from '@/lib/server/signinGuard';
 import { securityEvent } from '@/lib/server/securityLog';
@@ -89,9 +91,13 @@ async function proxy(request: Request, { params }: { params: Promise<{ path: str
   const who = passwordSignIn || /^auth\/v1\/(recover|otp|resend)$/.test(path) ? account(body) : '';
 
   const whoKey = who ? hashed(who) : '';
+  // How long each part took, told to the browser (Server-Timing) so a slow sign-in can say where the time went.
+  const t0 = Date.now();
+  let guardMs = 0;
 
   if (passwordSignIn) {
     const block = await signinBlock(request, who, whoKey, ip);
+    guardMs = Date.now() - t0;
     if (block) return paused(block.message, block.retryAfter);
   } else if (path === 'auth/v1/signup') {
     if (await sharedLimited(`signup-ip:${ip}`, 30, 60 * 60_000)) {
@@ -120,6 +126,7 @@ async function proxy(request: Request, { params }: { params: Promise<{ path: str
       signal: AbortSignal.timeout(25_000),
     });
   let upstream: Response;
+  const tUp = Date.now();
   try {
     upstream = await fetchUpstream(initialBody);
   } catch (err) {
@@ -174,7 +181,13 @@ async function proxy(request: Request, { params }: { params: Promise<{ path: str
   }
   if (passwordSignIn) {
     if (upstream.ok) {
-      await rightPassword(whoKey);
+      // Forgetting the earlier wrong passwords is not needed for the answer: done after it is sent (one database call fewer to wait for).
+      const forget = () => rightPassword(whoKey);
+      try {
+        after(forget);
+      } catch {
+        void forget();
+      }
       securityEvent('signin_ok', { request, account: who, path, status: upstream.status });
     }
   } else if (path === 'auth/v1/signup' && upstream.ok) {
@@ -192,6 +205,7 @@ async function proxy(request: Request, { params }: { params: Promise<{ path: str
     if (value) out.set(name, value);
   }
   out.set('cache-control', 'no-store');
+  if (passwordSignIn) out.set('server-timing', `guard;dur=${guardMs}, upstream;dur=${Date.now() - tUp}`);
   if (refusedText !== null) return new Response(refusedText, { status: upstream.status, headers: out });
   // Security notices need the account the answer names: read it, then pass it on unchanged.
   if (upstream.ok && (passwordSignIn || (path === 'auth/v1/user' && request.method === 'PUT'))) {
