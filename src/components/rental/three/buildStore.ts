@@ -16,7 +16,7 @@
  * loaded only when the 3D view opens.
  */
 import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
-import { binTexture, cartonTexture, concreteTexture, crateTexture, diamondTexture, fanTexture, ghostTexture, gratingTexture, labelCanvas, panelTexture, plaqueCanvas, plateTexture } from '@/components/rental/three/textures';
+import { binTexture, cartonTexture, chamberDoorTexture, concreteTexture, crateTexture, diamondTexture, fanTexture, ghostTexture, gratingTexture, labelCanvas, panelTexture, plaqueCanvas, plateTexture } from '@/components/rental/three/textures';
 import type { Route } from '@/components/rental/walk/route';
 import { disposeMaterialSafely } from '@/components/rental/three/dispose';
 import { buildFixtures } from '@/components/rental/three/fixtures';
@@ -68,7 +68,7 @@ export interface Kit {
   protos: ColdKitGeos | null;
   /** `wall` / `chamberWall` solid, `wallNear` / `chamberNear` see-through (the walls between the camera and the inside). */
   mats: Record<
-    | 'bin' | 'crate' | 'binEmpty' | 'crateEmpty' | 'carton' | 'ghostOn' | 'tile' | 'hall' | 'yard' | 'apron' | 'walk' | 'passage' | 'stripe' | 'chamberFloor' | 'wall' | 'wallNear' | 'chamberWall' | 'chamberNear' | 'door' | 'leaf' | 'deck' | 'beam' | 'glass' | 'hit' | 'shutter'
+    | 'bin' | 'crate' | 'doorYellow' | 'binEmpty' | 'crateEmpty' | 'carton' | 'ghostOn' | 'tile' | 'hall' | 'yard' | 'apron' | 'walk' | 'passage' | 'stripe' | 'chamberFloor' | 'wall' | 'wallNear' | 'chamberWall' | 'chamberNear' | 'door' | 'leaf' | 'deck' | 'beam' | 'glass' | 'hit' | 'shutter'
     // The machines and fittings (three/fixtures).
     | 'ceiling' | 'roof' | 'lamp' | 'cooler' | 'fan' | 'guard' | 'pipe' | 'copper' | 'curtain' | 'condenser'
     // Structure and finishes: structural steel, galvanised kick-plate, black rubber (gaskets, floor coving).
@@ -216,6 +216,7 @@ export function makeKit(T: Three, phone: boolean, protos: ColdKitGeos | null = n
     guide: new T.MeshBasicMaterial({ color: '#34A37A' }),
     door: new T.MeshStandardMaterial({ color: '#f59e0b', roughness: 0.45, metalness: paint }),
     leaf: new T.MeshStandardMaterial({ color: '#f1f5f9', roughness: 0.42, metalness: 0.04 }),
+    doorYellow: new T.MeshStandardMaterial({ color: '#facc15', roughness: 0.42 }),
     deck: new T.MeshStandardMaterial({ map: tex.grating, roughness: 0.45, ...see, opacity: 1, metalness: phone ? 0.15 : 0.4 }),
     // Racking and deck beams: forest green powder coat (was blue).
     beam: new T.MeshStandardMaterial({ color: '#1F5E4A', roughness: 0.42, metalness: galv }),
@@ -818,7 +819,12 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
         const out = 0.16;
         const lx = dm.x + (along ? shiftBy : 0) - c.inward.x * out;
         const ly = dm.y + (along ? 0 : shiftBy) - c.inward.y * out;
-        box(along ? dw : 0.1, c.doorH, along ? 0.1 : dw, wx(o, lx), c.doorH / 2, wz(o, ly), mats.leaf);
+        box(along ? dw : 0.1, c.doorH, along ? 0.1 : dw, wx(o, lx), c.doorH / 2, wz(o, ly), mats.doorYellow);
+        // The leaf's face as seen from the passage: the blue number badge and the warning triangle.
+        const face = new T.Mesh(new T.PlaneGeometry(dw, c.doorH), new T.MeshBasicMaterial({ map: chamberDoorTexture(T, c.no ?? c.index + 1, c.doorH / dw) }));
+        face.position.set(wx(o, lx - c.inward.x * 0.06), c.doorH / 2, wz(o, ly - c.inward.y * 0.06));
+        face.rotation.y = Math.atan2(-c.inward.x, c.inward.y);
+        add(face);
         // The acrylic CA viewing window port in the leaf, in a black rubber surround.
         const wy = Math.min(1.6, c.doorH * 0.62);
         onDoor(shiftBy, out, wy, 0.46, 0.56, 0.115, mats.rubber);
@@ -1075,8 +1081,9 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
   // Outlines of the stacks being chosen or held.
   const ghosts = new Map<string, Item[]>();
   const strong = (look: Look) => look === 'selected' || look === 'held';
-  // A free place: one empty slatted bin (or crate) standing on its bay, so room reads as timber waiting to be filled.
-  const vacant = new Map<Kind, Item[]>();
+  // A free place: the owner's whole stack of empty slatted bins (or crates) standing on its bay, as high as they stack,
+  // so room reads as timber waiting to be filled.
+  const vacant = new Map<string, { kind: Kind; units: number; items: Item[] }>();
   const tiles: Cell[] = [];
   const put = <K, V>(map: Map<K, V[]>, key: K, it: V) => {
     const list = map.get(key);
@@ -1125,7 +1132,12 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
       // A place being chosen or held: the outline of the stack that will stand there.
       put(ghosts, `strong:${f.layers}`, { cell, y: f.z0, h: f.stackH, units: f.layers, tint: mk.tint, amount: 1 });
     }
-    else if (cell.look === 'free') put(vacant, c.kind, { cell, y: f.z0, h: unitH, units: 1, tint: null, amount: 0 });
+    else if (cell.look === 'free') {
+      const key = `${c.kind}:${f.layers}`;
+      let v = vacant.get(key);
+      if (!v) vacant.set(key, (v = { kind: c.kind, units: Math.max(1, f.layers), items: [] }));
+      v.items.push({ cell, y: f.z0, h: f.stackH, units: Math.max(1, f.layers), tint: null, amount: 0 });
+    }
   }
 
   const place = (cell: Cell) => scene.chambers[cell.chamber].floors[cell.floor].places[cell.place].rect;
@@ -1150,9 +1162,9 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
     picks.push({ mesh, cells: s.items.map((x) => x.cell) });
     slices.push({ mesh, cells: s.items.map((x) => x.cell), colors: true, kind: 'stack', base: { m: mesh.instanceMatrix.array.slice() as Float32Array, c: null } });
   }
-  for (const [kind, items] of vacant) {
+  for (const { kind, units, items } of vacant.values()) {
     // A plain drawn box (12 triangles) with the empty bin's own picture on it: a thousand of them is still one draw.
-    const mesh = new T.InstancedMesh(kit.stackGeo(1), kind === 'bin' ? mats.binEmpty : kind === 'crate' ? mats.crateEmpty : mats.carton, items.length);
+    const mesh = new T.InstancedMesh(kit.stackGeo(units, kind), kind === 'bin' ? mats.binEmpty : kind === 'crate' ? mats.crateEmpty : mats.carton, items.length);
     fill(mesh, items, 0.9);
     group.add(mesh);
     picks.push({ mesh, cells: items.map((x) => x.cell) });
@@ -1208,7 +1220,8 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
   // filter slices them level for level, like the stacks they hold.
   const posts: { c: Cell; r: Rect; z0: number; h: number; corners: [number, number][] }[] = [];
   const rails: { c: Cell; r: Rect; y: number }[] = [];
-  for (const cell of tiles.filter((c) => c.look !== 'blocked')) {
+  // Only for stores of loose cartons: wooden bins and plastic crates stand stacked on the floor, as in the real stores.
+  for (const cell of tiles.filter((c) => c.look !== 'blocked' && scene.chambers[c.chamber].kind === 'carton')) {
     const r = place(cell);
     const f = scene.chambers[cell.chamber].floors[cell.floor];
     posts.push({ c: cell, r, z0: f.z0, h: f.stackH, corners: [[0.06, 0.06], [0.06, -0.06], [-0.06, 0.06], [-0.06, -0.06]] });

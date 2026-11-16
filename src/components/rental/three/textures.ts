@@ -469,3 +469,54 @@ export function plateTexture(T: Three, row: number) {
   t.colorSpace = T.SRGBColorSpace;
   return t;
 }
+
+/**
+ * The face of a chamber's sliding CA door as in Kashmir's stores: safety yellow,
+ * a blue round number badge and a yellow-and-black warning triangle (the glass
+ * window is a separate part of the door). `ratio` is the door's height ÷ width.
+ */
+export function chamberDoorTexture(T: Three, number: number, ratio: number) {
+  const w = 256;
+  const h = Math.round(Math.min(640, Math.max(256, w * ratio)));
+  const { c, g } = canvas(w, h);
+  if (g) {
+    g.fillStyle = '#facc15';
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = '#eab308';
+    for (const y of [0.33, 0.58]) g.fillRect(0, h * y, w, 5);
+    g.lineWidth = 8;
+    g.strokeStyle = '#ca8a04';
+    g.strokeRect(4, 4, w - 8, h - 8);
+    const r = w * 0.15;
+    g.fillStyle = '#1d4ed8';
+    g.beginPath();
+    g.arc(w / 2, h * 0.2, r, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#ffffff';
+    g.font = `800 ${Math.round(r * (number > 9 ? 1.05 : 1.3))}px system-ui, sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(String(number), w / 2, h * 0.2 + 2);
+    const ty = h * 0.34;
+    const tw = w * 0.17;
+    g.fillStyle = '#fde047';
+    g.strokeStyle = '#111827';
+    g.lineWidth = 5;
+    g.beginPath();
+    g.moveTo(w / 2, ty - tw);
+    g.lineTo(w / 2 + tw, ty + tw * 0.75);
+    g.lineTo(w / 2 - tw, ty + tw * 0.75);
+    g.closePath();
+    g.fill();
+    g.stroke();
+    g.fillStyle = '#111827';
+    g.fillRect(w / 2 - 3, ty - tw * 0.4, 6, tw * 0.7);
+    g.beginPath();
+    g.arc(w / 2, ty + tw * 0.5, 3.5, 0, Math.PI * 2);
+    g.fill();
+  }
+  const t = new T.CanvasTexture(c);
+  t.colorSpace = T.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
