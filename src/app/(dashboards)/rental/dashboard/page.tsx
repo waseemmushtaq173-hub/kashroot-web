@@ -26,6 +26,7 @@ import { ArrowRight, Boxes, Building2, CalendarDays, Camera, CheckCircle2, Clipb
 import { toast } from '@/lib/client/toast';
 
 import { IdentityStatus } from '@/components/auth/IdentityStatus';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { PortalShell } from '@/components/layout/PortalShell';
@@ -297,7 +298,7 @@ export default function RentalPage() {
               waiting={directory.waiting}
               reload={directory.reload}
               listings={listings}
-              onBook={setBooking}
+              onBook={(l) => setBooking(l, null, l.owner_id === account?.id)}
             />
           ) : (
           <>
@@ -427,6 +428,12 @@ function StoreCard({
 }) {
   const unit = UNIT_LABEL[l.unit];
   const map = chambers.length > 0;
+  // The owner's own button to fill in or change this store's details (the building, chambers, photos, payment): they live under the Business admin sign-in.
+  const fillIn = (
+    <Link href="/business/cold-store?tab=stores" className="kr-btn-primary min-h-[44px] shrink-0 gap-1.5 no-underline hover:no-underline">
+      <Warehouse className="h-4 w-4" aria-hidden /> Fill in or change my cold store details
+    </Link>
+  );
   const groups = useMemo(() => groupChambers(chambers), [chambers]);
   const kinds = useMemo(() => [...new Set(chambers.map((c) => c.storage))], [chambers]);
   // What the farmer brings: chosen by tapping when the store holds both bins and crates.
@@ -539,7 +546,10 @@ function StoreCard({
           {own ? (
             <div className="mt-4 flex flex-col gap-2 rounded-2xl bg-violet-50 p-3 ring-1 ring-violet-200 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-violet-950"><Badge tone="violet">Your listing</Badge> <span className="ml-1">You cannot book your own store. A customer sees “Choose your place”, then pays you.</span></p>
-              {onPreview && <Btn theme={theme} variant="soft" icon={MapIcon} className="min-h-[44px] shrink-0" onClick={onPreview}>Preview what customers see</Btn>}
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+                {fillIn}
+                {onPreview && <Btn theme={theme} variant="soft" icon={MapIcon} className="min-h-[44px] shrink-0" onClick={onPreview}>Preview what customers see</Btn>}
+              </div>
             </div>
           ) : (
             <div className="mt-4 flex flex-col gap-3 border-t border-slate-900/5 pt-4 lg:flex-row lg:items-end lg:justify-between">
@@ -585,7 +595,12 @@ function StoreCard({
           </div>
           {l.details && <p className="mt-2 line-clamp-2 text-sm text-slate-600">{l.details}</p>}
           <div className="mt-4 flex justify-end border-t border-slate-900/5 pt-4">
-            {own ? <Badge tone="violet">Your listing</Badge> : <Btn theme={theme} icon={CalendarDays} className="min-h-[44px]" disabled={l.available < l.min_units} onClick={() => onBook()}>Book</Btn>}
+            {own ? (
+              <div className="flex flex-col items-end gap-2">
+                <p className="text-sm text-violet-950"><Badge tone="violet">Your listing</Badge> <span className="ml-1">Fill in the building and chambers so customers can choose their places.</span></p>
+                {fillIn}
+              </div>
+            ) : <Btn theme={theme} icon={CalendarDays} className="min-h-[44px]" disabled={l.available < l.min_units} onClick={() => onBook()}>Book</Btn>}
           </div>
         </>
       )}

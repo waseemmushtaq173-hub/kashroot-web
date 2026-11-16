@@ -17,6 +17,10 @@ test('an owner sees what a customer sees, but cannot book or pay on their own st
   expect(own).toContain('Preview what customers see');
   expect(own).toContain('You cannot book your own store');
   expect(own).not.toContain('onBook(');
+  // An owner has a button to fill in or change the store's details (the owner tools live under the Business admin).
+  expect(own).toContain('{fillIn}');
+  expect(page).toContain('href="/business/cold-store?tab=stores"');
+  expect(page).toContain('Fill in or change my cold store details');
   expect(page).toContain('>Choose your place</Btn>');
   expect(page).toContain('preview={booking.preview}');
   expect(page).toContain('onPreview={() => setBooking(l, null, true)}');
