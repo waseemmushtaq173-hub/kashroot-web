@@ -1,8 +1,27 @@
+'use client';
+
 /**
- * The Business admin portal: where the owner, managers and staff of a cold
- * store, agro-dealer, shop or helper team sign in (its own sign-in at
- * /login/business, apart from every customer portal). The console is the same
- * one as before — who is in the business, its bookings and orders, where it is
- * paid; the database shows each person only the businesses they belong to.
+ * The Business admin portal: the owners, managers and staff of a cold store,
+ * dealership, shop or helper team sign in here (/login/business), apart from
+ * the customer portals. Each business sees only its own people and details;
+ * what a person may do comes from their role in it (owner / manager / staff),
+ * checked again in the database.
  */
-export { default } from '@/app/account/business/page';
+import { BusinessConsole } from '@/components/business/BusinessConsole';
+import { PortalShell } from '@/components/layout/PortalShell';
+import { INFO_BODY } from '@/components/layout/InfoPage';
+
+export default function BusinessDashboardPage() {
+  return (
+    <PortalShell
+      title="Business admin"
+      description="Run your cold store, dealership, shop or team with the people who work with you. Each business sees only its own people and details."
+      eyebrow="Business admin"
+      theme="business"
+    >
+      <div className={`${INFO_BODY} lg:col-span-2`}>
+        <BusinessConsole />
+      </div>
+    </PortalShell>
+  );
+}
