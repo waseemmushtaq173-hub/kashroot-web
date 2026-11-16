@@ -16,6 +16,10 @@ export default function FertilizerTesterPage() {
     void registryStats().then(setStats).catch(() => setStats(null));
   }, []);
   const held = stats?.total ?? 0;
+  // Lists the server re-reads from the official file every day, and when the newest look was.
+  const auto = stats?.lists.filter((l) => l.auto && l.checked_at) ?? [];
+  const checked = auto.map((l) => l.checked_at as string).sort().at(-1);
+  const day = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
   return (
     <PortalShell
@@ -28,7 +32,7 @@ export default function FertilizerTesterPage() {
         {
           label: 'Registered products on file',
           value: stats === undefined ? '…' : held ? held.toLocaleString('en-IN') : 'Not yet',
-          trend: held && stats?.last_import ? `From the Government lists · updated ${new Date(stats.last_import).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` : stats === undefined ? 'Loading' : 'The Government list is not loaded yet',
+          trend: held && stats?.last_import ? `From the Government lists · updated ${day(stats.last_import)}${checked ? ` · checked against the official file ${day(checked)}` : ''}` : stats === undefined ? 'Loading' : 'The Government list is not loaded yet',
         },
         { label: 'Fertiliser types with FCO standards', value: String(FCO_PRODUCTS.length), trend: 'Urea, DAP, MOP, SSP, NPKs, micronutrients' },
       ]}

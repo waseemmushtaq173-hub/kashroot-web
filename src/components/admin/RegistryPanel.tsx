@@ -17,6 +17,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, ExternalLink, FileUp, ListChecks, Loader2, Trash2, Upload } from 'lucide-react';
 
 import { Badge, Btn, EmptyState, Field, INPUT, Panel, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
+import { OfficialFeedsPanel } from '@/components/admin/OfficialFeedsPanel';
 import { toast } from '@/lib/client/toast';
 import { decodeListFile, KIND_LABEL, parseOfficialList, type OfficialKind, type ParsedOfficialList } from '@/lib/fertilizer/officialList';
 import { importRegistry, registryStats, removeRegistryList, type OfficialListInfo, type RegistryStats } from '@/lib/db/registry';
@@ -257,6 +258,12 @@ export function RegistryPanel() {
           )}
         </div>
       </Panel>
+
+      {stats && (
+        <div className="lg:col-span-2">
+          <OfficialFeedsPanel lists={stats.lists} onChanged={() => void load()} />
+        </div>
+      )}
     </div>
   );
 }

@@ -31,6 +31,12 @@ export interface OfficialListInfo {
   source_url: string;
   count: number;
   imported_at: string;
+  /** The list is read again from its official file every day (once the feed SQL has been run). */
+  auto?: boolean;
+  /** When that file was last looked at. */
+  checked_at?: string | null;
+  /** How the last look went: 'ok' (changed and updated), 'unchanged' or 'failed'. */
+  auto_status?: 'ok' | 'unchanged' | 'failed' | 'never' | null;
 }
 
 export interface RegistryStats {
