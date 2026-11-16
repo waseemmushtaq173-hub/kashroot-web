@@ -191,6 +191,30 @@ test('only chambers the owner measured can be booked: old box chambers and missi
   expect(ownerMeasured(noStack)).toBe(false);
 });
 
+test('L-bank: chambers 1-4 up the left wall, 5 onward along the back wall past them, none on top of another', () => {
+  const d = sample((st, bins, crates) => {
+    st.building = { ...st.building, length: '60', width: '40', door: { wall: 'front', from: '28', width: '4', height: '5' }, sides: 'lbank' };
+    Object.assign(bins, { length: '12', width: '9', count: '240' });
+    Object.assign(crates, { length: '12', width: '9', floors: '1', count: '240', floorHeights: '3.5', height: '4', stackHigh: '8', unitH: '0.3' });
+  });
+  const extra = Array.from({ length: 4 }, (_, i) => ({ ...d.chambers[0], key: `x${i}`, no: String(3 + i) }));
+  d.chambers = [d.chambers[0], d.chambers[1], ...extra];
+  const m = storeModel(d);
+  const spots = d.chambers.map((c) => m.layout!.spots[c.key]).filter(Boolean);
+  expect(spots.length).toBe(6);
+  expect(m.issues.filter((i) => /overlap/.test(i.message))).toHaveLength(0);
+  for (let i = 0; i < spots.length; i++) for (let j = i + 1; j < spots.length; j++) {
+    const a = spots[i], b = spots[j];
+    const apart = a.x + a.w <= b.x + 0.01 || b.x + b.w <= a.x + 0.01 || a.y + a.d <= b.y + 0.01 || b.y + b.d <= a.y + 0.01;
+    expect(apart, `chambers ${i + 1} and ${j + 1}`).toBe(true);
+  }
+  const [c1, c2, c3, c4, c5, c6] = spots;
+  expect([c1.x, c2.x, c3.x, c4.x]).toEqual([0, 0, 0, 0]);
+  expect(c4.y).toBeGreaterThan(c1.y);
+  expect(c5.x).toBeGreaterThanOrEqual(c4.x + c4.w);
+  expect(c6.x).toBeGreaterThan(c5.x);
+});
+
 test('impossible values are refused', () => {
   const tall = storeModel(sample((d, bins) => Object.assign(bins, { stackHigh: '40' })));
   expect(tall.issues.some((i) => i.level === 'error' && i.field.endsWith('.stackHigh'))).toBe(true);

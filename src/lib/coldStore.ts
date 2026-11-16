@@ -1346,6 +1346,7 @@ export function arrangeStore(
   // The wall banks (back / front): how far along the wall the row has grown, and how deep into the building its deepest chamber reaches.
   const rowAt: Record<'back' | 'front', number> = { back: 0, front: 0 };
   const rowInto: Record<'back' | 'front', number> = { back: 0, front: 0 };
+  let leftOut = 0;
   const sized = new Set<string>();
   const inPassage = new Set<string>();
   let n = 0;
@@ -1377,7 +1378,9 @@ export function arrangeStore(
       const into = alongFront ? d : w;
       const at = rowAt[side];
       rowAt[side] = at + run + 0.6;
-      const uu = (side === 'front' ? Math.min(pass.u1 + 0.6, pass.across) : 0) + at;
+      // In the L-bank the left bank may reach this wall: the row then starts past its last chamber (as in the owner's diagram).
+      const pastLeft = side === 'back' && leftOut > 0 && taken.left > pass.depth - into + slack ? leftOut + 0.6 : 0;
+      const uu = (side === 'front' ? Math.min(pass.u1 + 0.6, pass.across) : 0) + at + pastLeft;
       const v = side === 'back' ? Math.max(0, pass.depth - into) : 0;
       const p = fromDoor(pass.wall, room, uu, v);
       const q = fromDoor(pass.wall, room, uu + run, v + into);
@@ -1395,6 +1398,7 @@ export function arrangeStore(
     const ua = side === 'left' ? 0 : pass.across - out;
     const va = taken[side];
     taken[side] += deep;
+    if (side === 'left') leftOut = Math.max(leftOut, out);
     const p = fromDoor(pass.wall, room, ua, va);
     const q = fromDoor(pass.wall, room, ua + out, va + deep);
     spots[c.key] = { x: Math.min(p.x, q.x), y: Math.min(p.y, q.y), w, d, fits: true, byOwner: false, side };
