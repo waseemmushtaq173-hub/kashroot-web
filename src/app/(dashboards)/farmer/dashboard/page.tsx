@@ -39,6 +39,7 @@ import {
   Sprout,
   Store,
   Thermometer,
+  Truck,
 } from 'lucide-react';
 
 import { PortalShell } from '@/components/layout/PortalShell';
@@ -47,6 +48,7 @@ import { SellerDesk } from '@/components/market/SellerDesk';
 import { FarmerStoredApplesDesk } from '@/components/rental/owner/SharedBinAndEngineeringDesk';
 import { SafePayment } from '@/components/payments/SafePayment';
 import { SoilLabTests } from '@/components/lab/SoilLabTests';
+import { FarmerUpdates, needsYouCount } from '@/components/market/FarmerUpdates';
 import { Btn, Panel, PORTAL_THEMES, Skeleton, Tile } from '@/components/portal/kit';
 import { LastUpdated } from '@/components/pwa/SavedAt';
 import { inr, loadAccount, type Account } from '@/lib/db/client';
@@ -57,8 +59,8 @@ import type { MarketCategory, MarketListing, MarketOrder } from '@/lib/db/market
 import { sellerToAct } from '@/lib/db/shop';
 
 const theme = PORTAL_THEMES.farmer;
-type Tab = 'overview' | 'coldstore' | 'lots' | 'orders' | 'tests' | 'payouts';
-const TABS: Tab[] = ['overview', 'coldstore', 'lots', 'orders', 'tests', 'payouts'];
+type Tab = 'overview' | 'coldstore' | 'lots' | 'orders' | 'pickups' | 'tests' | 'payouts';
+const TABS: Tab[] = ['overview', 'coldstore', 'lots', 'orders', 'pickups', 'tests', 'payouts'];
 
 export default function FarmerDashboardPage() {
   return (
@@ -122,6 +124,7 @@ function FarmerDashboard() {
         { id: 'coldstore', label: 'My stored apples', icon: Thermometer },
         { id: 'lots', label: 'What I sell', icon: Store, count: products.length || undefined },
         { id: 'orders', label: 'Orders', icon: Package, count: toAct || undefined },
+        { id: 'pickups', label: 'Pickups & updates', icon: Truck, count: needsYouCount(orders) || undefined },
         { id: 'tests', label: 'Soil & lab tests', icon: FlaskConical },
         { id: 'payouts', label: 'Escrow payment', icon: ShieldCheck },
       ]}
@@ -210,8 +213,9 @@ function FarmerDashboard() {
           {tab === 'coldstore' && <FarmerStoredApplesDesk account={account} theme={theme} />}
           {tab === 'payouts' && <SafePayment as="farmer" account={account} theme={theme} />}
           {tab === 'tests' && <SoilLabTests account={account} />}
+          {tab === 'pickups' && <FarmerUpdates orders={stats ? orders : null} onOpenOrders={() => setTab('orders')} />}
           {tab !== 'coldstore' && (
-            <div className={tab === 'tests' ? 'hidden' : undefined}>
+            <div className={tab === 'tests' || tab === 'pickups' ? 'hidden' : undefined}>
             <SellerDesk
               account={account}
               theme={theme}

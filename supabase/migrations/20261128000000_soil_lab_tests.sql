@@ -27,7 +27,7 @@ alter table public.organisations add constraint organisations_kind_check check (
 alter table public.email_outbox drop constraint if exists email_outbox_kind_check;
 alter table public.email_outbox add constraint email_outbox_kind_check check (kind in (
   'help_new', 'help_ack', 'help_reply', 'help_resolved', 'payout_changed', 'password_changed', 'email_changed', 'phone_changed', 'new_signin', 'signin_locked', 'team_changed', 'trip_lost',
-  'lab_booking_new', 'lab_booking_cancelled', 'lab_booking_update', 'lab_report_ready'));
+  'lab_booking_new', 'lab_booking_cancelled', 'lab_booking_update', 'lab_report_ready')) not valid;
 
 create table if not exists public.lab_profiles (
   org_id     uuid primary key references public.organisations (id) on delete cascade,

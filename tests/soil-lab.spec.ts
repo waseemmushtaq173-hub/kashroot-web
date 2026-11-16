@@ -141,7 +141,9 @@ test('no SQL here passes Postgres more than 100 arguments to one call, and the f
   // Older sections re-add the email-kind rule with their shorter list: they must not fail once lab emails exist.
   const adds = [...once.matchAll(/alter table public\.email_outbox add constraint email_outbox_kind_check check \(kind in \([\s\S]*?\)\)( not valid)?;/g)];
   expect(adds.length).toBeGreaterThanOrEqual(5);
-  for (const a of adds) if (!a[0].includes('lab_booking_new')) expect(a[0], 'an older email-kind rule must skip rows already there').toContain('not valid;');
+  // Every re-add but the newest skips the rows already there (a later email kind, such as an order's, would break a re-run).
+  adds.slice(0, -1).forEach((a) => expect(a[0], 'an older email-kind rule must skip rows already there').toContain('not valid;'));
+  expect(adds[adds.length - 1][0]).not.toContain('not valid');
   // The setup file's step rows must not name a table that a fresh database does not have yet (a regclass cast fails there).
   expect(once.slice(once.indexOf('create or replace function public.kr_setup_rows'), once.indexOf('revoke all on function public.kr_setup_rows'))).not.toMatch(/::regclass/);
 });

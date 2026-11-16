@@ -15,11 +15,12 @@
  */
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Apple, PackageCheck, ShieldCheck, ShoppingBag, ShoppingCart } from 'lucide-react';
+import { Apple, PackageCheck, ShieldCheck, ShoppingBag, ShoppingCart, Truck } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { PortalShell } from '@/components/layout/PortalShell';
 import { OrderCard } from '@/components/market/OrderCard';
+import { PooledTruck } from '@/components/market/PooledTruck';
 import { ListingBrowser } from '@/components/market/shop/ListingBrowser';
 import { OrderModal } from '@/components/market/shop/OrderModal';
 import type { ShopListing } from '@/components/market/shop/useLiveListings';
@@ -27,11 +28,12 @@ import { SafePayment } from '@/components/payments/SafePayment';
 import { Btn, EmptyState, Panel, PORTAL_THEMES, Skeleton, Tile } from '@/components/portal/kit';
 import { loadAccount, type Account } from '@/lib/db/client';
 import { buyerOrders, type MarketOrder } from '@/lib/db/market';
+import { pooledLoads } from '@/lib/pooledLoads';
 
 const theme = PORTAL_THEMES.buyer;
-type Tab = 'overview' | 'shop' | 'orders' | 'payment';
+type Tab = 'overview' | 'shop' | 'truck' | 'orders' | 'payment';
 
-const TABS: Tab[] = ['overview', 'shop', 'orders', 'payment'];
+const TABS: Tab[] = ['overview', 'shop', 'truck', 'orders', 'payment'];
 
 export default function BuyerDashboardPage() {
   return (
@@ -96,6 +98,9 @@ function BuyerDashboard() {
   const rank = (o: MarketOrder) => (o.status === 'delivered' ? 0 : o.status === 'shipped' ? 1 : 2);
   const active = all.filter((o) => !['completed', 'cancelled', 'rejected'].includes(o.status)).sort((a, b) => rank(a) - rank(b));
 
+  // Orders that are part of a pooled load (the Pooled truck tab).
+  const poolLines = pooledLoads(all).reduce((n, l) => n + l.lines.length, 0);
+
   const list = (items: MarketOrder[]) => (
     <ul className="space-y-3">{items.map((o) => <OrderCard key={o.id} order={o} as="buyer" theme={theme} onChange={() => void reload()} />)}</ul>
   );
@@ -117,6 +122,7 @@ function BuyerDashboard() {
       tabs={[
         { id: 'overview', label: 'Overview', icon: ShoppingBag },
         { id: 'shop', label: 'Buy apples & produce', icon: Apple },
+        { id: 'truck', label: 'Pooled truck', icon: Truck, count: poolLines || undefined },
         { id: 'orders', label: 'My orders', icon: ShoppingCart, count: all.length || undefined },
         { id: 'payment', label: 'Escrow payment', icon: ShieldCheck, count: toPay.length || undefined },
       ]}
@@ -203,6 +209,8 @@ function BuyerDashboard() {
           </Panel>
         </SafePayment>
       )}
+
+      {tab === 'truck' && <PooledTruck orders={orders} onOpenOrders={() => setTab('orders')} onShop={() => setTab('shop')} />}
 
       {tab === 'orders' && (
         <Panel theme={theme} title="My orders" icon={ShoppingCart}>
