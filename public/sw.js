@@ -25,7 +25,7 @@
  * unless it is URGENT (a fix people must get at once): then it takes over
  * straight away.
  */
-const VERSION = '2026-11-16.9';
+const VERSION = '2026-11-16.10';
 /** This version ships the royal-indigo palette, the stacked-bin 3D cold store, the L-bank plan and the hub desk: older ones kept saved pages and files from before. It takes over at once and drops them. */
 const URGENT = true;
 const SHELL = `kr-shell-${VERSION}`; // the offline page and its files
