@@ -34,13 +34,15 @@ for (const width of [1280, 390, 360]) {
     test('Help & support is in the top bar, 44 px or more, and opens Help & support', async ({ page }) => {
       for (const path of ['/', '/login', '/login/buyer', '/forgot-password', '/tracking/dashboard']) {
         await page.goto(path);
-        const help = page.getByRole('link', { name: 'Help & support' }).first();
+        // A button: it opens the help drawer (helpline, Ask KashRoot at /support, the voice guide).
+        const help = page.getByRole('button', { name: 'Help & support' }).first();
         await expect(help).toBeVisible();
         expect((await help.boundingBox())!.height, `${path}: 44 px or taller`).toBeGreaterThanOrEqual(44);
       }
       await page.goto('/');
       await page.locator('header').first().screenshot({ path: `test-results/header-help-${width}.png` });
-      await page.getByRole('link', { name: 'Help & support' }).first().click();
+      await page.getByRole('button', { name: 'Help & support' }).first().click();
+      await page.getByRole('link', { name: /Ask KashRoot/ }).first().click();
       await page.waitForURL((u) => u.pathname === '/support');
     });
 
@@ -65,12 +67,13 @@ for (const width of [1280, 390, 360]) {
       await expect(page.locator('body')).toContainText('kashrootsupport@gmail.com');
     });
 
-    test('the footer holds only the brand, © and the social pages', async ({ page }) => {
+    test('the footer holds only the brand, ©, the social pages and the Business admin sign-in', async ({ page }) => {
       await page.goto('/');
       const footer = page.locator('footer').last();
-      // Besides the brand, only the three social pages, shown as their logos (components/layout/SocialIcons).
+      // Besides the brand, only the three social pages, shown as their logos (components/layout/SocialIcons), and the one
+      // door for the team of a cold store, dealership or shop (the customer portals are in the Portals menu).
       const names = await footer.getByRole('link').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label') ?? e.textContent?.trim() ?? ''));
-      expect(names.filter((n) => !/^KashRoot$/i.test(n)).sort()).toEqual(['KashRoot on Facebook', 'KashRoot on Instagram', 'KashRoot on LinkedIn']);
+      expect(names.filter((n) => !/^KashRoot$/i.test(n)).sort()).toEqual(['Business admin sign-in', 'KashRoot on Facebook', 'KashRoot on Instagram', 'KashRoot on LinkedIn']);
       await expect(footer).toContainText('© 2026 KashRoot Pvt Ltd');
       await expect(footer).not.toContainText('@');
       for (const name of ['Instagram', 'Facebook', 'LinkedIn']) {
