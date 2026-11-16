@@ -181,7 +181,7 @@ function mailFailure(err: unknown): string {
     e?.code === 'EAUTH' || e?.responseCode === 535
       ? " — the password must be that mail account's own App Password (Gmail: exactly 16 letters, Google Account → Security → 2-Step Verification → App passwords)"
       : '';
-  return `${head} ${reply}${hint}`.replace(/\s+/g, ' ').trim().slice(0, 200);
+  return `${head} ${reply}${hint}`.replace(/\s+/g, ' ').trim().slice(0, 360);
 }
 
 const UNREACHABLE = ['ETIMEDOUT', 'ECONNECTION', 'ESOCKET', 'EDNS', 'ECONNREFUSED'];
@@ -206,6 +206,41 @@ async function smtpSend(s: { host: string; port: number; user: string; pass: str
     }
   }
   throw last;
+}
+
+/** What `/api/otp/status?check=1` reports for each email route: it really logs in (no mail is sent). */
+export async function checkEmailRoutes(): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  const smtpCheck = async (s: { host: string; port: number; user: string; pass: string }) => {
+    const nodemailer = (await import('nodemailer')).default;
+    let last: unknown = null;
+    for (const port of s.port === 465 ? [465, 587] : [s.port]) {
+      try {
+        const t = nodemailer.createTransport({ host: s.host, port, secure: port === 465, requireTLS: port !== 465, auth: { user: s.user, pass: s.pass }, connectionTimeout: 8_000, greetingTimeout: 8_000, socketTimeout: 12_000 });
+        await t.verify();
+        return `works (login accepted on port ${port})`;
+      } catch (err) {
+        last = err;
+        if (!UNREACHABLE.includes(String((err as { code?: string })?.code))) break;
+      }
+    }
+    return `FAILS — ${mailFailure(last)}`;
+  };
+  if (process.env.GMAIL_USER?.trim() && process.env.GMAIL_APP_PASSWORD?.trim()) {
+    out.gmail = await smtpCheck({ host: 'smtp.gmail.com', port: 465, user: process.env.GMAIL_USER.trim(), pass: process.env.GMAIL_APP_PASSWORD.replace(/\s/g, '') });
+  }
+  const relay = smtpRelay();
+  if (relay) out.smtp = await smtpCheck(relay);
+  if (process.env.RESEND_API_KEY?.trim()) {
+    try {
+      const res = await fetch('https://api.resend.com/domains', { headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY.trim()}` }, signal: AbortSignal.timeout(10_000) });
+      out.resend = res.ok ? (process.env.RESEND_FROM?.trim() ? 'works (key accepted, sender set)' : 'key accepted, but RESEND_FROM is not set: it can only email your own Resend address') : `FAILS — Resend answered ${res.status} (a rejected API key answers 401)`;
+    } catch (err) {
+      out.resend = `FAILS — ${mailFailure(err)}`;
+    }
+  }
+  if (!Object.keys(out).length) out.none = 'No email route is set up: add GMAIL_USER + GMAIL_APP_PASSWORD, or SMTP_USER + SMTP_PASS, or RESEND_API_KEY + RESEND_FROM.';
+  return out;
 }
 
 /**
