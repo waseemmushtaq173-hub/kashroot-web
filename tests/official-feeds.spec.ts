@@ -8,6 +8,7 @@ import { join } from 'node:path';
 
 import { expect, test } from '@playwright/test';
 
+import { catalogUrl, parseCatalog, resourceFeedUrl, searchCatalog } from '@/lib/dataGovCatalog';
 import { OFFICIAL_SOURCES } from '@/lib/officialSources';
 import { feedUrlProblem, fetchFeedText, KEY_PLACEHOLDER, refreshFeed, resolveFeedUrl, type Feed, type FeedDb } from '@/lib/officialFeed';
 
@@ -237,6 +238,77 @@ test.describe('copying the publishers\' documents', () => {
     expect(workflow).not.toMatch(/secrets\./);
     expect(workflow).toMatch(/git add official-data\b/);
     expect(workflow).toMatch(/permissions:\s*\n\s*contents: write/);
+  });
+});
+
+test.describe('searching data.gov.in\'s catalogue', () => {
+  const ID = '9ef84268-d588-465a-a308-a864a43d0070';
+  const answer = (body: unknown, init: ResponseInit = {}) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' }, ...init });
+
+  test('entries are read forgivingly; one without a resource id is left out', () => {
+    const r = parseCatalog({
+      total: 2,
+      records: [
+        { index_name: ID, title: 'A made-up dataset', org: ['Ministry', 'Department'], updated: '2026-01-02' },
+        { title: 'No id at all' },
+        { index_name: 'not-a-uuid', title: 'Bad id' },
+        { resource_id: ID.replace('9', '8'), title: 'Other shape', org_type: 'Central' },
+      ],
+    });
+    expect(r.total).toBe(2);
+    expect(r.entries.map((e) => e.title)).toEqual(['A made-up dataset', 'Other shape']);
+    expect(r.entries[0].org).toBe('Ministry › Department');
+    expect(parseCatalog('nonsense')).toEqual({ entries: [], total: null });
+  });
+
+  test('the key is added by the server and never comes back out', async () => {
+    const seen: string[] = [];
+    const ok = await searchCatalog('pesticide', ENV, async (u) => {
+      seen.push(String(u));
+      return answer({ records: [{ index_name: ID, title: 'T' }] });
+    });
+    expect(ok).toMatchObject({ entries: [{ id: ID }] });
+    expect(seen[0]).toContain(`api-key=${KEY}`);
+    expect(seen[0]).toContain('filters%5Btitle%5D=pesticide');
+    expect(JSON.stringify(ok)).not.toContain(KEY);
+    for (const bad of [
+      () => answer('x', { status: 403 }),
+      () => answer('x', { status: 500 }),
+      () => new Response('<html>', { status: 200 }),
+    ]) {
+      const r = await searchCatalog('pesticide', ENV, async () => bad());
+      expect(r).toHaveProperty('problem');
+      expect(JSON.stringify(r)).not.toContain(KEY);
+    }
+    const dead = await searchCatalog('pesticide', ENV, async (u) => {
+      throw new Error(`failed ${String(u)}`);
+    });
+    expect(JSON.stringify(dead)).not.toContain(KEY);
+  });
+
+  test('a short word, or no key, is refused before anything is sent', async () => {
+    let sent = 0;
+    const f = async () => {
+      sent++;
+      return answer({});
+    };
+    expect(await searchCatalog('ab', ENV, f)).toHaveProperty('problem');
+    expect(await searchCatalog('pesticide', {}, f)).toHaveProperty('problem');
+    expect(sent).toBe(0);
+  });
+
+  test('"use this dataset" gives a link that the feed rules accept, without the key', () => {
+    const link = resourceFeedUrl(ID);
+    expect(feedUrlProblem(link)).toBeNull();
+    expect(link).toContain(KEY_PLACEHOLDER);
+    expect(catalogUrl('x', KEY)).toContain('api.data.gov.in/lists');
+  });
+
+  test('only the Super Admin can search', () => {
+    const route = read('src/app/api/admin/official-feeds/route.ts');
+    const post = route.slice(route.indexOf('export async function POST'));
+    expect(post.indexOf('isSuperAdminCaller(request)')).toBeGreaterThan(-1);
+    expect(post.indexOf('isSuperAdminCaller(request)')).toBeLessThan(post.indexOf("search_datagov"));
   });
 });
 

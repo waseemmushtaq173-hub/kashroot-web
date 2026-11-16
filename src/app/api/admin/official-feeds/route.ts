@@ -7,6 +7,7 @@
  *   POST {action:'check', id}               read the file now (even if unchanged)
  *   POST {action:'active', id, active}      pause / resume the daily check
  *   POST {action:'remove', id}              stop keeping the list up to date (its products stay)
+ *   POST {action:'search_datagov', q}       what data.gov.in publishes on a subject (with the server's key)
  *
  * The caller is asked of the database (kr_is_super_admin) on every call: the server then reads
  * an official web address on their behalf, so only the Super Admin may set one.
@@ -16,6 +17,7 @@ import { NextResponse } from 'next/server';
 import { isSuperAdminCaller } from '@/lib/server/callerRole';
 import { FEED_PUBLIC_COLUMNS, FEED_RUN_COLUMNS, serviceDb, tableMissing } from '@/lib/server/officialFeedDb';
 import { ipLimited, tooMany } from '@/lib/server/sign';
+import { searchCatalog } from '@/lib/dataGovCatalog';
 import { feedUrlProblem, refreshFeed, type Feed } from '@/lib/officialFeed';
 
 export const dynamic = 'force-dynamic';
@@ -50,6 +52,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Send JSON.' }, { status: 400 });
   }
   const action = text(body.action, 20);
+
+  if (action === 'search_datagov') {
+    const answer = await searchCatalog(text(body.q, 80), { DATA_GOV_IN_API_KEY: process.env.DATA_GOV_IN_API_KEY });
+    return 'problem' in answer ? NextResponse.json({ error: answer.problem }, { status: 502 }) : NextResponse.json(answer);
+  }
 
   if (action === 'add') {
     const kind = text(body.kind, 20);

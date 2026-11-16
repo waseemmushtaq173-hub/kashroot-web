@@ -8,13 +8,14 @@
  * Nothing is typed in: the list's products come from the file.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, ExternalLink, Loader2, Pause, Play, RefreshCw, Trash2 } from 'lucide-react';
+import { AlertTriangle, ExternalLink, Loader2, Pause, Play, RefreshCw, Search, Trash2 } from 'lucide-react';
 
 import { Badge, Btn, EmptyState, Field, INPUT, Panel, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
 import { toast } from '@/lib/client/toast';
 import type { OfficialListInfo } from '@/lib/db/registry';
 import { KIND_LABEL, type OfficialKind } from '@/lib/fertilizer/officialList';
 import { KEY_PLACEHOLDER } from '@/lib/officialFeed';
+import { resourceFeedUrl, type CatalogEntry } from '@/lib/dataGovCatalog';
 import { OFFICIAL_SOURCES } from '@/lib/officialSources';
 import { supabase } from '@/lib/supabase';
 
@@ -68,6 +69,9 @@ export function OfficialFeedsPanel({ lists, onChanged }: { lists: OfficialListIn
   const [fileUrl, setFileUrl] = useState('');
   const [replaceMissing, setReplaceMissing] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);
+  const [q, setQ] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [found, setFound] = useState<{ q: string; entries: CatalogEntry[]; total: number | null } | { q: string; error: string } | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -134,6 +138,25 @@ export function OfficialFeedsPanel({ lists, onChanged }: { lists: OfficialListIn
     setBusy(null);
     await load();
     onChanged();
+  };
+
+  const search = async () => {
+    const word = q.trim();
+    if (word.length < 3) return;
+    setSearching(true);
+    try {
+      const { status, json } = await call<{ entries?: CatalogEntry[]; total?: number | null }>({ body: { action: 'search_datagov', q: word } });
+      setFound(status === 200 ? { q: word, entries: json.entries ?? [], total: json.total ?? null } : { q: word, error: json.error ?? 'The search failed.' });
+    } catch {
+      setFound({ q: word, error: 'Could not reach the server. Try again.' });
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const pickResource = (e: CatalogEntry) => {
+    setFileUrl(resourceFeedUrl(e.id));
+    toast.success(free.length ? 'The link is filled in below: choose the list it belongs to.' : 'Import the list first (above), then come back and paste this link.');
   };
 
   const add = async () => {
@@ -237,6 +260,53 @@ export function OfficialFeedsPanel({ lists, onChanged }: { lists: OfficialListIn
                 })}
               </ul>
             )}
+
+            <div className="space-y-3 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-900/5">
+              <p className="font-semibold text-slate-900">Find what data.gov.in publishes on a subject</p>
+              <p className="text-xs text-slate-600">
+                Searches data.gov.in’s own catalogue with the site’s key. Many datasets there are statistics (production, imports, consumption), not lists of products: only a dataset with one row per product, with its name and registration number, can be used as an official list.
+              </p>
+              <form
+                className="flex flex-col gap-2 sm:flex-row"
+                onSubmit={(ev) => {
+                  ev.preventDefault();
+                  void search();
+                }}
+              >
+                <label className="min-w-0 flex-1">
+                  <span className="sr-only">Subject to search for</span>
+                  <input className={INPUT} value={q} maxLength={80} onChange={(e) => setQ(e.target.value)} placeholder="e.g. pesticide, fungicide, fertiliser" />
+                </label>
+                <Btn theme={theme} icon={Search} type="submit" className="min-h-11" disabled={searching || q.trim().length < 3}>
+                  {searching ? 'Searching…' : 'Search'}
+                </Btn>
+              </form>
+              {found && 'error' in found && <p role="alert" className="rounded-lg bg-rose-50 p-2.5 text-rose-900 ring-1 ring-rose-200">{found.error}</p>}
+              {found && 'entries' in found && (
+                <div role="status">
+                  {found.entries.length === 0 ? (
+                    <p className="text-slate-700">data.gov.in’s catalogue returned no dataset for “{found.q}”. Try another word, or search on data.gov.in itself.</p>
+                  ) : (
+                    <>
+                      <p className="mb-2 text-xs text-slate-600">{found.total ? `${count(found.total)} found; the first ${found.entries.length} are shown.` : `${found.entries.length} found.`} Open a dataset to see its columns before using it.</p>
+                      <ul className="divide-y divide-slate-100" aria-label={`Datasets for ${found.q}`}>
+                        {found.entries.map((e) => (
+                          <li key={e.id} className="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                              <p className="font-medium text-slate-900">{e.title}</p>
+                              <p className="text-xs text-slate-600">{e.org ? `${e.org} · ` : ''}{e.updated ? `updated ${e.updated} · ` : ''}<span className="break-all font-mono">{e.id}</span></p>
+                            </div>
+                            <Btn theme={theme} size="sm" variant="soft" className="min-h-11 shrink-0" onClick={() => pickResource(e)}>
+                              Use this dataset
+                            </Btn>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
 
             {free.length > 0 && (
               <div className="space-y-3 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-900/5">

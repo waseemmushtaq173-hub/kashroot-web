@@ -66,3 +66,12 @@ test('SKUAST-Kashmir doses are shown as typed by KashRoot, never as the universi
   expect(data).not.toMatch(/Nothing here is invented by KashRoot — these are the official/);
 });
 
+test('KashRoot\'s typed reference entries are never headed as registered with, or approved by, the Government', () => {
+  const ui = read('src/components/fertilizer/FertilizerChecker.tsx');
+  expect(ui).not.toMatch(/Official Govt-Approved/);
+  expect(ui).not.toMatch(/Synced with official/);
+  // A reference entry gets its own heading; "Registered with the Government" is for imported official lists only.
+  expect(ui).toContain('const isReference = (h: { source: string }) => h.source === REFERENCE_SOURCE');
+  expect(ui).toMatch(/isReference\(h\) \? REFERENCE_HEADING : REGISTERED\[h\.kind\]/);
+});
+

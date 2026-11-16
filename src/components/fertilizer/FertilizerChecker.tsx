@@ -47,6 +47,7 @@ import {
   fcoLookupMerged,
   agroRegistryStats,
   searchAllEmbedded,
+  REFERENCE_SOURCE,
   type AgroRegistryStats,
   type SearchHit,
 } from '@/lib/gov-agro-registry';
@@ -142,6 +143,10 @@ function checkAgainstFcoStandard(standard: FcoStandard, measured: Record<string,
   const tested = rows.filter((r) => r.verdict !== 'missing');
   return { rows, complete: tested.length === rows.length, pass: tested.length > 0 && tested.every((r) => r.verdict === 'pass') };
 }
+
+/** An entry from KashRoot's own typed reference list (never called "registered with the Government"). */
+const isReference = (h: { source: string }) => h.source === REFERENCE_SOURCE;
+const REFERENCE_HEADING = 'In KashRoot’s reference list — not yet checked against the official register';
 
 /** The heading of a product found in an official list. */
 const REGISTERED: Record<string, string> = {
@@ -595,7 +600,8 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setBrowseOpen(false)} />
           <div className="relative w-full max-w-2xl max-h-[90vh] bg-white rounded-2xl shadow-2xl ring-1 ring-black/10 p-6 overflow-y-auto mx-4 sm:mx-6 lg:mx-8">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Official Govt-Approved CIBRC & FCO Register</h2>
+              <h2 className="text-lg font-semibold text-slate-900">KashRoot reference list: CIB&RC pesticides & FCO fertilisers</h2>
+              <p className="sr-only">Typed from the Government registers; not yet checked against the official registers.</p>
               <button
                 type="button"
                 onClick={() => setBrowseOpen(false)}
@@ -739,7 +745,7 @@ function RegistryForm({ code, setCode, busy, onCheck, onBrowse }: { code: string
       </button>
       <button type="button" onClick={onBrowse} className="mt-2 inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-base font-semibold text-slate-800 shadow-sm ring-1 ring-inset ring-slate-200 hover:bg-slate-50 sm:w-auto">
         <FileQuestion className="h-5 w-5" aria-hidden />
-        Browse Official Govt-Approved CIBRC & FCO Register
+        Browse the reference list (CIB&RC & FCO)
       </button>
     </form>
   );
@@ -750,11 +756,11 @@ function ListsHeld({ stats, fcoAvailable }: { stats: AgroRegistryStats | null | 
   if (stats === undefined && !fcoAvailable) return <p id="truescan-lists" className="sr-only" />;
   const parts: string[] = [];
   if (stats) {
-    parts.push(`Synced with official Govt. of India CIBRC (ppqs.gov.in) registered/banned pesticide lists & FCO 1985 Schedule-I statutory fertiliser standards.`);
-    parts.push(`CIBRC: ${products(stats.registeredCount)} registered · ${products(stats.bannedCount)} banned/restricted · FCO: ${products(stats.fcoCount)} fertiliser standards.`);
+    parts.push(`KashRoot’s reference lists, typed from the Government’s CIB&RC (ppqs.gov.in) pesticide registers and the Fertiliser (Control) Order, 1985, Schedule I. They are not the complete registers and are not yet checked against them.`);
+    parts.push(`${products(stats.registeredCount)} registered · ${products(stats.bannedCount)} banned/restricted · ${products(stats.fcoCount)} fertiliser standards.`);
   }
   if (fcoAvailable) {
-    parts.push('Fertiliser types checked against the live Fertiliser (Control) Order, 1985 Schedule I standards.');
+    parts.push('Fertiliser types are compared with the Fertiliser (Control) Order, 1985, Schedule I standards as typed by KashRoot.');
   }
   return <p id="truescan-lists" className="mt-2 text-xs text-slate-500">{parts.join(' — ')}.</p>;
 }
@@ -833,23 +839,28 @@ function ScanResult({ result, account, onPhoto, onLab, standard, cibrcResult, sk
       )}
 
       {byNumber.map((h, i) => (
-        <section key={`${h.source}|${h.registration_no}|${h.name}|${i}`} aria-label="Found in the official list" className="rounded-2xl bg-forest-soft p-4 ring-1 ring-forest-line">
-          <p className="flex items-center gap-2 text-base font-semibold text-forest-deep"><BadgeCheck className="h-5 w-5 shrink-0" aria-hidden /> {REGISTERED[h.kind]}</p>
+        <section key={`${h.source}|${h.registration_no}|${h.name}|${i}`} aria-label={isReference(h) ? 'Found in KashRoot’s reference list' : 'Found in the official list'} className={isReference(h) ? 'rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200' : 'rounded-2xl bg-forest-soft p-4 ring-1 ring-forest-line'}>
+          {isReference(h)
+            ? <p className="flex items-center gap-2 text-base font-semibold text-amber-950"><FileQuestion className="h-5 w-5 shrink-0 text-amber-700" aria-hidden /> {REFERENCE_HEADING}</p>
+            : <p className="flex items-center gap-2 text-base font-semibold text-forest-deep"><BadgeCheck className="h-5 w-5 shrink-0" aria-hidden /> {REGISTERED[h.kind]}</p>}
           <div className="mt-1"><HitLine hit={h} strong /></div>
           <p className="mt-2 text-xs text-forest-pine">A fake can copy a real number. Check that the company on the label is exactly the same, and buy only with a bill.</p>
         </section>
       ))}
 
       {byName.length > 0 && (
-        <section aria-label="Found by name in the official list" className="rounded-2xl bg-forest-soft/70 p-4 ring-1 ring-forest-line">
-          <p className="flex items-center gap-2 text-base font-semibold text-forest-deep"><BadgeCheck className="h-5 w-5 shrink-0" aria-hidden /> Found by name in the Government list</p>
+        <section aria-label={byName.every(isReference) ? 'Found by name in KashRoot’s reference list' : 'Found by name in the official list'} className={byName.every(isReference) ? 'rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200' : 'rounded-2xl bg-forest-soft/70 p-4 ring-1 ring-forest-line'}>
+          {byName.every(isReference)
+            ? <p className="flex items-center gap-2 text-base font-semibold text-amber-950"><FileQuestion className="h-5 w-5 shrink-0 text-amber-700" aria-hidden /> Found by name in KashRoot’s reference list</p>
+            : <p className="flex items-center gap-2 text-base font-semibold text-forest-deep"><BadgeCheck className="h-5 w-5 shrink-0" aria-hidden /> Found by name in the Government list</p>}
           <p className="mt-1 text-slate-800">
-            {byName.length === 1 ? 'One registered product has this name.' : `${byName.length === 20 ? '20 or more' : byName.length} registered products have this name.`} The company and the registration number on your label must match {byName.length === 1 ? 'it' : 'one of these'}.
+            {byName.length === 1 ? `One ${byName.every(isReference) ? 'listed' : 'registered'} product has this name.` : `${byName.length === 20 ? '20 or more' : byName.length} ${byName.every(isReference) ? 'listed' : 'registered'} products have this name.`} The company and the registration number on your label must match {byName.length === 1 ? 'it' : 'one of these'}.
+            {byName.every(isReference) && ' This list was typed in by KashRoot and has not been checked against the official register: confirm the number on ppqs.gov.in.'}
           </p>
           <ul className="mt-3 space-y-3">
             {shownNames.map((h, i) => (
               <li key={`${h.source}|${h.registration_no}|${h.name}|${i}`} className="rounded-xl bg-white/80 p-3 ring-1 ring-forest-soft">
-                <p className="text-xs font-semibold uppercase tracking-wider text-forest-deep">{REGISTERED[h.kind]}</p>
+                <p className={`text-xs font-semibold uppercase tracking-wider ${isReference(h) ? 'text-amber-900' : 'text-forest-deep'}`}>{isReference(h) ? REFERENCE_HEADING : REGISTERED[h.kind]}</p>
                 <HitLine hit={h} />
               </li>
             ))}
