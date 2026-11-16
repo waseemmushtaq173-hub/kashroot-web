@@ -45,7 +45,7 @@ import { Badge, Btn, EmptyState, INPUT, PORTAL_THEMES, Panel, inr } from '@/comp
 import { PostedRates } from '@/components/mandi/PostedRates';
 import { LastUpdated, SavedAt } from '@/components/pwa/SavedAt';
 import { useSavedAt } from '@/components/pwa/savedCopies';
-import { perKg, recentRates } from '@/lib/db/mandiRates';
+import { inUnit, perKg, recentRates } from '@/lib/db/mandiRates';
 import { Tilt3D } from '@/components/three/Tilt3D';
 import { ReadLink } from '@/components/voice/ReadLink';
 import { mandiFromLink } from '@/lib/navIntent';
@@ -466,7 +466,8 @@ export default function MandiWeatherPage() {
             }
           : {
               label: `${applied.commodity} — average modal`,
-              value: `${inr.format(posted.avgKg * factor)}`,
+              // The posted average is already a price per kg: it goes to the chosen unit (box, kg, quintal) by weight, not by the quintal conversion the government prices need.
+              value: `${inr.format(inUnit(posted.avgKg, effectiveUnit, boxKg))}`,
               trend: `per ${unitLabel} · ${posted.count} rate${posted.count === 1 ? '' : 's'} from ${posted.mandis} mandi${posted.mandis === 1 ? '' : 's'}`,
             },
         stats || !posted

@@ -69,6 +69,14 @@ export async function removeRate(id: string): Promise<void> {
   if (error) throw new Error(dbMessage(error, 'Could not remove the rate.'));
 }
 
+/**
+ * A price per kg shown in the unit the person chose: the same kg, a box (its weight; 17 kg when none is given) or a quintal
+ * (100 kg). Used for the average of the rates traders posted, which are first brought to one price per kg.
+ */
+export function inUnit(perKgPrice: number, unit: RateUnit, boxKg: number): number {
+  return unit === 'kg' ? perKgPrice : unit === 'quintal' ? perKgPrice * 100 : perKgPrice * (boxKg > 0 ? boxKg : 17);
+}
+
 /** Price per kg, when it can be worked out (a box needs its weight). */
 export function perKg(r: Pick<MandiRate, 'unit' | 'box_kg'>, price: number): number | null {
   if (r.unit === 'kg') return price;
