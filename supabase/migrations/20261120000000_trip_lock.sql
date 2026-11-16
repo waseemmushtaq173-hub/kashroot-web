@@ -183,7 +183,7 @@ $$;
 -- The email kinds: the one complete list (the same in every migration that sets it, newest: this one).
 alter table public.email_outbox drop constraint if exists email_outbox_kind_check;
 alter table public.email_outbox add constraint email_outbox_kind_check check (kind in (
-  'help_new', 'help_ack', 'help_reply', 'help_resolved', 'payout_changed', 'password_changed', 'email_changed', 'phone_changed', 'new_signin', 'signin_locked', 'team_changed', 'trip_lost'));
+  'help_new', 'help_ack', 'help_reply', 'help_resolved', 'payout_changed', 'password_changed', 'email_changed', 'phone_changed', 'new_signin', 'signin_locked', 'team_changed', 'trip_lost')) not valid;
 
 -- Trips with no position for 5 minutes: mark them lost, write it in the events, and queue one
 -- email to the sender (again only after the trip has been back and is lost again).

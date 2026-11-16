@@ -20,6 +20,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Building2, CalendarCheck, Check, Landmark, Loader2, Mail, Package, Plus, ReceiptText, ShoppingBag, Snowflake, Trash2, Truck, UserPlus, X } from 'lucide-react';
 
+import { LabConsole } from '@/components/lab/LabConsole';
 import { OrderCard } from '@/components/market/OrderCard';
 import { PORTAL_THEMES } from '@/components/portal/kit';
 import { TwoStepVerify, twoStepState } from '@/components/security/TwoStep';
@@ -86,6 +87,7 @@ const KINDS: { value: string; label: string }[] = [
   { value: 'dealer', label: 'Dealer / trader' },
   { value: 'shop', label: 'Shop (seeds, sprays, tools)' },
   { value: 'helper', label: 'Helper team (picking, packing, transport)' },
+  { value: 'soil_lab', label: 'Lab / soil testing' },
 ];
 const kindLabel = (k: string) => KINDS.find((x) => x.value === k)?.label ?? k;
 /** What each kind of business does here, in one line, shown at the top of its page. */
@@ -94,6 +96,7 @@ const KIND_HELP: Record<string, string> = {
   dealer: 'List your products, take orders, and send them with your own drivers.',
   shop: 'List your seeds, sprays and tools, take orders, and send them with your own drivers.',
   helper: 'Keep your picking, packing or transport team together here: who is in it and who may act for it.',
+  soil_lab: 'Set your lab’s districts and tests, take farmers’ booking requests, visit and collect the sample, and upload the report.',
 };
 const INPUT = 'min-h-11 w-full rounded-xl border-0 bg-white px-3 ring-1 ring-slate-300 focus:ring-2 focus:ring-forest';
 const BUTTON = 'inline-flex min-h-11 items-center gap-2 rounded-xl bg-forest px-4 font-semibold text-white hover:bg-forest-deep disabled:opacity-60';
@@ -386,6 +389,8 @@ function BusinessView({ org, busy, act }: { org: Org & { role: Role }; busy: str
           </div>
         </section>
       )}
+
+      {org.kind === 'soil_lab' && !suspended && <LabConsole orgId={org.id} role={org.role} suspended={suspended} />}
 
       <StoresSection relevant={org.kind === 'cold_store'} org={org} members={members} suspended={suspended} busy={busy} act={act} />
 

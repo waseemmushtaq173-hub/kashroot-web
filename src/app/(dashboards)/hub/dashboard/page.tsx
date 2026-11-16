@@ -6,25 +6,26 @@
  *   Orders      → the pickups from the orchard gate to the buyer (step, hub, vehicle, driver, both live pins, the pooled
  *                 load at each hub) and the live fleet, read-only;
  *   Accounts    → everyone who has joined (farmers, buyers, dealers, drivers, experts, business owners);
- *   Businesses  → every business and its owners (read only);
+ *   Businesses  → every business and its owners (read only), and every soil and lab test booking (no phones or addresses);
  *   Cold stores → the cold-store directory.
  * Guarded three times: the team pass at the door (src/proxy.ts), the admin code (AdminLock), and the database, which
  * answers a team member only for a section that is ticked for them (kr_team_sections, kr_team_can). Escrow release,
  * approving vehicles, certifying devices and suspending a business stay with the Super Admin.
  */
 import { useEffect, useState } from 'react';
-import { Building2, Satellite, Snowflake, Truck, Users } from 'lucide-react';
+import { Building2, FlaskConical, Satellite, Snowflake, Truck, Users } from 'lucide-react';
 
 import { AccountsPanel } from '@/components/admin/AccountsPanel';
 import { AdminLock } from '@/components/admin/AdminLock';
 import { AdminOrdersPanel } from '@/components/admin/AdminOrdersPanel';
 import { ColdDirectoryPanel } from '@/components/admin/ColdDirectoryPanel';
 import { GpsFleetPanel } from '@/components/admin/GpsFleetPanel';
+import { LabOversightPanel } from '@/components/admin/LabOversightPanel';
 import { BusinessesPanel } from '@/components/admin/SuperAdminPanel';
 import { PortalShell } from '@/components/layout/PortalShell';
 import { supabase } from '@/lib/supabase';
 
-type View = 'orders' | 'fleet' | 'people' | 'businesses' | 'coldstores';
+type View = 'orders' | 'fleet' | 'people' | 'businesses' | 'labs' | 'coldstores';
 
 /** Each view and the team section that opens it ('*' = the Super Admin opens all). */
 const VIEWS: { id: View; label: string; icon: typeof Truck; section: string }[] = [
@@ -32,6 +33,7 @@ const VIEWS: { id: View; label: string; icon: typeof Truck; section: string }[] 
   { id: 'fleet', label: 'Live fleet', icon: Satellite, section: 'orders' },
   { id: 'people', label: 'People who joined', icon: Users, section: 'accounts' },
   { id: 'businesses', label: 'Business owners', icon: Building2, section: 'businesses' },
+  { id: 'labs', label: 'Soil & lab tests', icon: FlaskConical, section: 'businesses' },
   { id: 'coldstores', label: 'Cold stores', icon: Snowflake, section: 'coldstores' },
 ];
 
@@ -74,6 +76,7 @@ function HubConsole() {
       {view?.id === 'fleet' && <GpsFleetPanel />}
       {view?.id === 'people' && <AccountsPanel />}
       {view?.id === 'businesses' && <BusinessesPanel />}
+      {view?.id === 'labs' && <LabOversightPanel />}
       {view?.id === 'coldstores' && <ColdDirectoryPanel />}
     </PortalShell>
   );

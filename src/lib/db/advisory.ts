@@ -120,3 +120,18 @@ export async function myRoleRequest(role: 'EXPERT' | 'DEALER' | 'REPORTER', user
   const { data } = await supabase.from('role_requests').select('status').eq('role', role).eq('user_id', userId).maybeSingle();
   return (data as { status: string } | null) ?? null;
 }
+
+/**
+ * The lab booking a question is about (a farmer asked the experts about a lab report), or null. Asked on its own, and
+ * quietly: a database without the soil and lab update (20261128000000_soil_lab_tests.sql) has no such column, and the
+ * rest of the request must still open.
+ */
+export async function labBookingOf(requestId: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.from('advisory_requests').select('lab_booking_id').eq('id', requestId).maybeSingle();
+    if (error) return null;
+    return (data as { lab_booking_id: string | null } | null)?.lab_booking_id ?? null;
+  } catch {
+    return null;
+  }
+}

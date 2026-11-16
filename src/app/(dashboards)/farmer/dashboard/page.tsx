@@ -30,6 +30,7 @@ import {
   CalendarDays,
   CloudSun,
   Droplets,
+  FlaskConical,
   Loader2,
   MessageCircleQuestion,
   Package,
@@ -45,6 +46,7 @@ import { OrchardAnalyticsPanel } from '@/components/farmer/OrchardAnalyticsPanel
 import { SellerDesk } from '@/components/market/SellerDesk';
 import { FarmerStoredApplesDesk } from '@/components/rental/owner/SharedBinAndEngineeringDesk';
 import { SafePayment } from '@/components/payments/SafePayment';
+import { SoilLabTests } from '@/components/lab/SoilLabTests';
 import { Btn, Panel, PORTAL_THEMES, Skeleton, Tile } from '@/components/portal/kit';
 import { LastUpdated } from '@/components/pwa/SavedAt';
 import { inr, loadAccount, type Account } from '@/lib/db/client';
@@ -55,8 +57,8 @@ import type { MarketCategory, MarketListing, MarketOrder } from '@/lib/db/market
 import { sellerToAct } from '@/lib/db/shop';
 
 const theme = PORTAL_THEMES.farmer;
-type Tab = 'overview' | 'coldstore' | 'lots' | 'orders' | 'payouts';
-const TABS: Tab[] = ['overview', 'coldstore', 'lots', 'orders', 'payouts'];
+type Tab = 'overview' | 'coldstore' | 'lots' | 'orders' | 'tests' | 'payouts';
+const TABS: Tab[] = ['overview', 'coldstore', 'lots', 'orders', 'tests', 'payouts'];
 
 export default function FarmerDashboardPage() {
   return (
@@ -120,6 +122,7 @@ function FarmerDashboard() {
         { id: 'coldstore', label: 'My stored apples', icon: Thermometer },
         { id: 'lots', label: 'What I sell', icon: Store, count: products.length || undefined },
         { id: 'orders', label: 'Orders', icon: Package, count: toAct || undefined },
+        { id: 'tests', label: 'Soil & lab tests', icon: FlaskConical },
         { id: 'payouts', label: 'Escrow payment', icon: ShieldCheck },
       ]}
       activeTab={tab}
@@ -206,7 +209,9 @@ function FarmerDashboard() {
         <div className={tab === 'overview' ? 'hidden' : 'space-y-6'}>
           {tab === 'coldstore' && <FarmerStoredApplesDesk account={account} theme={theme} />}
           {tab === 'payouts' && <SafePayment as="farmer" account={account} theme={theme} />}
+          {tab === 'tests' && <SoilLabTests account={account} />}
           {tab !== 'coldstore' && (
+            <div className={tab === 'tests' ? 'hidden' : undefined}>
             <SellerDesk
               account={account}
               theme={theme}
@@ -218,6 +223,7 @@ function FarmerDashboard() {
               autoEditId={autoEditId}
               onLoaded={onLoaded}
             />
+            </div>
           )}
         </div>
       )}

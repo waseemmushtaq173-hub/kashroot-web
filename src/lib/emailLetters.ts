@@ -18,7 +18,7 @@ export interface Letter {
 
 export interface Queued {
   id: number;
-  kind: 'help_new' | 'help_ack' | 'help_reply' | 'help_resolved' | 'payout_changed' | 'password_changed' | 'email_changed' | 'phone_changed' | 'new_signin' | 'signin_locked' | 'team_changed' | 'trip_lost';
+  kind: 'help_new' | 'help_ack' | 'help_reply' | 'help_resolved' | 'payout_changed' | 'password_changed' | 'email_changed' | 'phone_changed' | 'new_signin' | 'signin_locked' | 'team_changed' | 'trip_lost' | 'lab_booking_new' | 'lab_booking_cancelled' | 'lab_booking_update' | 'lab_report_ready';
   ref: string | null;
   detail: string | null;
   created_at: string;
@@ -61,7 +61,7 @@ export function redactForEmail(text: string): string {
 
 const TOPIC: Record<string, string> = { login: 'Signing in', payment: 'Payment', order: 'An order', cold_storage: 'Cold storage', selling: 'Selling', other: 'Something else' };
 
-const NOTICE: Record<Exclude<Queued['kind'], 'help_new' | 'help_ack' | 'help_reply' | 'help_resolved' | 'team_changed' | 'trip_lost'>, [string, (detail: string | null) => string]> = {
+const NOTICE: Record<Exclude<Queued['kind'], 'help_new' | 'help_ack' | 'help_reply' | 'help_resolved' | 'team_changed' | 'trip_lost' | 'lab_booking_new' | 'lab_booking_cancelled' | 'lab_booking_update' | 'lab_report_ready'>, [string, (detail: string | null) => string]> = {
   payout_changed: ['Your KashRoot payout details were changed', () => 'The UPI ID or bank account where people pay you was saved or changed on KashRoot.'],
   password_changed: ['Your KashRoot password was changed', () => 'The password of your KashRoot account was changed.'],
   email_changed: ['A change of your KashRoot email was asked for', () => 'Someone signed in to your KashRoot account asked to change its email address. It changes only after the link sent to the new address is opened.'],
@@ -129,6 +129,49 @@ export function letterFor(q: Queued, site: string, inbox: string): Letter | null
         'Call the driver now. The trip shows the last position and what happened, and the alert clears by itself when the position comes back.',
       ].filter((line, i, all) => line !== '' || all[i - 1] !== ''),
       action: { label: 'Open my consignments', href: `${site}/tracking/dashboard?tab=mine` },
+    };
+  }
+  // Soil and lab tests (20261128000000_soil_lab_tests.sql). Only the booking code, the test and the district are named:
+  // never a farmer's name, phone, address or a value from a report.
+  if (q.kind === 'lab_booking_new') {
+    return {
+      to: q.to,
+      subject: `New test request ${q.ref ?? ''}`.trim(),
+      lines: [
+        `A farmer booked a test with your lab on KashRoot: ${q.detail ?? ''}`.trim(),
+        `Request: ${q.ref ?? ''}`,
+        `Received: ${indiaTime(q.created_at)} (India time)`,
+        '',
+        'Open your requests, read where to go, and accept it with the day and time you will come. The farmer is told straight away.',
+      ],
+      action: { label: 'Open my lab requests', href: `${site}/business/dashboard` },
+    };
+  }
+  if (q.kind === 'lab_booking_cancelled') {
+    return {
+      to: q.to,
+      subject: `Test request ${q.ref ?? ''} was cancelled`.trim(),
+      lines: [`The farmer cancelled the test request ${q.ref ?? ''}${q.detail ? ` (${q.detail})` : ''}.`, 'There is nothing to do for this one.'],
+      action: { label: 'Open my lab requests', href: `${site}/business/dashboard` },
+    };
+  }
+  if (q.kind === 'lab_booking_update') {
+    return {
+      to: q.to,
+      subject: `Your test ${q.ref ?? ''}: ${q.detail ?? 'an update'}`.trim(),
+      lines: [`An update on your soil or lab test ${q.ref ?? ''}:`, q.detail ?? '', '', 'Open your tests to see the visit time, the lab’s note and, when it is ready, the report.'].filter((line, i, all) => line !== '' || all[i - 1] !== ''),
+      action: { label: 'Open my tests', href: `${site}/farmer/dashboard?tab=tests` },
+    };
+  }
+  if (q.kind === 'lab_report_ready') {
+    return {
+      to: q.to,
+      subject: `Your test report is ready (${q.ref ?? ''})`,
+      lines: [
+        `The lab uploaded the report for your test ${q.ref ?? ''}${q.detail ? ` (${q.detail})` : ''}.`,
+        'You can read it on KashRoot, and ask an expert what to do about the results.',
+      ],
+      action: { label: 'Read my report', href: `${site}/farmer/dashboard?tab=tests` },
     };
   }
   if (q.kind === 'help_ack') {

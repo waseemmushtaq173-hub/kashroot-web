@@ -12,10 +12,11 @@ import { ArrowLeft, CheckCircle2, Phone, Send, Sparkles, ThumbsDown, ThumbsUp, U
 import { toast } from '@/lib/client/toast';
 
 import { VideoCall } from '@/components/advisory/VideoCall';
+import { LabReportView } from '@/components/lab/LabReportView';
 import { Badge, Btn, INPUT, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
 import { MicButton, SpeakButton } from '@/components/voice/VoiceButtons';
 import { isRtl, scriptLang } from '@/lib/client/speech';
-import { getRequest, KIND_LABEL, listMessages, sendMessage, setRequest, STATUS_LABEL, type AdvisoryMessage, type AdvisoryRequest } from '@/lib/db/advisory';
+import { getRequest, KIND_LABEL, labBookingOf, listMessages, sendMessage, setRequest, STATUS_LABEL, type AdvisoryMessage, type AdvisoryRequest } from '@/lib/db/advisory';
 import { ago, type Account } from '@/lib/db/client';
 import { adviceRating, rateAdvice } from '@/lib/db/contributions';
 
@@ -37,10 +38,13 @@ export function RequestThread({ requestId, account, asExpert, onBack }: { reques
   const [inCall, setInCall] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [rating, setRating] = useState<'helpful' | 'not_helpful' | null | undefined>(undefined);
+  // A question about a lab report carries the booking whose report is shown under it.
+  const [labBooking, setLabBooking] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const [r, m, rated] = await Promise.all([getRequest(requestId), listMessages(requestId), asExpert ? Promise.resolve(undefined) : adviceRating(requestId)]);
+      const [r, m, rated, lab] = await Promise.all([getRequest(requestId), listMessages(requestId), asExpert ? Promise.resolve(undefined) : adviceRating(requestId), labBookingOf(requestId)]);
+      setLabBooking(lab);
       setReq(r);
       setMessages(m);
       setRating(rated);
@@ -125,6 +129,12 @@ export function RequestThread({ requestId, account, asExpert, onBack }: { reques
         {req.photo && (
           // eslint-disable-next-line @next/next/no-img-element -- stored data URL
           <img src={req.photo} alt="Photo from the farmer" className="mt-3 max-h-80 rounded-2xl object-contain ring-1 ring-slate-200" />
+        )}
+        {labBooking && (
+          <details className="mt-3 rounded-2xl bg-forest-soft p-3 ring-1 ring-forest-line" open={asExpert}>
+            <summary className="flex min-h-11 cursor-pointer items-center font-semibold text-forest-deep">Lab report attached to this question</summary>
+            <div className="mt-2 rounded-xl bg-white p-3"><LabReportView bookingId={labBooking} /></div>
+          </details>
         )}
         <div className="mt-4 flex flex-wrap gap-2">
           {asExpert && req.status !== 'closed' && !(req.status === 'accepted' && req.expert_id === account.id) && (

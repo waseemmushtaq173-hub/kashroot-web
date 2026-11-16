@@ -145,7 +145,7 @@ alter table public.email_outbox drop constraint if exists email_outbox_kind_chec
 -- The one complete list (the same in every migration that sets it, newest: 20261120000000_trip_lock.sql),
 -- so RUN_THIS_ONCE.sql can be run again on a database that already holds every kind.
 alter table public.email_outbox add constraint email_outbox_kind_check check (kind in (
-  'help_new', 'help_ack', 'help_reply', 'help_resolved', 'payout_changed', 'password_changed', 'email_changed', 'phone_changed', 'new_signin', 'signin_locked', 'team_changed', 'trip_lost'));
+  'help_new', 'help_ack', 'help_reply', 'help_resolved', 'payout_changed', 'password_changed', 'email_changed', 'phone_changed', 'new_signin', 'signin_locked', 'team_changed', 'trip_lost')) not valid;
 
 -- A new request: to the support inbox, and "We got your request" to the person when they gave an email.
 create or replace function public.kr_email_on_help() returns trigger
