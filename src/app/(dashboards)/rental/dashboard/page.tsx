@@ -316,7 +316,7 @@ export default function RentalPage() {
           ) : (
             <div className="space-y-4">
               {visible.map((l) => (
-                <StoreCard key={l.id} listing={l} chambers={chambers.filter((c) => c.listing_id === l.id && c.storage !== 'boxes' && ownerMeasured(c.size))} free={free} own={l.owner_id === account.id} want={want} onBook={(quick) => setBooking(l, quick)} />
+                <StoreCard key={l.id} listing={l} chambers={chambers.filter((c) => c.listing_id === l.id)} free={free} own={l.owner_id === account.id} want={want} onBook={(quick) => setBooking(l, quick)} />
               ))}
             </div>
           )}
@@ -820,6 +820,17 @@ function OwnerPanel({
                       </p>
                       <Btn theme={theme} className="mt-3 min-h-[48px] w-full text-base sm:w-auto" icon={Warehouse} onClick={() => openWizard(l, l.building ? 3 : 2)}>
                         Set up building & chambers
+                      </Btn>
+                    </div>
+                  )}
+                  {wizardStore && mine.some((c) => c.storage === 'boxes' || !ownerMeasured(c.size)) && (
+                    <div className="mt-3 rounded-2xl bg-amber-50 p-4 ring-2 ring-amber-300">
+                      <p className="font-semibold text-amber-950">Some chambers need exact measurements before farmers can book them</p>
+                      <p className="mt-1 text-sm text-amber-950">
+                        KashRoot only shows what you measured — never a standard size. For each chamber enter one bin or crate’s length, width and height, how many high you stack, and each floor’s usable height. Then the 3D view, the walk inside and booking open for your farmers.
+                      </p>
+                      <Btn theme={theme} className="mt-3 min-h-[48px] w-full text-base sm:w-auto" icon={Warehouse} onClick={() => openWizard(l, l.building ? 3 : 2)}>
+                        Finish chamber measurements
                       </Btn>
                     </div>
                   )}

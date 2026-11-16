@@ -130,7 +130,7 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+:root, [data-portal] {
   /* Light only: stops phone browsers' forced dark mode from repainting pages. */
   color-scheme: only light;
   --kr-chinar-amber: #D9622B;
@@ -154,7 +154,7 @@
  * .kr-light (the tool pages) sets its own --kr-text-* and --kr-border-* names on its element,
  * which win inside it; these :root values apply everywhere else.
  */
-:root {
+:root, [data-portal] {
   --kr-forest-green: rgb(var(--kr-forest-rgb));
   --kr-secondary-green: rgb(var(--kr-mid-rgb));
   --kr-deep-green: rgb(var(--kr-deep-rgb));
@@ -232,7 +232,7 @@ body {
 }
 
 /* KASHROOT DYNAMIC PORTAL THEMES */
-:root {
+:root, [data-portal] {
   --kr-saffron-gold: #E8A317;
   --kr-orchard-green: #1E7B4F;
 }
