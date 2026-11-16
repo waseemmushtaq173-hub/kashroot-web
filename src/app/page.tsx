@@ -76,6 +76,9 @@ const TOOL_ACTIONS: Record<ToolId, { primary: ToolAction; secondary: ToolAction 
 
 const BUTTON_LINK = 'no-underline hover:no-underline';
 
+/** Each tool card wears a different hue of the spectrum (a portal's palette: its buttons, icon tile and edges follow). */
+const TOOL_HUE: Record<ToolId, string> = { escrow: 'farmer', mandi: 'trader', priceComparison: 'rental' };
+
 /**
  * Real live platform counts for the hero, straight from the database (the
  * public, signed-out tables). Each count stands on its own: when one cannot
@@ -116,12 +119,13 @@ export default async function HomePage() {
         {/* Bottom padding leaves room for the season badge (no more). */}
         <main id="main-content" className="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-6 sm:pt-12 lg:px-8">
           <section className={`max-w-2xl rounded-[2rem] p-6 sm:p-9 ${GLASS.panel}`}>
-            <p className="inline-flex rounded-full bg-forest-soft px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-forest ring-1 ring-champagne/60">
+            <p className="inline-flex items-center gap-2 rounded-full bg-white/85 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-ink ring-1 ring-slate-900/10">
+              <span aria-hidden className="kr-spectrum h-1.5 w-8 rounded-full" />
               KashRoot · The agri-business ecosystem
             </p>
             <h1 className="font-display mt-5 text-4xl font-semibold tracking-tight text-ink [text-wrap:balance] sm:text-5xl lg:text-6xl">
               Every harvest,{' '}
-              <span className="bg-gradient-to-r from-forest to-forest-mid bg-clip-text text-transparent">
+              <span className="kr-spectrum-text">
                 traded with trust.
               </span>
             </h1>
@@ -129,10 +133,10 @@ export default async function HomePage() {
               <strong className="font-semibold text-ink">KashRoot</strong> brings pay-after-delivery trade, live mandi rates and
               transparent price comparison to growers, traders and buyers.
             </p>
-            {/* The KashRoot identity: forest greens, soft green and champagne gold. */}
+            {/* The KashRoot identity: the whole spectrum, not one hue. */}
             <p aria-hidden className="mt-5 flex items-center gap-1.5">
-              {['#1E1B4B', '#3730A3', '#6358E0', '#EEF0FF', '#C6A45B'].map((c) => (
-                <span key={c} className="h-2.5 w-8 rounded-full ring-1 ring-forest-line" style={{ backgroundColor: c }} />
+              {['#E11D48', '#F97316', '#FACC15', '#22C55E', '#06B6D4', '#3B82F6', '#8B5CF6'].map((c) => (
+                <span key={c} className="h-2.5 w-7 rounded-full ring-1 ring-slate-900/10" style={{ backgroundColor: c }} />
               ))}
             </p>
             {/* Real live platform counts — each shown only when its table answered. */}
@@ -148,7 +152,7 @@ export default async function HomePage() {
           <section aria-label="KashRoot tools" className="mt-6 grid gap-5 sm:mt-8 md:grid-cols-2 lg:grid-cols-3">
             {/* One column on a phone, two on a tablet (the third card across both), three from 1024 px: a card is never narrower than its buttons. */}
             {TOOL_ORDER.map((id, i) => (
-              <div key={id} className={i === 2 ? 'md:col-span-2 lg:col-span-1' : undefined}>
+              <div key={id} data-portal={TOOL_HUE[id]} className={i === 2 ? 'md:col-span-2 lg:col-span-1' : undefined}>
                 <Tilt3D className="rounded-3xl" max={6}>
                   <ToolCard id={id} />
                 </Tilt3D>
@@ -158,14 +162,20 @@ export default async function HomePage() {
         </main>
       </HeroShowcase>
 
-      <div className="relative isolate overflow-hidden bg-gradient-to-b from-mist via-white to-forest-soft/60">
+      <div className="relative isolate overflow-hidden bg-gradient-to-b from-mist via-white to-white">
         <div aria-hidden className="pointer-events-none absolute inset-0 -z-10" style={LATTICE_BG} />
+        {/* A faint glow of the spectrum behind the page, so it is not one tint from top to bottom. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10"
+          style={{ backgroundImage: 'radial-gradient(38rem 24rem at 0% 8%, rgba(225,29,72,0.08), transparent 60%), radial-gradient(38rem 24rem at 100% 28%, rgba(249,115,22,0.09), transparent 60%), radial-gradient(40rem 26rem at 0% 62%, rgba(6,182,212,0.08), transparent 60%), radial-gradient(40rem 26rem at 100% 92%, rgba(139,92,246,0.09), transparent 60%)' }}
+        />
         <div className="mx-auto max-w-7xl space-y-10 px-4 pb-14 pt-8 sm:px-6 lg:px-8">
-          <section aria-label="Voice assistant">
+          <section aria-label="Voice assistant" data-portal="kissan">
             <VoiceConcierge />
           </section>
 
-          <section aria-labelledby="fertilizer-heading" className="grid gap-6 lg:grid-cols-[1fr_1.6fr] lg:items-start">
+          <section aria-labelledby="fertilizer-heading" data-portal="expert" className="grid gap-6 lg:grid-cols-[1fr_1.6fr] lg:items-start">
             <div className="pt-2 lg:sticky lg:top-24">
               <p className="inline-flex rounded-full bg-champagne-soft px-3 py-1 text-xs font-semibold text-champagne-deep ring-1 ring-champagne/60">Fertilisers and pesticides</p>
               <h2 id="fertilizer-heading" className="font-display mt-3 text-3xl font-semibold tracking-tight text-ink">KashRoot TrueScan — is it genuine?</h2>
@@ -181,10 +191,11 @@ export default async function HomePage() {
           </section>
 
           <section aria-labelledby="portals-heading">
-            <div className="relative isolate mb-6 overflow-hidden rounded-[2rem] border border-forest-deep p-8 text-white [box-shadow:inset_0_1px_0_rgba(255,255,255,0.14),0_2px_0_#0C0B2A,0_18px_40px_-14px_rgba(30,27,75,0.45)] sm:p-10">
-              <div aria-hidden className="absolute inset-0 -z-20 bg-gradient-to-br from-forest-deep via-forest to-forest" />
-              <div aria-hidden className="absolute inset-x-8 top-0 -z-10 h-px bg-gradient-to-r from-transparent via-champagne to-transparent" />
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-champagne">Every portal</p>
+            <div className="relative isolate mb-6 overflow-hidden rounded-[2rem] border border-white/30 p-8 text-white [box-shadow:inset_0_1px_0_rgba(255,255,255,0.22),0_2px_0_#2A1B3D,0_18px_40px_-14px_rgba(60,20,80,0.45)] sm:p-10">
+              <div aria-hidden className="kr-spectrum-deep absolute inset-0 -z-20" />
+              <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-b from-black/0 to-black/25" />
+              <div aria-hidden className="kr-spectrum absolute inset-x-0 top-0 -z-10 h-1" />
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white">Every portal</p>
               <h2 id="portals-heading" className="font-display mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">One valley, every trade</h2>
               <p className="mt-2 max-w-xl text-white/90">Each portal has its own sign-in. Pick yours.</p>
             </div>

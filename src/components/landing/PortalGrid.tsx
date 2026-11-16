@@ -17,6 +17,18 @@ import { PORTALS } from '@/lib/auth/roles';
 import { useShowAdmin } from '@/lib/client/adminDevice';
 import { EIGHT_PORTALS_CONFIG } from '@/lib/portalCardsConfig';
 
+/** Each portal card wears its portal's own hue (the same colours it has inside), so the grid is a spectrum, not one indigo. */
+const HUE: Record<string, string> = {
+  farmer: 'farmer',
+  buyer: 'buyer',
+  'kissan-tools': 'kissan',
+  'cold-storage': 'rental',
+  tracking: 'tracking',
+  'agro-dealer': 'dealer',
+  advisory: 'expert',
+  'mandi-helpers': 'trader',
+};
+
 const CARD =
   'kr-card kr-card-interactive group relative flex h-full min-h-[11.5rem] flex-col overflow-hidden rounded-3xl p-5 text-ink no-underline hover:no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest';
 // A forest and gold badge standing on its own ledge (globals.css .kr-icon-badge).
@@ -33,7 +45,7 @@ export function PortalGrid() {
       {EIGHT_PORTALS_CONFIG.map((card) => {
         const Icon = card.icon;
         return (
-          <li key={card.id}>
+          <li key={card.id} data-portal={HUE[card.id]}>
             <Tilt3D className="rounded-3xl">
               <Link href={card.href} className={CARD}>
                 <span aria-hidden className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-champagne to-transparent" />

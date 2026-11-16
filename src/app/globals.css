@@ -761,3 +761,24 @@ dialog.kr-drawer[open] { animation: kr-drawer-in 0.22s ease-out; }
   --warning-text: hsl(28, 92%, 28%);
   --error-text: hsl(360, 100%, 34%);
 }
+
+/* ───────── The KashRoot spectrum ─────────
+   Red, orange, gold, green, cyan, blue, violet, pink: the identity of the public pages, so they are not one hue.
+   .kr-spectrum       a thin line (under the header, on a hero)
+   .kr-spectrum-text  a headline filled with it (the light spectrum reads on white at headline size)
+   .kr-spectrum-deep  a banner behind white text (every stop is dark enough for white, 4.9:1 or better) */
+.kr-spectrum {
+  background-image: linear-gradient(90deg, #E11D48, #EA580C, #EAB308, #22C55E, #06B6D4, #3B82F6, #8B5CF6, #EC4899);
+}
+.kr-spectrum-text {
+  background-image: linear-gradient(90deg, #E11D48 0%, #EA580C 20%, #CA8A04 38%, #16A34A 56%, #0284C7 76%, #7C3AED 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+@supports not (background-clip: text) {
+  .kr-spectrum-text { background: none; color: #7C3AED; }
+}
+.kr-spectrum-deep {
+  background-image: linear-gradient(110deg, #9F1239 0%, #C2410C 20%, #A16207 38%, #15803D 56%, #0369A1 76%, #6D28D9 100%);
+}
