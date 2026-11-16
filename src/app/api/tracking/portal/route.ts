@@ -23,7 +23,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createHash, randomInt, timingSafeEqual } from 'node:crypto';
 
 import { haversineDistanceKm } from '@/lib/tracking/haversine';
-import { isSuperAdminCaller } from '@/lib/server/callerRole';
+import { isSuperAdminCaller, teamCanCaller } from '@/lib/server/callerRole';
 import { checkProof, normalise } from '@/lib/server/otp';
 import { hasTeamPass } from '@/lib/server/teamPass';
 import { listPickupJobs, pickupAction } from '@/lib/server/pickupJobs';
@@ -118,6 +118,10 @@ export async function GET(request: Request) {
     // Everyone else with a team pass (Hub staff) gets a read-only view. Columns are named, never "*": a driver's
     // password hash, a device's secret hash and a buyer's tracking PIN never leave the server.
     const canManage = await isSuperAdminCaller(request);
+    // A team pass alone is not enough: the fleet shows drivers' names and phones, so it needs the Orders section (the Hub staff's), asked of the database as the person.
+    if (!canManage && !(await teamCanCaller(request, 'orders'))) {
+      return NextResponse.json({ ok: false, error: 'The Orders section is not ticked for you. The Super Admin chooses what each team member sees.' }, { status: 403 });
+    }
     const [driversRes, vehiclesRes, shipmentsRes, sessionsRes, devicesRes, eventsRes] =
       await Promise.all([
         supabase.from('drivers').select('id, full_name, phone, license_number, license_category, home_district, account_status, created_at').order('created_at', { ascending: false }).limit(50),

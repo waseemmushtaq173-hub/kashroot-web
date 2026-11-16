@@ -1,22 +1,39 @@
 'use client';
 
 /**
- * The KashRoot Hub portal: for hub staff — KashRoot team members the Super
- * Admin has ticked the Orders section for. Every pickup from the orchard gate
- * to the buyer (stage, hub, vehicle, driver, live pins). Guarded three times:
- * the team pass at the door (src/proxy.ts), the admin code (AdminLock), and
- * the database, which answers only a team member who has this section
- * (kr_team_sections, kr_admin_orders). Escrow release stays with the Super Admin.
- * Live fleet: every driver, vehicle and live trip, read-only (approving vehicles and
- * certifying devices stay with the Super Admin; the server asks the database).
+ * The KashRoot Hub portal: for KashRoot staff the Super Admin chose. What a person sees follows the sections the
+ * Super Admin ticked for them (the Super Admin sees all):
+ *   Orders      → the pickups from the orchard gate to the buyer (step, hub, vehicle, driver, both live pins, the pooled
+ *                 load at each hub) and the live fleet, read-only;
+ *   Accounts    → everyone who has joined (farmers, buyers, dealers, drivers, experts, business owners);
+ *   Businesses  → every business and its owners (read only);
+ *   Cold stores → the cold-store directory.
+ * Guarded three times: the team pass at the door (src/proxy.ts), the admin code (AdminLock), and the database, which
+ * answers a team member only for a section that is ticked for them (kr_team_sections, kr_team_can). Escrow release,
+ * approving vehicles, certifying devices and suspending a business stay with the Super Admin.
  */
 import { useEffect, useState } from 'react';
+import { Building2, Satellite, Snowflake, Truck, Users } from 'lucide-react';
 
+import { AccountsPanel } from '@/components/admin/AccountsPanel';
 import { AdminLock } from '@/components/admin/AdminLock';
 import { AdminOrdersPanel } from '@/components/admin/AdminOrdersPanel';
+import { ColdDirectoryPanel } from '@/components/admin/ColdDirectoryPanel';
 import { GpsFleetPanel } from '@/components/admin/GpsFleetPanel';
+import { BusinessesPanel } from '@/components/admin/SuperAdminPanel';
 import { PortalShell } from '@/components/layout/PortalShell';
 import { supabase } from '@/lib/supabase';
+
+type View = 'orders' | 'fleet' | 'people' | 'businesses' | 'coldstores';
+
+/** Each view and the team section that opens it ('*' = the Super Admin opens all). */
+const VIEWS: { id: View; label: string; icon: typeof Truck; section: string }[] = [
+  { id: 'orders', label: 'Orders & pickups', icon: Truck, section: 'orders' },
+  { id: 'fleet', label: 'Live fleet', icon: Satellite, section: 'orders' },
+  { id: 'people', label: 'People who joined', icon: Users, section: 'accounts' },
+  { id: 'businesses', label: 'Business owners', icon: Building2, section: 'businesses' },
+  { id: 'coldstores', label: 'Cold stores', icon: Snowflake, section: 'coldstores' },
+];
 
 export default function HubPage() {
   return (
@@ -38,31 +55,26 @@ function HubConsole() {
       live = false;
     };
   }, []);
-  const [view, setView] = useState<'orders' | 'fleet'>('orders');
+  const [picked, setPicked] = useState<View | null>(null);
   if (sections === null) return null;
-  const orders = sections.includes('*') || sections.includes('orders');
+  const allowed = VIEWS.filter((v) => sections.includes('*') || sections.includes(v.section));
+  const view = allowed.find((v) => v.id === picked) ?? allowed[0] ?? null;
   return (
-    <PortalShell title="KashRoot Hub" description="Every pickup from the orchard gate to the buyer, live." eyebrow="Hub staff" theme="hub">
-      {orders ? (
-        <div className="space-y-5 lg:col-span-2">
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Hub views">
-            {([['orders', 'Orders and pickups'], ['fleet', 'Live fleet']] as const).map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                aria-pressed={view === id}
-                onClick={() => setView(id)}
-                className={`inline-flex min-h-11 cursor-pointer items-center rounded-xl px-4 text-sm font-semibold ring-2 transition ${view === id ? 'bg-forest text-white ring-forest' : 'bg-white text-forest ring-forest-line hover:bg-forest-soft'}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          {view === 'orders' ? <AdminOrdersPanel canRelease={false} /> : <GpsFleetPanel />}
-        </div>
-      ) : (
-        <p className="rounded-xl bg-slate-50 p-4 text-slate-700 ring-1 ring-slate-200 lg:col-span-2">The Orders section is not ticked for you yet. The Super Admin chooses what each team member sees.</p>
-      )}
+    <PortalShell
+      title="KashRoot Hub"
+      description="Orders from the orchard gate to the buyer, the people and businesses on KashRoot, and the live fleet — each part only if the Super Admin ticked it for you."
+      eyebrow="Hub staff"
+      theme="hub"
+      tabs={allowed.map((v) => ({ id: v.id, label: v.label, icon: v.icon }))}
+      activeTab={view?.id}
+      onTabChange={(id) => setPicked(id as View)}
+    >
+      {view === null && <p className="rounded-xl bg-slate-50 p-4 text-slate-700 ring-1 ring-slate-200 lg:col-span-2">Nothing is ticked for you yet. The Super Admin chooses what each team member sees.</p>}
+      {view?.id === 'orders' && <AdminOrdersPanel canRelease={false} />}
+      {view?.id === 'fleet' && <GpsFleetPanel />}
+      {view?.id === 'people' && <AccountsPanel />}
+      {view?.id === 'businesses' && <BusinessesPanel />}
+      {view?.id === 'coldstores' && <ColdDirectoryPanel />}
     </PortalShell>
   );
 }

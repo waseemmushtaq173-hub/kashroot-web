@@ -76,6 +76,7 @@ interface Member {
 
 /** The Admin sections the Super Admin can tick for a team member (20261117000000_kashroot_team.sql). */
 export const TEAM_SECTIONS: { id: string; label: string }[] = [
+  { id: 'orders', label: 'Orders, pickups and live fleet (Hub staff)' },
   { id: 'help', label: 'Help desk' },
   { id: 'approvals', label: 'Approvals and KYC review' },
   { id: 'accounts', label: 'Accounts' },

@@ -18,6 +18,7 @@ import type { OrderPin } from '@/components/market/OrderLiveMap';
 import { Badge, Btn, EmptyState, Panel, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
 import { ago, dbMessage, inr, supabase } from '@/lib/db/client';
 import { ORDER_STATUS, PICKUP_STAGE_LABEL, type OrderStatus, type PickupStage } from '@/lib/db/market';
+import { hubLoads } from '@/lib/hubLoads';
 import { googleRoute, kmBetween, roadEstimate, type MapSpot } from '@/lib/maps';
 
 const OrderLiveMap = dynamic(() => import('@/components/market/OrderLiveMap').then((m) => m.default), {
@@ -202,7 +203,50 @@ function HubDesk({ orders, stage, onStage }: { orders: AdminOrder[]; stage: Pick
         {chip('all', 'All orders', orders.length)}
         {PICKUP_STAGES.map((st) => chip(st, PICKUP_STAGE_LABEL[st], counts.get(st) ?? 0))}
       </div>
+      <HubLoadsTable orders={orders} />
     </section>
+  );
+}
+
+const LOAD_COLUMNS: { stage: PickupStage; label: string }[] = [
+  { stage: 'AWAITING_HUB_VEHICLE', label: 'Waiting for a vehicle' },
+  { stage: 'PICKUP_VEHICLE_ASSIGNED', label: 'Vehicle on its way' },
+  { stage: 'PICKED_UP_FROM_ORCHARD_GATE', label: 'Picked up' },
+  { stage: 'CONSOLIDATED_AT_KASHROOT_HUB', label: 'At the hub' },
+  { stage: 'IN_TRANSIT_TO_BUYER', label: 'On the road' },
+];
+
+/** The pooled loads: for each KashRoot hub, the open orders and their boxes, by step. Counted from real orders only. */
+function HubLoadsTable({ orders }: { orders: AdminOrder[] }) {
+  const loads = hubLoads(orders);
+  if (!loads.length) return null;
+  const quantity = (q: Record<string, number>) => Object.entries(q).map(([unit, n]) => `${n.toLocaleString('en-IN')} ${unit}`).join(' · ') || '—';
+  return (
+    <div className="mt-3 overflow-x-auto rounded-xl bg-white ring-1 ring-forest-line">
+      <table className="min-w-full text-left text-xs">
+        <caption className="sr-only">Pooled loads by KashRoot hub: open orders and their quantity, by pickup step</caption>
+        <thead className="bg-forest-soft text-forest-deep">
+          <tr>
+            <th scope="col" className="px-2.5 py-1.5 font-semibold">Hub</th>
+            <th scope="col" className="px-2.5 py-1.5 font-semibold">Open orders</th>
+            <th scope="col" className="px-2.5 py-1.5 font-semibold">Quantity</th>
+            {LOAD_COLUMNS.map((c) => <th key={c.stage} scope="col" className="px-2.5 py-1.5 font-semibold">{c.label}</th>)}
+            <th scope="col" className="px-2.5 py-1.5 font-semibold">Delivered</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {loads.map((l) => (
+            <tr key={l.hub}>
+              <th scope="row" className="px-2.5 py-1.5 font-semibold text-slate-900">{l.hub}</th>
+              <td className="px-2.5 py-1.5 font-bold tabular-nums text-forest">{l.open}</td>
+              <td className="px-2.5 py-1.5 tabular-nums text-slate-800">{quantity(l.quantity)}</td>
+              {LOAD_COLUMNS.map((c) => <td key={c.stage} className="px-2.5 py-1.5 tabular-nums text-slate-800">{l.byStage[c.stage] ?? 0}</td>)}
+              <td className="px-2.5 py-1.5 tabular-nums text-slate-600">{l.byStage.DELIVERED ?? 0}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
