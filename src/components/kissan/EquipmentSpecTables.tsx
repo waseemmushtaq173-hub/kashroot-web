@@ -145,7 +145,7 @@ export function EquipmentSpecTables({ className = '' }: { className?: string }) 
                 <tbody>
                   {m.rows.map((r) => (
                     <tr key={r.label} className="border-b border-slate-100 last:border-0">
-                      <th scope="row" className="w-36 bg-ivory px-4 py-2 align-top text-xs font-semibold uppercase tracking-wide text-slate-500">{r.label}</th>
+                      <th scope="row" className="w-36 bg-ivory px-4 py-2 align-top text-xs font-semibold uppercase tracking-wide text-slate-600">{r.label}</th>
                       <td className="px-4 py-2 text-slate-800">{r.value}</td>
                     </tr>
                   ))}

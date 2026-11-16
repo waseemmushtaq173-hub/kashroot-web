@@ -1004,7 +1004,8 @@ function readChamber(c: ChamberDraft, numbers: Map<number, number>, u: SizeUnit,
   if (H !== null && floorsOk) {
     fitsByFloor = Array.from({ length: floors! }, (_, i) => Math.floor(floorH(i + 1) / box.h + 0.02));
     const low = fitsByFloor.findIndex((n) => n < 1);
-    if (low >= 0) {
+    // Without the owner's floor heights the error above already says what to write: no "0 ft high" on top of it.
+    if (low >= 0 && floorHs) {
       const fh = floorH(low + 1);
       ok = (add('error', 3, floorHs ? `${k}.floorHeights` : `${k}.floors`, `${floors! > 1 ? `Floor ${low + 1}` : name} would be only ${inU(fh)} high${floorHs ? '' : ` (${inU(H)} ÷ ${floors} floors)`} — too low for one ${W.one} (${inU(box.h)}). ${floorHs ? 'Check the heights.' : 'Use fewer floors or check the height.'}`), false);
     }

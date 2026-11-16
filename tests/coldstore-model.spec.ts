@@ -179,6 +179,9 @@ test('a one-floor chamber asks for its usable height too, and nothing is made up
   const none = storeModel(sample((_, bins) => Object.assign(bins, { floorHeights: '' })));
   expect(none.issues.some((i) => i.level === 'error' && i.field.endsWith('.floorHeights'))).toBe(true);
   expect(none.chambers[0].ready).toBe(false);
+  // The one message says what to write; it is not followed by a made-up "only 0 ft high" for the same missing number.
+  expect(none.issues.some((i) => /would be only/.test(i.message))).toBe(false);
+  expect(none.issues.find((i) => i.field.endsWith('.floorHeights'))?.message).toMatch(/Write the usable stacking height/);
 });
 
 test('only chambers the owner measured can be booked: old box chambers and missing stack heights are not', () => {

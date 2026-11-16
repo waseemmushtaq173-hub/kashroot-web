@@ -19,7 +19,8 @@ import { ShellTabs } from '@/components/layout/portal/ShellTabs';
 import type { ShellLook } from '@/components/layout/portal/look';
 import { liftToasts } from '@/lib/client/toastLayer';
 
-const HEADING = 'px-3 pb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-champagne';
+// Light gold: 4.5:1 or better on every portal's dark sidebar (the base champagne is 3.8:1 on the darkest).
+const HEADING = 'px-3 pb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#E3CC8F]';
 const ITEM = `flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left font-semibold no-underline transition hover:no-underline ${FOCUS} focus-visible:outline-champagne`;
 /** Row height and text: the drawer (phones, laid out 800 px wide and shown at about half size) gets bigger rows. */
 const SIZE = { normal: 'min-h-11 text-[15px]', large: 'min-h-14 text-lg' };
@@ -74,7 +75,7 @@ export function SidebarContent(props: SidebarProps) {
       {/* Logo and the portal's name */}
       <div className="px-2">
         <Link href="/" onClick={onNavigate} aria-label="KashRoot home" className={`inline-flex min-h-12 items-center rounded-xl text-white no-underline hover:no-underline ${FOCUS} focus-visible:outline-champagne`}>
-          <BrandMark />
+          <BrandMark onDark />
         </Link>
         {portalLabel && (
           <p className="mt-3 flex w-fit max-w-full items-center gap-2 rounded-2xl bg-white/10 px-3 py-1 text-xs font-semibold leading-snug text-white ring-1 ring-champagne/50">

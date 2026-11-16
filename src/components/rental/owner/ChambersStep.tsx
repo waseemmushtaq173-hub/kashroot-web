@@ -284,7 +284,8 @@ function ChamberEditor({
         </div>
       </fieldset>
 
-      {floors > 1 && <FloorHeights kit={kit} c={c} floors={floors} />}
+      {/* Every chamber, one floor or more: the engine asks for each floor's usable height and never splits the chamber height itself. */}
+      <FloorHeights kit={kit} c={c} floors={floors} />
 
       <fieldset className="space-y-4 rounded-2xl bg-ivory/80 p-4 ring-1 ring-[#E8A317]/30">
         <legend className="sr-only">One {W.one} and how you stack</legend>

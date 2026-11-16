@@ -98,7 +98,8 @@
   --kr-ink-rgb: 60 18 64;
 }
 :is([data-portal="expert"]) {
-  --kr-forest-rgb: 13 148 136;
+  /* teal-700: text on the pale panel 5.3:1 and white on a button 5.5:1 (teal-600 was 3.6 and 3.7) */
+  --kr-forest-rgb: 15 118 110;
   --kr-deep-rgb: 19 78 74;
   --kr-mid-rgb: 20 184 166;
   --kr-soft-rgb: 240 253 250;
@@ -750,4 +751,13 @@ dialog.kr-drawer[open] { animation: kr-drawer-in 0.22s ease-out; }
 @media (prefers-reduced-motion: reduce) {
   :is(button, a, [role="button"], [role="tab"], [role="radio"]):hover,
   :is(button, a, [role="button"], [role="tab"], [role="radio"]):active { transform: none !important; }
+}
+
+/* Toasts (sonner "rich colours"): its light text colours miss WCAG AA on their own pale panels
+   (success 4.3, info 4.4, error 4.4, warning 3.1). Same panels, darker text: 6.8 to 7.4. */
+:root [data-sonner-toaster][data-sonner-theme='light'] {
+  --success-text: hsl(140, 100%, 20%);
+  --info-text: hsl(215, 92%, 35%);
+  --warning-text: hsl(28, 92%, 28%);
+  --error-text: hsl(360, 100%, 34%);
 }

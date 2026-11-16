@@ -94,6 +94,7 @@ export function BrandMark({
   size = 'md',
   compactOnPhone = false,
   fitPhone = false,
+  onDark = false,
 }: {
   className?: string;
   size?: 'sm' | 'md' | 'lg';
@@ -101,6 +102,8 @@ export function BrandMark({
   compactOnPhone?: boolean;
   /** A little smaller under 400 px, and the emblem alone under 350 px, so a full top bar fits small phones. */
   fitPhone?: boolean;
+  /** On a dark surface (a portal's sidebar): the name is white, not the dark ink. */
+  onDark?: boolean;
 }) {
   const box = fitPhone ? 'h-9 w-9 min-[400px]:h-10 min-[400px]:w-10' : { sm: 'h-8 w-8', md: 'h-10 w-10', lg: 'h-14 w-14' }[size];
   const word = fitPhone ? 'text-lg max-[349px]:hidden min-[400px]:text-[1.4rem]' : { sm: 'text-lg', md: 'text-[1.4rem]', lg: 'text-3xl' }[size];
@@ -108,7 +111,7 @@ export function BrandMark({
   return (
     <span className={`inline-flex items-center ${fitPhone ? 'gap-2 min-[400px]:gap-2.5' : 'gap-2.5'} ${className}`}>
       <Emblem className={`${box} shrink-0 drop-shadow-[0_4px_10px_rgba(59,29,15,0.35)]`} />
-      <Wordmark className={`${brandSerif.className} text-kr-text-primary ${word} ${compactOnPhone ? 'hidden sm:inline' : ''}`} />
+      <Wordmark className={`${brandSerif.className} ${onDark ? 'text-white' : 'text-kr-text-primary'} ${word} ${compactOnPhone ? 'hidden sm:inline' : ''}`} />
     </span>
   );
 }

@@ -39,7 +39,9 @@ export interface AdminStats {
 export async function loadAdminStats(): Promise<AdminStats> {
   const { data, error } = await supabase.rpc('kr_admin_stats');
   if (error) throw new Error(dbMessage(error, 'Could not load the numbers.'));
-  return data as AdminStats;
+  // An older database may leave a group out: read it as empty rather than break the whole console.
+  const stats = (data ?? {}) as AdminStats;
+  return { ...stats, portals: stats.portals ?? {}, orders: stats.orders ?? {}, bookings: stats.bookings ?? {} };
 }
 
 const sum = (r: Record<string, number>, keys?: string[]) => Object.entries(r).reduce((s, [k, n]) => s + (!keys || keys.includes(k) ? Number(n) : 0), 0);
