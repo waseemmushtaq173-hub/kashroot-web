@@ -78,7 +78,9 @@ export function ChambersStep({
         <p className="flex items-start gap-2 text-base text-slate-700">
           <BoxIcon className="mt-1 h-5 w-5 shrink-0 text-forest" aria-hidden /> Add each chamber: what it holds, its floors, its size and its door. KashRoot lays out the stacks — always exactly your count.
         </p>
-        <div role="tablist" aria-label="Your chambers" className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
+          {draft.chambers.length > 0 && (
+          <div role="tablist" aria-label="Your chambers" className="flex flex-wrap gap-2">
           {draft.chambers.map((c) => {
             const st = state(c);
             const on = open?.key === c.key;
@@ -91,6 +93,8 @@ export function ChambersStep({
               </button>
             );
           })}
+          </div>
+          )}
           <button type="button" onClick={add} className="inline-flex min-h-[48px] cursor-pointer items-center gap-1.5 rounded-xl bg-forest-soft px-3.5 text-sm font-semibold text-forest ring-2 ring-forest-line hover:bg-forest-soft">
             <Plus className="h-4 w-4" aria-hidden /> Add a chamber
           </button>
