@@ -15,6 +15,7 @@ import { toast } from '@/lib/client/toast';
 import type { OfficialListInfo } from '@/lib/db/registry';
 import { KIND_LABEL, type OfficialKind } from '@/lib/fertilizer/officialList';
 import { KEY_PLACEHOLDER } from '@/lib/officialFeed';
+import { OFFICIAL_SOURCES } from '@/lib/officialSources';
 import { supabase } from '@/lib/supabase';
 
 const theme = PORTAL_THEMES.admin ?? PORTAL_THEMES.expert;
@@ -164,6 +165,23 @@ export function OfficialFeedsPanel({ lists, onChanged }: { lists: OfficialListIn
           Give a list the link of the file the Government publishes it in. KashRoot reads that file every day and, only when it has changed, brings the list up to date: new products are added and products no longer in the file are removed.
           A file that cannot be read, or that holds far fewer products than the list had, changes nothing and shows why here. Only CSV files are read, from an official address (.gov.in, .nic.in, .ac.in, .res.in).
         </p>
+
+        <details className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-900/5">
+          <summary className="flex min-h-11 cursor-pointer items-center font-medium text-slate-900">Where the official files are published</summary>
+          <p className="mt-1 text-xs text-slate-600">
+            None of these publishes a list that refreshes itself: the registers are PDFs and Gazette notices. Download the newest document, save the list as CSV, and import it above; a list with a CSV link is then re-read every day.
+          </p>
+          <ul className="mt-2 space-y-2" aria-label="Official sources">
+            {OFFICIAL_SOURCES.map((o) => (
+              <li key={o.url}>
+                <a href={o.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1 font-medium text-forest-deep underline sm:min-h-0">
+                  {o.name} <ExternalLink className="h-3 w-3 shrink-0" aria-hidden />
+                </a>
+                <span className="block text-xs text-slate-600">{o.holds}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
 
         {loaded === undefined ? (
           <Skeleton label="Loading…" rows={2} height="h-10" />

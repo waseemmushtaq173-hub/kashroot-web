@@ -8,6 +8,7 @@ import { join } from 'node:path';
 
 import { expect, test } from '@playwright/test';
 
+import { OFFICIAL_SOURCES } from '@/lib/officialSources';
 import { feedUrlProblem, fetchFeedText, KEY_PLACEHOLDER, refreshFeed, resolveFeedUrl, type Feed, type FeedDb } from '@/lib/officialFeed';
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8');
@@ -193,3 +194,26 @@ test.describe('the database and the routes', () => {
     expect(cron).not.toMatch(/file_url/);
   });
 });
+
+test.describe('where the official files are published', () => {
+  test('every listed source is the publisher\'s own official address', () => {
+    expect(OFFICIAL_SOURCES.length).toBeGreaterThanOrEqual(5);
+    for (const o of OFFICIAL_SOURCES) {
+      expect(feedUrlProblem(o.url), o.url).toBeNull();
+      expect(o.holds.length, o.name).toBeGreaterThan(30);
+    }
+  });
+
+  test('data.gov.in is listed as statistics only, never as a product register', () => {
+    const d = OFFICIAL_SOURCES.find((o) => o.url.includes('data.gov.in'));
+    expect(d?.holds).toMatch(/Statistics only/);
+    expect(d?.holds).toMatch(/No product-level register/);
+  });
+
+  test('the official-data folder says nothing is typed in by KashRoot', () => {
+    const readme = read('official-data/README.md');
+    expect(readme).toMatch(/never types a registration/i);
+    expect(readme).toMatch(/not\*\* a source/);
+  });
+});
+
