@@ -325,7 +325,7 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
     }
     setBrowseLoading(true);
     try {
-      // Try the API route first (embedded + live data.gov.in fallback)
+      // The bundled Government lists (CIB&RC + Fertiliser (Control) Order); the mandi dataset is never mixed in
       const res = await fetch(`/api/truescan/directory?q=${encodeURIComponent(q.trim())}`, {
         headers: { Accept: 'application/json' },
       });
