@@ -232,7 +232,7 @@ export function PlaceDirections({ places, chambers }: { places: Placed[]; chambe
   const first = items[0];
   const kinds = [...new Set(items.map((x) => x.c.storage))];
   return (
-    <div className="mt-2 rounded-xl bg-forest-soft p-3 text-sm text-[#25332F] ring-1 ring-[#CFE0D6]">
+    <div className="mt-2 rounded-xl bg-forest-soft p-3 text-sm text-[#24243F] ring-1 ring-[#CFE0D6]">
       <p className="flex items-center gap-1.5 font-semibold"><Navigation className="h-4 w-4" aria-hidden /> Where to put your {wordFor(kinds)}</p>
       <ul className="mt-1 space-y-0.5">
         {items.map(({ c, p, size, plan, row, stack }) => (

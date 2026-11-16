@@ -13,7 +13,7 @@
  * (they use hCaptcha's test key and show a "test copy" banner). API routes
  * and files are not redirected: scheduled jobs and scripts call them as they are.
  *
- * The Admin pages (/admin/…), everywhere: served only with the KashRoot team
+ * The Admin pages (/admin/…) and the KashRoot Hub (/hub/…), everywhere: served only with the KashRoot team
  * pass (lib/server/teamPass, given after the database confirms the Super
  * Admin or a team member past two-step sign-in and their code); anyone else
  * goes to /team/unlock, which shows nothing to people outside the team.
@@ -29,7 +29,7 @@ const REAL_HOSTS = ['kashroot-web.vercel.app', new URL(CANONICAL).host, ...(proc
 
 export function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
-  if ((path === '/admin' || path.startsWith('/admin/')) && !hasTeamPass(request.headers.get('cookie'), request.headers.get('user-agent'))) {
+  if ((path === '/admin' || path.startsWith('/admin/') || path === '/hub' || path.startsWith('/hub/')) && !hasTeamPass(request.headers.get('cookie'), request.headers.get('user-agent'))) {
     const to = new URL('/team/unlock', request.url);
     to.searchParams.set('next', path + request.nextUrl.search);
     return NextResponse.redirect(to, 307);

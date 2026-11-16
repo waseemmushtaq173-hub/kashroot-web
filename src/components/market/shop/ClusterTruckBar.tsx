@@ -47,13 +47,13 @@ export function ClusterTruckBar({ lines, anchor, onBoxes, onRemove, onOrder, onC
           <button type="button" onClick={onClear} className="min-h-11 cursor-pointer rounded-xl px-3 text-sm font-semibold text-[#991B1B] hover:bg-[#FEE2E2]">Empty the truck</button>
         )}
       </div>
-      <p className="mt-1 text-sm font-semibold text-[#1E2D28]" data-testid="truck-load">
+      <p className="mt-1 text-sm font-semibold text-[#1B1B3A]" data-testid="truck-load">
         Current Truck Load: {total.toLocaleString('en-IN')} / {TRUCK_CAPACITY_BOXES.toLocaleString('en-IN')} Boxes ({pct.toFixed(pct > 0 && pct < 10 ? 1 : 0)}%)
       </p>
       <div className="mt-2 h-3 overflow-hidden rounded-full bg-forest-soft ring-1 ring-forest-line" aria-hidden>
         <span className="block h-full rounded-full bg-gradient-to-r from-forest-mid to-forest" style={{ width: `${pct}%` }} />
       </div>
-      <p className="mt-2 text-xs text-[#52665E]">
+      <p className="mt-2 text-xs text-[#5A5A80]">
         {total === 0
           ? 'The truck is empty. It counts only the boxes you add from real listings below (“Add boxes to truck” on a listing sold by the box).'
           : left > 0
@@ -78,11 +78,11 @@ export function ClusterTruckBar({ lines, anchor, onBoxes, onRemove, onOrder, onC
             const max = Math.max(1, Math.min(Number(l.listing.quantity), l.boxes + left));
             return (
               <li key={l.listing.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-white px-3 py-2 ring-1 ring-forest-line" data-kr-plain>
-                <span className="min-w-0 flex-1 text-sm text-[#1E2D28]">
+                <span className="min-w-0 flex-1 text-sm text-[#1B1B3A]">
                   <strong>Order #{i + 1}</strong>
                   {' — '}
                   {isAnchor ? 'Anchor' : km !== null ? `${km.toFixed(1)} km from Order #1${km > CLUSTER_RADIUS_KM ? ` (outside the ${CLUSTER_RADIUS_KM} km cluster)` : ''}` : anchor ? 'Orchard GPS not recorded on this listing' : 'no anchor set'}
-                  <span className="block text-xs text-[#52665E]">{l.listing.product}{l.listing.variety ? ` · ${l.listing.variety}` : ''} · {l.listing.seller_name}, {l.listing.district} · {inr(l.listing.price)} a box · {Number(l.listing.quantity).toLocaleString('en-IN')} in stock</span>
+                  <span className="block text-xs text-[#5A5A80]">{l.listing.product}{l.listing.variety ? ` · ${l.listing.variety}` : ''} · {l.listing.seller_name}, {l.listing.district} · {inr(l.listing.price)} a box · {Number(l.listing.quantity).toLocaleString('en-IN')} in stock</span>
                 </span>
                 <span className="flex items-center gap-1.5">
                   <button type="button" aria-label="One box fewer" className={step} disabled={l.boxes <= 1} onClick={() => onBoxes(l.listing.id, l.boxes - 1)}><Minus className="h-4 w-4" aria-hidden /></button>
@@ -94,7 +94,7 @@ export function ClusterTruckBar({ lines, anchor, onBoxes, onRemove, onOrder, onC
                     max={max}
                     value={l.boxes}
                     onChange={(e) => onBoxes(l.listing.id, Math.min(max, Math.max(1, Math.floor(Number(e.target.value)) || 1)))}
-                    className="h-9 w-20 rounded-lg border-0 bg-white px-2 text-center text-sm font-bold tabular-nums text-[#1E2D28] ring-1 ring-inset ring-forest-line"
+                    className="h-9 w-20 rounded-lg border-0 bg-white px-2 text-center text-sm font-bold tabular-nums text-[#1B1B3A] ring-1 ring-inset ring-forest-line"
                   />
                   <button type="button" aria-label="One box more" className={step} disabled={l.boxes >= max} onClick={() => onBoxes(l.listing.id, l.boxes + 1)}><Plus className="h-4 w-4" aria-hidden /></button>
                 </span>
@@ -102,7 +102,7 @@ export function ClusterTruckBar({ lines, anchor, onBoxes, onRemove, onOrder, onC
                 <button type="button" onClick={() => onOrder(l.listing, l.boxes)} className="kr-btn-primary kr-btn-sm min-h-9">
                   <ShoppingCart className="h-3.5 w-3.5" aria-hidden /> Order
                 </button>
-                <button type="button" aria-label={`Take ${l.listing.product} from ${l.listing.seller_name} off the truck`} onClick={() => onRemove(l.listing.id)} className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg text-[#52665E] hover:bg-[#FEE2E2] hover:text-[#991B1B]">
+                <button type="button" aria-label={`Take ${l.listing.product} from ${l.listing.seller_name} off the truck`} onClick={() => onRemove(l.listing.id)} className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg text-[#5A5A80] hover:bg-[#FEE2E2] hover:text-[#991B1B]">
                   <Trash2 className="h-4 w-4" aria-hidden />
                 </button>
               </li>
@@ -111,7 +111,7 @@ export function ClusterTruckBar({ lines, anchor, onBoxes, onRemove, onOrder, onC
         </ol>
       )}
       {lines.length > 0 && (
-        <p className="mt-3 text-sm text-[#1E2D28]">
+        <p className="mt-3 text-sm text-[#1B1B3A]">
           Boxes subtotal on the truck: <strong>{inr(value)}</strong>. Each line is ordered on its own (its Order button), so each grower has their own escrow order.
         </p>
       )}

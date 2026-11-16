@@ -218,16 +218,16 @@ function PayAfterDeliveryOrder({ order: o, as, theme, onChange, listingGps }: { 
           }
         };
         return (
-          <section aria-label="KashRoot Hub pickup and payout" data-testid="hub-pickup-card" className="mt-3 space-y-2 rounded-xl bg-[#F6F7FF] p-3 text-sm text-[#1E2D28] ring-1 ring-forest-line">
+          <section aria-label="KashRoot Hub pickup and payout" data-testid="hub-pickup-card" className="mt-3 space-y-2 rounded-xl bg-[#F6F7FF] p-3 text-sm text-[#1B1B3A] ring-1 ring-forest-line">
             <p className="font-bold text-forest">KashRoot Hub Pickup &amp; Payout</p>
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-              <dt className="text-[#52665E]">Ordered</dt>
+              <dt className="text-[#5A5A80]">Ordered</dt>
               <dd><strong>{o.quantity} {o.unit}</strong> · gross {inr(o.amount)}</dd>
-              <dt className="text-[#52665E]">Grower Fee Deducted</dt>
+              <dt className="text-[#5A5A80]">Grower Fee Deducted</dt>
               <dd><strong>₹0 (0%)</strong></dd>
-              <dt className="text-[#52665E]">Net Payout to You</dt>
+              <dt className="text-[#5A5A80]">Net Payout to You</dt>
               <dd><strong>100% · {inr(o.amount)}</strong></dd>
-              <dt className="text-[#52665E]">Nearest KashRoot Hub</dt>
+              <dt className="text-[#5A5A80]">Nearest KashRoot Hub</dt>
               <dd>{o.assigned_hub_name ? <strong>{o.assigned_hub_name}</strong> : near ? <><strong>{near.hub.name}</strong> ({near.distanceKm.toFixed(1)} km from {isValidCoordinate(o.seller_live_lat, o.seller_live_lng) ? 'the GPS you pinned on this order' : 'the orchard GPS on your listing'})</> : 'Orchard GPS not recorded on this listing'}</dd>
             </dl>
 
@@ -246,9 +246,9 @@ function PayAfterDeliveryOrder({ order: o, as, theme, onChange, listingGps }: { 
             ) : stage === 'AWAITING_HUB_VEHICLE' ? (
               <p className="rounded-lg bg-amber-50 px-2.5 py-1.5 font-semibold text-amber-950 ring-1 ring-amber-200">Status: Order Confirmed — Awaiting KashRoot Pickup Vehicle Assignment to {hubName}{o.boxes_packed_at ? ` · boxes marked packed ${ago(o.boxes_packed_at)}` : ''}</p>
             ) : o.status === 'placed' ? (
-              <p className="text-[#52665E]">Accept the order first. When the boxes are packed, mark them ready here and a KashRoot pickup vehicle is assigned to collect them from your gate.</p>
+              <p className="text-[#5A5A80]">Accept the order first. When the boxes are packed, mark them ready here and a KashRoot pickup vehicle is assigned to collect them from your gate.</p>
             ) : o.status === 'accepted' ? (
-              <p className="text-[#52665E]">Step 1: pack the boxes, then mark them ready. You do not transport anything: a KashRoot pickup vehicle collects from your orchard gate.</p>
+              <p className="text-[#5A5A80]">Step 1: pack the boxes, then mark them ready. You do not transport anything: a KashRoot pickup vehicle collects from your orchard gate.</p>
             ) : (
               <p className="rounded-lg bg-forest-soft px-2.5 py-1.5 font-semibold text-forest">Status: {ORDER_STATUS[o.status].label}{vehicle ? ` · vehicle ${vehicle}` : ' · no pickup vehicle is recorded on this order'}</p>
             )}
@@ -256,7 +256,7 @@ function PayAfterDeliveryOrder({ order: o, as, theme, onChange, listingGps }: { 
             {handover && !handedOver && (
               <p className="rounded-lg bg-white px-2.5 py-2 ring-2 ring-[#C6A45B]">
                 Handover code for the pickup driver: <strong className="font-mono text-xl tracking-[0.3em] text-forest" data-testid="handover-code">{handover}</strong>
-                <span className="block text-xs text-[#52665E]">Give it only to the KashRoot driver at your gate, after the boxes are on the vehicle. The buyer cannot see it.</span>
+                <span className="block text-xs text-[#5A5A80]">Give it only to the KashRoot driver at your gate, after the boxes are on the vehicle. The buyer cannot see it.</span>
               </p>
             )}
             {o.status === 'accepted' && !stage && (

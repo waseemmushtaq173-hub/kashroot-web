@@ -118,7 +118,7 @@ export function ChamberFacts({ chamber: c, roomOf, mode }: { chamber: ColdChambe
         {fact(floors > 1 ? `Floor ${size?.floor ?? 1} holds` : 'Chamber holds', countText(b.holds, st), mode === 'view' ? undefined : `${boxes(b.free)} free · room on ${b.open} of ${b.places} places`, true)}
       </dl>
       {mode === 'book' && (
-        <p className="flex items-start gap-2 rounded-xl bg-forest-soft px-3 py-2 text-sm text-[#25332F] ring-1 ring-[#CFE0D6]">
+        <p className="flex items-start gap-2 rounded-xl bg-forest-soft px-3 py-2 text-sm text-[#24243F] ring-1 ring-[#CFE0D6]">
           <Hand className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           <span>
             You choose: tap any place with room where you want your {unitWord(st)} — any number, small or big. A place in {c.name} takes up to {countText(c.boxes_per_slot, st)}; a part-filled place takes the rest, and you pay only for your own {unitWord(st)}.

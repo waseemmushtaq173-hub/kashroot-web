@@ -8,7 +8,7 @@
  */
 import Link from 'next/link';
 import { useEffect, useRef, type ElementType, type ReactNode } from 'react';
-import { ArrowLeft, Building2, Home, LifeBuoy, LogOut, ShieldCheck, UserRound, X } from 'lucide-react';
+import { ArrowLeft, Home, LifeBuoy, LogOut, ShieldCheck, UserRound, X } from 'lucide-react';
 
 import { BrandMark } from '@/components/brand/Shikara';
 import { ChinarLeaf } from '@/components/brand/ChinarLeaf';
@@ -52,7 +52,6 @@ export interface SidebarProps {
   /** Bigger rows, for the drawer. */
   large?: boolean;
   /** Only the KashRoot Super Admin gets "My business"; everyone else stays on My details / Home. */
-  isSuperAdmin?: boolean;
 }
 
 function MenuLink({ href, icon: Icon, children, onNavigate, size, current = false }: { href: string; icon: ElementType; children: ReactNode; onNavigate?: () => void; size: string; current?: boolean }) {
@@ -65,7 +64,7 @@ function MenuLink({ href, icon: Icon, children, onNavigate, size, current = fals
 }
 
 export function SidebarContent(props: SidebarProps) {
-  const { theme, look, portalLabel, title, tabs, activeTab, onSelect, idPrefix, panelId, navItems, dashboard, onDetails, onSignOut, onNavigate, pending = 0, large = false, isSuperAdmin = false } = props;
+  const { theme, look, portalLabel, title, tabs, activeTab, onSelect, idPrefix, panelId, navItems, dashboard, onDetails, onSignOut, onNavigate, pending = 0, large = false } = props;
   const hold = (n: number) => (pending > 0 && !onSignOut ? Array.from({ length: n }, (_, i) => <li key={`hold-${i}`} aria-hidden className={size} />) : null);
   const size = large ? SIZE.large : SIZE.normal;
   const hasMenu = tabs.length > 0 || navItems.length > 0 || Boolean(dashboard);
@@ -130,14 +129,6 @@ export function SidebarContent(props: SidebarProps) {
               </MenuLink>
             </li>
           )}
-          {onSignOut && isSuperAdmin && (
-            <li>
-              {/* Cold stores, dealers and shops run by more than one person: owner, managers, staff. */}
-              <MenuLink href="/account/business" icon={Building2} onNavigate={onNavigate} size={size}>
-                My business
-              </MenuLink>
-            </li>
-          )}
           <li>
             <MenuLink href="/support" icon={LifeBuoy} onNavigate={onNavigate} size={size}>
               Help &amp; support
@@ -186,7 +177,7 @@ export function SidebarDrawer({ onClose, label, children }: { onClose: () => voi
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="kr-drawer fixed inset-y-0 left-0 m-0 h-full max-h-none w-[min(26rem,90vw)] max-w-none overflow-y-auto border-0 bg-forest-deep p-0 text-white shadow-[0_30px_90px_rgba(30, 27, 75,0.5)] backdrop:bg-forest-deep/50 backdrop:backdrop-blur-sm"
+      className="kr-drawer fixed inset-y-0 left-0 m-0 h-full max-h-none w-[min(26rem,90vw)] max-w-none overflow-y-auto border-0 bg-forest-deep p-0 text-white shadow-[0_30px_90px_rgba(30,27,75,0.5)] backdrop:bg-forest-deep/50 backdrop:backdrop-blur-sm"
     >
       <div className="relative flex min-h-full flex-col">
         <button

@@ -229,7 +229,7 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
               </button>
             )}
             {cluster && anchor && (
-              <button type="button" onClick={() => { setAnchorId(null); setNearOnly(false); }} className="min-h-11 cursor-pointer rounded-xl px-3 text-sm font-semibold text-[#52665E] hover:bg-forest-soft">Clear the 1st order anchor</button>
+              <button type="button" onClick={() => { setAnchorId(null); setNearOnly(false); }} className="min-h-11 cursor-pointer rounded-xl px-3 text-sm font-semibold text-[#5A5A80] hover:bg-forest-soft">Clear the 1st order anchor</button>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">

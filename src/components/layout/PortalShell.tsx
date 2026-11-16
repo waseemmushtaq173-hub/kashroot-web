@@ -45,7 +45,6 @@ import { MY_DETAILS } from '@/components/portal/myDetailsConfig';
 import { FOCUS, PageHeader, TitleAction, resolveTheme } from '@/components/portal/kit';
 import { loginHref, PORTALS, portalOfPath } from '@/lib/auth/roles';
 import { signOutOfPortal } from '@/lib/auth/session';
-import { isSuperAdmin } from '@/components/admin/SuperAdminPanel';
 import { useRegion } from '@/lib/region';
 import { skinFor } from '@/lib/regionSkins';
 
@@ -138,21 +137,6 @@ export function PortalShell({
   const switcherRef = useRef<HTMLDivElement>(null);
   const [drawer, setDrawer] = useState(false);
   const [details, setDetails] = useState(false);
-  /** Only the KashRoot Super Admin sees "My business" in the sidebar; everyone else falls back to My details / Home. */
-  const [superAdmin, setSuperAdmin] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    if (signedIn !== true || !portal) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- kept as shipped: changing when this state is set needs its signed-in flow tested
-      setSuperAdmin(null);
-      return;
-    }
-    isSuperAdmin()
-      .then((admin) => setSuperAdmin(admin))
-      .catch(() => setSuperAdmin(false));
-    // Re-check only when sign-in or portal changes; the RPC result is stable for a session.
-  }, [signedIn, portal]);
-
   const portalLabel = portal ? `${PORTALS[portal].label} portal` : null;
   const hasDetails = Boolean(portal && MY_DETAILS[portal]) && signedIn === true;
   const canSignOut = Boolean(portal) && signedIn === true;
@@ -312,7 +296,6 @@ export function PortalShell({
       onSignOut={canSignOut ? () => void signOut() : undefined}
       // My details (where the portal has it), Two-step sign-in and My business; Sign out is held below Home.
       pending={portal && signedIn === null ? (MY_DETAILS[portal] ? 3 : 2) : 0}
-      isSuperAdmin={superAdmin === true}
       onNavigate={() => setDrawer(false)}
       large={large}
     />
@@ -324,7 +307,7 @@ export function PortalShell({
       <div className="lg:flex">
         <aside
           aria-label={portalLabel ?? title}
-          className="sticky top-0 hidden h-svh w-60 shrink-0 self-start overflow-y-auto border-r border-forest-deep bg-forest-deep text-white shadow-[10px_0_40px_-28px_rgba(30, 27, 75,0.6)] lg:block xl:w-64"
+          className="sticky top-0 hidden h-svh w-60 shrink-0 self-start overflow-y-auto border-r border-forest-deep bg-forest-deep text-white shadow-[10px_0_40px_-28px_rgba(30,27,75,0.6)] lg:block xl:w-64"
         >
           {sidebar(`${ids}-side`)}
         </aside>

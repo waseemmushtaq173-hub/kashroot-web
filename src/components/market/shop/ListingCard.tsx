@@ -82,23 +82,23 @@ const ListingCardInner = React.memo(function ListingCardInner({ listing: l, veri
       {cluster && (
         <div data-testid="cluster-on-card" className="mt-3 space-y-1.5 rounded-xl bg-[#F6F7FF] p-3 text-sm ring-1 ring-forest-line" onClick={(e) => e.stopPropagation()}>
           {!hasGps ? (
-            <p className="font-semibold text-[#52665E]">Orchard GPS not recorded on this listing</p>
+            <p className="font-semibold text-[#5A5A80]">Orchard GPS not recorded on this listing</p>
           ) : (
             <>
               {cluster.isAnchor ? (
                 <p className="font-bold text-forest">⭐ Your 1st Order Anchor ({CLUSTER_RADIUS_KM} km cluster is measured from here)</p>
               ) : cluster.kmFromAnchor !== null ? (
-                <p className="flex flex-wrap items-center gap-2 text-[#1E2D28]">
+                <p className="flex flex-wrap items-center gap-2 text-[#1B1B3A]">
                   <span>📍 <strong>{cluster.kmFromAnchor.toFixed(1)} km</strong> from your 1st order</span>
                   <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ring-1 ${cluster.kmFromAnchor <= CLUSTER_RADIUS_KM ? 'bg-forest-soft text-forest-deep ring-forest-line' : 'bg-amber-50 text-amber-900 ring-amber-300'}`}>
                     {cluster.kmFromAnchor <= CLUSTER_RADIUS_KM ? `Within ${CLUSTER_RADIUS_KM} km Cluster` : `Outside ${CLUSTER_RADIUS_KM} km Cluster`}
                   </span>
                 </p>
               ) : cluster.hasAnchor ? (
-                <p className="text-[#52665E]">The 1st order has no GPS recorded, so no distance can be worked out from it.</p>
+                <p className="text-[#5A5A80]">The 1st order has no GPS recorded, so no distance can be worked out from it.</p>
               ) : null}
               {hub && (
-                <p className="flex items-start gap-1.5 text-[#1E2D28]"><Building2 className="mt-0.5 h-4 w-4 shrink-0 text-forest" aria-hidden /> <span>Nearest KashRoot Hub: <strong>{hub.hub.name}</strong> ({hub.distanceKm.toFixed(1)} km away)</span></p>
+                <p className="flex items-start gap-1.5 text-[#1B1B3A]"><Building2 className="mt-0.5 h-4 w-4 shrink-0 text-forest" aria-hidden /> <span>Nearest KashRoot Hub: <strong>{hub.hub.name}</strong> ({hub.distanceKm.toFixed(1)} km away)</span></p>
               )}
             </>
           )}

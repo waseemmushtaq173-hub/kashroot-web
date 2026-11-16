@@ -435,7 +435,7 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
               const near = getNearestVerifiedHub(gps.lat, gps.lng);
               if (!near) return null;
               return (
-                <div data-testid="grower-hub-card" className="mt-2 space-y-1.5 rounded-xl bg-[#F6F7FF] p-3 text-sm text-[#1E2D28] ring-1 ring-forest-line">
+                <div data-testid="grower-hub-card" className="mt-2 space-y-1.5 rounded-xl bg-[#F6F7FF] p-3 text-sm text-[#1B1B3A] ring-1 ring-forest-line">
                   <p>🏢 <strong>Assigned Nearest Hub: {near.hub.name} ({near.distanceKm.toFixed(1)} km from your captured orchard GPS)</strong></p>
                   <p>🚛 <strong>Doorstep Orchard Pickup:</strong> When a buyer orders your boxes, a KashRoot pickup vehicle will collect them from your orchard gate and take them to this KashRoot Hub. You have zero transport responsibility.</p>
                   <p>💰 <strong>0% Grower Commission:</strong> You receive 100% of your listed box price (KashRoot charges 1% to the buyer and ₹0 to the grower).</p>

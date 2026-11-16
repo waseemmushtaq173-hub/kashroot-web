@@ -60,6 +60,8 @@ const PORTAL_ICONS: Record<PortalId, typeof Sprout> = {
   expert: Leaf,
   trader: Scale,
   admin: UserRound,
+  hub: UserRound,
+  business: UserRound,
 };
 
 /** The menu groups, with Admin (last) only on an admin's own device. */
@@ -308,7 +310,7 @@ export function SiteHeader({
     <header
       className={
         light
-          ? 'sticky top-0 z-40 border-b-2 border-champagne bg-[#F2F8F5]/85 backdrop-blur-xl shadow-[0_8px_30px_-12px_rgba(30, 27, 75,0.3)]'
+          ? 'sticky top-0 z-40 border-b-2 border-champagne bg-[#F4F5FF]/85 backdrop-blur-xl shadow-[0_8px_30px_-12px_rgba(30,27,75,0.3)]'
           : 'sticky top-0 z-40 border-b border-white/25 bg-kr-bg-surface/75 backdrop-blur-xl supports-[backdrop-filter]:bg-kr-bg-surface/65 shadow-[0_8px_30px_-12px_rgba(7,11,26,0.35)]'
       }
     >
@@ -386,6 +388,10 @@ export function SiteFooter({ tone = 'dark' }: { tone?: SiteTone; portal?: Portal
           <p className={`mt-2 text-caption ${light ? 'text-slate-600' : 'text-kr-text-secondary'}`}>
             &copy; 2026 KashRoot Pvt Ltd
           </p>
+          {/* The sign-in for the team of a cold store, dealership or shop: its own door, apart from the customer portals. */}
+          <Link href="/login/business" className={`mt-1 inline-block text-caption underline underline-offset-4 ${light ? 'text-slate-600 hover:text-slate-900' : 'text-kr-text-secondary hover:text-kr-text-primary'}`}>
+            Business admin sign-in
+          </Link>
         </div>
         {/* Only the social pages: help is in every top bar (Help & support), the portals in the Portals menu.
             Room on the right, so the floating voice button never covers the last link. */}
@@ -414,7 +420,7 @@ function PortalHeader({ portal }: { portal: PortalId }) {
     router.replace(loginHref(portal));
   };
   return (
-    <header className="sticky top-0 z-40 border-b-2 border-champagne bg-[#F2F8F5]/85 shadow-[0_8px_30px_-12px_rgba(30, 27, 75,0.3)] backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b-2 border-champagne bg-[#F4F5FF]/85 shadow-[0_8px_30px_-12px_rgba(30,27,75,0.3)] backdrop-blur-xl">
       <nav aria-label="Portal" className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
           <Link href="/" aria-label="KashRoot home" className="shrink-0 text-slate-900 no-underline hover:no-underline">

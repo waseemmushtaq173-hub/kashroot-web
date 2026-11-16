@@ -254,7 +254,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
       const session: Session = { userId: data.userId, accessToken: data.accessToken, role: required ?? accountRole ?? 'FARMER', roles, kycSubmitted: data.kycSubmitted, phone: data.phone };
 
       // Each portal has its own account: none here yet → create it (same email and password).
-      if (portal !== 'admin' && !isMember(data.portals, roles, portal)) {
+      if (portal !== 'admin' && portal !== 'hub' && !isMember(data.portals, roles, portal)) {
         setJoin({ session, has: (data.portals ?? []).filter((p) => p !== portal) });
         return;
       }
@@ -588,7 +588,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
       </SecurityGate>
 
       <div className="mt-6 space-y-3 text-sm text-slate-600">
-        {portal !== 'admin' && (
+        {portal !== 'admin' && portal !== 'hub' && (
           <p>
             New to KashRoot?{' '}
             <Link href={AUTH_ROUTES.register(portal)} className={`rounded font-semibold ${theme.link} ${focusRing}`}>

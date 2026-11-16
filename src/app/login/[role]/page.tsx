@@ -24,8 +24,8 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: LoginPageProps): Promise<Metadata> {
   const { role } = await params;
-  // The Admin sign-in is unlisted: keep it out of search engines too.
-  return { title: isPortalId(role) ? `${PORTALS[role].label} sign in` : 'Sign in', ...(role === 'admin' ? { robots: { index: false, follow: false } } : {}) };
+  // The team sign-ins (Admin, Hub, Business admin) are unlisted: keep them out of search engines too.
+  return { title: isPortalId(role) ? `${PORTALS[role].label} sign in` : 'Sign in', ...(role === 'admin' || role === 'hub' || role === 'business' ? { robots: { index: false, follow: false } } : {}) };
 }
 
 function first(value: string | string[] | undefined): string | undefined {

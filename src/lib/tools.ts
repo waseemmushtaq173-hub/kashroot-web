@@ -56,7 +56,7 @@ export interface Tool {
 export const GLASS = {
   /** Large frosted panel over a photograph or colour field. */
   panel:
-    'bg-gradient-to-b from-white/95 to-[#F2F8F5]/95 backdrop-blur-xl [box-shadow:inset_0_1px_0_#fff,inset_0_0_0_1px_#CBD0F2,0_3px_0_#3730A3,0_14px_36px_-10px_rgba(30, 27, 75,0.3)]',
+    'bg-gradient-to-b from-white/95 to-[#F4F5FF]/95 backdrop-blur-xl [box-shadow:inset_0_1px_0_#fff,inset_0_0_0_1px_#CBD0F2,0_3px_0_#3730A3,0_14px_36px_-10px_rgba(30,27,75,0.3)]',
   /** Content card inside a tool — pair with text-slate-900 / text-slate-600. */
   card: 'kr-card kr-card-flat rounded-3xl bg-white/90 backdrop-blur-xl',
 } as const;
@@ -66,7 +66,7 @@ const TOOL_BRAND: ToolTheme = {
   canvas: 'bg-mist',
   glowA: 'bg-forest-soft',
   glowB: 'bg-champagne/15',
-  header: 'bg-[#F2F8F5]/90 border-b-2 border-champagne',
+  header: 'bg-[#F4F5FF]/90 border-b-2 border-champagne',
   eyebrow: 'bg-champagne-soft text-champagne-deep ring-1 ring-champagne/60',
   iconTile: 'kr-icon-badge',
   primaryButton: 'kr-btn-primary',

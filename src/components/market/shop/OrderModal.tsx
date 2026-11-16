@@ -280,7 +280,7 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
         {settlement && l.unit === 'box' && qty > 0 && (() => {
           const s = calculateClusterSettlement({ produceSubtotalInr: qty * Number(l.price), totalBoxes: qty, freightPerBoxInr: freightPerBox ?? 0 });
           return (
-            <section aria-label="Settlement" data-testid="order-settlement" className="rounded-xl bg-[#F6F7FF] p-3 text-sm text-[#1E2D28] ring-1 ring-forest-line">
+            <section aria-label="Settlement" data-testid="order-settlement" className="rounded-xl bg-[#F6F7FF] p-3 text-sm text-[#1B1B3A] ring-1 ring-forest-line">
               <p className="font-bold text-forest">Settlement for this order</p>
               <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5">
                 <dt>Apple Boxes Subtotal (100% paid to Growers — 0% Grower Deduction)</dt>
@@ -289,13 +289,13 @@ const OrderModalInner = React.memo(function OrderModalInner({ listing, account, 
                 <dd className="text-right font-bold tabular-nums">{inr(s.buyerConsolidationFeeInr)}</dd>
                 <dt>
                   Hub Pickup &amp; Highway Freight
-                  {hub && hubToBuyerKm !== null && <span className="block text-xs text-[#52665E]">{hub.hub.name} → your locked GPS: {hubToBuyerKm.toFixed(1)} km × {qty.toLocaleString('en-IN')} boxes × ₹{FREIGHT_INR_PER_KM_PER_BOX} a km a box</span>}
+                  {hub && hubToBuyerKm !== null && <span className="block text-xs text-[#5A5A80]">{hub.hub.name} → your locked GPS: {hubToBuyerKm.toFixed(1)} km × {qty.toLocaleString('en-IN')} boxes × ₹{FREIGHT_INR_PER_KM_PER_BOX} a km a box</span>}
                 </dt>
                 <dd className="text-right font-bold tabular-nums">
-                  {freightPerBox !== null ? inr(s.freightTotalInr) : <span className="font-semibold text-[#52665E]">{!hub ? 'Orchard GPS not recorded on this listing' : 'Lock your GPS to work it out'}</span>}
+                  {freightPerBox !== null ? inr(s.freightTotalInr) : <span className="font-semibold text-[#5A5A80]">{!hub ? 'Orchard GPS not recorded on this listing' : 'Lock your GPS to work it out'}</span>}
                 </dd>
               </dl>
-              <p className="mt-2 text-xs text-[#52665E]">
+              <p className="mt-2 text-xs text-[#5A5A80]">
                 The escrow on this order holds the growers’ {inr(s.produceSubtotalInr)} only. The service fee and the freight are recorded on the order for you to see; they are not collected through this order.
               </p>
               <p className="mt-2 rounded-lg bg-forest-soft px-2.5 py-1.5 text-xs font-semibold text-forest">

@@ -34,6 +34,8 @@ export const SHELL_LOOK: Record<PortalThemeId, ShellLook> = {
   tracking: FOREST,
   trader: FOREST,
   expert: FOREST,
+  hub: FOREST,
+  business: FOREST,
 };
 
 /** The look for a theme name as pages pass it (unknown names fall back like resolveTheme). */

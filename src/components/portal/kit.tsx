@@ -6,7 +6,7 @@
  * expert, mandi helpers, admin) and the orchard tools.
  *
  * One cohesive KashRoot identity: a mist page, white tactile cards (.kr-card
- * look) with soft #E2EAE5 borders, forest green buttons and icon tiles on soft
+ * look) with soft #E0E3F5 borders, forest green buttons and icon tiles on soft
  * green, champagne gold hairlines and badges, a khatamband (carved-ceiling)
  * lattice woven faintly into the canvas and the chinar leaf as the ornament.
  * Text is ink on white, so contrast holds on every portal; a portal's own
@@ -69,7 +69,7 @@ const T = (t: PortalTheme) => t;
 /**
  * One KashRoot frame for every portal: a cool mist page (#F4F7F8), forest green (#3730A3 / #1E1B4B)
  * headers, sidebars and primary actions, soft green (#EEF0FF) panels, champagne gold (#C6A45B)
- * accents, ink text (#25332F) and #E2EAE5 borders. A portal keeps a subtle identity of its own
+ * accents, ink text (#24243F) and #E0E3F5 borders. A portal keeps a subtle identity of its own
  * through its icon, its badge word and the season of its 3D valley scene (`mood`), nothing louder.
  * Gold is for lines and badges; text on gold-tinted surfaces is champagne-deep (6.3:1).
  */
@@ -80,8 +80,8 @@ const BRAND = {
   // The forest and gold icon badge on its own ledge (globals.css .kr-icon-badge).
   tile: 'kr-icon-badge',
   // A flat-fronted, bevelled green for chips and tabs; buttons (Btn) use the full tactile .kr-btn-primary.
-  solid: 'bg-gradient-to-b from-forest-mid to-forest text-white ring-1 ring-forest-deep shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_2px_0_#1E1B4B] hover:from-[#2F7A60] hover:to-[#1B5A47]',
-  soft: 'bg-forest-soft text-forest ring-1 ring-forest-line hover:bg-[#DDEBE3]',
+  solid: 'bg-gradient-to-b from-forest-mid to-forest text-white ring-1 ring-forest-deep shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_2px_0_#1E1B4B] hover:from-[#5B52D6] hover:to-[#2E2A8C]',
+  soft: 'bg-forest-soft text-forest ring-1 ring-forest-line hover:bg-[#E3E6FA]',
   accent: 'text-forest',
   outline: 'focus-visible:outline-forest',
   leaf: '#C6A45B', // champagne gold
@@ -97,6 +97,8 @@ export const PORTAL_THEMES = {
   provider: T({ ...BRAND, mood: 'winter', photo: '/seasons/winter-lake.jpg', focus: '50% 40%' }),
   dealer: T({ ...BRAND, mood: 'autumn', photo: '/seasons/autumn-garden.jpg', focus: '50% 70%' }),
   admin: T({ ...BRAND, mood: 'dawn', photo: '/seasons/winter-lake.jpg', focus: '50% 30%' }),
+  hub: T({ ...BRAND, mood: 'dusk', photo: '/seasons/winter-road.jpg', focus: '50% 25%' }),
+  business: T({ ...BRAND, mood: 'dawn', photo: '/seasons/summer-lake.jpg', focus: '50% 40%' }),
   tracking: T({ ...BRAND, mood: 'winter', photo: '/seasons/winter-road.jpg', focus: '50% 15%' }),
   trader: T({ ...BRAND, mood: 'autumn', photo: '/seasons/autumn-garden.jpg', focus: '50% 45%' }),
   expert: T({ ...BRAND, mood: 'dusk', photo: '/seasons/summer-lake.jpg', focus: '50% 30%' }),
@@ -182,7 +184,7 @@ export const Btn = forwardRef<HTMLButtonElement, BtnProps>(function Btn(
 
 // ── Surfaces ────────────────────────────────────────────────────────────────
 
-// Every card: white, a soft #E2EAE5 border and the layered card shadow (globals.css .kr-card), not lifted by hover.
+// Every card: white, a soft #E0E3F5 border and the layered card shadow (globals.css .kr-card), not lifted by hover.
 export const GLASS_CARD = 'kr-card kr-card-flat rounded-3xl';
 
 export function Panel({
@@ -387,7 +389,7 @@ export function Modal({
       onClick={(e) => {
         if (e.target === e.currentTarget) ref.current?.close();
       }}
-      className={`kr-sheet m-auto max-h-[calc(100svh-2rem)] w-[calc(100%-2rem)] overflow-hidden rounded-3xl border border-forest-line bg-white p-0 text-ink shadow-[inset_0_1px_0_#fff,0_30px_90px_rgba(30, 27, 75,0.3)] backdrop:bg-forest-deep/40 backdrop:backdrop-blur-sm max-sm:mb-0 max-sm:max-h-[92svh] max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none ${wide ? 'max-w-3xl' : 'max-w-lg'}[will-change:transform,opacity][transform:translate3d(0,0,0)]`}
+      className={`kr-sheet m-auto max-h-[calc(100svh-2rem)] w-[calc(100%-2rem)] overflow-hidden rounded-3xl border border-forest-line bg-white p-0 text-ink shadow-[inset_0_1px_0_#fff,0_30px_90px_rgba(30,27,75,0.3)] backdrop:bg-forest-deep/40 backdrop:backdrop-blur-sm max-sm:mb-0 max-sm:max-h-[92svh] max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none ${wide ? 'max-w-3xl' : 'max-w-lg'}[will-change:transform,opacity][transform:translate3d(0,0,0)]`}
     >
       <div className="flex max-h-[calc(100svh-2rem)] flex-col max-sm:max-h-[92svh]">
         <span aria-hidden className="mx-auto mt-2 h-1.5 w-10 shrink-0 rounded-full bg-slate-300 sm:hidden" />

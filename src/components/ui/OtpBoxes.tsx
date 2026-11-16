@@ -71,7 +71,7 @@ export function OtpBoxes({
               <span
                 className={`relative grid aspect-[10/11] min-w-0 max-w-10 flex-1 basis-0 place-items-center overflow-hidden rounded-xl text-lg font-bold tabular-nums transition duration-200 min-[380px]:text-xl sm:max-w-11 sm:text-2xl ${
                   digit
-                    ? 'bg-gradient-to-b from-[#5249D0] via-forest to-forest-deep text-white shadow-[0_3px_0_#C6A45B,0_8px_14px_-4px_rgba(30, 27, 75,0.4)]'
+                    ? 'bg-gradient-to-b from-[#5249D0] via-forest to-forest-deep text-white shadow-[0_3px_0_#C6A45B,0_8px_14px_-4px_rgba(30,27,75,0.4)]'
                     : 'bg-white text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200'
                 } ${invalid ? 'ring-2 ring-rose-400' : active ? 'ring-2 ring-forest-mid ring-offset-2' : ''} ${disabled ? 'opacity-60' : ''}`}
               >

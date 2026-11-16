@@ -147,6 +147,21 @@
   --kr-copper: #B4532A;
 }
 
+:is([data-portal="hub"]) {
+  --kr-forest-rgb: 3 105 161;
+  --kr-deep-rgb: 12 74 110;
+  --kr-mid-rgb: 14 165 233;
+  --kr-soft-rgb: 240 249 255;
+  --kr-line-rgb: 186 230 253;
+  --kr-pine-rgb: 8 47 73;
+  --kr-edge-rgb: 125 211 252;
+  --kr-edge-soft-rgb: 186 230 253;
+  --kr-mist-rgb: 234 244 252;
+  --kr-mist-deep-rgb: 222 237 250;
+  --kr-paper-rgb: 247 251 255;
+  --kr-ink-rgb: 17 40 60;
+}
+
 /*
  * The unified KashRoot identity: forest green headers, sidebars and primary actions, soft green
  * panels, champagne gold accents, a cool mist page. Used by .kr-btn-primary, .kr-btn-secondary

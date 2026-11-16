@@ -52,7 +52,8 @@ export function portalsOf(user: Pick<MetaUser, 'user_metadata'> | null | undefin
 
 /** Does the account have an account in this portal? */
 export function isMember(portals: PortalId[] | null, roles: string[], portal: PortalId): boolean {
-  if (portal === 'admin') return roles.includes('ADMIN');
+  // Admin and the KashRoot Hub are team portals: the ADMIN role is the only way in.
+  if (portal === 'admin' || portal === 'hub') return roles.includes('ADMIN');
   return (portals ?? []).includes(portal);
 }
 
@@ -224,7 +225,7 @@ async function adoptEarlierSignIn(user: MetaUser): Promise<PortalId[] | null> {
   // Its last use is not known: it opens with one tap ("Continue as …").
   all[user.id] = last && isPortalId(last) ? { [last]: 0 } : {};
   writeAll(all);
-  if (last && isPortalId(last) && last !== 'admin' && portals === null) {
+  if (last && isPortalId(last) && last !== 'admin' && last !== 'hub' && portals === null) {
     portals = [last];
     await supabase.auth.updateUser({ data: { portals } }).catch(() => undefined);
   }

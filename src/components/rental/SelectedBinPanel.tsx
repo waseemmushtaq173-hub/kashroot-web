@@ -78,10 +78,10 @@ export function SelectedBinPanel({
   const row = (label: string, value: string, strong = false) => (
     <>
       <dt className="text-[#718078]">{label}</dt>
-      <dd className={strong ? 'font-semibold text-forest' : 'text-[#25332F]'}>{value}</dd>
+      <dd className={strong ? 'font-semibold text-forest' : 'text-[#24243F]'}>{value}</dd>
     </>
   );
-  const step = 'grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-xl bg-white text-forest ring-1 ring-[#E2EAE5] transition hover:bg-forest-soft active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40';
+  const step = 'grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-xl bg-white text-forest ring-1 ring-[#E0E3F5] transition hover:bg-forest-soft active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40';
 
   return (
     <section aria-label={`Selected bin ${binCode(c, slot)}`} data-testid="selected-bin-panel" className="rounded-2xl bg-white p-4 text-sm ring-2 ring-[#C6A45B]">
@@ -109,7 +109,7 @@ export function SelectedBinPanel({
 
       {/* Capacity bar: taken, this choice, still free. */}
       <div className="mt-3" aria-hidden>
-        <div className="flex h-3 overflow-hidden rounded-full bg-forest-soft ring-1 ring-[#E2EAE5]">
+        <div className="flex h-3 overflow-hidden rounded-full bg-forest-soft ring-1 ring-[#E0E3F5]">
           <span style={{ width: pct(taken) }} className="bg-[#64748B]" />
           <span style={{ width: pct(boxes) }} className="bg-forest" />
         </div>
@@ -122,7 +122,7 @@ export function SelectedBinPanel({
 
       <div className="mt-4 flex flex-wrap items-end justify-between gap-3 rounded-xl bg-forest-soft p-3">
         <div>
-          <label htmlFor="kr-bin-qty" className="block text-xs font-semibold text-[#25332F]">How many {words.many} here? (1 to {room.toLocaleString('en-IN')})</label>
+          <label htmlFor="kr-bin-qty" className="block text-xs font-semibold text-[#24243F]">How many {words.many} here? (1 to {room.toLocaleString('en-IN')})</label>
           <div className="mt-1 flex items-center gap-2">
             <button type="button" aria-label={`One ${words.one} fewer`} className={step} disabled={boxes <= 1} onClick={() => set(boxes - 1)}><Minus className="h-4 w-4" aria-hidden /></button>
             <input
@@ -134,7 +134,7 @@ export function SelectedBinPanel({
               max={room}
               value={boxes || ''}
               onChange={(e) => onBoxes(Math.min(room, Math.max(0, Math.floor(Number(e.target.value)) || 0)))}
-              className="min-h-[44px] w-24 rounded-xl border-0 bg-white px-3 text-center text-base font-bold tabular-nums text-[#25332F] ring-1 ring-inset ring-[#E2EAE5] focus:ring-2 focus:ring-forest-mid"
+              className="min-h-[44px] w-24 rounded-xl border-0 bg-white px-3 text-center text-base font-bold tabular-nums text-[#24243F] ring-1 ring-inset ring-[#E0E3F5] focus:ring-2 focus:ring-forest-mid"
             />
             <button type="button" aria-label={`One ${words.one} more`} className={step} disabled={boxes >= room} onClick={() => set(boxes + 1)}><Plus className="h-4 w-4" aria-hidden /></button>
             <button type="button" className="min-h-[44px] cursor-pointer rounded-xl px-3 text-sm font-semibold text-forest hover:bg-white" onClick={() => set(room)}>All {room.toLocaleString('en-IN')}</button>

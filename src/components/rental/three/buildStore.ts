@@ -235,7 +235,7 @@ export function makeKit(T: Three, phone: boolean, protos: ColdKitGeos | null = n
     curtain: new T.MeshStandardMaterial({ color: '#cbe8f6', transparent: true, opacity: 0.3, roughness: 0.15, depthWrite: false, side: T.DoubleSide }),
     condenser: new T.MeshStandardMaterial({ color: '#d5dbe2', roughness: 0.38, metalness: phone ? 0.2 : 0.5 }),
     // Structural H-columns and beams: dark charcoal steel.
-    steel: new T.MeshStandardMaterial({ color: '#25332F', roughness: 0.5, metalness: phone ? 0.3 : 0.55 }),
+    steel: new T.MeshStandardMaterial({ color: '#24243F', roughness: 0.5, metalness: phone ? 0.3 : 0.55 }),
     plate: new T.MeshStandardMaterial({ map: tex.diamond, color: '#d4dbe3', roughness: 0.38, metalness: phone ? 0.3 : 0.65 }),
     rubber: new T.MeshStandardMaterial({ color: '#15191f', roughness: 0.92, metalness: 0 }),
   };

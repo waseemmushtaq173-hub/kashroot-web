@@ -57,7 +57,7 @@ export function ShellTopBar({
   );
 
   return (
-    <header data-kr-topbar className="sticky top-0 z-30 border-b-2 border-champagne bg-[#F2F8F5]/85 shadow-[0_8px_30px_-18px_rgba(30, 27, 75,0.35)] backdrop-blur-xl">
+    <header data-kr-topbar className="sticky top-0 z-30 border-b-2 border-champagne bg-[#F4F5FF]/85 shadow-[0_8px_30px_-18px_rgba(30,27,75,0.35)] backdrop-blur-xl">
       <div className="flex h-[72px] items-center gap-2 px-3 sm:gap-3 sm:px-6 xl:px-8">
         <button
           type="button"

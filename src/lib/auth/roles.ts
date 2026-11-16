@@ -31,7 +31,9 @@ export type PortalId =
   | 'dealer'
   | 'expert'
   | 'trader'
-  | 'admin';
+  | 'admin'
+  | 'business'
+  | 'hub';
 
 export interface PortalInfo {
   label: string;
@@ -105,16 +107,32 @@ export const PORTALS: Record<PortalId, PortalInfo> = {
     tagline: 'KYC, disputes & analytics',
     theme: { badge: 'from-slate-700 to-slate-500', wash: 'hover:bg-slate-100', ring: 'ring-slate-600/30', text: 'text-slate-800' },
   },
+  // Staff portals: apart from the customer portals — a customer never sees them in a menu, a chooser or a sidebar.
+  hub: {
+    label: 'KashRoot Hub', requiredRole: 'ADMIN', home: '/hub/dashboard', segment: 'hub',
+    tagline: 'Pickups, vehicles and orders across KashRoot, for hub staff',
+    theme: { badge: 'from-sky-700 to-blue-500', wash: 'hover:bg-sky-50', ring: 'ring-sky-600/30', text: 'text-sky-900' },
+  },
+  business: {
+    label: 'Business admin', requiredRole: null, home: '/business/dashboard', segment: 'business',
+    tagline: 'Cold stores, dealers and shops: your team, bookings and orders',
+    theme: { badge: 'from-indigo-700 to-violet-500', wash: 'hover:bg-indigo-50', ring: 'ring-indigo-600/30', text: 'text-indigo-900' },
+  },
 };
 
 export const PORTAL_IDS = Object.keys(PORTALS) as PortalId[];
 
+/** Portals for KashRoot's own staff and for business teams: never listed for customers. */
+export const STAFF_PORTAL_IDS: PortalId[] = ['admin', 'hub', 'business'];
+
 /**
  * Portals shown to the public (home page, menu, sign-in chooser). The Admin
- * portal is never listed: only the owner knows its address, and it also needs
- * the admin's own access code after signing in.
+ * and Hub portals are never listed: only the owner knows their address, and
+ * they need the team pass after signing in. The Business admin portal, where a
+ * cold store, dealership or shop team signs in, has its own front door
+ * (/business) and is not mixed into the customers' portals either.
  */
-export const PUBLIC_PORTAL_IDS = PORTAL_IDS.filter((id) => id !== 'admin');
+export const PUBLIC_PORTAL_IDS = PORTAL_IDS.filter((id) => !STAFF_PORTAL_IDS.includes(id));
 
 export function isPortalId(value: string): value is PortalId {
   return value in PORTALS;
@@ -186,6 +204,8 @@ export const SIGNUP_ROLE: Partial<Record<PortalId, SignUpRole>> = {
   dealer: 'SELLER',
   expert: 'FARMER',
   trader: 'BUYER',
+  // A business account is an ordinary one (an input seller); what it may run comes from the business it belongs to.
+  business: 'SELLER',
 };
 
 export const SIGNUP_PORTALS = PORTAL_IDS.filter((id) => SIGNUP_ROLE[id]);

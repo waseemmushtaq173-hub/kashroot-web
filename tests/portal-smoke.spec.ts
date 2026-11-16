@@ -12,7 +12,7 @@ import { expect, test } from '@playwright/test';
 import { PORTAL_IDS } from '@/lib/auth/roles';
 
 const PUBLIC = ['/', '/login', '/register', '/support', '/privacy', '/terms', '/status', '/tracking', '/mandi-weather', '/compare-prices', '/compare-prices?tab=universal', '/escrow', '/official', '/vehicle', '/contributions', '/forgot-password', '/offline', '/studio', '/tracking/dashboard', ...PORTAL_IDS.map((id) => `/login/${id}`)];
-const DASHBOARDS = ['/farmer/dashboard', '/buyer/dashboard', '/kissan-tools/dashboard', '/rental/dashboard', '/dealer/dashboard', '/expert', '/trader/dashboard', '/admin/dashboard', '/farmer/orchard-health', '/farmer/season-planner'];
+const DASHBOARDS = ['/farmer/dashboard', '/buyer/dashboard', '/kissan-tools/dashboard', '/rental/dashboard', '/dealer/dashboard', '/expert', '/trader/dashboard', '/admin/dashboard', '/hub/dashboard', '/business/dashboard', '/farmer/orchard-health', '/farmer/season-planner'];
 
 for (const width of [390, 1280]) {
   test.describe(`${width} px`, () => {
@@ -28,7 +28,7 @@ for (const width of [390, 1280]) {
         expect(status, 'no server error').toBeLessThan(500);
         expect(errors, errors.join(' | ')).toHaveLength(0);
         // Any heading a visitor can see (the first in the page may belong to a closed menu).
-        if (path.startsWith('/admin')) return expect(page.url(), 'Admin pages need the team pass').toContain('/team/unlock');
+        if (path.startsWith('/admin') || path.startsWith('/hub')) return expect(page.url(), 'Admin and Hub pages need the team pass').toContain('/team/unlock');
         await expect(page.locator('h1:visible, h2:visible').first()).toBeVisible();
         if (DASHBOARDS.includes(path)) expect(page.url(), 'a signed-out dashboard goes to sign-in').toMatch(/\/(login|register)/);
       });

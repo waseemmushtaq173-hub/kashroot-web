@@ -3,6 +3,7 @@
  * classes only (the compiler cannot see built strings).
  */
 import {
+  Building2,
   FlaskConical,
   Megaphone,
   GraduationCap,
@@ -157,6 +158,30 @@ const ADMIN: RoleLoginTheme = {
   sceneTint: 'from-[#050E22]/80 via-indigo-950/35 to-transparent',
 };
 
+const HUB: RoleLoginTheme = {
+  canvas: 'bg-gradient-to-br from-[#F4F8FF] via-[#EAF1FF] to-[#E0EBFF]',
+  iconTile: 'bg-gradient-to-br from-sky-700 to-blue-900 text-sky-50 shadow-lg shadow-blue-950/30 ring-1 ring-sky-300/40',
+  eyebrow: 'text-sky-200',
+  bullet: 'text-sky-300',
+  button: 'bg-sky-800 text-white shadow-sky-950/25 hover:bg-sky-900',
+  link: 'text-sky-800 hover:text-sky-900 hover:underline underline-offset-4',
+  outline: 'focus-visible:outline-sky-700',
+  inputFocus: 'focus:ring-sky-700',
+  sceneTint: 'from-[#06182E]/80 via-sky-950/35 to-transparent',
+};
+
+const BUSINESS: RoleLoginTheme = {
+  canvas: 'bg-gradient-to-br from-[#F6F4FF] via-[#EEEAFF] to-[#E4DEFF]',
+  iconTile: 'bg-gradient-to-br from-indigo-700 to-violet-900 text-indigo-50 shadow-lg shadow-indigo-950/30 ring-1 ring-violet-300/40',
+  eyebrow: 'text-violet-200',
+  bullet: 'text-violet-300',
+  button: 'bg-indigo-800 text-white shadow-indigo-950/25 hover:bg-indigo-900',
+  link: 'text-indigo-800 hover:text-indigo-900 hover:underline underline-offset-4',
+  outline: 'focus-visible:outline-indigo-700',
+  inputFocus: 'focus:ring-indigo-700',
+  sceneTint: 'from-[#14123A]/80 via-indigo-950/35 to-transparent',
+};
+
 export const PORTAL_LOGIN: Record<PortalId, PortalLoginCopy> = {
   farmer: {
     icon: Leaf,
@@ -238,5 +263,23 @@ export const PORTAL_LOGIN: Record<PortalId, PortalLoginCopy> = {
     description: 'Verify identities, settle disputes and watch regional trade health. Staff accounts only.',
     highlights: ['KYC review queue', 'Dispute recommendation and resolution', 'Regional trade analytics'],
     theme: ADMIN,
+  },
+  hub: {
+    icon: Warehouse,
+    mood: 'dusk',
+    eyebrow: 'KashRoot Hub',
+    headline: 'Watch every pickup and order',
+    description: 'For KashRoot hub staff: see each order from the orchard gate to the buyer, the vehicles and drivers on the road, and what is waiting at the hub. Team accounts only.',
+    highlights: ['Pickups by step, live', 'Vehicle, driver and hub for each order', 'Opens only with the KashRoot team pass'],
+    theme: HUB,
+  },
+  business: {
+    icon: Building2,
+    mood: 'dawn',
+    eyebrow: 'Business admin',
+    headline: 'Run your business team',
+    description: 'For the owner, managers and staff of a cold store, agro-dealer, shop or helper team: invite your people, confirm bookings, handle orders and set where you are paid. This is not the customer sign-in.',
+    highlights: ['Owner, manager and staff roles', 'Bookings and orders for your business only', 'Payout details changed only by the owner, after two-step sign-in'],
+    theme: BUSINESS,
   },
 };
