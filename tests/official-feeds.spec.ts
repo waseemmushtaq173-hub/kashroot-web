@@ -217,3 +217,26 @@ test.describe('where the official files are published', () => {
   });
 });
 
+test.describe('copying the publishers\' documents', () => {
+  const script = read('scripts/fetch-official-documents.py');
+  const workflow = read('.github/workflows/fetch-official-documents.yml');
+
+  test('only official pages are read, and the script never edits what it saves', () => {
+    const pages = [...script.matchAll(/\(\s*'[a-z-]+',\s*'(https:\/\/[^']+)'/g)].map((m) => m[1]);
+    expect(pages.length).toBeGreaterThanOrEqual(1);
+    for (const u of pages) expect(feedUrlProblem(u), u).toBeNull();
+    // Every address, including each redirect, is checked before it is read.
+    expect(script).toMatch(/if not official\(url\)/);
+    expect(script).toMatch(/non-official address/);
+    // Bytes in, the same bytes out: no decode, no rewrite.
+    expect(script).toMatch(/fh\.write\(data\)/);
+  });
+
+  test('the job runs by hand, uses no secrets, and writes only into official-data', () => {
+    expect(workflow).toMatch(/on:\s*\n\s*workflow_dispatch:/);
+    expect(workflow).not.toMatch(/secrets\./);
+    expect(workflow).toMatch(/git add official-data\b/);
+    expect(workflow).toMatch(/permissions:\s*\n\s*contents: write/);
+  });
+});
+

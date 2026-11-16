@@ -1,0 +1,39 @@
+name: Fetch official fertiliser and pesticide documents
+
+# Copies the publishers' own documents (CIB&RC registered products, the J&K Horticulture
+# page) into official-data/, unchanged, with a MANIFEST.json of where and when. Run by hand:
+# Actions -> "Fetch official fertiliser and pesticide documents" -> Run workflow.
+# Nothing is written into KashRoot's lists by this job; a list reaches TrueScan only through
+# Admin -> Official lists. See scripts/fetch-official-documents.py and official-data/README.md.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fetch-official-documents
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - name: Fetch the documents
+        run: python3 scripts/fetch-official-documents.py
+      - name: Save them in the repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add official-data
+          if git diff --cached --quiet; then
+            echo "Nothing new from the publishers."
+          else
+            git commit -m "Official documents copied unchanged from their publishers"
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi
