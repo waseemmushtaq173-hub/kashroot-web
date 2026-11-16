@@ -21,10 +21,12 @@ import { createClient, type RealtimeChannel, type SupabaseClient } from '@supaba
 import GoogleOrTileLiveMap, { type RoutePoint } from './GoogleOrTileLiveMap';
 import { PlaceInput } from './PlaceInput';
 import { OrchardPickupJobs } from './OrchardPickupJobs';
+import { TrackingMenu, VerificationPanel, type TrackingSection } from './TrackingMenu';
+import { ContactOtp } from '@/components/auth/ContactOtp';
 import type { PlacePoint } from '@/lib/db/consignments';
 import { supabaseAnonKey, supabaseOrigin } from '@/lib/supabase-config';
 
-type PortalTab = 'BUYER_FARMER_TRACKER' | 'DRIVER_CONSOLE' | 'AIS140_DEVICES';
+type PortalTab = TrackingSection;
 
 interface DriverProfile {
   id: string;
@@ -66,6 +68,8 @@ interface ShipmentRecord {
   remaining_distance_km: number;
   estimated_arrival_at: string | null;
   shipment_status: string;
+  /** The PIN the buyer and farmer need with the Tracking ID (only the driver's own trips carry it). */
+  buyer_access_pin?: string;
 }
 
 interface SessionRecord {
@@ -138,13 +142,13 @@ interface DriverCoords {
 }
 
 export default function UnifiedLiveTrackingPortal() {
-  const [activeTab, setActiveTab] = useState<PortalTab>('BUYER_FARMER_TRACKER');
+  const [activeTab, setActiveTab] = useState<PortalTab>('MAP');
 
   // ---- Buyer / farmer lookup state
   const [trackingIdInput, setTrackingIdInput] = useState('');
-  const [availableShipments, setAvailableShipments] = useState<ShipmentRecord[]>([]);
-  /** The list has been read from the database at least once (so "none yet" is said only when it is true). */
-  const [listLoaded, setListLoaded] = useState(false);
+  const [trackingPinInput, setTrackingPinInput] = useState('');
+  /** The PIN the visible trip was opened with: the freshness poll and the live feed use it again. */
+  const currentPinRef = useRef('');
   const [trackedShipment, setTrackedShipment] = useState<ShipmentRecord | null>(null);
   const [trackedVehicle, setTrackedVehicle] = useState<VehicleRecord | null>(null);
   const [trackedDriver, setTrackedDriver] = useState<DriverProfile | null>(null);
@@ -160,7 +164,13 @@ export default function UnifiedLiveTrackingPortal() {
   const [driverPin, setDriverPin] = useState('');
   const [driverName, setDriverName] = useState('');
   const [driverLicense, setDriverLicense] = useState('');
-  const [driverDistrict, setDriverDistrict] = useState('Shopian');
+  const [driverDistrict, setDriverDistrict] = useState('');
+  const [driverState, setDriverState] = useState('');
+  const [driverLicenseCategory, setDriverLicenseCategory] = useState('');
+  const [driverEmergency, setDriverEmergency] = useState('');
+  /** The server asked for a one-time code (a new mobile number): the code screen shows. */
+  const [needsOtp, setNeedsOtp] = useState(false);
+  const [driverOtpProof, setDriverOtpProof] = useState('');
   const [driverAuthMsg, setDriverAuthMsg] = useState<string | null>(null);
 
   const [driverVehicles, setDriverVehicles] = useState<VehicleRecord[]>([]);
@@ -172,8 +182,12 @@ export default function UnifiedLiveTrackingPortal() {
   const [newRegNo, setNewRegNo] = useState('');
   const [newCategory, setNewCategory] = useState('TRUCK_REEFER');
   const [newMakeModel, setNewMakeModel] = useState('');
-  const [newPayloadKg, setNewPayloadKg] = useState('16000');
+  const [newPayloadKg, setNewPayloadKg] = useState('');
   const [newOwnerName, setNewOwnerName] = useState('');
+  const [newOwnerPhone, setNewOwnerPhone] = useState('');
+  const [newOwnerAuthorized, setNewOwnerAuthorized] = useState(false);
+  /** The trip just made: its Tracking ID and the PIN to give the buyer and the farmer. */
+  const [createdTrip, setCreatedTrip] = useState<{ id: string; pin: string } | null>(null);
   const [newDocNotes, setNewDocNotes] = useState('');
 
   // ---- New shipment form
@@ -209,14 +223,15 @@ export default function UnifiedLiveTrackingPortal() {
   const currentTrackingIdRef = useRef('');
 
   // ---------------------------------------------------------------- lookups
-  const lookupShipmentByCode = useCallback(async (codeToSearch: string) => {
+  const lookupShipmentByCode = useCallback(async (codeToSearch: string, pin?: string) => {
     const clean = codeToSearch.trim().toUpperCase();
     if (!clean) return;
     currentTrackingIdRef.current = clean;
+    if (pin !== undefined) currentPinRef.current = pin.trim();
     setLookupError(null);
     try {
       const res = await fetch(
-        `/api/tracking/portal?mode=SHIPMENT_LOOKUP&trackingId=${encodeURIComponent(clean)}`,
+        `/api/tracking/portal?mode=SHIPMENT_LOOKUP&trackingId=${encodeURIComponent(clean)}&pin=${encodeURIComponent(currentPinRef.current)}`,
         { cache: 'no-store' },
       );
       const data = await res.json();
@@ -234,25 +249,6 @@ export default function UnifiedLiveTrackingPortal() {
       setLookupError(err instanceof Error ? err.message : 'Network error loading shipment');
     }
   }, []);
-
-  const fetchAvailableShipments = useCallback(async () => {
-    try {
-      const res = await fetch('/api/tracking/portal', { cache: 'no-store' });
-      const data = await res.json();
-      if (data.ok && Array.isArray(data.availableShipments)) {
-        // Only listed: nothing is opened or typed into the box for the visitor.
-        setAvailableShipments(data.availableShipments);
-        setListLoaded(true);
-      }
-    } catch {
-      // The freshness poll retries; ignore a transient list error.
-    }
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- kept as shipped: changing when this state is set needs its signed-in flow tested
-    void fetchAvailableShipments();
-  }, [fetchAvailableShipments]);
 
   // Freshness poll: buyer/farmer sees coordinates, speed and STALE transitions
   // within 6 seconds even if realtime is unavailable.
@@ -333,8 +329,7 @@ export default function UnifiedLiveTrackingPortal() {
     }
   }, []);
 
-  const handleDriverLoginOrRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitDriverAuth = async (proof?: string) => {
     setDriverAuthMsg(null);
     try {
       const res = await fetch('/api/tracking/portal', {
@@ -346,23 +341,54 @@ export default function UnifiedLiveTrackingPortal() {
           pin: driverPin,
           fullName: driverName,
           licenseNumber: driverLicense,
+          licenseCategory: driverLicenseCategory,
+          emergencyContact: driverEmergency,
           homeDistrict: driverDistrict,
+          homeState: driverState,
+          otpProof: proof ?? driverOtpProof,
         }),
       });
       const data = await res.json();
+      if (data.needsVerification) {
+        // A new mobile number: it is proved with a one-time code before the account is made.
+        setNeedsOtp(true);
+        setDriverAuthMsg(data.error);
+        return;
+      }
       if (!res.ok || !data.ok) {
         setDriverAuthMsg(data.error || 'Driver authentication failed');
         return;
       }
+      setNeedsOtp(false);
+      setDriverOtpProof('');
+      setDriverPin('');
       setDriverProfile(data.driver);
       setNewOwnerName(data.driver.full_name);
       setDriverAuthMsg(
         `${data.isNewDriver ? 'Registered' : 'Signed in'} as ${data.driver.full_name} (${data.driver.phone}). Your PIN protects this driver account - keep it safe.`,
       );
       await refreshDriverDashboard(data.driver.id);
+      setActiveTab(data.isNewDriver ? 'VEHICLES' : 'TRIP');
     } catch {
       setDriverAuthMsg('Network error. Check your connection and try again.');
     }
+  };
+
+  const handleDriverLoginOrRegister = (e: React.FormEvent) => {
+    e.preventDefault();
+    void submitDriverAuth();
+  };
+
+  const signOutDriver = () => {
+    setDriverProfile(null);
+    setDriverVehicles([]);
+    setAssignments([]);
+    setSelectedVehicleId('');
+    setSelectedShipmentId('');
+    setDriverPin('');
+    setDriverOtpProof('');
+    setNeedsOtp(false);
+    setDriverAuthMsg('Signed out of the driver account on this phone.');
   };
 
   const handleRegisterVehicle = async (e: React.FormEvent) => {
@@ -378,8 +404,10 @@ export default function UnifiedLiveTrackingPortal() {
           registrationNumber: newRegNo,
           vehicleCategory: newCategory,
           makeAndModel: newMakeModel,
-          payloadCapacityKg: Number(newPayloadKg || 15000),
-          ownerName: newOwnerName || driverProfile.full_name,
+          payloadCapacityKg: Number(newPayloadKg),
+          ownerName: newOwnerName.trim(),
+          ownerPhone: newOwnerPhone.trim(),
+          ownerAuthorized: newOwnerAuthorized,
           supportingDocNotes: newDocNotes,
         }),
       });
@@ -387,6 +415,10 @@ export default function UnifiedLiveTrackingPortal() {
       if (res.ok && data.ok) {
         setNewRegNo('');
         setNewMakeModel('');
+        setNewPayloadKg('');
+        setNewDocNotes('');
+        setNewOwnerPhone('');
+        setNewOwnerAuthorized(false);
         await refreshDriverDashboard(driverProfile.id);
         setSelectedVehicleId(data.vehicle.id);
         setDriverAuthMsg(
@@ -439,11 +471,12 @@ export default function UnifiedLiveTrackingPortal() {
       if (res.ok && data.ok) {
         setSelectedShipmentId(data.shipment.id);
         setTrackingIdInput(data.shipment.shipment_tracking_id);
-        await fetchAvailableShipments();
-        await lookupShipmentByCode(data.shipment.shipment_tracking_id);
+        setTrackingPinInput(data.shipment.buyer_access_pin ?? '');
+        setCreatedTrip({ id: data.shipment.shipment_tracking_id, pin: data.shipment.buyer_access_pin ?? '' });
+        await lookupShipmentByCode(data.shipment.shipment_tracking_id, data.shipment.buyer_access_pin ?? '');
         await refreshDriverDashboard(driverProfile.id);
         setGpsStatusMessage(
-          `Assigned Shipment ${data.shipment.shipment_tracking_id}. Press START TRACKING below to stream live GPS.`,
+          `Trip ${data.shipment.shipment_tracking_id} is ready. Give the buyer and the farmer its Tracking ID and PIN, then press START TRACKING on the Live GPS screen.`,
         );
       } else {
         setGpsStatusMessage(data.error || 'Could not create the shipment.');
@@ -614,7 +647,7 @@ export default function UnifiedLiveTrackingPortal() {
     setDeviceMsg(null);
     setWebhookSecretOnce(null);
     if (!driverProfile || !selectedVehicleId) {
-      setDeviceMsg('Sign in as the vehicle owner in the Driver tab first, then pair devices here.');
+      setDeviceMsg('Sign in as the vehicle owner on the Driver sign-in screen first, then pair devices here.');
       return;
     }
     try {
@@ -667,48 +700,46 @@ export default function UnifiedLiveTrackingPortal() {
             </p>
           </div>
 
-          <div role="tablist" aria-label="Tracking portal sections" className="flex flex-wrap gap-2">
-            {(
-              [
-                ['BUYER_FARMER_TRACKER', '🗺️ Live Shipment Map (Buyer & Farmer)'],
-                ['DRIVER_CONSOLE', '🚛 Driver / Vehicle Owner Login & Start GPS'],
-                ['AIS140_DEVICES', '📡 AIS-140 / External GPS Devices'],
-              ] as Array<[PortalTab, string]>
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                role="tab"
-                aria-selected={activeTab === key}
-                onClick={() => setActiveTab(key)}
-                className="min-h-11 rounded-xl bg-white px-4 py-2.5 text-xs font-bold sm:text-sm"
-              >
-                {label}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
-      {/* TAB 1: buyer & farmer authorized shipment tracker */}
-      {activeTab === 'BUYER_FARMER_TRACKER' && (
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
+        <TrackingMenu active={activeTab} onSelect={setActiveTab} signedInAs={driverProfile ? driverProfile.full_name.split(' ')[0] : null} vehicleCount={driverVehicles.length} />
+        <div id="tracking-panel" className="min-w-0 space-y-6">
+      {/* Live shipment map: buyer & farmer, with the Tracking ID and PIN */}
+      {activeTab === 'MAP' && (
         <div className="space-y-6">
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                void lookupShipmentByCode(trackingIdInput);
+                void lookupShipmentByCode(trackingIdInput, trackingPinInput);
               }}
               className="flex flex-wrap items-end gap-3"
             >
               <div className="min-w-[240px] flex-1">
-                <label htmlFor="shipment-tracking-id" className="block text-xs font-bold uppercase text-slate-600">Authorized Shipment Tracking ID</label>
+                <label htmlFor="shipment-tracking-id" className="block text-xs font-bold uppercase text-slate-600">Tracking ID</label>
                 <input
                   id="shipment-tracking-id"
                   type="text"
                   value={trackingIdInput}
                   onChange={(e) => setTrackingIdInput(e.target.value.toUpperCase())}
-                  placeholder="e.g. Enter your Shipment ID from your Buyer/Farmer Order or Driver Trip"
+                  placeholder="As given by the sender or the driver"
+                  autoComplete="off"
+                  className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 font-mono text-sm font-semibold text-slate-900 focus:border-forest focus:outline-none"
+                />
+              </div>
+              <div className="w-40">
+                <label htmlFor="shipment-pin" className="block text-xs font-bold uppercase text-slate-600">6-digit PIN</label>
+                <input
+                  id="shipment-pin"
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  maxLength={6}
+                  pattern="[0-9]{6}"
+                  value={trackingPinInput}
+                  onChange={(e) => setTrackingPinInput(e.target.value.replace(/\D/g, ''))}
                   className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 font-mono text-sm font-semibold text-slate-900 focus:border-forest focus:outline-none"
                 />
               </div>
@@ -716,36 +747,17 @@ export default function UnifiedLiveTrackingPortal() {
                 type="submit"
                 className="min-h-11 rounded-xl bg-forest px-5 py-2.5 text-sm font-bold text-white shadow hover:bg-forest-deep"
               >
-                Track Authorized Shipment
+                Track this shipment
               </button>
               <span className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-[11px] font-semibold text-slate-600">
                 {realtimeStatus === 'REALTIME' ? '⚡ Realtime updates on' : '↻ 6s freshness poll'}
               </span>
             </form>
 
-            {availableShipments.length > 0 && (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <span className="text-xs font-semibold text-slate-500">Active Shipments:</span>
-                {availableShipments.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => {
-                      setTrackingIdInput(s.shipment_tracking_id);
-                      void lookupShipmentByCode(s.shipment_tracking_id);
-                    }}
-                    className="rounded-lg border border-slate-200 bg-slate-100 px-2.5 py-1 font-mono text-xs font-semibold text-slate-800 hover:bg-forest-soft hover:text-forest-deep"
-                  >
-                    {s.shipment_tracking_id} ({s.origin_name.split(',')[0]} → {s.destination_name.split(',')[0]})
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {listLoaded && availableShipments.length === 0 && (
+            {!trackedShipment && !lookupError && (
               <p data-testid="no-active-shipments" className="mt-3 rounded-xl bg-forest-soft px-4 py-3 text-sm text-forest ring-1 ring-forest-line">
-                No active shipments registered yet. Switch to &apos;Driver / Vehicle Owner Login &amp; Start GPS&apos; to register a real vehicle and start
-                live browser GPS broadcasting, or dispatch an order from the Farmer/Buyer portal.
+                Enter the Tracking ID and the 6-digit PIN that the sender or the driver gave you. A trip is shown only to someone who has both: there is no public list of trips.
+                Drivers and vehicle owners: use the menu to sign in, register a vehicle and start a trip.
               </p>
             )}
 
@@ -778,7 +790,7 @@ export default function UnifiedLiveTrackingPortal() {
                     {trackedVehicle?.registration_number || 'No vehicle assigned yet'}
                   </div>
                   <div className="text-xs text-slate-600">
-                    {trackedVehicle ? `${trackedVehicle.vehicle_category} · ${trackedVehicle.make_and_model || ''}` : 'A driver registers the vehicle in the Driver tab'}
+                    {trackedVehicle ? `${trackedVehicle.vehicle_category} · ${trackedVehicle.make_and_model || ''}` : 'The driver registers the vehicle in the menu'}
                   </div>
                   {trackedDriver && (
                     <div className="mt-1 text-[11px] text-slate-500">
@@ -900,80 +912,134 @@ export default function UnifiedLiveTrackingPortal() {
         </div>
       )}
 
-      {/* TAB 2: orchard pickup jobs on real marketplace orders, then the driver console */}
-      {activeTab === 'DRIVER_CONSOLE' && <OrchardPickupJobs />}
-      {activeTab === 'DRIVER_CONSOLE' && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="space-y-6">
+      {/* Orchard pickup jobs on real marketplace orders */}
+      {activeTab === 'PICKUPS' && <OrchardPickupJobs />}
+
+      {/* Driver sign-in */}
+      {activeTab === 'SIGN_IN' && (
+        <div className="mx-auto max-w-2xl space-y-6">
             {/* 1. Sign-in / registration with PIN */}
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-base font-extrabold text-slate-900">1. Driver / Vehicle Owner Sign-In &amp; Registration</h2>
+              <h2 className="text-base font-extrabold text-slate-900">Driver / vehicle owner: sign in or register</h2>
+              <p className="mt-1 text-sm text-slate-600">Already registered: your mobile number and PIN. New: fill in everything below; your mobile number is confirmed with a one-time code before the account is made.</p>
               <form onSubmit={handleDriverLoginOrRegister} className="mt-4 space-y-3">
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700">Driver Mobile Number *</label>
+                    <label htmlFor="driver-phone" className="block text-xs font-semibold text-slate-700">Mobile number (10 digits) *</label>
                     <input
-                      type="text"
+                      id="driver-phone"
+                      type="tel"
+                      inputMode="numeric"
+                      autoComplete="tel-national"
                       required
                       value={driverPhone}
-                      onChange={(e) => setDriverPhone(e.target.value)}
-                      placeholder="+91-6006561291"
-                      className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                      onChange={(e) => { setDriverPhone(e.target.value); setDriverOtpProof(''); setNeedsOtp(false); }}
+                      className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700">
-                      Security PIN * <span className="font-normal text-slate-400">(default 1234 for new drivers)</span>
+                    <label htmlFor="driver-pin" className="block text-xs font-semibold text-slate-700">
+                      PIN * <span className="font-normal text-slate-600">(4 to 8 digits you choose; keep it secret)</span>
                     </label>
                     <input
+                      id="driver-pin"
                       type="password"
+                      inputMode="numeric"
+                      autoComplete="current-password"
                       required
+                      minLength={4}
+                      maxLength={8}
+                      pattern="[0-9]{4,8}"
                       value={driverPin}
-                      onChange={(e) => setDriverPin(e.target.value)}
-                      placeholder="1234"
-                      className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                      onChange={(e) => setDriverPin(e.target.value.replace(/\D/g, ''))}
+                      className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700">Full Name (new registration)</label>
+                    <label htmlFor="driver-name" className="block text-xs font-semibold text-slate-700">Full name (new drivers)</label>
                     <input
+                      id="driver-name"
                       type="text"
+                      autoComplete="name"
                       value={driverName}
                       onChange={(e) => setDriverName(e.target.value)}
-                      placeholder="e.g. Tariq Ahmad Dar"
-                      className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                      placeholder="As on your driving licence"
+                      className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700">Driving License Number</label>
+                    <label htmlFor="driver-licence" className="block text-xs font-semibold text-slate-700">Driving licence number (new drivers)</label>
                     <input
+                      id="driver-licence"
                       type="text"
                       value={driverLicense}
                       onChange={(e) => setDriverLicense(e.target.value)}
-                      placeholder="JK22-20190012345"
-                      className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 font-mono text-sm"
+                      placeholder="As printed on the licence"
+                      className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 font-mono text-sm"
                     />
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700">Home District</label>
-                  <input
-                    type="text"
-                    value={driverDistrict}
-                    onChange={(e) => setDriverDistrict(e.target.value)}
-                    placeholder="Shopian, J&K"
-                    className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                  />
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="driver-class" className="block text-xs font-semibold text-slate-700">Licence class (new drivers)</label>
+                    <select id="driver-class" value={driverLicenseCategory} onChange={(e) => setDriverLicenseCategory(e.target.value)} className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                      <option value="">Choose the class on your licence</option>
+                      <option value="LMV">LMV: light motor vehicle</option>
+                      <option value="HGV">HGV: heavy goods vehicle</option>
+                      <option value="HPMV">HPMV: heavy passenger motor vehicle</option>
+                      <option value="OTHER">Other class</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="driver-emergency" className="block text-xs font-semibold text-slate-700">Emergency contact mobile (optional)</label>
+                    <input id="driver-emergency" type="tel" inputMode="numeric" value={driverEmergency} onChange={(e) => setDriverEmergency(e.target.value)} className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+                  </div>
                 </div>
 
-                <button type="submit" className="w-full rounded-xl bg-slate-900 py-2.5 text-sm font-bold text-white hover:bg-slate-800">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="driver-district" className="block text-xs font-semibold text-slate-700">Home district (new drivers)</label>
+                    <input id="driver-district" type="text" value={driverDistrict} onChange={(e) => setDriverDistrict(e.target.value)} className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label htmlFor="driver-state" className="block text-xs font-semibold text-slate-700">Home state (new drivers)</label>
+                    <input id="driver-state" type="text" value={driverState} onChange={(e) => setDriverState(e.target.value)} className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+                  </div>
+                </div>
+
+                <button type="submit" className="min-h-11 w-full rounded-xl bg-slate-900 py-2.5 text-sm font-bold text-white hover:bg-slate-800">
                   {driverProfile ? 'Switch / Refresh Driver Account' : 'Sign In / Register Driver'}
                 </button>
               </form>
+
+              {needsOtp && (
+                <div className="mt-4">
+                  <ContactOtp
+                    channel="sms"
+                    value={driverPhone}
+                    onChange={setDriverPhone}
+                    verified={Boolean(driverOtpProof)}
+                    required
+                    label="Confirm your mobile number"
+                    hint="A one-time code is sent by SMS. Once it is confirmed, the account is made."
+                    onVerified={(proof) => {
+                      setDriverOtpProof(proof);
+                      void submitDriverAuth(proof);
+                    }}
+                  />
+                </div>
+              )}
+
+              {driverProfile && (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 p-3 text-sm ring-1 ring-slate-200">
+                  <p className="text-slate-800">Signed in as <strong>{driverProfile.full_name}</strong> · {driverProfile.phone}</p>
+                  <button type="button" onClick={signOutDriver} className="min-h-11 cursor-pointer rounded-lg px-3 font-semibold text-rose-800 underline">Sign out</button>
+                </div>
+              )}
 
               {driverAuthMsg && (
                 <div className="mt-3 rounded-xl border border-forest-line bg-forest-soft px-3.5 py-2 text-xs font-semibold text-forest-deep">
@@ -982,10 +1048,23 @@ export default function UnifiedLiveTrackingPortal() {
               )}
             </div>
 
+        </div>
+      )}
+
+      {/* My vehicles */}
+      {activeTab === 'VEHICLES' && (
+        <div className="mx-auto max-w-3xl space-y-6">
+          {!driverProfile ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+              <p className="text-sm text-slate-800">Sign in as a driver first: this screen needs your account.</p>
+              <button type="button" onClick={() => setActiveTab('SIGN_IN')} className="mt-3 min-h-11 cursor-pointer rounded-xl bg-slate-900 px-5 text-sm font-bold text-white hover:bg-slate-800">Go to Driver sign-in</button>
+            </div>
+          ) : (
+            <>
             {/* 2. Vehicle registration with honest status */}
             {driverProfile && (
               <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h2 className="text-base font-extrabold text-slate-900">2. Register Authorized Vehicle (Honest Verification Status)</h2>
+                <h2 className="text-base font-extrabold text-slate-900">Register a vehicle</h2>
                 <p className="mt-1 text-xs text-slate-500">
                   Manually registered vehicles are marked <strong>SELF_DECLARED</strong> (or <strong>DOCUMENTS_UPLOADED</strong>) until
                   reviewed by Admin — never falsely marked as government-verified.
@@ -1000,7 +1079,7 @@ export default function UnifiedLiveTrackingPortal() {
                         required
                         value={newRegNo}
                         onChange={(e) => setNewRegNo(e.target.value.toUpperCase())}
-                        placeholder="JK22B4512"
+                        placeholder="As on the number plate"
                         className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 font-mono text-sm"
                       />
                     </div>
@@ -1030,20 +1109,39 @@ export default function UnifiedLiveTrackingPortal() {
                         required
                         value={newMakeModel}
                         onChange={(e) => setNewMakeModel(e.target.value)}
-                        placeholder="Tata Prima / Ashok Leyland Ecomet"
+                        placeholder="As on the registration certificate"
                         className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700">Payload Capacity (kg)</label>
+                      <label className="block text-xs font-semibold text-slate-700">Payload capacity (kg) *</label>
                       <input
                         type="number"
+                        required
+                        min={100}
+                        max={100000}
                         value={newPayloadKg}
                         onChange={(e) => setNewPayloadKg(e.target.value)}
                         className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
                       />
                     </div>
                   </div>
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="veh-owner" className="block text-xs font-semibold text-slate-700">Owner of the vehicle *</label>
+                      <input id="veh-owner" type="text" required value={newOwnerName} onChange={(e) => setNewOwnerName(e.target.value)} placeholder="As on the registration certificate" className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <label htmlFor="veh-owner-phone" className="block text-xs font-semibold text-slate-700">Owner’s mobile (optional)</label>
+                      <input id="veh-owner-phone" type="tel" inputMode="numeric" value={newOwnerPhone} onChange={(e) => setNewOwnerPhone(e.target.value)} className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+                    </div>
+                  </div>
+
+                  <label className="flex min-h-11 items-start gap-2 text-sm text-slate-800">
+                    <input type="checkbox" required checked={newOwnerAuthorized} onChange={(e) => setNewOwnerAuthorized(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0" />
+                    <span>The owner has authorised this vehicle to be tracked by KashRoot while I drive it. *</span>
+                  </label>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700">
@@ -1053,7 +1151,7 @@ export default function UnifiedLiveTrackingPortal() {
                       type="text"
                       value={newDocNotes}
                       onChange={(e) => setNewDocNotes(e.target.value)}
-                      placeholder="National Permit NP/JK/2026..."
+                      placeholder="Permit or fitness certificate number"
                       className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
                     />
                   </div>
@@ -1064,14 +1162,41 @@ export default function UnifiedLiveTrackingPortal() {
                 </form>
               </div>
             )}
-          </div>
+            {driverVehicles.length > 0 && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 className="text-base font-extrabold text-slate-900">My registered vehicles</h2>
+                <ul className="mt-2 divide-y divide-slate-100">
+                  {driverVehicles.map((v) => (
+                    <li key={v.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+                      <span>
+                        <span className="font-mono text-sm font-bold text-slate-900">{v.registration_number}</span>
+                        <span className="block text-sm text-slate-700">{v.make_and_model} · {Number(v.payload_capacity_kg).toLocaleString('en-IN')} kg</span>
+                      </span>
+                      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-900 ring-1 ring-slate-300">{v.verification_status.replace(/_/g, ' ').toLowerCase()}</span>
+                    </li>
+                  ))}
+                </ul>
+                <button type="button" onClick={() => setActiveTab('VERIFY')} className="mt-2 min-h-11 cursor-pointer text-sm font-semibold text-indigo-800 underline">What each status means</button>
+              </div>
+            )}
+            </>
+          )}
+        </div>
+      )}
 
-          <div className="space-y-6">
+      {/* Start a trip */}
+      {activeTab === 'TRIP' && (
+        <div className="mx-auto max-w-3xl space-y-6">
+          {!driverProfile ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+              <p className="text-sm text-slate-800">Sign in as a driver first: this screen needs your account.</p>
+              <button type="button" onClick={() => setActiveTab('SIGN_IN')} className="mt-3 min-h-11 cursor-pointer rounded-xl bg-slate-900 px-5 text-sm font-bold text-white hover:bg-slate-800">Go to Driver sign-in</button>
+            </div>
+          ) : (
+            <>
             {/* 3. Vehicle + shipment selection */}
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-base font-extrabold text-slate-900">
-                3. Select Registered Vehicle &amp; Assigned Shipment (e.g. Shopian → Bengaluru)
-              </h2>
+              <h2 className="text-base font-extrabold text-slate-900">Start a trip: choose the vehicle and the shipment</h2>
 
               <div className="mt-4 space-y-3">
                 <div>
@@ -1106,6 +1231,18 @@ export default function UnifiedLiveTrackingPortal() {
                     ))}
                   </select>
                 </div>
+
+                {(() => {
+                  const chosen = assignments.find((a) => a.shipment_id === selectedShipmentId)?.gps_shipments;
+                  const shown = createdTrip && chosen?.shipment_tracking_id === createdTrip.id ? { id: createdTrip.id, pin: createdTrip.pin } : chosen ? { id: chosen.shipment_tracking_id, pin: chosen.buyer_access_pin ?? '' } : createdTrip;
+                  return shown?.pin ? (
+                    <div role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-950 ring-1 ring-emerald-200">
+                      <p className="font-semibold">Give the buyer and the farmer:</p>
+                      <p className="mt-1">Tracking ID <span className="font-mono font-bold">{shown.id}</span> · PIN <span className="font-mono font-bold">{shown.pin}</span></p>
+                      <p className="mt-1 text-xs text-emerald-900">They open the Live shipment map and enter both. Anyone without the PIN cannot see this trip.</p>
+                    </div>
+                  ) : null;
+                })()}
 
                 <form onSubmit={handleCreateShipment} className="space-y-2.5 border-t border-slate-100 pt-3">
                   <div className="text-xs font-bold text-slate-600">Or Dispatch a New Produce Shipment for This Vehicle:</div>
@@ -1162,6 +1299,21 @@ export default function UnifiedLiveTrackingPortal() {
               </div>
             </div>
 
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Live GPS */}
+      {activeTab === 'GPS' && (
+        <div className="mx-auto max-w-3xl space-y-6">
+          {!driverProfile ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+              <p className="text-sm text-slate-800">Sign in as a driver first: this screen needs your account.</p>
+              <button type="button" onClick={() => setActiveTab('SIGN_IN')} className="mt-3 min-h-11 cursor-pointer rounded-xl bg-slate-900 px-5 text-sm font-bold text-white hover:bg-slate-800">Go to Driver sign-in</button>
+            </div>
+          ) : (
+            <>
             {/* 4. START / STOP controls */}
             <div className="rounded-2xl border border-forest-line bg-white p-6 text-slate-900 shadow-sm">
               <h2 className="text-base font-extrabold text-forest">4. Live GPS Broadcast Controls (Explicit Consent)</h2>
@@ -1228,12 +1380,16 @@ export default function UnifiedLiveTrackingPortal() {
                 </div>
               )}
             </div>
-          </div>
+            </>
+          )}
         </div>
       )}
 
-      {/* TAB 3: AIS-140 & telematics ingestion */}
-      {activeTab === 'AIS140_DEVICES' && (
+      {/* Verification */}
+      {activeTab === 'VERIFY' && <VerificationPanel driver={driverProfile} vehicles={driverVehicles} onGo={setActiveTab} />}
+
+      {/* GPS devices: AIS-140 & telematics ingestion */}
+      {activeTab === 'DEVICES' && (
         <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-extrabold text-slate-900">
             Provider-Independent AIS-140 &amp; Commercial Telematics Ingestion Gateway
@@ -1334,6 +1490,8 @@ Authorization: Bearer <secret shown once when the device was paired>
 }`}</pre>
         </div>
       )}
+        </div>
+      </div>
     </div>
     </div>
   );

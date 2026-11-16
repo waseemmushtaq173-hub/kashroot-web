@@ -668,7 +668,7 @@ function downloadCsv(txns: TxnRow[], businessName: string) {
 
 /** The separate owner onboarding application (never touches the Superadmin login). */
 function RegistrationModal({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: (message: string) => void }) {
-  const [form, setForm] = useState({ businessName: '', businessCategory: DEFAULT_BUSINESS_CATEGORY as BusinessCategory, legalEntityType: 'PRIVATE_LIMITED', ownerFullName: '', ownerEmail: '', ownerPhone: '', headquartersAddress: '', district: 'Shopian', stateUt: 'Jammu & Kashmir', gstinOrRegNo: '', panNumber: '', upiId: '', bankName: 'J&K Bank', verificationNotes: '' });
+  const [form, setForm] = useState({ businessName: '', businessCategory: DEFAULT_BUSINESS_CATEGORY as BusinessCategory, legalEntityType: 'PRIVATE_LIMITED', ownerFullName: '', ownerEmail: '', ownerPhone: '', headquartersAddress: '', district: '', stateUt: '', gstinOrRegNo: '', panNumber: '', upiId: '', bankName: '', verificationNotes: '' });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -692,7 +692,7 @@ function RegistrationModal({ open, onClose, onDone }: { open: boolean; onClose: 
   return (
     <Modal open={open} onClose={onClose} title="Register your business" wide>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="Business name"><input className={INPUT} value={form.businessName} onChange={set('businessName')} placeholder="e.g. Al Noor Agri Fresh Pvt. Ltd." /></Field>
+        <Field label="Business name"><input className={INPUT} value={form.businessName} onChange={set('businessName')} placeholder="Business name as registered" /></Field>
         <Field label="Business category" hint="Decides which admin modules your console shows">
           <select className={INPUT} value={form.businessCategory} onChange={set('businessCategory')}>
             {BUSINESS_CATEGORIES.map((c) => <option key={c} value={c}>{BUSINESS_CATEGORY_LABEL[c]}</option>)}

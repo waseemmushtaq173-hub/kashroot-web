@@ -423,3 +423,16 @@ export function proofFor(channel: Channel, to: string): string {
   const body = Buffer.from(JSON.stringify({ ch: channel, to, at: Date.now() })).toString('base64url');
   return `${body}.${sign(`proof|${body}`)}`;
 }
+
+/** Is `proof` (from /api/otp/verify) a genuine, recent receipt that `to` was verified on `channel`? */
+export function checkProof(proof: unknown, channel: Channel, to: string, maxAgeMs = 30 * 60_000): boolean {
+  const [body, mac] = String(proof ?? '').split('.');
+  if (!body || !mac) return false;
+  try {
+    const p = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as { ch?: string; to?: string; at?: number };
+    const target = normalise(channel, to);
+    return verifySignature(`proof|${body}`, mac) && p.ch === channel && Boolean(target) && p.to === target && typeof p.at === 'number' && Date.now() - p.at >= 0 && Date.now() - p.at <= maxAgeMs;
+  } catch {
+    return false;
+  }
+}

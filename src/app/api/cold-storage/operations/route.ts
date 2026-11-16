@@ -242,15 +242,29 @@ export async function POST(request: Request) {
   // ACTION 2: FARMER SUBMITS BOOKING REQUEST.
   if (body.action === 'SUBMIT_BOOKING') {
     const crates = Number(body.requestedCrates || 0);
-    const crateKg = Number(body.crateWeightKg || 18);
-    const months = Number(body.durationMonths || 3);
-    const rate = Number(body.ratePerCratePerMonthInr || 35);
+    const crateKg = Number(body.crateWeightKg);
+    const months = Number(body.durationMonths);
+    const rate = Number(body.ratePerCratePerMonthInr);
 
-    if (!body.facilityId || !body.farmerId || crates <= 0) {
-      return NextResponse.json(
-        { ok: false, error: 'facilityId, farmerId, and requestedCrates > 0 are required' },
-        { status: 400 },
-      );
+    // Nothing is assumed for the farmer: a weight, a period, a rate, a name, a phone, a district, a variety
+    // and a grade are what the booking says, so each must be given.
+    const phoneOk = /^[6-9]\d{9}$/.test(String(body.farmerPhone ?? '').replace(/\D/g, '').replace(/^(91|0)(?=\d{10}$)/, ''));
+    const missing = [
+      !body.facilityId && 'the cold store',
+      !body.farmerId && 'the farmer',
+      !(crates > 0) && 'number of crates',
+      !(crateKg > 0) && 'crate weight in kg',
+      !(months > 0) && 'how many months',
+      !(rate > 0) && 'the rate per crate per month',
+      !String(body.farmerName ?? '').trim() && 'the farmer’s name',
+      !phoneOk && 'a valid 10-digit mobile number',
+      !String(body.farmerDistrict ?? '').trim() && 'the farmer’s village or district',
+      !String(body.appleVariety ?? '').trim() && 'the apple variety',
+      !String(body.appleGrade ?? '').trim() && 'the grade',
+      !String(body.facilityName ?? '').trim() && 'the cold store’s name',
+    ].filter(Boolean);
+    if (missing.length) {
+      return NextResponse.json({ ok: false, error: `Fill in: ${missing.join(', ')}.` }, { status: 400 });
     }
 
     const guard = farmerGuard(user, body.farmerId);
@@ -267,15 +281,15 @@ export async function POST(request: Request) {
       .insert({
         booking_reference: bookingRef,
         facility_id: body.facilityId,
-        facility_name: body.facilityName || 'KashRoot CA Cold Storage',
+        facility_name: String(body.facilityName).trim(),
         chamber_id: body.chamberId || null,
-        chamber_code: body.chamberCode || 'CH-01',
+        chamber_code: body.chamberCode ? String(body.chamberCode).trim() : null,
         farmer_id: body.farmerId,
-        farmer_name: body.farmerName || 'Verified Orchardist',
-        farmer_phone: body.farmerPhone || '',
-        farmer_village_or_district: body.farmerDistrict || 'Shopian',
-        apple_variety: body.appleVariety || 'Kullu Delicious',
-        apple_grade: body.appleGrade || 'Grade A',
+        farmer_name: String(body.farmerName).trim(),
+        farmer_phone: String(body.farmerPhone).replace(/\D/g, '').slice(-10),
+        farmer_village_or_district: String(body.farmerDistrict).trim(),
+        apple_variety: String(body.appleVariety).trim(),
+        apple_grade: String(body.appleGrade).trim(),
         requested_crates: crates,
         crate_weight_kg: crateKg,
         total_weight_kg: totalWeightKg,

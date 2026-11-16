@@ -20,10 +20,11 @@
  */
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { createHash } from 'node:crypto';
+import { createHash, randomInt, timingSafeEqual } from 'node:crypto';
 
 import { haversineDistanceKm } from '@/lib/tracking/haversine';
 import { isSuperAdminCaller } from '@/lib/server/callerRole';
+import { checkProof, normalise } from '@/lib/server/otp';
 import { hasTeamPass } from '@/lib/server/teamPass';
 import { listPickupJobs, pickupAction } from '@/lib/server/pickupJobs';
 import { ipLimited, tooMany } from '@/lib/server/sign';
@@ -67,6 +68,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const mode = searchParams.get('mode') || 'SHIPMENT_LOOKUP';
   const trackingId = (searchParams.get('trackingId') || '').trim().toUpperCase();
+  const pin = (searchParams.get('pin') || '').trim();
   const driverId = searchParams.get('driverId');
   const adminView = searchParams.get('admin') === '1';
 
@@ -140,45 +142,40 @@ export async function GET(request: Request) {
     });
   }
 
-  // 3. Buyer / farmer authorized shipment lookup by Tracking ID
+  // 3. Buyer / farmer authorized shipment lookup by Tracking ID and PIN: the 6-digit PIN the sender was given when the trip was made.
+  // There is no public list of trips: a position, a name or a phone number is shown only to someone holding both.
   if (!trackingId) {
-    // The list of active shipments: rows of gps_shipments only (made by a registered driver's trip or a dispatched
-    // order), still on the road — not delivered or cancelled — and heard from in the last 24 hours. An old paused
-    // trip is not "active"; it stays reachable by its own Tracking ID.
-    const since = new Date(Date.now() - ACTIVE_WINDOW_MS).toISOString();
-    const { data: recentShipments } = await supabase
-      .from('gps_shipments')
-      .select('id, shipment_tracking_id, commodity_name, origin_name, destination_name, shipment_status, updated_at')
-      .in('shipment_status', ['ASSIGNED', 'IN_TRANSIT', 'TRACKING_PAUSED'])
-      .gte('updated_at', since)
-      .order('updated_at', { ascending: false })
-      .limit(10);
-
-    return NextResponse.json({
-      ok: true,
-      availableShipments: recentShipments ?? [],
-    });
+    return NextResponse.json({ ok: true, availableShipments: [] });
+  }
+  if (ipLimited(request, 'tracking-pin-guess', 12, 60_000)) return tooMany(60);
+  if (!/^\d{6}$/.test(pin)) {
+    return NextResponse.json({ ok: false, error: 'Enter the Tracking ID and the 6-digit PIN that the sender or the driver gave you.' }, { status: 400 });
   }
 
-  const { data: shipment, error: shpErr } = await supabase
+  const { data: found, error: shpErr } = await supabase
     .from('gps_shipments')
     .select('*')
     .eq('shipment_tracking_id', trackingId)
     .maybeSingle();
 
-  if (shpErr || !shipment) {
+  const pinOk = (() => {
+    const have = Buffer.from(String(found?.buyer_access_pin ?? ''));
+    const want = Buffer.from(pin);
+    return have.length === want.length && timingSafeEqual(have, want);
+  })();
+  if (shpErr || !found || !pinOk) {
     return NextResponse.json(
-      {
-        ok: false,
-        error: `No authorized shipment found with Tracking ID "${trackingId}". Buyers and farmers can only view shipments assigned to them.`,
-      },
+      { ok: false, error: 'No shipment matches that Tracking ID and PIN. Check both with the sender or the driver.' },
       { status: 404 },
     );
   }
+  // What the PIN holder sees: the trip, not the people's ids, phones or the PIN itself.
+  const { buyer_access_pin: _pin, farmer_id: _f, buyer_id: _b, order_id: _o, farmer_phone: _fp, buyer_phone: _bp, ...shipment } = found;
+  void _pin; void _f; void _b; void _o; void _fp; void _bp;
 
   const { data: assignment } = await supabase
     .from('shipment_vehicles')
-    .select('*, vehicles(*), drivers(id, full_name, phone, license_category)')
+    .select('vehicles(id, registration_number, vehicle_category, make_and_model, payload_capacity_kg, verification_status), drivers(full_name, phone, license_category)')
     .eq('shipment_id', shipment.id)
     .eq('is_active_assignment', true)
     .maybeSingle();
@@ -298,32 +295,34 @@ export async function POST(request: Request) {
 
   // ACTION 1: driver registration or sign-in
   if (body.action === 'DRIVER_AUTH') {
-    const phone = clampText(body.phone, 24).replace(/[^0-9+]/g, '');
-    const pin = clampText(body.pin, 16) || '1234';
-
-    if (!phone || phone.replace(/\D/g, '').length < 10) {
-      return NextResponse.json({ ok: false, error: 'Driver phone number is required' }, { status: 400 });
+    // One mobile number, one account: the number is kept as its 10 digits, and an older account saved as
+    // "+91-…" or "91…" is found too.
+    const mobile = normalise('sms', clampText(body.phone, 24));
+    if (!mobile) {
+      return NextResponse.json({ ok: false, error: 'Enter a valid 10-digit Indian mobile number.' }, { status: 400 });
+    }
+    // A PIN is always the driver's own: none is assumed for anyone.
+    const pin = clampText(body.pin, 16);
+    if (!/^\d{4,8}$/.test(pin)) {
+      return NextResponse.json({ ok: false, error: 'Enter your PIN: 4 to 8 digits.' }, { status: 400 });
     }
 
     const { data: existing } = await supabase
       .from('drivers')
       .select('*')
-      .eq('phone', phone)
+      .in('phone', [mobile, `+91${mobile}`, `+91-${mobile}`, `91${mobile}`, `0${mobile}`])
       .maybeSingle();
 
     if (existing) {
       // Sign-in verifies the PIN the driver chose at registration.
-      if (existing.password_hash && existing.password_hash !== hashPinOrSecret(pin)) {
+      if (!existing.password_hash) {
         return NextResponse.json(
-          { ok: false, error: 'Incorrect PIN for this driver account.' },
-          { status: 401 },
+          { ok: false, error: 'This driver account has no PIN set, so it cannot be opened. Ask KashRoot support to reset it.' },
+          { status: 403 },
         );
       }
-      if (!existing.password_hash && pin !== '1234') {
-        return NextResponse.json(
-          { ok: false, error: 'Incorrect PIN for this driver account.' },
-          { status: 401 },
-        );
+      if (existing.password_hash !== hashPinOrSecret(pin)) {
+        return NextResponse.json({ ok: false, error: 'Incorrect PIN for this driver account.' }, { status: 401 });
       }
       return NextResponse.json({
         ok: true,
@@ -341,31 +340,50 @@ export async function POST(request: Request) {
       });
     }
 
-    if (!body.fullName || !body.licenseNumber) {
+    // A new driver: the mobile number is proved with a one-time code first (the screen asks for it when it gets this answer).
+    if (!checkProof(body.otpProof, 'sms', mobile)) {
       return NextResponse.json(
-        { ok: false, error: 'New driver registration requires Full Name and Driving License Number.' },
-        { status: 400 },
+        { ok: false, needsVerification: true, error: 'This mobile number is not registered yet. Verify it with a one-time code to register.' },
+        { status: 409 },
       );
+    }
+    const weak = /^(\d)\1+$/.test(pin) || ['1234', '4321', '0123', '12345', '123456', '1234567', '12345678'].includes(pin);
+    if (weak) {
+      return NextResponse.json({ ok: false, error: 'Choose a PIN that is not easy to guess (not 1234, 0000, 1111…).' }, { status: 400 });
+    }
+    if (!clampText(body.fullName, 120) || !clampText(body.licenseNumber, 40)) {
+      return NextResponse.json({ ok: false, error: 'New driver registration requires your full name and driving licence number.' }, { status: 400 });
+    }
+    if (!clampText(body.licenseCategory, 40)) {
+      return NextResponse.json({ ok: false, error: 'Choose the class on your driving licence.' }, { status: 400 });
+    }
+    if (!clampText(body.homeDistrict, 80) || !clampText(body.homeState, 80)) {
+      return NextResponse.json({ ok: false, error: 'Add your home district and state.' }, { status: 400 });
+    }
+    const emergency = body.emergencyContact ? normalise('sms', clampText(body.emergencyContact, 24)) : null;
+    if (body.emergencyContact && !emergency) {
+      return NextResponse.json({ ok: false, error: 'The emergency contact must be a valid 10-digit mobile number.' }, { status: 400 });
     }
 
     const { data: created, error: createErr } = await supabase
       .from('drivers')
       .insert({
         full_name: clampText(body.fullName, 120),
-        phone,
+        phone: mobile,
         email: body.email ? clampText(body.email, 160) : null,
         password_hash: hashPinOrSecret(pin),
         license_number: clampText(body.licenseNumber, 40).toUpperCase(),
-        license_category: clampText(body.licenseCategory || 'HGV / TRANS', 40),
-        home_district: clampText(body.homeDistrict || 'Shopian', 80),
-        home_state: clampText(body.homeState || 'Jammu & Kashmir', 80),
+        license_category: clampText(body.licenseCategory, 40),
+        emergency_contact: emergency,
+        home_district: clampText(body.homeDistrict, 80),
+        home_state: clampText(body.homeState, 80),
         account_status: 'ACTIVE',
       })
-      .select('*')
+      .select('id, full_name, phone, license_number, license_category, home_district, home_state, account_status')
       .single();
 
     if (createErr) {
-      return NextResponse.json({ ok: false, error: createErr.message }, { status: 500 });
+      return NextResponse.json({ ok: false, error: 'Could not register the driver. Try again.' }, { status: 500 });
     }
 
     return NextResponse.json({ ok: true, isNewDriver: true, driver: created });
@@ -386,7 +404,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: 'Unsupported vehicle category.' }, { status: 400 });
     }
 
-    const verificationStatus = body.supportingDocUrl ? 'DOCUMENTS_UPLOADED' : 'SELF_DECLARED';
+    if (body.ownerAuthorized !== true) {
+      return NextResponse.json({ ok: false, error: 'Confirm that the owner has authorised this vehicle to be tracked.' }, { status: 400 });
+    }
+    const payload = Number(body.payloadCapacityKg);
+    if (!Number.isFinite(payload) || payload < 100 || payload > 100_000) {
+      return NextResponse.json({ ok: false, error: 'Enter the payload capacity in kg (100 to 100,000).' }, { status: 400 });
+    }
+    const ownerPhone = body.ownerPhone ? normalise('sms', clampText(body.ownerPhone, 24)) : null;
+    if (body.ownerPhone && !ownerPhone) {
+      return NextResponse.json({ ok: false, error: 'The owner’s mobile number must be a valid 10-digit number.' }, { status: 400 });
+    }
+
+    // A vehicle already on KashRoot belongs to the driver who registered it: nobody else takes it over, and a vehicle
+    // an admin approved never falls back to "self declared" because someone saved it again.
+    const { data: already } = await supabase.from('vehicles').select('id, verification_status').eq('registration_number', regNo).maybeSingle();
+    if (already) {
+      const { data: link } = await supabase.from('driver_vehicles').select('driver_id').eq('vehicle_id', already.id);
+      if ((link ?? []).some((l) => l.driver_id !== body.driverId)) {
+        return NextResponse.json({ ok: false, error: 'This vehicle is already registered by another driver. Contact KashRoot support if it is yours.' }, { status: 409 });
+      }
+    }
+    const verificationStatus =
+      already && (already.verification_status === 'ADMIN_APPROVED' || already.verification_status === 'DOCUMENTS_UPLOADED')
+        ? already.verification_status
+        : body.supportingDocUrl
+          ? 'DOCUMENTS_UPLOADED'
+          : 'SELF_DECLARED';
 
     const { data: vehicle, error: vErr } = await supabase
       .from('vehicles')
@@ -395,10 +439,10 @@ export async function POST(request: Request) {
           registration_number: regNo,
           vehicle_category: category,
           make_and_model: clampText(body.makeAndModel, 80),
-          payload_capacity_kg: Number(body.payloadCapacityKg || 15000),
+          payload_capacity_kg: payload,
           owner_name: clampText(body.ownerName, 120),
-          owner_phone: body.ownerPhone ? clampText(body.ownerPhone, 24) : null,
-          owner_authorized: Boolean(body.ownerAuthorized ?? true),
+          owner_phone: ownerPhone,
+          owner_authorized: true,
           supporting_doc_url: body.supportingDocUrl ? clampText(body.supportingDocUrl, 500) : null,
           supporting_doc_notes: body.supportingDocNotes ? clampText(body.supportingDocNotes, 300) : null,
           verification_status: verificationStatus,
@@ -488,6 +532,7 @@ export async function POST(request: Request) {
         .from('gps_shipments')
         .insert({
           shipment_tracking_id: trackingId,
+          buyer_access_pin: String(randomInt(100000, 1000000)),
           farmer_name: clampText(body.farmerName, 120),
           farmer_phone: body.farmerPhone ? clampText(body.farmerPhone, 24) : null,
           buyer_name: clampText(body.buyerName, 120),

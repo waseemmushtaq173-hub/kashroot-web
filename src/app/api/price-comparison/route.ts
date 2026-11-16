@@ -181,17 +181,17 @@ export async function GET(request: Request) {
               : unit === 'piece'
                 ? '1 Piece'
                 : '1 kg';
-    const village = p.district || 'Kashmir';
+    const village = p.district || '';
     return {
       // v1 columns:
       id: p.id,
-      seller_name: p.seller_name || 'Verified Grower',
+      seller_name: p.seller_name || 'Grower (name not given)',
       seller_role: 'farmer',
       category: classify(String(p.product ?? ''), (p.subcategory as string) ?? null, String(p.category ?? 'produce')),
-      product_name: p.product || 'Kashmir Produce',
-      variety: p.variety || 'Standard',
-      grade: p.grade || 'Grade A',
-      district: p.district || 'Shopian',
+      product_name: p.product || 'Produce (name not given)',
+      variety: p.variety || null,
+      grade: p.grade || 'Not graded',
+      district: p.district || '',
       market_or_village: village,
       price_inr: Number(p.price ?? 0),
       unit_label: unitLabel,
@@ -255,8 +255,12 @@ export async function POST(request: Request) {
   const transport = q.transportCostPerUnitInr ?? q.deliveryCostInr ?? 0;
   const sellerRole = (q.sellerRole || q.sellerType || 'farmer').toLowerCase();
   const sellerType = (q.sellerType || sellerRole).toLowerCase();
-  const districtLabel = (q.district || 'Shopian').slice(0, 80);
-  const villageLabel = (q.marketOrVillage || q.district || 'Shopian').slice(0, 80);
+  // Where the produce is: only what the seller wrote (no district is assumed).
+  const districtLabel = (q.district ?? '').trim().slice(0, 80);
+  if (!districtLabel) return NextResponse.json({ ok: false, error: 'Add the district where the produce is.' }, { status: 400 });
+  if (!q.unitLabel?.trim()) return NextResponse.json({ ok: false, error: 'Say what one unit is (for example “1 kg” or “17 kg box”).' }, { status: 400 });
+  if (!(Number(q.availableQuantity) > 0)) return NextResponse.json({ ok: false, error: 'Add how many units are available.' }, { status: 400 });
+  const villageLabel = (q.marketOrVillage || districtLabel).trim().slice(0, 80);
   const nowIso = new Date().toISOString();
 
   const supabase = getSupabase();
@@ -265,17 +269,17 @@ export async function POST(request: Request) {
     .insert({
       // v1 columns (kept for older readers):
       seller_id: q.sellerId ?? null,
-      seller_name: String(q.sellerName || 'Verified Seller').slice(0, 80),
+      seller_name: String(q.sellerName || 'Seller').trim().slice(0, 80),
       seller_role: sellerRole,
       category: q.category,
       product_name: q.productName.slice(0, 80),
       variety: q.variety ? q.variety.slice(0, 60) : null,
-      grade: q.grade || 'Grade A',
+      grade: q.grade?.trim() || 'Not graded',
       district: districtLabel,
       market_or_village: villageLabel,
       price_inr: priceInr,
-      unit_label: String(q.unitLabel || '18 kg Box').slice(0, 40),
-      available_quantity: q.availableQuantity ?? 1,
+      unit_label: String(q.unitLabel).trim().slice(0, 40),
+      available_quantity: Number(q.availableQuantity),
       delivery_cost_inr: transport,
       source_label: String(q.sourceLabel || 'Verified Seller Submission').slice(0, 60),
       // v2 columns (both column sets are always written):

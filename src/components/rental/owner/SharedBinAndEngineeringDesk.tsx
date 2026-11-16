@@ -747,7 +747,8 @@ export function FarmerStoredApplesDesk({
   const [ops, setOps] = useState<OpsPayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [busyKey, setBusyKey] = useState<string | null>(null);
-  const [book, setBook] = useState({ crates: '40', variety: VARIETIES[0], grade: 'Grade A', months: '3', crateKg: '18', rate: '35' });
+  // Nothing is pre-filled: a booking says what the farmer types, and the rate is the one agreed with the cold store.
+  const [book, setBook] = useState({ crates: '', variety: '', grade: '', months: '', crateKg: '', rate: '' });
   const [releaseFor, setReleaseFor] = useState<Record<string, string>>({});
   // When the store's rows were last read: a reading's age is measured against it.
   const [loadedAt, setLoadedAt] = useState(0);
@@ -848,36 +849,46 @@ export function FarmerStoredApplesDesk({
       ) : (
         <>
           <Panel theme={theme} title="Book cold storage" icon={Send} action={<Badge tone="amber">{myBookings.length} of mine</Badge>}>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <Field label="Crates"><input className={INPUT} inputMode="numeric" value={book.crates} onChange={(e) => setBook((p) => ({ ...p, crates: e.target.value.replace(/\D/g, '') }))} /></Field>
               <Field label="Apple variety">
                 <select className={INPUT} value={book.variety} onChange={(e) => setBook((p) => ({ ...p, variety: e.target.value }))}>
+                  <option value="">Choose the variety</option>
                   {VARIETIES.map((v) => <option key={v} value={v}>{v}</option>)}
                 </select>
               </Field>
               <Field label="Months">
                 <select className={INPUT} value={book.months} onChange={(e) => setBook((p) => ({ ...p, months: e.target.value }))}>
+                  <option value="">Choose how long</option>
                   {[1, 2, 3, 4, 5, 6].map((m) => <option key={m} value={m}>{m} month{m === 1 ? '' : 's'}</option>)}
                 </select>
               </Field>
               <Field label="Kg per crate"><input className={INPUT} inputMode="decimal" value={book.crateKg} onChange={(e) => setBook((p) => ({ ...p, crateKg: e.target.value }))} /></Field>
+              <Field label="Grade (as you sorted it)"><input className={INPUT} value={book.grade} maxLength={40} onChange={(e) => setBook((p) => ({ ...p, grade: e.target.value }))} /></Field>
+              <Field label="Rate agreed with the cold store (₹ per crate per month)"><input className={INPUT} inputMode="decimal" value={book.rate} onChange={(e) => setBook((p) => ({ ...p, rate: e.target.value }))} /></Field>
             </div>
             <Btn
               theme={theme}
               className="mt-4"
               icon={Send}
-              disabled={busyKey === 'book' || !book.crates || Number(book.crates) <= 0}
+              disabled={busyKey === 'book' || !(Number(book.crates) > 0) || !book.variety || !book.grade.trim() || !(Number(book.months) > 0) || !(Number(book.crateKg) > 0) || !(Number(book.rate) > 0)}
               onClick={() =>
                 void post(
                   {
                     action: 'SUBMIT_BOOKING',
                     facilityId,
-                    requestedCrates: Number(book.crates || 0),
+                    facilityName: allFacilities.find((f) => f.id === facilityId)?.title ?? '',
+                    farmerId: account.id,
+                    // The farmer's own details from My details; the server asks for any that are missing.
+                    farmerName: account.name,
+                    farmerPhone: account.phone,
+                    farmerDistrict: [account.village, account.district].filter(Boolean).join(', '),
+                    requestedCrates: Number(book.crates),
                     appleVariety: book.variety,
-                    appleGrade: book.grade,
-                    crateWeightKg: Number(book.crateKg || 18),
-                    durationMonths: Number(book.months || 3),
-                    ratePerCratePerMonthInr: Number(book.rate || 35),
+                    appleGrade: book.grade.trim(),
+                    crateWeightKg: Number(book.crateKg),
+                    durationMonths: Number(book.months),
+                    ratePerCratePerMonthInr: Number(book.rate),
                   },
                   'Booking sent.',
                   'book',

@@ -360,12 +360,14 @@ export async function POST(request: Request) {
       !body.ownerFullName ||
       !body.ownerEmail ||
       !body.ownerPhone ||
-      !String(body.headquartersAddress ?? '').trim()
+      !String(body.headquartersAddress ?? '').trim() ||
+      !String(body.district ?? '').trim() ||
+      !String(body.stateUt ?? '').trim()
     ) {
       return NextResponse.json(
         {
           ok: false,
-          error: 'Business Name, Owner Name, Email, Phone and Headquarters Address are required.',
+          error: 'Business Name, Owner Name, Email, Phone, Headquarters Address, District and State are required.',
         },
         { status: 400 }
       );
@@ -394,12 +396,12 @@ export async function POST(request: Request) {
       owner_email: String(body.ownerEmail).trim().toLowerCase(),
       owner_phone: String(body.ownerPhone).trim(),
       headquarters_address: String(body.headquartersAddress).trim(),
-      district: body.district || 'Shopian',
-      state_ut: body.stateUt || 'Jammu & Kashmir',
-      verification_notes: body.verificationNotes || 'Submitted via Owner Onboarding Portal',
+      district: String(body.district).trim(),
+      state_ut: String(body.stateUt).trim(),
+      verification_notes: body.verificationNotes ? String(body.verificationNotes).trim() : null,
       onboarding_status: 'PENDING_VERIFICATION',
       upi_id: body.upiId || null,
-      bank_name: body.bankName || 'J&K Bank',
+      bank_name: body.bankName ? String(body.bankName).trim() : null,
     };
 
     let insertRes = await supabase

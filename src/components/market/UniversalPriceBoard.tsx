@@ -327,6 +327,9 @@ function OfferSubmit({ account, open, onOpenChange, onDone }: { account?: Accoun
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!f.productName.trim() || !f.priceInr) return setError('Product name and price are required.');
+    if (!f.district.trim()) return setError('Add the district where the produce is.');
+    if (!f.unitLabel.trim()) return setError('Say what one unit is, for example “1 kg” or “17 kg box”.');
+    if (!(Number(f.availableQuantity) > 0)) return setError('Add how many units are available.');
     setBusy(true);
     setError(null);
     try {
@@ -335,7 +338,7 @@ function OfferSubmit({ account, open, onOpenChange, onDone }: { account?: Accoun
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sellerId: account?.id ?? null,
-          sellerName: account?.name ?? 'Verified Seller',
+          sellerName: account?.name ?? '',
           sellerRole: f.sellerType,
           sellerType: f.sellerType,
           productName: f.productName.trim(),
@@ -345,8 +348,8 @@ function OfferSubmit({ account, open, onOpenChange, onDone }: { account?: Accoun
           district: f.district.trim(),
           marketOrVillage: f.marketOrVillage.trim() || f.district.trim(),
           priceInr: Number(f.priceInr),
-          unitLabel: f.unitLabel.trim() || '18 kg Box',
-          availableQuantity: Number(f.availableQuantity || 1),
+          unitLabel: f.unitLabel.trim(),
+          availableQuantity: Number(f.availableQuantity),
           transportCostPerUnitInr: Number(f.transportCostPerUnitInr || 0),
         }),
       });
