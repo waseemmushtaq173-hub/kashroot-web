@@ -45,6 +45,10 @@ import { isMember, joinPortal, markPortalSignedIn, portalAccess, PORTAL_SIGNIN_L
 import { AUTH_ROUTES, loginHref, PORTALS, portalForRole, portalOfPath, safeNextPath, type PortalId } from '@/lib/auth/roles';
 import { forgetPerson, rememberedPerson, rememberSignedIn, restoreSession, signOutCompletely, type RememberedPerson } from '@/lib/auth/session';
 
+/** Sign-in: after this long the person is told it is slow; after the limit it stops with a message and can be tried again. */
+const SLOW_AFTER_MS = 4_000;
+const SIGN_IN_LIMIT_MS = 25_000;
+const SIGN_IN_TOO_SLOW = 'KashRoot is taking too long to answer. Check your internet and press Sign in again.';
 const LEGACY_OK: PortalId[] = ['farmer', 'buyer'];
 
 type JoinRole = (typeof SELF_JOIN_ROLES)[number];
@@ -98,6 +102,8 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
   const guard = useFormGuard(800, 'signin');
   const [showPassword, setShowPassword] = useState(false);
   const [pending, setPending] = useState(false);
+  // Signing in is taking longer than usual (a slow network): the person is told, and it never hangs without an answer.
+  const [slow, setSlow] = useState(false);
   const [error, setError] = useState<{ text: string; portal?: PortalId } | null>(null);
   // Second step: a one-time code to the account's mobile (SMS + WhatsApp) or email.
   const [step, setStep] = useState<OtpStep | null>(null);
@@ -244,8 +250,17 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
     setPending(true);
     setError(null);
     let navigating = false;
+    const slowTimer = window.setTimeout(() => setSlow(true), SLOW_AFTER_MS);
+    let limitTimer: number | undefined;
     try {
-      const data = await authApi.login({ email: email.trim(), password });
+      // The password check and the roles lookup are two calls to the database: on a weak network they can take long, so
+      // there is a time limit (the person can press Sign in again) instead of a spinner that never ends.
+      const data = await Promise.race([
+        authApi.login({ email: email.trim(), password }),
+        new Promise<never>((_, reject) => {
+          limitTimer = window.setTimeout(() => reject(new Error(SIGN_IN_TOO_SLOW)), SIGN_IN_LIMIT_MS);
+        }),
+      ]);
       if (!data.accessToken) throw new Error('Sign-in did not return a session. Please try again.');
 
       const accountRole = data.accountRole;
@@ -283,6 +298,9 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
       // The security check shows its own reason, with Retry.
       if (!(err instanceof HumanCheckError)) setError({ text: err instanceof Error && err.message ? err.message : 'Failed to sign in. Please check your connection.' });
     } finally {
+      window.clearTimeout(slowTimer);
+      window.clearTimeout(limitTimer);
+      setSlow(false);
       if (!navigating) setPending(false);
     }
   };
@@ -584,6 +602,9 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
             {pending ? 'Signing in…' : `Sign in to ${info.label}`}
             {!pending && <ArrowRight className="h-4 w-4" aria-hidden />}
           </button>
+          <p role="status" aria-live="polite" className="text-center text-xs text-slate-600">
+            {pending && slow ? 'Still signing in: your connection is slow. This can take up to 25 seconds. Please wait.' : ''}
+          </p>
         </form>
       </SecurityGate>
 
