@@ -40,17 +40,10 @@ import { classifyFetchError } from '@/lib/onlineFirstClient';
 import { dbMessage, loadAccount, supabase, supabaseConfigured, type Account } from '@/lib/db/client';
 import { searchRegistry, type OfficialHit, type OfficialKind } from '@/lib/db/registry';
 import type { FcoStandard, CibrcProduct, CibrcBanned } from '@/lib/db/govRegistry';
-import {
-  cibrcLookupRegistered,
-  cibrcLookupBanned,
-  fcoLookupEmbedded,
-  fcoLookupMerged,
-  agroRegistryStats,
-  searchAllEmbedded,
-  REFERENCE_SOURCE,
-  type AgroRegistryStats,
-  type SearchHit,
-} from '@/lib/gov-agro-registry';
+// The typed lists are about 3 MB of script: only their types are imported here, and the lists are fetched when a check first needs them.
+import type { AgroRegistryStats, SearchHit } from '@/lib/gov-agro-registry';
+import { REFERENCE_SOURCE } from '@/lib/fertilizer/referenceSource';
+import { loadRegistry } from '@/lib/fertilizer/registryLazy';
 import { reportBatch } from '@/lib/db/security';
 import { skuastLookup, skuastLookupAll, skuastSearch, type SkuastRecommendation } from '@/lib/skuast-kashmir-recommendations';
 import { DataGovPanel } from './DataGovPanel';
@@ -188,7 +181,8 @@ async function scan(raw: string): Promise<Scan> {
   if (typed.text.length < 2) return { state: 'error', message: `“${typed.text}” is too short. Type the whole registration number, product name or batch number.` };
   try {
     // ── Primary: embedded search — always works, fuzzy/typo-tolerant ──
-    const embeddedHits = searchAllEmbedded(typed.text).map(toOfficialHit);
+    const registry = await loadRegistry();
+    const embeddedHits = registry.searchAllEmbedded(typed.text).map(toOfficialHit);
 
     // ── Supplementary: Supabase registry (if configured) ──
     let supabaseHits: OfficialHit[] | null = null;
@@ -214,7 +208,7 @@ async function scan(raw: string): Promise<Scan> {
     for (const h of (supabaseHits ?? [])) add(h);
 
     const [statsResult, dealer] = await Promise.all([
-      agroRegistryStats(),
+      registry.agroRegistryStats(),
       typed.kind === 'batch' && typed.text.length >= 3 ? lookupBatch(typed.text) : Promise.resolve(undefined),
     ]);
     return { state: 'done', typed, hits: merged, stats: statsResult, dealer };
@@ -271,13 +265,13 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
   const open = (id: typeof mode) => {
     setMode(id);
     // What the lists hold, said under the box before anything is typed.
-    if (id === 'registry' && stats === undefined) setStats(agroRegistryStats());
+    if (id === 'registry' && stats === undefined) void loadRegistry().then((r) => setStats((s) => s ?? r.agroRegistryStats())).catch(() => undefined);
     if (id === 'lab') {
-      // Load FCO standards synchronously (0ms) from embedded registry —
-      // never block on a slow or failing network fetch.
+      // The FCO standards come from the embedded lists (no network), fetched with them the first time they are needed.
       if (fcoStandard === undefined) {
-        const embedded = fcoLookupEmbedded('Diammonium phosphate (DAP)', '18:46:0');
-        setFcoStandard(embedded ?? null);
+        void loadRegistry()
+          .then((r) => setFcoStandard((s) => (s === undefined ? r.fcoLookupEmbedded('Diammonium phosphate (DAP)', '18:46:0') ?? null : s)))
+          .catch(() => setFcoStandard(null));
       }
     }
     if (id === 'qr') {
@@ -301,8 +295,14 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
     // Run immediately against the embedded CIBRC + Banned + SKUAST-K registries
     // so results appear the instant "Check" is clicked — no loading flash.
     if (typed.text && typed.text.length >= 3) {
-      const products = cibrcLookupRegistered(undefined, typed.text);
-      const banned = cibrcLookupBanned(typed.text);
+      let registry: Awaited<ReturnType<typeof loadRegistry>> | null = null;
+      try {
+        registry = await loadRegistry();
+      } catch {
+        // Offline before the lists were ever fetched: the live lookup below still runs and says what went wrong.
+      }
+      const products = registry ? registry.cibrcLookupRegistered(undefined, typed.text) : [];
+      const banned = registry ? registry.cibrcLookupBanned(typed.text) : [];
       setCibrcResult({ products, banned });
 
       const molecules = products.map((p) => p.active_molecule).filter(Boolean);
@@ -339,10 +339,14 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
         setBrowseResults(data.results ?? []);
       } else {
         // Fallback to embedded search only
-        setBrowseResults(searchAllEmbedded(q.trim()));
+        setBrowseResults((await loadRegistry()).searchAllEmbedded(q.trim()));
       }
     } catch {
-      setBrowseResults(searchAllEmbedded(q.trim()));
+      try {
+        setBrowseResults((await loadRegistry()).searchAllEmbedded(q.trim()));
+      } catch {
+        setBrowseResults([]);
+      }
     } finally {
       setBrowseLoading(false);
     }
@@ -471,15 +475,19 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
                 const v = e.target.value.trim();
                 setFcoQuery(v);
                 setValues({});
-                // Synchronous (0ms) lookup from embedded registry — never blocked on network
-                const embedded = fcoLookupEmbedded(v);
-                setFcoStandard(embedded ?? null);
-                if (!embedded && v.length > 0) {
-                  // Live fallback in background without blocking UI
-                  void fcoLookupMerged(v)
-                    .then((s) => setFcoStandard(s ?? null))
-                    .catch(() => setFcoStandard(null));
-                }
+                // Looked up in the embedded lists (no network); the first keystroke fetches them, the rest answer at once.
+                void loadRegistry()
+                  .then((r) => {
+                    const embedded = r.fcoLookupEmbedded(v);
+                    setFcoStandard(embedded ?? null);
+                    if (!embedded && v.length > 0) {
+                      // Live fallback in background without blocking UI
+                      void r.fcoLookupMerged(v)
+                        .then((s) => setFcoStandard(s ?? null))
+                        .catch(() => setFcoStandard(null));
+                    }
+                  })
+                  .catch(() => setFcoStandard(null));
               }}
               className={`${INPUT} mt-1.5 flex-1`}
             />
@@ -508,8 +516,9 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
                 onClick={() => {
                   setFcoQuery(pill);
                   setValues({});
-                  const embedded = fcoLookupEmbedded(pill);
-                  setFcoStandard(embedded ?? null);
+                  void loadRegistry()
+                    .then((r) => setFcoStandard(r.fcoLookupEmbedded(pill) ?? null))
+                    .catch(() => setFcoStandard(null));
                 }}
                 className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-3 py-1 text-sm font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-900 transition"
               >
@@ -1170,7 +1179,7 @@ function LabelPhoto({ account }: { account: Account | null }) {
   const checkRegistration = async (no: string) => {
     setRegCheck({ state: 'loading' });
     try {
-      const [hits, statsResult] = await Promise.all([searchRegistry(no), agroRegistryStats()]);
+      const [hits, statsResult] = await Promise.all([searchRegistry(no), loadRegistry().then((r) => r.agroRegistryStats())]);
       setRegCheck({ state: 'done', no, hits, stats: statsResult });
     } catch (err) {
       setRegCheck({ state: 'error', message: offline(err) });

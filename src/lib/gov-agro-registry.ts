@@ -28,6 +28,7 @@
 
 import { dbMessage, supabase, supabaseConfigured } from '@/lib/db/client';
 import type { CibrcBanned, CibrcProduct, FcoStandard } from '@/lib/db/govRegistry';
+import { REFERENCE_SOURCE } from '@/lib/fertilizer/referenceSource';
 
 // ══════════════════════════════════════════════════════════════════════════
 //   OFFICIAL CIB&RC REGISTERED PESTICIDES (Insecticides Act, 1968 — ppqs.gov.in)
@@ -95363,7 +95364,7 @@ export function agroRegistryStats(): AgroRegistryStats {
 // number differs from one typed here. Brands, molecules, crops, fertiliser
 // grades and advice stay, every record marked `reference`. Verified records
 // come only from an official import (Admin → Registry, from the CIB&RC list).
-export const REFERENCE_SOURCE = 'KashRoot reference list — not checked against the official register';
+export { REFERENCE_SOURCE };
 for (const p of EMBEDDED_CIBRC_REGISTERED) {
   Object.assign(p, { cir_no: '', cirNumber: '', manufacturerLicense: '', dosage_per_ha: null, dosage_per_acre: null, source: REFERENCE_SOURCE, source_url: 'https://ppqs.gov.in', reference: true });
 }

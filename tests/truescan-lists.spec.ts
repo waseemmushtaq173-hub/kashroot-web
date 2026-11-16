@@ -75,3 +75,17 @@ test('KashRoot\'s typed reference entries are never headed as registered with, o
   expect(ui).toMatch(/isReference\(h\) \? REFERENCE_HEADING : REGISTERED\[h\.kind\]/);
 });
 
+
+test('the typed lists (about 3 MB of script) are fetched when a check needs them, not with every page that shows TrueScan', () => {
+  const ui = read('src/components/fertilizer/FertilizerChecker.tsx');
+  // Only the types are imported at the top; a value import would put the whole list into the home page's script.
+  const imports = ui.match(/^import [^;]*from '@\/lib\/gov-agro-registry';/gm) ?? [];
+  expect(imports.length).toBeGreaterThan(0);
+  for (const line of imports) expect(line).toMatch(/^import type /);
+  expect(ui).toContain("import { loadRegistry } from '@/lib/fertilizer/registryLazy';");
+  // ...and none of its functions is called straight (a call goes through the loaded module: registry.x(…) / r.x(…)).
+  expect(ui).not.toMatch(/(?<![.\w])(searchAllEmbedded|cibrcLookupRegistered|cibrcLookupBanned|fcoLookupEmbedded|fcoLookupMerged|agroRegistryStats)\(/);
+  const lazy = read('src/lib/fertilizer/registryLazy.ts');
+  expect(lazy).toContain("import('@/lib/gov-agro-registry')");
+  expect(lazy).not.toMatch(/^import [^t].*gov-agro-registry/m);
+});
