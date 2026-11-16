@@ -89,6 +89,13 @@ const KINDS: { value: string; label: string }[] = [
   { value: 'helper', label: 'Helper team (picking, packing, transport)' },
 ];
 const kindLabel = (k: string) => KINDS.find((x) => x.value === k)?.label ?? k;
+/** What each kind of business does here, in one line, shown at the top of its page. */
+const KIND_HELP: Record<string, string> = {
+  cold_store: 'Add your cold stores and their chambers, see who booked space, and let your staff handle the bookings.',
+  dealer: 'List your products, take orders, and send them with your own drivers.',
+  shop: 'List your seeds, sprays and tools, take orders, and send them with your own drivers.',
+  helper: 'Keep your picking, packing or transport team together here: who is in it and who may act for it.',
+};
 const INPUT = 'min-h-11 w-full rounded-xl border-0 bg-white px-3 ring-1 ring-slate-300 focus:ring-2 focus:ring-forest';
 const BUTTON = 'inline-flex min-h-11 items-center gap-2 rounded-xl bg-forest px-4 font-semibold text-white hover:bg-forest-deep disabled:opacity-60';
 const GHOST = 'inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold ring-1 ring-slate-300 hover:bg-slate-50 disabled:opacity-60';
@@ -148,12 +155,12 @@ export default function BusinessPage() {
   const open = orgs.find((o) => o.id === openId) ?? null;
 
   return (
-    <InfoPage title="My business" intro="Run your cold store, shop or team with the people who work with you. Each business sees only its own people and details.">
+    <InfoPage title="Business admin" intro="Run your cold store, dealership, shop or team with the people who work with you. Each business sees only its own people and details.">
       {signedIn === null ? (
         <p className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Checking…</p>
       ) : !signedIn ? (
         <p>
-          Sign in to your portal first, then come back here. <Link className="font-semibold text-forest-deep underline" href="/login">Sign in</Link>
+          Sign in to Business admin first, then you will be brought back here. <Link className="font-semibold text-forest-deep underline" href="/login/business">Sign in to Business admin</Link>
         </p>
       ) : missing ? (
         <p role="alert" className="rounded-xl bg-amber-50 p-3 text-amber-950 ring-1 ring-amber-200">Businesses are not switched on yet. Please try again later.</p>
@@ -282,6 +289,7 @@ function BusinessView({ org, busy, act }: { org: Org & { role: Role }; busy: str
       <section data-business-view>
         <h2 className="flex items-center gap-2"><Building2 className="h-5 w-5 text-forest" aria-hidden /> {org.name}</h2>
         <p className="text-sm text-slate-600">{kindLabel(org.kind)} · you are <strong>{org.role}</strong></p>
+        {KIND_HELP[org.kind] && <p className="text-sm text-slate-700">{KIND_HELP[org.kind]}</p>}
         {suspended && (
           <p role="alert" className="mt-2 rounded-xl bg-rose-50 p-3 text-rose-900 ring-1 ring-rose-200">
             KashRoot has paused this business: {org.suspended_reason ?? 'see Help & support'}. Nothing in it can change until it is re-enabled. <Link className="font-semibold underline" href="/support">Ask Help &amp; support</Link>
@@ -332,7 +340,7 @@ function BusinessView({ org, busy, act }: { org: Org & { role: Role }; busy: str
         <section data-business-invite>
           <h3 className="flex items-center gap-2 font-semibold"><UserPlus className="h-5 w-5 text-forest" aria-hidden /> Give access to this business</h3>
           <p className="text-sm text-slate-600">
-            This gives access to <strong>{org.name}</strong>&apos;s console only — never to KashRoot Admin. They sign in to KashRoot with this email or phone and open <strong>My business</strong> to join. The invitation lasts 7 days.
+            This gives access to <strong>{org.name}</strong>&apos;s console only — never to KashRoot Admin. They sign in at <strong>Business admin</strong> (the link at the bottom of every KashRoot page) with this email or phone, and join from there. The invitation lasts 7 days.
             {org.role === 'manager' && ' As a manager you can invite staff.'}
           </p>
           <form
@@ -365,9 +373,9 @@ function BusinessView({ org, busy, act }: { org: Org & { role: Role }; busy: str
         </section>
       )}
 
-      <StoresSection org={org} members={members} suspended={suspended} busy={busy} act={act} />
+      <StoresSection relevant={org.kind === 'cold_store'} org={org} members={members} suspended={suspended} busy={busy} act={act} />
 
-      <ShopSection org={org} members={members} suspended={suspended} busy={busy} act={act} />
+      <ShopSection relevant={org.kind === 'shop' || org.kind === 'dealer'} org={org} members={members} suspended={suspended} busy={busy} act={act} />
 
       <PayoutSection org={org} payout={payout} suspended={suspended} busy={busy} run={run} />
     </>
@@ -453,7 +461,7 @@ const STATUS: Record<string, string> = {
   completed: 'completed',
 };
 
-function StoresSection({ org, members, suspended, busy, act }: { org: Org & { role: Role }; members: Member[]; suspended: boolean; busy: string | null; act: Act }) {
+function StoresSection({ relevant, org, members, suspended, busy, act }: { relevant: boolean; org: Org & { role: Role }; members: Member[]; suspended: boolean; busy: string | null; act: Act }) {
   const [stores, setStores] = useState<Store[]>([]);
   const [mineOutside, setMineOutside] = useState<Store[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -503,6 +511,9 @@ function StoresSection({ org, members, suspended, busy, act }: { org: Org & { ro
     const note = window.prompt('Decline — a short reason for the farmer (optional):');
     if (note !== null) void run(b.id, () => supabase.rpc('kr_booking_action', { p_booking: b.id, p_action: 'reject', p_note: note.trim() || null }), 'Declined.');
   };
+
+  // Shown for a cold store; for another kind only if it already has something here.
+  if (!relevant && !stores.length && !bookings.length) return null;
 
   return (
     <>
@@ -611,7 +622,7 @@ interface Product {
  * the business puts theirs in; then everyone in it sees their orders and does the seller's steps,
  * and ships with one of the business's drivers (owner and managers keep that list).
  */
-function ShopSection({ org, members, suspended, busy, act }: { org: Org & { role: Role }; members: Member[]; suspended: boolean; busy: string | null; act: Act }) {
+function ShopSection({ relevant, org, members, suspended, busy, act }: { relevant: boolean; org: Org & { role: Role }; members: Member[]; suspended: boolean; busy: string | null; act: Act }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [mineOutside, setMineOutside] = useState<Product[]>([]);
   const [orders, setOrders] = useState<MarketOrder[]>([]);
@@ -655,7 +666,8 @@ function ShopSection({ org, members, suspended, busy, act }: { org: Org & { role
   const who = (id: string | null) => (id ? (members.find((m) => m.user_id === id)?.label ?? 'someone no longer in the business') : null);
   const name = (p: Product) => `${p.product}${p.variety ? ` · ${p.variety}` : ''}`;
   const baskets = groupBaskets(orders);
-  if (!products.length && !mineOutside.length && !orders.length && !drivers.length) return null;
+  // Shown for a shop or dealership; for another kind only if it already has something here.
+  if (!products.length && !orders.length && !drivers.length && (!relevant || !mineOutside.length)) return null;
 
   return (
     <>

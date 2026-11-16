@@ -13,7 +13,9 @@ for (const width of [1280, 390]) {
 
     test('the top bar and every sign-in lead to help', async ({ page }) => {
       await page.goto('/');
-      await expect(page.getByRole('link', { name: 'Help & support' }).first()).toHaveAttribute('href', '/support');
+      // "Help & support" opens a drawer: the helpline, then Ask KashRoot (the help desk at /support).
+      await page.getByRole('button', { name: 'Help & support' }).first().click();
+      await expect(page.getByRole('link', { name: /Ask KashRoot/ }).first()).toHaveAttribute('href', '/support');
       await page.goto('/login/farmer');
       const help = page.getByRole('link', { name: 'Get help' });
       await expect(help).toHaveAttribute('href', '/support?topic=login');
@@ -120,9 +122,9 @@ test('two-step sign-in has a page for everyone, in four languages', async ({ pag
   await expect(page.locator('[data-two-step="setup"]')).toHaveCount(0);
 });
 
-test('My business: signed out, asked to sign in first and shown nothing of any business', async ({ page }) => {
+test('Business admin: signed out, asked to sign in first and shown nothing of any business', async ({ page }) => {
   await page.goto('/account/business');
-  await expect(page.getByRole('heading', { name: 'My business' }).first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Business admin' }).first()).toBeVisible();
   await expect(page.getByRole('link', { name: 'Sign in' }).first()).toBeVisible();
   await expect(page.locator('[data-business-view], [data-business-new], [data-business-payout]')).toHaveCount(0);
 });
