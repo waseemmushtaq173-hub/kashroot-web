@@ -48,7 +48,7 @@ import { SellerDesk } from '@/components/market/SellerDesk';
 import { FarmerStoredApplesDesk } from '@/components/rental/owner/SharedBinAndEngineeringDesk';
 import { SafePayment } from '@/components/payments/SafePayment';
 import { SoilLabTests } from '@/components/lab/SoilLabTests';
-import { FarmerUpdates, needsYouCount } from '@/components/market/FarmerUpdates';
+import { FarmerUpdates, HubNearby, needsYouCount } from '@/components/market/FarmerUpdates';
 import { Btn, Panel, PORTAL_THEMES, Skeleton, Tile } from '@/components/portal/kit';
 import { LastUpdated } from '@/components/pwa/SavedAt';
 import { inr, loadAccount, type Account } from '@/lib/db/client';
@@ -184,6 +184,8 @@ function FarmerDashboard() {
                 <p className="text-slate-600">No orders need you right now. When a buyer orders your produce, it appears in Orders.</p>
               )}
             </Panel>
+
+            <HubNearby products={products} limit={2} onMore={() => setTab('pickups')} />
           </div>
 
           <div className="space-y-6">
@@ -213,7 +215,7 @@ function FarmerDashboard() {
           {tab === 'coldstore' && <FarmerStoredApplesDesk account={account} theme={theme} />}
           {tab === 'payouts' && <SafePayment as="farmer" account={account} theme={theme} />}
           {tab === 'tests' && <SoilLabTests account={account} />}
-          {tab === 'pickups' && <FarmerUpdates orders={stats ? orders : null} onOpenOrders={() => setTab('orders')} />}
+          {tab === 'pickups' && <FarmerUpdates orders={stats ? orders : null} products={products} onOpenOrders={() => setTab('orders')} />}
           {tab !== 'coldstore' && (
             <div className={tab === 'tests' || tab === 'pickups' ? 'hidden' : undefined}>
             <SellerDesk

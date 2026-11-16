@@ -11,7 +11,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Package, Phone, ShieldCheck } from 'lucide-react';
+import { MapPin, Package, Phone, ShieldCheck } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import type { OrderPin } from '@/components/market/OrderLiveMap';
@@ -19,6 +19,8 @@ import { Badge, Btn, EmptyState, Panel, PORTAL_THEMES, Skeleton } from '@/compon
 import { ago, dbMessage, inr, supabase } from '@/lib/db/client';
 import { ORDER_STATUS, PICKUP_STAGE_LABEL, type OrderStatus, type PickupStage } from '@/lib/db/market';
 import { hubLoads } from '@/lib/hubLoads';
+import { PHASE_TEXT, incomingOrders } from '@/lib/hubIncoming';
+import { CLUSTER_RADIUS_KM } from '@/lib/hubs';
 import { googleRoute, kmBetween, roadEstimate, type MapSpot } from '@/lib/maps';
 
 const OrderLiveMap = dynamic(() => import('@/components/market/OrderLiveMap').then((m) => m.default), {
@@ -168,6 +170,7 @@ export function AdminOrdersPanel({ canRelease = false, onRefreshed }: { canRelea
         <EmptyState theme={PORTAL_THEMES.admin ?? PORTAL_THEMES.expert} icon={Package} title="No orders yet" text="Every order placed across KashRoot appears here — with the seller origin, the buyer destination, both live GPS pins and the escrow ledger." />
       ) : (
         <>
+          <HubIncoming orders={orders} />
           <HubDesk orders={orders} stage={stage} onStage={setStage} />
           <p className="mb-3 text-sm text-slate-600">{shown.length} order{shown.length === 1 ? '' : 's'}{stage === 'all' ? ' on the platform — every one of them, newest first.' : ` at “${PICKUP_STAGE_LABEL[stage]}”.`}</p>
           <ul className="space-y-4">
@@ -176,6 +179,79 @@ export function AdminOrdersPanel({ canRelease = false, onRefreshed }: { canRelea
         </>
       )}
     </Panel>
+  );
+}
+
+const SEEN_KEY = 'kr_hub_incoming_seen';
+const readSeen = (): number | null => {
+  try {
+    const v = Number(localStorage.getItem(SEEN_KEY));
+    return Number.isFinite(v) && v > 0 ? v : null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * The hub's inbox: orders coming to a hub that have not been picked up yet, with the orchard's location, how far it is
+ * from the hub and a route for the vehicle. Packed orders (a vehicle is needed now) come first; "New" marks what arrived
+ * since the hub last looked. Refreshes with the orders every 30 seconds. The farmer's name and phone are in the order card
+ * below, not here.
+ */
+function HubIncoming({ orders }: { orders: AdminOrder[] }) {
+  const [seen] = useState<number | null>(() => readSeen());
+  useEffect(
+    () => () => {
+      try {
+        localStorage.setItem(SEEN_KEY, String(Date.now()));
+      } catch {
+        /* a private window: nothing is remembered */
+      }
+    },
+    [],
+  );
+  const rows = incomingOrders(orders);
+  if (rows.length === 0) return null;
+  const needVehicle = rows.filter((r) => r.phase === 'needs_vehicle').length;
+  return (
+    <section aria-label="Incoming orders for the hub" className="mb-4 rounded-2xl bg-amber-50 p-3 ring-1 ring-amber-200">
+      <p className="text-xs font-bold uppercase tracking-wide text-amber-950">
+        Incoming for the hub · {rows.length} order{rows.length === 1 ? '' : 's'}
+        {needVehicle > 0 ? ` · ${needVehicle} packed: send a vehicle` : ''}
+      </p>
+      <ul className="mt-2 !list-none space-y-2 !pl-0">
+        {rows.map((r) => {
+          const o = r.order;
+          const fresh = seen !== null && Date.parse(o.created_at) > seen;
+          return (
+            <li key={o.id} className="rounded-xl bg-white p-3 text-sm ring-1 ring-slate-900/10">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <p className="font-semibold text-slate-900">{o.quantity} {o.unit} · {o.product} <span className="font-mono text-xs font-normal text-slate-500">#{r.code}</span></p>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {fresh && <Badge tone="red">New</Badge>}
+                  <Badge tone={r.phase === 'needs_vehicle' ? 'amber' : r.phase === 'vehicle_coming' ? 'blue' : 'slate'}>{PHASE_TEXT[r.phase]}</Badge>
+                </div>
+              </div>
+              <p className="mt-1 text-slate-700">
+                <MapPin className="mr-1 inline h-3.5 w-3.5 text-forest-deep" aria-hidden />
+                Orchard: {o.seller_live_address ?? o.seller_district ?? 'location not recorded on this order'}
+                {r.hub ? ` · ${r.hubGuessed ? 'nearest hub' : 'hub'} ${r.hub.locationName}` : ' · hub not recorded'}
+                {r.km !== null ? ` · ${r.km} km from the hub${r.km > CLUSTER_RADIUS_KM ? ` (outside its ${CLUSTER_RADIUS_KM} km area)` : ''}` : ''}
+              </p>
+              <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
+                <span>Ordered {ago(o.created_at)}</span>
+                {o.pickup_vehicle_number && <span>Vehicle <strong className="font-mono">{o.pickup_vehicle_number}</strong></span>}
+                {r.navigate ? (
+                  <a href={r.navigate} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-semibold text-forest-deep underline underline-offset-2">Route to the orchard ↗</a>
+                ) : (
+                  <span>No orchard GPS on this order</span>
+                )}
+              </p>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
@@ -222,7 +298,7 @@ function HubLoadsTable({ orders }: { orders: AdminOrder[] }) {
   if (!loads.length) return null;
   const quantity = (q: Record<string, number>) => Object.entries(q).map(([unit, n]) => `${n.toLocaleString('en-IN')} ${unit}`).join(' · ') || '—';
   return (
-    <div className="mt-3 overflow-x-auto rounded-xl bg-white ring-1 ring-forest-line">
+    <div className="mt-3 overflow-x-auto rounded-xl bg-white ring-1 ring-forest-line" tabIndex={0} role="region" aria-label="Pooled loads by hub (scroll sideways)">
       <table className="min-w-full text-left text-xs">
         <caption className="sr-only">Pooled loads by KashRoot hub: open orders and their quantity, by pickup step</caption>
         <thead className="bg-forest-soft text-forest-deep">

@@ -16,13 +16,13 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Package, RefreshCw, Search } from 'lucide-react';
 
-import { ClusterTruckBar, type PoolLine } from '@/components/market/shop/ClusterTruckBar';
+import { PooledLocationBar, type BuyerPosition } from '@/components/market/shop/PooledLocationBar';
 import { ListingCard } from '@/components/market/shop/ListingCard';
 import { useLiveListings, type ShopListing } from '@/components/market/shop/useLiveListings';
 import { Btn, EmptyState, INPUT, type PortalTheme, Skeleton } from '@/components/portal/kit';
 import { RegionChip } from '@/components/voice/RegionChip';
 import { PRODUCE, SUBCATEGORIES, type MarketCategory } from '@/lib/db/market';
-import { CLUSTER_RADIUS_KM, TRUCK_CAPACITY_BOXES, computeRealDistanceKm, isValidCoordinate } from '@/lib/clusterConsolidation';
+import { hubById, kmIfInArea } from '@/lib/hubs';
 import { searchFromLink } from '@/lib/navIntent';
 import { ownFilter, regionFirst, stateLabel, useRegion, type Crop } from '@/lib/region';
 
@@ -55,9 +55,8 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
   theme: PortalTheme;
   /** The signed-in person: their own products show "Yours" instead of Order. */
   accountId?: string | null;
-  /** `boxes`: how many the buyer put on the truck for this listing (the order form opens with that number). */
   onOrder: (listing: ShopListing, boxes?: number) => void;
-  /** The Buyer portal: the 10 km cluster from the 1st order, and the 2,000-box truck (real listing GPS and stock only). */
+  /** The Buyer portal: pooled locations (KashRoot hubs and the orchards within 10 km of each), from real listing GPS and stock only. */
   cluster?: boolean;
   /** Shown when nothing at all is listed yet (no made-up products). */
   empty: ReactNode;
@@ -77,10 +76,27 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
   const [search, setSearch] = useState(() => (!params.get('category') || params.get('category') === category ? searchFromLink(params) : ''));
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  // The cluster: the 1st-order anchor, the boxes chosen for the truck (in the order chosen), and the 10 km filter.
-  const [anchorId, setAnchorId] = useState<string | null>(null);
-  const [pool, setPool] = useState<{ id: string; boxes: number }[]>([]);
-  const [nearOnly, setNearOnly] = useState(false);
+  // The pooled location chosen (a KashRoot hub), and where the buyer is, once they share it (to say how far each hub is).
+  const [hubId, setHubId] = useState<string | null>(null);
+  const [buyer, setBuyer] = useState<BuyerPosition | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locationProblem, setLocationProblem] = useState<string | null>(null);
+  const locate = () => {
+    if (!navigator.geolocation) return setLocationProblem('This phone cannot share its position.');
+    setLocating(true);
+    setLocationProblem(null);
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        setBuyer({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: Math.round(p.coords.accuracy) });
+        setLocating(false);
+      },
+      () => {
+        setLocating(false);
+        setLocationProblem('Your position could not be read. Allow location for KashRoot and try again.');
+      },
+      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 60_000 },
+    );
+  };
 
   const all = useMemo(() => listings ?? [], [listings]);
   const ofKind = useMemo(() => all.filter((l) => !kind || l.subcategory === kind), [all, kind]);
@@ -89,37 +105,13 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
     [all, ofKind, variety, grade, district],
   );
 
-  // Only listings still on sale count: one that sold out or was taken off drops off the truck and stops being the anchor.
-  const anchor = useMemo(() => (cluster ? all.find((l) => l.id === anchorId) ?? null : null), [cluster, all, anchorId]);
-  const lines = useMemo<PoolLine[]>(
-    () => pool.flatMap((p) => {
-      const listing = all.find((l) => l.id === p.id);
-      return listing ? [{ listing, boxes: Math.min(p.boxes, Number(listing.quantity)) }] : [];
-    }),
-    [pool, all],
-  );
-  const onTruck = lines.reduce((n, l) => n + l.boxes, 0);
-  const kmFromAnchor = (l: ShopListing) => (anchor && anchor.id !== l.id ? computeRealDistanceKm(anchor.captured_lat, anchor.captured_lng, l.captured_lat, l.captured_lng) : null);
-  const makeAnchor = (l: ShopListing) => setAnchorId(l.id);
-  const toggleTruck = (l: ShopListing) => {
-    if (pool.some((p) => p.id === l.id)) return setPool(pool.filter((p) => p.id !== l.id));
-    const room = TRUCK_CAPACITY_BOXES - onTruck;
-    if (room <= 0) return;
-    // All the listing has, or what still fits on the truck; the buyer changes the number on the truck bar.
-    setPool([...pool, { id: l.id, boxes: Math.max(1, Math.min(Math.floor(Number(l.quantity)), room)) }]);
-    // The first listing on the truck with GPS is the 1st order, unless the buyer already chose one.
-    if (!anchor && isValidCoordinate(l.captured_lat, l.captured_lng)) setAnchorId(l.id);
-  };
+  const hub = cluster ? hubById(hubId) : null;
 
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase();
     return ofKind
-      .filter((l) => {
-        if (!nearOnly || !anchor) return true;
-        if (l.id === anchor.id) return true;
-        const km = computeRealDistanceKm(anchor.captured_lat, anchor.captured_lng, l.captured_lat, l.captured_lng);
-        return km !== null && km <= CLUSTER_RADIUS_KM;
-      })
+      // A pooled location chosen: only the orchards inside that hub's pickup area.
+      .filter((l) => !hub || kmIfInArea(hub, l) !== null)
       .filter((l) =>
         (!variety || key(l.variety) === variety) &&
         (!grade || key(l.grade) === grade) &&
@@ -128,9 +120,9 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
         (!q || `${l.product} ${l.variety ?? ''} ${l.grade ?? ''} ${l.seller_name} ${l.district} ${l.subcategory ?? ''}`.toLowerCase().includes(q)),
       )
       .sort((a, b) => Number(a.price) - Number(b.price));
-  }, [ofKind, variety, grade, district, verifiedOnly, verified, search, nearOnly, anchor]);
+  }, [ofKind, variety, grade, district, verifiedOnly, verified, search, hub]);
 
-  const filtered = Boolean(kind || variety || grade || district || verifiedOnly || search.trim() || (nearOnly && anchor));
+  const filtered = Boolean(kind || variety || grade || district || verifiedOnly || search.trim() || hub);
   const clear = () => {
     setKind(ALL);
     setVariety(ALL);
@@ -138,7 +130,7 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
     setDistrict(ALL);
     setSearch('');
     setVerifiedOnly(false);
-    setNearOnly(false);
+    setHubId(null);
   };
   const reload = async () => {
     setRefreshing(true);
@@ -157,16 +149,7 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
 
   return (
     <section aria-label="Products" className="space-y-5">
-      {cluster && (
-        <ClusterTruckBar
-          lines={lines}
-          anchor={anchor}
-          onBoxes={(id, boxes) => setPool(pool.map((p) => (p.id === id ? { ...p, boxes } : p)))}
-          onRemove={(id) => setPool(pool.filter((p) => p.id !== id))}
-          onOrder={(l, boxes) => onOrder(l, boxes)}
-          onClear={() => setPool([])}
-        />
-      )}
+      {cluster && <PooledLocationBar listings={all} chosen={hubId} onChoose={setHubId} buyer={buyer} locating={locating} locationProblem={locationProblem} onLocate={locate} />}
       <div className="grid gap-3 rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-slate-900/5">
         {toolbar}
         {produce && (
@@ -223,14 +206,6 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
             <label className="flex min-h-11 cursor-pointer items-center gap-2 whitespace-nowrap text-sm font-medium text-slate-700">
               <input type="checkbox" checked={verifiedOnly} onChange={(e) => setVerifiedOnly(e.target.checked)} className="h-5 w-5 rounded border-slate-300 text-forest" /> Verified sellers only
             </label>
-            {cluster && (
-              <button type="button" aria-pressed={nearOnly && Boolean(anchor)} disabled={!anchor} title={anchor ? undefined : 'Choose a 1st order first: “Set as 1st Order Anchor” on a listing with GPS'} onClick={() => setNearOnly(!nearOnly)} className="kr-btn-secondary kr-btn-sm min-h-11">
-                Show Only Growers Within {CLUSTER_RADIUS_KM} km of 1st Order
-              </button>
-            )}
-            {cluster && anchor && (
-              <button type="button" onClick={() => { setAnchorId(null); setNearOnly(false); }} className="min-h-11 cursor-pointer rounded-xl px-3 text-sm font-semibold text-[#5A5A80] hover:bg-forest-soft">Clear the 1st order anchor</button>
-            )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {listings !== null && <span className="text-sm text-slate-600">{shown.length} {shown.length === 1 ? 'product' : 'products'} · cheapest first</span>}
@@ -266,8 +241,8 @@ export function ListingBrowser({ category, theme, accountId, onOrder, empty, too
               lowest={i === 0 && Boolean(kind)}
               own={accountId === l.seller_id}
               theme={theme}
-              onOrder={() => onOrder(l, pool.find((p) => p.id === l.id)?.boxes)}
-              cluster={cluster ? { isAnchor: anchor?.id === l.id, hasAnchor: Boolean(anchor), kmFromAnchor: kmFromAnchor(l), onTruck: lines.find((x) => x.listing.id === l.id)?.boxes ?? 0, truckFull: onTruck >= TRUCK_CAPACITY_BOXES, onAnchor: () => makeAnchor(l), onTruckToggle: () => toggleTruck(l) } : undefined}
+              onOrder={() => onOrder(l)}
+              pooled={cluster ? { buyer } : undefined}
             />
           ))}
         </ul>

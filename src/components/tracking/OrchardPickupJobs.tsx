@@ -9,6 +9,9 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { directionsTo, hubByName, kmFromHub } from '@/lib/hubs';
+import { computeRealDistanceKm } from '@/lib/clusterConsolidation';
+
 interface Job {
   id: string;
   product: string;
@@ -58,6 +61,28 @@ export function OrchardPickupJobs() {
   const [lastFix, setLastFix] = useState<{ lat: number; lng: number; accuracy: number; at: string } | null>(null);
   const watchId = useRef<number | null>(null);
   const lastSent = useRef(0);
+  // Where this phone is, when the driver asks: to say how far each orchard is and to list the nearest first.
+  const [youPos, setYouPos] = useState<{ lat: number; lng: number } | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locationProblem, setLocationProblem] = useState<string | null>(null);
+  const locateMe = () => {
+    if (!navigator.geolocation) return setLocationProblem('This phone cannot share its position.');
+    setLocating(true);
+    setLocationProblem(null);
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        setYouPos({ lat: p.coords.latitude, lng: p.coords.longitude });
+        setLocating(false);
+      },
+      () => {
+        setLocating(false);
+        setLocationProblem('Your position could not be read. Allow location for KashRoot and try again.');
+      },
+      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 30_000 },
+    );
+  };
+  /** Km from this phone to an orchard (null until the driver shares their position, or when the order has no orchard GPS). */
+  const kmFromYou = (j: Job) => (youPos ? computeRealDistanceKm(youPos.lat, youPos.lng, j.seller_live_lat, j.seller_live_lng) : null);
 
   const phoneOk = /^[6-9]\d{9}$/.test(phone.replace(/\D/g, '').replace(/^(91|0)(?=\d{10}$)/, ''));
 
@@ -175,6 +200,9 @@ export function OrchardPickupJobs() {
           {mine.map((j) => {
             const gate = mapLink(j.seller_live_lat, j.seller_live_lng);
             const dest = mapLink(j.delivery_lat, j.delivery_lon);
+            const hub = hubByName(j.assigned_hub_name);
+            const toHub = hub ? directionsTo(hub.lat, hub.lng) : null;
+            const orchardKm = hub ? kmFromHub(hub, j.seller_live_lat, j.seller_live_lng) : null;
             return (
               <div key={j.id} className="space-y-2 rounded-xl border border-forest-line bg-[#F6F7FF] p-3 text-sm text-slate-800" data-kr-plain>
                 <p className="font-bold text-forest">{j.quantity} {j.unit} · {j.product} · {STAGE_WORDS[j.pickup_stage] ?? j.pickup_stage}</p>
@@ -182,7 +210,10 @@ export function OrchardPickupJobs() {
                   Grower: {j.seller_name ?? '—'}{j.seller_phone ? <> · <a className="font-semibold underline" href={`tel:${j.seller_phone}`}>📞 {j.seller_phone}</a></> : ''} · {j.seller_live_address ?? j.seller_district ?? 'orchard GPS not recorded on this order'}
                   {gate && <> · <a className="font-semibold underline" href={gate} target="_blank" rel="noopener noreferrer">Route to the orchard gate ↗</a></>}
                 </p>
-                <p className="text-xs text-slate-600">Hub: {j.assigned_hub_name ?? 'not recorded on this order'} · Vehicle {j.pickup_vehicle_number}</p>
+                <p className="text-xs text-slate-600">
+                  Hub: {j.assigned_hub_name ?? 'not recorded on this order'}{orchardKm !== null ? ` (orchard ${orchardKm} km from it)` : ''} · Vehicle {j.pickup_vehicle_number}
+                  {toHub && j.pickup_stage !== 'IN_TRANSIT_TO_BUYER' && <> · <a className="font-semibold underline" href={toHub} target="_blank" rel="noopener noreferrer">Route to the hub ↗</a></>}
+                </p>
 
                 {j.pickup_stage === 'PICKUP_VEHICLE_ASSIGNED' && (
                   <div className="flex flex-wrap items-end gap-2">
@@ -236,7 +267,11 @@ export function OrchardPickupJobs() {
       )}
 
       <section aria-label="Jobs waiting for a vehicle" className="space-y-3">
-        <h3 className="text-sm font-bold text-slate-900">Waiting for a pickup vehicle</h3>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-bold text-slate-900">Waiting for a pickup vehicle</h3>
+          <button type="button" onClick={locateMe} disabled={locating} className="kr-btn-secondary kr-btn-sm min-h-11">{youPos ? 'Update my position' : locating ? 'Finding you…' : 'Show how far each orchard is from me'}</button>
+        </div>
+        {locationProblem && <p role="alert" className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-950 ring-1 ring-amber-200">{locationProblem}</p>}
         {open === null ? (
           <p className="text-sm text-slate-500">Loading…</p>
         ) : open.length === 0 ? (
@@ -244,25 +279,38 @@ export function OrchardPickupJobs() {
             No orchard pickup is waiting right now. A job appears here when a grower marks an order’s boxes packed and ready in the Farmer portal.
           </p>
         ) : (
-          open.map((j) => (
-            <div key={j.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 text-sm" data-kr-plain>
-              <div className="min-w-0">
-                <p className="font-bold text-slate-900">{j.quantity} {j.unit} · {j.product}</p>
-                <p className="text-xs text-slate-600">
-                  Orchard: {j.seller_live_address ?? j.seller_district ?? 'GPS not recorded on this order'} · Hub: {j.assigned_hub_name ?? 'not recorded'} · packed {when(j.boxes_packed_at)}
-                </p>
-              </div>
-              <button
-                type="button"
-                disabled={!details || busy !== null}
-                title={details ? undefined : 'Write your vehicle number, name and mobile above first'}
-                onClick={() => void post(`c-${j.id}`, { action: 'CLAIM_PICKUP', orderId: j.id, vehicleNumber: vehicle, driverName: name }, 'Job accepted. The grower and the buyer now see your vehicle and number.')}
-                className="kr-btn-primary kr-btn-sm min-h-11"
-              >
-                Accept Orchard Pickup Job
-              </button>
-            </div>
-          ))
+          [...open]
+            .sort((a, b) => (kmFromYou(a) ?? Infinity) - (kmFromYou(b) ?? Infinity))
+            .map((j) => {
+              const hub = hubByName(j.assigned_hub_name);
+              const orchardKm = hub ? kmFromHub(hub, j.seller_live_lat, j.seller_live_lng) : null;
+              const you = kmFromYou(j);
+              const go = directionsTo(j.seller_live_lat, j.seller_live_lng);
+              return (
+                <div key={j.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 text-sm" data-kr-plain>
+                  <div className="min-w-0">
+                    <p className="font-bold text-slate-900">{j.quantity} {j.unit} · {j.product}</p>
+                    <p className="text-xs text-slate-600">
+                      Orchard: {j.seller_live_address ?? j.seller_district ?? 'GPS not recorded on this order'} · Hub: {j.assigned_hub_name ?? 'not recorded'} · packed {when(j.boxes_packed_at)}
+                    </p>
+                    <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-forest-deep">
+                      {orchardKm !== null && <span>{orchardKm} km from the hub</span>}
+                      {you !== null && <span>{you} km from you</span>}
+                      {go ? <a className="inline-flex min-h-11 items-center underline" href={go} target="_blank" rel="noopener noreferrer">Navigate to the orchard ↗</a> : <span className="font-normal text-slate-500">No orchard GPS on this order</span>}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={!details || busy !== null}
+                    title={details ? undefined : 'Write your vehicle number, name and mobile above first'}
+                    onClick={() => void post(`c-${j.id}`, { action: 'CLAIM_PICKUP', orderId: j.id, vehicleNumber: vehicle, driverName: name }, 'Job accepted. The grower and the buyer now see your vehicle and number.')}
+                    className="kr-btn-primary kr-btn-sm min-h-11"
+                  >
+                    Accept Orchard Pickup Job
+                  </button>
+                </div>
+              );
+            })
         )}
       </section>
     </div>

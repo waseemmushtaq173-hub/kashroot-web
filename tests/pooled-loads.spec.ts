@@ -1,8 +1,8 @@
 /**
- * The buyer's pooled truck and the farmer's pickups board (lib/pooledLoads), read from orders only. The orders below are
+ * The buyer's pooled location and the farmer's pickups board (lib/pooledLoads), read from orders only. The orders below are
  * made up for these tests; the screens never invent one.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { expect, test } from '@playwright/test';
@@ -43,7 +43,9 @@ test('a buyer\'s open orders become one load per hub, the slowest first; finishe
   const [none, shopian] = loads;
   expect(none).toMatchObject({ boxes: 50, slowest: 0 });
   // Boxes are summed (a kilo is not a box), and the slowest order sets where the load is.
-  expect(shopian).toMatchObject({ boxes: 800, capacity: 2000, slowest: 1 });
+  expect(shopian).toMatchObject({ boxes: 800, slowest: 1 });
+  // No invented truck size: a load has boxes, not a capacity.
+  expect(shopian).not.toHaveProperty('capacity');
   expect(shopian.lines).toHaveLength(3);
   expect(shopian.lines.map(stepOf)).toEqual([1, 2, 4]);
   expect(shopian.counts).toMatchObject({ 1: 1, 2: 1, 4: 1, 0: 0 });
@@ -52,8 +54,8 @@ test('a buyer\'s open orders become one load per hub, the slowest first; finishe
 
 test('the headline says where the load is in plain words', () => {
   const c = (o: Partial<Record<0 | 1 | 2 | 3 | 4 | 5 | 6, number>>) => ({ 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, ...o });
-  expect(headlineOf(c({ 4: 3 }), 3)).toBe('All the boxes are at the hub: the truck leaves for you next.');
-  expect(headlineOf(c({ 5: 3 }), 3)).toBe('The truck is on the road to you.');
+  expect(headlineOf(c({ 4: 3 }), 3)).toBe('All your boxes are at the hub: they leave for you next.');
+  expect(headlineOf(c({ 5: 3 }), 3)).toBe('Your boxes are on the road to you.');
   expect(headlineOf(c({ 6: 2 }), 2)).toBe('Everything in this load has arrived.');
   expect(headlineOf(c({ 4: 1, 1: 1, 0: 1 }), 3)).toBe('1 of 3 orders at the hub or beyond; 1 order waiting for the farmer, 1 waiting for a vehicle.');
   expect(headlineOf(c({ 4: 2, 3: 1 }), 3)).toBe('2 of 3 orders at the hub or beyond; 1 on the way to the hub.');
@@ -87,16 +89,20 @@ test('the latest update is the newest thing the order\'s own times say happened'
   expect(b.accept.map((o) => o.created_at)).toEqual(['2026-11-13T08:00:00Z', '2026-11-10T08:00:00Z']);
 });
 
-test('the screens: a Pooled truck tab for the buyer, a Pickups & updates tab for the farmer, nothing invented', () => {
+test('the screens: a Pooled location tab for the buyer, a Pickups & updates tab for the farmer, nothing invented', () => {
   const buyer = read('src/app/(dashboards)/buyer/dashboard/page.tsx');
-  expect(buyer).toContain("{ id: 'truck', label: 'Pooled truck', icon: Truck, count: poolLines || undefined }");
-  expect(buyer).toContain("{tab === 'truck' && <PooledTruck orders={orders}");
+  expect(buyer).toContain("{ id: 'pooled', label: 'Pooled location', icon: Truck, count: poolLines || undefined }");
+  expect(buyer).toContain("{tab === 'pooled' && <PooledLocation orders={orders}");
+  // The truck idea is gone: no file, no word on the buyer's screens.
+  for (const f of ['src/components/market/PooledTruck.tsx', 'src/components/market/shop/ClusterTruckBar.tsx']) expect(existsSync(join(process.cwd(), f)), f).toBe(false);
+  expect(buyer).not.toMatch(/Pooled truck|PooledTruck/);
   const farmer = read('src/app/(dashboards)/farmer/dashboard/page.tsx');
   expect(farmer).toContain("{ id: 'pickups', label: 'Pickups & updates', icon: Truck, count: needsYouCount(orders) || undefined }");
   expect(farmer).toContain("{tab === 'pickups' && <FarmerUpdates");
-  for (const f of ['src/components/market/PooledTruck.tsx', 'src/components/market/FarmerUpdates.tsx', 'src/lib/pooledLoads.ts']) expect(read(f), f).not.toMatch(/Math\.random|faker|lorem/i);
-  // The truck's map is shown only when an order on the road has reported a position.
-  expect(read('src/components/market/PooledTruck.tsx')).toContain('truck ? (');
+  expect(farmer).toContain('products={products}');
+  for (const f of ['src/components/market/PooledLocation.tsx', 'src/components/market/FarmerUpdates.tsx', 'src/lib/pooledLoads.ts', 'src/lib/hubs.ts', 'src/lib/hubIncoming.ts']) expect(read(f), f).not.toMatch(/Math\.random|faker|lorem/i);
+  // The vehicle's map is shown only when an order on the road has reported a position.
+  expect(read('src/components/market/PooledLocation.tsx')).toContain('truck ? (');
 });
 
 test('the order emails go to the right page and name only the order code and what moved', () => {
@@ -108,7 +114,7 @@ test('the order emails go to the right page and name only the order code and wha
   expect(letterFor(q('order_farmer_update', 'A pickup vehicle is assigned: 100 box Apple'), site, 'i@e.test')?.lines.join(' ')).toContain('6-digit handover code');
   const buyer = letterFor(q('order_buyer_update', 'On the road to you: 100 box Apple'), site, 'i@e.test');
   expect(buyer?.subject).toBe('Your order 11111111: On the road to you: 100 box Apple');
-  expect(buyer?.action?.href).toBe(`${site}/buyer/dashboard?tab=truck`);
+  expect(buyer?.action?.href).toBe(`${site}/buyer/dashboard?tab=pooled`);
   expect(letterFor({ ...q('order_new', 'x'), to: null }, site, 'i@e.test')).toBeNull();
 });
 

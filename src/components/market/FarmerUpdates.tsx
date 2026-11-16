@@ -7,11 +7,12 @@
  * handover code to the driver) are on the order, one tap away under Orders. Refreshes with the farmer's orders every 30 seconds.
  */
 import { useEffect, useState } from 'react';
-import { PackageCheck, Phone, Truck } from 'lucide-react';
+import { MapPin, PackageCheck, Phone, Truck } from 'lucide-react';
 
 import { Badge, Btn, EmptyState, PORTAL_THEMES, Panel } from '@/components/portal/kit';
 import { ago, inr } from '@/lib/db/client';
-import type { MarketOrder } from '@/lib/db/market';
+import type { MarketListing, MarketOrder } from '@/lib/db/market';
+import { CLUSTER_RADIUS_KM, hubOfListing, hubPlace } from '@/lib/hubs';
 import { NEED_LABEL, STEP_TEXT, farmerBoard, latestUpdate, stepOf, type Need } from '@/lib/pooledLoads';
 
 const theme = PORTAL_THEMES.farmer;
@@ -40,7 +41,48 @@ export function needsYouCount(orders: MarketOrder[]): number {
   return b.accept.length + b.pack.length + b.handover.length;
 }
 
-export function FarmerUpdates({ orders, onOpenOrders }: { orders: MarketOrder[] | null; onOpenOrders: () => void }) {
+/**
+ * "A KashRoot hub is near you": for each of the farmer's listings that has the orchard's GPS, the nearest hub and the real
+ * distance to it. A listing with no GPS gets no number: it says what to do to get one.
+ */
+export function HubNearby({ products, limit, onMore }: { products: MarketListing[]; /** Show only this many listings (the overview is short); the rest are on the Pickups tab. */ limit?: number; onMore?: () => void }) {
+  const live = products.filter((p) => p.active && Number(p.quantity) > 0);
+  if (live.length === 0) return null;
+  const rows = live.map((p) => ({ p, near: hubOfListing(p) }));
+  const located = rows.filter((r) => r.near);
+  const without = rows.length - located.length;
+  const shown = limit ? located.slice(0, limit) : located;
+  return (
+    <Panel theme={theme} title="KashRoot hub near your orchard" icon={MapPin}>
+      {located.length > 0 ? (
+        <ul className="!list-none space-y-2 !pl-0" aria-label="Distance from your orchard to the nearest KashRoot hub">
+          {shown.map(({ p, near }) => (
+            <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white p-3 ring-1 ring-slate-900/10">
+              <div className="min-w-0">
+                <p className="font-semibold text-slate-900">{p.product}{p.variety ? ` · ${p.variety}` : ''}</p>
+                <p className="text-sm text-slate-700">
+                  {near!.within
+                    ? `The KashRoot hub at ${hubPlace(near!.hub)} is ${near!.km} km from your orchard. A KashRoot vehicle collects from your gate (pickup area: ${CLUSTER_RADIUS_KM} km).`
+                    : `The nearest KashRoot hub, ${hubPlace(near!.hub)}, is ${near!.km} km away: outside its ${CLUSTER_RADIUS_KM} km pickup area, so ask the KashRoot team about a pickup.`}
+                </p>
+              </div>
+              <Badge tone={near!.within ? 'green' : 'amber'}>{near!.within ? 'Hub nearby' : 'Far from a hub'}</Badge>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-slate-700">Your listings have no orchard location yet, so KashRoot cannot say how far a hub is. Edit a listing and take the photo at the orchard with location switched on: the distance appears here.</p>
+      )}
+      {located.length > shown.length && onMore && (
+        <p className="mt-2 text-sm"><button type="button" onClick={onMore} className="min-h-11 cursor-pointer font-semibold text-forest-deep underline underline-offset-2">See the other {located.length - shown.length} listing{located.length - shown.length === 1 ? '' : 's'}</button></p>
+      )}
+      {located.length > 0 && without > 0 && <p className="mt-2 text-xs text-slate-600">{without} of your listings have no orchard location, so no distance is shown for them.</p>}
+      <p className="mt-2 text-xs text-slate-600">When a buyer orders, the KashRoot hub is told at once and a vehicle is sent to your orchard’s location after you pack the boxes.</p>
+    </Panel>
+  );
+}
+
+export function FarmerUpdates({ orders, products = [], onOpenOrders }: { orders: MarketOrder[] | null; products?: MarketListing[]; onOpenOrders: () => void }) {
   // What "new" means during this visit: anything after the last visit. The time is saved when the page is left.
   const [seen] = useState<number | null>(() => readSeen());
   useEffect(
@@ -58,9 +100,12 @@ export function FarmerUpdates({ orders, onOpenOrders }: { orders: MarketOrder[] 
   const total = ORDER.reduce((n, k) => n + board[k].length, 0);
   if (total === 0) {
     return (
-      <Panel theme={theme} title="Pickups & updates" icon={Truck}>
-        <EmptyState theme={theme} icon={Truck} title="No orders yet" text="When a buyer orders your boxes, it appears here at once: accept it, pack the boxes, and follow the KashRoot pickup vehicle to your gate, the hub and the buyer." />
-      </Panel>
+      <div className="space-y-4">
+        <HubNearby products={products} />
+        <Panel theme={theme} title="Pickups & updates" icon={Truck}>
+          <EmptyState theme={theme} icon={Truck} title="No orders yet" text="When a buyer orders your boxes, it appears here at once: accept it, pack the boxes, and follow the KashRoot pickup vehicle to your gate, the hub and the buyer." />
+        </Panel>
+      </div>
     );
   }
   const isNew = (o: MarketOrder) => {
@@ -70,6 +115,7 @@ export function FarmerUpdates({ orders, onOpenOrders }: { orders: MarketOrder[] 
 
   return (
     <div className="space-y-4">
+      <HubNearby products={products} />
       <Panel theme={theme} title="Pickups & updates" icon={Truck}>
         <ul className="grid !list-none grid-cols-2 gap-2 !pl-0 sm:grid-cols-4" aria-label="Orders by what they need">
           {(['accept', 'pack', 'handover', 'moving'] as Need[]).map((k) => (

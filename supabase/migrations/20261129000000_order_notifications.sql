@@ -7,13 +7,13 @@
 -- address or amount. Not every step sends: a load of ten orders must not cost forty emails (the whole site sends at most 450
 -- a day), so the in-app lists (Farmer → Pickups & updates, Buyer → Pooled truck) carry every step and email carries the
 -- ones a person acts on. An order must never fail because an email could not be queued: each trigger catches its own errors.
--- Run after 20261128000000_soil_lab_tests.sql. Safe to run again.
+-- Run after 20261128000000_soil_lab_tests.sql. Safe to run again. (Its list of email kinds is skipped for rows already there: a later kind, such as the hub's, would break a re-run; the newest list, in 20261130000000_hub_order_alerts.sql, is the strict one.)
 
 alter table public.email_outbox drop constraint if exists email_outbox_kind_check;
 alter table public.email_outbox add constraint email_outbox_kind_check check (kind in (
   'help_new', 'help_ack', 'help_reply', 'help_resolved', 'payout_changed', 'password_changed', 'email_changed', 'phone_changed', 'new_signin', 'signin_locked', 'team_changed', 'trip_lost',
   'lab_booking_new', 'lab_booking_cancelled', 'lab_booking_update', 'lab_report_ready',
-  'order_new', 'order_farmer_update', 'order_buyer_update'));
+  'order_new', 'order_farmer_update', 'order_buyer_update')) not valid;
 
 -- The order's short code: the first eight letters and digits of its id, in capitals.
 create or replace function public.kr_order_code(p_id uuid) returns text

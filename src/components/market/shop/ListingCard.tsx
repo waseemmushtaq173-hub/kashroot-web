@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import React from 'react';
-import { ArrowRight, Building2, ImageOff, MapPin, Phone, ShieldCheck, Sparkles, Store, Truck } from 'lucide-react';
+import { ArrowRight, Building2, ImageOff, MapPin, Phone, ShieldCheck, Sparkles, Store } from 'lucide-react';
 
 import { Badge, type PortalTheme } from '@/components/portal/kit';
 import { inr } from '@/lib/db/client';
@@ -10,33 +10,25 @@ import { amountOf, isNewToday, type ShopListing } from '@/components/market/shop
 import { CartButton } from '@/components/ui/CartButton';
 import { ListingDetailModal } from '@/components/market/shop/ListingDetailModal';
 import { SignInToCall } from '@/components/market/SignInToCall';
-import { CLUSTER_RADIUS_KM, getNearestVerifiedHub, isValidCoordinate } from '@/lib/clusterConsolidation';
+import type { BuyerPosition } from '@/components/market/shop/PooledLocationBar';
+import { CLUSTER_RADIUS_KM, hubOfListing, hubPlace, kmFromHub } from '@/lib/hubs';
 
 /**
- * The 10 km cluster on a card (the Buyer portal's produce shop). Every number comes from the GPS saved on
- * the listings themselves (captured_lat / captured_lng): a listing without it says so and shows no distance.
+ * The pooled location on a card (the Buyer portal's produce shop): how far the nearest KashRoot hub is from this orchard
+ * and, once the buyer shares their position, how far that hub is from them. From the GPS saved on the listing itself: a
+ * listing without it says so and shows no distance.
  */
-export interface ClusterOnCard {
-  /** This listing is the buyer's 1st-order anchor. */
-  isAnchor: boolean;
-  /** An anchor is set (on some listing). */
-  hasAnchor: boolean;
-  /** Real km from the anchor; null when either listing has no GPS (or this is the anchor). */
-  kmFromAnchor: number | null;
-  /** Boxes of this listing on the buyer's truck (0: none). */
-  onTruck: number;
-  /** The truck has no room left. */
-  truckFull: boolean;
-  onAnchor: () => void;
-  onTruckToggle: () => void;
+export interface PooledOnCard {
+  buyer: BuyerPosition | null;
 }
 
-const ListingCardInner = React.memo(function ListingCardInner({ listing: l, verified, lowest, own, theme, onOrder, cluster }: { listing: ShopListing; verified: boolean; /** Cheapest of the kind being compared. */ lowest: boolean; own: boolean; theme: PortalTheme; onOrder: () => void; cluster?: ClusterOnCard }) {
+const ListingCardInner = React.memo(function ListingCardInner({ listing: l, verified, lowest, own, theme, onOrder, pooled }: { listing: ShopListing; verified: boolean; /** Cheapest of the kind being compared. */ lowest: boolean; own: boolean; theme: PortalTheme; onOrder: () => void; pooled?: PooledOnCard }) {
   const [open, setOpen] = useState(false);
 
   const totalWeightKg = useMemo(() => l.box_capacity_kg ? Number(l.quantity) * Number(l.box_capacity_kg) : null, [l.quantity, l.box_capacity_kg]);
-  const hasGps = isValidCoordinate(l.captured_lat, l.captured_lng);
-  const hub = useMemo(() => (cluster ? getNearestVerifiedHub(l.captured_lat, l.captured_lng) : null), [cluster, l.captured_lat, l.captured_lng]);
+  // The nearest KashRoot hub and how far it is from this orchard; how far that hub is from the buyer, once shared.
+  const near = useMemo(() => (pooled ? hubOfListing(l) : null), [pooled, l]);
+  const fromBuyer = pooled?.buyer && near ? kmFromHub(near.hub, pooled.buyer.lat, pooled.buyer.lng) : null;
 
   return (
     <li className="flex flex-col rounded-2xl bg-white/90 p-5 shadow-sm ring-1 ring-slate-900/5 border border-slate-900/5 transition hover:shadow-md hover:ring-slate-900/10 cursor-pointer [will-change:transform,box-shadow,ring-shadow][transform:translate3d(0,0,0)]" onClick={() => setOpen(true)}>
@@ -79,40 +71,21 @@ const ListingCardInner = React.memo(function ListingCardInner({ listing: l, veri
       </p>
       <p className="flex items-center gap-1.5 text-sm text-slate-600"><MapPin className="h-4 w-4" aria-hidden /> {l.district}</p>
       {l.details && <p className="mt-2 line-clamp-2 text-sm text-slate-600">{l.details}</p>}
-      {cluster && (
-        <div data-testid="cluster-on-card" className="mt-3 space-y-1.5 rounded-xl bg-[#F6F7FF] p-3 text-sm ring-1 ring-forest-line" onClick={(e) => e.stopPropagation()}>
-          {!hasGps ? (
-            <p className="font-semibold text-[#5A5A80]">Orchard GPS not recorded on this listing</p>
+      {pooled && (
+        <div data-testid="hub-on-card" className="mt-3 space-y-1 rounded-xl bg-[#F6F7FF] p-3 text-sm ring-1 ring-forest-line" onClick={(e) => e.stopPropagation()}>
+          {!near ? (
+            <p className="font-semibold text-[#5A5A80]">Orchard GPS not recorded on this listing: no hub distance</p>
           ) : (
             <>
-              {cluster.isAnchor ? (
-                <p className="font-bold text-forest">⭐ Your 1st Order Anchor ({CLUSTER_RADIUS_KM} km cluster is measured from here)</p>
-              ) : cluster.kmFromAnchor !== null ? (
-                <p className="flex flex-wrap items-center gap-2 text-[#1B1B3A]">
-                  <span>📍 <strong>{cluster.kmFromAnchor.toFixed(1)} km</strong> from your 1st order</span>
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ring-1 ${cluster.kmFromAnchor <= CLUSTER_RADIUS_KM ? 'bg-forest-soft text-forest-deep ring-forest-line' : 'bg-amber-50 text-amber-900 ring-amber-300'}`}>
-                    {cluster.kmFromAnchor <= CLUSTER_RADIUS_KM ? `Within ${CLUSTER_RADIUS_KM} km Cluster` : `Outside ${CLUSTER_RADIUS_KM} km Cluster`}
-                  </span>
-                </p>
-              ) : cluster.hasAnchor ? (
-                <p className="text-[#5A5A80]">The 1st order has no GPS recorded, so no distance can be worked out from it.</p>
-              ) : null}
-              {hub && (
-                <p className="flex items-start gap-1.5 text-[#1B1B3A]"><Building2 className="mt-0.5 h-4 w-4 shrink-0 text-forest" aria-hidden /> <span>Nearest KashRoot Hub: <strong>{hub.hub.name}</strong> ({hub.distanceKm.toFixed(1)} km away)</span></p>
-              )}
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[#1B1B3A]">
+                <Building2 className="h-4 w-4 shrink-0 text-forest" aria-hidden />
+                <span><strong>{near.km} km</strong> to the KashRoot hub at {hubPlace(near.hub)}</span>
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ring-1 ${near.within ? 'bg-forest-soft text-forest-deep ring-forest-line' : 'bg-amber-50 text-amber-900 ring-amber-300'}`}>
+                  {near.within ? `Inside its ${CLUSTER_RADIUS_KM} km pickup area` : `Outside its ${CLUSTER_RADIUS_KM} km pickup area`}
+                </span>
+              </p>
+              {fromBuyer !== null && <p className="text-[#1B1B3A]">That hub is <strong>{fromBuyer} km</strong> from you.</p>}
             </>
-          )}
-          {!own && (
-            <div className="flex flex-wrap gap-2 pt-1">
-              {hasGps && !cluster.isAnchor && (
-                <button type="button" onClick={cluster.onAnchor} className="kr-btn-secondary kr-btn-sm min-h-11">Set as 1st Order Anchor ({CLUSTER_RADIUS_KM} km Cluster)</button>
-              )}
-              {l.unit === 'box' && (
-                <button type="button" aria-pressed={cluster.onTruck > 0} disabled={cluster.onTruck === 0 && cluster.truckFull} onClick={cluster.onTruckToggle} className="kr-btn-secondary kr-btn-sm min-h-11">
-                  <Truck className="h-4 w-4" aria-hidden /> {cluster.onTruck > 0 ? `On truck: ${cluster.onTruck.toLocaleString('en-IN')} boxes (remove)` : 'Add boxes to truck'}
-                </button>
-              )}
-            </div>
           )}
         </div>
       )}
@@ -166,6 +139,6 @@ const ListingCardInner = React.memo(function ListingCardInner({ listing: l, veri
   );
 });
 
-export function ListingCard({ listing: l, verified, lowest, own, theme, onOrder, cluster }: { listing: ShopListing; verified: boolean; /** Cheapest of the kind being compared. */ lowest: boolean; own: boolean; theme: PortalTheme; onOrder: () => void; /** The Buyer portal's 10 km cluster (see ClusterOnCard). */ cluster?: ClusterOnCard }) {
-  return <ListingCardInner listing={l} verified={verified} lowest={lowest} own={own} theme={theme} onOrder={onOrder} cluster={cluster} />;
+export function ListingCard({ listing: l, verified, lowest, own, theme, onOrder, pooled }: { listing: ShopListing; verified: boolean; /** Cheapest of the kind being compared. */ lowest: boolean; own: boolean; theme: PortalTheme; onOrder: () => void; /** The Buyer portal's pooled location: the hub distance on the card (see PooledOnCard). */ pooled?: PooledOnCard }) {
+  return <ListingCardInner listing={l} verified={verified} lowest={lowest} own={own} theme={theme} onOrder={onOrder} pooled={pooled} />;
 }

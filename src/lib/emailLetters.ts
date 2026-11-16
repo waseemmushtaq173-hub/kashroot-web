@@ -18,7 +18,7 @@ export interface Letter {
 
 export interface Queued {
   id: number;
-  kind: 'help_new' | 'help_ack' | 'help_reply' | 'help_resolved' | 'payout_changed' | 'password_changed' | 'email_changed' | 'phone_changed' | 'new_signin' | 'signin_locked' | 'team_changed' | 'trip_lost' | 'lab_booking_new' | 'lab_booking_cancelled' | 'lab_booking_update' | 'lab_report_ready' | 'order_new' | 'order_farmer_update' | 'order_buyer_update';
+  kind: 'help_new' | 'help_ack' | 'help_reply' | 'help_resolved' | 'payout_changed' | 'password_changed' | 'email_changed' | 'phone_changed' | 'new_signin' | 'signin_locked' | 'team_changed' | 'trip_lost' | 'lab_booking_new' | 'lab_booking_cancelled' | 'lab_booking_update' | 'lab_report_ready' | 'order_new' | 'order_farmer_update' | 'order_buyer_update' | 'hub_order_new' | 'hub_order_packed';
   ref: string | null;
   detail: string | null;
   created_at: string;
@@ -61,7 +61,7 @@ export function redactForEmail(text: string): string {
 
 const TOPIC: Record<string, string> = { login: 'Signing in', payment: 'Payment', order: 'An order', cold_storage: 'Cold storage', selling: 'Selling', other: 'Something else' };
 
-const NOTICE: Record<Exclude<Queued['kind'], 'help_new' | 'help_ack' | 'help_reply' | 'help_resolved' | 'team_changed' | 'trip_lost' | 'lab_booking_new' | 'lab_booking_cancelled' | 'lab_booking_update' | 'lab_report_ready' | 'order_new' | 'order_farmer_update' | 'order_buyer_update'>, [string, (detail: string | null) => string]> = {
+const NOTICE: Record<Exclude<Queued['kind'], 'help_new' | 'help_ack' | 'help_reply' | 'help_resolved' | 'team_changed' | 'trip_lost' | 'lab_booking_new' | 'lab_booking_cancelled' | 'lab_booking_update' | 'lab_report_ready' | 'order_new' | 'order_farmer_update' | 'order_buyer_update' | 'hub_order_new' | 'hub_order_packed'>, [string, (detail: string | null) => string]> = {
   payout_changed: ['Your KashRoot payout details were changed', () => 'The UPI ID or bank account where people pay you was saved or changed on KashRoot.'],
   password_changed: ['Your KashRoot password was changed', () => 'The password of your KashRoot account was changed.'],
   email_changed: ['A change of your KashRoot email was asked for', () => 'Someone signed in to your KashRoot account asked to change its email address. It changes only after the link sent to the new address is opened.'],
@@ -148,12 +148,30 @@ export function letterFor(q: Queued, site: string, inbox: string): Letter | null
       action: { label: 'Open Pickups & updates', href: `${site}/farmer/dashboard?tab=pickups` },
     };
   }
+  // The KashRoot hub's staff (20261130000000_hub_order_alerts.sql): the order's code, what was ordered and the hub; the
+  // orchard's location is read in Hub → Orders & pickups, never in an email.
+  if (q.kind === 'hub_order_new') {
+    return {
+      to: q.to,
+      subject: `Order ${q.ref ?? ''} coming to the hub: ${q.detail ?? ''}`.trim(),
+      lines: [`A buyer ordered produce that goes through a KashRoot hub: ${q.detail ?? ''}`.trim(), `Order: ${q.ref ?? ''}`, `Received: ${indiaTime(q.created_at)} (India time)`, '', 'The farmer has been told. Open the hub to see the orchard’s location and how far it is from the hub. A vehicle is needed once the farmer packs the boxes.'],
+      action: { label: 'Open the KashRoot Hub', href: `${site}/hub/dashboard` },
+    };
+  }
+  if (q.kind === 'hub_order_packed') {
+    return {
+      to: q.to,
+      subject: `Packed: send a vehicle for order ${q.ref ?? ''}`.trim(),
+      lines: [`The boxes are packed and waiting at the orchard: ${q.detail ?? ''}`.trim(), `Order: ${q.ref ?? ''}`, '', 'Open the hub: the orchard’s location and a route are under “Incoming for the hub”. A driver accepts the pickup job in the Tracking portal; the farmer and the buyer are told when one does.'],
+      action: { label: 'Open the KashRoot Hub', href: `${site}/hub/dashboard` },
+    };
+  }
   if (q.kind === 'order_buyer_update') {
     return {
       to: q.to,
       subject: `Your order ${q.ref ?? ''}: ${q.detail ?? 'an update'}`.trim(),
-      lines: [`An update on your order ${q.ref ?? ''}:`, q.detail ?? '', '', 'See where every farmer’s boxes are, and the truck on the map once it is moving.'].filter((line, i, all) => line !== '' || all[i - 1] !== ''),
-      action: { label: 'Open the Pooled truck', href: `${site}/buyer/dashboard?tab=truck` },
+      lines: [`An update on your order ${q.ref ?? ''}:`, q.detail ?? '', '', 'See where every farmer’s boxes are, how far the KashRoot hub is, and your boxes on the map once they are moving.'].filter((line, i, all) => line !== '' || all[i - 1] !== ''),
+      action: { label: 'Open the Pooled location', href: `${site}/buyer/dashboard?tab=pooled` },
     };
   }
   // Soil and lab tests (20261128000000_soil_lab_tests.sql). Only the booking code, the test and the district are named:

@@ -1,11 +1,10 @@
 /**
- * The pooled truck, read from real orders only. A buyer's open produce orders that go through the same KashRoot hub are
- * one load: the boxes of several farmers brought to the hub and sent on to the buyer in one truck (up to
- * TRUCK_CAPACITY_BOXES boxes). Nothing is invented: a step is shown only when the order's own fields say so, and an
+ * The pooled location, read from real orders only. A buyer's open produce orders that go through the same KashRoot hub are
+ * one load: the boxes of several farmers brought together at that hub and sent on to the buyer in one go. Nothing is
+ * invented: a step is shown only when the order's own fields say so, and an
  * order the farmer has not yet accepted or packed is "waiting for the farmer". The farmer's board is the same data, from
  * the other side: what needs them now, what is moving, and the latest thing that happened on each order.
  */
-import { TRUCK_CAPACITY_BOXES } from '@/lib/clusterConsolidation';
 import { OPEN_ORDER_STATUSES, type MarketOrder, type PickupStage } from '@/lib/db/market';
 
 /** The steps a box goes through, in order. */
@@ -48,7 +47,6 @@ export interface PooledLoad {
   lines: MarketOrder[];
   /** Boxes in the load (orders sold by the box); other units are listed but not counted against the truck. */
   boxes: number;
-  capacity: number;
   /** Orders at each step. */
   counts: Record<PoolStep, number>;
   /** The step the whole load is at: the slowest order's. */
@@ -63,8 +61,8 @@ export function headlineOf(counts: Record<PoolStep, number>, total: number): str
   if (total === 0) return '';
   if (counts[6] === total) return 'Everything in this load has arrived.';
   const hubbed = counts[4] + counts[5] + counts[6];
-  if (counts[5] > 0 && counts[0] + counts[1] + counts[2] + counts[3] === 0) return 'The truck is on the road to you.';
-  if (hubbed === total) return 'All the boxes are at the hub: the truck leaves for you next.';
+  if (counts[5] > 0 && counts[0] + counts[1] + counts[2] + counts[3] === 0) return 'Your boxes are on the road to you.';
+  if (hubbed === total) return 'All your boxes are at the hub: they leave for you next.';
   const rest: string[] = [];
   if (counts[0]) rest.push(`${plural(counts[0], 'order')} waiting for the farmer`);
   if (counts[1]) rest.push(`${counts[1]} waiting for a vehicle`);
@@ -92,7 +90,6 @@ export function pooledLoads(orders: MarketOrder[]): PooledLoad[] {
       hub,
       lines: sorted,
       boxes: lines.filter((l) => l.unit === 'box').reduce((n, l) => n + Number(l.quantity || 0), 0),
-      capacity: TRUCK_CAPACITY_BOXES,
       counts,
       slowest,
       headline: headlineOf(counts, lines.length),
