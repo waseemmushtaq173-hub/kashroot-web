@@ -39,13 +39,18 @@ export interface DataGovEnv {
 
 type Fetcher = (url: string, init?: RequestInit) => Promise<Response>;
 
-// SKUAST first: there are few such datasets, and they must not be crowded out of the twenty places by the many on pesticides and fertilisers.
-const SUBJECTS = ['SKUAST', 'Sher-e-Kashmir', 'spray schedule', 'pesticide', 'insecticide', 'fungicide', 'herbicide', 'fertilizer', 'fertiliser'];
-const SUBJECT_TITLE = /pesticid|insecticid|fungicid|herbicid|fertili[sz]er|agro-?chemical|manure|npk|urea|skuast|sher-e-kashmir|spray schedule/i;
+// The registers first (banned, registered, the Act's own lists) and SKUAST: there are few such datasets, and they must not be
+// crowded out of the places by the many statistics on pesticides and fertilisers.
+const SUBJECTS = [
+  'banned pesticide', 'registered pesticide', 'CIBRC', 'Insecticides Act', 'plant growth regulator', 'biopesticide', 'biofertilizer', 'bio-fertiliser',
+  'SKUAST', 'Sher-e-Kashmir', 'spray schedule',
+  'pesticide', 'insecticide', 'fungicide', 'herbicide', 'fertilizer', 'fertiliser',
+];
+const SUBJECT_TITLE = /pesticid|insecticid|fungicid|herbicid|fertili[sz]er|agro-?chemical|manure|npk|urea|growth regulator|\bpgr\b|cib&?rc|insecticides act|skuast|sher-e-kashmir|spray schedule/i;
 /** A dataset published by SKUAST-Kashmir (named in the panel). */
 export const isSkuastDataset = (d: { title: string; org: string }) => /skuast|sher-e-kashmir/i.test(`${d.title} ${d.org}`);
 const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
-const MAX_DATASETS = 20;
+const MAX_DATASETS = 30;
 const ROWS_READ = 500;
 const ROWS_SHOWN = 5;
 const COLUMNS_SHOWN = 7;
