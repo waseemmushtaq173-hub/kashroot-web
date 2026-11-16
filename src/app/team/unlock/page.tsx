@@ -20,6 +20,7 @@ import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 
 import { AdminLock } from '@/components/admin/AdminLock';
+import { adminStatus, type AdminCheck } from '@/lib/db/security';
 import { DatabaseUpdateNeeded } from '@/components/admin/DatabaseUpdateNeeded';
 import { authFetch } from '@/lib/auth-fetch';
 import { safeTeamNext as safeNext, teamStatus, type TeamStatus } from '@/lib/client/teamCheck';
@@ -34,13 +35,16 @@ type Who = 'checking' | 'signed-out' | 'pass-dropped' | TeamStatus;
 export default function TeamUnlockPage() {
   const [who, setWho] = useState<Who>('checking');
   const [attempt, setAttempt] = useState(0);
+  /** The admin lock's state, asked at the same time as the team check (one wait instead of two). */
+  const [lock, setLock] = useState<AdminCheck | undefined>(undefined);
   useEffect(() => {
     let live = true;
     void (async () => {
       const { data } = await supabase.auth.getSession();
       if (!data.session) return live && setWho('signed-out');
-      const status = await teamStatus();
+      const [status, lockState] = await Promise.all([teamStatus(), adminStatus().catch(() => undefined)]);
       if (!live) return;
+      setLock(lockState);
       let dropped = false;
       try {
         dropped = status === 'member' && Date.now() - Number(sessionStorage.getItem(PASS_AT) ?? 0) < LOOP_MS;
@@ -91,7 +95,7 @@ export default function TeamUnlockPage() {
     );
   }
   return (
-    <AdminLock>
+    <AdminLock initial={lock}>
       <TeamPass />
     </AdminLock>
   );

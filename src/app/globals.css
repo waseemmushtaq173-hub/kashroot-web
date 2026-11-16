@@ -605,12 +605,25 @@ dialog.kr-drawer[open] { animation: kr-drawer-in 0.22s ease-out; }
   .kr-kpi-value { color: var(--kpi-value); }
   .kr-kpi-hint { color: var(--kpi-hint); }
 
+  /* The spectrum: the first card above is the portal's own colour; the others take amber, emerald, rose, violet, cyan,
+     fuchsia and teal in turn, dark ones (white figure) alternating with pale ones (dark figure). Every pair is 4.5:1 or better. */
+  .kr-kpi:nth-child(8n+3) { --kpi-label: #FFE9A8; --kpi-value: #FFFFFF; --kpi-hint: #D1FAE5; background: linear-gradient(160deg, #059669 0%, #047857 52%, #064E3B 100%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), inset 0 0 0 1px rgba(255, 255, 255, .12), 0 3px 0 #C6A45B, 0 12px 26px -8px rgba(6, 78, 59, .45); }
+  .kr-kpi:nth-child(8n+5) { --kpi-label: #FFE9A8; --kpi-value: #FFFFFF; --kpi-hint: #EDE9FE; background: linear-gradient(160deg, #7C3AED 0%, #6D28D9 52%, #4C1D95 100%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), inset 0 0 0 1px rgba(255, 255, 255, .12), 0 3px 0 #C6A45B, 0 12px 26px -8px rgba(76, 29, 149, .45); }
+  .kr-kpi:nth-child(8n+7) { --kpi-label: #FFE9A8; --kpi-value: #FFFFFF; --kpi-hint: #FAE8FF; background: linear-gradient(160deg, #C026D3 0%, #A21CAF 52%, #701A75 100%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), inset 0 0 0 1px rgba(255, 255, 255, .12), 0 3px 0 #C6A45B, 0 12px 26px -8px rgba(112, 26, 117, .45); }
+  .kr-kpi:nth-child(8n+2) { --kpi-label: #92400E; --kpi-value: #78350F; --kpi-hint: #B45309; background: linear-gradient(180deg, #FFFBEB 0%, #FEF3C7 100%); box-shadow: inset 0 1px 0 #FFFFFF, inset 0 0 0 1px #FCD34D, 0 3px 0 #D97706, 0 10px 22px -8px rgba(180, 83, 9, .25); }
+  .kr-kpi:nth-child(8n+4) { --kpi-label: #9F1239; --kpi-value: #881337; --kpi-hint: #BE123C; background: linear-gradient(180deg, #FFF1F2 0%, #FFE4E6 100%); box-shadow: inset 0 1px 0 #FFFFFF, inset 0 0 0 1px #FDA4AF, 0 3px 0 #E11D48, 0 10px 22px -8px rgba(159, 18, 57, .25); }
+  .kr-kpi:nth-child(8n+6) { --kpi-label: #155E75; --kpi-value: #164E63; --kpi-hint: #0E7490; background: linear-gradient(180deg, #ECFEFF 0%, #CFFAFE 100%); box-shadow: inset 0 1px 0 #FFFFFF, inset 0 0 0 1px #67E8F9, 0 3px 0 #0891B2, 0 10px 22px -8px rgba(14, 116, 144, .25); }
+  .kr-kpi:nth-child(8n+8) { --kpi-label: #115E59; --kpi-value: #134E4A; --kpi-hint: #0F766E; background: linear-gradient(180deg, #F0FDFA 0%, #CCFBF1 100%); box-shadow: inset 0 1px 0 #FFFFFF, inset 0 0 0 1px #5EEAD4, 0 3px 0 #0D9488, 0 10px 22px -8px rgba(15, 118, 110, .25); }
+
   /* The forest hero banner at the top of every portal page (portal kit PageHeader). */
   .kr-hero {
     /* A rainbow stripe along the bottom edge, then a soft gold glow, then the portal's own deep-to-bright gradient. */
     background:
       linear-gradient(90deg, #EF4444 0%, #F97316 16%, #FACC15 32%, #22C55E 48%, #06B6D4 64%, #3B82F6 80%, #8B5CF6 92%, #EC4899 100%) bottom / 100% 5px no-repeat,
-      radial-gradient(40rem 18rem at 100% 0%, rgba(250, 204, 21, .24), transparent 60%),
+      radial-gradient(44rem 20rem at 104% -14%, rgba(236, 72, 153, .62), transparent 66%),
+      radial-gradient(40rem 17rem at 70% 132%, rgba(251, 146, 60, .52), transparent 64%),
+      radial-gradient(34rem 16rem at -8% 118%, rgba(6, 182, 212, .50), transparent 66%),
+      radial-gradient(28rem 14rem at 36% -26%, rgba(168, 85, 247, .44), transparent 62%),
       linear-gradient(135deg, rgb(var(--kr-deep-rgb)) 0%, rgb(var(--kr-forest-rgb)) 62%, rgb(var(--kr-mid-rgb)) 100%);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 14px 30px -12px rgb(var(--kr-deep-rgb) / .55);
     color: #FFFFFF;
@@ -643,6 +656,15 @@ dialog.kr-drawer[open] { animation: kr-drawer-in 0.22s ease-out; }
     border: 1px solid #C6A45B;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 4px 0 rgb(var(--kr-pine-rgb)), 0 8px 14px -4px rgb(var(--kr-deep-rgb) / .35);
   }
+  /* Panel titles pick a colour from the spectrum (portal kit Panel sets data-hue from the title). */
+  .kr-icon-badge[data-hue='0'] { background: linear-gradient(135deg, #BE123C, #E11D48); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 4px 0 #881337, 0 8px 14px -4px rgba(136, 19, 55, .35); }
+  .kr-icon-badge[data-hue='1'] { background: linear-gradient(135deg, #B45309, #D97706); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 4px 0 #78350F, 0 8px 14px -4px rgba(120, 53, 15, .35); }
+  .kr-icon-badge[data-hue='2'] { background: linear-gradient(135deg, #047857, #10B981); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 4px 0 #064E3B, 0 8px 14px -4px rgba(6, 78, 59, .35); }
+  .kr-icon-badge[data-hue='3'] { background: linear-gradient(135deg, #0E7490, #06B6D4); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 4px 0 #164E63, 0 8px 14px -4px rgba(22, 78, 99, .35); }
+  .kr-icon-badge[data-hue='4'] { background: linear-gradient(135deg, #6D28D9, #8B5CF6); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 4px 0 #4C1D95, 0 8px 14px -4px rgba(76, 29, 149, .35); }
+  .kr-icon-badge[data-hue='5'] { background: linear-gradient(135deg, #A21CAF, #D946EF); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 4px 0 #701A75, 0 8px 14px -4px rgba(112, 26, 117, .35); }
+  .kr-icon-badge[data-hue='6'] { background: linear-gradient(135deg, #C2410C, #F97316); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 4px 0 #7C2D12, 0 8px 14px -4px rgba(124, 45, 18, .35); }
+  .kr-icon-badge[data-hue='7'] { background: linear-gradient(135deg, #0F766E, #14B8A6); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 4px 0 #134E4A, 0 8px 14px -4px rgba(19, 78, 74, .35); }
   .kr-card:hover { box-shadow: var(--kr-card-hover-shadow); }
   /* A card that holds content and does nothing when pointed at (panels, tables). */
   .kr-card-flat:hover { box-shadow: var(--kr-card-shadow); }
@@ -782,3 +804,56 @@ dialog.kr-drawer[open] { animation: kr-drawer-in 0.22s ease-out; }
 .kr-spectrum-deep {
   background-image: linear-gradient(110deg, #9F1239 0%, #C2410C 20%, #A16207 38%, #15803D 56%, #0369A1 76%, #6D28D9 100%);
 }
+
+/* ───────── A soft wash of the spectrum behind every portal page and tool ─────────
+   Rose, gold, cyan and violet glows high on the page, faint enough that the white cards and their text keep their contrast. */
+[data-kr-shell]::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 48rem;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(34rem 22rem at 6% -4%, rgba(244, 63, 94, .13), transparent 66%),
+    radial-gradient(36rem 24rem at 94% 0%, rgba(251, 191, 36, .17), transparent 66%),
+    radial-gradient(34rem 22rem at 56% 30%, rgba(34, 211, 238, .12), transparent 66%),
+    radial-gradient(30rem 20rem at 0% 44%, rgba(167, 139, 250, .14), transparent 66%);
+}
+
+/* ───────── The sidebar menu: one colour of the spectrum for each entry's icon ─────────
+   Soft 300-level hues, bright enough on the deep sidebar (3:1 or better for an icon); the chosen entry keeps its own look. */
+:is(aside, .kr-drawer) [role="tablist"] > [role="tab"]:not([aria-selected="true"]):nth-child(8n+1) svg { color: #FDA4AF; }
+:is(aside, .kr-drawer) [role="tablist"] > [role="tab"]:not([aria-selected="true"]):nth-child(8n+2) svg { color: #FCD34D; }
+:is(aside, .kr-drawer) [role="tablist"] > [role="tab"]:not([aria-selected="true"]):nth-child(8n+3) svg { color: #6EE7B7; }
+:is(aside, .kr-drawer) [role="tablist"] > [role="tab"]:not([aria-selected="true"]):nth-child(8n+4) svg { color: #67E8F9; }
+:is(aside, .kr-drawer) [role="tablist"] > [role="tab"]:not([aria-selected="true"]):nth-child(8n+5) svg { color: #C4B5FD; }
+:is(aside, .kr-drawer) [role="tablist"] > [role="tab"]:not([aria-selected="true"]):nth-child(8n+6) svg { color: #F0ABFC; }
+:is(aside, .kr-drawer) [role="tablist"] > [role="tab"]:not([aria-selected="true"]):nth-child(8n+7) svg { color: #FDBA74; }
+:is(aside, .kr-drawer) [role="tablist"] > [role="tab"]:not([aria-selected="true"]):nth-child(8n+8) svg { color: #5EEAD4; }
+
+/* ───────── Button sizes: each one as big as its job ─────────
+   Inside a portal or a tool the many small and secondary buttons (rows, cards, filters, "Refresh") are drawn as a compact
+   36 px face; the full 44 px stays as the tap area around it (a transparent border above and below), so they are easy
+   to hit and do not shout. The main (solid) button and the big cards on the home page keep their full size. */
+:is([data-kr-shell="portal"], [data-kr-shell="standalone"]) :is(.kr-btn-secondary, .kr-btn-sm):not([data-kr-plain] *):not(.kr-btn-primary) {
+  border: 0;
+  border-block: 4px solid transparent;
+  background-clip: padding-box;
+  padding-block: 0.25rem;
+  font-size: 0.8125rem;
+  border-radius: 0.875rem;
+  box-shadow: inset 0 0 0 1px rgb(var(--kr-edge-rgb) / .9), 0 1px 0 rgb(var(--kr-edge-rgb) / .6);
+}
+:is([data-kr-shell="portal"], [data-kr-shell="standalone"]) :is(.kr-btn-secondary, .kr-btn-sm):not([data-kr-plain] *):not(.kr-btn-primary):hover:not(:disabled):not([aria-disabled='true']) {
+  transform: none;
+  box-shadow: inset 0 0 0 1px rgb(var(--kr-forest-rgb) / .55), 0 2px 6px -2px rgb(var(--kr-forest-rgb) / .35);
+}
+:is([data-kr-shell="portal"], [data-kr-shell="standalone"]) :is(.kr-btn-secondary, .kr-btn-sm):not([data-kr-plain] *):not(.kr-btn-primary):active:not(:disabled):not([aria-disabled='true']) {
+  transform: none;
+  box-shadow: inset 0 1px 3px rgb(var(--kr-forest-rgb) / .25);
+}
+:is([data-kr-shell="portal"], [data-kr-shell="standalone"]) :is(.kr-btn-secondary, .kr-btn-sm):not([data-kr-plain] *):not(.kr-btn-primary):is([aria-pressed='true'], [aria-selected='true'], [aria-current='page']) {
+  box-shadow: inset 0 0 0 1px rgb(var(--kr-pine-rgb)), 0 1px 0 rgb(var(--kr-pine-rgb));
+}
+

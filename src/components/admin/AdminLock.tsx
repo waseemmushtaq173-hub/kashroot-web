@@ -46,8 +46,8 @@ function useIdleLock(active: boolean, onLock: () => void) {
   }, [active, onLock]);
 }
 
-export function AdminLock({ children }: { children: ReactNode }) {
-  const [status, setStatus] = useState<AdminCheck | undefined>(undefined);
+export function AdminLock({ children, initial }: { children: ReactNode; /** The lock's state when the caller has already asked the database (saves a round trip). */ initial?: AdminCheck }) {
+  const [status, setStatus] = useState<AdminCheck | undefined>(initial);
   const [code, setCode] = useState('');
   const [again, setAgain] = useState('');
   const [busy, setBusy] = useState(false);
@@ -57,13 +57,13 @@ export function AdminLock({ children }: { children: ReactNode }) {
   useEffect(() => {
     let live = true;
     const run = async () => {
-      if (live) await check();
+      if (live && initial === undefined) await check();
     };
     void run();
     return () => {
       live = false;
     };
-  }, [check]);
+  }, [check, initial]);
 
   const idleLocked = useCallback(() => {
     setMessage('Locked after 15 minutes without use. Enter your admin code to continue.');
@@ -97,7 +97,9 @@ export function AdminLock({ children }: { children: ReactNode }) {
       setCode('');
       if (result === 'wrong') setMessage('That code is not right. After 5 wrong tries the Admin portal is blocked for 15 minutes.');
       else if (result === 'blocked') setMessage('Too many wrong codes. Try again in 15 minutes.');
-      await check();
+      // Opened: go straight in (the database answered "unlocked"; asking again only made people wait).
+      if (result === 'unlocked') setStatus('unlocked');
+      else await check();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Could not check the code.');
     } finally {

@@ -121,11 +121,13 @@ export const FOCUS = 'focus-visible:outline focus-visible:outline-2 focus-visibl
 type BtnVariant = 'solid' | 'soft' | 'outline' | 'ghost' | 'danger' | 'white';
 
 /** The look every button shares (also for links and raw buttons styled like one). */
-export function btnClass(theme: PortalTheme, variant: BtnVariant, size: 'sm' | 'md') {
+export function btnClass(theme: PortalTheme, variant: BtnVariant, size: 'sm' | 'md' | 'lg') {
   // solid is the tactile .kr-btn-primary, soft and outline the tactile .kr-btn-secondary (globals.css): bevel, lift on hover, sink on press.
   const shape = variant === 'solid' ? 'kr-btn-primary' : variant === 'outline' || variant === 'soft' ? 'kr-btn-secondary' : 'rounded-xl font-semibold transition duration-200 active:translate-y-px';
   const base = `${shape} inline-flex cursor-pointer items-center justify-center gap-2 no-underline hover:no-underline disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none motion-reduce:active:translate-y-0 ${FOCUS} ${theme.outline}`;
-  const pad = size === 'sm' ? 'min-h-11 px-3 py-1.5 text-xs' : 'min-h-11 px-4 py-2.5 text-sm';
+  // Sizes follow the job: sm for the many small actions in rows and cards, md for ordinary buttons, lg for the one main action of a screen.
+  // Every size keeps a 44 px tap area; the compact face of sm and the secondary buttons is drawn inside it (globals.css, "Button sizes").
+  const pad = size === 'sm' ? 'kr-btn-sm min-h-11 px-3 py-1.5 text-xs' : size === 'lg' ? 'min-h-12 px-6 py-3 text-base' : 'min-h-11 px-4 py-2.5 text-sm';
   const look = {
     solid: '',
     soft: '',
@@ -141,7 +143,7 @@ interface BtnProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** Every portal shares one look; kept so older calls still pass it. */
   theme?: PortalTheme;
   variant?: BtnVariant;
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'lg';
   icon?: LucideIcon;
   /** Render as a link instead of a button. */
   href?: string;
@@ -164,7 +166,7 @@ export const Btn = forwardRef<HTMLButtonElement, BtnProps>(function Btn(
   const cls = `${btnClass(theme, look, size)} ${title ? 'min-h-11' : ''} ${className}`;
   const content = (
     <>
-      {Icon && <Icon className={size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'} aria-hidden />}
+      {Icon && <Icon className={size === 'sm' ? 'h-3.5 w-3.5' : size === 'lg' ? 'h-5 w-5' : 'h-4 w-4'} aria-hidden />}
       {children}
     </>
   );
@@ -186,6 +188,13 @@ export const Btn = forwardRef<HTMLButtonElement, BtnProps>(function Btn(
 
 // Every card: white, a soft #E0E3F5 border and the layered card shadow (globals.css .kr-card), not lifted by hover.
 export const GLASS_CARD = 'kr-card kr-card-flat rounded-3xl';
+
+/** One of the eight spectrum colours (globals.css .kr-icon-badge[data-hue]) for a title: the same title always gets the same one. */
+export function hueOf(title = ''): number {
+  let h = 0;
+  for (const ch of title) h = (h * 31 + ch.charCodeAt(0)) % 997;
+  return h % 8;
+}
 
 export function Panel({
   title,
@@ -211,7 +220,7 @@ export function Panel({
           {title && (
             <h2 className="flex items-center gap-2.5 font-display text-xl font-semibold tracking-tight text-ink">
               {Icon && (
-                <span className={`grid h-9 w-9 place-items-center rounded-xl ${theme.tile}`}>
+                <span data-hue={hueOf(title)} className={`grid h-9 w-9 place-items-center rounded-xl ${theme.tile}`}>
                   <Icon className="h-[18px] w-[18px]" aria-hidden />
                 </span>
               )}
