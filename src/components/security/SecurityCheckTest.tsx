@@ -102,20 +102,20 @@ export function SecurityCheckTest() {
   const fmt = (v: ServerVerdict | null) => (!v ? 'no answer' : !v.configured ? 'no secret on the server' : !v.answered ? 'hCaptcha did not answer' : `${v.success ? 'success' : 'refused'}${v.codes?.length ? ` (${v.codes.join(', ')})` : ''}${v.hostname ? `, made on ${v.hostname}` : ''}`);
 
   return (
-    <section aria-labelledby="sct-title" className="mt-10 rounded-2xl bg-white/5 p-5 ring-1 ring-white/10">
+    <section aria-labelledby="sct-title" className="mt-10 rounded-2xl bg-white/80 p-5 text-slate-900 shadow-sm ring-1 ring-slate-900/10">
       <h2 id="sct-title" className="flex items-center gap-2 text-xl font-bold">
         <ShieldQuestion className="h-5 w-5" aria-hidden /> Test the security check
       </h2>
-      <p className="mt-2 text-sm text-white/70">If nobody can sign in because of the “I am human” check, this finds out why — in this browser, with fresh checks that are used once and never shown. It makes no account.</p>
-      <div className="mt-3 rounded-xl bg-white p-2 empty:hidden">{human.element}</div>
+      <p className="mt-2 text-sm text-slate-700">If nobody can sign in because of the “I am human” check, this finds out why — in this browser, with fresh checks that are used once and never shown. It makes no account.</p>
+      <div className="mt-3 rounded-xl bg-white p-2 ring-1 ring-slate-900/10 empty:hidden">{human.element}</div>
       <button type="button" onClick={() => void run()} disabled={busy} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-chinar px-4 font-semibold text-white hover:bg-chinar-hover disabled:opacity-60">
         {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} {busy ? (human.waiting ? 'Checking you’re human…' : 'Testing…') : 'Run the test'}
       </button>
-      {error && <p role="alert" className="mt-3 text-sm text-amber-300">{error}</p>}
+      {error && <p role="alert" className="mt-3 text-sm text-amber-800">{error}</p>}
       {result && (
         <div className="mt-4 space-y-2 text-sm" data-security-check-result={result.ok ? 'ok' : 'problem'}>
-          <p className={`rounded-xl p-3 font-semibold ${result.ok ? 'bg-forest-mid/15 text-forest-line' : 'bg-amber-500/15 text-amber-100'}`}>{result.verdict}</p>
-          <ul className="space-y-1 text-white/80">
+          <p className={`rounded-xl p-3 font-semibold ${result.ok ? 'bg-emerald-600/10 text-emerald-900' : 'bg-amber-500/15 text-amber-900'}`}>{result.verdict}</p>
+          <ul className="space-y-1 text-slate-800">
             <li>Token received in {result.took} s — {result.mode}</li>
             <li>KashRoot’s server (Vercel secret): {fmt(result.server)}</li>
             <li>Same, from another address: {fmt(result.otherAddress)}</li>

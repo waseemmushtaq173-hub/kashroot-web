@@ -389,7 +389,7 @@ export function SiteFooter({ tone = 'dark' }: { tone?: SiteTone; portal?: Portal
             &copy; 2026 KashRoot Pvt Ltd
           </p>
           {/* The sign-in for the team of a cold store, dealership or shop: its own door, apart from the customer portals. */}
-          <Link href="/login/business" className={`mt-1 inline-block text-caption underline underline-offset-4 ${light ? 'text-slate-600 hover:text-slate-900' : 'text-kr-text-secondary hover:text-kr-text-primary'}`}>
+          <Link href="/login/business" className={`-ml-1 inline-flex min-h-11 items-center px-1 text-caption underline underline-offset-4 ${light ? 'text-slate-600 hover:text-slate-900' : 'text-kr-text-secondary hover:text-kr-text-primary'}`}>
             Business admin sign-in
           </Link>
         </div>

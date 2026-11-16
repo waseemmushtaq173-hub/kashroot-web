@@ -752,14 +752,22 @@ export default function MandiWeatherPage() {
           </>
         }>
           <div className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_1fr_1fr_auto]">
-            <label className="text-sm font-medium text-slate-700">Commodity</label>
-            <input list="commodities" className={`${INPUT} mt-1`} value={filters.commodity} onChange={(e) => setFilters({ ...filters, commodity: e.target.value, variety: '', grade: '' })} placeholder="Apple" />
-            <label className="text-sm font-medium text-slate-700">State</label>
-            <input list="states" className={`${INPUT} mt-1`} value={filters.state} onChange={(e) => setFilters({ ...filters, state: e.target.value })} placeholder="All India" />
-            <label className="text-sm font-medium text-slate-700">District</label>
-            <input className={`${INPUT} mt-1`} value={filters.district} onChange={(e) => setFilters({ ...filters, district: e.target.value })} placeholder="Any" />
-            <label className="text-sm font-medium text-slate-700">Market</label>
-            <input className={`${INPUT} mt-1`} value={filters.market} onChange={(e) => setFilters({ ...filters, market: e.target.value })} placeholder="Any" />
+            <div>
+              <label htmlFor="mw-commodity" className="block text-sm font-medium text-slate-700">Commodity</label>
+              <input id="mw-commodity" list="commodities" className={`${INPUT} mt-1`} value={filters.commodity} onChange={(e) => setFilters({ ...filters, commodity: e.target.value, variety: '', grade: '' })} placeholder="Apple" />
+            </div>
+            <div>
+              <label htmlFor="mw-state" className="block text-sm font-medium text-slate-700">State</label>
+              <input id="mw-state" list="states" className={`${INPUT} mt-1`} value={filters.state} onChange={(e) => setFilters({ ...filters, state: e.target.value })} placeholder="All India" />
+            </div>
+            <div>
+              <label htmlFor="mw-district" className="block text-sm font-medium text-slate-700">District</label>
+              <input id="mw-district" className={`${INPUT} mt-1`} value={filters.district} onChange={(e) => setFilters({ ...filters, district: e.target.value })} placeholder="Any" />
+            </div>
+            <div>
+              <label htmlFor="mw-market" className="block text-sm font-medium text-slate-700">Market</label>
+              <input id="mw-market" className={`${INPUT} mt-1`} value={filters.market} onChange={(e) => setFilters({ ...filters, market: e.target.value })} placeholder="Any" />
+            </div>
             <div className="flex items-end">
               <Btn theme={theme} type="submit" icon={Search} className="w-full">Show prices</Btn>
             </div>

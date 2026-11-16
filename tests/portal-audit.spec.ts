@@ -35,7 +35,8 @@ for (const width of [390, 1280]) {
         expect(res?.status(), 'no server error').toBeLessThan(500);
         await page.waitForLoadState('load');
         await page.waitForTimeout(1200);
-        await expect(page.locator('h1, h2').first()).toBeVisible();
+        // Any heading a visitor can see (the first in the page may belong to a closed menu).
+        await expect(page.locator('h1:visible, h2:visible').first()).toBeVisible();
         const report = await page.evaluate(() => {
           const shown = (el: Element) => {
             const r = el.getBoundingClientRect();

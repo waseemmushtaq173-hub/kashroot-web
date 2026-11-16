@@ -702,18 +702,19 @@ export default function UnifiedLiveTrackingPortal() {
               className="flex flex-wrap items-end gap-3"
             >
               <div className="min-w-[240px] flex-1">
-                <label className="block text-xs font-bold uppercase text-slate-600">Authorized Shipment Tracking ID</label>
+                <label htmlFor="shipment-tracking-id" className="block text-xs font-bold uppercase text-slate-600">Authorized Shipment Tracking ID</label>
                 <input
+                  id="shipment-tracking-id"
                   type="text"
                   value={trackingIdInput}
                   onChange={(e) => setTrackingIdInput(e.target.value.toUpperCase())}
                   placeholder="e.g. Enter your Shipment ID from your Buyer/Farmer Order or Driver Trip"
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 font-mono text-sm font-semibold text-slate-900 focus:border-forest focus:outline-none"
+                  className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 font-mono text-sm font-semibold text-slate-900 focus:border-forest focus:outline-none"
                 />
               </div>
               <button
                 type="submit"
-                className="rounded-xl bg-forest px-5 py-2.5 text-sm font-bold text-white shadow hover:bg-forest"
+                className="min-h-11 rounded-xl bg-forest px-5 py-2.5 text-sm font-bold text-white shadow hover:bg-forest-deep"
               >
                 Track Authorized Shipment
               </button>

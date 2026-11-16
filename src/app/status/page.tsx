@@ -40,23 +40,23 @@ export default function StatusPage() {
   }, [fetchStatus]);
 
   const getIcon = (status: string) => {
-    if (status === "ok" || status === "configured") return <CheckCircle className="w-6 h-6 text-forest-mid" />;
-    if (status === "degraded") return <AlertTriangle className="w-6 h-6 text-yellow-500" />;
-    return <XCircle className="w-6 h-6 text-red-500" />;
+    if (status === "ok" || status === "configured") return <CheckCircle className="w-6 h-6 text-forest" />;
+    if (status === "degraded") return <AlertTriangle className="w-6 h-6 text-amber-600" />;
+    return <XCircle className="w-6 h-6 text-red-600" />;
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#07120D] text-white">
-      <SiteHeader hideSignIn={false} />
+    <div className="kr-light relative isolate flex min-h-screen flex-col bg-gradient-to-br from-amber-50 via-white to-forest-soft text-slate-900">
+      <SiteHeader hideSignIn={false} tone="light" />
       <main className="container mx-auto px-4 py-20 flex-1 max-w-3xl">
-        <div className="flex items-center justify-between mb-8 border-b border-white/10 pb-6">
+        <div className="flex items-center justify-between mb-8 border-b border-slate-900/10 pb-6">
           <h1 className="text-3xl font-bold flex items-center gap-3">
-            <Activity className="w-8 h-8 text-[#D4AF37]" /> KashRoot System Status
+            <Activity className="w-8 h-8 text-chinar" aria-hidden /> KashRoot System Status
           </h1>
           <button 
             onClick={fetchStatus} 
             aria-label="Check again"
-            className="grid h-11 w-11 place-items-center rounded-full bg-white/5 transition-colors hover:bg-white/10"
+            className="grid h-11 w-11 place-items-center rounded-full bg-white text-slate-700 ring-1 ring-slate-900/10 transition-colors hover:bg-slate-100"
             disabled={loading}
           >
             <RefreshCw className={`w-5 h-5 ${loading ? "animate-spin" : ""}`} />
@@ -65,15 +65,15 @@ export default function StatusPage() {
 
         {loading && !data ? (
           <div className="animate-pulse space-y-4">
-            <div className="h-16 bg-white/5 rounded-xl"></div>
-            <div className="h-16 bg-white/5 rounded-xl"></div>
+            <div className="h-16 bg-slate-900/5 rounded-xl"></div>
+            <div className="h-16 bg-slate-900/5 rounded-xl"></div>
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="p-6 bg-white/5 border border-white/10 rounded-xl flex items-center justify-between">
+            <div className="p-6 bg-white/80 border border-slate-900/10 rounded-xl shadow-sm flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-lg">Overall Status</h3>
-                <p className="text-sm text-white/50">{data?.timestamp ? new Date(data.timestamp).toLocaleString() : "Unknown"}</p>
+                <p className="text-sm text-slate-600">{data?.timestamp ? new Date(data.timestamp).toLocaleString() : "Unknown"}</p>
               </div>
               <div className="flex items-center gap-2 font-bold uppercase tracking-wider">
                 {getIcon(data?.status ?? "")} {data?.status}
@@ -82,11 +82,11 @@ export default function StatusPage() {
 
             <h2 className="text-xl font-bold mt-8 mb-4">Core Services</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-5 bg-black/40 border border-white/5 rounded-xl flex items-center justify-between">
+              <div className="p-5 bg-white/80 border border-slate-900/10 rounded-xl shadow-sm flex items-center justify-between">
                 <span className="font-medium">Web Frontend</span>
                 {getIcon(data?.services?.web ?? "")}
               </div>
-              <div className="p-5 bg-black/40 border border-white/5 rounded-xl flex items-center justify-between">
+              <div className="p-5 bg-white/80 border border-slate-900/10 rounded-xl shadow-sm flex items-center justify-between">
                 <span className="font-medium">Sign-in &amp; database (Supabase)</span>
                 {getIcon(data?.services?.db ?? "")}
               </div>
@@ -95,7 +95,7 @@ export default function StatusPage() {
         )}
         <SecurityCheckTest />
       </main>
-      <SiteFooter />
+      <SiteFooter tone="light" />
     </div>
   );
 }
