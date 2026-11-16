@@ -551,10 +551,10 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
                 </div>
               )}
 
-              {/* SKUAST-Kashmir official dosage */}
+              {/* SKUAST-Kashmir dosage, as typed by KashRoot */}
               {standard.skuast_kashmir_dosage && (
                 <div className="mt-4 rounded-xl bg-indigo-50 p-3 text-sm text-slate-800 ring-1 ring-indigo-200">
-                  <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-indigo-800 mb-1">SKUAST-Kashmir Official Dosage</p>
+                  <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-indigo-800 mb-1">SKUAST-Kashmir dosage (as typed by KashRoot)</p>
                   <p className="font-medium">{standard.skuast_kashmir_dosage}</p>
                 </div>
               )}
@@ -929,7 +929,7 @@ function ScanResult({ result, account, onPhoto, onLab, standard, cibrcResult, sk
                 {p.target_pests.length > 0 && <p className="text-xs text-slate-600">Targets: {p.target_pests.join(', ')}</p>}
                 {p.waiting_period_days !== null && <p className="text-xs text-slate-600">Waiting period: {p.waiting_period_days} days</p>}
                 {p.skuast_kashmir_dosage && (
-                  <p className="text-xs text-slate-600">SKUAST-Kashmir dose: {p.skuast_kashmir_dosage}</p>
+                  <p className="text-xs text-slate-600">SKUAST-Kashmir dose (as typed): {p.skuast_kashmir_dosage}</p>
                 )}
                 {/* Anti-counterfeit warning banner */}
                 <p className="mt-3 rounded-xl bg-amber-50 p-3 text-amber-900 text-xs font-medium ring-1 ring-amber-200">
@@ -959,7 +959,7 @@ function ScanResult({ result, account, onPhoto, onLab, standard, cibrcResult, sk
       )}
 
       {skuastResult && skuastResult.length > 0 && (
-        <section aria-label="SKUAST-Kashmir official recommendation" className="rounded-2xl bg-indigo-50 p-4 text-slate-800 ring-1 ring-indigo-200">
+        <section aria-label="SKUAST-Kashmir spray schedule, as typed by KashRoot" className="rounded-2xl bg-indigo-50 p-4 text-slate-800 ring-1 ring-indigo-200">
           <p className="flex items-center gap-2 text-base font-semibold text-indigo-900">
             <ShieldCheck className="h-5 w-5 shrink-0" aria-hidden />
             SKUAST-Kashmir spray schedule (as typed by KashRoot)

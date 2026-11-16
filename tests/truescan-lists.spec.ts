@@ -56,3 +56,13 @@ test('the answer names its source as a KashRoot reference list, never as the off
     expect(src, `${file} must not claim a live Government check`).not.toMatch(/live resolution|auto-upsert|synced:\s*true/);
   }
 });
+
+test('SKUAST-Kashmir doses are shown as typed by KashRoot, never as the university\'s own official text', () => {
+  const ui = read('src/components/fertilizer/FertilizerChecker.tsx');
+  expect(ui).not.toMatch(/SKUAST-Kashmir Official Dosage/);
+  expect(ui).not.toMatch(/aria-label="SKUAST-Kashmir official recommendation"/);
+  expect(ui).toContain('as typed by KashRoot');
+  const data = read('src/lib/skuast-kashmir-recommendations.ts');
+  expect(data).not.toMatch(/Nothing here is invented by KashRoot — these are the official/);
+});
+

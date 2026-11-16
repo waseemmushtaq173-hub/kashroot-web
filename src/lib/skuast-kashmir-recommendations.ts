@@ -1,12 +1,16 @@
 /**
- * SKUAST-Kashmir Official University Recommendations & Spray Schedule
+ * SKUAST-Kashmir spray schedule, as typed into KashRoot
  *
- * Official guidance from SKUAST-Kashmir (Sher-e-Kashmir University of
- * Agricultural Sciences and Technology of Kashmir), Directorate of Extension,
- * Apple Spray Schedule and horticulture recommendations for Kashmir orchards.
+ * Doses and timings for Kashmir orchards as KashRoot's team typed them from
+ * SKUAST-Kashmir (Sher-e-Kashmir University of Agricultural Sciences and
+ * Technology of Kashmir) guidance. They have NOT been re-checked against the
+ * university's current published schedule, and SKUAST-K issues a new spray
+ * schedule every year (Directorate of Research, Shalimar), so a dose here can
+ * be out of date. The screens that show it say "as typed by KashRoot" and ask
+ * the grower to check this year's schedule before spraying.
  *
- * Nothing here is invented by KashRoot — these are the official university
- * recommendations for Kashmir's horticulture sector.
+ * To replace this with the university's own text, load the current schedule
+ * document: every row must come from it, with its year, and nothing is added.
  */
 
 export interface SkuastRecommendation {
