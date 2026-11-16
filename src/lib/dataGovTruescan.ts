@@ -42,7 +42,7 @@ type Fetcher = (url: string, init?: RequestInit) => Promise<Response>;
 const SUBJECTS = ['pesticide', 'insecticide', 'fungicide', 'herbicide', 'fertilizer', 'fertiliser'];
 const SUBJECT_TITLE = /pesticid|insecticid|fungicid|herbicid|fertili[sz]er|agro-?chemical|manure|npk|urea/i;
 const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
-const MAX_DATASETS = 10;
+const MAX_DATASETS = 20;
 const ROWS_READ = 500;
 const ROWS_SHOWN = 5;
 const COLUMNS_SHOWN = 7;
