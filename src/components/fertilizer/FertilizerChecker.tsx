@@ -441,20 +441,7 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
           {/* Quick-select pills */}
           <div className="flex flex-wrap gap-2 mt-3">
             <p className="text-xs text-slate-500 mb-1">Quick select:</p>
-            {[
-              'IFFCO Urea',
-              'IFFCO DAP',
-              'Nano Urea',
-              'MOP',
-              'SOP',
-              'SSP',
-              'NPK 19:19:19',
-              'NPK 12:32:16',
-              'Calcium Nitrate',
-              'Boron 20%',
-              'Zinc Sulphate 21%',
-              'YaraLiva Nitrabor',
-            ].map((pill) => (
+            {['Urea', 'DAP', 'MOP', 'SOP', 'SSP', 'TSP', 'Ammonium Sulphate', 'Calcium Nitrate'].map((pill) => (
               <button
                 key={pill}
                 type="button"
@@ -476,7 +463,8 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
           {standard && report ? (
             <>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                {report.rows.map((r) => (
+                {/* A parameter the standard sets no limit for is not shown (it used to read "max null%"). */}
+                {report.rows.filter((r) => r.min !== null || r.max !== null).map((r) => (
                   <label key={r.key} className="block text-sm">
                     <span className="font-medium text-slate-800">{r.label}</span>
                     <span className="ms-1 text-xs text-slate-500">({r.min !== null ? `min ${r.min}%` : `max ${r.max}%`})</span>
@@ -504,7 +492,7 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
               {/* Authorised registered manufacturer */}
               {(standard.manufacturerCompany || standard.brandName) && (
                 <div className="mt-4 rounded-xl bg-forest-soft p-3 text-sm text-slate-800 ring-1 ring-forest-line">
-                  <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-forest-deep mb-1">Authorised Registered Manufacturer</p>
+                  <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-forest-deep mb-1">Reference only: typed by KashRoot, not checked with the Government</p>
                   <p className="font-medium">{standard.manufacturerCompany}</p>
                   {standard.brandName && standard.brandName !== standard.manufacturerCompany && (
                     <p className="text-xs text-slate-600">Brand: {standard.brandName}</p>
@@ -513,7 +501,11 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
               )}
             </>
           ) : (
-            <p className="mt-3 text-sm text-slate-500">Type a fertiliser type (e.g. DAP, Urea, MOP) to load its FCO Schedule I standard.</p>
+            <p className="mt-3 text-sm text-slate-500">
+              {fcoQuery.trim() && fcoStandard === null
+                ? `No standard for “${fcoQuery.trim()}” in KashRoot’s list of fertiliser types. Try Urea, DAP, MOP, SOP, SSP, TSP, Ammonium Sulphate or Calcium Nitrate. The Government’s full list is Schedule I of the Fertiliser (Control) Order, 1985 (egazette.gov.in).`
+                : 'Type a fertiliser type (e.g. DAP, Urea, MOP) to load its FCO Schedule I standard.'}
+            </p>
           )}
         </div>
       )}
