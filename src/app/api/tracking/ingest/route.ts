@@ -262,7 +262,7 @@ export async function POST(request: Request) {
 
   if (sessErr || !activeSession) {
     return NextResponse.json(
-      { ok: false, error: sessErr?.message || 'Failed to update tracking session' },
+      { ok: false, error: 'Could not save this location just now.' },
       { status: 500 },
     );
   }

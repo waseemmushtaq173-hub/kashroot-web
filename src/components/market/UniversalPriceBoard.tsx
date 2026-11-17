@@ -10,6 +10,7 @@
  * price sparklines, order escrow-protected marketplace produce, and submit
  * a verified offer. EQUIPMENT and OTHER_INPUTS are one pool (the API alias).
  */
+import { authFetch } from '@/lib/auth-fetch';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { BarChart3, Loader2, MapPin, Search, ShieldCheck, Store, TriangleAlert } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
@@ -326,6 +327,7 @@ function OfferSubmit({ account, open, onOpenChange, onDone }: { account?: Accoun
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!account) return setError('Sign in to post an offer.');
     if (!f.productName.trim() || !f.priceInr) return setError('Product name and price are required.');
     if (!f.district.trim()) return setError('Add the district where the produce is.');
     if (!f.unitLabel.trim()) return setError('Say what one unit is, for example “1 kg” or “17 kg box”.');
@@ -333,7 +335,7 @@ function OfferSubmit({ account, open, onOpenChange, onDone }: { account?: Accoun
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch('/api/price-comparison', {
+      const res = await authFetch('/api/price-comparison', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -379,7 +381,7 @@ function OfferSubmit({ account, open, onOpenChange, onDone }: { account?: Accoun
   return (
     <Panel theme={theme} title="Submit a verified offer" icon={ShieldCheck}>
       <p className="text-xs text-slate-500">
-        {account ? `Submitting as ${account.name}.` : 'Not signed in — the offer is marked "Verified Seller Submission".'} Prices must be real
+        {account ? `Submitting as ${account.name}.` : 'Sign in to post an offer: every price on this board comes from a signed-in seller.'} Prices must be real
         offers; KashRoot hides nothing and fakes nothing.
       </p>
       <form onSubmit={submit} className="mt-4 grid gap-4 sm:grid-cols-2">

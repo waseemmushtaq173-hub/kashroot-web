@@ -10,7 +10,11 @@
  */
 import { supabase } from '@/lib/supabase';
 
-const PHONE_COLUMNS = new Set(['phone', 'manager_phone']);
+/**
+ * What a signed-out visitor is never given: phone numbers, and a cold store's payout account (UPI id, bank account), which
+ * only a signed-in farmer who is paying the owner needs.
+ */
+const PHONE_COLUMNS = new Set(['phone', 'manager_phone', 'owner_payout_upi', 'owner_bank_account_name', 'owner_bank_account_no', 'owner_bank_ifsc']);
 
 /** Is anyone signed in on this device (a Supabase session)? */
 export async function signedIn(): Promise<boolean> {

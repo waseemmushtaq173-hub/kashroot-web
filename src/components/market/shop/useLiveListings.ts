@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { dbMessage, supabase } from '@/lib/db/client';
 import type { MarketCategory, MarketListing, MarketUnit } from '@/lib/db/market';
 import { readableColumns } from '@/lib/db/phones';
+import { MARKET_COLUMNS, MARKET_CORE_COLUMNS, PHOTO_COLUMNS, isMissingColumn } from '@/lib/db/listingColumns';
 
 /** A listing as a shop shows it. `photo` is undefined while it is still coming. */
 export interface ShopListing extends Omit<MarketListing, 'photo'> {
@@ -22,7 +23,6 @@ export interface ShopListing extends Omit<MarketListing, 'photo'> {
   created_at: string;
 }
 
-const COLUMNS = '*';
 const REFRESH_MS = 30_000;
 /** Listings per photo request (keeps the request address short). */
 const PHOTO_BATCH = 40;
@@ -57,7 +57,10 @@ export function useLiveListings(category: MarketCategory): LiveListings {
     const stale = () => current.current !== category;
     try {
       // Signed out: no phone numbers (the database refuses them; the card says "Sign in to call").
-      const { data, error: err } = await supabase.from('market_listings').select(await readableColumns(COLUMNS)).eq('category', category).eq('active', true).gt('quantity', 0).order('updated_at', { ascending: false }).limit(300);
+      const read = async (cols: string) => supabase.from('market_listings').select(await readableColumns(cols)).eq('category', category).eq('active', true).gt('quantity', 0).order('updated_at', { ascending: false }).limit(300);
+      let { data, error: err } = await read(MARKET_COLUMNS);
+      // A database that has not had the newest SQL yet still shows the products, with what it has.
+      if (err && isMissingColumn(err)) ({ data, error: err } = await read(MARKET_CORE_COLUMNS));
       if (err) throw new Error(dbMessage(err, LOAD_FAILED));
       if (stale()) return;
       const rows = (data ?? []) as unknown as Omit<ShopListing, 'photo'>[];
@@ -80,7 +83,7 @@ export function useLiveListings(category: MarketCategory): LiveListings {
       const missing = rows.filter((r) => cache.get(r.id)?.at !== r.updated_at).map((r) => r.id);
       for (let i = 0; i < missing.length; i += PHOTO_BATCH) {
         const ids = missing.slice(i, i + PHOTO_BATCH);
-        const p = await supabase.from('market_listings').select('*').in('id', ids);
+        const p = await supabase.from('market_listings').select(PHOTO_COLUMNS).in('id', ids);
         if (p.error || stale()) break;
         const got = new Map(((p.data ?? []) as { id: string; photo: string | null; updated_at: string }[]).map((x) => [x.id, x]));
         for (const id of ids) {

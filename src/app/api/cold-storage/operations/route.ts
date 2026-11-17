@@ -19,44 +19,29 @@
 //   crates so they can find free space - never another farmer's name, phone
 //   or inventory.
 //
-// Identity hardening (audit D1): all POST actions are IP-rate-limited; when
-// the caller sends an Authorization Bearer token it is verified and bound to
-// the acted-on farmer / facility owner. Header-less calls stay allowed and
-// rate-limited, matching the platform-wide client-asserted identity model.
+// Identity: every call (except the pure engineering calculator) needs a signed-in
+// caller, verified with the sign-in service. Who the caller is for a facility
+// (its owner, a staff member of the owning business, the Super Admin, or a
+// farmer) is read from the database: `viewerRole`, `farmerId` and the like in
+// the request are never trusted. A farmer is always the signed-in account.
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import {
   calculateAppleChamberEngineering,
   calculatePsychrometricRelativeHumidity,
 } from '@/lib/coldStorageEngineeringEngine';
 import { ipLimited, tooMany } from '@/lib/server/sign';
+import { dbFor, orgAccessOf, runsFacility, verifiedCaller, type Caller, type OrgAccess } from '@/lib/server/callerAuth';
 
 export const dynamic = 'force-dynamic';
 
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    '';
-  return createClient(url, key, { auth: { persistSession: false } });
-}
+type Db = ReturnType<typeof dbFor>;
 
-/** The verified caller when an Authorization Bearer token is present, else null. */
-async function verifiedUser(
-  supabase: ReturnType<typeof getSupabase>,
-  request: Request,
-): Promise<{ id: string } | null> {
-  const header = request.headers.get('authorization') ?? '';
-  const match = /^Bearer\s+(.+)$/i.exec(header);
-  if (!match) return null;
-  const { data } = await supabase.auth.getUser(match[1].trim());
-  return data.user ? { id: data.user.id } : null;
-}
+const SIGN_IN = () => NextResponse.json({ ok: false, error: 'Please sign in to use cold storage.' }, { status: 401 });
+const FAILED = (what: string, status = 500) => NextResponse.json({ ok: false, error: what }, { status });
 
-/** 403 when a verified caller acts as a farmer other than themselves. */
-function farmerGuard(user: { id: string } | null, farmerId: unknown): NextResponse | null {
-  if (user && farmerId && String(user.id) !== String(farmerId)) {
+/** 403 when the signed-in account acts as a farmer other than themselves. */
+function farmerGuard(user: Caller, farmerId: unknown): NextResponse | null {
+  if (!farmerId || String(user.id) !== String(farmerId)) {
     return NextResponse.json(
       { ok: false, error: 'Signed-in account does not match the farmer on this request.' },
       { status: 403 },
@@ -65,37 +50,39 @@ function farmerGuard(user: { id: string } | null, farmerId: unknown): NextRespon
   return null;
 }
 
-/** 403 when a verified caller acts on a facility they do not own. */
+/** 403 unless the signed-in account runs this facility (its owner, staff of the owning business, or the Super Admin). */
 async function ownerGuard(
-  supabase: ReturnType<typeof getSupabase>,
-  user: { id: string } | null,
+  supabase: Db,
+  request: Request,
+  user: Caller,
   facilityId: unknown,
 ): Promise<NextResponse | null> {
-  if (!user || !facilityId) return null;
-  const { data: listing } = await supabase
-    .from('rental_listings')
-    .select('owner_id')
-    .eq('id', facilityId)
-    .single();
-  if (listing && String(listing.owner_id) !== String(user.id)) {
-    return NextResponse.json(
-      { ok: false, error: 'Only the cold storage owner of this facility can do that.' },
-      { status: 403 },
-    );
-  }
-  return null;
+  const denied = NextResponse.json(
+    { ok: false, error: 'Only the cold storage owner of this facility can do that.' },
+    { status: 403 },
+  );
+  if (!facilityId) return denied;
+  const access: OrgAccess = await orgAccessOf(request, supabase, user);
+  return (await runsFacility(supabase, user, access, String(facilityId))) ? null : denied;
 }
 
 export async function GET(request: Request) {
   if (ipLimited(request, 'cold-operations-get', 120)) return tooMany();
 
+  const caller = await verifiedCaller(request);
+  if (!caller) return SIGN_IN();
+  const supabase = dbFor(caller);
+
   const { searchParams } = new URL(request.url);
   const facilityId = searchParams.get('facilityId');
-  const viewerRole = (searchParams.get('viewerRole') || 'FARMER').toUpperCase();
-  const farmerId = searchParams.get('farmerId');
   const chamberCode = searchParams.get('chamberCode');
 
-  const supabase = getSupabase();
+  // Who is asking is the database's answer, not the address's: the owner (or staff, or the Super Admin) of this
+  // facility sees every farmer in it; anyone else sees capacity, and only their own bookings and crates.
+  const access = await orgAccessOf(request, supabase, caller);
+  const runsIt = facilityId ? await runsFacility(supabase, caller, access, facilityId) : false;
+  const viewerRole = access.superAdmin && runsIt ? 'ADMIN' : runsIt ? 'OWNER' : 'FARMER';
+  const farmerId = caller.id;
 
   // Fetch physical bins (aggregate capacity is visible to every role).
   let binsQuery = supabase
@@ -208,11 +195,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: 'Missing action' }, { status: 400 });
   }
 
-  const supabase = getSupabase();
   const nowIso = new Date().toISOString();
-  const user = await verifiedUser(supabase, request);
 
   // ACTION 1: LEAFLET 427 + APPLE CA ENGINEERING LOAD & EQUIPMENT SIZING.
+  // A pure calculation (it reads and writes nothing), so it needs no sign-in.
   if (body.action === 'CALCULATE_ENGINEERING_SPECS') {
     const result = calculateAppleChamberEngineering({
       lengthFt: Number(body.lengthFt || 100),
@@ -238,6 +224,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, engineering: result });
   }
+
+  // Everything below reads or changes a facility's records: only a signed-in account may.
+  const user = await verifiedCaller(request);
+  if (!user) return SIGN_IN();
+  const supabase = dbFor(user);
 
   // ACTION 2: FARMER SUBMITS BOOKING REQUEST.
   if (body.action === 'SUBMIT_BOOKING') {
@@ -303,7 +294,7 @@ export async function POST(request: Request) {
 
     if (error || !booking) {
       return NextResponse.json(
-        { ok: false, error: error?.message || 'Booking failed' },
+        { ok: false, error: 'Could not send the booking just now. Please try again.' },
         { status: 500 },
       );
     }
@@ -334,7 +325,7 @@ export async function POST(request: Request) {
       .select('facility_id')
       .eq('id', body.bookingId)
       .single();
-    const ownerBlock = await ownerGuard(supabase, user, existing?.facility_id);
+    const ownerBlock = await ownerGuard(supabase, request, user, existing?.facility_id);
     if (ownerBlock) return ownerBlock;
 
     const decision =
@@ -352,7 +343,7 @@ export async function POST(request: Request) {
 
     if (error || !booking) {
       return NextResponse.json(
-        { ok: false, error: error?.message || 'Booking not found' },
+        { ok: false, error: 'Booking not found.' },
         { status: 404 },
       );
     }
@@ -418,7 +409,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: 'Booking record not found' }, { status: 404 });
     }
 
-    const ownerBlock = await ownerGuard(supabase, user, booking.facility_id);
+    const ownerBlock = await ownerGuard(supabase, request, user, booking.facility_id);
     if (ownerBlock) return ownerBlock;
 
     // Find or initialize the physical bin (e.g. B-102, default max 100 crates).
@@ -473,7 +464,7 @@ export async function POST(request: Request) {
 
       if (createBinErr || !createdBin) {
         return NextResponse.json(
-          { ok: false, error: createBinErr?.message || 'Failed to initialize bin' },
+          { ok: false, error: 'Could not prepare this bin just now. Please try again.' },
           { status: 500 },
         );
       }
@@ -526,7 +517,7 @@ export async function POST(request: Request) {
 
     if (allocErr || !allocation) {
       return NextResponse.json(
-        { ok: false, error: allocErr?.message || 'Shared bin allocation failed' },
+        { ok: false, error: 'Could not allocate the crates just now. Please try again.' },
         { status: 500 },
       );
     }
@@ -656,7 +647,7 @@ export async function POST(request: Request) {
 
     // Owner confirms the outward gate dispatch: decrement the farmer's slice
     // and the physical bin occupancy.
-    const ownerBlock = await ownerGuard(supabase, user, alloc.facility_id);
+    const ownerBlock = await ownerGuard(supabase, request, user, alloc.facility_id);
     if (ownerBlock) return ownerBlock;
 
     const weightReleased = Number((cratesToRelease * alloc.crate_weight_kg).toFixed(2));
@@ -744,17 +735,29 @@ export async function POST(request: Request) {
 
   // ACTION 6: LOG LIVE CA CHAMBER TELEMETRY (TEMP, RH%, O2%, CO2%, ETHYLENE).
   if (body.action === 'LOG_CA_ENVIRONMENT') {
-    const ownerBlock = await ownerGuard(supabase, user, body.facilityId);
+    const ownerBlock = await ownerGuard(supabase, request, user, body.facilityId);
     if (ownerBlock) return ownerBlock;
 
-    const tempF = Number(body.dryBulbTempF ?? 32.0);
+    // A reading is what was measured: nothing is assumed for a value that was not given. The temperature, the humidity and
+    // the chamber are needed; the gases, ethylene and air speed are saved as "not measured" (null) when they are not.
+    const num = (v: unknown): number | null => (v === undefined || v === null || String(v).trim() === '' ? null : Number.isFinite(Number(v)) ? Number(v) : NaN);
+    const tempF = num(body.dryBulbTempF);
+    const rhGiven = num(body.relativeHumidityPercent);
+    const chamberCode = String(body.chamberCode ?? '').trim().slice(0, 40);
+    if (tempF === null || Number.isNaN(tempF) || rhGiven === null || Number.isNaN(rhGiven) || !chamberCode) {
+      return NextResponse.json({ ok: false, error: 'Give the chamber, its temperature (°F) and its relative humidity (%).' }, { status: 400 });
+    }
     const tempC = Number((((tempF - 32) * 5) / 9).toFixed(2));
-    const coilF = Number(body.evaporatorCoilTempF ?? tempF - 3.0);
-    const psychro = calculatePsychrometricRelativeHumidity(tempF, coilF);
-    const rh = Number(body.relativeHumidityPercent ?? psychro.estimatedLoadedChamberRhPercent);
-    const o2 = body.oxygenO2Percent !== undefined ? Number(body.oxygenO2Percent) : 1.8;
-    const co2 =
-      body.carbonDioxideCo2Percent !== undefined ? Number(body.carbonDioxideCo2Percent) : 1.5;
+    const coilF = num(body.evaporatorCoilTempF);
+    const psychro = calculatePsychrometricRelativeHumidity(tempF, coilF !== null && !Number.isNaN(coilF) ? coilF : tempF);
+    const rh = rhGiven;
+    const o2 = num(body.oxygenO2Percent);
+    const co2 = num(body.carbonDioxideCo2Percent);
+    const ethylene = num(body.ethylenePpm);
+    const airFpm = num(body.airVelocityFpm);
+    if ([o2, co2, ethylene, airFpm].some((v) => v !== null && Number.isNaN(v))) {
+      return NextResponse.json({ ok: false, error: 'A gas, ethylene or air-speed value is not a number.' }, { status: 400 });
+    }
 
     let alertStatus: 'NORMAL' | 'WARNING_THRESHOLD' | 'CRITICAL_ALARM' = 'NORMAL';
     const alerts: string[] = [];
@@ -770,13 +773,13 @@ export async function POST(request: Request) {
     }
     if (rh < 85.0) {
       if (alertStatus === 'NORMAL') alertStatus = 'WARNING_THRESHOLD';
-      alerts.push(`Low Relative Humidity (${rh}% < 85%): check coil ΔT (${psychro.deltaTF}°F).`);
+      alerts.push(`Low Relative Humidity (${rh}% < 85%)${coilF !== null ? `: check coil ΔT (${psychro.deltaTF}°F)` : ''}.`);
     }
-    if (o2 < 0.9 || o2 > 5.0) {
+    if (o2 !== null && (o2 < 0.9 || o2 > 5.0)) {
       if (alertStatus === 'NORMAL') alertStatus = 'WARNING_THRESHOLD';
       alerts.push(`CA Oxygen O2 (${o2}%) outside the target window (0.9%–5.0%).`);
     }
-    if (co2 > 5.0) {
+    if (co2 !== null && co2 > 5.0) {
       if (alertStatus === 'NORMAL') alertStatus = 'WARNING_THRESHOLD';
       alerts.push(`CA Carbon Dioxide CO2 (${co2}%) above the 5% ceiling - check scrubber/ventilation.`);
     }
@@ -786,24 +789,25 @@ export async function POST(request: Request) {
       .insert({
         facility_id: body.facilityId,
         chamber_id: body.chamberId || body.facilityId,
-        chamber_code: body.chamberCode || 'CH-01',
-        reading_source: body.readingSource || 'IOT_SENSOR',
-        sensor_device_id: body.sensorDeviceId || 'CA-NODE-01',
+        chamber_code: chamberCode,
+        // Typed in by a person unless the sender says it is a sensor.
+        reading_source: body.readingSource === 'IOT_SENSOR' ? 'IOT_SENSOR' : 'MANUAL_OPERATOR_LOG',
+        sensor_device_id: body.sensorDeviceId ? String(body.sensorDeviceId).slice(0, 60) : null,
         dry_bulb_temp_f: tempF,
         dry_bulb_temp_c: tempC,
-        evaporator_coil_temp_f: coilF,
+        evaporator_coil_temp_f: coilF !== null && !Number.isNaN(coilF) ? coilF : null,
         relative_humidity_percent: rh,
         oxygen_o2_percent: o2,
         carbon_dioxide_co2_percent: co2,
-        ethylene_ppm: body.ethylenePpm ? Number(body.ethylenePpm) : 0.05,
-        air_velocity_fpm: body.airVelocityFpm ? Number(body.airVelocityFpm) : 45,
+        ethylene_ppm: ethylene,
+        air_velocity_fpm: airFpm,
         alert_status: alertStatus,
         alert_message: alerts.length > 0 ? alerts.join(' ') : null,
       })
       .select('*')
       .single();
 
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (error) return FAILED('Could not save this reading just now. Please try again.');
 
     // Surface an ENVIRONMENT_ALERT notification so owners see alarms instantly.
     if (alertStatus !== 'NORMAL' && body.facilityId) {
@@ -811,13 +815,14 @@ export async function POST(request: Request) {
         facility_id: body.facilityId,
         recipient_role: 'OWNER',
         notification_type: 'ENVIRONMENT_ALERT',
-        title: `CA Alert · Chamber ${body.chamberCode || 'CH-01'} (${alertStatus === 'CRITICAL_ALARM' ? 'CRITICAL' : 'WARNING'})`,
+        title: `CA Alert · Chamber ${chamberCode} (${alertStatus === 'CRITICAL_ALARM' ? 'CRITICAL' : 'WARNING'})`,
         message: alerts.join(' '),
         bin_code: null,
       });
     }
 
-    return NextResponse.json({ ok: true, reading, psychrometrics: psychro });
+    // The psychrometric estimate only means something with a real coil temperature.
+    return NextResponse.json({ ok: true, reading, psychrometrics: coilF !== null && !Number.isNaN(coilF) ? psychro : null });
   }
 
   return NextResponse.json({ ok: false, error: 'Unsupported action' }, { status: 400 });

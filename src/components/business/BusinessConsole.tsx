@@ -16,6 +16,7 @@
  * their orders — the team accepts, ships and hands them to one of the
  * business's drivers, and buyers pay the business's details.
  */
+import { MARKET_COLUMNS } from '@/lib/db/listingColumns';
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Building2, CalendarCheck, Check, Landmark, Loader2, Mail, Package, Plus, ReceiptText, ShoppingBag, Snowflake, Trash2, Truck, UserPlus, X } from 'lucide-react';
@@ -654,7 +655,7 @@ function ShopSection({ relevant, org, members, suspended, busy, act }: { relevan
     const { data } = await supabase.auth.getSession();
     const uid = data.session?.user.id ?? null;
     setMe(uid);
-    const cols = '*';
+    const cols = MARKET_COLUMNS; // never `*`: the payout account is not readable by a browser
     const [inOrg, outside, o, d] = await Promise.all([
       supabase.from('market_listings').select(cols).eq('org_id', org.id).order('created_at'),
       // The owner's own products not in any business yet, to put in this one.
@@ -662,8 +663,8 @@ function ShopSection({ relevant, org, members, suspended, busy, act }: { relevan
       supabase.from('market_orders').select('*').eq('org_id', org.id).order('created_at', { ascending: false }).limit(100),
       supabase.from('org_drivers').select('id, name, phone, vehicle').eq('org_id', org.id).order('name'),
     ]);
-    setProducts((inOrg.data ?? []) as Product[]);
-    setMineOutside((outside.data ?? []) as Product[]);
+    setProducts((inOrg.data ?? []) as unknown as Product[]);
+    setMineOutside((outside.data ?? []) as unknown as Product[]);
     setOrders((o.data ?? []) as MarketOrder[]);
     setDrivers((d.data ?? []) as OrgDriver[]);
   }, [org.id, org.role]);

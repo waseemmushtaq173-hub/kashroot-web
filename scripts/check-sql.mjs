@@ -13,7 +13,7 @@
  *
  * Exits 0 when all checks pass, 1 on the first failure.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -115,6 +115,41 @@ while ((m = fnRe.exec(sql)) !== null) {
   } else {
     pass(`function public.${fnName}() access model OK`);
   }
+}
+
+/* ─── 3. No "open" table is left open ───
+   An always-true policy (`for all using (true) with check (true)`) hands a table to every browser key. The earlier files
+   created some, on the idea that only the server's routes would reach them; the newest step (kr_close_table) must name
+   every one of those tables so it drops the policy and takes the table back from anon / authenticated. A table that
+   later gets such a policy and is not named there fails here.                                                         */
+{
+  const open = new Set();
+  // The bundle does not carry every migration (the cold-store, tracking and business-admin ones were applied on their own),
+  // so the migrations themselves are read too.
+  const migrationsDir = join(ROOT, 'supabase', 'migrations');
+  const all = sql + '\n' + readdirSync(migrationsDir).filter((f) => f.endsWith('.sql') && !f.startsWith('20261201')).map((f) => readFileSync(join(migrationsDir, f), 'utf8')).join('\n');
+  // A policy made for one table: `create policy "..." on public.X for all using (true) with check (true)`
+  const single = /create\s+policy\s+"[^"]*"\s+on\s+public\.([A-Za-z0-9_]+)\s+for\s+all\s+using\s*\(true\)\s+with\s+check\s*\(true\)/gi;
+  let mm;
+  while ((mm = single.exec(all)) !== null) open.add(mm[1]);
+  // The same policy made in a loop over a list of tables: the list is the ARRAY[...] before `loop`, the policy is inside it.
+  const loop = /foreach\s+\w+\s+in\s+array\s+array\[([\s\S]*?)\]\s+loop([\s\S]*?)end\s+loop/gi;
+  while ((mm = loop.exec(all)) !== null) {
+    if (!/for\s+all\s+using\s*\(true\)\s+with\s+check\s*\(true\)/i.test(mm[2])) continue;
+    for (const t of mm[1].matchAll(/'([A-Za-z0-9_]+)'/g)) open.add(t[1]);
+  }
+  const closer = sql.slice(sql.lastIndexOf('create or replace function public.kr_close_table'));
+  const closed = new Set([...closer.matchAll(/'([A-Za-z0-9_]+)'/g)].map((x) => x[1]));
+  if (!/create\s+or\s+replace\s+function\s+public\.kr_close_table/i.test(sql)) fail('kr_close_table() is not in RUN_THIS_ONCE.sql');
+  for (const t of [...open].sort()) {
+    if (closed.has(t)) pass(`open policy on public.${t} is closed by kr_close_table`);
+    else fail(`public.${t} has an always-true policy and is not closed by kr_close_table() (20261201000000_close_open_tables.sql)`);
+  }
+  // The payout account is never readable by a browser.
+  if (!/kr_limit_columns\('market_listings'[^;]*'bank_account_no'/i.test(sql)) fail("market_listings' payout account is not hidden from browsers (kr_limit_columns)");
+  else pass('market_listings payout account is hidden from every browser');
+  if (!/kr_limit_columns\('rental_listings'[^;]*'owner_bank_account_no'/i.test(sql)) fail("rental_listings' payout account is not hidden from signed-out visitors (kr_limit_columns)");
+  else pass('rental_listings payout account is hidden from signed-out visitors');
 }
 
 /* ─── summary ─── */

@@ -1,6 +1,7 @@
 // src/app/api/admin/hierarchy/route.ts
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { dbFor, orgAccessOf, verifiedCaller, type Caller, type OrgAccess } from '@/lib/server/callerAuth';
+import { ipLimited, tooMany } from '@/lib/server/sign';
 import {
   BUSINESS_CATEGORIES,
   BUSINESS_CATEGORY_LABEL,
@@ -17,28 +18,57 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    '';
-  return createClient(url, key, { auth: { persistSession: false } });
+const SIGN_IN = () => NextResponse.json({ ok: false, error: 'Please sign in to open this.' }, { status: 401 });
+const NOT_YOURS = (what = 'this business') =>
+  NextResponse.json({ ok: false, error: `You do not have access to ${what}.` }, { status: 403 });
+const FAILED = (what: string) => NextResponse.json({ ok: false, error: what }, { status: 500 });
+
+type Db = ReturnType<typeof dbFor>;
+
+/** Who is acting on a business, read from the database (never from the request body), for the audit trail. */
+async function actorOf(
+  db: Db,
+  caller: Caller,
+  access: OrgAccess,
+  organizationId: string,
+): Promise<{ name: string; role: string; allowed: (permission: string) => boolean } | null> {
+  if (access.superAdmin) return { name: 'Platform Superadmin', role: 'PLATFORM_SUPERADMIN', allowed: () => true };
+  if (access.ownedOrgIds.includes(organizationId)) {
+    const { data } = await db.from('cold_storage_organizations').select('owner_full_name').eq('id', organizationId).maybeSingle();
+    return { name: data?.owner_full_name || 'Business owner', role: 'BUSINESS_OWNER', allowed: () => true };
+  }
+  if (!access.orgIds.includes(organizationId)) return null;
+  const { data: staff } = await db
+    .from('owner_staff_members')
+    .select('full_name, staff_role, permissions_matrix, user_id, email')
+    .eq('organization_id', organizationId)
+    .or(`user_id.eq.${caller.id}${caller.email ? `,email.eq.${caller.email}` : ''}`)
+    .maybeSingle();
+  if (!staff) return null;
+  const perms = (staff.permissions_matrix ?? {}) as Record<string, unknown>;
+  return { name: staff.full_name, role: String(staff.staff_role), allowed: (permission) => perms[permission] === true };
 }
 
 export async function GET(request: Request) {
+  if (ipLimited(request, 'hierarchy-get', 120)) return tooMany();
+
+  const caller = await verifiedCaller(request);
+  if (!caller) return SIGN_IN();
+  const supabase = dbFor(caller);
+  const access = await orgAccessOf(request, supabase, caller);
+
   const { searchParams } = new URL(request.url);
   const scope = (searchParams.get('scope') || 'COLD_STORAGE_OWNER_ADMIN').toUpperCase();
   const organizationId = searchParams.get('organizationId');
   const facilityId = searchParams.get('facilityId');
-  const isSuperadminOversight = searchParams.get('oversight') === '1';
-
-  const supabase = getSupabase();
+  // Oversight is the Super Admin's alone: for anyone else the flag is ignored, not honoured.
+  const isSuperadminOversight = access.superAdmin && searchParams.get('oversight') === '1';
 
   // ============================================================================
   // LEVEL 1: PLATFORM SUPERADMIN (FOUNDER) GLOBAL OVERVIEW
   // ============================================================================
   if (scope === 'PLATFORM_SUPERADMIN') {
+    if (!access.superAdmin) return NOT_YOURS('the platform overview');
     const [
       orgsRes,
       facilitiesRes,
@@ -144,15 +174,24 @@ export async function GET(request: Request) {
   // ============================================================================
   // LEVEL 2: OWNER ADMIN (MULTI-TENANT SCOPED BY organizationId, MODULES BY BUSINESS CATEGORY)
   // ============================================================================
+  // A business is opened by the person who owns it or works for it (or by the Super Admin): the id in the address
+  // is only a choice among the businesses the database says they may open.
   let targetOrgId = organizationId;
-  if (!targetOrgId) {
-    const { data: firstOrg } = await supabase
-      .from('cold_storage_organizations')
-      .select('id')
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    targetOrgId = firstOrg?.id || null;
+  if (targetOrgId) {
+    if (!access.superAdmin && !access.orgIds.includes(targetOrgId)) return NOT_YOURS();
+  } else if (!access.superAdmin) {
+    targetOrgId = access.orgIds[0] ?? null;
+  } else {
+    targetOrgId = access.orgIds[0] ?? null;
+    if (!targetOrgId) {
+      const { data: firstOrg } = await supabase
+        .from('cold_storage_organizations')
+        .select('id')
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      targetOrgId = firstOrg?.id || null;
+    }
   }
 
   if (!targetOrgId) {
@@ -176,7 +215,7 @@ export async function GET(request: Request) {
 
   if (isSuperadminOversight) {
     await recordAdministrativeAuditLog(supabase, {
-      actorName: 'Waseem Mushtaq Mir (Platform Superadmin)',
+      actorName: 'Platform Superadmin',
       actorRole: 'PLATFORM_SUPERADMIN',
       isSuperadminOversightAction: true,
       organizationId: targetOrgId,
@@ -199,10 +238,10 @@ export async function GET(request: Request) {
     staffRes,
     auditRes,
   ] = await Promise.all([
-    supabase
-      .from('cold_storage_organizations')
-      .select('*')
-      .order('created_at', { ascending: true }),
+    (access.superAdmin
+      ? supabase.from('cold_storage_organizations').select('*')
+      : supabase.from('cold_storage_organizations').select('*').in('id', access.orgIds)
+    ).order('created_at', { ascending: true }),
     has('facilities')
       ? supabase
           .from('rental_listings')
@@ -343,12 +382,17 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (ipLimited(request, 'hierarchy-post', 60)) return tooMany();
+
   const body = await request.json().catch(() => null);
   if (!body || !body.action) {
     return NextResponse.json({ ok: false, error: 'Missing action parameter' }, { status: 400 });
   }
 
-  const supabase = getSupabase();
+  const caller = await verifiedCaller(request);
+  if (!caller) return SIGN_IN();
+  const supabase = dbFor(caller);
+  const access = await orgAccessOf(request, supabase, caller);
   const nowIso = new Date().toISOString();
 
   // ============================================================================
@@ -400,6 +444,8 @@ export async function POST(request: Request) {
       state_ut: String(body.stateUt).trim(),
       verification_notes: body.verificationNotes ? String(body.verificationNotes).trim() : null,
       onboarding_status: 'PENDING_VERIFICATION',
+      // The account that applied is the business's owner; it is never taken from the form.
+      owner_user_id: caller.id,
       upi_id: body.upiId || null,
       bank_name: body.bankName ? String(body.bankName).trim() : null,
     };
@@ -429,10 +475,7 @@ export async function POST(request: Request) {
     const { data: org, error } = insertRes;
 
     if (error || !org) {
-      return NextResponse.json(
-        { ok: false, error: error?.message || 'Owner registration failed' },
-        { status: 500 }
-      );
+      return FAILED('Could not register the business just now. Please try again.');
     }
 
     await recordAdministrativeAuditLog(supabase, {
@@ -457,12 +500,16 @@ export async function POST(request: Request) {
   // ACTION 2: PLATFORM SUPERADMIN APPROVES / REJECTS / SUSPENDS OWNER BUSINESS
   // ============================================================================
   if (body.action === 'SUPERADMIN_REVIEW_OWNER') {
+    if (!access.superAdmin) return NOT_YOURS('this decision');
     const { organizationId, decisionStatus, reviewNotes } = body;
     if (!organizationId || !decisionStatus) {
       return NextResponse.json(
         { ok: false, error: 'organizationId and decisionStatus required' },
         { status: 400 }
       );
+    }
+    if (!['PENDING_VERIFICATION', 'INFO_REQUESTED', 'APPROVED_ACTIVE', 'REJECTED', 'SUSPENDED'].includes(String(decisionStatus))) {
+      return NextResponse.json({ ok: false, error: 'Unknown decision.' }, { status: 400 });
     }
 
     const { data: beforeOrg } = await supabase
@@ -483,15 +530,10 @@ export async function POST(request: Request) {
       .select('*')
       .single();
 
-    if (error || !updatedOrg) {
-      return NextResponse.json(
-        { ok: false, error: error?.message || 'Failed to update organization status' },
-        { status: 500 }
-      );
-    }
+    if (error || !updatedOrg) return FAILED('Could not save the decision just now. Please try again.');
 
     await recordAdministrativeAuditLog(supabase, {
-      actorName: 'Waseem Mushtaq Mir (Platform Superadmin)',
+      actorName: 'Platform Superadmin',
       actorRole: 'PLATFORM_SUPERADMIN',
       organizationId,
       actionCategory: 'OWNER_APPROVAL_DECISION',
@@ -523,6 +565,9 @@ export async function POST(request: Request) {
       );
     }
 
+    const actor = await actorOf(supabase, caller, access, String(body.organizationId));
+    if (!actor || !actor.allowed('manage_staff')) return NOT_YOURS('this business’s staff');
+
     const { data: staff, error } = await supabase
       .from('owner_staff_members')
       .upsert(
@@ -542,17 +587,12 @@ export async function POST(request: Request) {
       .select('*')
       .single();
 
-    if (error || !staff) {
-      return NextResponse.json(
-        { ok: false, error: error?.message || 'Could not save staff member' },
-        { status: 500 }
-      );
-    }
+    if (error || !staff) return FAILED('Could not save this staff member just now. Please try again.');
 
     await recordAdministrativeAuditLog(supabase, {
-      actorName: body.actorName || 'Cold Storage Owner Admin',
-      actorRole: body.actorRole || 'COLD_STORAGE_OWNER',
-      isSuperadminOversightAction: Boolean(body.isSuperadminOversight),
+      actorName: actor.name,
+      actorRole: actor.role,
+      isSuperadminOversightAction: access.superAdmin && Boolean(body.isSuperadminOversight),
       organizationId: body.organizationId,
       actionCategory: 'STAFF_PERMISSION_CHANGE',
       actionSummary: `Assigned role ${role} to staff member ${staff.full_name} (${staff.email}).`,
@@ -573,6 +613,14 @@ export async function POST(request: Request) {
         { ok: false, error: 'organizationId and the farmer / customer name are required' },
         { status: 400 }
       );
+    }
+
+    const actor = await actorOf(supabase, caller, access, String(body.organizationId));
+    if (!actor || !actor.allowed('manage_financials')) return NOT_YOURS('this business’s ledger');
+    if (body.facilityId) {
+      // A facility of another business cannot be written to from this one.
+      const { data: fac } = await supabase.from('rental_listings').select('organization_id').eq('id', body.facilityId).maybeSingle();
+      if (fac?.organization_id && String(fac.organization_id) !== String(body.organizationId)) return NOT_YOURS('that facility');
     }
 
     // Businesses with no facility (logistics, agro-dealer, mandi) keep their ledger
@@ -620,16 +668,11 @@ export async function POST(request: Request) {
       .select('*')
       .single();
 
-    if (error || !txn) {
-      return NextResponse.json(
-        { ok: false, error: error?.message || 'Failed to record financial transaction' },
-        { status: 500 }
-      );
-    }
+    if (error || !txn) return FAILED('Could not record this entry just now. Please try again.');
 
     await recordAdministrativeAuditLog(supabase, {
-      actorName: body.actorName || 'Cold Storage Owner Admin',
-      actorRole: body.actorRole || 'COLD_STORAGE_OWNER',
+      actorName: actor.name,
+      actorRole: actor.role,
       organizationId: body.organizationId,
       facilityId: body.facilityId,
       actionCategory: 'FINANCIAL_STATUS_CHANGE',

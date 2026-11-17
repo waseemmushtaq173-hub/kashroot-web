@@ -42,6 +42,7 @@ export function register() {
     HCAPTCHA_SECRET_KEY: 'the bot check on sign-in, sign-up, codes and help requests is off',
     ANTHROPIC_API_KEY: 'photo checks and the advisory first note are off (the assistant does not use it)',
     OTP_SECRET: 'one-time codes use a key derived from the provider secrets',
+    SUPABASE_SERVICE_ROLE_KEY: 'the cold store, live tracking and Business admin screens read their tables as the signed-in person, so after the closing SQL step (20261201000000) they show nothing until it is set; set it in Vercel (never with NEXT_PUBLIC_)',
   };
   for (const name of missing(Object.keys(helpful))) console.warn(`[setup] ${name} not set: ${helpful[name]}.`);
 }

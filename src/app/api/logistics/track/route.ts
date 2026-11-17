@@ -14,9 +14,11 @@
 // covered_distance_km AND distance_travelled_km — so older readers and the
 // new map both work.
 //
-// The server routes mediate all access: the tables' rows are open to the
-// anon-key server client by policy, and these endpoints are IP rate-limited.
-// Request bodies are validated with zod (Phase 8).
+// The server routes mediate all access, so each call needs a signed-in account:
+// a person sees the trips they made, drive, send or receive (the Super Admin
+// and the Orders team see all), a ping or consent can only come from the trip's
+// own driver account, and the RTO fleet list and its CSV import are for the
+// Super Admin and the Orders team. Request bodies are validated with zod.
 //
 //   GET  ?code=KR-TRK-…    → one trip (or the 25 newest), with the effective
 //                            status (SIGNAL_STALE when the last ping is old).
@@ -27,9 +29,10 @@
 //   POST { action: 'DRIVER_CONSENT', … }    → the driver's explicit consent.
 //   POST { action: 'FLEET_IMPORT', rows: […] } → RTO fleet CSV upsert.
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { ipLimited, tooMany } from '@/lib/server/sign';
+import { dbFor, verifiedCaller, type Caller } from '@/lib/server/callerAuth';
+import { isSuperAdminCaller, teamCanCaller } from '@/lib/server/callerRole';
 
 export const dynamic = 'force-dynamic';
 
@@ -97,16 +100,21 @@ const FleetImportSchema = z.object({
 });
 
 const badBody = (error: z.ZodError) =>
-  NextResponse.json({ ok: false, error: 'Validation failed', issues: error.flatten() }, { status: 400 });
+  NextResponse.json({ ok: false, error: 'Check the details: one is missing or wrong.' }, { status: 400 });
 
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    '';
-  return createClient(url, key, { auth: { persistSession: false } });
+type Db = ReturnType<typeof dbFor>;
+
+const SIGN_IN = () => NextResponse.json({ ok: false, error: 'Please sign in to use tracking.' }, { status: 401 });
+const NOT_ALLOWED = (what: string) => NextResponse.json({ ok: false, error: what }, { status: 403 });
+const FAILED = (what: string) => NextResponse.json({ ok: false, error: what }, { status: 500 });
+
+/** The Super Admin and the Orders team see every trip and the fleet registry; everyone else, only their own. */
+async function isStaff(request: Request): Promise<boolean> {
+  return (await isSuperAdminCaller(request)) || (await teamCanCaller(request, 'orders'));
 }
+
+const mine = (t: Record<string, unknown>, caller: Caller, withBuyerSeller: boolean) =>
+  [t.created_by, t.driver_id, ...(withBuyerSeller ? [t.seller_id, t.buyer_id] : [])].some((v) => v && String(v) === caller.id);
 
 /** Great-circle distance in km (the Haversine formula). */
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -178,7 +186,7 @@ function pushHistory(history: unknown, lat: number, lng: number, kmStep: number 
 }
 
 /** The RTO record for a vehicle registration, or null. */
-async function fleetLookup(supabase: ReturnType<typeof getSupabase>, reg: string) {
+async function fleetLookup(supabase: Db, reg: string) {
   const { data } = await supabase
     .from('authorized_fleet')
     .select('*')
@@ -194,15 +202,18 @@ export async function GET(request: Request) {
   const code = searchParams.get('code');
   const fleet = searchParams.get('fleet');
   const fleetCheck = searchParams.get('fleetCheck');
-  const supabase = getSupabase();
+  const caller = await verifiedCaller(request);
+  if (!caller) return SIGN_IN();
+  const supabase = dbFor(caller);
 
   if (fleet) {
+    if (!(await isStaff(request))) return NOT_ALLOWED('The fleet registry is for the KashRoot team.');
     const { data, error } = await supabase
       .from('authorized_fleet')
       .select('*')
       .order('vehicle_registration_no', { ascending: true })
       .limit(500);
-    if (error) return NextResponse.json({ ok: false, error: error.message, vehicles: [] }, { status: 500 });
+    if (error) return NextResponse.json({ ok: false, error: 'Could not read the fleet registry just now.', vehicles: [] }, { status: 500 });
     return NextResponse.json({ ok: true, vehicles: data ?? [] });
   }
 
@@ -218,14 +229,34 @@ export async function GET(request: Request) {
 
   if (code) query = query.eq('shipment_code', code);
 
-  const { data: trips, error } = await query.limit(25);
-  if (error) {
-    return NextResponse.json({ ok: false, error: error.message, trips: [] }, { status: 500 });
+  const staff = await isStaff(request);
+  if (!staff) {
+    // Someone's own trips: the ones they made, drive, send or receive.
+    let own = query.or(`created_by.eq.${caller.id},driver_id.eq.${caller.id},seller_id.eq.${caller.id},buyer_id.eq.${caller.id}`);
+    own = own.limit(25);
+    let res = await own;
+    if (res.error && /created_by/i.test(res.error.message)) {
+      // The column that records who made a trip is added by the latest SQL step; until then, the three other links.
+      let q2 = supabase.from('shipment_tracking_trips').select('*').order('updated_at', { ascending: false });
+      if (code) q2 = q2.eq('shipment_code', code);
+      res = await q2.or(`driver_id.eq.${caller.id},seller_id.eq.${caller.id},buyer_id.eq.${caller.id}`).limit(25);
+    }
+    if (res.error) return NextResponse.json({ ok: false, error: 'Could not read your trips just now.', trips: [] }, { status: 500 });
+    return respondTrips(res.data ?? []);
   }
 
+  const { data: trips, error } = await query.limit(25);
+  if (error) {
+    return NextResponse.json({ ok: false, error: 'Could not read the trips just now.', trips: [] }, { status: 500 });
+  }
+  return respondTrips(trips ?? []);
+}
+
+function respondTrips(trips: Record<string, unknown>[]) {
+
   const nowMs = Date.now();
-  const enriched = (trips ?? []).map((t) => {
-    const lastPingMs = t.last_ping_at ? new Date(t.last_ping_at).getTime() : 0;
+  const enriched = trips.map((t) => {
+    const lastPingMs = t.last_ping_at ? new Date(String(t.last_ping_at)).getTime() : 0;
     const isStale =
       lastPingMs > 0 && nowMs - lastPingMs > STALE_MS && t.trip_status === 'IN_TRANSIT_LIVE';
     return {
@@ -246,7 +277,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: 'Missing action' }, { status: 400 });
   }
 
-  const supabase = getSupabase();
+  const caller = await verifiedCaller(request);
+  if (!caller) return SIGN_IN();
+  const supabase = dbFor(caller);
 
   if (body.action === 'CREATE_TRIP') {
     const parsed = CreateTripSchema.safeParse(body);
@@ -276,9 +309,7 @@ export async function POST(request: Request) {
     const shipmentCode = q.shipmentCode || `KR-TRK-${Date.now().toString().slice(-6)}`;
     const consent = Boolean(q.consentGranted) || Boolean(q.driverConsentGranted);
     const nowIso = new Date().toISOString();
-    const { data, error } = await supabase
-      .from('shipment_tracking_trips')
-      .insert({
+    const tripRow = {
         order_id: q.orderId ?? null,
         shipment_code: shipmentCode,
         seller_id: q.sellerId ?? null,
@@ -314,11 +345,16 @@ export async function POST(request: Request) {
         eta_minutes: Math.round((totalKm / 45) * 60),
         trip_status: consent ? 'IN_TRANSIT_LIVE' : 'ASSIGNED',
         last_ping_at: consent ? nowIso : null,
-      })
-      .select('*')
-      .single();
+    };
+    // The account that made the trip is the only one (besides the team) that can send its pings: it is the driver's phone.
+    let made = await supabase.from('shipment_tracking_trips').insert({ ...tripRow, created_by: caller.id }).select('*').single();
+    if (made.error && /created_by/i.test(made.error.message)) {
+      // Before the latest SQL step: the trip is still saved, tied to the driver account instead.
+      made = await supabase.from('shipment_tracking_trips').insert({ ...tripRow, driver_id: q.driverId ?? caller.id }).select('*').single();
+    }
+    const { data, error } = made;
 
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (error || !data) return FAILED('Could not start this trip just now. Please try again.');
 
     // The consent moment is the trip's first telemetry event.
     if (consent) {
@@ -352,6 +388,7 @@ export async function POST(request: Request) {
     if (findErr || !trip) {
       return NextResponse.json({ ok: false, error: 'Shipment trip not found' }, { status: 404 });
     }
+    if (!mine(trip, caller, false) && !(await isStaff(request))) return NOT_ALLOWED('Only the driver of this trip can do that.');
     const nowIso = new Date().toISOString();
     const { data: updated, error: upErr } = await supabase
       .from('shipment_tracking_trips')
@@ -366,7 +403,7 @@ export async function POST(request: Request) {
       .eq('id', trip.id)
       .select('*')
       .single();
-    if (upErr) return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
+    if (upErr) return FAILED('Could not save your consent just now. Please try again.');
 
     await supabase.from('shipment_telemetry_events').insert({
       trip_id: trip.id,
@@ -390,6 +427,7 @@ export async function POST(request: Request) {
     if (findErr || !trip) {
       return NextResponse.json({ ok: false, error: 'Shipment trip not found' }, { status: 404 });
     }
+    if (!mine(trip, caller, false) && !(await isStaff(request))) return NOT_ALLOWED('Only the driver of this trip can send its location.');
     if (trip.trip_status === 'DELIVERED' || trip.trip_status === 'CANCELLED' || trip.trip_status === 'ARRIVED') {
       return NextResponse.json({ ok: false, error: 'This trip is closed' }, { status: 409 });
     }
@@ -459,7 +497,7 @@ export async function POST(request: Request) {
       .select('*')
       .single();
 
-    if (upErr) return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
+    if (upErr) return FAILED('Could not save this location just now. Please try again.');
 
     // Telemetry: the ping itself; GEOFENCE_ARRIVAL when the geofence is newly
     // entered; SIGNAL_STALE when this ping revives a stale trip;
@@ -496,6 +534,7 @@ export async function POST(request: Request) {
   if (body.action === 'FLEET_IMPORT') {
     // RTO fleet CSV import: rows come from the tracking dashboard's CSV
     // parser. Upsert on the registration number, capped at 500 rows a call.
+    if (!(await isStaff(request))) return NOT_ALLOWED('Only the KashRoot team can import the fleet registry.');
     const parsed = FleetImportSchema.safeParse(body);
     if (!parsed.success) return badBody(parsed.error);
     const q = parsed.data;
@@ -518,7 +557,7 @@ export async function POST(request: Request) {
         insurance_valid_upto: r.insuranceValidUpto || null,
         fuel_type: r.fuelType || null,
         source: 'RTO_CSV_IMPORT',
-        imported_by: q.importedBy ?? null,
+        imported_by: caller.id,
         updated_at: new Date().toISOString(),
       });
     }
@@ -527,7 +566,7 @@ export async function POST(request: Request) {
     const { error } = await supabase
       .from('authorized_fleet')
       .upsert(payload, { onConflict: 'vehicle_registration_no' });
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (error) return FAILED('Could not import the fleet just now. Please try again.');
     return NextResponse.json({ ok: true, imported: payload.length });
   }
 

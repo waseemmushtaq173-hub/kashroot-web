@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/auth-fetch';
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
@@ -220,7 +221,7 @@ export function ProductForm({ value: v, onChange, isNew = false, payout, onPayou
   /** Reports one captured photo to /api/products/verify-photo (Phase 6). */
   const reportVerification = async (photoDataUrl: string, geo: GeoResult) => {
     try {
-      const res = await fetch('/api/products/verify-photo', {
+      const res = await authFetch('/api/products/verify-photo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

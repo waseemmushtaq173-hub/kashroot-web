@@ -13,6 +13,7 @@
  *   - The global audit trail.
  * Data: GET /api/admin/hierarchy?scope=PLATFORM_SUPERADMIN.
  */
+import { authFetch } from '@/lib/auth-fetch';
 import { useCallback, useEffect, useState } from 'react';
 import { Building2, ClipboardList, Crown, Eye, ShieldCheck, Snowflake, ThumbsUp, UserX, XCircle } from 'lucide-react';
 
@@ -106,7 +107,7 @@ export function OwnerHierarchyPanel() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/hierarchy?scope=PLATFORM_SUPERADMIN', { cache: 'no-store' });
+      const res = await authFetch('/api/admin/hierarchy?scope=PLATFORM_SUPERADMIN', { cache: 'no-store' });
       const body = await res.json();
       if (!body.ok) throw new Error(body.error || 'Could not load the hierarchy.');
       setData(body as HierarchyData);
@@ -124,7 +125,7 @@ export function OwnerHierarchyPanel() {
   const review = async (org: Org, decisionStatus: string, reviewNotes: string) => {
     setBusyId(org.id);
     try {
-      const res = await fetch('/api/admin/hierarchy', {
+      const res = await authFetch('/api/admin/hierarchy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'SUPERADMIN_REVIEW_OWNER', organizationId: org.id, decisionStatus, reviewNotes }),

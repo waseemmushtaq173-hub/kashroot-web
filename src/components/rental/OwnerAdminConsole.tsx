@@ -29,6 +29,7 @@
  * console opens in that owner's own category.
  * Data: GET/POST /api/admin/hierarchy (scope=COLD_STORAGE_OWNER_ADMIN).
  */
+import { authFetch } from '@/lib/auth-fetch';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Boxes, Building2, CalendarCheck, ClipboardList, CloudSun, Eye, Handshake, Landmark, Layers, PackageSearch, PlusCircle, Route, ShieldCheck, ShoppingCart, ThermometerSnowflake, Truck, UserCog, Users, Warehouse,
@@ -152,7 +153,7 @@ export function OwnerAdminConsole({ oversightOrgId = null, onAddFacility }: { ov
       const qs = new URLSearchParams({ scope: 'COLD_STORAGE_OWNER_ADMIN' });
       if (orgId) qs.set('organizationId', orgId);
       if (oversightOrgId) qs.set('oversight', '1');
-      const res = await fetch(`/api/admin/hierarchy?${qs.toString()}`, { cache: 'no-store' });
+      const res = await authFetch(`/api/admin/hierarchy?${qs.toString()}`, { cache: 'no-store' });
       const body = await res.json();
       if (!body.ok) throw new Error(body.error || 'Could not load the business dashboard.');
       setData(body as Payload);
@@ -677,7 +678,7 @@ function RegistrationModal({ open, onClose, onDone }: { open: boolean; onClose: 
     setBusy(true);
     setErr(null);
     try {
-      const res = await fetch('/api/admin/hierarchy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'REGISTER_OWNER_ORGANIZATION', ...form }) });
+      const res = await authFetch('/api/admin/hierarchy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'REGISTER_OWNER_ORGANIZATION', ...form }) });
       const body = await res.json();
       if (!body.ok) throw new Error(body.error || 'Registration failed.');
       const pendingCategory = body.categoryPersisted === false && form.businessCategory !== DEFAULT_BUSINESS_CATEGORY;
@@ -743,7 +744,7 @@ function StaffModal({ open, staff, organizationId, category, facilities, onClose
     try {
       // Permissions for modules this category does not have are saved switched off.
       const scopedPerms = Object.fromEntries(Object.entries(perms).map(([perm, on]) => [perm, permissionAppliesTo(perm, category) && Boolean(on)]));
-      const res = await fetch('/api/admin/hierarchy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'UPSERT_OWNER_STAFF', organizationId, ...form, permissionsMatrix: scopedPerms }) });
+      const res = await authFetch('/api/admin/hierarchy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'UPSERT_OWNER_STAFF', organizationId, ...form, permissionsMatrix: scopedPerms }) });
       const body = await res.json();
       if (!body.ok) throw new Error(body.error || 'Could not save the staff member.');
       onDone(`${body.staff.full_name} saved as ${titleCase(body.staff.staff_role)} (audit-logged).`);
@@ -813,7 +814,7 @@ function TxnModal({ open, organizationId, category, facilities, defaultFacilityI
     setBusy(true);
     setErr(null);
     try {
-      const res = await fetch('/api/admin/hierarchy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'RECORD_FINANCIAL_TRANSACTION', organizationId, ...form, facilityName: facilities.find((f) => f.id === form.facilityId)?.title, farmerName: form.farmerName || pickedBooking?.farmer_name || '', bookingReference: pickedBooking?.booking_reference }) });
+      const res = await authFetch('/api/admin/hierarchy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'RECORD_FINANCIAL_TRANSACTION', organizationId, ...form, facilityName: facilities.find((f) => f.id === form.facilityId)?.title, farmerName: form.farmerName || pickedBooking?.farmer_name || '', bookingReference: pickedBooking?.booking_reference }) });
       const body = await res.json();
       if (!body.ok) throw new Error(body.error || 'Could not record the transaction.');
       onDone(`${body.transaction.transaction_reference} recorded: ${inr(body.transaction.paid_amount_inr)} paid of ${inr(body.transaction.gross_amount_inr)} (${titleCase(body.transaction.payment_status)}).`);

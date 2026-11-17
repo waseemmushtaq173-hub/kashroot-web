@@ -1,8 +1,8 @@
 name: Sync Government Agro Registry
 
+# Switched off: the route answers 410 and the official-list tables are filled only from the publishers' own files
+# (Admin -> Official lists). Kept only so the old runs stay readable; it no longer runs on a schedule.
 on:
-  schedule:
-    - cron: '0 4 * * *'  # daily 04:00 UTC
   workflow_dispatch:
 
 permissions:
