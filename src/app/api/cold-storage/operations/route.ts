@@ -738,14 +738,26 @@ export async function POST(request: Request) {
     const ownerBlock = await ownerGuard(supabase, request, user, body.facilityId);
     if (ownerBlock) return ownerBlock;
 
-    const tempF = Number(body.dryBulbTempF ?? 32.0);
+    // A reading is what was measured: nothing is assumed for a value that was not given. The temperature, the humidity and
+    // the chamber are needed; the gases, ethylene and air speed are saved as "not measured" (null) when they are not.
+    const num = (v: unknown): number | null => (v === undefined || v === null || String(v).trim() === '' ? null : Number.isFinite(Number(v)) ? Number(v) : NaN);
+    const tempF = num(body.dryBulbTempF);
+    const rhGiven = num(body.relativeHumidityPercent);
+    const chamberCode = String(body.chamberCode ?? '').trim().slice(0, 40);
+    if (tempF === null || Number.isNaN(tempF) || rhGiven === null || Number.isNaN(rhGiven) || !chamberCode) {
+      return NextResponse.json({ ok: false, error: 'Give the chamber, its temperature (°F) and its relative humidity (%).' }, { status: 400 });
+    }
     const tempC = Number((((tempF - 32) * 5) / 9).toFixed(2));
-    const coilF = Number(body.evaporatorCoilTempF ?? tempF - 3.0);
-    const psychro = calculatePsychrometricRelativeHumidity(tempF, coilF);
-    const rh = Number(body.relativeHumidityPercent ?? psychro.estimatedLoadedChamberRhPercent);
-    const o2 = body.oxygenO2Percent !== undefined ? Number(body.oxygenO2Percent) : 1.8;
-    const co2 =
-      body.carbonDioxideCo2Percent !== undefined ? Number(body.carbonDioxideCo2Percent) : 1.5;
+    const coilF = num(body.evaporatorCoilTempF);
+    const psychro = calculatePsychrometricRelativeHumidity(tempF, coilF !== null && !Number.isNaN(coilF) ? coilF : tempF);
+    const rh = rhGiven;
+    const o2 = num(body.oxygenO2Percent);
+    const co2 = num(body.carbonDioxideCo2Percent);
+    const ethylene = num(body.ethylenePpm);
+    const airFpm = num(body.airVelocityFpm);
+    if ([o2, co2, ethylene, airFpm].some((v) => v !== null && Number.isNaN(v))) {
+      return NextResponse.json({ ok: false, error: 'A gas, ethylene or air-speed value is not a number.' }, { status: 400 });
+    }
 
     let alertStatus: 'NORMAL' | 'WARNING_THRESHOLD' | 'CRITICAL_ALARM' = 'NORMAL';
     const alerts: string[] = [];
@@ -761,13 +773,13 @@ export async function POST(request: Request) {
     }
     if (rh < 85.0) {
       if (alertStatus === 'NORMAL') alertStatus = 'WARNING_THRESHOLD';
-      alerts.push(`Low Relative Humidity (${rh}% < 85%): check coil ΔT (${psychro.deltaTF}°F).`);
+      alerts.push(`Low Relative Humidity (${rh}% < 85%)${coilF !== null ? `: check coil ΔT (${psychro.deltaTF}°F)` : ''}.`);
     }
-    if (o2 < 0.9 || o2 > 5.0) {
+    if (o2 !== null && (o2 < 0.9 || o2 > 5.0)) {
       if (alertStatus === 'NORMAL') alertStatus = 'WARNING_THRESHOLD';
       alerts.push(`CA Oxygen O2 (${o2}%) outside the target window (0.9%–5.0%).`);
     }
-    if (co2 > 5.0) {
+    if (co2 !== null && co2 > 5.0) {
       if (alertStatus === 'NORMAL') alertStatus = 'WARNING_THRESHOLD';
       alerts.push(`CA Carbon Dioxide CO2 (${co2}%) above the 5% ceiling - check scrubber/ventilation.`);
     }
@@ -777,17 +789,18 @@ export async function POST(request: Request) {
       .insert({
         facility_id: body.facilityId,
         chamber_id: body.chamberId || body.facilityId,
-        chamber_code: body.chamberCode || 'CH-01',
-        reading_source: body.readingSource || 'IOT_SENSOR',
-        sensor_device_id: body.sensorDeviceId || 'CA-NODE-01',
+        chamber_code: chamberCode,
+        // Typed in by a person unless the sender says it is a sensor.
+        reading_source: body.readingSource === 'IOT_SENSOR' ? 'IOT_SENSOR' : 'MANUAL_OPERATOR_LOG',
+        sensor_device_id: body.sensorDeviceId ? String(body.sensorDeviceId).slice(0, 60) : null,
         dry_bulb_temp_f: tempF,
         dry_bulb_temp_c: tempC,
-        evaporator_coil_temp_f: coilF,
+        evaporator_coil_temp_f: coilF !== null && !Number.isNaN(coilF) ? coilF : null,
         relative_humidity_percent: rh,
         oxygen_o2_percent: o2,
         carbon_dioxide_co2_percent: co2,
-        ethylene_ppm: body.ethylenePpm ? Number(body.ethylenePpm) : 0.05,
-        air_velocity_fpm: body.airVelocityFpm ? Number(body.airVelocityFpm) : 45,
+        ethylene_ppm: ethylene,
+        air_velocity_fpm: airFpm,
         alert_status: alertStatus,
         alert_message: alerts.length > 0 ? alerts.join(' ') : null,
       })
@@ -802,13 +815,14 @@ export async function POST(request: Request) {
         facility_id: body.facilityId,
         recipient_role: 'OWNER',
         notification_type: 'ENVIRONMENT_ALERT',
-        title: `CA Alert · Chamber ${body.chamberCode || 'CH-01'} (${alertStatus === 'CRITICAL_ALARM' ? 'CRITICAL' : 'WARNING'})`,
+        title: `CA Alert · Chamber ${chamberCode} (${alertStatus === 'CRITICAL_ALARM' ? 'CRITICAL' : 'WARNING'})`,
         message: alerts.join(' '),
         bin_code: null,
       });
     }
 
-    return NextResponse.json({ ok: true, reading, psychrometrics: psychro });
+    // The psychrometric estimate only means something with a real coil temperature.
+    return NextResponse.json({ ok: true, reading, psychrometrics: coilF !== null && !Number.isNaN(coilF) ? psychro : null });
   }
 
   return NextResponse.json({ ok: false, error: 'Unsupported action' }, { status: 400 });

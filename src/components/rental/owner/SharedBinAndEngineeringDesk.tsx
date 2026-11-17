@@ -671,7 +671,9 @@ function CaTelemetryDesk({
   onLog: (payload: Record<string, unknown>) => Promise<void>;
 }) {
   const readings = ops?.caReadings ?? [];
-  const [f, setF] = useState({ chamberCode: 'CH-01', dryBulbTempF: '32', relativeHumidityPercent: '92', oxygenO2Percent: '1.8', carbonDioxideCo2Percent: '1.5', ethylenePpm: '0.05', readingSource: 'IOT_SENSOR' });
+  // Nothing is pre-filled: a reading is what the sensor or the operator really saw. A person typing it in is a manual log.
+  const [f, setF] = useState({ chamberCode: '', dryBulbTempF: '', relativeHumidityPercent: '', oxygenO2Percent: '', carbonDioxideCo2Percent: '', ethylenePpm: '', readingSource: 'MANUAL_OPERATOR_LOG' });
+  const ready = f.chamberCode.trim() !== '' && f.dryBulbTempF.trim() !== '' && Number.isFinite(Number(f.dryBulbTempF)) && f.relativeHumidityPercent.trim() !== '' && Number.isFinite(Number(f.relativeHumidityPercent));
   return (
     <Panel theme={theme} title="Live CA telemetry" icon={Thermometer} action={<Badge tone="blue">{readings.length} recent readings</Badge>}>
       {readings.length === 0 ? (
@@ -714,10 +716,10 @@ function CaTelemetryDesk({
             </select>
           </Field>
         </div>
-        <Btn theme={theme} className="mt-3" icon={Send} disabled={busy || !facilityId} onClick={() => void onLog({
-          chamberCode: f.chamberCode || 'CH-01',
+        <Btn theme={theme} className="mt-3" icon={Send} disabled={busy || !facilityId || !ready} onClick={() => void onLog({
+          chamberCode: f.chamberCode.trim(),
           dryBulbTempF: Number(f.dryBulbTempF),
-          relativeHumidityPercent: f.relativeHumidityPercent === '' ? undefined : Number(f.relativeHumidityPercent),
+          relativeHumidityPercent: Number(f.relativeHumidityPercent),
           oxygenO2Percent: f.oxygenO2Percent === '' ? undefined : Number(f.oxygenO2Percent),
           carbonDioxideCo2Percent: f.carbonDioxideCo2Percent === '' ? undefined : Number(f.carbonDioxideCo2Percent),
           ethylenePpm: f.ethylenePpm === '' ? undefined : Number(f.ethylenePpm),
@@ -725,6 +727,7 @@ function CaTelemetryDesk({
         })}>
           {busy ? 'Logging…' : 'Log CA reading'}
         </Btn>
+        <p className="mt-2 text-xs text-slate-600">Chamber, temperature and humidity are needed. Leave O₂, CO₂ and ethylene empty when you did not measure them: they are saved as “not measured”.</p>
       </div>
     </Panel>
   );

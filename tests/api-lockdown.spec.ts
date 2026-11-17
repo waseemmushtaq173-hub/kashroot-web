@@ -149,3 +149,16 @@ test('KashRoot\'s typed list is never stamped as the Government\'s: the sync job
   expect(cleanup.trim().split('\n').at(-1)).toMatch(/^rollback;/i);
   expect(cleanup).toContain('imported_by is null');
 });
+
+test('a CA reading is only what was measured: nothing is pre-filled and nothing is assumed', () => {
+  const desk = read('src/components/rental/owner/SharedBinAndEngineeringDesk.tsx');
+  expect(desk).toContain("chamberCode: '', dryBulbTempF: '', relativeHumidityPercent: '', oxygenO2Percent: '', carbonDioxideCo2Percent: '', ethylenePpm: ''");
+  expect(desk).not.toMatch(/dryBulbTempF: '32'|oxygenO2Percent: '1\.8'|carbonDioxideCo2Percent: '1\.5'|ethylenePpm: '0\.05'/);
+  const ops = read('src/app/api/cold-storage/operations/route.ts');
+  // Only the logging action: the engineering calculator is a what-if tool and keeps its own starting sizes.
+  const from = ops.indexOf("body.action === 'LOG_CA_ENVIRONMENT'");
+  const log = ops.slice(from, ops.indexOf("'ENVIRONMENT_ALERT'", from));
+  expect(log.length).toBeGreaterThan(500);
+  expect(log).not.toMatch(/\?\? 32\.0|: 1\.8\b|: 1\.5\b|: 0\.05\b|: 45\b|'CA-NODE-01'|\|\| 'CH-01'/);
+  expect(log).toContain('Give the chamber, its temperature (°F) and its relative humidity (%).');
+});
