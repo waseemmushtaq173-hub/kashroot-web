@@ -458,7 +458,7 @@ export async function POST(request: Request) {
       .single();
 
     if (vErr || !vehicle) {
-      return NextResponse.json({ ok: false, error: vErr?.message || 'Failed to save vehicle' }, { status: 500 });
+      return NextResponse.json({ ok: false, error: 'Could not save this vehicle just now. Please try again.' }, { status: 500 });
     }
 
     await supabase.from('driver_vehicles').upsert(
@@ -568,7 +568,7 @@ export async function POST(request: Request) {
 
     if (!shipment) {
       return NextResponse.json(
-        { ok: false, error: sErr?.message || 'Could not create shipment' },
+        { ok: false, error: 'Could not create this shipment just now. Please try again.' },
         { status: 500 },
       );
     }
@@ -643,7 +643,7 @@ export async function POST(request: Request) {
       .select('*')
       .single();
 
-    if (dErr) return NextResponse.json({ ok: false, error: dErr.message }, { status: 500 });
+    if (dErr) return NextResponse.json({ ok: false, error: 'Could not save this device just now. Please try again.' }, { status: 500 });
     return NextResponse.json({ ok: true, device, webhookSecretOnce: rawSecret });
   }
 
@@ -660,7 +660,7 @@ export async function POST(request: Request) {
       .select('*')
       .single();
 
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (error) return NextResponse.json({ ok: false, error: 'Could not save this decision just now. Please try again.' }, { status: 500 });
     return NextResponse.json({ ok: true, vehicle: updated });
   }
 
@@ -677,7 +677,7 @@ export async function POST(request: Request) {
       .select('*')
       .single();
 
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (error) return NextResponse.json({ ok: false, error: 'Could not save this decision just now. Please try again.' }, { status: 500 });
     return NextResponse.json({ ok: true, device: updated });
   }
 

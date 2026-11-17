@@ -19,6 +19,7 @@ import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CalendarDays, CheckCircle2, Map as MapIcon, Navigation, ReceiptText, RefreshCw, Snowflake, Sparkles, Trash2, X } from 'lucide-react';
 import { z } from 'zod';
+import { authFetch } from '@/lib/auth-fetch';
 import { toast } from '@/lib/client/toast';
 
 import { ColdStoreExplorer, type Look } from '@/components/rental/ColdStoreMap';
@@ -417,7 +418,7 @@ export function ColdBooking({
       try {
         const parts = await Promise.all(
           chambers.map(async (c) => {
-            const res = await fetch(`/api/cold-storage/book-units?facilityId=${l.id}&chamberId=${c.id}`);
+            const res = await authFetch(`/api/cold-storage/book-units?facilityId=${l.id}&chamberId=${c.id}`);
             if (!res.ok) return { chamberId: c.id, allocations: [] as UnitAllocation[], temperatureLogs: [] as TempLog[] };
             const json = (await res.json()) as { allocations?: UnitAllocation[]; temperatureLogs?: TempLog[] };
             return { chamberId: c.id, allocations: json.allocations ?? [], temperatureLogs: json.temperatureLogs ?? [] };
@@ -594,7 +595,7 @@ export function ColdBooking({
       if (!byChamber.size) return;
       await Promise.all(
         [...byChamber].map(([chamberId, units]) =>
-          fetch('/api/cold-storage/book-units', {
+          authFetch('/api/cold-storage/book-units', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

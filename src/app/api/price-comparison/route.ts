@@ -20,9 +20,9 @@
 //        → merged, sorted listings.
 //   POST { … } → submit a verified seller offer.
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { ipLimited, tooMany } from '@/lib/server/sign';
+import { dbFor, verifiedCaller } from '@/lib/server/callerAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,14 +74,6 @@ const OfferSchema = z.object({
 const badBody = (error: z.ZodError) =>
   NextResponse.json({ ok: false, error: 'Validation failed', issues: error.flatten() }, { status: 400 });
 
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    '';
-  return createClient(url, key, { auth: { persistSession: false } });
-}
 
 /** One keyword set per category, first match wins (most specific first). */
 const KEYWORDS: ReadonlyArray<readonly [Category, readonly string[]]> = [
@@ -125,7 +117,7 @@ export async function GET(request: Request) {
   const grade = (searchParams.get('grade') || '').trim();
   const sellerType = (searchParams.get('sellerType') || '').trim();
 
-  const supabase = getSupabase();
+  const supabase = dbFor(null);
 
   // OTHER_INPUTS and EQUIPMENT always come back together (the alias).
   const cats: string[] | null = category && category !== 'ALL' ? [category, ALIAS[category as Category] ?? category] : null;
@@ -145,7 +137,7 @@ export async function GET(request: Request) {
 
   const { data: universalRows, error: uErr } = await universalQuery;
   if (uErr) {
-    return NextResponse.json({ ok: false, error: uErr.message, listings: [] }, { status: 500 });
+    return NextResponse.json({ ok: false, error: 'Could not read the offers just now.', listings: [] }, { status: 500 });
   }
 
   // Real active marketplace listings: only safe, public columns (never the
@@ -163,7 +155,7 @@ export async function GET(request: Request) {
 
   const { data: produceRows, error: mErr } = await marketQuery;
   if (mErr) {
-    return NextResponse.json({ ok: false, error: mErr.message, listings: [] }, { status: 500 });
+    return NextResponse.json({ ok: false, error: 'Could not read the offers just now.', listings: [] }, { status: 500 });
   }
 
   const mappedProduce = (produceRows ?? []).map((p: Record<string, unknown>) => {
@@ -244,6 +236,10 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   if (ipLimited(request, 'price-comparison-post', 20)) return tooMany();
 
+  // An offer on the board is a signed-in seller's own: it carries their account, never one named in the request.
+  const caller = await verifiedCaller(request);
+  if (!caller) return NextResponse.json({ ok: false, error: 'Please sign in to post an offer.' }, { status: 401 });
+
   const body = await request.json().catch(() => null);
   if (!body) return NextResponse.json({ ok: false, error: 'Bad request body' }, { status: 400 });
 
@@ -263,12 +259,12 @@ export async function POST(request: Request) {
   const villageLabel = (q.marketOrVillage || districtLabel).trim().slice(0, 80);
   const nowIso = new Date().toISOString();
 
-  const supabase = getSupabase();
+  const supabase = dbFor(caller);
   const { data, error } = await supabase
     .from('universal_price_listings')
     .insert({
       // v1 columns (kept for older readers):
-      seller_id: q.sellerId ?? null,
+      seller_id: caller.id,
       seller_name: String(q.sellerName || 'Seller').trim().slice(0, 80),
       seller_role: sellerRole,
       category: q.category,
@@ -293,6 +289,6 @@ export async function POST(request: Request) {
     .select('*')
     .single();
 
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ ok: false, error: 'Could not post this offer just now. Please try again.' }, { status: 500 });
   return NextResponse.json({ ok: true, listing: data });
 }

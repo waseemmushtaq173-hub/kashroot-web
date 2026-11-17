@@ -1,7 +1,8 @@
 // src/app/api/cold-storage/book-units/route.ts
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import { ipLimited, tooMany } from '@/lib/server/sign';
+import { dbFor, orgAccessOf, runsFacility, verifiedCaller } from '@/lib/server/callerAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +18,8 @@ const UnitItemSchema = z.object({
 });
 
 const BookUnitsSchema = z.object({
-  bookingId: z.string().uuid().optional(),
+  // The booking these places belong to: a unit is never held without one.
+  bookingId: z.string().uuid(),
   facilityId: z.string().uuid(),
   chamberId: z.string().uuid(),
   farmerId: z.string().uuid(),
@@ -29,21 +31,39 @@ const BookUnitsSchema = z.object({
   units: z.array(UnitItemSchema).min(1).max(500),
 });
 
-function getSupabaseServer() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    '';
-  return createClient(url, key, { auth: { persistSession: false } });
-}
+/** What anyone looking at the 3D store may read of a booked place: that it is taken, and (only for the signed-in farmer) that it is theirs. */
+const PUBLIC_UNIT_FIELDS = [
+  'id',
+  'facility_id',
+  'chamber_id',
+  'chamber_code',
+  'level_code',
+  'level_index',
+  'row_index',
+  'col_index',
+  'unit_code',
+  'unit_type',
+  'unit_capacity_kg',
+  'stored_quantity_kg',
+  'payment_status',
+  'storage_end_date',
+  'created_at',
+] as const;
 
 export async function GET(request: Request) {
+  if (ipLimited(request, 'book-units-get', 120)) return tooMany();
+
   const { searchParams } = new URL(request.url);
   const facilityId = searchParams.get('facilityId');
   const chamberId = searchParams.get('chamberId');
+  const uuid = z.string().uuid();
+  if ((facilityId && !uuid.safeParse(facilityId).success) || (chamberId && !uuid.safeParse(chamberId).success)) {
+    return NextResponse.json({ ok: false, error: 'Check the cold store and chamber.', allocations: [] }, { status: 400 });
+  }
 
-  const supabase = getSupabaseServer();
+  // Looking at the 3D store is open to everyone; whose places are whose is not.
+  const caller = await verifiedCaller(request);
+  const supabase = dbFor(caller);
   let query = supabase
     .from('cold_storage_unit_allocations')
     .select('*')
@@ -53,16 +73,25 @@ export async function GET(request: Request) {
   if (facilityId) query = query.eq('facility_id', facilityId);
   if (chamberId) query = query.eq('chamber_id', chamberId);
 
-  const { data: allocations, error } = await query;
+  const { data: rows, error } = await query;
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message, allocations: [] }, { status: 500 });
+    return NextResponse.json({ ok: false, error: 'Could not read the booked places just now.', allocations: [] }, { status: 500 });
   }
+  const allocations = (rows ?? []).map((r) => {
+    const safe: Record<string, unknown> = {};
+    for (const f of PUBLIC_UNIT_FIELDS) safe[f] = (r as Record<string, unknown>)[f];
+    // The farmer's own places say so; anyone else's carry no name and no account.
+    const mine = Boolean(caller && r.farmer_id && String(r.farmer_id) === caller.id);
+    safe.farmer_id = mine ? caller!.id : '';
+    safe.farmer_name = mine ? r.farmer_name : '';
+    return safe;
+  });
 
   let temperatureLogs: Array<Record<string, unknown>> = [];
   if (chamberId) {
     const { data: logs } = await supabase
       .from('cold_chamber_temperature_logs')
-      .select('*')
+      .select('chamber_id, temperature_c, humidity_pct, source_type, recorded_at')
       .eq('chamber_id', chamberId)
       .order('recorded_at', { ascending: false })
       .limit(20);
@@ -71,12 +100,17 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     ok: true,
-    allocations: allocations ?? [],
+    allocations,
     temperatureLogs,
   });
 }
 
 export async function POST(request: Request) {
+  if (ipLimited(request, 'book-units-post', 30)) return tooMany();
+
+  const caller = await verifiedCaller(request);
+  if (!caller) return NextResponse.json({ ok: false, error: 'Please sign in to book places.' }, { status: 401 });
+
   let raw: unknown;
   try {
     raw = await request.json();
@@ -87,13 +121,37 @@ export async function POST(request: Request) {
   const parsed = BookUnitsSchema.safeParse(raw);
   if (!parsed.success) {
     return NextResponse.json(
-      { ok: false, error: 'Validation failed', issues: parsed.error.flatten() },
+      { ok: false, error: 'Check the places you chose: a detail is missing or wrong.' },
       { status: 400 }
     );
   }
 
   const payload = parsed.data;
-  const supabase = getSupabaseServer();
+  const supabase = dbFor(caller);
+
+  // The account booking is the farmer on this request, and the booking is theirs, for this store. The reference the
+  // places are saved under is made here from that booking, never taken from the request: it cannot overwrite another's.
+  if (payload.farmerId !== caller.id) {
+    return NextResponse.json({ ok: false, error: 'Signed-in account does not match the farmer on this request.' }, { status: 403 });
+  }
+  if (payload.idempotencyKeyPrefix !== `kr-booking-${payload.bookingId}`) {
+    return NextResponse.json({ ok: false, error: 'Check the booking reference.' }, { status: 400 });
+  }
+  const { data: booking } = await supabase
+    .from('rental_bookings')
+    .select('id, renter_id, listing_id')
+    .eq('id', payload.bookingId)
+    .maybeSingle();
+  if (!booking || String(booking.renter_id) !== caller.id || String(booking.listing_id) !== payload.facilityId) {
+    return NextResponse.json({ ok: false, error: 'This booking is not yours, or is not for this cold store.' }, { status: 403 });
+  }
+  // Paid is the owner's word, after the money is seen: a farmer's request is always "pending".
+  if (payload.paymentStatus === 'VERIFIED_PAID') {
+    const access = await orgAccessOf(request, supabase, caller);
+    if (!(await runsFacility(supabase, caller, access, payload.facilityId))) {
+      return NextResponse.json({ ok: false, error: 'Only the cold storage owner can mark places as paid.' }, { status: 403 });
+    }
+  }
 
   // 1. Verify real facility exists in public.rental_listings
   const { data: facility, error: facErr } = await supabase
@@ -160,8 +218,8 @@ export async function POST(request: Request) {
     unit_type: u.unitType,
     unit_capacity_kg: u.unitCapacityKg,
     stored_quantity_kg: u.storedQuantityKg,
-    farmer_id: payload.farmerId,
-    farmer_name: payload.farmerName,
+    farmer_id: caller.id,
+    farmer_name: payload.farmerName.slice(0, 80),
     payment_status: payload.paymentStatus,
     transaction_id: payload.transactionId,
     idempotency_key: payload.idempotencyKeyPrefix + ':' + chamber.id + ':' + u.levelCode + ':' + u.unitCode,
@@ -181,7 +239,7 @@ export async function POST(request: Request) {
         code: isConflict ? 'SLOT_ALREADY_RESERVED' : 'DB_ERROR',
         error: isConflict
           ? 'One or more selected 3D storage positions are already booked by another farmer.'
-          : error.message,
+          : 'Could not save these places just now. Please try again.',
       },
       { status: isConflict ? 409 : 500 }
     );

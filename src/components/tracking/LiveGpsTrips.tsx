@@ -18,6 +18,7 @@
  * The older consignment system (Track by code / My consignments) is
  * untouched — this is the additional trip tracker.
  */
+import { authFetch } from '@/lib/auth-fetch';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import dynamic from 'next/dynamic';
 import { CheckCircle2, Copy, Loader2, MapPin, MapPinned, Navigation, Radio, Share2, ShieldCheck, TriangleAlert, Truck } from 'lucide-react';
@@ -129,7 +130,7 @@ const agoMin = (iso: string | null): string => {
 
 async function postTrip(body: Record<string, unknown>): Promise<{ ok: boolean; trip?: Trip; error?: string }> {
   try {
-    const res = await fetch('/api/logistics/track', {
+    const res = await authFetch('/api/logistics/track', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -148,7 +149,7 @@ export function LiveGpsTrips() {
 
   const reload = useCallback(async () => {
     try {
-      const res = await fetch('/api/logistics/track');
+      const res = await authFetch('/api/logistics/track');
       const data = (await res.json()) as { ok: boolean; trips?: Trip[] };
       if (data.ok) {
         setTrips(data.trips ?? []);

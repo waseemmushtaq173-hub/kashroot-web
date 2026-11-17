@@ -29,9 +29,9 @@
 //
 // The raw device coordinates are never part of any response.
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { ipLimited, tooMany } from '@/lib/server/sign';
+import { dbFor, verifiedCaller } from '@/lib/server/callerAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,14 +60,6 @@ const AttachSchema = z.object({
 const badBody = (error: z.ZodError) =>
   NextResponse.json({ ok: false, error: 'Validation failed', issues: error.flatten() }, { status: 400 });
 
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    '';
-  return createClient(url, key, { auth: { persistSession: false } });
-}
 
 const STATES = [
   'GPS_VERIFIED_ORCHARD',
@@ -135,7 +127,10 @@ function dataUrlBytes(dataUrl: string): Uint8Array | null {
 async function urlBytes(url: string): Promise<Uint8Array | null> {
   if (!/^https:\/\//i.test(url)) return null;
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+    // Only a public name: never an address, "localhost" or an internal host.
+    const host = new URL(url).hostname.toLowerCase();
+    if (!host.includes('.') || /^[\d.]+$/.test(host) || host.includes(':') || /(^|\.)(localhost|local|internal|lan)$/.test(host)) return null;
+    const res = await fetch(url, { signal: AbortSignal.timeout(10_000), redirect: 'error' });
     if (!res.ok) return null;
     const len = Number(res.headers.get('content-length') ?? 0);
     if (len > 8_388_608) return null;
@@ -157,16 +152,23 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   if (!body || !body.action) return NextResponse.json({ ok: false, error: 'Missing action' }, { status: 400 });
 
-  const supabase = getSupabase();
+  // A photo is recorded for the signed-in farmer and for a listing of theirs: neither is taken from the request.
+  const caller = await verifiedCaller(request);
+  if (!caller) return NextResponse.json({ ok: false, error: 'Please sign in to verify a photo.' }, { status: 401 });
+  const supabase = dbFor(caller);
 
   if (body.action === 'RECORD') {
     const parsed = RecordSchema.safeParse(body);
     if (!parsed.success) return badBody(parsed.error);
     const q = parsed.data;
-    const farmerId = q.farmerId ?? null;
+    if (q.farmerId && q.farmerId !== caller.id) {
+      return NextResponse.json({ ok: false, error: 'Signed-in account does not match the farmer on this request.' }, { status: 403 });
+    }
+    const farmerId = caller.id;
     const listingId = q.listingId ?? null;
-    if (!farmerId && !listingId) {
-      return NextResponse.json({ ok: false, error: 'Pass farmerId or listingId' }, { status: 400 });
+    if (listingId) {
+      const { data: own } = await supabase.from('market_listings').select('id').eq('id', listingId).eq('seller_id', caller.id).maybeSingle();
+      if (!own) return NextResponse.json({ ok: false, error: 'This listing is not yours.' }, { status: 403 });
     }
     const deviceLat = q.deviceLat;
     const deviceLng = q.deviceLng;
@@ -201,11 +203,11 @@ export async function POST(request: Request) {
       if (listingId && accuracyM <= GOOD_ACCURACY_M) {
         const { data: listing } = await supabase
           .from('market_listings')
-          .select('seller_lat,seller_lng')
+          .select('captured_lat,captured_lng')
           .eq('id', listingId)
           .maybeSingle();
-        const farmLat = Number(listing?.seller_lat);
-        const farmLng = Number(listing?.seller_lng);
+        const farmLat = Number(listing?.captured_lat);
+        const farmLng = Number(listing?.captured_lng);
         if (Number.isFinite(farmLat) && Number.isFinite(farmLng) && haversineKm(deviceLat, deviceLng, farmLat, farmLng) <= ORCHARD_KM) {
           state = 'GPS_VERIFIED_ORCHARD';
         }
@@ -243,7 +245,7 @@ export async function POST(request: Request) {
       .select(PUBLIC_COLUMNS)
       .single();
 
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (error) return NextResponse.json({ ok: false, error: 'Could not record this photo just now.' }, { status: 500 });
     return NextResponse.json({
       ok: true,
       verification: data,
@@ -264,8 +266,9 @@ export async function POST(request: Request) {
     const { error } = await supabase
       .from('product_photo_verifications')
       .update({ original_photo_url: q.originalPhotoUrl })
-      .eq('id', q.verificationId);
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      .eq('id', q.verificationId)
+      .eq('farmer_id', caller.id);
+    if (error) return NextResponse.json({ ok: false, error: 'Could not attach this photo just now.' }, { status: 500 });
     return NextResponse.json({ ok: true });
   }
 
@@ -282,7 +285,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false, error: 'Pass listingId or farmerId' }, { status: 400 });
   }
 
-  const supabase = getSupabase();
+  const supabase = dbFor(await verifiedCaller(request));
   // PUBLIC columns only — the raw device coordinates and the private raw
   // twins are never part of any response of this API.
   let query = supabase
@@ -294,6 +297,6 @@ export async function GET(request: Request) {
   if (farmerId) query = query.eq('farmer_id', farmerId);
 
   const { data, error } = await query;
-  if (error) return NextResponse.json({ ok: false, error: error.message, verifications: [] }, { status: 500 });
+  if (error) return NextResponse.json({ ok: false, error: 'Could not read the photo checks just now.', verifications: [] }, { status: 500 });
   return NextResponse.json({ ok: true, verifications: data ?? [] });
 }

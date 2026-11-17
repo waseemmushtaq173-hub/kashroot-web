@@ -14,6 +14,7 @@
  * A vehicle in the registry makes new trips show "RTO-verified" on the trip
  * card and fills the trip's rto_metadata from the record.
  */
+import { authFetch } from '@/lib/auth-fetch';
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { CheckCircle2, FileUp, Loader2, Search, ShieldCheck, TriangleAlert, Truck, XCircle } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
@@ -120,7 +121,7 @@ export function DriverConsole() {
 
   const reload = useCallback(async () => {
     try {
-      const res = await fetch('/api/logistics/track?fleet=1');
+      const res = await authFetch('/api/logistics/track?fleet=1');
       const data = (await res.json()) as { ok: boolean; vehicles?: FleetRow[] };
       setFleet(data.ok ? data.vehicles ?? [] : []);
     } catch {
@@ -143,7 +144,7 @@ export function DriverConsole() {
     let imported = 0;
     try {
       for (let i = 0; i < rows.length; i += 500) {
-        const res = await fetch('/api/logistics/track', {
+        const res = await authFetch('/api/logistics/track', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'FLEET_IMPORT', rows: rows.slice(i, i + 500) }),
@@ -182,7 +183,7 @@ export function DriverConsole() {
     const r = reg.trim().toUpperCase();
     if (!r) return;
     setCheck(null);
-    fetch(`/api/logistics/track?fleetCheck=${encodeURIComponent(r)}`)
+    authFetch(`/api/logistics/track?fleetCheck=${encodeURIComponent(r)}`)
       .then((res) => res.json() as Promise<{ ok: boolean; found: boolean; vehicle: FleetRow | null }>)
       .then((data) => setCheck({ found: data.found, vehicle: data.vehicle, done: true }))
       .catch(() => setCheck({ found: false, vehicle: null, done: true }));

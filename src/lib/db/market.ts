@@ -19,6 +19,7 @@
  */
 import { dbMessage, supabase } from '@/lib/db/client';
 import { readableColumns } from '@/lib/db/phones';
+import { MARKET_COLUMNS, MARKET_CORE_COLUMNS, MY_PHOTO_COLUMNS, isMissingColumn } from '@/lib/db/listingColumns';
 
 export type MarketCategory = 'produce' | 'supplies';
 export type MarketUnit = 'kg' | 'box' | 'quintal' | 'bag' | 'litre' | 'piece';
@@ -193,15 +194,14 @@ const fail = (error: { message?: string; code?: string } | null, fallback: strin
   throw new Error(dbMessage(error, fallback));
 };
 
-/** The columns to read: use '*' so a missing migrated column never breaks the query. */
-const LISTING = '*';
-/** A seller's own products without the photos (heavy): the list reloads every 30 seconds. */
-const MY_LISTING = '*';
+/** The columns to read (never `*`: the payout account is not readable by a browser): see lib/db/listingColumns. */
 /** The first photo of each of the seller's products, fetched again only when photo_at changes. */
 const myPhotos = new Map<string, { at: string; photo: string | null }>();
 
 export async function browseListings(category: MarketCategory): Promise<{ listings: MarketListing[]; verified: Set<string> }> {
-  const { data, error } = await supabase.from('market_listings').select(await readableColumns(LISTING)).eq('category', category).eq('active', true).gt('quantity', 0).order('updated_at', { ascending: false }).limit(300);
+  const read = async (cols: string) => supabase.from('market_listings').select(await readableColumns(cols)).eq('category', category).eq('active', true).gt('quantity', 0).order('updated_at', { ascending: false }).limit(300);
+  let { data, error } = await read(MARKET_COLUMNS);
+  if (error && isMissingColumn(error)) ({ data, error } = await read(MARKET_CORE_COLUMNS));
   if (error) fail(error, 'Could not load products.');
   const listings = (data ?? []) as unknown as MarketListing[];
   const ids = [...new Set(listings.map((l) => l.seller_id))];
@@ -215,13 +215,17 @@ export async function browseListings(category: MarketCategory): Promise<{ listin
 
 /** A seller's own products with the first photo of each (every photo: listingPhotos in shop.ts). */
 export async function myListings(sellerId: string): Promise<MarketListing[]> {
-  const { data, error } = await supabase.from('market_listings').select(MY_LISTING).eq('seller_id', sellerId).order('updated_at', { ascending: false });
+  const mine = (cols: string) => supabase.from('market_listings').select(cols).eq('seller_id', sellerId).order('updated_at', { ascending: false });
+  let { data, error } = await mine(MARKET_COLUMNS);
+  if (error && isMissingColumn(error)) ({ data, error } = await mine(MARKET_CORE_COLUMNS));
   if (error) fail(error, 'Could not load your products.');
-  const rows = (data ?? []) as (Omit<MarketListing, 'photo'> & { photo_at: string | null })[];
+  const rows = (data ?? []) as unknown as (Omit<MarketListing, 'photo'> & { photo_at: string | null })[];
   const missing = rows.filter((r) => myPhotos.get(r.id)?.at !== (r.photo_at ?? '')).map((r) => r.id);
   // A few photos per request keeps the request address short.
   for (let i = 0; i < missing.length; i += 20) {
-    const p = await supabase.from('market_listings').select('*').in('id', missing.slice(i, i + 20));
+    const p = await supabase.from('market_listings').select(MY_PHOTO_COLUMNS).in('id', missing.slice(i, i + 20));
+    // Before the photo-version SQL there is no photo_at: the products still show, without their photos.
+    if (p.error && isMissingColumn(p.error)) break;
     if (p.error) fail(p.error, 'Could not load your products.');
     for (const x of (p.data ?? []) as { id: string; photo: string | null; photo_at: string | null }[]) myPhotos.set(x.id, { at: x.photo_at ?? '', photo: x.photo });
   }

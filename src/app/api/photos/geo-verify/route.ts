@@ -9,24 +9,19 @@
 // revoked from the API roles; this endpoint is the only writer and is
 // IP rate-limited.
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { ipLimited, tooMany } from '@/lib/server/sign';
+import { dbFor, verifiedCaller } from '@/lib/server/callerAuth';
 
 export const dynamic = 'force-dynamic';
 
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    '';
-  return createClient(url, key, { auth: { persistSession: false } });
-}
 
 const STATUSES = ['DEVICE_GPS_RECORDED', 'DUPLICATE_SUSPECTED', 'PRIVACY_MASKED'] as const;
 
 export async function POST(request: Request) {
   if (ipLimited(request, 'photos-geo-verify', 20)) return tooMany();
+
+  const caller = await verifiedCaller(request);
+  if (!caller) return NextResponse.json({ ok: false, error: 'Please sign in to record a photo location.' }, { status: 401 });
 
   const body = await request.json().catch(() => null);
   if (!body) return NextResponse.json({ ok: false, error: 'Bad request body' }, { status: 400 });
@@ -40,6 +35,9 @@ export async function POST(request: Request) {
 
   if (!farmerId || !/^[0-9a-f-]{36}$/i.test(farmerId)) {
     return NextResponse.json({ ok: false, error: 'Missing farmerId' }, { status: 400 });
+  }
+  if (farmerId !== caller.id) {
+    return NextResponse.json({ ok: false, error: 'Signed-in account does not match the farmer on this request.' }, { status: 403 });
   }
   if (!Number.isFinite(deviceLat) || deviceLat < -90 || deviceLat > 90 || !Number.isFinite(deviceLng) || deviceLng < -180 || deviceLng > 180) {
     return NextResponse.json({ ok: false, error: 'Bad device GPS coordinates' }, { status: 400 });
@@ -60,7 +58,7 @@ export async function POST(request: Request) {
   const listingId = typeof body.listingId === 'string' && /^[0-9a-f-]{36}$/i.test(body.listingId) ? body.listingId : null;
   const status = STATUSES.includes(body.verificationStatus) ? body.verificationStatus : 'DEVICE_GPS_RECORDED';
 
-  const supabase = getSupabase();
+  const supabase = dbFor(caller);
   const { data, error } = await supabase
     .from('product_photo_verifications')
     .insert({
@@ -77,7 +75,7 @@ export async function POST(request: Request) {
     .select('id,uploaded_at,verification_status')
     .single();
 
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ ok: false, error: 'Could not record this photo location just now.' }, { status: 500 });
   return NextResponse.json({ ok: true, verification: data });
 }
 
@@ -91,16 +89,18 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false, error: 'Pass listingId or farmerId' }, { status: 400 });
   }
 
-  const supabase = getSupabase();
+  // Anyone may read that a photo was checked and where in general; the exact device point stays with the farmer.
+  const reader = await verifiedCaller(request);
+  const supabase = dbFor(reader);
   let query = supabase
     .from('product_photo_verifications')
-    .select('id,listing_id,farmer_id,device_lat,device_lng,accuracy_m,public_locality_label,captured_at,uploaded_at,verification_status')
+    .select('id,listing_id,public_locality_label,captured_at,uploaded_at,verification_status')
     .order('uploaded_at', { ascending: false })
     .limit(20);
   if (listingId) query = query.eq('listing_id', listingId);
   if (farmerId) query = query.eq('farmer_id', farmerId);
 
   const { data, error } = await query;
-  if (error) return NextResponse.json({ ok: false, error: error.message, verifications: [] }, { status: 500 });
+  if (error) return NextResponse.json({ ok: false, error: 'Could not read the photo checks just now.', verifications: [] }, { status: 500 });
   return NextResponse.json({ ok: true, verifications: data ?? [] });
 }

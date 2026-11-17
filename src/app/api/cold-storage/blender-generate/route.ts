@@ -1,5 +1,6 @@
 // src/app/api/cold-storage/blender-generate/route.ts
 import { NextResponse } from 'next/server';
+import { ipLimited, tooMany } from '@/lib/server/sign';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +25,7 @@ function badPayload(payload: unknown): string | null {
 }
 
 export async function POST(request: Request) {
+  if (ipLimited(request, 'blender-generate', 30)) return tooMany();
   let payload: unknown;
   try {
     payload = await request.json();

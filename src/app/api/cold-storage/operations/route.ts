@@ -19,44 +19,29 @@
 //   crates so they can find free space - never another farmer's name, phone
 //   or inventory.
 //
-// Identity hardening (audit D1): all POST actions are IP-rate-limited; when
-// the caller sends an Authorization Bearer token it is verified and bound to
-// the acted-on farmer / facility owner. Header-less calls stay allowed and
-// rate-limited, matching the platform-wide client-asserted identity model.
+// Identity: every call (except the pure engineering calculator) needs a signed-in
+// caller, verified with the sign-in service. Who the caller is for a facility
+// (its owner, a staff member of the owning business, the Super Admin, or a
+// farmer) is read from the database: `viewerRole`, `farmerId` and the like in
+// the request are never trusted. A farmer is always the signed-in account.
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import {
   calculateAppleChamberEngineering,
   calculatePsychrometricRelativeHumidity,
 } from '@/lib/coldStorageEngineeringEngine';
 import { ipLimited, tooMany } from '@/lib/server/sign';
+import { dbFor, orgAccessOf, runsFacility, verifiedCaller, type Caller, type OrgAccess } from '@/lib/server/callerAuth';
 
 export const dynamic = 'force-dynamic';
 
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    '';
-  return createClient(url, key, { auth: { persistSession: false } });
-}
+type Db = ReturnType<typeof dbFor>;
 
-/** The verified caller when an Authorization Bearer token is present, else null. */
-async function verifiedUser(
-  supabase: ReturnType<typeof getSupabase>,
-  request: Request,
-): Promise<{ id: string } | null> {
-  const header = request.headers.get('authorization') ?? '';
-  const match = /^Bearer\s+(.+)$/i.exec(header);
-  if (!match) return null;
-  const { data } = await supabase.auth.getUser(match[1].trim());
-  return data.user ? { id: data.user.id } : null;
-}
+const SIGN_IN = () => NextResponse.json({ ok: false, error: 'Please sign in to use cold storage.' }, { status: 401 });
+const FAILED = (what: string, status = 500) => NextResponse.json({ ok: false, error: what }, { status });
 
-/** 403 when a verified caller acts as a farmer other than themselves. */
-function farmerGuard(user: { id: string } | null, farmerId: unknown): NextResponse | null {
-  if (user && farmerId && String(user.id) !== String(farmerId)) {
+/** 403 when the signed-in account acts as a farmer other than themselves. */
+function farmerGuard(user: Caller, farmerId: unknown): NextResponse | null {
+  if (!farmerId || String(user.id) !== String(farmerId)) {
     return NextResponse.json(
       { ok: false, error: 'Signed-in account does not match the farmer on this request.' },
       { status: 403 },
@@ -65,37 +50,39 @@ function farmerGuard(user: { id: string } | null, farmerId: unknown): NextRespon
   return null;
 }
 
-/** 403 when a verified caller acts on a facility they do not own. */
+/** 403 unless the signed-in account runs this facility (its owner, staff of the owning business, or the Super Admin). */
 async function ownerGuard(
-  supabase: ReturnType<typeof getSupabase>,
-  user: { id: string } | null,
+  supabase: Db,
+  request: Request,
+  user: Caller,
   facilityId: unknown,
 ): Promise<NextResponse | null> {
-  if (!user || !facilityId) return null;
-  const { data: listing } = await supabase
-    .from('rental_listings')
-    .select('owner_id')
-    .eq('id', facilityId)
-    .single();
-  if (listing && String(listing.owner_id) !== String(user.id)) {
-    return NextResponse.json(
-      { ok: false, error: 'Only the cold storage owner of this facility can do that.' },
-      { status: 403 },
-    );
-  }
-  return null;
+  const denied = NextResponse.json(
+    { ok: false, error: 'Only the cold storage owner of this facility can do that.' },
+    { status: 403 },
+  );
+  if (!facilityId) return denied;
+  const access: OrgAccess = await orgAccessOf(request, supabase, user);
+  return (await runsFacility(supabase, user, access, String(facilityId))) ? null : denied;
 }
 
 export async function GET(request: Request) {
   if (ipLimited(request, 'cold-operations-get', 120)) return tooMany();
 
+  const caller = await verifiedCaller(request);
+  if (!caller) return SIGN_IN();
+  const supabase = dbFor(caller);
+
   const { searchParams } = new URL(request.url);
   const facilityId = searchParams.get('facilityId');
-  const viewerRole = (searchParams.get('viewerRole') || 'FARMER').toUpperCase();
-  const farmerId = searchParams.get('farmerId');
   const chamberCode = searchParams.get('chamberCode');
 
-  const supabase = getSupabase();
+  // Who is asking is the database's answer, not the address's: the owner (or staff, or the Super Admin) of this
+  // facility sees every farmer in it; anyone else sees capacity, and only their own bookings and crates.
+  const access = await orgAccessOf(request, supabase, caller);
+  const runsIt = facilityId ? await runsFacility(supabase, caller, access, facilityId) : false;
+  const viewerRole = access.superAdmin && runsIt ? 'ADMIN' : runsIt ? 'OWNER' : 'FARMER';
+  const farmerId = caller.id;
 
   // Fetch physical bins (aggregate capacity is visible to every role).
   let binsQuery = supabase
@@ -208,11 +195,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: 'Missing action' }, { status: 400 });
   }
 
-  const supabase = getSupabase();
   const nowIso = new Date().toISOString();
-  const user = await verifiedUser(supabase, request);
 
   // ACTION 1: LEAFLET 427 + APPLE CA ENGINEERING LOAD & EQUIPMENT SIZING.
+  // A pure calculation (it reads and writes nothing), so it needs no sign-in.
   if (body.action === 'CALCULATE_ENGINEERING_SPECS') {
     const result = calculateAppleChamberEngineering({
       lengthFt: Number(body.lengthFt || 100),
@@ -238,6 +224,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, engineering: result });
   }
+
+  // Everything below reads or changes a facility's records: only a signed-in account may.
+  const user = await verifiedCaller(request);
+  if (!user) return SIGN_IN();
+  const supabase = dbFor(user);
 
   // ACTION 2: FARMER SUBMITS BOOKING REQUEST.
   if (body.action === 'SUBMIT_BOOKING') {
@@ -303,7 +294,7 @@ export async function POST(request: Request) {
 
     if (error || !booking) {
       return NextResponse.json(
-        { ok: false, error: error?.message || 'Booking failed' },
+        { ok: false, error: 'Could not send the booking just now. Please try again.' },
         { status: 500 },
       );
     }
@@ -334,7 +325,7 @@ export async function POST(request: Request) {
       .select('facility_id')
       .eq('id', body.bookingId)
       .single();
-    const ownerBlock = await ownerGuard(supabase, user, existing?.facility_id);
+    const ownerBlock = await ownerGuard(supabase, request, user, existing?.facility_id);
     if (ownerBlock) return ownerBlock;
 
     const decision =
@@ -352,7 +343,7 @@ export async function POST(request: Request) {
 
     if (error || !booking) {
       return NextResponse.json(
-        { ok: false, error: error?.message || 'Booking not found' },
+        { ok: false, error: 'Booking not found.' },
         { status: 404 },
       );
     }
@@ -418,7 +409,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: 'Booking record not found' }, { status: 404 });
     }
 
-    const ownerBlock = await ownerGuard(supabase, user, booking.facility_id);
+    const ownerBlock = await ownerGuard(supabase, request, user, booking.facility_id);
     if (ownerBlock) return ownerBlock;
 
     // Find or initialize the physical bin (e.g. B-102, default max 100 crates).
@@ -473,7 +464,7 @@ export async function POST(request: Request) {
 
       if (createBinErr || !createdBin) {
         return NextResponse.json(
-          { ok: false, error: createBinErr?.message || 'Failed to initialize bin' },
+          { ok: false, error: 'Could not prepare this bin just now. Please try again.' },
           { status: 500 },
         );
       }
@@ -526,7 +517,7 @@ export async function POST(request: Request) {
 
     if (allocErr || !allocation) {
       return NextResponse.json(
-        { ok: false, error: allocErr?.message || 'Shared bin allocation failed' },
+        { ok: false, error: 'Could not allocate the crates just now. Please try again.' },
         { status: 500 },
       );
     }
@@ -656,7 +647,7 @@ export async function POST(request: Request) {
 
     // Owner confirms the outward gate dispatch: decrement the farmer's slice
     // and the physical bin occupancy.
-    const ownerBlock = await ownerGuard(supabase, user, alloc.facility_id);
+    const ownerBlock = await ownerGuard(supabase, request, user, alloc.facility_id);
     if (ownerBlock) return ownerBlock;
 
     const weightReleased = Number((cratesToRelease * alloc.crate_weight_kg).toFixed(2));
@@ -744,7 +735,7 @@ export async function POST(request: Request) {
 
   // ACTION 6: LOG LIVE CA CHAMBER TELEMETRY (TEMP, RH%, O2%, CO2%, ETHYLENE).
   if (body.action === 'LOG_CA_ENVIRONMENT') {
-    const ownerBlock = await ownerGuard(supabase, user, body.facilityId);
+    const ownerBlock = await ownerGuard(supabase, request, user, body.facilityId);
     if (ownerBlock) return ownerBlock;
 
     const tempF = Number(body.dryBulbTempF ?? 32.0);
@@ -803,7 +794,7 @@ export async function POST(request: Request) {
       .select('*')
       .single();
 
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (error) return FAILED('Could not save this reading just now. Please try again.');
 
     // Surface an ENVIRONMENT_ALERT notification so owners see alarms instantly.
     if (alertStatus !== 'NORMAL' && body.facilityId) {
