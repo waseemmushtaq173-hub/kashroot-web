@@ -95587,16 +95587,13 @@ export function cibrcLookupBanned(activeMolecule?: string): CibrcBanned[] {
 }
 
 export function fcoLookupEmbedded(fertiliserType: string, grade?: string): FcoStandard | null {
-  const q = fertiliserType.toLowerCase();
-  const exact = EMBEDDED_FCO_STANDARDS.find(
-    (s: FcoStandard) => s.fertiliser_type.toLowerCase() === q && (!grade || s.grade === grade),
-  );
+  const q = fertiliserType.trim().toLowerCase();
+  // A name that matches nothing gives nothing: never the first row of the list (which is Urea), shown for DAP or MOP.
+  if (!q) return null;
+  const gradeOk = (s: FcoStandard) => !grade || s.grade === grade || s.grade.toLowerCase().includes(grade.toLowerCase());
+  const exact = EMBEDDED_FCO_STANDARDS.find((s: FcoStandard) => s.fertiliser_type.toLowerCase() === q && gradeOk(s));
   if (exact) return exact;
-  return (
-    EMBEDDED_FCO_STANDARDS.find(
-      (s: FcoStandard) => s.fertiliser_type.toLowerCase().includes(q) || (!grade || s.grade.toLowerCase().includes(grade)),
-    ) ?? null
-  );
+  return EMBEDDED_FCO_STANDARDS.find((s: FcoStandard) => s.fertiliser_type.toLowerCase().includes(q) && gradeOk(s)) ?? null;
 }
 
 // ── Merged: embedded primary + Supabase rows loaded by the KashRoot team ──
