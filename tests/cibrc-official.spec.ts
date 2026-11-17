@@ -7,7 +7,7 @@ import { join } from 'node:path';
 
 import { expect, test } from '@playwright/test';
 
-import { identityWords, lookupCibrc, type CibrcData } from '@/lib/cibrcOfficial';
+import { identityWords, lookupCibrc, profileOf, type CibrcData } from '@/lib/cibrcOfficial';
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8');
 const data = JSON.parse(read('src/data/cibrc-official.json')) as CibrcData;
@@ -132,4 +132,36 @@ test('a fertiliser typed in the box says where the Government\'s standard is and
   // The typed standard itself is never put in the answer (the lab tab, which compares a report with a standard, is another screen).
   const answer = ui.slice(ui.indexOf("{mode === 'registry' && ("), ui.indexOf("{mode === 'lab' && ("));
   expect(answer).not.toMatch(/FCO_PRODUCTS|total_n_min|ws_p2o5_min|fcoLookup/);
+});
+
+test('the profile says what the Government approved a chemical for, from the lists only', () => {
+  // Dodine: a registered fungicide in two forms, not banned.
+  const dodine = profileOf(lookupCibrc(data, 'dodine'))!;
+  expect(dodine.uses).toEqual([{ label: 'Fungicides', purpose: 'controls fungal diseases', formulations: 2 }]);
+  expect(dodine.formulationNames).toEqual(['Dodine 40% SC', 'Dodine 65% WP']);
+  expect(dodine).toMatchObject({ formulationCount: 2, flagged: false, locust: false });
+  // Mancozeb is registered but restricted: flagged, still a fungicide.
+  const mancozeb = profileOf(lookupCibrc(data, 'mancozeb'))!;
+  expect(mancozeb.flagged).toBe(true);
+  expect(mancozeb.uses[0].label).toBe('Fungicides');
+  expect(mancozeb.formulationNames.length).toBeLessThanOrEqual(6);
+  // A banned chemical is flagged; one the lists never name has no profile at all.
+  expect(profileOf(lookupCibrc(data, 'paraquat'))?.flagged).toBe(true);
+  expect(profileOf(lookupCibrc(data, 'applin'))).toBeNull();
+  // Locust approvals are carried along, with their own doses shown in their own box.
+  expect(profileOf(lookupCibrc(data, 'malathion'))?.locust).toBe(true);
+  // Every class heading the Government uses has its plain meaning.
+  for (const c of new Set(data.formulations.rows.map((r) => r.category))) expect(profileOf({ ...lookupCibrc(data, 'x'), formulations: [{ ...data.formulations.rows[0], category: c, exact: false }] })?.uses[0].purpose, c).not.toBe('');
+});
+
+test('the answer screens show the profile, every column of an official row, and the official page for company and uses', () => {
+  const panel = read('src/components/fertilizer/OfficialCibrcPanel.tsx');
+  expect(panel).toContain('What the Government approved it for');
+  expect(panel).toContain('Company, crops and doses');
+  expect(panel).toContain('CIBRC_META.page');
+  const checker = read('src/components/fertilizer/FertilizerChecker.tsx');
+  // An imported official row shows its company and every column the file has, under the file's own heading.
+  expect(checker).toContain('Registered by (company)');
+  expect(checker).toContain('Object.entries(hit.details ?? {})');
+  expect(checker).toContain('Brand and company: the Government’s registered-products page');
 });

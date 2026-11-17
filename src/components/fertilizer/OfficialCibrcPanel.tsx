@@ -9,7 +9,7 @@
 import { useState } from 'react';
 import { BadgeCheck, CircleAlert, TriangleAlert } from 'lucide-react';
 
-import { BANNED_LABEL, CIBRC_META, CIBRC_SOURCE_NAME, type CibrcAnswer } from '@/lib/cibrcOfficial';
+import { BANNED_LABEL, CIBRC_META, CIBRC_SOURCE_NAME, profileOf, type CibrcAnswer } from '@/lib/cibrcOfficial';
 
 const count = (n: number) => n.toLocaleString('en-IN');
 const asOn = (d: string | null | undefined) => (d ? `as on ${d}` : '');
@@ -52,6 +52,7 @@ export function OfficialCibrcAnswerPanel({ answer, onPick }: { answer: CibrcAnsw
   const forms = allFormulations ? answer.formulations : answer.formulations.slice(0, SHOWN);
   // On the banned list (dated later than the registered lists): the ban applies, whatever an older list still shows.
   const bannedToo = answer.banned.some((x) => x.list === 'banned');
+  const profile = profileOf(answer);
   const bannedNote = bannedToo ? <p className="mt-1 font-semibold text-rose-800">This is also on the banned list above, which is dated later: the ban applies.</p> : null;
 
   if (answer.total === 0) {
@@ -102,6 +103,46 @@ export function OfficialCibrcAnswerPanel({ answer, onPick }: { answer: CibrcAnsw
             ))}
           </ul>
           <p className="mt-2 text-xs text-slate-600">List of pesticides banned, refused registration and restricted in use, {asOn(b.as_on)}.</p>
+        </Section>
+      )}
+
+      {profile && (
+        <Section tone="green" title="What the Government approved it for">
+          <dl className="mt-2 grid gap-x-4 gap-y-3 sm:grid-cols-[10.5rem_1fr]">
+            <dt className="font-semibold text-slate-800">Approved for</dt>
+            <dd>
+              <ul className="space-y-1">
+                {profile.uses.map((u) => (
+                  <li key={u.label}>
+                    <strong>{u.label}</strong>
+                    {u.purpose ? `: ${u.purpose}` : ''}
+                    <span className="text-xs text-slate-600"> ({count(u.formulations)} registered {u.formulations === 1 ? 'form' : 'forms'})</span>
+                  </li>
+                ))}
+                {profile.locust && <li><strong>Desert locust control</strong>: doses are in the box below</li>}
+              </ul>
+            </dd>
+            {profile.formulationCount > 0 && (
+              <>
+                <dt className="font-semibold text-slate-800">Registered forms</dt>
+                <dd>
+                  {profile.formulationNames.join(' · ')}
+                  {profile.formulationCount > profile.formulationNames.length ? ` · and ${count(profile.formulationCount - profile.formulationNames.length)} more below` : ''}
+                </dd>
+              </>
+            )}
+            <dt className="font-semibold text-slate-800">Banned or restricted</dt>
+            <dd>
+              {profile.flagged
+                ? <span className="font-semibold text-rose-800">See the notice above: read it before you use this.</span>
+                : `No. It is not on the banned, withdrawn, refused or restricted list (${asOn(b.as_on)}).`}
+            </dd>
+            <dt className="font-semibold text-slate-800">Company, crops and doses</dt>
+            <dd>
+              Published by CIB&RC in separate documents (who is registered to make it, and the crops, pests and doses it is approved for), not in these lists.{' '}
+              <a href={CIBRC_META.page} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-semibold text-sky-800 underline underline-offset-2">Open the official CIB&amp;RC page ↗</a>
+            </dd>
+          </dl>
         </Section>
       )}
 

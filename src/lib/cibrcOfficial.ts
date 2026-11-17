@@ -171,6 +171,65 @@ function levenshtein(a: string, b: string): number {
   return row[b.length];
 }
 
+/**
+ * What each official class of product is for, in a few plain words. The class names are the Government's (they head its
+ * formulation list); the words after them only say what the class means, never anything about one product.
+ */
+export const CLASS_PURPOSE: Record<string, string> = {
+  Insecticides: 'kills insect pests',
+  Fungicides: 'controls fungal diseases',
+  Herbicides: 'kills weeds',
+  'Bio-insecticides': 'controls insect pests with biological agents',
+  'Bio-fungicides': 'controls fungal diseases with biological agents',
+  'Plant growth regulators': 'regulates how the plant grows',
+  Nematicides: 'controls nematode worms in the soil',
+  'Insecticide + fungicide': 'controls insects and fungal diseases',
+  'Plant growth regulator + fungicide': 'regulates plant growth and controls fungal diseases',
+  Household: 'household pest control',
+  'Household (combination)': 'household pest control',
+  'Public health': 'public-health use against disease-carrying insects',
+  Rodenticides: 'rat and rodent control',
+};
+
+export interface ProfileUse {
+  /** The Government's own class name ("Fungicides", "Public health"). */
+  label: string;
+  /** What that class is for. */
+  purpose: string;
+  /** How many registered formulations of the chemical are in this class. */
+  formulations: number;
+}
+export interface Profile {
+  uses: ProfileUse[];
+  /** Registered formulations found, and the first few by name. */
+  formulationCount: number;
+  formulationNames: string[];
+  /** On a banned, withdrawn, refused or restricted list. */
+  flagged: boolean;
+  /** Also approved for desert locust control. */
+  locust: boolean;
+}
+
+/**
+ * What the official lists, taken together, say a chemical is approved for: its class (from the formulation list's headings),
+ * the forms it is registered in, whether it is flagged, and the other approvals (household, public health, desert locust).
+ * Null when nothing registered matched. Pure: every word comes from the rows given.
+ */
+export function profileOf(a: CibrcAnswer): Profile | null {
+  if (a.pesticides.length === 0 && a.formulations.length === 0 && a.household.length === 0) return null;
+  const byClass = new Map<string, number>();
+  for (const f of a.formulations) byClass.set(f.category, (byClass.get(f.category) ?? 0) + 1);
+  for (const h of a.household) byClass.set(h.category, (byClass.get(h.category) ?? 0) + 1);
+  const uses = [...byClass].map(([label, formulations]) => ({ label, purpose: CLASS_PURPOSE[label] ?? '', formulations })).sort((x, y) => y.formulations - x.formulations || x.label.localeCompare(y.label));
+  return {
+    uses,
+    formulationCount: a.formulations.length,
+    formulationNames: a.formulations.slice(0, 6).map((f) => f.name),
+    flagged: a.banned.length > 0 || a.restricted.length > 0,
+    locust: a.locust.length > 0,
+  };
+}
+
 /** Looks the typed text up in the five official lists. */
 export function lookupCibrc(data: CibrcData, query: string): CibrcAnswer {
   const q = query.trim().slice(0, 120);

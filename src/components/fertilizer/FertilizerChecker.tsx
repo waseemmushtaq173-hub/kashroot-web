@@ -605,19 +605,35 @@ function ListsHeld({ stats }: { stats: RegistryStats | null | undefined }) {
 }
 
 /** The official-list answer for one product, in one sentence, with its source and date. */
+const DETAIL_LABEL: Record<string, string> = { brand: 'Brand', formulation: 'Formulation', valid_until: 'Valid until', registered_on: 'Registered on', grade: 'Grade', category: 'Category' };
+/** The Government's own column heading as a label ("crop" → "Crop"). */
+const detailLabel = (key: string) => DETAIL_LABEL[key] ?? key.charAt(0).toUpperCase() + key.slice(1);
+
 function HitLine({ hit, strong = false }: { hit: OfficialHit; strong?: boolean }) {
-  const extra = (['brand', 'formulation', 'valid_until'] as const)
-    .map((k) => [k, hit.details?.[k]] as const)
-    .filter(([, v]) => typeof v === 'string' && v.trim());
-  const label = { brand: 'Brand', formulation: 'Formulation', valid_until: 'Valid until' } as const;
+  // Every column the Government's file has for this product (crop, pest, dose, validity…), under the file's own heading.
+  const extra = Object.entries(hit.details ?? {}).filter(([, v]) => typeof v === 'string' && v.trim());
   return (
     <div>
       <p className={strong ? 'text-base text-slate-900' : 'text-slate-900'}>
         <strong>{hit.name}</strong>
-        {hit.registrant ? <> by <strong>{hit.registrant}</strong></> : null}
         {hit.registration_no ? <>, registration <span className="break-all font-semibold">{hit.registration_no}</span></> : null}.
       </p>
-      {extra.length > 0 && <p className="text-xs text-slate-600">{extra.map(([k, v]) => `${label[k]}: ${v}`).join(' · ')}</p>}
+      {(hit.registrant || extra.length > 0) && (
+        <dl className="mt-1 grid gap-x-3 gap-y-0.5 text-xs text-slate-700 sm:grid-cols-[9rem_1fr]">
+          {hit.registrant && (
+            <>
+              <dt className="font-semibold text-slate-800">Registered by (company)</dt>
+              <dd>{hit.registrant}</dd>
+            </>
+          )}
+          {extra.map(([k, v]) => (
+            <div key={k} className="contents">
+              <dt className="font-semibold text-slate-800">{detailLabel(k)}</dt>
+              <dd>{v}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
       <p className="text-xs text-slate-600">
         Source:{' '}
         <a href={hit.source_url} target="_blank" rel="noopener noreferrer" className="font-medium text-sky-800 underline">{hit.source}</a>, updated {day(hit.imported_at)}.
@@ -705,7 +721,7 @@ function ScanResult({ result, account, onPhoto, officialTotal, isChecking, hasCo
       {hasCompletedSearch && !isChecking && matches === 0 && typed.kind !== 'batch' ? (
         <section aria-label="Not in the official lists" className="rounded-2xl bg-amber-50 p-4 text-amber-950 ring-1 ring-amber-200">
           <p className="flex items-center gap-2 text-base font-semibold"><CircleAlert className="h-5 w-5 shrink-0" aria-hidden /> Not found in the official lists TrueScan reads</p>
-          <p className="mt-1">{typed.kind === 'registration' ? 'The CIB&RC lists name chemicals and formulations; they do not carry registration numbers. Check this number on ppqs.gov.in. ' : 'A brand name is not in these lists: type the active ingredient printed on the label, for example “Mancozeb 75% WP”. '}{ASK}</p>
+          <p className="mt-1">{typed.kind === 'registration' ? 'The CIB&RC lists name chemicals and formulations; they do not carry registration numbers. Check this number on ppqs.gov.in. ' : 'A brand name is not in these lists: type the active ingredient printed on the label, for example “Mancozeb 75% WP”. '}{ASK}{' '}<a href={CIBRC_META.page} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-semibold underline underline-offset-2">Brand and company: the Government’s registered-products page ↗</a></p>
           <p className="mt-2 text-xs text-amber-900">Looked in the CIB&amp;RC registered, banned, restricted, household and locust lists{lists.held ? ` and ${stats?.total.toLocaleString('en-IN')} rows imported from the Government's own files (newest ${day(lists.last)})` : ''}. Check that you typed it exactly as printed.</p>
         </section>
       ) : null}
