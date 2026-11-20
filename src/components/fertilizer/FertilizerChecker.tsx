@@ -356,8 +356,8 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
                     productType: qrResult.outcome === 'BANNED' ? 'pesticide' : 'fertilizer',
-                    productName: qrResult.productName,
-                    manufacturer: qrResult.manufacturer,
+                    productName: qrResult.productName || 'Unknown product',
+                    manufacturer: qrResult.manufacturer || 'Unknown manufacturer',
                     batchNumber: qrResult.batchNumber,
                     registrationNumber: qrResult.registrationNumber,
                     expiryDate: qrResult.expiryDate,
@@ -372,6 +372,10 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
               onLabTest={() => {
                 setBagChecklistProduct(qrResult.productName);
                 setMode('bagChecklist');
+              }}
+              onTypeInstead={() => {
+                setQrResult(null);
+                setMode('registry');
               }}
               onClose={() => setQrResult(null)}
             />
