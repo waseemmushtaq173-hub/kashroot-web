@@ -489,7 +489,7 @@ export function QRCodeScanner({ onResult, onClose, allowedDomains = [], isOfflin
  * QRCodeResult — Shows the verification result with clear outcome badge.
  */
 export interface QRCodeVerificationResult {
-  outcome: 'VERIFIED_BY_MANUFACTURER' | 'REGISTERED_BATCH_UNVERIFIED' | 'EXPIRED' | 'BANNED' | 'NOT_FOUND' | 'PENDING_MANUFACTURER' | 'OFFLINE_SAVED_LIST';
+  outcome: 'VERIFIED_BY_MANUFACTURER' | 'REGISTERED_BATCH_UNVERIFIED' | 'EXPIRED' | 'BANNED' | 'NOT_FOUND' | 'PENDING_MANUFACTURER' | 'OFFLINE_SAVED_LIST' | 'UNRECOGNISED_QR';
   productName: string;
   manufacturer: string;
   registrationNumber?: string;
@@ -512,12 +512,22 @@ const OUTCOME_LABELS: Record<QRCodeVerificationResult['outcome'], { label: strin
   NOT_FOUND: { label: 'Not in Official Lists', tone: 'red', icon: <AlertCircle className="h-4 w-4" /> },
   PENDING_MANUFACTURER: { label: 'Manufacturer Verification Pending', tone: 'blue', icon: <Loader2 className="h-4 w-4 animate-spin" /> },
   OFFLINE_SAVED_LIST: { label: 'Checked Against Saved List', tone: 'blue', icon: <AlertCircle className="h-4 w-4" /> },
+  UNRECOGNISED_QR: { label: 'This QR is not a product code', tone: 'slate', icon: <AlertCircle className="h-4 w-4" /> },
 };
 
-export function QRCodeResult({ result, onReportFake, onLabTest, onClose }: {
+/** The official-list status in words a farmer reads, not the raw key. */
+const CIBRC_STATUS_WORDS: Record<NonNullable<QRCodeVerificationResult['cibrcStatus']>, string> = {
+  registered: 'Registered',
+  banned: 'Banned or restricted',
+  not_found: 'Not found in the official list',
+};
+
+export function QRCodeResult({ result, onReportFake, onLabTest, onTypeInstead, onClose }: {
   result: QRCodeVerificationResult;
   onReportFake?: () => void;
   onLabTest?: () => void;
+  /** For a QR that is not a product code: go to typing the registration number or name. */
+  onTypeInstead?: () => void;
   onClose: () => void;
 }) {
   const { label, tone, icon } = OUTCOME_LABELS[result.outcome];
@@ -532,8 +542,8 @@ export function QRCodeResult({ result, onReportFake, onLabTest, onClose }: {
           </p>
           <p className="mt-1 text-sm text-slate-600">{result.details}</p>
           <dl className="mt-4 grid gap-2 sm:grid-cols-2 text-sm">
-            <div><dt className="text-slate-500">Product</dt><dd className="font-medium text-slate-900">{result.productName}</dd></div>
-            <div><dt className="text-slate-500">Manufacturer</dt><dd className="font-medium text-slate-900">{result.manufacturer}</dd></div>
+            {result.productName && <div><dt className="text-slate-500">Product</dt><dd className="font-medium text-slate-900">{result.productName}</dd></div>}
+            {result.manufacturer && <div><dt className="text-slate-500">Manufacturer</dt><dd className="font-medium text-slate-900">{result.manufacturer}</dd></div>}
             {result.registrationNumber && <div><dt className="text-slate-500">Registration</dt><dd className="font-mono text-slate-900">{result.registrationNumber}</dd></div>}
             {result.batchNumber && <div><dt className="text-slate-500">Batch</dt><dd className="font-mono text-slate-900">{result.batchNumber}</dd></div>}
             {result.expiryDate && (
@@ -542,10 +552,10 @@ export function QRCodeResult({ result, onReportFake, onLabTest, onClose }: {
                 <dd className={`font-medium ${result.outcome === 'EXPIRED' ? 'text-rose-700' : 'text-slate-900'}`}>{result.expiryDate}</dd>
               </div>
             )}
-            {result.cibrcStatus && (
+            {result.cibrcStatus && result.outcome !== 'UNRECOGNISED_QR' && (
               <div>
                 <dt className="text-slate-500">CIB&RC Status</dt>
-                <dd className={`font-medium ${result.cibrcStatus === 'banned' ? 'text-rose-700' : result.cibrcStatus === 'registered' ? 'text-forest' : 'text-slate-900'}`}>{result.cibrcStatus}</dd>
+                <dd className={`font-medium ${result.cibrcStatus === 'banned' ? 'text-rose-700' : result.cibrcStatus === 'registered' ? 'text-forest' : 'text-slate-900'}`}>{CIBRC_STATUS_WORDS[result.cibrcStatus]}</dd>
               </div>
             )}
           </dl>
@@ -557,7 +567,10 @@ export function QRCodeResult({ result, onReportFake, onLabTest, onClose }: {
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2">
-        {onReportFake && result.outcome !== 'VERIFIED_BY_MANUFACTURER' && result.outcome !== 'OFFLINE_SAVED_LIST' && (
+        {onTypeInstead && result.outcome === 'UNRECOGNISED_QR' && (
+          <Btn theme={theme} variant="soft" onClick={onTypeInstead} className="min-h-11">Type the number or name instead</Btn>
+        )}
+        {onReportFake && result.outcome !== 'VERIFIED_BY_MANUFACTURER' && result.outcome !== 'OFFLINE_SAVED_LIST' && result.outcome !== 'UNRECOGNISED_QR' && (
           <Btn theme={theme} variant="danger" icon={AlertCircle} onClick={onReportFake} className="min-h-11">
             Report Suspected Fake
           </Btn>

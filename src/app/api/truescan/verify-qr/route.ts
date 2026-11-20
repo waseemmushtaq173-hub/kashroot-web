@@ -19,6 +19,8 @@
  * - NOT_FOUND: not in any official list
  * - PENDING_MANUFACTURER: manufacturer page unreachable / timeout
  * - OFFLINE_SAVED_LIST: offline mode, checked against embedded registry only
+ * - UNRECOGNISED_QR: the QR is a web link (or text) that carries no registration, batch or product TrueScan can check
+ *   (for example a drink bottle's plant-address page). It is NOT called counterfeit: it is simply not a product code.
  */
 import { NextResponse } from 'next/server';
 
@@ -80,6 +82,27 @@ function extractVerificationUrl(qrText: string): string | null {
   return null;
 }
 
+/**
+ * A QR that is a web link to a site we do not check (or any other text with no product in it) is not a fertiliser or
+ * pesticide code. Say so plainly, instead of calling it "not in the official lists" and "may be counterfeit".
+ */
+function describeUnrecognisedQr(qrText: string): string {
+  const link = extractVerificationUrl(qrText);
+  let where = '';
+  if (link) {
+    try {
+      where = ` to ${new URL(link).hostname}`;
+    } catch {
+      where = '';
+    }
+  }
+  return (
+    `This QR code is a web link${where}. It does not carry a registration number, batch or product name that TrueScan can check, ` +
+    `and TrueScan does not follow links it does not know. TrueScan checks pesticides and fertilisers: ` +
+    `type the registration number (CIR-…) or the product name printed on the label instead.`
+  );
+}
+
 interface VerifyRequest {
   qrText: string;
   productName?: string;
@@ -90,7 +113,7 @@ interface VerifyRequest {
 }
 
 interface VerifyResponse {
-  outcome: 'VERIFIED_BY_MANUFACTURER' | 'REGISTERED_BATCH_UNVERIFIED' | 'EXPIRED' | 'BANNED' | 'NOT_FOUND' | 'PENDING_MANUFACTURER' | 'OFFLINE_SAVED_LIST';
+  outcome: 'VERIFIED_BY_MANUFACTURER' | 'REGISTERED_BATCH_UNVERIFIED' | 'EXPIRED' | 'BANNED' | 'NOT_FOUND' | 'PENDING_MANUFACTURER' | 'OFFLINE_SAVED_LIST' | 'UNRECOGNISED_QR';
   productName: string;
   manufacturer: string;
   registrationNumber?: string;
@@ -130,7 +153,9 @@ export async function POST(request: Request): Promise<Response> {
   const checkedAt = new Date().toISOString();
 
   // ─── OFFLINE MODE ───
-  if (isOffline || !navigator?.onLine) {
+  // Only the phone knows whether it is online: it sends `isOffline`. (On the server `navigator.onLine` is undefined, so
+  // checking it here made every scan "offline" and skipped the online checks.)
+  if (isOffline === true) {
     return handleOfflineVerification(qrText, productName, batchNumber, expiryDate, registrationNumber, checkedAt);
   }
 
@@ -231,6 +256,10 @@ export async function POST(request: Request): Promise<Response> {
   } else if (cibrcStatus === 'registered' || hasFcoStandard) {
     outcome = 'REGISTERED_BATCH_UNVERIFIED';
     details = `This product is in the official Government list (${cibrcStatus === 'registered' ? 'CIB&RC registered' : ''}${cibrcStatus === 'registered' && hasFcoStandard ? ' + ' : ''}${hasFcoStandard ? 'FCO standard' : ''}), but the manufacturer has not verified this specific batch.`;
+  } else if (verificationUrl && !isDomainAllowed(verificationUrl)) {
+    // A link to a site we do not check, and nothing in the official lists: not a product code.
+    outcome = 'UNRECOGNISED_QR';
+    details = describeUnrecognisedQr(qrText);
   } else {
     outcome = 'NOT_FOUND';
     details = `This product is not found in the official CIB&RC registered pesticides, banned list, or FCO fertiliser standards. It may be unregistered, counterfeit, or a new product not yet in the list.`;
@@ -238,8 +267,8 @@ export async function POST(request: Request): Promise<Response> {
 
   return NextResponse.json({
     outcome,
-    productName: finalProductName || 'Unknown product',
-    manufacturer: manufacturer || 'Unknown manufacturer',
+    productName: finalProductName,
+    manufacturer,
     registrationNumber,
     batchNumber,
     expiryDate,
@@ -316,6 +345,9 @@ function handleOfflineVerification(
   } else if (cibrcStatus === 'registered' || hasFcoStandard) {
     outcome = 'OFFLINE_SAVED_LIST';
     details = `Checked against saved official lists on this phone (${cibrcStatus === 'registered' ? 'CIB&RC registered' : ''}${cibrcStatus === 'registered' && hasFcoStandard ? ' + ' : ''}${hasFcoStandard ? 'FCO standard' : ''}). Manufacturer verification requires internet — pending.`;
+  } else if (extractVerificationUrl(qrText) && !isDomainAllowed(extractVerificationUrl(qrText) as string)) {
+    outcome = 'UNRECOGNISED_QR';
+    details = describeUnrecognisedQr(qrText);
   } else {
     outcome = 'OFFLINE_SAVED_LIST';
     details = `Not found in saved official lists on this phone. Manufacturer verification requires internet — pending.`;
@@ -323,8 +355,8 @@ function handleOfflineVerification(
 
   return NextResponse.json({
     outcome,
-    productName: finalProductName || 'Unknown product',
-    manufacturer: manufacturer || 'Unknown manufacturer',
+    productName: finalProductName,
+    manufacturer,
     registrationNumber,
     batchNumber,
     expiryDate,
