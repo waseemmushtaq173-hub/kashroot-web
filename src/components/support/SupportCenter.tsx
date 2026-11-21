@@ -21,6 +21,7 @@ import { authFetch } from '@/lib/auth-fetch';
 import { classifyFetchError } from '@/lib/onlineFirstClient';
 import { supabase } from '@/lib/supabase';
 import { HELP_TOPICS, TOPIC_LABEL, type SupportTopic } from '@/lib/helpTopics';
+import { LangName } from '@/components/voice/LangName';
 import { isRtl, LANG_LABEL, speak, stopSpeaking, type SpeechLang } from '@/lib/client/speech';
 import { rememberedLang, rememberLang } from '@/lib/langDetect';
 import { SITE_URL, SOCIAL_LINKS } from '@/lib/site';
@@ -300,7 +301,7 @@ export function SupportCenter() {
             }}
             className={`min-h-11 min-w-11 cursor-pointer rounded-xl px-4 text-sm font-bold ring-1 ${lang === l ? 'bg-forest text-white ring-forest-deep' : 'bg-white text-slate-800 ring-slate-300 hover:bg-forest-soft'}`}
           >
-            {LANG_LABEL[l]}
+            <LangName lang={l} label={LANG_LABEL[l]} />
           </button>
         ))}
       </div>

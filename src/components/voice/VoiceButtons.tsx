@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Mic, Square, Volume2 } from 'lucide-react';
 
+import { LangName } from '@/components/voice/LangName';
 import { bhashiniAsrAvailable, isRtl, LANG_LABEL, listen, recognitionAvailable, speak, stopSpeaking, voiceHint, type SpeechLang } from '@/lib/client/speech';
 
 export function SpeakButton({ text, lang, speech, label = 'Listen', className = '', autoPlay = false }: { text: string; lang: SpeechLang; speech?: string; label?: string; className?: string; autoPlay?: boolean }) {
@@ -137,7 +138,7 @@ export function LangPicker(props: PickerProps) {
           dir={l !== 'doi' && isRtl(l) ? 'rtl' : undefined}
           className={`min-h-11 cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold transition ${value === l ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
         >
-          {LABEL[l]}
+          <LangName lang={l} label={LABEL[l]} />
         </button>
       ))}
     </div>

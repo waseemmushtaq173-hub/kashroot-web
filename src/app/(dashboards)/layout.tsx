@@ -99,7 +99,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     // portals they signed in to here and used in the last 12 hours. Each
     // portal has its own sign-in: a session from another portal does not
     // open this one, and a locked one goes to its sign-in ("Continue as …").
-    void restoreSession().then(async (found) => {
+    // Admin and the KashRoot Hub are decided by the staff role itself: they wait for the database's answer. Every other portal opens at once on what this device knew.
+    const team = ['admin', 'hub'] as const;
+    const here = portalForSegment(segment);
+    void restoreSession({ quickRoles: Boolean(here) && !(team as readonly string[]).includes(here ?? '') }).then(async (found) => {
       if (!live) return;
       const here = portalForSegment(segment);
       let active = found;
