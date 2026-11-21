@@ -76,7 +76,7 @@ export function ShellTabs({
       aria-label={label}
       aria-orientation={orientation}
       onKeyDown={onKeyDown}
-      className={vertical ? 'flex flex-col gap-1' : 'flex w-max gap-2'}
+      className={vertical ? 'flex flex-col gap-1' : `flex w-max ${dock ? 'gap-1' : 'gap-2'}`}
     >
       {tabs.map(({ id, label: name, icon: Icon, count }) => {
         const active = id === activeTab;
@@ -111,7 +111,7 @@ export function ShellTabs({
             {badge}
           </button>
         ) : dock ? (
-          // The phone's bottom bar: the icon above a short name, easy to find and tap (the open one is the white pill).
+          // The phone's bottom bar: the icon above a short name (the open one is the white pill). The bar is exactly as tall as the microphone button.
           <button
             key={id}
             id={`${idPrefix}-${id}`}
@@ -121,14 +121,15 @@ export function ShellTabs({
             aria-controls={panelId}
             tabIndex={id === current ? 0 : -1}
             onClick={() => onSelect(id)}
-            className={`relative inline-flex min-h-14 min-w-[4.75rem] max-w-[7rem] shrink-0 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-2xl px-2.5 py-1.5 text-center text-xs font-semibold leading-tight transition ${FOCUS} focus-visible:outline-champagne ${
+            className={`relative inline-flex h-full min-w-[4.25rem] max-w-[6rem] shrink-0 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-2xl px-2 text-center text-xs font-semibold leading-[14px] transition ${FOCUS} focus-visible:outline-champagne ${
               active ? 'bg-forest-soft text-forest shadow-[inset_0_1px_0_#fff,0_3px_0_#C6A45B]' : 'text-white/90 hover:bg-white/10 hover:text-white'
             }`}
           >
-            {Icon && <Icon className="h-6 w-6 shrink-0" aria-hidden />}
-            <span className="[overflow-wrap:anywhere]">{name}</span>
+            {Icon && <Icon className="h-5 w-5 shrink-0" aria-hidden />}
+            {/* One or two short lines: a longer name is cut, never allowed to make the bar taller. */}
+            <span className="line-clamp-2 [overflow-wrap:anywhere]">{name}</span>
             {typeof count === 'number' && (
-              <span className={`absolute right-1 top-0.5 inline-grid min-w-[1.25rem] place-items-center rounded-full px-1 text-[11px] font-bold tabular-nums ${active ? 'bg-forest text-white' : 'bg-champagne text-forest-deep'}`}>{count}</span>
+              <span className={`absolute right-0.5 top-0 inline-grid min-w-[1.1rem] place-items-center rounded-full px-1 text-[11px] font-bold leading-4 tabular-nums ${active ? 'bg-forest text-white' : 'bg-champagne text-forest-deep'}`}>{count}</span>
             )}
           </button>
         ) : (

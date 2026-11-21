@@ -38,12 +38,13 @@ test.describe('phone', () => {
     const mic = (await page.getByRole('button', { name: /help on this page/i }).boundingBox())!;
     const view = await page.evaluate(() => ({ w: window.innerWidth, h: document.documentElement.clientHeight, scale: window.visualViewport!.scale }));
     expect(view.scale, 'the phone shows the 800 px page at about half size').toBeLessThan(0.6);
-    expect(box.height * view.scale, 'tall enough for a thumb').toBeGreaterThan(55);
+    expect(box.height * view.scale, 'tall enough for a thumb, not taller than a phone bar (64 px)').toBeGreaterThan(55);
+    expect(box.height * view.scale).toBeLessThan(70);
     expect(box.y + box.height, 'inside the screen, above its bottom edge').toBeLessThanOrEqual(view.h);
     expect(box.x + box.width, 'no overlap with the microphone').toBeLessThan(mic.x);
     // Section buttons sit in a row you can scroll; the first ones are on screen at once.
     const tabs = dock.getByRole('tab');
-    await expect(tabs).toHaveCount(5);
+    await expect(tabs).toHaveCount(6);
     for (const t of await tabs.all()) expect((await t.boundingBox())!.height * view.scale, 'a tap target of 44 px or more').toBeGreaterThanOrEqual(44);
     // The sections at the top of the page are replaced by the bar, not shown twice.
     await expect(page.getByRole('tab', { name: 'Overview' })).toHaveCount(1);
@@ -68,6 +69,30 @@ test.describe('phone', () => {
     // A large screen has no bar and takes no room (see below); here the variable is also cleared when the bar goes.
   });
 
+  test('the bar slides away while the page is read downwards and comes back on the way up', async ({ page }) => {
+    await asFarmerPortal(page);
+    const dock = page.locator('[data-kr-dock]');
+    const room = () => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--kr-dock-h'));
+    const before = await room();
+    expect(before).not.toBe('');
+    await expect(dock).not.toHaveAttribute('inert', '');
+    // Reading down the page: the bar goes, and can be neither tapped nor reached with the keyboard.
+    await page.evaluate(() => window.scrollTo(0, 500));
+    await expect(dock).toHaveAttribute('data-hidden', 'true');
+    await expect(dock).toHaveAttribute('inert', '');
+    const h = await page.evaluate(() => document.documentElement.clientHeight);
+    await expect.poll(async () => (await dock.boundingBox())!.y, { timeout: 3000 }).toBeGreaterThanOrEqual(h);
+    // The room it takes is kept, so the page does not jump under the finger.
+    expect(await room()).toBe(before);
+    // A little up and it is back.
+    await page.evaluate(() => window.scrollTo(0, 350));
+    await expect(dock).not.toHaveAttribute('data-hidden', 'true');
+    await expect(dock).not.toHaveAttribute('inert', '');
+    // At the top of the page it is always there.
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(dock).not.toHaveAttribute('data-hidden', 'true');
+  });
+
   test('the bar, the greeting and the chat have readable colours', async ({ page }) => {
     await asFarmerPortal(page);
     await page.addScriptTag({ path: axePath });
@@ -79,6 +104,39 @@ test.describe('phone', () => {
     expect(bad, bad.join('\n')).toEqual([]);
   });
 });
+
+for (const width of [320, 360, 412]) {
+  test.describe(`phone, ${width} px wide`, () => {
+    test.use({ viewport: { width, height: 800 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+
+    test('the bar and the microphone button are a pair: the same height, level, a hand\'s width apart', async ({ page }) => {
+      await asFarmerPortal(page);
+      const dock = (await page.locator('[data-kr-dock]').boundingBox())!;
+      const mic = (await page.getByRole('button', { name: /help on this page/i }).boundingBox())!;
+      const scale = await page.evaluate(() => window.visualViewport!.scale);
+      // In the phone's own pixels (the page is shown shrunk by `scale`).
+      const px = (n: number) => n * scale;
+      expect(Math.abs(px(dock.height) - px(mic.height)), 'same height').toBeLessThan(1.5);
+      expect(Math.abs(dock.y + dock.height - (mic.y + mic.height)), 'standing on the same line').toBeLessThan(1.5);
+      const gap = px(mic.x - (dock.x + dock.width));
+      expect(gap, 'not touching').toBeGreaterThan(8);
+      expect(gap, 'not far apart').toBeLessThan(16);
+      // The bar's right edge is on the microphone's side of the page: nothing of the bar is under the button.
+      expect(dock.x + dock.width).toBeLessThan(mic.x);
+    });
+
+    test('a long section name stays inside the bar and does not make it taller', async ({ page }) => {
+      await asFarmerPortal(page);
+      const dock = page.locator('[data-kr-dock]');
+      const tab = dock.getByRole('tab', { name: 'My stored apples' });
+      const t = (await tab.boundingBox())!;
+      const d = (await dock.boundingBox())!;
+      expect(t.height, 'inside the bar').toBeLessThan(d.height);
+      expect(t.y).toBeGreaterThanOrEqual(d.y);
+      expect(t.y + t.height).toBeLessThanOrEqual(d.y + d.height);
+    });
+  });
+}
 
 test.describe('large screen', () => {
   test.use({ viewport: { width: 1280, height: 860 } });
