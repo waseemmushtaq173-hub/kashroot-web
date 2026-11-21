@@ -54,7 +54,7 @@ export function ShellTestPage() {
         <ChatBubble message={msg(1, 'farmer', 'me', 'Sample Grower', 'My apple leaves have dark spots.')} mine asExpert={false} lang="en" />
         <ChatBubble message={msg(2, 'expert', 'ex', 'Sample Expert', 'Please tell me since when this is happening.')} mine={false} asExpert={false} lang="en" />
       </ol>
-      <div className="mt-8 h-[150rem]" aria-hidden />
+      <div className="mt-8 h-[60rem]" aria-hidden />
     </PortalShell>
   );
 }

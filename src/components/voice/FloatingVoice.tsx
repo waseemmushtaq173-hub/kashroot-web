@@ -21,7 +21,6 @@ import { Loader2, Mic, X } from 'lucide-react';
 
 import { PageGuide } from '@/components/voice/PageGuide';
 import { portalOfPath } from '@/lib/auth/roles';
-import { usePhoneZoom } from '@/lib/client/phoneZoom';
 
 // The assistant itself loads only when someone taps the microphone.
 const VoiceConcierge = dynamic(() => import('@/components/voice/VoiceConcierge').then((m) => m.VoiceConcierge), {
@@ -37,14 +36,26 @@ const PAGES = ['/', '/compare-prices', '/mandi-weather', '/supplies/tester', '/e
 
 const noSubscribe = () => () => undefined;
 
+/**
+ * Phones show the 800px-wide page shrunk to fit the screen (app/layout.tsx).
+ * The microphone and the panel are grown back by the same amount, so they
+ * are phone-sized: a big button to tap and text that can be read.
+ */
+function onScale(change: () => void) {
+  const vv = window.visualViewport;
+  vv?.addEventListener('resize', change);
+  return () => vv?.removeEventListener('resize', change);
+}
+const readScale = () => Math.min(1, Math.max(0.25, window.visualViewport?.scale ?? 1));
+
 export function FloatingVoice() {
   const pathname = usePathname();
   const inPortal = portalOfPath(pathname) !== null;
   const here = PAGES.includes(pathname) || inPortal;
   // Only in the browser: <body> is where it is drawn.
   const browser = useSyncExternalStore(noSubscribe, () => true, () => false);
-  // The microphone and the panel are grown back by the phone's shrink factor: a big button to tap and text that can be read.
-  const zoom = usePhoneZoom();
+  const scale = useSyncExternalStore(onScale, readScale, () => 1);
+  const zoom = scale < 0.95 ? 1 / scale : 1;
   const phone = zoom > 1;
   const [open, setOpen] = useState(false);
   const [panelShown, setPanelShown] = useState(false);
