@@ -8,8 +8,8 @@
  * under 100 ms with no hardware permission prompt. Once the camera is requested
  * the <video> element stays mounted the whole time (the spinner overlays it), so
  * `videoRef.current` is never null when the stream arrives. A 2-step constraint
- * request with a 1.5 s timeout guard falls back to the plainest laptop webcam,
- * and decoding runs live via the browser's BarcodeDetector with bundled
+ * request falls back to the plainest laptop webcam (a short timeout applies only once the camera is allowed: the
+ * time a person takes to tap "Allow" never counts), and decoding runs live via the browser's BarcodeDetector with bundled
  * ZXing-wasm / jsQR fallbacks (no CDN — the CSP blocks third-party scripts).
  * An "Upload QR / Label Image from Device" input sits next to the live feed so
  * a saved photo of a bag QR or label can be scanned instantly.
@@ -19,6 +19,7 @@ import { AlertCircle, Camera, CheckCircle2, ImageUp, Loader2, QrCode, RotateCcw,
 import type { ReadInputBarcodeFormat } from 'zxing-wasm/reader';
 
 import { Btn, INPUT, PORTAL_THEMES } from '@/components/portal/kit';
+import { cameraPermission, cameraTimeoutMs, isPermissionDenied, PERMISSION_DENIED_TEXT, requestStreamWithTimeout } from '@/lib/fertilizer/cameraStart';
 
 const theme = PORTAL_THEMES.dealer;
 
@@ -84,43 +85,6 @@ async function decodeCanvas(canvas: HTMLCanvasElement, thorough = false): Promis
   return jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' })?.data ?? null;
 }
 
-/**
- * getUserMedia raced against a timeout: a slow laptop webcam (or a stuck
- * permission prompt) must not hold the "Starting camera…" spinner for ever —
- * after `ms` the slow request is abandoned (its tracks are stopped if it ever
- * resolves) and the caller falls back to the plainest constraints.
- */
-function requestStreamWithTimeout(constraints: MediaStreamConstraints, ms = 1500): Promise<MediaStream> {
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    const request = navigator.mediaDevices.getUserMedia(constraints);
-    const timer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      // If the slow request resolves late, stop its tracks so no camera stays on.
-      void request.then((late) => late.getTracks().forEach((t) => t.stop())).catch(() => {});
-      reject(new Error('Camera took too long to start'));
-    }, ms);
-    void request.then(
-      (stream) => {
-        if (settled) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-        settled = true;
-        clearTimeout(timer);
-        resolve(stream);
-      },
-      (err) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        reject(err);
-      },
-    );
-  });
-}
-
 type CameraState = 'idle' | 'starting' | 'ready' | 'error';
 type FacingMode = 'environment' | 'user';
 
@@ -147,6 +111,7 @@ export function QRCodeScanner({ onResult, onClose, allowedDomains = [], isOfflin
   const [manualCode, setManualCode] = useState('');
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [awaitingPermission, setAwaitingPermission] = useState(false);
 
   // The latest onResult without restarting the decode loop on every render.
   const onResultRef = useRef(onResult);
@@ -190,10 +155,9 @@ export function QRCodeScanner({ onResult, onClose, allowedDomains = [], isOfflin
 
   /**
    * 2-step constraint request: the rich constraints first (rear camera, 720p),
-   * then — on OverconstrainedError / NotFoundError / NotReadableError or if it
-   * takes longer than 1.5 s (slow Windows laptop webcam) — the plainest
-   * `{ video: true }`. Resolves in well under a second on most devices, so
-   * "Starting camera…" disappears almost immediately.
+   * then the plainest `{ video: true }` if that fails (or, once the camera is already allowed, if it takes longer
+   * than 1.5 s: a slow laptop webcam). While the browser's "Allow camera?" box may still be open there is no
+   * timeout, so the time a person takes to tap Allow never ends the request (see lib/fertilizer/cameraStart).
    */
   const startCamera = useCallback(
     async (mode?: FacingMode) => {
@@ -203,22 +167,33 @@ export function QRCodeScanner({ onResult, onClose, allowedDomains = [], isOfflin
       setPhotoError(null);
       setCameraState('starting');
       const facing = mode ?? facingMode;
+      const permission = await cameraPermission();
+      if (runIdRef.current !== run) return;
+      if (permission === 'denied') {
+        setError(PERMISSION_DENIED_TEXT);
+        setCameraState('error');
+        return;
+      }
+      // Not yet allowed: the person may be answering the browser's box, so no timeout and a clear message.
+      setAwaitingPermission(permission !== 'granted');
       let stream: MediaStream | null = null;
       try {
-        stream = await requestStreamWithTimeout({
-          video: { facingMode: { ideal: facing }, width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: false,
-        });
-      } catch {
         try {
-          stream = await requestStreamWithTimeout({ video: true, audio: false });
-        } catch (err) {
-          if (runIdRef.current !== run) return;
-          const msg = err instanceof Error ? err.message : 'Camera access denied';
-          setError(msg);
-          setCameraState('error');
-          return;
+          stream = await requestStreamWithTimeout(
+            { video: { facingMode: { ideal: facing }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
+            cameraTimeoutMs(permission, 'rich'),
+          );
+        } catch (first) {
+          if (isPermissionDenied(first)) throw first;
+          stream = await requestStreamWithTimeout({ video: true, audio: false }, cameraTimeoutMs(permission, 'plain'));
         }
+      } catch (err) {
+        if (runIdRef.current !== run) return;
+        setError(isPermissionDenied(err) ? PERMISSION_DENIED_TEXT : err instanceof Error ? err.message : 'Camera access denied');
+        setCameraState('error');
+        return;
+      } finally {
+        if (runIdRef.current === run) setAwaitingPermission(false);
       }
       if (runIdRef.current !== run) {
         stream.getTracks().forEach((t) => t.stop());
@@ -364,7 +339,7 @@ export function QRCodeScanner({ onResult, onClose, allowedDomains = [], isOfflin
           {cameraState === 'starting' && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70 text-center">
               <Loader2 className="h-10 w-10 animate-spin text-forest-mid" aria-hidden />
-              <p className="text-sm text-white/90">Starting camera…</p>
+              <p className="px-6 text-sm text-white/90">{awaitingPermission ? 'Waiting for camera permission. Tap Allow in your browser\'s box.' : 'Starting camera…'}</p>
             </div>
           )}
 

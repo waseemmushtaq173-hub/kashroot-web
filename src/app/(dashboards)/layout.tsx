@@ -274,7 +274,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   // Every portal renders inside PortalShell (bright, kr-light scoped); the
   // layout only adds the site chrome around it.
   return (
-    <div className="kr-light flex min-h-screen flex-col bg-gradient-to-br from-forest-soft via-white to-amber-50 text-slate-900">
+    // The padding is the room the phone's floating bottom bar takes (set by ShellDock while it is on the page): the footer is never hidden behind it.
+    <div style={{ paddingBottom: 'var(--kr-dock-h, 0px)' }} className="kr-light flex min-h-screen flex-col bg-gradient-to-br from-forest-soft via-white to-amber-50 text-slate-900">
       {ownBar && <SiteHeader tone="light" portal={portal} />}
       {portal && KYC_PORTALS.includes(portal) && (kyc?.rules?.kyc_required ? kycMissing(kyc.rules, kyc.status) : MONEY_PORTALS.includes(portal) && !kycDone && !kyc?.status?.aadhaar_verified_at) && (
         <Suspense fallback={null}>
