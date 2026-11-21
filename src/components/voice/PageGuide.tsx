@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { Square, Volume2 } from 'lucide-react';
 
 import { guideFor, guideIn } from '@/lib/portalGuide';
+import { LangName } from '@/components/voice/LangName';
 import { isRtl, LANG_LABEL, speak, stopSpeaking, type SpeechLang } from '@/lib/client/speech';
 import { rememberedLang, rememberLang } from '@/lib/langDetect';
 
@@ -71,7 +72,7 @@ export function PageGuide({ path }: { path: string }) {
               }}
               className={`min-h-11 min-w-11 cursor-pointer rounded-xl px-3 text-sm font-bold ring-1 transition ${lang === l ? 'bg-forest text-white ring-forest-deep' : 'bg-white text-slate-800 ring-slate-900/10 hover:bg-forest-soft'}`}
             >
-              {LANG_LABEL[l]}
+              <LangName lang={l} label={LANG_LABEL[l]} />
             </button>
           ))}
         </div>

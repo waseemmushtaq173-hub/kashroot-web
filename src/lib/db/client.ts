@@ -7,7 +7,7 @@
  * what the signed-in person is allowed to.
  */
 import { supabase, supabaseConfigured } from '@/lib/supabase';
-import { staffRolesOf } from '@/lib/auth/staffRoles';
+import { staffRolesQuick } from '@/lib/auth/staffRoles';
 import { langFromPreference, type SpeechLang } from '@/lib/client/speech';
 
 export { supabase, supabaseConfigured };
@@ -101,7 +101,8 @@ async function accountOf(user: { id: string; email?: string; user_metadata?: Rec
     .filter(([k, v]) => k.startsWith('profile_') && v && typeof v === 'object')
     .map(([, v]) => v as Record<string, unknown>);
   const pick = (key: string) => String(profiles.map((p) => p[key]).find((v) => typeof v === 'string' && v.trim()) ?? '');
-  const staff = await staffRolesOf(user.id);
+  // On what this device already knows when it does (the answer is renewed in the background): the account, and the page behind it, do not wait for the database.
+  const staff = await staffRolesQuick(user.id);
   return {
     id: user.id,
     email: user.email ?? '',

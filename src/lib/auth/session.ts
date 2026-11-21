@@ -38,7 +38,7 @@ import {
   touchPortal,
   USE_STEP_MS,
 } from '@/lib/auth/portalAccess';
-import { forgetStaffRoles, staffRolesOf } from '@/lib/auth/staffRoles';
+import { forgetStaffRoles, staffRolesOf, staffRolesQuick } from '@/lib/auth/staffRoles';
 import { isPortalId, PORTALS, PUBLIC_PORTAL_IDS, type PortalId } from '@/lib/auth/roles';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 
@@ -138,9 +138,11 @@ function listen() {
 
 /**
  * The signed-in person on this device, or null. Refreshes an expired token
- * and keeps the stored roles in step.
+ * and keeps the stored roles in step. `quickRoles`: do not wait for the
+ * database's staff roles when this device already knows them (see
+ * lib/auth/staffRoles) — only for portals that do not decide on them.
  */
-export async function restoreSession(): Promise<ActiveSession | null> {
+export async function restoreSession(options: { quickRoles?: boolean } = {}): Promise<ActiveSession | null> {
   if (!supabaseConfigured || typeof window === 'undefined') return null;
   listen();
   // Unused for days: signed out first (nothing of the old session is used).
@@ -165,7 +167,8 @@ export async function restoreSession(): Promise<ActiveSession | null> {
     // itself as soon as it can.
   }
   const user = session.user;
-  const roles = [...new Set([...rolesOf(user), ...(await staffRolesOf(user.id))])];
+  // `quickRoles`: a portal that does not depend on the staff roles opens on what this device already knew, instead of waiting for the database.
+  const roles = [...new Set([...rolesOf(user), ...(await (options.quickRoles ? staffRolesQuick(user.id) : staffRolesOf(user.id)))])];
   const stored = read('user_role');
   tokenStore.setToken(session.access_token, stored && roles.includes(stored) ? stored : roles[0], roles);
   touchActivity();
