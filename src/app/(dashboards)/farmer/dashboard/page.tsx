@@ -19,6 +19,7 @@
  * from Open-Meteo for the farmer's district (My details), next to the scab
  * risk map and the spray log.
  */
+import dynamic from 'next/dynamic';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { ChinarLeaf } from '@/components/brand/ChinarLeaf';
 import { useSearchParams } from 'next/navigation';
@@ -44,10 +45,6 @@ import {
 
 import { PortalShell } from '@/components/layout/PortalShell';
 import { OrchardAnalyticsPanel } from '@/components/farmer/OrchardAnalyticsPanel';
-import { SellerDesk } from '@/components/market/SellerDesk';
-import { FarmerStoredApplesDesk } from '@/components/rental/owner/SharedBinAndEngineeringDesk';
-import { SafePayment } from '@/components/payments/SafePayment';
-import { SoilLabTests } from '@/components/lab/SoilLabTests';
 import { FarmerUpdates, HubNearby, needsYouCount } from '@/components/market/FarmerUpdates';
 import { Btn, Panel, PORTAL_THEMES, Skeleton, Tile } from '@/components/portal/kit';
 import { LastUpdated } from '@/components/pwa/SavedAt';
@@ -59,6 +56,16 @@ import type { MarketCategory, MarketListing, MarketOrder } from '@/lib/db/market
 import { sellerToAct } from '@/lib/db/shop';
 
 const theme = PORTAL_THEMES.farmer;
+
+// Each tab's screen is its own download: a farmer opening the Overview does not wait for the code of Safe payment, Soil tests or
+// the stored-apples desk, which come only when that tab is opened. Seller desk is the exception: it also feeds the numbers at
+// the top, so its code is asked for as soon as the page starts (below), in parallel with the account, never after it.
+const tabLoading = () => <Skeleton label="Loading…" />;
+const loadSellerDesk = () => import('@/components/market/SellerDesk').then((m) => m.SellerDesk);
+const SellerDesk = dynamic(loadSellerDesk, { ssr: false, loading: tabLoading });
+const FarmerStoredApplesDesk = dynamic(() => import('@/components/rental/owner/SharedBinAndEngineeringDesk').then((m) => m.FarmerStoredApplesDesk), { ssr: false, loading: tabLoading });
+const SafePayment = dynamic(() => import('@/components/payments/SafePayment').then((m) => m.SafePayment), { ssr: false, loading: tabLoading });
+const SoilLabTests = dynamic(() => import('@/components/lab/SoilLabTests').then((m) => m.SoilLabTests), { ssr: false, loading: tabLoading });
 type Tab = 'overview' | 'coldstore' | 'lots' | 'orders' | 'pickups' | 'tests' | 'payouts';
 const TABS: Tab[] = ['overview', 'coldstore', 'lots', 'orders', 'pickups', 'tests', 'payouts'];
 
@@ -91,6 +98,8 @@ function FarmerDashboard() {
   const [stats, setStats] = useState<{ products: MarketListing[]; orders: MarketOrder[] } | null>(null);
 
   useEffect(() => {
+    // The seller desk's code travels while the account is being asked for.
+    void loadSellerDesk().catch(() => undefined);
     void loadAccount().then(setAccount).catch(() => setAccount(null));
   }, []);
 
