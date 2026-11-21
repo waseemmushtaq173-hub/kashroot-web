@@ -8,25 +8,21 @@
  * New replies appear by themselves (checked every 8 seconds).
  */
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Phone, Send, Sparkles, ThumbsDown, ThumbsUp, UserRound, Video } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Phone, Send, ThumbsDown, ThumbsUp, UserRound, Video } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { VideoCall } from '@/components/advisory/VideoCall';
+import { ChatBubble } from '@/components/advisory/ChatBubble';
+import { addQuickReply, quickRepliesFor } from '@/components/advisory/quickReplies';
 import { LabReportView } from '@/components/lab/LabReportView';
 import { Badge, Btn, INPUT, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
-import { MicButton, SpeakButton } from '@/components/voice/VoiceButtons';
-import { isRtl, scriptLang } from '@/lib/client/speech';
+import { MicButton } from '@/components/voice/VoiceButtons';
+import { isRtl } from '@/lib/client/speech';
 import { getRequest, KIND_LABEL, labBookingOf, listMessages, sendMessage, setRequest, STATUS_LABEL, type AdvisoryMessage, type AdvisoryRequest } from '@/lib/db/advisory';
 import { ago, type Account } from '@/lib/db/client';
 import { adviceRating, rateAdvice } from '@/lib/db/contributions';
 
 const theme = PORTAL_THEMES.expert;
-
-/** AI notes carry a Devanagari copy for a Hindi voice after a marker. */
-function splitBody(body: string): { text: string; speech?: string } {
-  const [text, speech] = body.split('@@SPEAK@@').map((s) => s.trim());
-  return { text, ...(speech ? { speech } : {}) };
-}
 
 const STATUS_TONE = { open: 'amber', accepted: 'blue', answered: 'green', closed: 'slate' } as const;
 
@@ -168,22 +164,11 @@ export function RequestThread({ requestId, account, asExpert, onBack }: { reques
         />
       )}
 
-      <ol className="space-y-3">
-        {messages.map((m) => {
-          const { text, speech } = splitBody(m.body);
-          const mine = m.sender_id === account.id && m.sender_role !== 'ai';
-          return (
-            <li key={m.id} className={`rounded-2xl p-4 ring-1 ${m.sender_role === 'ai' ? 'bg-amber-50/80 ring-amber-200' : m.sender_role === 'expert' ? 'bg-forest-soft/80 ring-forest-line' : 'bg-white/80 ring-slate-900/5'} ${mine ? 'ml-6' : 'mr-6'}`}>
-              <p className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-600">
-                {m.sender_role === 'ai' ? <Sparkles className="h-3.5 w-3.5 text-amber-600" aria-hidden /> : <UserRound className="h-3.5 w-3.5" aria-hidden />}
-                {m.sender_role === 'ai' ? '🤖 AI Agronomic Suggestion — verify doses with an agronomist' : m.sender_role === 'expert' ? `✅ Verified expert advisory · ${m.sender_name ?? 'Agronomist'}` : m.sender_name ?? 'Farmer'}
-                <span className="font-normal text-slate-400">{ago(m.created_at)}</span>
-              </p>
-              <p dir={isRtl(scriptLang(text, lang)) ? 'rtl' : undefined} className="mt-2 whitespace-pre-wrap text-sm text-slate-900">{text}</p>
-              {!asExpert && m.sender_role !== 'farmer' && <SpeakButton className="mt-3" text={text} speech={speech} lang={m.sender_role === 'ai' ? lang : scriptLang(text, lang)} label="Listen" />}
-            </li>
-          );
-        })}
+      {/* The conversation as chat: the person's own messages on the right in green, the others on the left. */}
+      <ol className="space-y-4" aria-label="Conversation">
+        {messages.map((m) => (
+          <ChatBubble key={m.id} message={m} mine={m.sender_id === account.id && m.sender_role !== 'ai'} asExpert={asExpert} lang={lang} />
+        ))}
         {messages.length === 0 && <li className="text-sm text-slate-500">No replies yet. You will see them here.</li>}
       </ol>
 
@@ -203,6 +188,20 @@ export function RequestThread({ requestId, account, asExpert, onBack }: { reques
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <label htmlFor="thread-reply" className="text-sm font-semibold text-slate-800">{asExpert ? 'Your answer to the farmer' : 'Add more details or ask again'}</label>
             <MicButton lang={asExpert ? 'en' : lang} onText={setReply} />
+          </div>
+          {/* One-tap replies: they fill the box, nothing is sent until Send is tapped. */}
+          <div role="group" aria-label="Quick replies" className="mb-3 flex flex-wrap gap-2">
+            {quickRepliesFor(asExpert, lang).map((q) => (
+              <button
+                key={q}
+                type="button"
+                dir="auto"
+                onClick={() => setReply((r) => addQuickReply(r, q))}
+                className="min-h-11 cursor-pointer rounded-full bg-white px-4 text-left text-sm font-semibold text-forest ring-1 ring-forest-line transition hover:bg-forest-soft"
+              >
+                {q}
+              </button>
+            ))}
           </div>
           <textarea id="thread-reply" rows={asExpert ? 4 : 3} className={INPUT} value={reply} onChange={(e) => setReply(e.target.value)} placeholder={asExpert ? 'Diagnosis, what to do now, products by type, and when to follow up' : 'Type or tap Speak'} />
           <Btn theme={theme} className="mt-3" icon={Send} disabled={busy || reply.trim().length < 2} onClick={send}>{asExpert ? 'Send answer' : 'Send'}</Btn>

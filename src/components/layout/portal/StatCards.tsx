@@ -36,13 +36,14 @@ export function StatCards({ kpis, theme }: { kpis: KPI[]; theme: PortalTheme; lo
             <span className="kr-kpi-hint mt-2 block min-h-4 text-xs font-medium leading-snug">{kpi.trend ?? ''}</span>
           </>
         );
-        const face = 'kr-kpi group relative isolate block h-full overflow-hidden rounded-2xl p-5 text-left';
+        // Every card lifts a little under the pointer (the buttons a little more clearly, with their arrow).
+        const face = 'kr-kpi group relative isolate block h-full overflow-hidden rounded-2xl p-5 text-left transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-[5px] hover:shadow-xl motion-reduce:transition-none motion-reduce:hover:translate-y-0';
         return kpi.onClick ? (
           <button
             key={kpi.label}
             type="button"
             onClick={kpi.onClick}
-            className={`${face} w-full cursor-pointer transition hover:-translate-y-0.5 hover:shadow-xl motion-reduce:hover:translate-y-0 ${FOCUS} ${theme.outline}`}
+            className={`${face} w-full cursor-pointer ${FOCUS} ${theme.outline}`}
           >
             {body}
           </button>

@@ -16,7 +16,7 @@ import { FOCUS, type PortalTheme } from '@/components/portal/kit';
 import type { NavItem, PortalTab } from '@/components/layout/PortalShell';
 import { InstallAppCard } from '@/components/layout/portal/InstallAppCard';
 import { ShellTabs } from '@/components/layout/portal/ShellTabs';
-import type { ShellLook } from '@/components/layout/portal/look';
+import { initialsOf, type ShellLook } from '@/components/layout/portal/look';
 import { liftToasts } from '@/lib/client/toastLayer';
 
 // Light gold: 4.5:1 or better on every portal's dark sidebar (the base champagne is 3.8:1 on the darkest).
@@ -52,7 +52,42 @@ export interface SidebarProps {
   onNavigate?: () => void;
   /** Bigger rows, for the drawer. */
   large?: boolean;
-  /** Only the KashRoot Super Admin gets "My business"; everyone else stays on My details / Home. */
+  /** Who is signed in to this portal: the greeting at the top ("Hi, Ghulam 👋"). Nothing shows for a visitor who is not signed in. */
+  signedIn?: boolean | null;
+  name?: string | null;
+  /** The account has been read: until then the greeting holds its room, so the menu below does not jump. */
+  nameReady?: boolean;
+}
+
+/** The first word of the name, for the greeting ("Ghulam Nabi Dar" → "Ghulam"). */
+export function firstNameOf(name: string): string {
+  return name.trim().split(/\s+/)[0] ?? '';
+}
+
+/** The sidebar's welcome: an avatar with the person's initials, a green dot (signed in) and "Hi, Name 👋". */
+export function SidebarGreeting({ look, signedIn, name, nameReady }: { look: ShellLook; signedIn?: boolean | null; name?: string | null; nameReady?: boolean }) {
+  if (signedIn === false) return null;
+  const waiting = signedIn == null || (!name && !nameReady);
+  return (
+    <div aria-hidden={waiting || undefined} data-kr-greeting className="mx-2 flex min-h-[4.75rem] items-center gap-3 rounded-2xl bg-white/[0.08] p-3 ring-1 ring-white/15">
+      {!waiting && (
+        <>
+          <span className="relative shrink-0">
+            <span aria-hidden className={`grid h-14 w-14 place-items-center rounded-full text-lg font-bold text-white ring-2 ring-champagne ${look.feature}`}>
+              {name ? initialsOf(name) : '🙂'}
+            </span>
+            <span aria-hidden className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-emerald-400 ring-2 ring-forest-deep" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-xs font-semibold text-white/70">Welcome back</span>
+            <span className="block truncate text-lg font-bold leading-tight text-white">
+              {name ? `Hi, ${firstNameOf(name)}` : 'Hi there'} <span aria-hidden>👋</span>
+            </span>
+          </span>
+        </>
+      )}
+    </div>
+  );
 }
 
 function MenuLink({ href, icon: Icon, children, onNavigate, size, current = false }: { href: string; icon: ElementType; children: ReactNode; onNavigate?: () => void; size: string; current?: boolean }) {
@@ -65,7 +100,7 @@ function MenuLink({ href, icon: Icon, children, onNavigate, size, current = fals
 }
 
 export function SidebarContent(props: SidebarProps) {
-  const { theme, look, portalLabel, title, tabs, activeTab, onSelect, idPrefix, panelId, navItems, dashboard, onDetails, onSignOut, onNavigate, pending = 0, large = false } = props;
+  const { theme, look, portalLabel, title, tabs, activeTab, onSelect, idPrefix, panelId, navItems, dashboard, onDetails, onSignOut, onNavigate, pending = 0, large = false, signedIn, name, nameReady } = props;
   const hold = (n: number) => (pending > 0 && !onSignOut ? Array.from({ length: n }, (_, i) => <li key={`hold-${i}`} aria-hidden className={size} />) : null);
   const size = large ? SIZE.large : SIZE.normal;
   const hasMenu = tabs.length > 0 || navItems.length > 0 || Boolean(dashboard);
@@ -85,6 +120,8 @@ export function SidebarContent(props: SidebarProps) {
           </p>
         )}
       </div>
+
+      {portalLabel && <SidebarGreeting look={look} signedIn={signedIn} name={name} nameReady={nameReady} />}
 
       {hasMenu && (
         <nav aria-label={`${title} menu`}>
