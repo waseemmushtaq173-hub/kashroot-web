@@ -13,7 +13,7 @@ import { expect, test } from '@playwright/test';
 const read = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
 /** Static (non-type) imports of a module path in this source. */
 const staticImports = (source: string, from: RegExp) =>
-  [...source.matchAll(/^import\s+(?!type\b)[^;]*?from\s+'([^']+)';/gms)].map((m) => m[1]).filter((p) => from.test(p));
+  [...source.matchAll(/^import\s+(?!type\b)[^;]*?from\s+'([^']+)';/gm)].map((m) => m[1]).filter((p) => from.test(p));
 
 const FARMER = 'src/app/(dashboards)/farmer/dashboard/page.tsx';
 const BUYER = 'src/app/(dashboards)/buyer/dashboard/page.tsx';
