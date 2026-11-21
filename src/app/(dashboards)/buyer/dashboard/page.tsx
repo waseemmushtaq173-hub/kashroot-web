@@ -13,6 +13,7 @@
  * Mandi rates, Price Comparison and Cold Storage have their own places on
  * the home page; following a truck is in the Tracking portal.
  */
+import dynamic from 'next/dynamic';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Apple, PackageCheck, ShieldCheck, ShoppingBag, ShoppingCart, Truck } from 'lucide-react';
@@ -21,16 +22,21 @@ import { toast } from '@/lib/client/toast';
 import { PortalShell } from '@/components/layout/PortalShell';
 import { OrderCard } from '@/components/market/OrderCard';
 import { PooledLocation } from '@/components/market/PooledLocation';
-import { ListingBrowser } from '@/components/market/shop/ListingBrowser';
-import { OrderModal } from '@/components/market/shop/OrderModal';
 import type { ShopListing } from '@/components/market/shop/useLiveListings';
-import { SafePayment } from '@/components/payments/SafePayment';
 import { Btn, EmptyState, Panel, PORTAL_THEMES, Skeleton, Tile } from '@/components/portal/kit';
 import { loadAccount, type Account } from '@/lib/db/client';
 import { buyerOrders, type MarketOrder } from '@/lib/db/market';
 import { pooledLoads } from '@/lib/pooledLoads';
 
 const theme = PORTAL_THEMES.buyer;
+
+// The shop, the order form and Safe payment are each their own download, fetched when their tab is opened (the order form is
+// asked for as soon as the shop opens, so it is ready by the time a box is chosen): the Overview does not wait for their code.
+const tabLoading = () => <Skeleton label="Loading…" />;
+const ListingBrowser = dynamic(() => import('@/components/market/shop/ListingBrowser').then((m) => m.ListingBrowser), { ssr: false, loading: tabLoading });
+const loadOrderModal = () => import('@/components/market/shop/OrderModal').then((m) => m.OrderModal);
+const OrderModal = dynamic(loadOrderModal, { ssr: false });
+const SafePayment = dynamic(() => import('@/components/payments/SafePayment').then((m) => m.SafePayment), { ssr: false, loading: tabLoading });
 type Tab = 'overview' | 'shop' | 'pooled' | 'orders' | 'payment';
 
 const TABS: Tab[] = ['overview', 'shop', 'pooled', 'orders', 'payment'];
@@ -50,6 +56,10 @@ function BuyerDashboard() {
   // portal frame hides its identity-check banner on the Safe payment tab.
   useEffect(() => {
     window.history.replaceState(null, '', tab === 'overview' ? window.location.pathname : `${window.location.pathname}?tab=${tab}`);
+  }, [tab]);
+  // Opening the shop: the order form's code starts travelling, so it is there when a box is chosen.
+  useEffect(() => {
+    if (tab === 'shop') void loadOrderModal().catch(() => undefined);
   }, [tab]);
   const [account, setAccount] = useState<Account | null | undefined>(undefined);
   const [orders, setOrders] = useState<MarketOrder[] | null>(null);

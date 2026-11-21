@@ -1,6 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
+import nextDynamic from 'next/dynamic';
 import { usePathname, useSearchParams, useSelectedLayoutSegment, useRouter } from 'next/navigation';
 import { SiteHeader, SiteFooter } from '@/components/layout/SiteHeader';
 import { RegionBackdrop } from '@/components/layout/portal/RegionBackdrop';
@@ -8,7 +9,7 @@ import { ReactNode, Suspense, useCallback, useEffect, useState } from 'react';
 
 import { ShieldCheck } from 'lucide-react';
 
-import { KYCPanel, type KycRole } from '@/components/auth/KYCPanel';
+import type { KycRole } from '@/components/auth/KYCPanel';
 import { supabase } from '@/lib/supabase';
 import { authApi, SELF_JOIN_ROLES, storedRoles } from '@/lib/api/auth';
 import { portalAccess, touchPortal } from '@/lib/auth/portalAccess';
@@ -29,6 +30,11 @@ const KYC_FOR: Record<string, string> = {
 };
 /** Portals a signed-out visitor may open: Tracking, to follow a load by its code. */
 const GUEST_PORTALS = ['tracking'];
+
+// The identity-check window is its own download (it is large, and most visits never open it): it is fetched when the check is first
+// opened — or a couple of seconds after the reminder banner shows, so it is ready by the time "Verify now" is tapped.
+const loadKycPanel = () => import('@/components/auth/KYCPanel').then((m) => m.KYCPanel);
+const KYCPanel = nextDynamic(loadKycPanel, { ssr: false });
 
 /**
  * Each dashboard segment belongs to one portal (see lib/auth/roles). Signed-out
@@ -67,6 +73,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [guest, setGuest] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [showKyc, setShowKyc] = useState(false);
+  // Once the check has been opened its window stays in the page (closing it is only `open` going false).
+  const [kycOpened, setKycOpened] = useState(false);
+  const openKyc = useCallback(() => {
+    setKycOpened(true);
+    setShowKyc(true);
+  }, []);
   // KYC is one check per person: asked once, then a reminder banner until done.
   const [kycDone, setKycDone] = useState(false);
   // The verified record in the database (written only by the KashRoot server).
@@ -129,7 +141,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         // and only in portals where money changes hands.
         const moneyPortal = MONEY_PORTALS.includes(portalForSegment(segment) ?? '');
         if (kyc === 'pending' && moneyPortal) {
-          setShowKyc(true);
+          openKyc();
           localStorage.setItem('kyc_status', 'later');
         }
 
@@ -141,7 +153,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     return () => {
       live = false;
     };
-  }, [router, segment]);
+  }, [router, segment, openKyc]);
 
   // While the portal is open: use keeps its sign-in going; unused for 12
   // hours (or signed out in another tab) it locks — hidden at once, then its
@@ -168,7 +180,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       void run();
     };
     // "Verify now" anywhere in any portal (an error's button, a panel) opens the check here.
-    const open = () => setShowKyc(true);
+    const open = () => openKyc();
     window.addEventListener(KYC_CHANGED, changed);
     window.addEventListener(OPEN_KYC, open);
     return () => {
@@ -176,7 +188,16 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       window.removeEventListener(KYC_CHANGED, changed);
       window.removeEventListener(OPEN_KYC, open);
     };
-  }, [isAuthenticated, refreshKyc]);
+  }, [isAuthenticated, refreshKyc, openKyc]);
+
+  // The reminder banner is showing: the window behind its "Verify now" button is fetched a moment later, off the page's first load.
+  const here = portalForSegment(segment);
+  const reminding = Boolean(here && KYC_PORTALS.includes(here) && (kyc?.rules?.kyc_required ? kycMissing(kyc.rules, kyc.status) : MONEY_PORTALS.includes(here) && !kycDone && !kyc?.status?.aadhaar_verified_at));
+  useEffect(() => {
+    if (!isAuthenticated || !reminding) return;
+    const t = window.setTimeout(() => void loadKycPanel().catch(() => undefined), 2500);
+    return () => window.clearTimeout(t);
+  }, [isAuthenticated, reminding]);
 
   // A guest who leaves Tracking for another portal waits here for its sign-in.
   if (!isMounted || !isAuthenticated || locked || checkedFor !== segment || (guest && !GUEST_PORTALS.includes(portalForSegment(segment) ?? ''))) {
@@ -289,7 +310,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                       : `Verify your Aadhaar${kyc.rules.pan_required ? ' and PAN' : ''} here before you ${KYC_FOR[portal] ?? KYC_FOR.default} — about a minute, once for every portal. It protects you and the people you deal with.`
                     : 'Verify your identity once so buyers and sellers can trust you — it covers every KashRoot portal.'}
                 </p>
-                <button type="button" onClick={() => setShowKyc(true)} className="cursor-pointer rounded-lg bg-chinar px-3 py-1.5 font-semibold text-white hover:bg-chinar-hover">
+                <button type="button" onClick={openKyc} className="cursor-pointer rounded-lg bg-chinar px-3 py-1.5 font-semibold text-white hover:bg-chinar-hover">
                   Verify now
                 </button>
               </div>
@@ -302,6 +323,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         {children}
       </div>
       <SiteFooter tone="light" portal={portal} />
+      {kycOpened && (
       <KYCPanel
         open={showKyc}
         onClose={() => setShowKyc(false)}
@@ -318,6 +340,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           void supabase.auth.updateUser({ data: { kyc_status: 'submitted' } }).catch(() => undefined);
         }}
       />
+      )}
     </div>
   );
 }
