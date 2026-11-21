@@ -33,7 +33,6 @@ import { SiteFooter, SiteHeader } from '@/components/layout/SiteHeader';
 import { KashmirBackdrop } from '@/components/layout/portal/KashmirBackdrop';
 import { RegionBackdrop } from '@/components/layout/portal/RegionBackdrop';
 import type { SearchItem } from '@/components/layout/portal/ShellSearch';
-import { ShellDock } from '@/components/layout/portal/ShellDock';
 import { SidebarContent, SidebarDrawer } from '@/components/layout/portal/ShellSidebar';
 import { ShellTabs } from '@/components/layout/portal/ShellTabs';
 import { ShellTopBar } from '@/components/layout/portal/ShellTopBar';
@@ -144,8 +143,6 @@ export function PortalShell({
   // A page inside a portal other than its dashboard (Orchard health…): the way back.
   const dashboard = portal && pathname !== PORTALS[portal].home ? { href: PORTALS[portal].home, label: `${PORTALS[portal].label} dashboard` } : undefined;
   const activeLabel = tabs.find((t) => t.id === activeTab)?.label;
-  // On a phone the sections float at the bottom, in reach of the thumb (a bar with one section would only be a label: it keeps the pill at the top).
-  const dock = !standalone && tabs.length + navItems.length >= 2;
 
   // The drawer is for smaller screens only: widening the window closes it.
   useEffect(() => {
@@ -226,7 +223,7 @@ export function PortalShell({
       {(tabs.length > 0 || navItems.length > 0) && (
         <nav
           aria-label={`${title} sections`}
-          className={`-mx-4 mt-6 overflow-x-auto px-4 pb-1 pt-1 [scrollbar-width:none] sm:-mx-6 sm:px-6 [&::-webkit-scrollbar]:hidden ${standalone ? '' : dock ? 'hidden' : 'lg:hidden'}`}
+          className={`-mx-4 mt-6 overflow-x-auto px-4 pb-1 pt-1 [scrollbar-width:none] sm:-mx-6 sm:px-6 [&::-webkit-scrollbar]:hidden ${standalone ? '' : 'lg:hidden'}`}
         >
           <div className="flex w-max gap-2">
             {tabs.length > 0 && <ShellTabs tabs={tabs} activeTab={activeTab} onSelect={(id) => select(id)} theme={theme} orientation="horizontal" idPrefix={`${ids}-pill`} panelId={panelId} label="Sections" />}
@@ -342,8 +339,6 @@ export function PortalShell({
       </div>
       {/* The assistant, in every portal: a guide to this page, read aloud, and answers to questions. */}
       <FloatingVoice />
-      {/* Phones: the sections as a floating bar at the bottom (the sidebar has them on large screens). */}
-      {dock && <ShellDock tabs={tabs} navItems={navItems} activeTab={activeTab} onSelect={(id) => select(id)} theme={theme} title={title} idPrefix={`${ids}-dock`} panelId={panelId} />}
 
       {drawer && (
         <SidebarDrawer onClose={() => setDrawer(false)} label={`${portalLabel ?? title} menu`}>

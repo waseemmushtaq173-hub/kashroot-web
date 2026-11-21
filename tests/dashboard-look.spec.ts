@@ -2,78 +2,44 @@
  * The portal frame's dashboard look (src/app/test-pages/shell, made-up names only):
  *   - the sidebar greeting ("Hi, Name 👋") with the person's initials;
  *   - the stat cards lift 5 px under the pointer;
- *   - on a phone (page laid out 800 px wide, shown at half size) the sections float in a bar at the bottom, clear of the
- *     round microphone button and the page edge, with every section tappable, nothing scrolling sideways, and the page
- *     given room so the bar never hides its end; on a large screen there is no bar (the sidebar has the sections);
+ *   - the sections stay where they were: as buttons at the top of the page on a phone (no bar at the bottom), in the sidebar on a large screen;
  *   - the expert conversation as chat bubbles, and one-tap replies that fill the box without sending.
  * Needs the server started with KR_TEST_PAGES=1. KR_BASE_URL says where it runs.
  */
 import { join } from 'node:path';
 
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 import { addQuickReply, quickRepliesFor } from '@/components/advisory/quickReplies';
 
 const axePath = join(process.cwd(), 'node_modules', 'axe-core', 'axe.min.js');
 
-/** The router follows pushState: the test page now believes it is in the Farmer portal, so the real microphone button shows too. */
-async function asFarmerPortal(page: Page) {
-  await page.goto('/test-pages/shell', { waitUntil: 'load' });
-  // Tried again until the page has started up (the router only follows pushState once it has).
-  await expect(async () => {
-    await page.evaluate(() => window.history.pushState(null, '', '/farmer/dashboard'));
-    await expect(page.getByRole('button', { name: /help on this page/i })).toBeVisible({ timeout: 1000 });
-  }).toPass({ timeout: 20_000 });
-}
-
 test.describe('phone', () => {
   test.use({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 
-  test('the sections float at the bottom, clear of the microphone, and every one can be tapped', async ({ page }) => {
-    await asFarmerPortal(page);
-    const dock = page.locator('[data-kr-dock]');
-    await expect(dock).toBeVisible();
-    // The page is laid out 800 px wide and shown shrunk: the bar is grown back, so it is phone-sized (about 60 px high on the screen).
-    const box = (await dock.boundingBox())!;
-    const mic = (await page.getByRole('button', { name: /help on this page/i }).boundingBox())!;
-    const view = await page.evaluate(() => ({ w: window.innerWidth, h: document.documentElement.clientHeight, scale: window.visualViewport!.scale }));
-    expect(view.scale, 'the phone shows the 800 px page at about half size').toBeLessThan(0.6);
-    expect(box.height * view.scale, 'tall enough for a thumb').toBeGreaterThan(55);
-    expect(box.y + box.height, 'inside the screen, above its bottom edge').toBeLessThanOrEqual(view.h);
-    expect(box.x + box.width, 'no overlap with the microphone').toBeLessThan(mic.x);
-    // Section buttons sit in a row you can scroll; the first ones are on screen at once.
-    const tabs = dock.getByRole('tab');
-    await expect(tabs).toHaveCount(5);
-    for (const t of await tabs.all()) expect((await t.boundingBox())!.height * view.scale, 'a tap target of 44 px or more').toBeGreaterThanOrEqual(44);
-    // The sections at the top of the page are replaced by the bar, not shown twice.
-    await expect(page.getByRole('tab', { name: 'Overview' })).toHaveCount(1);
-    // Tapping a section opens it, and it becomes the white pill.
-    await dock.getByRole('tab', { name: /Orders/ }).tap();
-    await expect(dock.getByRole('tab', { name: /Orders/ })).toHaveAttribute('aria-selected', 'true');
-    await expect(dock.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'false');
-    // Reached by scrolling the bar sideways.
-    await dock.getByRole('tab', { name: 'Payments' }).scrollIntoViewIfNeeded();
-    await dock.getByRole('tab', { name: 'Payments' }).tap();
-    await expect(dock.getByRole('tab', { name: 'Payments' })).toHaveAttribute('aria-selected', 'true');
-    // Nothing makes the page wider than the phone.
+  test('the sections are buttons at the top of the page, as before, and nothing floats at the bottom', async ({ page }) => {
+    await page.goto('/test-pages/shell', { waitUntil: 'load' });
+    // No bottom bar in the page at all, and nothing fixed to the bottom of the screen but what was there before.
+    await expect(page.locator('[data-kr-dock]')).toHaveCount(0);
+    const tabs = page.getByRole('tab');
+    await expect(tabs.first()).toBeVisible();
+    const top = (await tabs.first().boundingBox())!;
+    const view = await page.evaluate(() => ({ h: document.documentElement.clientHeight, w: window.innerWidth }));
+    expect(top.y, 'near the top of the page, below the heading, not at the bottom of the screen').toBeLessThan(view.h / 2);
+    // Opening one still works.
+    await page.getByRole('tab', { name: /Orders/ }).tap();
+    await expect(page.getByRole('tab', { name: /Orders/ })).toHaveAttribute('aria-selected', 'true');
+    // The page leaves no room at the bottom for a bar that is not there.
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--kr-dock-h'))).toBe('');
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(view.w);
   });
 
-  test('the page tells how much room the bar takes (so the end of the page is not hidden behind it)', async ({ page }) => {
-    await asFarmerPortal(page);
-    const room = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kr-dock-h')));
-    const dock = (await page.locator('[data-kr-dock]').boundingBox())!;
-    const h = await page.evaluate(() => document.documentElement.clientHeight);
-    expect(room).toBeGreaterThanOrEqual(h - dock.y - 2);
-    // A large screen has no bar and takes no room (see below); here the variable is also cleared when the bar goes.
-  });
-
-  test('the bar, the greeting and the chat have readable colours', async ({ page }) => {
-    await asFarmerPortal(page);
+  test('the greeting and the chat have readable colours', async ({ page }) => {
+    await page.goto('/test-pages/shell', { waitUntil: 'load' });
     await page.addScriptTag({ path: axePath });
     const bad = await page.evaluate(async () => {
       const axe = (window as unknown as { axe: { run: (c: unknown, o: unknown) => Promise<{ violations: { nodes: { target: string[]; any: { data?: { contrastRatio?: number } }[] }[] }[] }> } }).axe;
-      const r = await axe.run('[data-kr-dock], [aria-label="Sample conversation"], [aria-label="Sidebar greeting"]', { runOnly: { type: 'rule', values: ['color-contrast'] } });
+      const r = await axe.run('[aria-label="Sample conversation"], [aria-label="Sidebar greeting"]', { runOnly: { type: 'rule', values: ['color-contrast'] } });
       return r.violations.flatMap((v) => v.nodes.map((n) => `${n.target.join(' ')} ${n.any[0]?.data?.contrastRatio ?? ''}`));
     });
     expect(bad, bad.join('\n')).toEqual([]);
@@ -83,11 +49,10 @@ test.describe('phone', () => {
 test.describe('large screen', () => {
   test.use({ viewport: { width: 1280, height: 860 } });
 
-  test('no bottom bar (the sidebar has the sections) and no room kept for it', async ({ page }) => {
+  test('the sections are in the sidebar, as before', async ({ page }) => {
     await page.goto('/test-pages/shell', { waitUntil: 'load' });
-    await expect(page.locator('[data-kr-dock]')).toBeHidden();
+    await expect(page.locator('[data-kr-dock]')).toHaveCount(0);
     await expect(page.getByRole('tab', { name: 'Overview' })).toBeVisible();
-    expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--kr-dock-h'))).toBe('');
   });
 
   test('the sidebar greeting says hi with the first name and the initials', async ({ page }) => {

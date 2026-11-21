@@ -22,7 +22,6 @@ export function ShellTabs({
   panelId,
   label,
   large = false,
-  tone = 'light',
 }: {
   tabs: PortalTab[];
   activeTab?: string;
@@ -35,12 +34,9 @@ export function ShellTabs({
   label: string;
   /** Bigger rows (the drawer on phones). */
   large?: boolean;
-  /** `dock`: pills for the dark floating bar at the bottom of a phone (see ShellDock). */
-  tone?: 'light' | 'dock';
 }) {
   const listRef = useRef<HTMLDivElement>(null);
   const vertical = orientation === 'vertical';
-  const dock = tone === 'dock';
   // The tab Tab-key focus lands on: the open one, else the first.
   const current = tabs.some((t) => t.id === activeTab) ? activeTab : tabs[0]?.id;
 
@@ -109,27 +105,6 @@ export function ShellTabs({
             {/* A long name wraps onto a second line rather than being cut off ("Bookings to co…"). */}
             <span className="min-w-0 flex-1 leading-snug [overflow-wrap:anywhere]">{name}</span>
             {badge}
-          </button>
-        ) : dock ? (
-          // The phone's bottom bar: the icon above a short name, easy to find and tap (the open one is the white pill).
-          <button
-            key={id}
-            id={`${idPrefix}-${id}`}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            aria-controls={panelId}
-            tabIndex={id === current ? 0 : -1}
-            onClick={() => onSelect(id)}
-            className={`relative inline-flex min-h-14 min-w-[4.75rem] max-w-[7rem] shrink-0 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-2xl px-2.5 py-1.5 text-center text-xs font-semibold leading-tight transition ${FOCUS} focus-visible:outline-champagne ${
-              active ? 'bg-forest-soft text-forest shadow-[inset_0_1px_0_#fff,0_3px_0_#C6A45B]' : 'text-white/90 hover:bg-white/10 hover:text-white'
-            }`}
-          >
-            {Icon && <Icon className="h-6 w-6 shrink-0" aria-hidden />}
-            <span className="[overflow-wrap:anywhere]">{name}</span>
-            {typeof count === 'number' && (
-              <span className={`absolute right-1 top-0.5 inline-grid min-w-[1.25rem] place-items-center rounded-full px-1 text-[11px] font-bold tabular-nums ${active ? 'bg-forest text-white' : 'bg-champagne text-forest-deep'}`}>{count}</span>
-            )}
           </button>
         ) : (
           <button

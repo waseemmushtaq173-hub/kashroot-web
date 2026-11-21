@@ -11,6 +11,7 @@ import type { AdvisoryMessage } from '@/lib/db/advisory';
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: Package },
+  { id: 'apples', label: 'My stored apples', icon: Snowflake },
   { id: 'orders', label: 'Orders', icon: ShoppingBag, count: 3 },
   { id: 'store', label: 'Cold storage', icon: Snowflake },
   { id: 'trucks', label: 'Trucks', icon: Truck },
