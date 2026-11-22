@@ -204,8 +204,7 @@ function receiving(b: Bag, m: Mats, len: number, cross: number) {
   const lanes = washing ? Math.max(1, Math.floor((cross - 2.2) / 1.5)) : count(cross, 1.5, 4);
   if (run >= 1.2) {
     const cols = count(run * (washing ? 0.5 : 1), 1.5, 6);
-    const ox = washing ? -cross * 0.0 : 0;
-    spread(cols, run * (washing ? 0.5 : 1)).forEach((a, i) => spread(lanes, washing ? cross - 2.2 : cross).forEach((cz, j) => bin(b, m, from + (run * (washing ? 0.5 : 1)) / 2 + a + ox, cz - (washing ? 1.1 : 0), 1 + ((i + j) % 2))));
+    spread(cols, run * (washing ? 0.5 : 1)).forEach((a, i) => spread(lanes, washing ? cross - 2.2 : cross).forEach((cz, j) => bin(b, m, from + (run * (washing ? 0.5 : 1)) / 2 + a, cz - (washing ? 1.1 : 0), 1 + ((i + j) % 2))));
   }
   // The washing line along the far side: dump tank, brush bed, dryer.
   if (washing) {
