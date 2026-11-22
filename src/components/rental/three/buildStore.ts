@@ -19,9 +19,10 @@ import { PLACE_LOOK, type Look } from '@/components/rental/placeLook';
 import { binTexture, cartonTexture, chamberDoorTexture, concreteTexture, crateTexture, diamondTexture, fanTexture, ghostTexture, gratingTexture, labelCanvas, panelTexture, plaqueCanvas, plateTexture } from '@/components/rental/three/textures';
 import type { Route } from '@/components/rental/walk/route';
 import { disposeMaterialSafely } from '@/components/rental/three/dispose';
+import { zoneEquipment } from '@/components/rental/three/equipment';
 import { buildFixtures } from '@/components/rental/three/fixtures';
 import type { ColdKitGeos } from '@/components/rental/three/coldKit';
-import { type Kind, midOf, type Rect, rowPlates, type SceneZone, type Seg, segLength, type StoreScene, ZONE_LOOK } from '@/components/rental/three/storeScene';
+import { type Kind, midOf, type Rect, rowPlates, type Seg, segLength, type StoreScene, ZONE_LOOK } from '@/components/rental/three/storeScene';
 import { DOOR_KIND_TEXT, countText } from '@/lib/coldStore';
 import { showLength } from '@/lib/coldLayout';
 
@@ -75,7 +76,10 @@ export interface Kit {
     | 'steel' | 'plate' | 'rubber'
     // The KashRoot dress: forest green wainscot band (solid / see-through), champagne gold trim, forest machine paint,
     // gold machine rails, plain pine for loose bins and pallets, the emerald guide line on the floor.
-    | 'wainscot' | 'wainscotNear' | 'trim' | 'paint' | 'gold' | 'timber' | 'guide',
+    | 'wainscot' | 'wainscotNear' | 'trim' | 'paint' | 'gold' | 'timber' | 'guide'
+    // Real-world finishes (the photos of working stores): stainless steel, white machine casing, safety yellow, a grey
+    // control enclosure with its push buttons, and what people and forklifts wear / are painted.
+    | 'apple' | 'stainless' | 'machineWhite' | 'safety' | 'enclosure' | 'btnGreen' | 'btnRed' | 'beltDark' | 'vest' | 'shirt' | 'trousers' | 'skin' | 'helmet' | 'forkliftBody',
     Mat
   >;
   edge: InstanceType<Three['LineBasicMaterial']>;
@@ -192,34 +196,38 @@ export function makeKit(T: Three, phone: boolean, protos: ColdKitGeos | null = n
     ghostOn: new T.MeshBasicMaterial({ map: tex.ghost, ...see, side: T.FrontSide, opacity: 0.88 }),
     tile: new T.MeshBasicMaterial({ color: '#ffffff' }),
     // Sealed, power-trowelled concrete.
-    // Dark polished concrete-epoxy (#384349 once the concrete's own grain is over it).
-    hall: new T.MeshStandardMaterial({ map: tex.concrete, color: '#465359', roughness: 0.42, metalness: 0.12 }),
+    // Light grey epoxy-sealed concrete, as in a working hall (the photos): clean and bright, with a soft sheen.
+    hall: new T.MeshStandardMaterial({ map: tex.concrete, color: '#B4BBC0', roughness: 0.4, metalness: 0.06 }),
     // The compound: orchard green round the building, dark asphalt where the trucks stand.
-    yard: new T.MeshStandardMaterial({ color: '#2F2E58', roughness: 1 }),
-    apron: new T.MeshStandardMaterial({ color: '#2C3338', roughness: 0.95 }),
+    yard: new T.MeshStandardMaterial({ color: '#8A9777', roughness: 1 }),
+    apron: new T.MeshStandardMaterial({ color: '#656C72', roughness: 0.95 }),
     walk: new T.MeshStandardMaterial({ color: '#EAB308', roughness: 1, transparent: true, opacity: 0.3, depthWrite: false }),
     passage: new T.MeshStandardMaterial({ color: '#EAB308', roughness: 1, transparent: true, opacity: 0.22, depthWrite: false }),
     stripe: new T.MeshStandardMaterial({ color: '#eab308', roughness: 0.8 }),
-    chamberFloor: new T.MeshStandardMaterial({ map: tex.concrete, color: '#525f66', roughness: 0.45, metalness: 0.1 }),
+    chamberFloor: new T.MeshStandardMaterial({ map: tex.concrete, color: '#C2C8CC', roughness: 0.42, metalness: 0.06 }),
     // Insulated PUF sandwich panels: warm champagne-silver (#D5CEC2), a seam every 4 ft (the wall's UV repeat is one panel).
     // The walls between the camera and the inside stay see-through (or nothing inside could be seen), but tinted, not ghost white.
-    wall: new T.MeshStandardMaterial({ map: tex.panel, color: '#D5CEC2', roughness: 0.5, metalness: 0.18 }),
-    wallNear: new T.MeshStandardMaterial({ color: '#D5CEC2', roughness: 0.5, metalness: 0.18, ...see, opacity: 0.2 }),
-    chamberWall: new T.MeshStandardMaterial({ map: tex.panel, color: '#DED8CD', roughness: 0.5, metalness: 0.18 }),
-    chamberNear: new T.MeshStandardMaterial({ map: tex.panel, color: '#DED8CD', roughness: 0.5, metalness: 0.18, ...see, opacity: 0.3 }),
-    wainscot: new T.MeshStandardMaterial({ color: '#3730A3', roughness: 0.55, metalness: 0.1 }),
-    wainscotNear: new T.MeshStandardMaterial({ color: '#3730A3', roughness: 0.55, metalness: 0.1, ...see, opacity: 0.32 }),
-    trim: new T.MeshStandardMaterial({ color: '#C6A45B', roughness: 0.35, metalness: phone ? 0.3 : 0.7 }),
-    paint: new T.MeshStandardMaterial({ color: '#3730A3', roughness: 0.45, metalness: paint }),
-    gold: new T.MeshStandardMaterial({ color: '#C6A45B', roughness: 0.35, metalness: phone ? 0.3 : 0.65 }),
+    wall: new T.MeshStandardMaterial({ map: tex.panel, color: '#F1F3F5', roughness: 0.5, metalness: 0.1 }),
+    wallNear: new T.MeshStandardMaterial({ color: '#F1F3F5', roughness: 0.5, metalness: 0.1, ...see, opacity: 0.2 }),
+    chamberWall: new T.MeshStandardMaterial({ map: tex.panel, color: '#F8FAFB', roughness: 0.5, metalness: 0.1 }),
+    chamberNear: new T.MeshStandardMaterial({ map: tex.panel, color: '#F8FAFB', roughness: 0.5, metalness: 0.1, ...see, opacity: 0.3 }),
+    // The kick plate along the foot of a wall: dark grey galvanised sheet, not a painted stripe.
+    wainscot: new T.MeshStandardMaterial({ color: '#6B747C', roughness: 0.5, metalness: 0.25 }),
+    wainscotNear: new T.MeshStandardMaterial({ color: '#6B747C', roughness: 0.5, metalness: 0.25, ...see, opacity: 0.32 }),
+    // "trim" and "gold" are stainless steel now (rails, edge strips, frames): the scene keeps its names.
+    trim: new T.MeshStandardMaterial({ color: '#CDD4DA', roughness: 0.3, metalness: phone ? 0.4 : 0.75 }),
+    // Machine casings and hoods: the blue of food-line equipment.
+    paint: new T.MeshStandardMaterial({ color: '#2F6EB5', roughness: 0.4, metalness: paint }),
+    gold: new T.MeshStandardMaterial({ color: '#CDD4DA', roughness: 0.3, metalness: phone ? 0.4 : 0.75 }),
     timber: new T.MeshStandardMaterial({ color: '#C89B62', roughness: 0.85 }),
     guide: new T.MeshBasicMaterial({ color: '#F59E0B' }),
-    door: new T.MeshStandardMaterial({ color: '#f59e0b', roughness: 0.45, metalness: paint }),
+    // Door frames and posts: brushed stainless, as in the photos (no orange); the leaf: white insulated sheet.
+    door: new T.MeshStandardMaterial({ color: '#BFC7CE', roughness: 0.32, metalness: phone ? 0.4 : 0.75 }),
     leaf: new T.MeshStandardMaterial({ color: '#f1f5f9', roughness: 0.42, metalness: 0.04 }),
-    doorYellow: new T.MeshStandardMaterial({ color: '#facc15', roughness: 0.42 }),
+    doorYellow: new T.MeshStandardMaterial({ color: '#EEF1F3', roughness: 0.4, metalness: 0.05 }),
     deck: new T.MeshStandardMaterial({ map: tex.grating, roughness: 0.45, ...see, opacity: 1, metalness: phone ? 0.15 : 0.4 }),
     // Racking and deck beams: forest green powder coat (was blue).
-    beam: new T.MeshStandardMaterial({ color: '#4F46C8', roughness: 0.42, metalness: galv }),
+    beam: new T.MeshStandardMaterial({ color: '#2A62A8', roughness: 0.42, metalness: galv }),
     glass: new T.MeshStandardMaterial({ color: '#38bdf8', emissive: '#0ea5e9', emissiveIntensity: 0.25, transparent: true, opacity: 0.7, roughness: 0.2 }),
     hit: new T.MeshBasicMaterial({ visible: false }),
     shutter: new T.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.35, metalness: phone ? 0.35 : 0.7 }),
@@ -227,17 +235,32 @@ export function makeKit(T: Three, phone: boolean, protos: ColdKitGeos | null = n
     roof: new T.MeshStandardMaterial({ color: '#B9B2A6', roughness: 0.9, side: T.DoubleSide }),
     // LED lights glow: they are not lit by anything.
     lamp: new T.MeshBasicMaterial({ color: '#fbfdff' }),
-    cooler: new T.MeshStandardMaterial({ color: '#e8edf2', roughness: 0.35, metalness: phone ? 0.15 : 0.4 }),
+    // The evaporator's casing a shade darker than the white panels it hangs on (it read as part of the wall), its grille dark.
+    cooler: new T.MeshStandardMaterial({ color: '#CBD5DD', roughness: 0.35, metalness: phone ? 0.15 : 0.4 }),
     fan: new T.MeshStandardMaterial({ map: tex.fan, roughness: 0.5 }),
-    guard: new T.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.3, metalness: phone ? 0.4 : 0.75 }),
+    guard: new T.MeshStandardMaterial({ color: '#4A545E', roughness: 0.3, metalness: phone ? 0.4 : 0.75 }),
     pipe: new T.MeshStandardMaterial({ color: '#1f2937', roughness: 0.95 }),
     copper: new T.MeshStandardMaterial({ color: '#b87333', roughness: 0.28, metalness: phone ? 0.5 : 0.75 }),
     curtain: new T.MeshStandardMaterial({ color: '#cbe8f6', transparent: true, opacity: 0.3, roughness: 0.15, depthWrite: false, side: T.DoubleSide }),
     condenser: new T.MeshStandardMaterial({ color: '#d5dbe2', roughness: 0.38, metalness: phone ? 0.2 : 0.5 }),
     // Structural H-columns and beams: dark charcoal steel.
-    steel: new T.MeshStandardMaterial({ color: '#24243F', roughness: 0.5, metalness: phone ? 0.3 : 0.55 }),
+    steel: new T.MeshStandardMaterial({ color: '#5C656E', roughness: 0.5, metalness: phone ? 0.3 : 0.55 }),
     plate: new T.MeshStandardMaterial({ map: tex.diamond, color: '#d4dbe3', roughness: 0.38, metalness: phone ? 0.3 : 0.65 }),
     rubber: new T.MeshStandardMaterial({ color: '#15191f', roughness: 0.92, metalness: 0 }),
+    apple: new T.MeshStandardMaterial({ color: '#B3261E', roughness: 0.55 }),
+    stainless: new T.MeshStandardMaterial({ color: '#D5DBE1', roughness: 0.28, metalness: phone ? 0.45 : 0.8 }),
+    machineWhite: new T.MeshStandardMaterial({ color: '#EEF1F3', roughness: 0.4, metalness: phone ? 0.1 : 0.2 }),
+    safety: new T.MeshStandardMaterial({ color: '#F2C200', roughness: 0.5 }),
+    enclosure: new T.MeshStandardMaterial({ color: '#C9D0D6', roughness: 0.45, metalness: 0.2 }),
+    btnGreen: new T.MeshBasicMaterial({ color: '#22c55e' }),
+    btnRed: new T.MeshBasicMaterial({ color: '#ef4444' }),
+    beltDark: new T.MeshStandardMaterial({ color: '#23272C', roughness: 0.85 }),
+    vest: new T.MeshStandardMaterial({ color: '#F97316', roughness: 0.7 }),
+    shirt: new T.MeshStandardMaterial({ color: '#2B4F7A', roughness: 0.8 }),
+    trousers: new T.MeshStandardMaterial({ color: '#2B3440', roughness: 0.85 }),
+    skin: new T.MeshStandardMaterial({ color: '#D9A982', roughness: 0.8 }),
+    helmet: new T.MeshStandardMaterial({ color: '#F8FAFC', roughness: 0.5 }),
+    forkliftBody: new T.MeshStandardMaterial({ color: '#F2B705', roughness: 0.5, metalness: 0.1 }),
   };
   const edge = new T.LineBasicMaterial({ color: '#334155', transparent: true, opacity: 0.55 });
   const edgeOn = new T.LineBasicMaterial({ color: '#3730A3' });
@@ -541,7 +564,8 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
       add(t);
       return t;
     };
-    dim(showLength(scene.building.length, u), 'Length (along the front)', Math.min(6, Math.max(3, scene.hall.w * 0.3))).position.set(wx(o, scene.hall.w / 2), 0.5, wz(o, -2.4));
+    // Away from the main door's own labels (it usually stands about the middle of the front).
+    dim(showLength(scene.building.length, u), 'Length (along the front)', Math.min(6, Math.max(3, scene.hall.w * 0.3))).position.set(wx(o, scene.hall.w * 0.16), 0.5, wz(o, -2.4));
     dim(showLength(scene.building.width, u), 'Width (front to back)', Math.min(4, Math.max(2.6, scene.hall.d * 0.25))).position.set(wx(o, -2.4), 0.5, wz(o, scene.hall.d / 2));
     dim(showLength(H, u), 'Height (to the roof)', Math.min(3.6, Math.max(2.4, H * 0.35))).position.set(wx(o, -1.8), H * 0.55, wz(o, -1.8));
     if (md) {
@@ -571,7 +595,7 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
         box(along ? trackLen : 0.16, 0.14, along ? 0.16 : trackLen, wx(o, md.mid.x + ux * off * 0.5), md.height + 0.55, wz(o, md.mid.y + uy * off * 0.5), mats.beam);
       }
       const tag = label(T, 'Main door', `${showLength(md.width, u)} wide · ${md.wall} wall · ${DOOR_KIND_TEXT[kind]}`, Math.min(4, Math.max(2.4, md.width)), true, 26, 64);
-      tag.position.set(wx(o, md.mid.x - md.inward.x * 1.2), md.height + 1.4, wz(o, md.mid.y - md.inward.y * 1.2));
+      tag.position.set(wx(o, md.mid.x - md.inward.x * 1.2), md.height + 2.0, wz(o, md.mid.y - md.inward.y * 1.2));
       add(tag);
       labels.push(tag);
       // The exterior truck bay: a dispatch truck parked along the wall beside the door (never in the way of the way in).
@@ -593,7 +617,7 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
         for (const a of [start + 0.9, start + 3.6, start + 5.4]) for (const s of [-1, 1]) truck(0.9, 0.3, 1, 0.5, side * a, out + s * 1.1, mats.pipe);
       }
       const bay = label(T, 'Truck loading / unloading bay', 'dispatch · outside the main door', 4.2, true, 22, 52);
-      bay.position.set(wx(o, md.mid.x + ux * (start + 2.8) - md.inward.x * out), 3.8, wz(o, md.mid.y + uy * (start + 2.8) - md.inward.y * out));
+      bay.position.set(wx(o, md.mid.x + ux * (start + 2.8) - md.inward.x * out), 5.2, wz(o, md.mid.y + uy * (start + 2.8) - md.inward.y * out));
       add(bay);
       labels.push(bay);
     }
@@ -611,7 +635,7 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
       box(dAlong ? dl + 0.16 : 0.16, 0.16, dAlong ? 0.16 : dl + 0.16, wx(o, dm.x), dh + 0.08, wz(o, dm.y), mats.door);
       box(dAlong ? dl : 0.03, dh - 0.1, dAlong ? 0.03 : dl, wx(o, dm.x), (dh - 0.1) / 2, wz(o, dm.y), mats.curtain);
       const vtag = label(T, 'Airlock vestibule', 'inner door keeps warm air out', Math.min(4, Math.max(2.4, dl)), true, 22, 52);
-      vtag.position.set(wx(o, ves.rect.x + ves.rect.w / 2), dh + 1, wz(o, ves.rect.y + ves.rect.d / 2));
+      vtag.position.set(wx(o, ves.rect.x + ves.rect.w / 2), dh + 2.6, wz(o, ves.rect.y + ves.rect.d / 2));
       add(vtag);
       labels.push(vtag);
     }
@@ -627,7 +651,8 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
     for (const z of scene.zones) {
       let zm = zoneMats.get(z.key);
       if (!zm) {
-        zm = new T.MeshStandardMaterial({ color: ZONE_LOOK[z.key], transparent: true, opacity: 0.86, depthWrite: false, roughness: 0.5 });
+        // Floor paint, not a coloured sheet: the hall's own epoxy shows through, and the machines stand on it.
+        zm = new T.MeshStandardMaterial({ color: ZONE_LOOK[z.key], transparent: true, opacity: 0.42, depthWrite: false, roughness: 0.5 });
         zoneMats.set(z.key, zm);
       }
       slab(z.rect, 0.02, 0.015, zm);
@@ -641,145 +666,22 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
         slab({ x: q.x + q.w - t, y: q.y, w: t, d: q.d }, y, 0.006, mat);
       }
       const tag = label(T, z.label, `${showLength(z.rect.w, u)} × ${showLength(z.rect.d, u)}`, Math.min(4.5, Math.max(2, Math.min(z.rect.w, z.rect.d))), true, 20, 46);
-      tag.position.set(wx(o, z.rect.x + z.rect.w / 2), 1.5, wz(o, z.rect.y + z.rect.d / 2));
+      tag.position.set(wx(o, z.rect.x + z.rect.w / 2), z.key === 'dock' ? 0.9 : 1.5, wz(o, z.rect.y + z.rect.d / 2));
       add(tag);
       labels.push(tag);
     }
-    // Procedural equipment inside each work zone — a washing trough, a
-    // grading conveyor, packing tables, the plant's skid blocks and the
-    // dock leveller — sized from the zone's own rect, so an owner-sized
-    // zone holds kit that fits exactly what they measured.
-    const gear = (z: SceneZone) => {
+    // The machines and people of each work zone (three/equipment), built in the zone's own frame, sized from the zone the
+    // owner measured, then set down on it: x along its long side.
+    for (const z of scene.zones) {
       const r = z.rect;
       const alongX = r.w >= r.d;
-      const L = alongX ? r.w : r.d;
-      const C = alongX ? r.d : r.w;
-      if (L < 1 || C < 0.5) return;
-      // The machines take about four-fifths of the zone each way: a big zone gets more of them, never one toy in a corner.
-      const len = L * 0.82;
-      const cross = C * 0.78;
-      const midX = wx(o, r.x + r.w / 2);
-      const midZ = wz(o, r.y + r.d / 2);
-      /** One piece: `l` along the zone's line, `w` across it, `off` along the line from its middle, `cx` across it from its middle. */
-      const piece = (l: number, w: number, h: number, y: number, off: number, mat: Mat, cx = 0) =>
-        alongX ? box(l, h, w, midX + off, y, midZ + cx, mat) : box(w, h, l, midX + cx, y, midZ + off, mat);
-      /** `n` centres spread evenly over `span`, about its middle. */
-      const spread = (n: number, span: number) => Array.from({ length: n }, (_, i) => -span / 2 + ((i + 0.5) * span) / n);
-      const count = (room: number, each: number, max: number) => Math.max(1, Math.min(max, Math.floor(room / each)));
-      switch (z.key) {
-        case 'cleaning': {
-          // Receiving & weighing: two floor weighbridges side by side, each with its display post, then rows of arriving bins.
-          const bridges = cross >= 3.2 ? 2 : 1;
-          const bl = Math.min(len * 0.3, 3.4);
-          const bw = Math.min((cross / bridges) * 0.8, 2.6);
-          const bAt = -len / 2 + bl / 2;
-          for (const cx of spread(bridges, cross)) {
-            piece(bl, bw, 0.12, 0.06, bAt, mats.shutter, cx);
-            piece(bl + 0.16, 0.08, 0.05, 0.14, bAt, mats.gold, cx - bw / 2);
-            piece(bl + 0.16, 0.08, 0.05, 0.14, bAt, mats.gold, cx + bw / 2);
-            piece(0.12, 0.12, 1.2, 0.6, bAt + bl / 2 + 0.15, mats.paint, cx + bw / 2 - 0.1);
-            piece(0.08, 0.4, 0.28, 1.3, bAt + bl / 2 + 0.15, mats.rubber, cx + bw / 2 - 0.1);
-          }
-          const from = -len / 2 + bl + 0.8;
-          const run = len / 2 - from;
-          if (run >= 1.1) {
-            const cols = count(run, 1.5, 7);
-            const rows = count(cross, 1.5, 4);
-            for (const a of spread(cols, run)) for (const cx of spread(rows, cross)) piece(1.1, 1, 0.76, 0.4, from + run / 2 + a, mats.timber, cx);
-          }
-          break;
-        }
-        case 'grading': {
-          // The optical grading and sorting line: parallel lanes the whole length (forest green frames, gold side rails, a
-          // black belt), an infeed hopper at the head, the optical sizer hood across every lane, a bin at each lane's end.
-          const lanes = count(cross, 1.3, 4);
-          const lw = Math.min(0.95, (cross / lanes) * 0.72);
-          const belt = len;
-          for (const cx of spread(lanes, cross)) {
-            piece(belt, lw, 0.5, 0.45, 0, mats.paint, cx);
-            piece(belt - 0.1, lw - 0.12, 0.05, 0.73, 0, mats.rubber, cx);
-            for (const s of [-1, 1]) piece(belt, 0.05, 0.1, 0.78, 0, mats.gold, cx + (s * lw) / 2);
-            piece(0.7, lw, 0.5, 0.26, belt / 2 + 0.05 - 0.35, mats.timber, cx);
-          }
-          const hood = Math.min(belt * 0.2, 3.2);
-          const hx = -belt * 0.12;
-          piece(hood, cross + 0.3, 0.7, 1.55, hx, mats.paint);
-          piece(hood + 0.04, cross + 0.34, 0.06, 1.2, hx, mats.gold);
-          piece(hood * 0.85, cross, 0.03, 1.16, hx, mats.lamp);
-          for (const a of [-1, 1]) for (const s of [-1, 1]) piece(0.1, 0.1, 1.2, 0.6, hx + (a * hood) / 2, mats.steel, (s * (cross + 0.2)) / 2);
-          if (belt >= 5) piece(Math.min(1.5, belt * 0.12), cross, 0.9, 0.95, -belt / 2 + Math.min(1.5, belt * 0.12) / 2, mats.shutter);
-          break;
-        }
-        case 'sorting': {
-          // The sorting area: parallel roller inspection tables, a light hood over each, a bin for rejects under each.
-          const cols = count(len, 2.6, 4);
-          const rows = count(cross, 1.9, 2);
-          const tw = Math.min(2.1, (len / cols) * 0.78);
-          const td = Math.min(0.95, (cross / rows) * 0.6);
-          for (const a of spread(cols, len)) {
-            for (const cx of spread(rows, cross)) {
-              piece(tw, td, 0.07, 0.86, a, mats.shutter, cx);
-              for (const s of [-1, 1]) piece(0.07, td, 0.82, 0.41, a + s * (tw / 2 - 0.06), mats.paint, cx);
-              piece(tw * 0.85, td * 0.7, 0.08, 1.95, a, mats.paint, cx);
-              piece(tw * 0.75, td * 0.5, 0.02, 1.9, a, mats.lamp, cx);
-              for (const s of [-1, 1]) piece(0.05, 0.05, 1.05, 1.4, a + s * (tw / 2 - 0.06), mats.gold, cx);
-              piece(0.6, 0.5, 0.35, 0.2, a, mats.timber, cx);
-            }
-          }
-          break;
-        }
-        case 'packing': {
-          // Packaging space: motorised packing conveyors over the first three-fifths, a strapping frame at the end of each,
-          // then stacks of packed KashRoot cartons on pallets.
-          const lines = count(cross, 2.2, 3);
-          const run = len * 0.58;
-          const at = -len / 2 + run / 2;
-          for (const cx of spread(lines, cross)) {
-            piece(run, 0.7, 0.5, 0.45, at, mats.paint, cx);
-            piece(run - 0.1, 0.58, 0.05, 0.73, at, mats.rubber, cx);
-            piece(run, 0.05, 0.1, 0.78, at, mats.gold, cx - 0.35);
-            piece(run, 0.05, 0.1, 0.78, at, mats.gold, cx + 0.35);
-            const end = at + run / 2 + 0.25;
-            for (const s of [-1, 1]) piece(0.09, 0.09, 1.5, 0.75, end, mats.steel, cx + s * 0.5);
-            piece(0.09, 1.09, 0.09, 1.5, end, mats.steel, cx);
-          }
-          const from = -len / 2 + run + 0.9;
-          const room = len / 2 - from;
-          if (room >= 1) {
-            const cols = count(room, 1.25, 4);
-            const rows = count(cross, 1.3, 4);
-            spread(cols, room).forEach((a, i) =>
-              spread(rows, cross).forEach((cx, j) => {
-                const high = 0.5 + 0.3 * ((i + j) % 3);
-                piece(1.05, 1, 0.12, 0.06, from + room / 2 + a, mats.timber, cx);
-                piece(0.95, 0.9, high, 0.12 + high / 2, from + room / 2 + a, mats.carton, cx);
-              }),
-            );
-          }
-          break;
-        }
-        case 'machinery':
-          break;
-        case 'dock': {
-          // Dispatch & truck bay: the dock leveller across the way in, and pallets staged in lanes down both sides
-          // (the middle stays clear: it is the way in from the main door).
-          const plate = piece(Math.min(2.2, L), C * 0.5, 0.06, 0.42, 0, mats.shutter);
-          if (alongX) plate.rotation.z = 0.09; else plate.rotation.x = 0.09;
-          if (C >= 4.5 && L >= 1.4) {
-            const n = count(len, 1.5, 5);
-            spread(n, len).forEach((a, i) => {
-              for (const s of [-1, 1]) {
-                const high = 0.6 + 0.3 * ((i + (s > 0 ? 1 : 0)) % 3);
-                piece(1.1, 1, 0.12, 0.06, a, mats.timber, s * (C / 2 - 0.75));
-                piece(1, 0.9, high, 0.12 + high / 2, a, mats.carton, s * (C / 2 - 0.75));
-              }
-            });
-          }
-          break;
-        }
-      }
-    };
-    for (const z of scene.zones) gear(z);
+      const eq = zoneEquipment(kit, z.key, alongX ? r.w : r.d, alongX ? r.d : r.w);
+      if (!eq) continue;
+      eq.position.set(wx(o, r.x + r.w / 2), 0, wz(o, r.y + r.d / 2));
+      // Plan y runs towards -z in the world: a zone laid along y turns a quarter so its x follows it.
+      eq.rotation.y = alongX ? 0 : Math.PI / 2;
+      add(eq);
+    }
   }
 
   // The chambers.
@@ -791,6 +693,8 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
     // Its insulated floor, its walls of insulated panels (open at the door), the wall over the door.
     slab({ x: r.x + 0.07, y: r.y + 0.07, w: r.w - 0.14, d: r.d - 0.14 }, 0.01, 0.008, mats.chamberFloor, 3);
     for (const s of c.walls) roomWall(s, 0, H, 0.14, r, 'chamber');
+    // Stainless corner posts up the chamber's four corners, as on the panel rooms in the photos.
+    if (c.toScale) for (const [px, py] of [[r.x, r.y], [r.x + r.w, r.y], [r.x, r.y + r.d], [r.x + r.w, r.y + r.d]]) box(0.17, H, 0.17, wx(o, px), H / 2, wz(o, py), mats.stainless);
     if (c.door) {
       roomWall(c.door, c.doorH, H, 0.14, r, 'chamber');
       // The door frame, and the insulated sliding door pushed open beside it, outside.
@@ -830,6 +734,9 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
         onDoor(shiftBy, out, wy, 0.46, 0.56, 0.115, mats.rubber);
         const glass = onDoor(shiftBy, out, wy, 0.38, 0.48, 0.13, mats.glass);
         glass.renderOrder = 2;
+        // A stainless pull handle on the leaf's leading edge, and the two hanger rollers on the track above it.
+        onDoor(shiftBy - side * (dw / 2 - 0.14), out + 0.05, Math.min(1.05, c.doorH * 0.45), 0.045, 0.5, 0.06, mats.stainless);
+        for (const ro of [-0.3, 0.3]) onDoor(shiftBy + ro * dw, out + 0.03, c.doorH + 0.02, 0.1, 0.1, 0.07, mats.rubber);
       }
       // The stainless-steel track rail over the lintel, running out the way the leaf slides.
       const railLen = leafSide ? 2 * dw + 0.15 : dw + 0.3;
@@ -837,7 +744,8 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
       // Its name on a sign over the door, flat on the wall outside (as stores paint them): read
       // from the passage, so a farmer finds "Chamber 2" without counting doors.
       const signW = Math.min(1.8, Math.max(1.1, dw * 0.9));
-      const can = labelCanvas(c.name, '', true, '#1E1B4B');
+      const du = scene.building?.unit ?? 'm';
+      const can = labelCanvas(c.name, `door ${showLength(dw, du)} × ${showLength(c.doorH, du)}`, true, '#1E2A44', '#E5E7EB');
       const signH = (signW * can.height) / can.width;
       const overDoor = H - c.doorH;
       if (overDoor > signH * 0.6) {
@@ -865,8 +773,17 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
         onDoor(a, 0.085, y, pw + 0.06, ph + 0.06, 0.03, mats.steel);
         add(plaque);
       };
-      if (roomP >= pw + 0.4) placeP(pSide * (dw / 2 + 0.07 + pw / 2 + 0.12), Math.min(1.55, c.doorH * 0.7));
-      else if (overDoor > signH + 0.75) placeP(0, c.doorH + 0.2 + signH + 0.4);
+      if (roomP >= pw + 0.4) {
+        placeP(pSide * (dw / 2 + 0.07 + pw / 2 + 0.12), Math.min(1.55, c.doorH * 0.7));
+        // The door's control box under the display, as beside every door in the photos: a grey enclosure with a green
+        // and a red push button and a small indicator.
+        const ca = pSide * (dw / 2 + 0.07 + pw / 2 + 0.12);
+        const cy0 = Math.max(0.9, Math.min(1.55, c.doorH * 0.7) - ph / 2 - 0.3);
+        onDoor(ca, 0.07, cy0, 0.24, 0.3, 0.1, mats.enclosure);
+        onDoor(ca - 0.05, 0.13, cy0 + 0.06, 0.05, 0.05, 0.03, mats.btnGreen);
+        onDoor(ca + 0.05, 0.13, cy0 + 0.06, 0.05, 0.05, 0.03, mats.btnRed);
+        onDoor(ca, 0.13, cy0 - 0.07, 0.12, 0.04, 0.03, mats.rubber);
+      } else if (overDoor > signH + 0.75) placeP(0, c.doorH + 0.2 + signH + 0.4);
       if (plaque.parent) {
         const draw = (r: { text: string; when: string } | null | 'loading') => {
           const t = new T.CanvasTexture(plaqueCanvas(code, r));
@@ -889,6 +806,18 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
       tag.position.set(cx, H + 0.9, cz);
       add(tag);
       labels.push(tag);
+    }
+    // Its measurements over the walls, like a drawing's dimension lines: length along the front edge, width along the left.
+    if (c.toScale && c.fits) {
+      const cu = scene.building?.unit ?? 'm';
+      const wide = label(T, showLength(r.w, cu), 'length', 1.5, true, 14, 36);
+      wide.position.set(cx, H + 0.35, wz(o, r.y));
+      add(wide);
+      labels.push(wide);
+      const deep = label(T, showLength(r.d, cu), 'width', 1.5, true, 14, 36);
+      deep.position.set(wx(o, r.x), H + 0.35, cz);
+      add(deep);
+      labels.push(deep);
     }
     // Windows and vents (older measured chambers).
     for (const win of c.windows) {
@@ -920,6 +849,13 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
         const upright = c.inward.y !== 0;
         for (const r of upright ? [{ x: w.x, y: w.y, w: t, d: w.d }, { x: w.x + w.w - t, y: w.y, w: t, d: w.d }] : [{ x: w.x, y: w.y, w: w.w, d: t }, { x: w.x, y: w.y + w.d - t, w: w.w, d: t }])
           slab(r, f.z0 + 0.018, 0.008, mats.stripe);
+        // Its width, written on it: the forklift aisle between the rows.
+        if (f.floor === 1 && c.toScale) {
+          const aisle = label(T, `Aisle ${showLength(upright ? w.w : w.d, scene.building?.unit ?? 'm')}`, 'forklift aisle', 1.7, true, 16, 40);
+          aisle.position.set(wx(o, w.x + w.w / 2), f.z0 + 1.1, wz(o, w.y + w.d / 2));
+          add(aisle);
+          labels.push(aisle);
+        }
       }
       // Row numbers just outside the first stack of each row (Row 1, every fifth, the last).
       const rows = f.row.rows;
