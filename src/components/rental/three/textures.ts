@@ -369,13 +369,13 @@ export function fanTexture(T: Three) {
  * (white title, gold second line). `dark` is kept for older calls: every label wears the one look now.
  * `fill`: its own colour inside the same gold rim.
  */
-export function labelCanvas(title: string, sub: string, dark = false, fill?: string) {
+export function labelCanvas(title: string, sub: string, dark = false, fill?: string, border = '#C6A45B') {
   const { c, g } = canvas(512, sub ? 168 : 112);
   if (fill) dark = true;
   if (g) {
     dark = true;
     g.fillStyle = fill ?? 'rgba(30,27,75,0.95)';
-    g.strokeStyle = '#C6A45B';
+    g.strokeStyle = border;
     g.lineWidth = 6;
     if (g.roundRect) {
       g.beginPath();
@@ -430,11 +430,15 @@ export function plaqueCanvas(id: string, reading: { text: string; when: string }
       g.font = '700 30px system-ui, sans-serif';
       g.fillText('Reading…', 128, 120);
     } else if (reading) {
-      g.fillStyle = '#4ade80';
+      // Red LED digits on black, as in the photos of real stores; the number is the last logged reading, never invented.
+      g.fillStyle = '#ff3b30';
+      g.shadowColor = 'rgba(255,59,48,0.85)';
+      g.shadowBlur = 10;
       let tp = 62;
       do g.font = `800 ${tp}px ui-monospace, monospace`;
       while (g.measureText(reading.text).width > 230 && (tp -= 2) > 20);
       g.fillText(reading.text, 128, 116);
+      g.shadowBlur = 0;
       g.fillStyle = '#94a3b8';
       let wp = 22;
       do g.font = `600 ${wp}px system-ui, sans-serif`;
@@ -471,37 +475,69 @@ export function plateTexture(T: Three, row: number) {
 }
 
 /**
- * The face of a chamber's sliding CA door as in Kashmir's stores: safety yellow,
- * a blue round number badge and a yellow-and-black warning triangle (the glass
- * window is a separate part of the door). `ratio` is the door's height ÷ width.
+ * The face of a chamber's sliding CA door, as in the photos of real stores: a white insulated steel leaf with fine
+ * vertical ribs, a stainless kick plate, a yellow-and-black hazard band at the foot, the chamber's number on a round blue
+ * badge (so a farmer finds it from the passage) and a small warning pictogram. The glass window is a separate part of
+ * the door. `ratio` is the door's height ÷ width.
  */
 export function chamberDoorTexture(T: Three, number: number, ratio: number) {
   const w = 256;
   const h = Math.round(Math.min(640, Math.max(256, w * ratio)));
   const { c, g } = canvas(w, h);
   if (g) {
-    g.fillStyle = '#facc15';
+    const sheen = g.createLinearGradient(0, 0, w, 0);
+    sheen.addColorStop(0, '#e9edf1');
+    sheen.addColorStop(0.5, '#f7f9fb');
+    sheen.addColorStop(1, '#e6ebf0');
+    g.fillStyle = sheen;
     g.fillRect(0, 0, w, h);
-    g.fillStyle = '#eab308';
-    for (const y of [0.33, 0.58]) g.fillRect(0, h * y, w, 5);
-    g.lineWidth = 8;
-    g.strokeStyle = '#ca8a04';
-    g.strokeRect(4, 4, w - 8, h - 8);
-    const r = w * 0.15;
+    // Fine vertical ribs of the sandwich sheet.
+    for (let x = 14; x < w; x += 14) {
+      g.fillStyle = 'rgba(255,255,255,0.8)';
+      g.fillRect(x, 0, 1, h);
+      g.fillStyle = 'rgba(100,116,139,0.14)';
+      g.fillRect(x + 1, 0, 1, h);
+    }
+    // The leaf's edge, and a stainless kick plate with a yellow-and-black hazard band over it.
+    g.lineWidth = 6;
+    g.strokeStyle = '#aeb7c0';
+    g.strokeRect(3, 3, w - 6, h - 6);
+    g.fillStyle = '#b9c1c9';
+    g.fillRect(0, h * 0.93, w, h * 0.07);
+    const bandY = h * 0.88;
+    const bandH = h * 0.05;
+    g.fillStyle = '#111827';
+    g.fillRect(0, bandY, w, bandH);
+    g.fillStyle = '#facc15';
+    for (let x = -bandH; x < w; x += bandH * 2) {
+      g.beginPath();
+      g.moveTo(x, bandY + bandH);
+      g.lineTo(x + bandH, bandY);
+      g.lineTo(x + bandH * 2, bandY);
+      g.lineTo(x + bandH, bandY + bandH);
+      g.closePath();
+      g.fill();
+    }
+    // The chamber's number on a round blue badge.
+    const r = w * 0.13;
     g.fillStyle = '#1d4ed8';
     g.beginPath();
-    g.arc(w / 2, h * 0.2, r, 0, Math.PI * 2);
+    g.arc(w / 2, h * 0.17, r, 0, Math.PI * 2);
     g.fill();
+    g.strokeStyle = '#ffffff';
+    g.lineWidth = 4;
+    g.stroke();
     g.fillStyle = '#ffffff';
     g.font = `800 ${Math.round(r * (number > 9 ? 1.05 : 1.3))}px system-ui, sans-serif`;
     g.textAlign = 'center';
     g.textBaseline = 'middle';
-    g.fillText(String(number), w / 2, h * 0.2 + 2);
-    const ty = h * 0.34;
-    const tw = w * 0.17;
+    g.fillText(String(number), w / 2, h * 0.17 + 2);
+    // A small warning pictogram (low oxygen / cold room) low on the leaf.
+    const ty = h * 0.74;
+    const tw = w * 0.09;
     g.fillStyle = '#fde047';
     g.strokeStyle = '#111827';
-    g.lineWidth = 5;
+    g.lineWidth = 4;
     g.beginPath();
     g.moveTo(w / 2, ty - tw);
     g.lineTo(w / 2 + tw, ty + tw * 0.75);
@@ -510,9 +546,9 @@ export function chamberDoorTexture(T: Three, number: number, ratio: number) {
     g.fill();
     g.stroke();
     g.fillStyle = '#111827';
-    g.fillRect(w / 2 - 3, ty - tw * 0.4, 6, tw * 0.7);
+    g.fillRect(w / 2 - 2, ty - tw * 0.4, 4, tw * 0.7);
     g.beginPath();
-    g.arc(w / 2, ty + tw * 0.5, 3.5, 0, Math.PI * 2);
+    g.arc(w / 2, ty + tw * 0.5, 2.5, 0, Math.PI * 2);
     g.fill();
   }
   const t = new T.CanvasTexture(c);
