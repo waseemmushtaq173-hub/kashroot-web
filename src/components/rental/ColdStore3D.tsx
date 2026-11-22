@@ -830,6 +830,8 @@ export function ColdStore3D({
       let held = 0;
       // X-ray walls: every wall of the store turns glass at once (the 3D toggle).
       let xrayNow = false;
+      // The chamber that is open (its index; -1 when none): every other chamber stays a closed room under its roof.
+      let openNow = -1;
       const me: Walker & { heading: number; pitch: number } = { x: 0, y: 0, level: 1, inside: -1, heading: Math.PI / 2, pitch: -0.08 };
       let orbitPose: { pos: [number, number, number]; target: [number, number, number] } | null = null;
       let startAt: number | null = null;
@@ -1039,6 +1041,8 @@ export function ColdStore3D({
         // Walking, the walls are solid: no choosing through them.
         const walking = mode3 === 'walk';
         if (walking && shell) targets.push(...shell.walls);
+        // Looking from outside, a closed chamber's roof and solid walls hide what is inside: tapping them opens the chamber, not a place.
+        if (!walking && shell) targets.push(...shell.roofs.filter((r) => r.visible), ...shell.walls.filter((w) => w.userData.of === 'chamber' && w.material === kit.mats.chamberWall));
         for (const hit of ray.intersectObjects(targets, false)) {
           if (hit.instanceId === undefined) return null; // a wall
           const cell = places.picks.find((p) => p.mesh === hit.object)?.cells[hit.instanceId];
@@ -1309,6 +1313,7 @@ export function ColdStore3D({
         kick();
       };
       const setActive = (index: number) => {
+        openNow = index;
         if (!shell) return;
         for (const line of shell.outlines) line.material = line.userData.chamber === index ? kit.edgeOn : kit.edge;
         dirty = true;
@@ -1321,7 +1326,9 @@ export function ColdStore3D({
        * Labels stay readable however far away they are.
        */
       const render = () => {
-        if (shell) faceWalls(kit, shell.walls, mode3 === 'walk' ? null : { x: camera.position.x, z: camera.position.z }, xrayNow);
+        if (shell) faceWalls(kit, shell.walls, mode3 === 'walk' ? null : { x: camera.position.x, z: camera.position.z }, xrayNow, openNow);
+        // From outside a chamber wears its roof, except the open one (and every chamber in x-ray mode); walking the ceiling stands in for it.
+        if (shell) for (const roof of shell.roofs) roof.visible = mode3 !== 'walk' && !xrayNow && openNow >= 0 && roof.userData.chamber !== openNow;
         // Ceilings, roof and lights only when walking: from outside the roof is off so you can look in.
         if (shell) shell.walkOnly.visible = mode3 === 'walk';
         world3.fog = mode3 === 'walk' ? haze : null;
@@ -1954,7 +1961,7 @@ export function ColdStore3D({
       <p className="text-xs text-slate-600">
         {walking
           ? `Walk with the arrows (or the keys W A S D, ← →) · drag to look around · ${mode === 'book' ? 'tap a free place in front of you, or aim the ring at it, to choose it.' : mode === 'owner' ? 'tap a stack to see whose it is.' : 'your stacks are forest green under a gold light.'}`
-          : `Drag to turn the store · pinch or scroll to zoom · two fingers to move. Tap a chamber to see what it holds. ${mode === 'book' ? 'Tap a free place (an outlined stack) to choose it; tap it again to undo.' : mode === 'owner' ? 'Tap a stack to see whose it is.' : 'Your stacks are forest green under a gold light.'}`}
+          : `Drag to turn the store · pinch or scroll to zoom · two fingers to move. Every chamber is a closed room with its own door and colour: tap one (or its button) to open it and see what it holds. ${mode === 'book' ? 'Tap a free place (an outlined stack) to choose it; tap it again to undo.' : mode === 'owner' ? 'Tap a stack to see whose it is.' : 'Your stacks are forest green under a gold light.'}`}
       </p>
     </div>
   );
