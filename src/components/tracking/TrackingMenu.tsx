@@ -9,7 +9,9 @@
  * for the signed-in driver and each vehicle.
  */
 import { useState, type ElementType } from 'react';
-import { BadgeCheck, ChevronDown, CircleAlert, MapPinned, Menu, PackageCheck, Radio, Route, Satellite, ShieldCheck, Truck, UserRound } from 'lucide-react';
+import { BadgeCheck, CircleAlert, MapPinned, Menu, PackageCheck, Radio, Route, Satellite, ShieldCheck, Truck, UserRound } from 'lucide-react';
+
+import { SidebarDrawer } from '@/components/layout/portal/ShellSidebar';
 
 export type TrackingSection = 'MAP' | 'SIGN_IN' | 'VEHICLES' | 'PICKUPS' | 'TRIP' | 'GPS' | 'DEVICES' | 'VERIFY';
 
@@ -31,6 +33,36 @@ const ITEMS: MenuItem[] = [
   { id: 'VERIFY', label: 'Verification', icon: ShieldCheck, group: 'Devices and checks' },
 ];
 
+/** The sections, grouped, on the colour of the portals' own sidebars: the same list in the phone's drawer and down the side of a large screen. */
+function MenuList({ active, onPick, signedInAs, vehicleCount }: { active: TrackingSection; onPick: (id: TrackingSection) => void; signedInAs: string | null; vehicleCount: number }) {
+  return (
+    <ul className="space-y-0.5">
+      {ITEMS.map(({ id, label, icon: Icon, group }, i) => {
+        const on = active === id;
+        const note = id === 'SIGN_IN' && signedInAs ? signedInAs : id === 'VEHICLES' && vehicleCount > 0 ? String(vehicleCount) : null;
+        const first = i === 0 || ITEMS[i - 1].group !== group;
+        return (
+          <li key={id} className={first && i > 0 ? 'pt-3' : undefined}>
+            {first && <p className="px-3 pb-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-[#E3CC8F]">{group}</p>}
+            <button
+              type="button"
+              aria-current={on ? 'page' : undefined}
+              onClick={() => onPick(id)}
+              className={`flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 text-left text-[15px] font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-amber-300 ${
+                on ? 'bg-white/15 text-white ring-1 ring-amber-300/60' : 'text-white/85 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              <Icon className={`h-4 w-4 shrink-0 ${on ? 'text-amber-300' : 'text-white/65'}`} aria-hidden />
+              <span className="min-w-0 flex-1">{label}</span>
+              {note && <span className={`rounded-full px-1.5 text-[11px] font-bold ${on ? 'bg-white/25 text-white' : 'bg-white/15 text-white'}`}>{note}</span>}
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 export function TrackingMenu({
   active,
   onSelect,
@@ -43,65 +75,46 @@ export function TrackingMenu({
   signedInAs: string | null;
   vehicleCount: number;
 }) {
-  // A phone: one "Menu" button that opens the whole list (no swiping along a row). A large screen: the list is always open down the side.
+  // A phone: a small Menu button that opens a slim, coloured panel on the left (the page stays visible beside it).
+  // A large screen: the same list, always open down the side.
   const [open, setOpen] = useState(false);
   const here = ITEMS.find((x) => x.id === active) ?? ITEMS[0];
   const HereIcon = here.icon;
   return (
     // data-kr-plain: the site's big tactile button style is left off, so this stays a small, quiet menu.
-    <nav
-      aria-label="Tracking menu"
-      data-kr-plain
-      className="min-w-0 lg:sticky lg:top-4 lg:self-start"
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') setOpen(false);
-      }}
-    >
+    <nav aria-label="Tracking menu" data-kr-plain className="min-w-0 lg:sticky lg:top-4 lg:self-start">
       <button
         type="button"
         aria-expanded={open}
-        aria-controls="tracking-menu-list"
-        onClick={() => setOpen((v) => !v)}
-        className="flex min-h-12 w-full cursor-pointer items-center gap-2.5 rounded-xl bg-white/80 px-3 text-left text-sm font-semibold text-slate-900 ring-1 ring-slate-900/10 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-slate-900 lg:hidden"
+        aria-haspopup="dialog"
+        onClick={() => setOpen(true)}
+        className="inline-flex min-h-12 max-w-full cursor-pointer items-center gap-2.5 rounded-xl bg-forest-deep px-4 text-left text-sm font-semibold text-white shadow-md ring-1 ring-white/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 lg:hidden"
       >
-        <Menu className="h-5 w-5 shrink-0 text-slate-700" aria-hidden />
+        <Menu className="h-5 w-5 shrink-0 text-amber-300" aria-hidden />
         <span className="shrink-0">Menu</span>
-        <span aria-hidden className="text-slate-400">·</span>
-        <HereIcon className="h-4 w-4 shrink-0 text-slate-600" aria-hidden />
-        <span className="min-w-0 flex-1 truncate font-bold">{here.label}</span>
-        <ChevronDown className={`h-4 w-4 shrink-0 text-slate-600 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
+        <span aria-hidden className="text-white/40">·</span>
+        <HereIcon className="h-4 w-4 shrink-0 text-white/70" aria-hidden />
+        <span className="min-w-0 truncate font-bold">{here.label}</span>
       </button>
-      <ul
-        id="tracking-menu-list"
-        className={`${open ? 'mt-2 block' : 'hidden'} rounded-xl bg-white/90 p-1.5 ring-1 ring-slate-900/10 lg:mt-0 lg:block lg:bg-white/70 lg:p-1.5`}
-      >
-        {ITEMS.map(({ id, label, icon: Icon, group }, i) => {
-          const on = active === id;
-          const note = id === 'SIGN_IN' && signedInAs ? signedInAs : id === 'VEHICLES' && vehicleCount > 0 ? String(vehicleCount) : null;
-          const first = i === 0 || ITEMS[i - 1].group !== group;
-          return (
-            <li key={id} className={first && i > 0 ? 'mt-1.5 border-t border-slate-200 pt-1.5 lg:mt-2 lg:pt-2' : undefined}>
-              {first && <p className="px-2.5 pb-0.5 pt-1 text-[11px] font-bold uppercase tracking-wide text-slate-500 lg:hidden">{group}</p>}
-              <button
-                type="button"
-                aria-current={on ? 'page' : undefined}
-                onClick={() => {
-                  onSelect(id);
-                  setOpen(false);
-                }}
-                // The tap area is 44 px (the site's rule); the face you see is a compact 36 px inside it.
-                className={`relative isolate flex min-h-11 w-full cursor-pointer items-center gap-2 whitespace-nowrap px-3 text-left text-[13px] font-semibold transition before:absolute before:inset-x-0 before:inset-y-1 before:-z-10 before:rounded-lg before:transition focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-slate-900 lg:px-2.5 ${
-                  on ? 'text-white before:bg-slate-900' : 'text-slate-800 hover:before:bg-slate-900/[0.07]'
-                }`}
-              >
-                <Icon className={`h-4 w-4 shrink-0 ${on ? 'text-amber-300' : 'text-slate-600'}`} aria-hidden />
-                <span>{label}</span>
-                {note && <span className={`ml-auto rounded-full px-1.5 text-[11px] font-bold ${on ? 'bg-white/20 text-white' : 'bg-slate-900/10 text-slate-800'}`}>{note}</span>}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+      {open && (
+        <SidebarDrawer narrow onClose={() => setOpen(false)} label="Tracking menu">
+          <div className="px-3 pb-6 pt-5">
+            <p className="px-3 pb-4 pr-16 text-lg font-bold text-white">Tracking</p>
+            <MenuList
+              active={active}
+              signedInAs={signedInAs}
+              vehicleCount={vehicleCount}
+              onPick={(id) => {
+                onSelect(id);
+                setOpen(false);
+              }}
+            />
+          </div>
+        </SidebarDrawer>
+      )}
+      <div className="hidden rounded-2xl bg-forest-deep p-3 text-white shadow-md ring-1 ring-white/10 lg:block">
+        <MenuList active={active} onPick={onSelect} signedInAs={signedInAs} vehicleCount={vehicleCount} />
+      </div>
     </nav>
   );
 }

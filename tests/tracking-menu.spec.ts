@@ -127,31 +127,39 @@ test.describe('in the browser', () => {
       await expect(nav).toBeVisible();
       const phone = width < 1024;
       const toggle = nav.getByRole('button', { name: /^Menu/ });
-      const list = nav.locator('#tracking-menu-list');
+      // A phone: a Menu button opens a slim coloured panel on the left. A large screen: the same list is always open.
+      const drawer = page.getByRole('dialog', { name: 'Tracking menu' });
+      const list = phone ? drawer : nav;
       if (phone) {
-        // A phone: one Menu button that opens the whole list, never a row to swipe along.
         await expect(toggle).toBeVisible();
-        await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-        await expect(list).toBeHidden();
+        await expect(drawer).toHaveCount(0);
         await toggle.click();
-        await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+        await expect(drawer).toBeVisible();
+        const box = (await drawer.boundingBox())!;
+        expect(box.x, 'the panel sits on the left').toBeLessThanOrEqual(1);
+        expect(box.width, 'a slim panel, not the full screen').toBeLessThanOrEqual(width * 0.8);
+        expect(box.width).toBeGreaterThan(200);
+        // Coloured, not plain white.
+        const [r, g, b] = (await drawer.evaluate((el) => getComputedStyle(el).backgroundColor)).match(/\d+/g)!.map(Number);
+        expect(r + g + b, 'a dark, coloured panel').toBeLessThan(300);
+        // Every section is there at once.
+        await expect(drawer.getByRole('button', { name: /Live shipment map|Driver sign-in|My vehicles|Orchard pickup jobs|Start a trip|Live GPS|GPS devices|Verification/ })).toHaveCount(8);
+        await expect(drawer.getByRole('button', { name: 'Close menu' })).toBeVisible();
+        await page.keyboard.press('Escape');
+        await expect(drawer).toHaveCount(0);
       } else {
-        // A large screen: the list is always open down the side, and there is no Menu button.
         await expect(toggle).toBeHidden();
       }
-      await expect(list.getByRole('button')).toHaveCount(8);
-      await expect(list.getByRole('button').first()).toBeVisible();
-      await expect(list.getByRole('button').last()).toBeVisible();
-      if (phone) {
-        // Every section can be reached without scrolling the menu sideways.
-        const sideways = await nav.evaluate((el) => [...el.querySelectorAll<HTMLElement>('*')].some((x) => x.scrollWidth > x.clientWidth + 1 && getComputedStyle(x).overflowX !== 'visible'));
-        expect(sideways, 'no sideways scrolling inside the menu').toBe(false);
-      }
-      /** Open the list (a phone closes it after each choice) and pick a section. */
+      await expect(list.getByRole('button', { name: /Live shipment map|Driver sign-in|My vehicles|Orchard pickup jobs|Start a trip|Live GPS|GPS devices|Verification/ })).toHaveCount(phone ? 0 : 8);
+
+      /** Open the list (a phone's panel closes after each choice) and pick a section. */
       const pick = async (name: RegExp) => {
-        if (phone && (await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+        if (phone) {
+          await toggle.click();
+          await expect(drawer).toBeVisible();
+        }
         await list.getByRole('button', { name }).click();
-        if (phone) await expect(list).toBeHidden();
+        if (phone) await expect(drawer).toHaveCount(0);
       };
 
       await pick(/Driver sign-in/);
