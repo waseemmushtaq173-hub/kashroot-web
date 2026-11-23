@@ -69,14 +69,14 @@ export function SidebarGreeting({ look, signedIn, name, nameReady }: { look: She
   if (signedIn === false) return null;
   const waiting = signedIn == null || (!name && !nameReady);
   return (
-    <div aria-hidden={waiting || undefined} data-kr-greeting className="mx-2 flex min-h-[4.25rem] items-center gap-2.5 rounded-2xl bg-white/[0.08] p-2.5 ring-1 ring-white/15">
+    <div aria-hidden={waiting || undefined} data-kr-greeting className="mx-2 flex min-h-[3.75rem] items-center gap-2.5 rounded-2xl bg-white/[0.08] p-2.5 ring-1 ring-white/15">
       {!waiting && (
         <>
           <span className="relative shrink-0">
-            <span aria-hidden className={`grid h-12 w-12 place-items-center rounded-full text-base font-bold text-white ring-2 ring-champagne ${look.feature}`}>
+            <span aria-hidden className={`grid h-10 w-10 place-items-center rounded-full text-sm font-bold text-white ring-2 ring-champagne ${look.feature}`}>
               {name ? initialsOf(name) : '🙂'}
             </span>
-            <span aria-hidden className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-400 ring-2 ring-forest-deep" />
+            <span aria-hidden className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-forest-deep" />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-[0.7rem] font-semibold leading-snug text-white/70">Welcome back</span>
