@@ -9,13 +9,13 @@
 -- email could not be queued: each trigger catches its own errors.
 -- Run after 20261129000000_order_notifications.sql. Safe to run again.
 
--- The email kinds: the one complete list (newest: this one).
+-- The email kinds (a later migration re-adds the list with its own kinds; this one skips rows already there, so a re-run still loads).
 alter table public.email_outbox drop constraint if exists email_outbox_kind_check;
 alter table public.email_outbox add constraint email_outbox_kind_check check (kind in (
   'help_new', 'help_ack', 'help_reply', 'help_resolved', 'payout_changed', 'password_changed', 'email_changed', 'phone_changed', 'new_signin', 'signin_locked', 'team_changed', 'trip_lost',
   'lab_booking_new', 'lab_booking_cancelled', 'lab_booking_update', 'lab_report_ready',
   'order_new', 'order_farmer_update', 'order_buyer_update',
-  'hub_order_new', 'hub_order_packed'));
+  'hub_order_new', 'hub_order_packed')) not valid;
 
 -- Who works the hub: the Super Admin, and the team members ticked for Orders. Internal: nobody calls it from the app.
 create or replace function public.kr_hub_staff() returns table (user_id uuid)

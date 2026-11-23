@@ -32,6 +32,8 @@ import { useRouter } from 'next/navigation';
 import { PortalShell } from '@/components/layout/PortalShell';
 import { ColdBooking, MyPlaces, niceDate } from '@/components/rental/ColdBooking';
 import { PayOwner } from '@/components/rental/receipt/PayOwner';
+import { ShareRequests, ShareWaiting } from '@/components/rental/ShareConsent';
+import { shareInbox, shareStatus, type ShareStatus } from '@/lib/db/coldShare';
 import { ColdMapEditor } from '@/components/rental/ColdMapEditor';
 import { ownerMeasured } from '@/lib/coldLayout';
 import { TwinPeek } from '@/components/rental/twin/TwinPeek';
@@ -159,6 +161,9 @@ export default function RentalPage() {
   // The cold store map: chambers of the stores on screen, and the places bookings hold.
   const [chambers, setChambers] = useState<ColdChamber[]>([]);
   const [places, setPlaces] = useState<BookedPlace[]>([]);
+  // Where each booking stands on sharing a bin (waiting for the farmer already on it), and how many requests wait for the caller's yes.
+  const [shares, setShares] = useState<Map<string, ShareStatus>>(new Map());
+  const [asks, setAsks] = useState(0);
 
   useEffect(() => {
     void loadAccount().then(setAccount);
@@ -174,13 +179,21 @@ export default function RentalPage() {
       const coldOnly = (x: RentalBooking) => !x.rental_listings?.kind || x.rental_listings.kind === 'cold_store';
       const [b, i, o] = [b0.filter(coldOnly), i0.filter(coldOnly), o0.filter(isCold)];
       const storeIds = [...new Set([...(shown ?? []), ...o].map((l) => l.id).concat([...b, ...i].map((x) => x.listing_id)))];
-      const [c, p, f] = await Promise.all([chambersOf(storeIds), placesOfBookings([...b, ...i].map((x) => x.id)), shown ? freeNow(shown.map((l) => l.id)) : Promise.resolve(null)]);
+      const [c, p, f, sh, inbox] = await Promise.all([
+        chambersOf(storeIds),
+        placesOfBookings([...b, ...i].map((x) => x.id)),
+        shown ? freeNow(shown.map((l) => l.id)) : Promise.resolve(null),
+        shareStatus([...b, ...i].map((x) => x.id)).catch(() => new Map<string, ShareStatus>()),
+        shareInbox().catch(() => []),
+      ]);
       // All at once, so a booking never shows without its places (and their bins or crates).
       setMine(b);
       setIncoming(i);
       setOwned(o);
       setChambers(c);
       setPlaces(p);
+      setShares(sh);
+      setAsks(inbox.filter((r) => r.state === 'asked').length);
       if (f) setFree(f);
       setListError(null);
     } catch (err) {
@@ -254,7 +267,7 @@ export default function RentalPage() {
           ? [
               { id: 'cold', label: 'Find a cold store', icon: Snowflake },
               { id: 'mystore', label: 'My stored apples', icon: Boxes },
-              { id: 'bookings', label: 'My bookings', icon: CalendarDays, count: mine.filter((b) => b.status === 'requested').length || undefined },
+              { id: 'bookings', label: 'My bookings', icon: CalendarDays, count: mine.filter((b) => b.status === 'requested').length + asks || undefined },
             ]
           : [
               { id: 'stores', label: 'My cold stores', icon: Warehouse },
@@ -331,17 +344,20 @@ export default function RentalPage() {
       ) : tab === 'mystore' && side === 'farmer' ? (
         <FarmerStoredApplesDesk account={account} theme={theme} />
       ) : tab === 'bookings' ? (
+        <div className="space-y-6">
+        <ShareRequests onChange={() => void refresh()} />
         <Panel theme={theme} title="My bookings" icon={CalendarDays}>
           {mine.length === 0 ? (
             <EmptyState theme={theme} icon={CalendarDays} title="No bookings yet" text="Book your place in a cold store and it appears here, with how to pay the owner, where your bins or crates go, and your receipt." action={<Btn theme={theme} className="min-h-[44px]" onClick={() => setTab('cold')}>Find cold storage</Btn>} />
           ) : (
             <ul className="space-y-4">
               {mine.map((b) => (
-                <RenterBooking key={b.id} booking={b} places={places.filter((p) => p.booking_id === b.id)} chambers={chambers.filter((c) => c.listing_id === b.listing_id)} onChange={() => void refresh()} />
+                <RenterBooking key={b.id} booking={b} places={places.filter((p) => p.booking_id === b.id)} chambers={chambers.filter((c) => c.listing_id === b.listing_id)} share={shares.get(b.id)} onChange={() => void refresh()} />
               ))}
             </ul>
           )}
         </Panel>
+        </div>
       ) : tab === 'bizadmin' ? (
         <OwnerAdminConsole
           oversightOrgId={oversightOrgId}
@@ -355,6 +371,7 @@ export default function RentalPage() {
           incoming={incoming}
           chambers={chambers}
           places={places}
+          shares={shares}
           prefill={claim}
           onChange={() => refresh()}
         />
@@ -608,7 +625,7 @@ function StoreCard({
   );
 }
 
-function RenterBooking({ booking: b, places, chambers, onChange }: { booking: RentalBooking; places: BookedPlace[]; chambers: ColdChamber[]; onChange: () => void }) {
+function RenterBooking({ booking: b, places, chambers, share, onChange }: { booking: RentalBooking; places: BookedPlace[]; chambers: ColdChamber[]; share?: ShareStatus; onChange: () => void }) {
   // When this card was shown (the list refreshes every 30 seconds).
   const [now] = useState(() => Date.now());
   const [cancelling, setCancelling] = useState(false);
@@ -651,7 +668,8 @@ function RenterBooking({ booking: b, places, chambers, onChange }: { booking: Re
         </div>
       )}
       <MyPlaces places={places} chambers={chambers} listingId={b.listing_id} start={b.start_date} months={b.duration} name={b.renter_name} />
-      {byPlace && b.status === 'requested' && (
+      {b.status === 'requested' && <div className="mt-2"><ShareWaiting status={share} checking={false} onCheck={onChange} /></div>}
+      {byPlace && b.status === 'requested' && share?.state !== 'asked' && (
         <p className="mt-2 text-sm text-amber-800">
           {held > now
             ? `Your places are held until ${new Date(held).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}. Pay the owner before then.`
@@ -660,7 +678,7 @@ function RenterBooking({ booking: b, places, chambers, onChange }: { booking: Re
       )}
       {b.owner_note && <p className="mt-2 text-sm text-slate-700">Owner: {b.owner_note}</p>}
       {b.status === 'confirmed' && <p className="mt-2 text-sm font-semibold text-forest-deep">Confirmed by the owner{b.confirmed_at ? ` on ${new Date(b.confirmed_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}. Show your receipt at the cold store.</p>}
-      {(b.status === 'requested' || b.status === 'paid') && l && (
+      {(b.status === 'requested' || b.status === 'paid') && l && share?.state !== 'asked' && share?.state !== 'declined' && (
         <details className="mt-3 rounded-2xl bg-slate-50 ring-1 ring-slate-900/5" open={b.status === 'requested'}>
           <summary className="min-h-[44px] cursor-pointer px-4 py-3 text-sm font-semibold text-forest">{b.status === 'requested' ? 'Pay the owner' : `You said you paid · reference ${b.payment_ref ?? ''}`}</summary>
           <div className="px-4 pb-4">
@@ -683,6 +701,7 @@ function OwnerPanel({
   account,
   owned,
   incoming,
+  shares,
   chambers,
   places,
   prefill,
@@ -693,6 +712,8 @@ function OwnerPanel({
   account: Account;
   owned: RentalListing[];
   incoming: RentalBooking[];
+  /** Where each booking stands on sharing a bin: one waiting for the farmer already on it cannot be confirmed yet. */
+  shares: Map<string, ShareStatus>;
   chambers: ColdChamber[];
   places: BookedPlace[];
   /** A store from the directory its owner is listing ("Your store? List it"). */
@@ -754,6 +775,7 @@ function OwnerPanel({
               const mineHere = places.filter((p) => p.booking_id === b.id);
               const lines = placeLines(mineHere, chambers);
               const what = mineHere.length ? countsText(mineHere, chambers, { units: b.units }) : `${b.units.toLocaleString('en-IN')} ${UNIT_LABEL[(b.rental_listings?.unit ?? 'box_month') as keyof typeof UNIT_LABEL].unit}`;
+              const waitingOnShare = shares.get(b.id)?.state === 'asked';
               const received = () => {
                 if (!b.payment_ref && !window.confirm(`${b.renter_name} has not written a payment reference yet. Did ${inr(b.amount)} reach your bank or UPI app?`)) return;
                 void run(() => bookingAction(b.id, 'confirm'), 'Money received — the booking is confirmed');
@@ -764,6 +786,7 @@ function OwnerPanel({
                     <p className="font-semibold text-slate-900">{b.renter_name} · {what} · {b.duration} month{b.duration === 1 ? '' : 's'} <span className="font-mono text-xs font-normal text-slate-500">{bookingCode(b.id)}</span></p>
                     <p className="text-sm text-slate-600">{b.rental_listings?.title} · {niceDate(b.start_date)} to {niceDate(lastDay(b.start_date, b.duration))} · <strong>{inr(b.amount)}</strong> · <a href={`tel:${b.renter_phone}`} className="inline-flex min-h-[44px] items-center gap-1 font-semibold text-forest"><Phone className="h-3.5 w-3.5" aria-hidden />{b.renter_phone}</a></p>
                     {lines.length > 0 && <p className="text-sm text-slate-700">Places: <strong>{lines.map((x) => x.text).join('. ')}</strong></p>}
+                    {waitingOnShare && <p className="mt-1 rounded-lg bg-sky-50 p-2 text-sm text-sky-950 ring-1 ring-sky-200">This booking shares a bin with another farmer, who has not said yes yet. It can be confirmed once they do; if they say no or do not answer in 24 hours it ends by itself.</p>}
                     {b.payment_ref ? (
                       <p className="mt-1 text-sm text-forest-deep">Farmer says paid · reference <span className="font-mono font-semibold">{b.payment_ref}</span> — check it in your bank or UPI app first.</p>
                     ) : (
@@ -771,7 +794,7 @@ function OwnerPanel({
                     )}
                   </div>
                   <div className="flex shrink-0 flex-wrap gap-2">
-                    <Btn theme={theme} className="min-h-[44px]" icon={CheckCircle2} disabled={busy} onClick={received}>Money received</Btn>
+                    <Btn theme={theme} className="min-h-[44px]" icon={CheckCircle2} disabled={busy || waitingOnShare} onClick={received}>Money received</Btn>
                     {hasReceipt(b) && <Btn theme={theme} variant="soft" className="min-h-[44px]" icon={ReceiptText} href={`/rental/receipt/${b.id}`}>Receipt</Btn>}
                     <Btn theme={theme} variant="danger" className="min-h-[44px]" icon={XCircle} disabled={busy} onClick={() => { const note = window.prompt('Why can you not take this booking? The farmer will see this. If they already paid, say how you will return the money.'); if (note === null) return; void run(() => bookingAction(b.id, 'reject', undefined, note), 'Booking declined'); }}>Decline</Btn>
                   </div>

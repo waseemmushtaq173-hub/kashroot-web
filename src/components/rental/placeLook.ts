@@ -21,7 +21,7 @@ export type Look = PlaceState | 'selected';
 export const PLACE_LOOK: Record<Look, { label: string; cell: string; swatch: string; mini: string; hex: string; fill: string; stroke: string; text: string }> = {
   free: { label: 'Free', cell: 'bg-forest-soft text-forest ring-1 ring-forest-mid hover:bg-[#DCEBE3]', swatch: 'bg-forest-soft ring-1 ring-forest-mid', mini: '#CFE5D9', hex: '#5FA98A', fill: '#EEF0FF', stroke: '#6358E0', text: '#3730A3' },
   part: {
-    label: 'Shared — room for more boxes',
+    label: 'Shared — room for more boxes (the farmer there must say yes)',
     cell: 'bg-[linear-gradient(to_top,#E9D8A6_0_var(--full,50%),#FEF3C7_var(--full,50%))] text-[#6B4F0F] ring-1 ring-[#C6A45B] hover:ring-2',
     swatch: 'bg-[linear-gradient(to_top,#E9D8A6_0_50%,#FEF3C7_50%)] ring-1 ring-[#C6A45B]',
     mini: '#F5DF9A',
@@ -49,10 +49,10 @@ export const PLACE_LOOK: Record<Look, { label: string; cell: string; swatch: str
 /**
  * A look in the words of what the store holds (`units`: "bins", "bins and
  * crates"; stores set up before the owner wizard hold boxes):
- * "Shared — room for more bins", "Your crates".
+ * "Shared — room for more bins (the farmer there must say yes)", "Your crates".
  */
 export function lookLabel(look: Look, units = 'boxes'): string {
-  if (look === 'part') return `Shared — room for more ${units}`;
+  if (look === 'part') return `Shared — room for more ${units} (the farmer there must say yes)`;
   if (look === 'mine') return `Your ${units}`;
   return PLACE_LOOK[look].label;
 }

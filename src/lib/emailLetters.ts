@@ -18,7 +18,7 @@ export interface Letter {
 
 export interface Queued {
   id: number;
-  kind: 'help_new' | 'help_ack' | 'help_reply' | 'help_resolved' | 'payout_changed' | 'password_changed' | 'email_changed' | 'phone_changed' | 'new_signin' | 'signin_locked' | 'team_changed' | 'trip_lost' | 'lab_booking_new' | 'lab_booking_cancelled' | 'lab_booking_update' | 'lab_report_ready' | 'order_new' | 'order_farmer_update' | 'order_buyer_update' | 'hub_order_new' | 'hub_order_packed';
+  kind: 'help_new' | 'help_ack' | 'help_reply' | 'help_resolved' | 'payout_changed' | 'password_changed' | 'email_changed' | 'phone_changed' | 'new_signin' | 'signin_locked' | 'team_changed' | 'trip_lost' | 'lab_booking_new' | 'lab_booking_cancelled' | 'lab_booking_update' | 'lab_report_ready' | 'order_new' | 'order_farmer_update' | 'order_buyer_update' | 'hub_order_new' | 'hub_order_packed' | 'cold_share_ask' | 'cold_share_answer';
   ref: string | null;
   detail: string | null;
   created_at: string;
@@ -61,7 +61,7 @@ export function redactForEmail(text: string): string {
 
 const TOPIC: Record<string, string> = { login: 'Signing in', payment: 'Payment', order: 'An order', cold_storage: 'Cold storage', selling: 'Selling', other: 'Something else' };
 
-const NOTICE: Record<Exclude<Queued['kind'], 'help_new' | 'help_ack' | 'help_reply' | 'help_resolved' | 'team_changed' | 'trip_lost' | 'lab_booking_new' | 'lab_booking_cancelled' | 'lab_booking_update' | 'lab_report_ready' | 'order_new' | 'order_farmer_update' | 'order_buyer_update' | 'hub_order_new' | 'hub_order_packed'>, [string, (detail: string | null) => string]> = {
+const NOTICE: Record<Exclude<Queued['kind'], 'help_new' | 'help_ack' | 'help_reply' | 'help_resolved' | 'team_changed' | 'trip_lost' | 'lab_booking_new' | 'lab_booking_cancelled' | 'lab_booking_update' | 'lab_report_ready' | 'order_new' | 'order_farmer_update' | 'order_buyer_update' | 'hub_order_new' | 'hub_order_packed' | 'cold_share_ask' | 'cold_share_answer'>, [string, (detail: string | null) => string]> = {
   payout_changed: ['Your KashRoot payout details were changed', () => 'The UPI ID or bank account where people pay you was saved or changed on KashRoot.'],
   password_changed: ['Your KashRoot password was changed', () => 'The password of your KashRoot account was changed.'],
   email_changed: ['A change of your KashRoot email was asked for', () => 'Someone signed in to your KashRoot account asked to change its email address. It changes only after the link sent to the new address is opened.'],
@@ -164,6 +164,36 @@ export function letterFor(q: Queued, site: string, inbox: string): Letter | null
       subject: `Packed: send a vehicle for order ${q.ref ?? ''}`.trim(),
       lines: [`The boxes are packed and waiting at the orchard: ${q.detail ?? ''}`.trim(), `Order: ${q.ref ?? ''}`, '', 'Open the hub: the orchard’s location and a route are under “Incoming for the hub”. A driver accepts the pickup job in the Tracking portal; the farmer and the buyer are told when one does.'],
       action: { label: 'Open the KashRoot Hub', href: `${site}/hub/dashboard` },
+    };
+  }
+  // Sharing a bin (20261202000000_cold_share_consent.sql): the place and how many, never a surname or phone.
+  if (q.kind === 'cold_share_ask') {
+    return {
+      to: q.to,
+      subject: `A farmer asks to share your bin: ${q.detail ?? ''}`.trim(),
+      lines: [
+        'Another farmer would like to put their apples in the room left in a bin where you already have yours:',
+        q.detail ?? '',
+        `Booking: ${q.ref ?? ''}`,
+        '',
+        'They can use it only if you say yes. Your own bins stay exactly yours. If you do not answer within 24 hours, the request ends and your bin stays as it is.',
+      ].filter((line, i, all) => line !== '' || all[i - 1] !== ''),
+      action: { label: 'Answer the request', href: `${site}/rental/dashboard?tab=bookings` },
+    };
+  }
+  if (q.kind === 'cold_share_answer') {
+    return {
+      to: q.to,
+      subject: `Your request to share a bin: ${q.detail ?? ''}`.trim(),
+      lines: [
+        `The farmer who already has bins there answered your request ${q.ref ?? ''}:`,
+        q.detail ?? '',
+        '',
+        (q.detail ?? '').startsWith('Yes')
+          ? 'You can pay the owner now. Open My bookings to see how to pay. Your places are held for 24 hours from when you booked.'
+          : 'Your booking is cancelled and the places are free again. Open the cold store and choose other places.',
+      ].filter((line, i, all) => line !== '' || all[i - 1] !== ''),
+      action: { label: 'Open My bookings', href: `${site}/rental/dashboard?tab=bookings` },
     };
   }
   if (q.kind === 'order_buyer_update') {
