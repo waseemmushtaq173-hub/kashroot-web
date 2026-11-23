@@ -139,9 +139,13 @@ test.describe('in the browser', () => {
         expect(box.x, 'the panel sits on the left').toBeLessThanOrEqual(1);
         expect(box.width, 'a slim panel, not the full screen').toBeLessThanOrEqual(width * 0.8);
         expect(box.width).toBeGreaterThan(200);
-        // Coloured, not plain white.
+        // Soft and light, never a dark block of one colour.
         const [r, g, b] = (await drawer.evaluate((el) => getComputedStyle(el).backgroundColor)).match(/\d+/g)!.map(Number);
-        expect(r + g + b, 'a dark, coloured panel').toBeLessThan(300);
+        expect(r + g + b, 'a light panel, not a dark one').toBeGreaterThan(690);
+        // A rainbow: the eight sections wear (at least six) different colours.
+        const hues = await drawer.locator('[data-hue]').evaluateAll((els) => els.map((e) => getComputedStyle(e).backgroundColor));
+        expect(hues).toHaveLength(8);
+        expect(new Set(hues).size, 'one soft colour for each section').toBeGreaterThanOrEqual(6);
         // Every section is there at once.
         await expect(drawer.getByRole('button', { name: /Live shipment map|Driver sign-in|My vehicles|Orchard pickup jobs|Start a trip|Live GPS|GPS devices|Verification/ })).toHaveCount(8);
         await expect(drawer.getByRole('button', { name: 'Close menu' })).toBeVisible();

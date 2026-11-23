@@ -197,7 +197,21 @@ export function SidebarContent(props: SidebarProps) {
 }
 
 /** Smaller screens: the sidebar as a drawer (a native modal dialog: Escape and the shade close it). */
-export function SidebarDrawer({ onClose, label, children, narrow = false }: { onClose: () => void; label: string; children: ReactNode; /** A slim panel on the left (a short menu), not the wide one of a whole portal. */ narrow?: boolean }) {
+export function SidebarDrawer({
+  onClose,
+  label,
+  children,
+  narrow = false,
+  light = false,
+}: {
+  onClose: () => void;
+  label: string;
+  children: ReactNode;
+  /** A slim panel on the left (a short menu), not the wide one of a whole portal. */
+  narrow?: boolean;
+  /** A soft, light panel (the caller colours it) instead of the portal's deep colour. */
+  light?: boolean;
+}) {
   const ref = useRef<HTMLDialogElement>(null);
 
   // Mounted only while open; taking it off the page closes it.
@@ -216,14 +230,14 @@ export function SidebarDrawer({ onClose, label, children, narrow = false }: { on
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className={`kr-drawer fixed inset-y-0 left-0 m-0 h-full max-h-none ${narrow ? 'w-[min(17rem,78vw)]' : 'w-[min(26rem,90vw)]'} max-w-none overflow-y-auto border-0 bg-forest-deep p-0 text-white shadow-[0_30px_90px_rgba(30,27,75,0.5)] backdrop:bg-forest-deep/50 backdrop:backdrop-blur-sm`}
+      className={`kr-drawer fixed inset-y-0 left-0 m-0 h-full max-h-none ${narrow ? 'w-[min(17rem,78vw)]' : 'w-[min(26rem,90vw)]'} max-w-none overflow-y-auto border-0 p-0 ${light ? 'bg-white text-slate-800 shadow-[0_24px_70px_rgba(71,85,105,0.28)] backdrop:bg-slate-900/20 backdrop:backdrop-blur-[2px]' : 'bg-forest-deep text-white shadow-[0_30px_90px_rgba(30,27,75,0.5)] backdrop:bg-forest-deep/50 backdrop:backdrop-blur-sm'}`}
     >
       <div className="relative flex min-h-full flex-col">
         <button
           type="button"
           onClick={onClose}
           aria-label="Close menu"
-          className={`absolute right-3 top-4 z-10 grid h-12 w-12 cursor-pointer place-items-center rounded-xl text-white ring-1 ring-white/30 transition hover:bg-white/10 ${FOCUS} focus-visible:outline-champagne`}
+          className={`absolute right-3 top-4 z-10 grid h-12 w-12 cursor-pointer place-items-center rounded-xl transition ${light ? 'text-slate-600 ring-1 ring-slate-300 hover:bg-slate-100' : 'text-white ring-1 ring-white/30 hover:bg-white/10'} ${FOCUS} focus-visible:outline-champagne`}
         >
           <X className="h-5 w-5" aria-hidden />
         </button>

@@ -33,28 +33,49 @@ const ITEMS: MenuItem[] = [
   { id: 'VERIFY', label: 'Verification', icon: ShieldCheck, group: 'Devices and checks' },
 ];
 
-/** The sections, grouped, on the colour of the portals' own sidebars: the same list in the phone's drawer and down the side of a large screen. */
+/**
+ * One soft colour for each section, going round the spectrum (red, orange, yellow, green, teal, blue, violet, pink): a rainbow menu
+ * on a light page, not one deep colour. Pale chips and tints, never a dark block, so nothing here shouts.
+ */
+const HUES = [
+  { chip: 'bg-rose-100 text-rose-700', on: 'bg-rose-50 ring-rose-200' },
+  { chip: 'bg-orange-100 text-orange-700', on: 'bg-orange-50 ring-orange-200' },
+  { chip: 'bg-amber-100 text-amber-700', on: 'bg-amber-50 ring-amber-200' },
+  { chip: 'bg-emerald-100 text-emerald-700', on: 'bg-emerald-50 ring-emerald-200' },
+  { chip: 'bg-teal-100 text-teal-700', on: 'bg-teal-50 ring-teal-200' },
+  { chip: 'bg-sky-100 text-sky-700', on: 'bg-sky-50 ring-sky-200' },
+  { chip: 'bg-violet-100 text-violet-700', on: 'bg-violet-50 ring-violet-200' },
+  { chip: 'bg-fuchsia-100 text-fuchsia-700', on: 'bg-fuchsia-50 ring-fuchsia-200' },
+];
+
+/** The thin rainbow line the site draws under its banners. */
+const RAINBOW = 'h-1 w-full bg-[linear-gradient(90deg,#fb7185,#fb923c,#fbbf24,#34d399,#2dd4bf,#38bdf8,#a78bfa,#e879f9)]';
+
+/** The sections, grouped: the same list in the phone's side panel and down the side of a large screen. */
 function MenuList({ active, onPick, signedInAs, vehicleCount }: { active: TrackingSection; onPick: (id: TrackingSection) => void; signedInAs: string | null; vehicleCount: number }) {
   return (
     <ul className="space-y-0.5">
       {ITEMS.map(({ id, label, icon: Icon, group }, i) => {
         const on = active === id;
+        const hue = HUES[i % HUES.length];
         const note = id === 'SIGN_IN' && signedInAs ? signedInAs : id === 'VEHICLES' && vehicleCount > 0 ? String(vehicleCount) : null;
         const first = i === 0 || ITEMS[i - 1].group !== group;
         return (
           <li key={id} className={first && i > 0 ? 'pt-3' : undefined}>
-            {first && <p className="px-3 pb-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-[#E3CC8F]">{group}</p>}
+            {first && <p className="px-3 pb-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">{group}</p>}
             <button
               type="button"
               aria-current={on ? 'page' : undefined}
               onClick={() => onPick(id)}
-              className={`flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 text-left text-[15px] font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-amber-300 ${
-                on ? 'bg-white/15 text-white ring-1 ring-amber-300/60' : 'text-white/85 hover:bg-white/10 hover:text-white'
+              className={`flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-xl px-2 text-left text-[15px] font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-slate-500 ${
+                on ? `${hue.on} text-slate-900 ring-1` : 'text-slate-700 hover:bg-slate-900/[0.04]'
               }`}
             >
-              <Icon className={`h-4 w-4 shrink-0 ${on ? 'text-amber-300' : 'text-white/65'}`} aria-hidden />
+              <span data-hue={i} className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${hue.chip}`}>
+                <Icon className="h-4 w-4" aria-hidden />
+              </span>
               <span className="min-w-0 flex-1">{label}</span>
-              {note && <span className={`rounded-full px-1.5 text-[11px] font-bold ${on ? 'bg-white/25 text-white' : 'bg-white/15 text-white'}`}>{note}</span>}
+              {note && <span className="rounded-full bg-slate-900/[0.07] px-1.5 text-[11px] font-bold text-slate-700">{note}</span>}
             </button>
           </li>
         );
@@ -75,10 +96,11 @@ export function TrackingMenu({
   signedInAs: string | null;
   vehicleCount: number;
 }) {
-  // A phone: a small Menu button that opens a slim, coloured panel on the left (the page stays visible beside it).
+  // A phone: a small Menu button that opens a slim, light panel on the left (the page stays visible beside it).
   // A large screen: the same list, always open down the side.
   const [open, setOpen] = useState(false);
   const here = ITEMS.find((x) => x.id === active) ?? ITEMS[0];
+  const hereHue = HUES[ITEMS.indexOf(here) % HUES.length];
   const HereIcon = here.icon;
   return (
     // data-kr-plain: the site's big tactile button style is left off, so this stays a small, quiet menu.
@@ -88,32 +110,40 @@ export function TrackingMenu({
         aria-expanded={open}
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}
-        className="inline-flex min-h-12 max-w-full cursor-pointer items-center gap-2.5 rounded-xl bg-forest-deep px-4 text-left text-sm font-semibold text-white shadow-md ring-1 ring-white/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 lg:hidden"
+        className="inline-flex min-h-12 max-w-full cursor-pointer items-center gap-2.5 rounded-xl bg-white/90 py-1.5 pl-3 pr-4 text-left text-sm font-semibold text-slate-800 shadow-sm ring-1 ring-slate-900/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500 lg:hidden"
       >
-        <Menu className="h-5 w-5 shrink-0 text-amber-300" aria-hidden />
+        <Menu className="h-5 w-5 shrink-0 text-slate-600" aria-hidden />
         <span className="shrink-0">Menu</span>
-        <span aria-hidden className="text-white/40">·</span>
-        <HereIcon className="h-4 w-4 shrink-0 text-white/70" aria-hidden />
+        <span aria-hidden className="text-slate-300">·</span>
+        <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg ${hereHue.chip}`}>
+          <HereIcon className="h-4 w-4" aria-hidden />
+        </span>
         <span className="min-w-0 truncate font-bold">{here.label}</span>
       </button>
       {open && (
-        <SidebarDrawer narrow onClose={() => setOpen(false)} label="Tracking menu">
-          <div className="px-3 pb-6 pt-5">
-            <p className="px-3 pb-4 pr-16 text-lg font-bold text-white">Tracking</p>
-            <MenuList
-              active={active}
-              signedInAs={signedInAs}
-              vehicleCount={vehicleCount}
-              onPick={(id) => {
-                onSelect(id);
-                setOpen(false);
-              }}
-            />
+        <SidebarDrawer narrow light onClose={() => setOpen(false)} label="Tracking menu">
+          <div className="min-h-full flex-1 bg-[linear-gradient(180deg,#fff7f5_0%,#f4faff_55%,#f8f5ff_100%)]">
+            <div className={RAINBOW} aria-hidden />
+            <div className="px-3 pb-6 pt-4">
+              <p className="px-2 pb-4 pr-16 text-lg font-bold text-slate-800">Tracking</p>
+              <MenuList
+                active={active}
+                signedInAs={signedInAs}
+                vehicleCount={vehicleCount}
+                onPick={(id) => {
+                  onSelect(id);
+                  setOpen(false);
+                }}
+              />
+            </div>
           </div>
         </SidebarDrawer>
       )}
-      <div className="hidden rounded-2xl bg-forest-deep p-3 text-white shadow-md ring-1 ring-white/10 lg:block">
-        <MenuList active={active} onPick={onSelect} signedInAs={signedInAs} vehicleCount={vehicleCount} />
+      <div className="hidden overflow-hidden rounded-2xl bg-[linear-gradient(180deg,#fff7f5_0%,#f4faff_55%,#f8f5ff_100%)] shadow-sm ring-1 ring-slate-900/10 lg:block">
+        <div className={RAINBOW} aria-hidden />
+        <div className="p-3">
+          <MenuList active={active} onPick={onSelect} signedInAs={signedInAs} vehicleCount={vehicleCount} />
+        </div>
       </div>
     </nav>
   );
