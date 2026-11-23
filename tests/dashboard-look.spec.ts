@@ -62,6 +62,23 @@ test.describe('large screen', () => {
     await expect(greeting).toContainText('SG');
   });
 
+  test('a whole first name shows in the greeting, even a long one: it wraps, it is never cut to "…"', async ({ page }) => {
+    await page.goto('/test-pages/shell', { waitUntil: 'load' });
+    const names = page.getByLabel('Longer names in the sidebar').locator('[data-kr-greeting]');
+    await expect(names).toHaveCount(2);
+    for (const [i, first] of ['Waseem', 'Mohammadabdulrahman'].entries()) {
+      const hi = names.nth(i).locator('span.font-bold').last();
+      await expect(hi).toContainText(`Hi, ${first}`);
+      const fit = await hi.evaluate((el) => ({ cut: el.scrollWidth > el.clientWidth + 1, ellipsis: getComputedStyle(el).textOverflow === 'ellipsis', width: el.getBoundingClientRect().width }));
+      expect(fit.cut, `${first} is wider than its room`).toBe(false);
+      expect(fit.ellipsis).toBe(false);
+      // The card keeps its own width: nothing pushes out past the sidebar.
+      const card = (await names.nth(i).boundingBox())!;
+      const sidebar = (await page.getByLabel('Longer names in the sidebar').boundingBox())!;
+      expect(card.x + card.width).toBeLessThanOrEqual(sidebar.x + sidebar.width + 1);
+    }
+  });
+
   test('a stat card lifts 5 px under the pointer', async ({ page }) => {
     await page.goto('/test-pages/shell', { waitUntil: 'load' });
     const card = page.locator('.kr-kpi').nth(1);
