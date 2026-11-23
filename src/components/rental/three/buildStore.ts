@@ -71,7 +71,7 @@ export interface Kit {
   mats: Record<
     | 'bin' | 'crate' | 'doorYellow' | 'binEmpty' | 'crateEmpty' | 'carton' | 'ghostOn' | 'tile' | 'hall' | 'yard' | 'apron' | 'walk' | 'passage' | 'stripe' | 'chamberFloor' | 'wall' | 'wallNear' | 'chamberWall' | 'chamberNear' | 'door' | 'leaf' | 'deck' | 'beam' | 'glass' | 'hit' | 'shutter'
     // The machines and fittings (three/fixtures).
-    | 'ceiling' | 'roof' | 'lamp' | 'cooler' | 'fan' | 'guard' | 'pipe' | 'copper' | 'curtain' | 'condenser'
+    | 'ceiling' | 'roof' | 'chamberRoof' | 'lamp' | 'cooler' | 'fan' | 'guard' | 'pipe' | 'copper' | 'curtain' | 'condenser'
     // Structure and finishes: structural steel, galvanised kick-plate, black rubber (gaskets, floor coving).
     | 'steel' | 'plate' | 'rubber'
     // The KashRoot dress: forest green wainscot band (solid / see-through), champagne gold trim, forest machine paint,
@@ -232,6 +232,7 @@ export function makeKit(T: Three, phone: boolean, protos: ColdKitGeos | null = n
     hit: new T.MeshBasicMaterial({ visible: false }),
     shutter: new T.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.35, metalness: phone ? 0.35 : 0.7 }),
     ceiling: new T.MeshStandardMaterial({ map: tex.panel, color: '#f8fafc', roughness: 0.7, side: T.DoubleSide }),
+    chamberRoof: new T.MeshStandardMaterial({ map: tex.panel, color: '#EEF1F4', roughness: 0.55, metalness: 0.12 }),
     roof: new T.MeshStandardMaterial({ color: '#B9B2A6', roughness: 0.9, side: T.DoubleSide }),
     // LED lights glow: they are not lit by anything.
     lamp: new T.MeshBasicMaterial({ color: '#fbfdff' }),
@@ -401,6 +402,11 @@ export interface Shell {
    * facing the camera turn see-through; walking, all look solid.
    */
   walls: Mesh[];
+  /**
+   * Each chamber's roof (userData.chamber): a chamber is a closed, insulated room, so from outside it wears its roof — only the open
+   * chamber, x-ray mode and walking take it off.
+   */
+  roofs: Mesh[];
   /** Labels kept readable at any distance. */
   labels: InstanceType<Three['Sprite']>[];
   /** Ceilings, the roof, structural beams and the wall kick-plates: shown only when walking (from outside the roof is off). */
@@ -430,14 +436,24 @@ function whenText(iso: string): string {
   return Number.isNaN(d.getTime()) ? '' : `logged ${d.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`;
 }
 
-/** Make the walls between the camera and the inside see-through (orbit), or every wall solid (walk). In x-ray mode every wall turns glass at once, whatever the eye does. */
-export function faceWalls(kit: Kit, walls: Mesh[], eye: { x: number; z: number } | null, xray = false) {
+/** Each chamber's own colour (its door badge and name plate, the band round its roof), so no two chambers look alike. */
+const ACCENTS = ['#1D63C9', '#1F9D6B', '#E07B1F', '#8B4FC9', '#D23F5C', '#12A0B0', '#B8860B', '#586474'];
+export function chamberAccent(no: number) {
+  return ACCENTS[(((Math.round(no) || 1) - 1) % ACCENTS.length + ACCENTS.length) % ACCENTS.length];
+}
+
+/**
+ * Make the walls between the camera and the inside see-through (orbit), or every wall solid (walk). Chambers are closed rooms:
+ * only the open chamber's walls (`open`, a chamber's index; below 0 when none is open — then every chamber is) cut away, the
+ * others stay solid. In x-ray mode every wall turns glass at once, whatever the eye does.
+ */
+export function faceWalls(kit: Kit, walls: Mesh[], eye: { x: number; z: number } | null, xray = false, open = -1) {
   for (const m of walls) {
     const out = m.userData.out as { x: number; z: number } | undefined;
     const hall = m.userData.of === 'hall';
     let near = false;
     if (xray) near = true;
-    else if (eye && out) {
+    else if (eye && out && (hall || m.userData.of === 'wainscot' || open < 0 || m.userData.chamber === open)) {
       const c = m.userData.mid as { x: number; z: number };
       near = (eye.x - c.x) * out.x + (eye.z - c.z) * out.z > 0;
     }
@@ -453,6 +469,7 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
   const hits: Mesh[] = [];
   const outlines: Shell['outlines'] = [];
   const walls: Mesh[] = [];
+  const roofs: Mesh[] = [];
   const labels: Shell['labels'] = [];
   const plaques: Plaque[] = [];
   const add = (m: Obj) => (group.add(m), m);
@@ -489,7 +506,7 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
     return m;
   };
   /** A wall of the room `r` (hall or chamber): it faces out, away from the room's middle. */
-  const roomWall = (s: Seg, y0: number, y1: number, t: number, r: Rect, of: 'hall' | 'chamber' | 'wainscot') => {
+  const roomWall = (s: Seg, y0: number, y1: number, t: number, r: Rect, of: 'hall' | 'chamber' | 'wainscot', chamber = -1) => {
     const m = wallOn(s, y0, y1, t, of === 'wainscot' ? mats.wainscot : of === 'hall' ? mats.wall : mats.chamberWall, of === 'wainscot' ? 0 : of === 'hall' ? 2.44 : 1.22);
     if (!m) return null;
     const c = midOf(s);
@@ -499,6 +516,7 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
     m.userData.out = { x: nx, z: -ny };
     m.userData.mid = { x: wx(o, c.x), z: wz(o, c.y) };
     m.userData.of = of;
+    if (chamber >= 0) m.userData.chamber = chamber;
     walls.push(m);
     return m;
   };
@@ -692,11 +710,25 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
     const H = c.h;
     // Its insulated floor, its walls of insulated panels (open at the door), the wall over the door.
     slab({ x: r.x + 0.07, y: r.y + 0.07, w: r.w - 0.14, d: r.d - 0.14 }, 0.01, 0.008, mats.chamberFloor, 3);
-    for (const s of c.walls) roomWall(s, 0, H, 0.14, r, 'chamber');
+    for (const s of c.walls) roomWall(s, 0, H, 0.14, r, 'chamber', c.index);
+    // Its own colour, and its roof: insulated panels on top with a band of that colour round the edge. From outside every chamber but the
+    // open one stays shut under it (ColdStore3D lifts it off the open one, in x-ray mode and when walking).
+    const accent = chamberAccent(c.no ?? c.index + 1);
+    if (c.toScale) {
+      const rg = new T.BoxGeometry(r.w + 0.3, 0.24, r.d + 0.3);
+      tile(rg, (r.w + 0.3) / 1.22, (r.d + 0.3) / 1.22);
+      const band = new T.MeshStandardMaterial({ color: accent, roughness: 0.5, metalness: 0.15 });
+      const roof = new T.Mesh(rg, [band, band, mats.chamberRoof, band, band, band]);
+      roof.position.set(cx, H + 0.12, cz);
+      roof.userData.chamber = c.index;
+      roof.userData.of = 'chamberRoof';
+      group.add(roof);
+      roofs.push(roof);
+    }
     // Stainless corner posts up the chamber's four corners, as on the panel rooms in the photos.
     if (c.toScale) for (const [px, py] of [[r.x, r.y], [r.x + r.w, r.y], [r.x, r.y + r.d], [r.x + r.w, r.y + r.d]]) box(0.17, H, 0.17, wx(o, px), H / 2, wz(o, py), mats.stainless);
     if (c.door) {
-      roomWall(c.door, c.doorH, H, 0.14, r, 'chamber');
+      roomWall(c.door, c.doorH, H, 0.14, r, 'chamber', c.index);
       // The door frame, and the insulated sliding door pushed open beside it, outside.
       const along = c.doorWall === 'front' || c.doorWall === 'back';
       const dw = segLength(c.door);
@@ -725,7 +757,7 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
         const ly = dm.y + (along ? 0 : shiftBy) - c.inward.y * out;
         box(along ? dw : 0.1, c.doorH, along ? 0.1 : dw, wx(o, lx), c.doorH / 2, wz(o, ly), mats.doorYellow);
         // The leaf's face as seen from the passage: the blue number badge and the warning triangle.
-        const face = new T.Mesh(new T.PlaneGeometry(dw, c.doorH), new T.MeshBasicMaterial({ map: chamberDoorTexture(T, c.no ?? c.index + 1, c.doorH / dw) }));
+        const face = new T.Mesh(new T.PlaneGeometry(dw, c.doorH), new T.MeshBasicMaterial({ map: chamberDoorTexture(T, c.no ?? c.index + 1, c.doorH / dw, accent) }));
         face.position.set(wx(o, lx - c.inward.x * 0.06), c.doorH / 2, wz(o, ly - c.inward.y * 0.06));
         face.rotation.y = Math.atan2(-c.inward.x, c.inward.y);
         add(face);
@@ -745,7 +777,7 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
       // from the passage, so a farmer finds "Chamber 2" without counting doors.
       const signW = Math.min(1.8, Math.max(1.1, dw * 0.9));
       const du = scene.building?.unit ?? 'm';
-      const can = labelCanvas(c.name, `door ${showLength(dw, du)} × ${showLength(c.doorH, du)}`, true, '#1E2A44', '#E5E7EB');
+      const can = labelCanvas(c.name, `door ${showLength(dw, du)} × ${showLength(c.doorH, du)}`, true, '#1E2A44', accent);
       const signH = (signW * can.height) / can.width;
       const overDoor = H - c.doorH;
       if (overDoor > signH * 0.6) {
@@ -924,7 +956,7 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
       fixtures.walkOnly.add(cove);
     }
   }
-  return { group, hits, outlines, walls, labels, walkOnly: fixtures.walkOnly, plaques };
+  return { group, hits, outlines, walls, roofs, labels, walkOnly: fixtures.walkOnly, plaques };
 }
 
 /** What a place's mark on the floor looks like, and how strongly its bins are tinted. */

@@ -69,18 +69,19 @@ export function SidebarGreeting({ look, signedIn, name, nameReady }: { look: She
   if (signedIn === false) return null;
   const waiting = signedIn == null || (!name && !nameReady);
   return (
-    <div aria-hidden={waiting || undefined} data-kr-greeting className="mx-2 flex min-h-[4.75rem] items-center gap-3 rounded-2xl bg-white/[0.08] p-3 ring-1 ring-white/15">
+    <div aria-hidden={waiting || undefined} data-kr-greeting className="mx-2 flex min-h-[3.75rem] items-center gap-2.5 rounded-2xl bg-white/[0.08] p-2.5 ring-1 ring-white/15">
       {!waiting && (
         <>
           <span className="relative shrink-0">
-            <span aria-hidden className={`grid h-14 w-14 place-items-center rounded-full text-lg font-bold text-white ring-2 ring-champagne ${look.feature}`}>
+            <span aria-hidden className={`grid h-10 w-10 place-items-center rounded-full text-sm font-bold text-white ring-2 ring-champagne ${look.feature}`}>
               {name ? initialsOf(name) : '🙂'}
             </span>
-            <span aria-hidden className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-emerald-400 ring-2 ring-forest-deep" />
+            <span aria-hidden className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-forest-deep" />
           </span>
-          <span className="min-w-0">
-            <span className="block text-xs font-semibold text-white/70">Welcome back</span>
-            <span className="block truncate text-lg font-bold leading-tight text-white">
+          <span className="min-w-0 flex-1">
+            <span className="block text-[0.7rem] font-semibold leading-snug text-white/70">Welcome back</span>
+            {/* The whole first name always shows: a long one wraps to a second line instead of ending in "…". */}
+            <span className="block text-[0.95rem] font-bold leading-snug text-white [overflow-wrap:anywhere]">
               {name ? `Hi, ${firstNameOf(name)}` : 'Hi there'} <span aria-hidden>👋</span>
             </span>
           </span>

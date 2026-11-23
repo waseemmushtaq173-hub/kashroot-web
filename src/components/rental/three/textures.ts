@@ -480,7 +480,7 @@ export function plateTexture(T: Three, row: number) {
  * badge (so a farmer finds it from the passage) and a small warning pictogram. The glass window is a separate part of
  * the door. `ratio` is the door's height ÷ width.
  */
-export function chamberDoorTexture(T: Three, number: number, ratio: number) {
+export function chamberDoorTexture(T: Three, number: number, ratio: number, accent = '#1d4ed8') {
   const w = 256;
   const h = Math.round(Math.min(640, Math.max(256, w * ratio)));
   const { c, g } = canvas(w, h);
@@ -518,9 +518,12 @@ export function chamberDoorTexture(T: Three, number: number, ratio: number) {
       g.closePath();
       g.fill();
     }
-    // The chamber's number on a round blue badge.
+    // This chamber's own colour across the top of the leaf and on its number badge, so no two doors look alike.
+    g.fillStyle = accent;
+    g.fillRect(0, 0, w, h * 0.045);
+    // The chamber's number on a round badge.
     const r = w * 0.13;
-    g.fillStyle = '#1d4ed8';
+    g.fillStyle = accent;
     g.beginPath();
     g.arc(w / 2, h * 0.17, r, 0, Math.PI * 2);
     g.fill();

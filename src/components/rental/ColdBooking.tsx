@@ -25,6 +25,8 @@ import { toast } from '@/lib/client/toast';
 import { ColdStoreExplorer, type Look } from '@/components/rental/ColdStoreMap';
 import { Guard3D } from '@/components/rental/three/SceneGuard';
 import { PayOwner } from '@/components/rental/receipt/PayOwner';
+import { ShareWaiting, useShareStatus } from '@/components/rental/ShareConsent';
+import { shareStatus } from '@/lib/db/coldShare';
 import { SelectedBinPanel } from '@/components/rental/SelectedBinPanel';
 import { Btn, Field, INPUT, Modal, PORTAL_THEMES, Skeleton } from '@/components/portal/kit';
 import { inr, type Account } from '@/lib/db/client';
@@ -647,7 +649,9 @@ export function ColdBooking({
         toast.error('Your places are booked and held. Saving their 3D unit details failed — the owner still sees your booking.');
       }
       setStep('pay');
-      toast.success('Places held for you for 24 hours — now pay the owner');
+      // A place that already holds another farmer's bins needs that farmer's yes before the booking can be paid.
+      const sharing = await shareStatus([id]).then((m) => m.get(id)?.state).catch(() => undefined);
+      toast.success(sharing === 'asked' ? 'Places held for you. We asked the farmer who is already there: you can pay when they say yes.' : 'Places held for you for 24 hours — now pay the owner');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not book.';
       toast.error(message);
@@ -687,6 +691,11 @@ export function ColdBooking({
       )}
     </p>
   );
+  // Booked on a place another farmer is on: the booking waits for that farmer's yes before it can be paid.
+  const share = useShareStatus(booked?.id, step === 'pay');
+  const waitingOnShare = share.status?.state === 'asked' || share.status?.state === 'declined';
+  // Chosen places that already hold another farmer's boxes: they are asked first.
+  const sharedChoice = [...picked.keys()].filter((k) => (taken?.get(k)?.used ?? 0) > 0).length;
   const heldUntil = booked ? new Date(booked.at + 86_400_000).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '';
   const problem = (m: string | null) => (tried && m ? <span role="alert" className="mt-1.5 block rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-900 ring-1 ring-rose-200">{m}</span> : null);
 
@@ -895,6 +904,11 @@ export function ColdBooking({
               {problem(phoneProblem)}
             </div>
           </div>
+          {sharedChoice > 0 && (
+            <p data-testid="share-note" className="rounded-xl bg-sky-50 p-3 text-sm text-sky-950 ring-1 ring-sky-200">
+              <strong>{sharedChoice === 1 ? 'One of these places' : `${sharedChoice} of these places`} already {sharedChoice === 1 ? 'has' : 'have'} another farmer’s {word}.</strong> You are sharing {sharedChoice === 1 ? 'it' : 'them'}, so the farmer there is asked first. Your places are held, and you can pay as soon as they say yes. If they say no or do not answer in 24 hours, the booking ends and you choose again. They see only your first name and how many {word}.
+            </p>
+          )}
           <p className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-amber-200">
             <CalendarDays className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> These places are held for you for 24 hours. Next you see the owner’s bank account and UPI ID: pay the owner directly, then write the payment reference. The places are yours once the owner confirms.
           </p>
@@ -902,14 +916,17 @@ export function ColdBooking({
       ) : step === 'pay' && booked ? (
         <div className="space-y-4">
           <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-amber-200">
-            Booked: <strong>{chosenWords}</strong> in {l.title}. Your places are held until <strong>{heldUntil}</strong>. Pay the owner before then.
+            Booked: <strong>{chosenWords}</strong> in {l.title}. Your places are held until <strong>{heldUntil}</strong>. {share.status?.state === 'asked' ? 'You can pay the owner as soon as the other farmer says yes.' : share.status?.state === 'declined' ? 'This booking is cancelled.' : 'Pay the owner before then.'}
           </p>
+          <ShareWaiting status={share.status} checking={share.checking} onCheck={() => void share.check()} />
+          {!waitingOnShare && (
           <div className="rounded-xl bg-white p-4 ring-1 ring-slate-200">
             <p className="font-semibold text-slate-900 mb-2">Gate Pass QR Code</p>
             <p className="text-sm text-slate-600 mb-3">Scan this QR code at the cold store gate for entry</p>
             <GatePassQR bookingId={booked.id} bookingCode={bookingCode(booked.id)} places={asPlaced} chambers={chambers} ownerName={l.owner_name} ownerPhone={l.phone} amount={booked.amount} />
             <PayOwner bookingId={booked.id} amount={booked.amount} owner={{ name: l.owner_name, phone: l.phone }} onPaid={() => setStep('paid')} />
           </div>
+          )}
         </div>
       ) : booked ? (
         <div className="space-y-4 text-center">

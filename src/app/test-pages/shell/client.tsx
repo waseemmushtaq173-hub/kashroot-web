@@ -50,6 +50,10 @@ export function ShellTestPage() {
       <section aria-label="Sidebar greeting" className="mb-6 w-72 rounded-3xl bg-forest-deep py-4 text-white">
         <SidebarGreeting look={shellLook('farmer')} signedIn name="Sample Grower" nameReady />
       </section>
+      <section aria-label="Longer names in the sidebar" className="mb-6 w-72 space-y-3 rounded-3xl bg-forest-deep py-4 text-white">
+        <SidebarGreeting look={shellLook('farmer')} signedIn name="Waseem Mushtaq Mir" nameReady />
+        <SidebarGreeting look={shellLook('farmer')} signedIn name="Mohammadabdulrahman Dar" nameReady />
+      </section>
       <ol aria-label="Sample conversation" className="max-w-xl space-y-4">
         <ChatBubble message={msg(1, 'farmer', 'me', 'Sample Grower', 'My apple leaves have dark spots.')} mine asExpert={false} lang="en" />
         <ChatBubble message={msg(2, 'expert', 'ex', 'Sample Expert', 'Please tell me since when this is happening.')} mine={false} asExpert={false} lang="en" />

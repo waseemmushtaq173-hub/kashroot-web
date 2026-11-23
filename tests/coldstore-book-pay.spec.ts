@@ -5,7 +5,7 @@
  * to the unit registry is checked: the farmer's own account, the booking's own reference, and always "PENDING" (only the
  * owner marks places paid). Needs a server started with KR_TEST_PAGES=1; KR_BASE_URL says where.
  */
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 const draft = {"title": "Shopian Cold Store", "ownerName": "Owner", "ownerPhone": "9876543210", "managerName": "", "managerPhone": "9876543210", "state": "Jammu & Kashmir", "district": "Shopian", "area": "Test", "address": "", "unit": "m", "building": {"length": "40", "width": "30", "height": "12", "door": {"wall": "front", "from": "18", "width": "4", "height": "5"}, "sides": "both", "wallThickness": "", "passageWidth": "", "doorKind": "", "spCleaningL": "", "spCleaningW": "", "spGradingL": "", "spGradingW": "", "spPackingL": "", "spPackingW": "", "spMachineryL": "", "spMachineryW": "", "spDockL": "", "spDockW": ""}, "chambers": [{"key": "cmwigzwea0", "no": "1", "storage": "bins", "count": "480", "kg": "250", "tonnes": "", "floors": "1", "length": "14", "width": "12", "height": "8", "door": {"wall": "front", "from": "5", "width": "3", "height": "4"}, "rate": "45", "stackHigh": "8", "rackLevels": "4", "wallPosition": "", "spotX": "", "spotY": "", "unitL": "1.2", "unitW": "1", "unitH": "0.76", "floorHeights": "8", "aisle": "3.5", "stackGap": "0.1", "wallGap": "0.3", "coolerWall": "", "coolant": "", "ca": "", "temperature": "", "humidity": "", "doorType": "", "cratesPerBin": "100"}]};
 
@@ -15,14 +15,18 @@ test.use({ viewport: { width: 1280, height: 1300 } });
 const BOOKING_ID = '11111111-2222-4333-8444-555555555555';
 const FARMER_ID = '00000000-0000-4000-8000-0000000000bb';
 
-test('click a bin in 3D, book it, and land on the pay step', async ({ page }) => {
-  test.setTimeout(240_000); // the software 3D renderer takes about a minute and a half
+/** Where the booking stands on sharing a bin (the database's answer to kr_cold_share_status): the test changes it while it runs. */
+type Share = { state: 'none' | 'asked' | 'allowed' | 'declined' };
+
+/** Everything up to and including pressing "Book": open the store, click a bin in 3D, ask for 3 bins, confirm. */
+async function chooseAndBook(page: Page, share: Share): Promise<Record<string, unknown>[]> {
   const unitCalls: Record<string, unknown>[] = [];
   const json = (body: unknown, status = 200) => ({ status, contentType: 'application/json', body: JSON.stringify(body) });
   await page.route('**/api/supabase/**', async (route) => {
     const url = route.request().url();
     if (url.includes('/rpc/kr_cold_map')) return route.fulfill(json([]));
     if (url.includes('/rpc/kr_book_cold_places')) return route.fulfill(json(BOOKING_ID));
+    if (url.includes('/rpc/kr_cold_share_status')) return route.fulfill(json(share.state === 'none' ? [] : [{ booking_id: BOOKING_ID, state: share.state, waiting: share.state === 'asked' ? 1 : 0 }]));
     // The owner's payment details come only from the database's own check that this farmer has a live booking.
     if (url.includes('/rpc/kr_payment_details')) return route.fulfill(json([{ account_name: 'Test Owner', upi_id: 'test-owner@testbank', account_number: null, ifsc: null, bank_name: null }]));
     if (url.includes('/rest/v1/rental_bookings')) return route.fulfill(json({ id: BOOKING_ID, amount: 810, status: 'requested', created_at: new Date().toISOString(), payment_ref: null }));
@@ -66,8 +70,15 @@ test('click a bin in 3D, book it, and land on the pay step', async ({ page }) =>
   await page.getByTestId('book-selected-bin').click();
   await expect(page.getByText('Confirm your places')).toBeVisible();
 
-  // 3. Booking: the booking is made and the pay step names who to pay.
+  // 3. Booking.
   await page.getByRole('button', { name: /^Book for ₹/ }).click();
+  return unitCalls;
+}
+
+test('click a bin in 3D, book it, and land on the pay step', async ({ page }) => {
+  test.setTimeout(240_000); // the software 3D renderer takes about a minute and a half
+  const unitCalls = await chooseAndBook(page, { state: 'none' });
+  // The booking is made and the pay step names who to pay.
   await expect(page.getByText('Pay the owner').first()).toBeVisible();
   await expect(page.getByTestId('pay-amount')).toHaveText('₹810');
   await expect(page.getByText('test-owner@testbank').first()).toBeVisible();
@@ -82,4 +93,22 @@ test('click a bin in 3D, book it, and land on the pay step', async ({ page }) =>
     expect(c.idempotencyKeyPrefix).toBe(`kr-booking-${BOOKING_ID}`);
     expect(c.paymentStatus).toBe('PENDING');
   }
+});
+
+test('a bin shared with another farmer waits for their yes: no payment box until then, and "Check again" opens it', async ({ page }) => {
+  test.setTimeout(240_000);
+  const share: Share = { state: 'asked' };
+  await chooseAndBook(page, share);
+  // The places are held, but there is nothing to pay yet: the farmer is told who they wait for (a farmer, never a name).
+  const waiting = page.getByTestId('share-waiting');
+  await expect(waiting).toBeVisible();
+  await expect(waiting).toContainText('Waiting for the other farmer’s yes');
+  await expect(page.getByText(/as soon as the other farmer says yes/)).toBeVisible();
+  await expect(page.getByTestId('pay-amount')).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /by UPI app/ })).toHaveCount(0);
+  // The other farmer says yes: the payment box opens.
+  share.state = 'allowed';
+  await page.getByRole('button', { name: 'Check again' }).click();
+  await expect(page.getByTestId('pay-amount')).toHaveText('₹810');
+  await expect(waiting).toHaveCount(0);
 });
