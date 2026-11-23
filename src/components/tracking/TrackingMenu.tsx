@@ -8,8 +8,8 @@
  * devices) — with a Verification screen that says plainly what KashRoot has and has not checked
  * for the signed-in driver and each vehicle.
  */
-import type { ElementType } from 'react';
-import { BadgeCheck, CircleAlert, MapPinned, PackageCheck, Radio, Route, Satellite, ShieldCheck, Truck, UserRound } from 'lucide-react';
+import { useState, type ElementType } from 'react';
+import { BadgeCheck, ChevronDown, CircleAlert, MapPinned, Menu, PackageCheck, Radio, Route, Satellite, ShieldCheck, Truck, UserRound } from 'lucide-react';
 
 export type TrackingSection = 'MAP' | 'SIGN_IN' | 'VEHICLES' | 'PICKUPS' | 'TRIP' | 'GPS' | 'DEVICES' | 'VERIFY';
 
@@ -43,36 +43,65 @@ export function TrackingMenu({
   signedInAs: string | null;
   vehicleCount: number;
 }) {
+  // A phone: one "Menu" button that opens the whole list (no swiping along a row). A large screen: the list is always open down the side.
+  const [open, setOpen] = useState(false);
+  const here = ITEMS.find((x) => x.id === active) ?? ITEMS[0];
+  const HereIcon = here.icon;
   return (
     // data-kr-plain: the site's big tactile button style is left off, so this stays a small, quiet menu.
-    <nav aria-label="Tracking menu" data-kr-plain className="min-w-0 lg:sticky lg:top-4 lg:self-start">
-      {/* A phone: one row of small tabs to swipe. A large screen: a narrow list down the side. */}
-      <div className="-mx-4 overflow-x-auto px-4 pb-1 lg:mx-0 lg:overflow-visible lg:px-0 lg:pb-0">
-        <ul className="flex w-max gap-1 rounded-xl bg-white/70 p-1 ring-1 ring-slate-900/10 lg:block lg:w-full lg:space-y-0.5 lg:p-1.5">
-          {ITEMS.map(({ id, label, icon: Icon }, i) => {
-            const on = active === id;
-            const note = id === 'SIGN_IN' && signedInAs ? signedInAs : id === 'VEHICLES' && vehicleCount > 0 ? String(vehicleCount) : null;
-            const gap = i > 0 && ITEMS[i - 1].group !== ITEMS[i].group;
-            return (
-              <li key={id} className={gap ? 'lg:mt-2 lg:border-t lg:border-slate-200 lg:pt-2' : undefined}>
-                <button
-                  type="button"
-                  aria-current={on ? 'page' : undefined}
-                  onClick={() => onSelect(id)}
-                  // The tap area is 44 px (the site's rule); the face you see is a compact 36 px inside it.
-                  className={`relative isolate flex min-h-11 w-full cursor-pointer items-center gap-2 whitespace-nowrap px-3 text-left text-[13px] font-semibold transition before:absolute before:inset-x-0 before:inset-y-1 before:-z-10 before:rounded-lg before:transition focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-slate-900 lg:px-2.5 ${
-                    on ? 'text-white before:bg-slate-900' : 'text-slate-800 hover:before:bg-slate-900/[0.07]'
-                  }`}
-                >
-                  <Icon className={`h-4 w-4 shrink-0 ${on ? 'text-amber-300' : 'text-slate-600'}`} aria-hidden />
-                  <span>{label}</span>
-                  {note && <span className={`ml-auto rounded-full px-1.5 text-[11px] font-bold ${on ? 'bg-white/20 text-white' : 'bg-slate-900/10 text-slate-800'}`}>{note}</span>}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
+    <nav
+      aria-label="Tracking menu"
+      data-kr-plain
+      className="min-w-0 lg:sticky lg:top-4 lg:self-start"
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') setOpen(false);
+      }}
+    >
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls="tracking-menu-list"
+        onClick={() => setOpen((v) => !v)}
+        className="flex min-h-12 w-full cursor-pointer items-center gap-2.5 rounded-xl bg-white/80 px-3 text-left text-sm font-semibold text-slate-900 ring-1 ring-slate-900/10 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-slate-900 lg:hidden"
+      >
+        <Menu className="h-5 w-5 shrink-0 text-slate-700" aria-hidden />
+        <span className="shrink-0">Menu</span>
+        <span aria-hidden className="text-slate-400">·</span>
+        <HereIcon className="h-4 w-4 shrink-0 text-slate-600" aria-hidden />
+        <span className="min-w-0 flex-1 truncate font-bold">{here.label}</span>
+        <ChevronDown className={`h-4 w-4 shrink-0 text-slate-600 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
+      </button>
+      <ul
+        id="tracking-menu-list"
+        className={`${open ? 'mt-2 block' : 'hidden'} rounded-xl bg-white/90 p-1.5 ring-1 ring-slate-900/10 lg:mt-0 lg:block lg:bg-white/70 lg:p-1.5`}
+      >
+        {ITEMS.map(({ id, label, icon: Icon, group }, i) => {
+          const on = active === id;
+          const note = id === 'SIGN_IN' && signedInAs ? signedInAs : id === 'VEHICLES' && vehicleCount > 0 ? String(vehicleCount) : null;
+          const first = i === 0 || ITEMS[i - 1].group !== group;
+          return (
+            <li key={id} className={first && i > 0 ? 'mt-1.5 border-t border-slate-200 pt-1.5 lg:mt-2 lg:pt-2' : undefined}>
+              {first && <p className="px-2.5 pb-0.5 pt-1 text-[11px] font-bold uppercase tracking-wide text-slate-500 lg:hidden">{group}</p>}
+              <button
+                type="button"
+                aria-current={on ? 'page' : undefined}
+                onClick={() => {
+                  onSelect(id);
+                  setOpen(false);
+                }}
+                // The tap area is 44 px (the site's rule); the face you see is a compact 36 px inside it.
+                className={`relative isolate flex min-h-11 w-full cursor-pointer items-center gap-2 whitespace-nowrap px-3 text-left text-[13px] font-semibold transition before:absolute before:inset-x-0 before:inset-y-1 before:-z-10 before:rounded-lg before:transition focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-slate-900 lg:px-2.5 ${
+                  on ? 'text-white before:bg-slate-900' : 'text-slate-800 hover:before:bg-slate-900/[0.07]'
+                }`}
+              >
+                <Icon className={`h-4 w-4 shrink-0 ${on ? 'text-amber-300' : 'text-slate-600'}`} aria-hidden />
+                <span>{label}</span>
+                {note && <span className={`ml-auto rounded-full px-1.5 text-[11px] font-bold ${on ? 'bg-white/20 text-white' : 'bg-slate-900/10 text-slate-800'}`}>{note}</span>}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     </nav>
   );
 }

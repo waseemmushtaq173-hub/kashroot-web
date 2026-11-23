@@ -125,22 +125,50 @@ test.describe('in the browser', () => {
       await page.goto('/tracking', { waitUntil: 'load' });
       const nav = page.getByRole('navigation', { name: 'Tracking menu' });
       await expect(nav).toBeVisible();
-      await expect(nav.getByRole('button')).toHaveCount(8);
+      const phone = width < 1024;
+      const toggle = nav.getByRole('button', { name: /^Menu/ });
+      const list = nav.locator('#tracking-menu-list');
+      if (phone) {
+        // A phone: one Menu button that opens the whole list, never a row to swipe along.
+        await expect(toggle).toBeVisible();
+        await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+        await expect(list).toBeHidden();
+        await toggle.click();
+        await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      } else {
+        // A large screen: the list is always open down the side, and there is no Menu button.
+        await expect(toggle).toBeHidden();
+      }
+      await expect(list.getByRole('button')).toHaveCount(8);
+      await expect(list.getByRole('button').first()).toBeVisible();
+      await expect(list.getByRole('button').last()).toBeVisible();
+      if (phone) {
+        // Every section can be reached without scrolling the menu sideways.
+        const sideways = await nav.evaluate((el) => [...el.querySelectorAll<HTMLElement>('*')].some((x) => x.scrollWidth > x.clientWidth + 1 && getComputedStyle(x).overflowX !== 'visible'));
+        expect(sideways, 'no sideways scrolling inside the menu').toBe(false);
+      }
+      /** Open the list (a phone closes it after each choice) and pick a section. */
+      const pick = async (name: RegExp) => {
+        if (phone && (await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+        await list.getByRole('button', { name }).click();
+        if (phone) await expect(list).toBeHidden();
+      };
 
-      await nav.getByRole('button', { name: /Driver sign-in/ }).click();
+      await pick(/Driver sign-in/);
       await expect(page.getByRole('heading', { name: /sign in or register/i })).toBeVisible();
       await expect(page.getByLabel(/Mobile number/)).toBeVisible();
+      if (phone) await expect(toggle).toContainText('Driver sign-in');
       // No PIN is suggested.
       await expect(page.getByText(/default 1234/i)).toHaveCount(0);
       expect(await page.getByLabel(/^PIN/).getAttribute('placeholder')).toBeNull();
 
-      await nav.getByRole('button', { name: /My vehicles/ }).click();
+      await pick(/My vehicles/);
       await expect(page.getByText(/Sign in as a driver first/)).toBeVisible();
 
-      await nav.getByRole('button', { name: /Verification/ }).click();
+      await pick(/Verification/);
       await expect(page.getByRole('heading', { name: /What KashRoot checks, and what it does not/ })).toBeVisible();
 
-      await nav.getByRole('button', { name: /Live shipment map/ }).click();
+      await pick(/Live shipment map/);
       await expect(page.getByLabel('Tracking ID')).toBeVisible();
       await expect(page.getByLabel(/6-digit PIN/)).toBeVisible();
       expect(await page.content()).not.toMatch(/Bengaluru/);
