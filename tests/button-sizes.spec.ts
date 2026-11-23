@@ -29,8 +29,9 @@ test('the compact face is drawn inside the tap area, and the main button is left
 
 test('the tracking menu keeps a 44 px tap area under a compact face', () => {
   const menu = read('src/components/tracking/TrackingMenu.tsx');
+  // Every section is a 44 px row (a pale chip inside it carries the colour); a phone's Menu button is 48 px.
   expect(menu).toContain('min-h-11');
-  expect(menu).toContain('before:inset-y-1');
+  expect(menu).toContain('min-h-12');
   expect(menu).toContain('data-kr-plain');
 });
 

@@ -30,18 +30,19 @@ const HUE: Record<string, string> = {
 };
 
 const CARD =
-  'kr-card kr-card-interactive group relative flex h-full min-h-[9rem] flex-col overflow-hidden rounded-3xl p-4 text-ink no-underline hover:no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest';
+  'kr-card kr-card-interactive group relative flex h-full flex-col overflow-hidden rounded-2xl p-3 text-ink sm:min-h-[9rem] sm:rounded-3xl sm:p-4 no-underline hover:no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest';
 // A forest and gold badge standing on its own ledge (globals.css .kr-icon-badge).
-const ICON = 'kr-icon-badge relative grid h-10 w-10 place-items-center rounded-xl';
-const BADGE = 'relative rounded-full border border-champagne/60 bg-champagne-soft px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-champagne-deep';
+const ICON = 'kr-icon-badge relative grid h-9 w-9 place-items-center rounded-xl sm:h-10 sm:w-10';
+const BADGE = 'relative rounded-full border border-champagne/60 bg-champagne-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-champagne-deep sm:px-2.5 sm:text-[11px] sm:tracking-[0.14em]';
 // The button inside a card lifts and sinks with the card (the card is the link).
-const CTA = 'kr-btn-primary relative mt-auto w-full justify-between group-hover:[transform:translateY(-1px)] group-hover:[box-shadow:var(--kr-btn-primary-hover-shadow)] group-active:[transform:translateY(1.5px)] group-active:[box-shadow:var(--kr-btn-primary-active-shadow)] motion-reduce:group-hover:[transform:none] motion-reduce:group-active:[transform:none]';
+const CTA = 'kr-btn-primary relative mt-auto min-h-11 w-full justify-between !px-3 !py-1.5 !text-[12px] sm:min-h-11 sm:!px-5 sm:!py-2.5 sm:!text-sm group-hover:[transform:translateY(-1px)] group-hover:[box-shadow:var(--kr-btn-primary-hover-shadow)] group-active:[transform:translateY(1.5px)] group-active:[box-shadow:var(--kr-btn-primary-active-shadow)] motion-reduce:group-hover:[transform:none] motion-reduce:group-active:[transform:none]';
 
 export function PortalGrid() {
   // Admin appears only on an admin's own phone or computer (see adminDevice).
   const showAdmin = useShowAdmin();
+  // A phone: two small tiles across (name, a short line, one button) instead of one big card per row.
   return (
-    <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <ul className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
       {EIGHT_PORTALS_CONFIG.map((card) => {
         const Icon = card.icon;
         return (
@@ -55,8 +56,8 @@ export function PortalGrid() {
                   </span>
                   <span aria-hidden className={BADGE}>{card.tag}</span>
                 </span>
-                <span className="relative mt-3 block text-base font-semibold tracking-tight text-ink">{card.name}</span>
-                <span className="relative mb-3 mt-1 block text-sm leading-snug text-ink-soft">{card.purpose}</span>
+                <span className="relative mt-2 block text-[15px] font-semibold leading-tight tracking-tight text-ink sm:mt-3 sm:text-base">{card.name}</span>
+                <span className="relative mb-2.5 mt-1 line-clamp-3 block text-xs leading-snug text-ink-soft sm:mb-3 sm:line-clamp-none sm:text-sm">{card.purpose}</span>
                 <span className={CTA}>
                   {card.actionLabel}
                   <ArrowUpRight className="h-4 w-4 text-champagne transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden />
@@ -85,8 +86,8 @@ function AdminCard() {
             </span>
             <span aria-hidden className={BADGE}>Staff</span>
           </span>
-          <span className="relative mt-3 block text-base font-semibold tracking-tight text-ink">{admin.label}</span>
-          <span className="relative mb-3 mt-1 block text-sm leading-snug text-ink-soft">{admin.tagline}</span>
+          <span className="relative mt-2 block text-[15px] font-semibold leading-tight tracking-tight text-ink sm:mt-3 sm:text-base">{admin.label}</span>
+          <span className="relative mb-2.5 mt-1 line-clamp-3 block text-xs leading-snug text-ink-soft sm:mb-3 sm:line-clamp-none sm:text-sm">{admin.tagline}</span>
           <span className={CTA}>
             Open Admin Console
             <ArrowUpRight className="h-4 w-4 text-champagne transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden />

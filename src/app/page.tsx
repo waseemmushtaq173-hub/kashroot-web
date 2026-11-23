@@ -50,6 +50,8 @@ export const revalidate = 3600;
 
 interface ToolAction {
   label: string;
+  /** What the small phone tile says instead (the tile is about a third of the screen wide). */
+  short: string;
   href: string;
 }
 
@@ -57,20 +59,20 @@ interface ToolAction {
 const TOOL_ACTIONS: Record<ToolId, { primary: ToolAction; secondary: ToolAction }> = {
   escrow: {
     // Public: how paying works (UPI after delivery, identity checks) — no sign-in.
-    primary: { label: 'How escrow payment works', href: TOOLS.escrow.href },
+    primary: { label: 'How escrow payment works', short: 'How it works', href: TOOLS.escrow.href },
     // Buying with pay-after-delivery happens in the Buyer portal's shop.
-    secondary: { label: 'Buy produce', href: loginHref('buyer', '/buyer/dashboard?tab=shop') },
+    secondary: { label: 'Buy produce', short: 'Buy produce', href: loginHref('buyer', '/buyer/dashboard?tab=shop') },
   },
   mandi: {
     // The mandi board is public — no sign-in needed to read it.
-    primary: { label: 'View today’s rates', href: TOOLS.mandi.href },
+    primary: { label: 'View today’s rates', short: 'Today’s rates', href: TOOLS.mandi.href },
     // Posting a mandi's rates is the Mandi Helpers portal's job (its own sign-in).
-    secondary: { label: 'Post your mandi’s rates', href: loginHref('trader', '/trader/dashboard') },
+    secondary: { label: 'Post your mandi’s rates', short: 'Post rates', href: loginHref('trader', '/trader/dashboard') },
   },
   priceComparison: {
-    primary: { label: 'Compare prices', href: TOOLS.priceComparison.href },
+    primary: { label: 'Compare prices', short: 'Compare', href: TOOLS.priceComparison.href },
     // Selling on Price Comparison: its Sell here tab (sign-in happens there, no portal).
-    secondary: { label: 'List your products', href: `${TOOLS.priceComparison.href}?tab=sell` },
+    secondary: { label: 'List your products', short: 'List yours', href: `${TOOLS.priceComparison.href}?tab=sell` },
   },
 };
 
@@ -118,18 +120,19 @@ export default async function HomePage() {
 
         {/* Bottom padding leaves room for the season badge (no more). */}
         <main id="main-content" className="mx-auto max-w-7xl px-4 pb-24 pt-4 sm:px-6 sm:pt-6 lg:px-8">
-          <section className={`max-w-xl rounded-3xl p-4 sm:p-6 ${GLASS.panel}`}>
+          <section className={`max-w-xl rounded-3xl p-3.5 sm:p-6 ${GLASS.panel}`}>
             <p className="inline-flex items-center gap-2 rounded-full bg-white/85 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-ink ring-1 ring-slate-900/10">
               <span aria-hidden className="kr-spectrum h-1.5 w-8 rounded-full" />
-              KashRoot · The agri-business ecosystem
+              <span className="sm:hidden">KashRoot ecosystem</span>
+              <span className="hidden sm:inline">KashRoot · The agri-business ecosystem</span>
             </p>
-            <h1 className="font-display mt-3 text-3xl font-semibold tracking-tight text-ink [text-wrap:balance] sm:text-4xl lg:text-5xl">
+            <h1 className="font-display mt-2.5 text-[1.7rem] leading-tight font-semibold tracking-tight text-ink [text-wrap:balance] sm:text-4xl lg:text-5xl">
               Every harvest,{' '}
               <span className="kr-spectrum-text">
                 traded with trust.
               </span>
             </h1>
-            <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink-soft sm:text-base">
+            <p className="mt-2 max-w-xl text-[13px] leading-relaxed text-ink-soft sm:text-base">
               <strong className="font-semibold text-ink">KashRoot</strong> brings pay-after-delivery trade, live mandi rates and
               transparent price comparison to growers, traders and buyers.
             </p>
@@ -141,7 +144,7 @@ export default async function HomePage() {
             </p>
             {/* Real live platform counts — each shown only when its table answered. */}
             {(metrics.stores != null || metrics.lots != null || metrics.rates != null) && (
-              <p className="mt-3 flex flex-wrap gap-x-4 gap-y-0.5 text-xs font-medium text-ink-soft sm:text-sm">
+              <p className="mt-2.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] font-medium text-ink-soft sm:gap-x-4 sm:text-sm">
                 {metrics.stores != null && <span><strong className="font-semibold text-ink">{fmt(metrics.stores)}</strong> cold stores listed</span>}
                 {metrics.lots != null && <span><strong className="font-semibold text-ink">{fmt(metrics.lots)}</strong> produce lots on sale</span>}
                 {metrics.rates != null && <span><strong className="font-semibold text-ink">{fmt(metrics.rates)}</strong> mandi rates today</span>}
@@ -149,8 +152,8 @@ export default async function HomePage() {
             )}
           </section>
 
-          <section aria-label="KashRoot tools" className="mt-3 grid gap-3 sm:mt-4 sm:gap-4 md:grid-cols-3">
-            {/* One column on a phone, three across from 768 px: small cards, so the whole row is seen without scrolling. */}
+          <section aria-label="KashRoot tools" className="mt-3 grid grid-cols-3 gap-2 sm:mt-4 sm:grid-cols-1 sm:gap-4 md:grid-cols-3">
+            {/* A phone: the three side by side as small tiles (icon, name, one button). From 640 px one full card per row, from 768 px three across. */}
             {TOOL_ORDER.map((id) => (
               <div key={id} data-portal={TOOL_HUE[id]}>
                 <Tilt3D className="rounded-3xl" max={6}>
@@ -216,7 +219,7 @@ function ToolCard({ id }: { id: ToolId }) {
 
   return (
     <article
-      className={`group relative flex h-full flex-col overflow-hidden rounded-3xl p-4 sm:p-5 ${GLASS.panel} transition duration-300 [transform-style:preserve-3d] hover:-translate-y-1 hover:bg-white hover:[box-shadow:var(--kr-card-hover-shadow),0_24px_48px_-12px_rgba(30,27,75,0.25)] motion-reduce:transition-none motion-reduce:hover:translate-y-0`}
+      className={`group relative flex h-full flex-col overflow-hidden rounded-2xl p-3 sm:rounded-3xl sm:p-5 ${GLASS.panel} transition duration-300 [transform-style:preserve-3d] hover:-translate-y-1 hover:bg-white hover:[box-shadow:var(--kr-card-hover-shadow),0_24px_48px_-12px_rgba(30,27,75,0.25)] motion-reduce:transition-none motion-reduce:hover:translate-y-0`}
     >
       <div
         aria-hidden
@@ -224,32 +227,35 @@ function ToolCard({ id }: { id: ToolId }) {
       />
 
       <div className="relative flex items-start justify-between gap-3">
-        <span data-depth className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${theme.iconTile}`}>
-          <Icon className="h-5 w-5" aria-hidden />
+        <span data-depth className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl sm:h-10 sm:w-10 ${theme.iconTile}`}>
+          <Icon className="h-[18px] w-[18px] sm:h-5 sm:w-5" aria-hidden />
         </span>
-        <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${theme.eyebrow}`}>{tool.eyebrow}</span>
+        {/* On a phone the tile is a third of the screen: the tag and the long text are left out. */}
+        <span className={`hidden rounded-full px-2.5 py-0.5 text-[11px] font-semibold sm:inline ${theme.eyebrow}`}>{tool.eyebrow}</span>
       </div>
 
-      <h2 className="relative mt-3 font-display text-xl font-semibold tracking-tight text-ink">{tool.title}</h2>
-      <p className="relative mt-1.5 text-sm leading-snug text-ink-soft">{tool.description}</p>
+      <h2 className="relative mt-2 font-display text-[13px] font-semibold leading-tight tracking-tight text-ink sm:mt-3 sm:text-xl">{tool.title}</h2>
+      <p className="relative mt-1.5 hidden text-sm leading-snug text-ink-soft sm:block">{tool.description}</p>
 
-      {/* The two buttons share the row equally and stack full width when the card is narrow; a long label wraps instead of running past the card. */}
-      <div className="relative mt-auto flex flex-wrap gap-2 pt-3">
+      {/* A phone: one small button and a small link under it. From 640 px the two buttons share the row equally and a long label wraps instead of running past the card. */}
+      <div className="relative mt-auto flex flex-col gap-1 pt-2.5 sm:flex-row sm:flex-wrap sm:gap-2 sm:pt-3">
         <Link
           href={primary.href}
-          className={`min-h-11 min-w-0 flex-1 basis-32 gap-1.5 whitespace-normal text-center ${BUTTON_LINK} ${theme.primaryButton}`}
+          className={`min-h-11 min-w-0 flex-none gap-1.5 whitespace-normal !px-1.5 !py-1.5 text-center !text-[12px] !leading-tight sm:min-h-11 sm:flex-1 sm:basis-32 sm:!px-5 sm:!py-2.5 sm:!text-sm ${BUTTON_LINK} ${theme.primaryButton}`}
         >
-          {primary.label}
+          <span className="sm:hidden">{primary.short}</span>
+          <span className="hidden sm:inline">{primary.label}</span>
           <ArrowRight
-            className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none"
+            className="hidden h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none sm:block"
             aria-hidden
           />
         </Link>
         <Link
           href={secondary.href}
-          className={`min-h-11 min-w-0 flex-1 basis-32 whitespace-normal text-center ${BUTTON_LINK} ${theme.secondaryButton}`}
+          className={`min-h-11 min-w-0 flex-none whitespace-normal !px-1 !py-1.5 text-center !text-[11px] !leading-tight sm:min-h-11 sm:flex-1 sm:basis-32 sm:!px-5 sm:!py-2.5 sm:!text-sm ${BUTTON_LINK} ${theme.secondaryButton}`}
         >
-          {secondary.label}
+          <span className="sm:hidden">{secondary.short}</span>
+          <span className="hidden sm:inline">{secondary.label}</span>
         </Link>
       </div>
     </article>

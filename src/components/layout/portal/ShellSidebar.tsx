@@ -22,8 +22,8 @@ import { liftToasts } from '@/lib/client/toastLayer';
 // Light gold: 4.5:1 or better on every portal's dark sidebar (the base champagne is 3.8:1 on the darkest).
 const HEADING = 'px-3 pb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#E3CC8F]';
 const ITEM = `flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left font-semibold no-underline transition hover:no-underline ${FOCUS} focus-visible:outline-champagne`;
-/** Row height and text: the drawer (phones, laid out 800 px wide and shown at about half size) gets bigger rows. */
-const SIZE = { normal: 'min-h-11 text-[15px]', large: 'min-h-14 text-lg' };
+/** Row height and text: the drawer (a phone, at its own width) gets slightly roomier rows for a finger. */
+const SIZE = { normal: 'min-h-11 text-[15px]', large: 'min-h-12 text-base' };
 const IDLE = 'text-white/85 hover:bg-white/10 hover:text-white';
 
 export interface SidebarProps {

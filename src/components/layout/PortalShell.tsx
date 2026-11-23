@@ -11,7 +11,7 @@
  *     signed in;
  *   - the page: title, description and its main buttons, the numbers as stat
  *     cards, then the open section.
- * On smaller screens (phones lay pages out 800px wide, see app/layout) the
+ * On smaller screens (a phone lays pages out at its own width, see app/layout) the
  * sidebar opens as a drawer from the Menu button, Sign out stays in the top
  * bar, and the sections are pills that scroll sideways.
  *
