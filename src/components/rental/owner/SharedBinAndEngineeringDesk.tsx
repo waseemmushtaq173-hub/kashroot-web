@@ -815,7 +815,8 @@ export function FarmerStoredApplesDesk({
     [account, load],
   );
 
-  const myBookings = ops?.bookings ?? [];
+  // One stable list: a fresh [] every render would recompute everything built from it.
+  const myBookings = useMemo(() => ops?.bookings ?? [], [ops]);
   const myBins = useMemo(
     () => (ops?.bins ?? []).filter((b) => (b.allocations ?? []).some((a) => a.active_crates > 0)),
     [ops],

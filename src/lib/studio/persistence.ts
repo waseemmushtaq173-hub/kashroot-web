@@ -7,7 +7,7 @@
  * RLS: users can only access their own designs.
  */
 
-import { createClient } from '@/lib/supabase/client';
+import { supabase as sharedClient } from '@/lib/supabase';
 import type { CartonParams, CrateParams, ColdStoreParams, TruckLoadParams, OrchardLayoutParams } from '@/lib/studio/registry';
 import { z } from 'zod';
 
@@ -33,9 +33,12 @@ export interface DesignSummary {
   version: number;
 }
 
-/** Get Supabase client (browser-safe) */
+/**
+ * The site's one browser client (lib/supabase): it goes through the same-origin proxy and shares the signed-in session. A second
+ * client of its own made the browser warn "Multiple GoTrueClient instances" and could not see the session the sign-in saved.
+ */
 function getSupabase() {
-  return createClient();
+  return sharedClient;
 }
 
 /** Save a design (upsert by user_id + type + name) */

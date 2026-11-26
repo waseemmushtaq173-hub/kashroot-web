@@ -376,7 +376,18 @@ export function ValleyScene({ mood = 'autumn', className = '', particleCount = 7
       };
       window.addEventListener('pointermove', onPointer, { passive: true });
 
-      const clock = new THREE.Clock();
+      // THREE.Clock is deprecated (the browser console says so): the same two things it gave, by hand.
+      const clock = {
+        last: performance.now(),
+        elapsedTime: 0,
+        getDelta() {
+          const now = performance.now();
+          const delta = (now - this.last) / 1000;
+          this.last = now;
+          this.elapsedTime += delta;
+          return delta;
+        },
+      };
       let frame = 0;
       let count = 0;
       // Phones: every other frame (about 30 a second) is plenty for drifting leaves.

@@ -508,7 +508,7 @@ export function ColdBooking({
       };
     }
     return out;
-  }, [twin, taken, chambers, form.name, account.name, unitBookings]);
+  }, [twin, taken, chambers, form.name, account.id, account.name, unitBookings]);
   const selectedTwinKeys = useMemo(() => (twin ? chosen.map((p) => twin.keyOf(p.chamber, p.slot)) : []), [twin, chosen]);
   const onTwinSlot = useCallback(
     (rec: StorageSlotRecord) => {

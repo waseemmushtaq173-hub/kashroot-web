@@ -1855,7 +1855,7 @@ export function ColdStore3D({
             aria-pressed={myHighlight}
             onClick={() => setMyHighlight((v) => !v)}
             className={chip(myHighlight)}
-            aria-description={mode === 'owner' ? 'Dims every stack that nobody has booked' : 'Dims every stack that is not yours'}
+            title={mode === 'owner' ? 'Dims every stack that nobody has booked' : 'Dims every stack that is not yours'}
           >
             {mode === 'owner' ? 'Highlight booked' : 'Highlight mine'}
           </button>
