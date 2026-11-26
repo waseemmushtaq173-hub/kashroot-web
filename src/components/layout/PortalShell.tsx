@@ -298,6 +298,7 @@ export function PortalShell({
       pending={portal && signedIn === null ? (MY_DETAILS[portal] ? 3 : 2) : 0}
       onNavigate={() => setDrawer(false)}
       large={large}
+      light={large}
       signedIn={signedIn}
       name={name}
       nameReady={nameReady}
@@ -341,7 +342,7 @@ export function PortalShell({
       <FloatingVoice />
 
       {drawer && (
-        <SidebarDrawer onClose={() => setDrawer(false)} label={`${portalLabel ?? title} menu`}>
+        <SidebarDrawer narrow light onClose={() => setDrawer(false)} label={`${portalLabel ?? title} menu`}>
           {sidebar(`${ids}-drawer`, true)}
         </SidebarDrawer>
       )}
