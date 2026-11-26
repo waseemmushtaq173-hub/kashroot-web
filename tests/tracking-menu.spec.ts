@@ -125,22 +125,62 @@ test.describe('in the browser', () => {
       await page.goto('/tracking', { waitUntil: 'load' });
       const nav = page.getByRole('navigation', { name: 'Tracking menu' });
       await expect(nav).toBeVisible();
-      await expect(nav.getByRole('button')).toHaveCount(8);
+      const phone = width < 1024;
+      const toggle = nav.getByRole('button', { name: /^Menu/ });
+      // A phone: a Menu button opens a slim coloured panel on the left. A large screen: the same list is always open.
+      const drawer = page.getByRole('dialog', { name: 'Tracking menu' });
+      const list = phone ? drawer : nav;
+      if (phone) {
+        await expect(toggle).toBeVisible();
+        await expect(drawer).toHaveCount(0);
+        await toggle.click();
+        await expect(drawer).toBeVisible();
+        const box = (await drawer.boundingBox())!;
+        expect(box.x, 'the panel sits on the left').toBeLessThanOrEqual(1);
+        expect(box.width, 'a slim panel, not the full screen').toBeLessThanOrEqual(width * 0.8);
+        expect(box.width).toBeGreaterThan(200);
+        // Soft and light, never a dark block of one colour.
+        const [r, g, b] = (await drawer.evaluate((el) => getComputedStyle(el).backgroundColor)).match(/\d+/g)!.map(Number);
+        expect(r + g + b, 'a light panel, not a dark one').toBeGreaterThan(690);
+        // A rainbow: the eight sections wear (at least six) different colours.
+        const hues = await drawer.locator('[data-hue]').evaluateAll((els) => els.map((e) => getComputedStyle(e).backgroundColor));
+        expect(hues).toHaveLength(8);
+        expect(new Set(hues).size, 'one soft colour for each section').toBeGreaterThanOrEqual(6);
+        // Every section is there at once.
+        await expect(drawer.getByRole('button', { name: /Live shipment map|Driver sign-in|My vehicles|Orchard pickup jobs|Start a trip|Live GPS|GPS devices|Verification/ })).toHaveCount(8);
+        await expect(drawer.getByRole('button', { name: 'Close menu' })).toBeVisible();
+        await page.keyboard.press('Escape');
+        await expect(drawer).toHaveCount(0);
+      } else {
+        await expect(toggle).toBeHidden();
+      }
+      await expect(list.getByRole('button', { name: /Live shipment map|Driver sign-in|My vehicles|Orchard pickup jobs|Start a trip|Live GPS|GPS devices|Verification/ })).toHaveCount(phone ? 0 : 8);
 
-      await nav.getByRole('button', { name: /Driver sign-in/ }).click();
+      /** Open the list (a phone's panel closes after each choice) and pick a section. */
+      const pick = async (name: RegExp) => {
+        if (phone) {
+          await toggle.click();
+          await expect(drawer).toBeVisible();
+        }
+        await list.getByRole('button', { name }).click();
+        if (phone) await expect(drawer).toHaveCount(0);
+      };
+
+      await pick(/Driver sign-in/);
       await expect(page.getByRole('heading', { name: /sign in or register/i })).toBeVisible();
       await expect(page.getByLabel(/Mobile number/)).toBeVisible();
+      if (phone) await expect(toggle).toContainText('Driver sign-in');
       // No PIN is suggested.
       await expect(page.getByText(/default 1234/i)).toHaveCount(0);
       expect(await page.getByLabel(/^PIN/).getAttribute('placeholder')).toBeNull();
 
-      await nav.getByRole('button', { name: /My vehicles/ }).click();
+      await pick(/My vehicles/);
       await expect(page.getByText(/Sign in as a driver first/)).toBeVisible();
 
-      await nav.getByRole('button', { name: /Verification/ }).click();
+      await pick(/Verification/);
       await expect(page.getByRole('heading', { name: /What KashRoot checks, and what it does not/ })).toBeVisible();
 
-      await nav.getByRole('button', { name: /Live shipment map/ }).click();
+      await pick(/Live shipment map/);
       await expect(page.getByLabel('Tracking ID')).toBeVisible();
       await expect(page.getByLabel(/6-digit PIN/)).toBeVisible();
       expect(await page.content()).not.toMatch(/Bengaluru/);

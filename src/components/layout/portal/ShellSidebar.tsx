@@ -22,8 +22,8 @@ import { liftToasts } from '@/lib/client/toastLayer';
 // Light gold: 4.5:1 or better on every portal's dark sidebar (the base champagne is 3.8:1 on the darkest).
 const HEADING = 'px-3 pb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#E3CC8F]';
 const ITEM = `flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left font-semibold no-underline transition hover:no-underline ${FOCUS} focus-visible:outline-champagne`;
-/** Row height and text: the drawer (phones, laid out 800 px wide and shown at about half size) gets bigger rows. */
-const SIZE = { normal: 'min-h-11 text-[15px]', large: 'min-h-14 text-lg' };
+/** Row height and text: the drawer (a phone, at its own width) gets slightly roomier rows for a finger. */
+const SIZE = { normal: 'min-h-11 text-[15px]', large: 'min-h-12 text-base' };
 const IDLE = 'text-white/85 hover:bg-white/10 hover:text-white';
 
 export interface SidebarProps {
@@ -197,7 +197,21 @@ export function SidebarContent(props: SidebarProps) {
 }
 
 /** Smaller screens: the sidebar as a drawer (a native modal dialog: Escape and the shade close it). */
-export function SidebarDrawer({ onClose, label, children }: { onClose: () => void; label: string; children: ReactNode }) {
+export function SidebarDrawer({
+  onClose,
+  label,
+  children,
+  narrow = false,
+  light = false,
+}: {
+  onClose: () => void;
+  label: string;
+  children: ReactNode;
+  /** A slim panel on the left (a short menu), not the wide one of a whole portal. */
+  narrow?: boolean;
+  /** A soft, light panel (the caller colours it) instead of the portal's deep colour. */
+  light?: boolean;
+}) {
   const ref = useRef<HTMLDialogElement>(null);
 
   // Mounted only while open; taking it off the page closes it.
@@ -216,14 +230,14 @@ export function SidebarDrawer({ onClose, label, children }: { onClose: () => voi
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="kr-drawer fixed inset-y-0 left-0 m-0 h-full max-h-none w-[min(26rem,90vw)] max-w-none overflow-y-auto border-0 bg-forest-deep p-0 text-white shadow-[0_30px_90px_rgba(30,27,75,0.5)] backdrop:bg-forest-deep/50 backdrop:backdrop-blur-sm"
+      className={`kr-drawer fixed inset-y-0 left-0 m-0 h-full max-h-none ${narrow ? 'w-[min(17rem,78vw)]' : 'w-[min(26rem,90vw)]'} max-w-none overflow-y-auto border-0 p-0 ${light ? 'bg-white text-slate-800 shadow-[0_24px_70px_rgba(71,85,105,0.28)] backdrop:bg-slate-900/20 backdrop:backdrop-blur-[2px]' : 'bg-forest-deep text-white shadow-[0_30px_90px_rgba(30,27,75,0.5)] backdrop:bg-forest-deep/50 backdrop:backdrop-blur-sm'}`}
     >
       <div className="relative flex min-h-full flex-col">
         <button
           type="button"
           onClick={onClose}
           aria-label="Close menu"
-          className={`absolute right-3 top-4 z-10 grid h-12 w-12 cursor-pointer place-items-center rounded-xl text-white ring-1 ring-white/30 transition hover:bg-white/10 ${FOCUS} focus-visible:outline-champagne`}
+          className={`absolute right-3 top-4 z-10 grid h-12 w-12 cursor-pointer place-items-center rounded-xl transition ${light ? 'text-slate-600 ring-1 ring-slate-300 hover:bg-slate-100' : 'text-white ring-1 ring-white/30 hover:bg-white/10'} ${FOCUS} focus-visible:outline-champagne`}
         >
           <X className="h-5 w-5" aria-hidden />
         </button>

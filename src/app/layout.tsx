@@ -59,13 +59,12 @@ export const metadata: Metadata = {
   verification: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ? { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION } : undefined,
 };
 
-// Every page looks the same on every phone, like the home page: laid out
-// 800px wide (cards side by side, as on a large screen) and shown whole,
-// scaled to fit the phone. Pinch-zoom still works. initialScale is cleared
-// (null) so the phone may zoom out to fit all 800px.
+// A phone lays every page out at its own width (about 360-430 px), so text is the size it is written and nothing has to be zoomed.
+// The pages are built mobile-first: the three home cards sit side by side as small tiles, a portal's sidebar becomes a drawer, and
+// wider screens get the roomier layouts. Pinch-zoom still works.
 export const viewport: Viewport = {
-  width: 800,
-  initialScale: null as unknown as number,
+  width: "device-width",
+  initialScale: 1,
   themeColor: "#3730A3",
   // The design is light only. Without this, phones with "dark mode for web
   // pages" (Chrome, Samsung Internet, Mi browser) repaint every page dark and

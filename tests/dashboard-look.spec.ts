@@ -25,7 +25,14 @@ test.describe('phone', () => {
     await expect(tabs.first()).toBeVisible();
     const top = (await tabs.first().boundingBox())!;
     const view = await page.evaluate(() => ({ h: document.documentElement.clientHeight, w: window.innerWidth }));
-    expect(top.y, 'near the top of the page, below the heading, not at the bottom of the screen').toBeLessThan(view.h / 2);
+    // In the page, above what they open: not a bar fixed to the screen, and not below the content.
+    const fixed = await tabs.first().evaluate((el) => {
+      for (let n: HTMLElement | null = el as HTMLElement; n; n = n.parentElement) if (getComputedStyle(n).position === 'fixed') return true;
+      return false;
+    });
+    expect(fixed, 'the sections are part of the page, not fixed to the screen').toBe(false);
+    const content = (await page.getByLabel('Sample conversation').boundingBox())!;
+    expect(top.y, 'above the page content, below the heading').toBeLessThan(content.y);
     // Opening one still works.
     await page.getByRole('tab', { name: /Orders/ }).tap();
     await expect(page.getByRole('tab', { name: /Orders/ })).toHaveAttribute('aria-selected', 'true');
