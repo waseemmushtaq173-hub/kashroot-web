@@ -823,14 +823,14 @@ dialog.kr-drawer[open] { animation: kr-drawer-in 0.22s ease-out; }
 
 /* ───────── The sidebar menu: one colour of the spectrum for each entry's icon ─────────
    Soft 300-level hues, bright enough on the deep sidebar (3:1 or better for an icon); the chosen entry keeps its own look. */
-:is(aside, .kr-drawer) [role="tablist"] > [role="tab"]:not([aria-selected="true"]):nth-child(8n+1) svg { color: #FDA4AF; }
-:is(aside, .kr-drawer) [role="tablist"] > [role="tab"]:not([aria-selected="true"]):nth-child(8n+2) svg { color: #FCD34D; }
-:is(aside, .kr-drawer) [role="tablist"] > [role="tab"]:not([aria-selected="true"]):nth-child(8n+3) svg { color: #6EE7B7; }
-:is(aside, .kr-drawer) [role="tablist"] > [role="tab"]:not([aria-selected="true"]):nth-child(8n+4) svg { color: #67E8F9; }
-:is(aside, .kr-drawer) [role="tablist"] > [role="tab"]:not([aria-selected="true"]):nth-child(8n+5) svg { color: #C4B5FD; }
-:is(aside, .kr-drawer) [role="tablist"] > [role="tab"]:not([aria-selected="true"]):nth-child(8n+6) svg { color: #F0ABFC; }
-:is(aside, .kr-drawer) [role="tablist"] > [role="tab"]:not([aria-selected="true"]):nth-child(8n+7) svg { color: #FDBA74; }
-:is(aside, .kr-drawer) [role="tablist"] > [role="tab"]:not([aria-selected="true"]):nth-child(8n+8) svg { color: #5EEAD4; }
+:is(aside, .kr-drawer:not(.kr-drawer-light)) [role="tablist"] > [role="tab"]:not([aria-selected="true"]):nth-child(8n+1) svg { color: #FDA4AF; }
+:is(aside, .kr-drawer:not(.kr-drawer-light)) [role="tablist"] > [role="tab"]:not([aria-selected="true"]):nth-child(8n+2) svg { color: #FCD34D; }
+:is(aside, .kr-drawer:not(.kr-drawer-light)) [role="tablist"] > [role="tab"]:not([aria-selected="true"]):nth-child(8n+3) svg { color: #6EE7B7; }
+:is(aside, .kr-drawer:not(.kr-drawer-light)) [role="tablist"] > [role="tab"]:not([aria-selected="true"]):nth-child(8n+4) svg { color: #67E8F9; }
+:is(aside, .kr-drawer:not(.kr-drawer-light)) [role="tablist"] > [role="tab"]:not([aria-selected="true"]):nth-child(8n+5) svg { color: #C4B5FD; }
+:is(aside, .kr-drawer:not(.kr-drawer-light)) [role="tablist"] > [role="tab"]:not([aria-selected="true"]):nth-child(8n+6) svg { color: #F0ABFC; }
+:is(aside, .kr-drawer:not(.kr-drawer-light)) [role="tablist"] > [role="tab"]:not([aria-selected="true"]):nth-child(8n+7) svg { color: #FDBA74; }
+:is(aside, .kr-drawer:not(.kr-drawer-light)) [role="tablist"] > [role="tab"]:not([aria-selected="true"]):nth-child(8n+8) svg { color: #5EEAD4; }
 
 /* ───────── Button sizes: each one as big as its job ─────────
    Inside a portal or a tool the many small and secondary buttons (rows, cards, filters, "Refresh") are drawn as a compact

@@ -46,7 +46,7 @@ test.describe('phone', () => {
     await page.addScriptTag({ path: axePath });
     const bad = await page.evaluate(async () => {
       const axe = (window as unknown as { axe: { run: (c: unknown, o: unknown) => Promise<{ violations: { nodes: { target: string[]; any: { data?: { contrastRatio?: number } }[] }[] }[] }> } }).axe;
-      const r = await axe.run('[aria-label="Sample conversation"], [aria-label="Sidebar greeting"]', { runOnly: { type: 'rule', values: ['color-contrast'] } });
+      const r = await axe.run('[aria-label="Sample conversation"], [aria-label="Sidebar greeting"], [aria-label="Soft panel for phones"]', { runOnly: { type: 'rule', values: ['color-contrast'] } });
       return r.violations.flatMap((v) => v.nodes.map((n) => `${n.target.join(' ')} ${n.any[0]?.data?.contrastRatio ?? ''}`));
     });
     expect(bad, bad.join('\n')).toEqual([]);

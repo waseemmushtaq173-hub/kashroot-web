@@ -11,6 +11,7 @@ import { useEffect, useRef, type KeyboardEvent } from 'react';
 
 import { FOCUS, type PortalTheme } from '@/components/portal/kit';
 import type { PortalTab } from '@/components/layout/PortalShell';
+import { SPECTRUM } from '@/components/layout/portal/spectrum';
 
 export function ShellTabs({
   tabs,
@@ -22,6 +23,7 @@ export function ShellTabs({
   panelId,
   label,
   large = false,
+  light = false,
 }: {
   tabs: PortalTab[];
   activeTab?: string;
@@ -34,6 +36,8 @@ export function ShellTabs({
   label: string;
   /** Bigger rows (the drawer on phones). */
   large?: boolean;
+  /** The phone drawer's soft look: a pale colour chip behind each icon, a tint for the open section, no dark block. */
+  light?: boolean;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
   const vertical = orientation === 'vertical';
@@ -74,7 +78,8 @@ export function ShellTabs({
       onKeyDown={onKeyDown}
       className={vertical ? 'flex flex-col gap-1' : 'flex w-max gap-2'}
     >
-      {tabs.map(({ id, label: name, icon: Icon, count }) => {
+      {tabs.map(({ id, label: name, icon: Icon, count }, index) => {
+        const hue = SPECTRUM[index % SPECTRUM.length];
         const active = id === activeTab;
         const badge = typeof count === 'number' && (
           <span
@@ -85,7 +90,7 @@ export function ShellTabs({
             {count}
           </span>
         );
-        return vertical ? (
+        return vertical && light ? (
           <button
             key={id}
             id={`${idPrefix}-${id}`}
@@ -95,7 +100,29 @@ export function ShellTabs({
             aria-controls={panelId}
             tabIndex={id === current ? 0 : -1}
             onClick={() => onSelect(id)}
-            className={`relative flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left font-semibold transition ${large ? 'min-h-14 text-lg' : 'min-h-11 text-[15px]'} ${FOCUS} ${theme.outline} ${
+            className={`relative flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-2 py-1.5 text-left font-semibold transition ${large ? 'min-h-12 text-base' : 'min-h-11 text-[15px]'} ${FOCUS} focus-visible:outline-slate-500 ${
+              active ? `${hue.on} text-slate-900 ring-1` : 'text-slate-700 hover:bg-slate-900/[0.04] hover:text-slate-900'
+            }`}
+          >
+            {Icon && (
+              <span data-hue={index % SPECTRUM.length} className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${hue.chip}`}>
+                <Icon className="h-4 w-4" aria-hidden />
+              </span>
+            )}
+            <span className="min-w-0 flex-1 leading-snug [overflow-wrap:anywhere]">{name}</span>
+            {badge}
+          </button>
+        ) : vertical ? (
+          <button
+            key={id}
+            id={`${idPrefix}-${id}`}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            aria-controls={panelId}
+            tabIndex={id === current ? 0 : -1}
+            onClick={() => onSelect(id)}
+            className={`relative flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left font-semibold transition ${large ? 'min-h-12 text-base' : 'min-h-11 text-[15px]'} ${FOCUS} ${theme.outline} ${
               active ? 'bg-forest-soft text-forest shadow-[inset_0_1px_0_#fff,0_3px_0_#C6A45B]' : 'text-white/85 hover:bg-white/10 hover:text-white'
             }`}
           >

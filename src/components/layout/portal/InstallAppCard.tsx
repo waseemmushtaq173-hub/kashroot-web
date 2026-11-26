@@ -60,7 +60,7 @@ function runningInstalled() {
 
 const isApple = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-export function InstallAppCard({ feature, accent }: { feature: string; accent: string }) {
+export function InstallAppCard({ feature, accent, light = false }: { feature: string; accent: string; light?: boolean }) {
   const ready = useSyncExternalStore(subscribe, () => offer, () => null);
   const hidden = useSyncExternalStore(subscribe, runningInstalled, () => false);
   const apple = useSyncExternalStore(subscribe, isApple, () => false);
@@ -86,24 +86,24 @@ export function InstallAppCard({ feature, accent }: { feature: string; accent: s
   };
 
   return (
-    <section aria-label="Install the KashRoot app" className={`relative isolate overflow-hidden rounded-2xl p-4 text-white shadow-lg ${feature}`}>
-      <ChinarLeaf className="pointer-events-none absolute -right-5 -top-6 -z-10 h-24 w-24 rotate-12 opacity-30" color="#FDE68A" />
-      <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/15 ring-1 ring-white/25">
+    <section aria-label="Install the KashRoot app" className={`relative isolate overflow-hidden rounded-2xl p-4 ${light ? 'bg-white/85 text-slate-800 shadow-sm ring-1 ring-slate-900/10' : `text-white shadow-lg ${feature}`}`}>
+      <ChinarLeaf className={`pointer-events-none absolute -right-5 -top-6 -z-10 h-24 w-24 rotate-12 ${light ? 'opacity-20' : 'opacity-30'}`} color={light ? '#FDBA74' : '#FDE68A'} />
+      <span className={`grid h-9 w-9 place-items-center rounded-xl ring-1 ${light ? 'bg-violet-100 text-violet-700 ring-violet-200' : 'bg-white/15 ring-white/25'}`}>
         <Smartphone className="h-5 w-5" aria-hidden />
       </span>
       <p className="mt-3 font-semibold leading-snug">Install the KashRoot app</p>
-      <p className="mt-1 text-xs leading-relaxed text-white/90">Open KashRoot from your home screen, like any app.</p>
+      <p className={`mt-1 text-xs leading-relaxed ${light ? 'text-slate-600' : 'text-white/90'}`}>Open KashRoot from your home screen, like any app.</p>
       {ready ? (
         <button
           type="button"
           onClick={() => void install()}
           disabled={asking}
-          className={`mt-3 inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-white px-3 text-sm font-semibold shadow-sm transition hover:bg-white/90 disabled:opacity-60 ${accent} ${FOCUS} focus-visible:outline-white`}
+          className={`mt-3 inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold shadow-sm transition disabled:opacity-60 ${light ? 'bg-violet-600 text-white hover:bg-violet-700' : `bg-white hover:bg-white/90 ${accent}`} ${FOCUS} ${light ? 'focus-visible:outline-slate-500' : 'focus-visible:outline-white'}`}
         >
           <Download className="h-4 w-4" aria-hidden /> Install
         </button>
       ) : (
-        <p className="mt-3 rounded-xl bg-white/10 px-3 py-2 text-xs leading-relaxed text-white ring-1 ring-white/20">
+        <p className={`mt-3 rounded-xl px-3 py-2 text-xs leading-relaxed ring-1 ${light ? 'bg-slate-50 text-slate-700 ring-slate-200' : 'bg-white/10 text-white ring-white/20'}`}>
           {apple ? (
             <>On iPhone: tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>.</>
           ) : (

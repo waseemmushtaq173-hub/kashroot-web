@@ -7,6 +7,7 @@ import { ChatBubble } from '@/components/advisory/ChatBubble';
 import { PortalShell } from '@/components/layout/PortalShell';
 import { SidebarGreeting } from '@/components/layout/portal/ShellSidebar';
 import { shellLook } from '@/components/layout/portal/look';
+import { PANEL_TINT } from '@/components/layout/portal/spectrum';
 import type { AdvisoryMessage } from '@/lib/db/advisory';
 
 const TABS = [
@@ -53,6 +54,9 @@ export function ShellTestPage() {
       <section aria-label="Longer names in the sidebar" className="mb-6 w-72 space-y-3 rounded-3xl bg-forest-deep py-4 text-white">
         <SidebarGreeting look={shellLook('farmer')} signedIn name="Waseem Mushtaq Mir" nameReady />
         <SidebarGreeting look={shellLook('farmer')} signedIn name="Mohammadabdulrahman Dar" nameReady />
+      </section>
+      <section aria-label="Soft panel for phones" className={`mb-6 w-72 rounded-3xl py-4 ${PANEL_TINT}`}>
+        <SidebarGreeting look={shellLook('farmer')} signedIn name="Waseem Mushtaq Mir" nameReady light />
       </section>
       <ol aria-label="Sample conversation" className="max-w-xl space-y-4">
         <ChatBubble message={msg(1, 'farmer', 'me', 'Sample Grower', 'My apple leaves have dark spots.')} mine asExpert={false} lang="en" />
