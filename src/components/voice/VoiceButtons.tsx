@@ -127,7 +127,7 @@ export function LangPicker(props: PickerProps) {
   const langs: VoiceLang[] = props.dogri ? ['ks', 'ur', 'hi', 'doi', 'en'] : ['ks', 'ur', 'hi', 'en'];
   const pick = (l: VoiceLang) => (props.dogri ? props.onChange(l) : l !== 'doi' && props.onChange(l));
   return (
-    <div role="group" aria-label="Language" className={`inline-flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1 ${className}`}>
+    <div role="group" aria-label="Language" className={`inline-flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1 max-sm:flex max-sm:flex-nowrap max-sm:gap-0.5 ${className}`}>
       {langs.map((l) => (
         <button
           key={l}
@@ -136,7 +136,7 @@ export function LangPicker(props: PickerProps) {
           onClick={() => pick(l)}
           lang={l === 'en' ? undefined : l}
           dir={l !== 'doi' && isRtl(l) ? 'rtl' : undefined}
-          className={`min-h-11 cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold transition ${value === l ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+          className={`min-h-11 cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold transition max-sm:min-w-0 max-sm:flex-1 max-sm:px-1 max-sm:text-[13px] ${value === l ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
         >
           <LangName lang={l} label={LABEL[l]} />
         </button>

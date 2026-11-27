@@ -165,7 +165,7 @@ export default function KissanToolsDashboardPage() {
             <label className="relative block">
               <span className="sr-only">Search</span>
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
-              <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search tools, sprays, sellers or districts" className={`${INPUT} min-h-11 pl-9`} />
+              <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search tools, sprays or sellers" className={`${INPUT} min-h-11 pl-9`} />
             </label>
             <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1" role="group" aria-label="Type of product">
               {[ALL, ...SUBCATEGORIES].map((c) => (

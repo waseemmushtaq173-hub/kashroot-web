@@ -252,7 +252,7 @@ export default function RentalPage() {
       kpis={
         side === 'farmer'
           ? [
-              { label: 'Cold stores in J&K', value: directory.entries.length.toLocaleString('en-IN') + (directory.reading ? '…' : ''), trend: `${listings.length} on KashRoot · ${listings.reduce((s, l) => s + l.available, 0).toLocaleString('en-IN')} ${shownUnits} free` },
+              { label: 'Cold stores in J&K', value: directory.entries.length.toLocaleString('en-IN'), trend: `${directory.reading ? 'Still reading the lists · ' : ''}${listings.length} on KashRoot · ${listings.reduce((s, l) => s + l.available, 0).toLocaleString('en-IN')} ${shownUnits} free` },
               { label: 'Your bookings', value: String(mine.length), trend: `${mine.filter((b) => b.status === 'confirmed').length} confirmed`, onClick: () => setTab('bookings') },
               { label: 'Your space booked', value: activeBookings.reduce((s, b) => s + b.units, 0).toLocaleString('en-IN'), trend: activeBookings.length ? `${bookedUnits(activeBookings)} in ${activeBookings.length} booking${activeBookings.length === 1 ? '' : 's'}` : 'Book any number of bins or crates' },
             ]
@@ -293,7 +293,7 @@ export default function RentalPage() {
         <div className="space-y-5">
           <div role="tablist" aria-label="Which cold stores" className="flex w-full gap-1 rounded-2xl bg-forest-soft p-1 ring-1 ring-forest-line sm:w-auto sm:max-w-xl">
             {([
-              ['all', `All cold stores (${directory.entries.length.toLocaleString('en-IN')}${directory.reading ? '…' : ''})`],
+              ['all', `All cold stores (${directory.entries.length.toLocaleString('en-IN')})`],
               ['kashroot', `Book on KashRoot (${listings.length})`],
             ] as const).map(([id, label]) => (
               <button key={id} type="button" role="tab" aria-selected={findView === id} onClick={() => setFindView(id)} className={`flex-1 cursor-pointer rounded-xl px-4 py-2.5 text-sm font-semibold transition ${findView === id ? 'bg-forest-deep text-white shadow' : 'text-forest-deep hover:bg-forest-soft'}`}>

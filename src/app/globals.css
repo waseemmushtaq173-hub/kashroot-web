@@ -859,3 +859,29 @@ dialog.kr-drawer[open] { animation: kr-drawer-in 0.22s ease-out; }
   box-shadow: inset 0 0 0 1px rgb(var(--kr-pine-rgb)), 0 1px 0 rgb(var(--kr-pine-rgb));
 }
 
+
+/*
+ * A phone (under 640 px): the large text sizes come down a step, so a title, a card heading or a number does not fill the
+ * screen. Only the sizes from base upward change; text-xs and text-sm are already small, and anything set in pixels
+ * (text-[13px]) is left as written. Form fields stay at 16px: a phone browser zooms the page in when a field is smaller.
+ * A line height is changed only where the element sets none of its own (leading-*).
+ */
+@media (max-width: 639px) {
+  body { font-size: 0.9375rem; }
+  input, select, textarea { font-size: 1rem; }
+  .text-base { font-size: 0.9375rem; }
+  .text-lg { font-size: 1rem; }
+  .text-xl { font-size: 1.125rem; }
+  .text-2xl { font-size: 1.3125rem; }
+  .text-3xl { font-size: 1.625rem; }
+  .text-4xl { font-size: 1.875rem; }
+  .text-5xl { font-size: 2.25rem; }
+  .text-base:not([class*="leading-"]) { line-height: 1.4; }
+  .text-lg:not([class*="leading-"]) { line-height: 1.45; }
+  .text-xl:not([class*="leading-"]) { line-height: 1.5; }
+  .text-2xl:not([class*="leading-"]) { line-height: 1.3; }
+  .text-3xl:not([class*="leading-"]) { line-height: 1.25; }
+  .text-4xl:not([class*="leading-"]) { line-height: 1.2; }
+  .text-5xl:not([class*="leading-"]) { line-height: 1.15; }
+  input.text-base, select.text-base, textarea.text-base { font-size: 1rem; }
+}

@@ -49,11 +49,16 @@ export function ShellTabs({
     const list = listRef.current;
     if (vertical || !list) return;
     const tab = list.querySelector<HTMLElement>('[aria-selected="true"]');
-    const box = list.parentElement;
-    if (!tab || !box || box.scrollWidth <= box.clientWidth) return;
+    if (!tab) return;
+    // The nearest ancestor that really scrolls sideways (the tab row sits inside a wrapper that only sizes it).
+    let box: HTMLElement | null = list.parentElement;
+    while (box && !(/(auto|scroll)/.test(getComputedStyle(box).overflowX) && box.scrollWidth > box.clientWidth)) box = box.parentElement;
+    if (!box) return;
     const t = tab.getBoundingClientRect();
     const b = box.getBoundingClientRect();
-    const left = box.scrollLeft + t.left - b.left - (b.width - t.width) / 2;
+    // Centred, so a neighbour shows on each side; a tab wider than the box starts at the left edge instead.
+    const centred = box.scrollLeft + t.left - b.left - (b.width - t.width) / 2;
+    const left = t.width >= b.width - 24 ? box.scrollLeft + t.left - b.left - 12 : centred;
     box.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
   }, [activeTab, vertical]);
 

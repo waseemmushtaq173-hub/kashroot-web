@@ -156,7 +156,7 @@ export function ColdStoreDirectory({
               setQ(e.target.value);
               setShown(PAGE);
             }}
-            placeholder="Search all cold stores: name, village or district"
+            placeholder="Search by name, village or district"
           />
         </label>
         <label>

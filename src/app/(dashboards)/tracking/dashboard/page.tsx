@@ -124,7 +124,7 @@ function VehicleLookup({ onUseCode }: { onUseCode: () => void }) {
             id="plate"
             value={plate}
             onChange={(e) => setPlate(e.target.value)}
-            placeholder="Registration number, e.g. JK01AB1234"
+            placeholder="Vehicle no., e.g. JK01AB1234"
             autoCapitalize="characters"
             autoComplete="off"
             spellCheck={false}
@@ -300,7 +300,7 @@ function Tracking() {
             <p className="mb-4 text-sm text-slate-600">Type the code your transporter sent (like KR-3F9A1C7B) or open their tracking link. No account needed.</p>
             <form className="flex flex-col gap-3 sm:flex-row" onSubmit={(e) => { e.preventDefault(); const c = cleanCode(code); if (c.length >= 4) { setActive(c); window.history.replaceState(null, '', `?code=${encodeURIComponent(c)}`); } }}>
               <label htmlFor="track-code" className="sr-only">Consignment code</label>
-              <input id="track-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Transporter’s code, e.g. KR-7F3K9Q2A" autoCapitalize="characters" className={`${INPUT} flex-1 font-mono text-base uppercase tracking-wider placeholder:font-sans placeholder:normal-case placeholder:tracking-normal`} />
+              <input id="track-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Code, e.g. KR-7F3K9Q2A" autoCapitalize="characters" className={`${INPUT} flex-1 font-mono text-base uppercase tracking-wider placeholder:font-sans placeholder:normal-case placeholder:tracking-normal`} />
               <Btn theme={theme} type="submit" icon={MapPinned}>Track</Btn>
             </form>
           </Panel>

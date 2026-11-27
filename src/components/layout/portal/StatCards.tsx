@@ -23,7 +23,7 @@ export function StatCards({ kpis, theme }: { kpis: KPI[]; theme: PortalTheme; lo
         const lead = i % 2 === 0;
         const body = (
           <>
-            {i === 0 && <ChinarLeaf className="pointer-events-none absolute -bottom-6 -right-4 -z-10 h-28 w-28 -rotate-12 opacity-25" color="#FDE68A" />}
+            {i === 0 && <ChinarLeaf className="pointer-events-none absolute -bottom-6 -right-4 -z-10 hidden h-28 w-28 -rotate-12 opacity-25 sm:block" color="#FDE68A" />}
             <span className="flex items-start justify-between gap-3">
               <span className="kr-kpi-label text-xs font-semibold sm:text-sm">{kpi.label}</span>
               {kpi.onClick && (
