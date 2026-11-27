@@ -294,20 +294,21 @@ export function FertilizerChecker({ compact = false }: { compact?: boolean }) {
 
   return (
     <div className={compact ? '' : 'rounded-[2rem] bg-white/80 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.12)] ring-1 ring-white/70 backdrop-blur-xl sm:p-8'}>
-      <div role="group" aria-label="Check type" className="inline-flex flex-wrap rounded-xl bg-slate-900/5 p-1">
+      <div role="group" aria-label="Check type" className="grid grid-cols-2 gap-1 rounded-xl bg-slate-900/5 p-1 sm:inline-flex sm:flex-wrap">
         {([
           ['photo', 'Photo of the label', Camera],
           ['qr', 'Scan QR code', QrCode],
           ['registry', 'Registration / batch', ScanLine],
           ['lab', 'Lab report vs FCO', FlaskConical],
           ['bagChecklist', 'Bag-marking checklist', FileQuestion],
-        ] as const).map(([id, label, Icon]) => (
+        ] as const).map(([id, label, Icon], i) => (
           <button
             key={id}
             type="button"
             aria-pressed={mode === id}
             onClick={() => open(id)}
-            className={`inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition ${mode === id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+            // A phone: two across (the fifth takes the whole row), each label may wrap to two lines; from 640 px one row of pills.
+            className={`inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-center text-[13px] leading-tight font-semibold transition sm:justify-start sm:px-3 sm:text-sm ${i === 4 ? 'col-span-2 sm:col-span-1' : ''} ${mode === id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
           >
             <Icon className="h-4 w-4" aria-hidden /> {label}
           </button>
@@ -551,7 +552,7 @@ function RegistryForm({ code, setCode, busy, onCheck }: { code: string; setCode:
   return (
     <form onSubmit={(e) => { e.preventDefault(); onCheck(); }}>
       <label htmlFor="truescan-text" className="block text-base font-semibold text-slate-900">What is printed on the label?</label>
-      <p id="truescan-hint" className="mt-0.5 text-sm text-slate-600">The registration number (CIR-…), the product name, or the batch number.</p>
+      <p id="truescan-hint" className="sr-only">The registration number (CIR-…), the product name, or the batch number.</p>
       <div className="mt-2 flex gap-2">
         <input
           ref={input}
@@ -566,7 +567,7 @@ function RegistryForm({ code, setCode, busy, onCheck }: { code: string; setCode:
           spellCheck={false}
           maxLength={120}
           aria-describedby="truescan-hint truescan-lists"
-          placeholder="CIR-…, product name or batch no."
+          placeholder="CIR no. or product name"
           className={`${INPUT} min-h-14 min-w-0 flex-1 text-lg font-semibold tracking-wide placeholder:text-base placeholder:font-normal placeholder:tracking-normal`}
         />
         <button
@@ -597,7 +598,8 @@ function ListsHeld({ stats }: { stats: RegistryStats | null | undefined }) {
     `Official CIB&RC lists (ppqs.gov.in): ${count(l.pesticides.count)} registered pesticides and ${count(l.formulations.count)} formulations (as on ${l.pesticides.as_on}); ${count(l.banned.banned + l.banned.banned_for_export_only + l.banned.withdrawn + l.banned.refused)} banned, withdrawn or refused and ${count(l.banned.restricted)} restricted (as on ${l.banned.as_on}).`,
   ];
   if (stats && stats.total > 0) parts.push(`${count(stats.total)} more rows imported from the Government's own files.`);
-  return <p id="truescan-lists" className="mt-2 text-xs text-slate-600">{parts.join(' ')}</p>;
+  // The top card of the page already says which lists these are and their dates; this stays for screen readers.
+  return <p id="truescan-lists" className="sr-only">{parts.join(' ')}</p>;
 }
 
 /** The official-list answer for one product, in one sentence, with its source and date. */

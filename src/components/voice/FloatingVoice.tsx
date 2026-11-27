@@ -107,10 +107,10 @@ export function FloatingVoice() {
           aria-label={inPortal ? 'Help on this page — speak to KashRoot' : 'Speak to KashRoot'}
           title={inPortal ? 'Help on this page' : 'Speak to KashRoot'}
           // Above the offline banner when it shows (--kr-bottom-bar, components/pwa), in this button's zoomed pixels.
-          style={{ bottom: `calc(1rem + env(safe-area-inset-bottom) + var(--kr-bottom-bar, 0px) / ${zoom})`, right: 'calc(1rem + env(safe-area-inset-right))', zoom }}
-          className="fixed z-40 grid h-16 w-16 cursor-pointer place-items-center rounded-full bg-gradient-to-br from-amber-400 via-orange-500 to-rose-600 text-white shadow-[0_14px_32px_rgba(234,88,12,0.5),inset_0_-6px_14px_rgba(0,0,0,0.2),inset_0_6px_12px_rgba(255,255,255,0.35)] ring-4 ring-white/80 transition hover:scale-105 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-amber-500 motion-reduce:transition-none"
+          style={{ bottom: `calc(0.75rem + env(safe-area-inset-bottom) + var(--kr-bottom-bar, 0px) / ${zoom})`, right: 'calc(0.75rem + env(safe-area-inset-right))', zoom }}
+          className="fixed z-40 grid h-12 w-12 cursor-pointer place-items-center rounded-full bg-gradient-to-br from-amber-400 via-orange-500 to-rose-600 text-white shadow-[0_8px_20px_rgba(234,88,12,0.45),inset_0_-4px_10px_rgba(0,0,0,0.2),inset_0_4px_8px_rgba(255,255,255,0.35)] ring-2 ring-white/80 sm:h-16 sm:w-16 sm:shadow-[0_14px_32px_rgba(234,88,12,0.5),inset_0_-6px_14px_rgba(0,0,0,0.2),inset_0_6px_12px_rgba(255,255,255,0.35)] sm:ring-4 transition hover:scale-105 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-amber-500 motion-reduce:transition-none"
         >
-          <Mic className="h-8 w-8" aria-hidden />
+          <Mic className="h-6 w-6 sm:h-8 sm:w-8" aria-hidden />
         </button>
       )}
       {open && (

@@ -132,10 +132,6 @@ export default async function HomePage() {
                 traded with trust.
               </span>
             </h1>
-            <p className="mt-2 max-w-xl text-[13px] leading-relaxed text-ink-soft sm:text-base">
-              <strong className="font-semibold text-ink">KashRoot</strong> brings pay-after-delivery trade, live mandi rates and
-              transparent price comparison to growers, traders and buyers.
-            </p>
             {/* The KashRoot identity: the whole spectrum, not one hue. */}
             <p aria-hidden className="mt-3 flex items-center gap-1.5">
               {['#E11D48', '#F97316', '#FACC15', '#22C55E', '#06B6D4', '#3B82F6', '#8B5CF6'].map((c) => (
@@ -182,10 +178,6 @@ export default async function HomePage() {
             <div className="pt-2 lg:sticky lg:top-24">
               <p className="inline-flex rounded-full bg-champagne-soft px-3 py-1 text-xs font-semibold text-champagne-deep ring-1 ring-champagne/60">Fertilisers and pesticides</p>
               <h2 id="fertilizer-heading" className="font-display mt-3 text-2xl font-semibold tracking-tight text-ink">KashRoot TrueScan — is it genuine?</h2>
-              <p className="mt-3 leading-relaxed text-ink-soft">
-                Type the registration number or the name from the label: it is checked against the Government list of registered
-                products. Or photograph the label, or compare a lab report with the official Fertiliser (Control) Order standards.
-              </p>
               <Link href="/supplies/tester" className="kr-btn-secondary mt-4 min-h-11 gap-1.5 no-underline hover:no-underline">
                 Open TrueScan <ArrowRight className="h-4 w-4" aria-hidden />
               </Link>

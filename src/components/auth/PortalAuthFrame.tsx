@@ -51,7 +51,7 @@ export function PortalAuthFrame({ portal, labelledBy, children }: { portal: Port
             </span>
             <p className={`mt-5 text-xs font-semibold uppercase tracking-[0.18em] ${theme.eyebrow}`}>{copy.eyebrow}</p>
             <h1 className="font-display mt-2 text-3xl font-semibold tracking-tight text-white drop-shadow-sm [text-wrap:balance] sm:text-4xl">{copy.headline}</h1>
-            <p className="mt-3 max-w-md leading-relaxed text-white/90">{copy.description}</p>
+            <p className="sr-only">{copy.description}</p>
             <ul className="mt-6 hidden space-y-2.5 sm:block">
               {copy.highlights.map((item) => (
                 <li key={item} className="flex items-start gap-2.5 text-sm font-medium text-white">
