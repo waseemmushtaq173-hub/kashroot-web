@@ -29,7 +29,7 @@ export interface DataGovHit {
 }
 
 export type DataGovAnswer =
-  | { ok: true; query: string; datasets: DatasetInfo[]; hits: DataGovHit[]; checkedRows: number; at: string; /** Some datasets were not read in time: ask again for the rest. */ partial?: boolean }
+  | { ok: true; query: string; datasets: DatasetInfo[]; hits: DataGovHit[]; checkedRows: number; at: string; /** Datasets the catalogue listed on these subjects. */ found?: number; /** Of those, how many did not answer just now (ask again for them). */ unread?: number; /** Some datasets were not read in time: ask again for the rest. */ partial?: boolean }
   | { ok: false; reason: 'no_key' | 'bad_query' | 'unreachable' | 'no_datasets'; message: string };
 
 export interface DataGovEnv {
@@ -61,6 +61,8 @@ const TIME_BUDGET_MS = 25_000;
 const ROWS_SHOWN = 5;
 const COLUMNS_SHOWN = 7;
 const CATALOGUE_TTL = 6 * 3600_000;
+/** A catalogue lookup that some subjects did not answer is kept only a minute, so the next search tries again. */
+const CATALOGUE_RETRY = 60_000;
 const ROWS_TTL = 3600_000;
 
 interface Table {
@@ -73,7 +75,7 @@ interface Table {
 }
 
 /** The two caches live here so a warm server answers without asking data.gov.in again. */
-export const dataGovCache: { catalogue: { at: number; entries: DatasetInfo[] } | null; tables: Map<string, Table> } = { catalogue: null, tables: new Map() };
+export const dataGovCache: { catalogue: { at: number; entries: DatasetInfo[]; complete: boolean } | null; tables: Map<string, Table> } = { catalogue: null, tables: new Map() };
 
 const text = (v: unknown): string => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : Array.isArray(v) ? v.map(text).filter(Boolean).join(' › ') : '');
 
@@ -108,13 +110,18 @@ async function datasetsToSearch(env: DataGovEnv, fetcher: Fetcher, now: number):
     .filter((s) => UUID.test(s));
   if (named.length) return named.slice(0, MAX_DATASETS).map((id) => ({ id, title: dataGovCache.tables.get(id)?.title || id, org: '', updated: null }));
 
-  if (dataGovCache.catalogue && now - dataGovCache.catalogue.at < CATALOGUE_TTL) return dataGovCache.catalogue.entries;
+  const kept = dataGovCache.catalogue;
+  if (kept && now - kept.at < (kept.complete ? CATALOGUE_TTL : CATALOGUE_RETRY)) return kept.entries;
   // A few at a time, like the tables: the portal refuses a crowd of calls at once, and there are many subjects now.
   const found = await mapLimit(SUBJECTS, 6, (s) => searchCatalog(s, env, fetcher));
   const seen = new Set<string>();
   const entries: DatasetInfo[] = [];
+  let complete = true;
   for (const answer of found) {
-    if ('problem' in answer) continue;
+    if ('problem' in answer) {
+      complete = false;
+      continue;
+    }
     for (const e of answer.entries as CatalogEntry[]) {
       if (seen.has(e.id) || !SUBJECT_TITLE.test(e.title)) continue;
       seen.add(e.id);
@@ -122,8 +129,9 @@ async function datasetsToSearch(env: DataGovEnv, fetcher: Fetcher, now: number):
     }
   }
   const list = entries.slice(0, MAX_DATASETS);
-  // Only a successful discovery is kept: an outage must not hide the datasets for six hours.
-  if (list.length) dataGovCache.catalogue = { at: now, entries: list };
+  // Only a discovery that found something is kept, and one that some subjects did not answer only briefly: an outage or a
+  // refused call must not hide datasets for six hours.
+  if (list.length) dataGovCache.catalogue = { at: now, entries: list, complete };
   return list;
 }
 
@@ -199,5 +207,6 @@ export async function searchDataGov(query: string, env: DataGovEnv, fetcher: Fet
     });
     if (rows.length) hits.push({ dataset: info, columns: t.columns, rows: rows.slice(0, ROWS_SHOWN) });
   });
-  return { ok: true, query: q, datasets: searched, hits, checkedRows, at: new Date(now).toISOString(), ...(skipped ? { partial: true } : {}) };
+  const unread = datasets.length - searched.length;
+  return { ok: true, query: q, datasets: searched, hits, checkedRows, at: new Date(now).toISOString(), found: datasets.length, ...(unread ? { unread } : {}), ...(skipped ? { partial: true } : {}) };
 }
