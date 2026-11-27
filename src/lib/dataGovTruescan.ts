@@ -13,7 +13,7 @@
  * registers of products, so the screen says that too. The key is added by the server and never returned, logged or
  * repeated in a message. No side effects but the two in-memory caches; the network is passed in.
  */
-import { searchCatalog, type CatalogEntry } from '@/lib/dataGovCatalog';
+import { backoffMs, searchCatalog, type CatalogEntry } from '@/lib/dataGovCatalog';
 
 export interface DatasetInfo {
   id: string;
@@ -34,6 +34,8 @@ export type DataGovAnswer =
 
 export interface DataGovEnv {
   DATA_GOV_IN_API_KEY?: string;
+  /** Test only: the base wait, in ms, between tries after "too many requests". */
+  RETRY_MS?: number;
   TRUESCAN_DATAGOV_RESOURCES?: string;
 }
 
@@ -57,7 +59,9 @@ const MAX_DATASETS = 60;
 /** Rows read from each dataset (the portal serves up to 1,000 at a time). */
 const ROWS_READ = 1000;
 /** Longest a search may spend starting new dataset reads; what was read is kept for the next search. */
-const TIME_BUDGET_MS = 25_000;
+const TIME_BUDGET_MS = 20_000;
+/** Longest the catalogue lookup may spend starting new subject lookups (the route is held to 60 s in all). */
+const DISCOVERY_BUDGET_MS = 15_000;
 const ROWS_SHOWN = 5;
 const COLUMNS_SHOWN = 7;
 const CATALOGUE_TTL = 6 * 3600_000;
@@ -113,7 +117,8 @@ async function datasetsToSearch(env: DataGovEnv, fetcher: Fetcher, now: number):
   const kept = dataGovCache.catalogue;
   if (kept && now - kept.at < (kept.complete ? CATALOGUE_TTL : CATALOGUE_RETRY)) return kept.entries;
   // A few at a time, like the tables: the portal refuses a crowd of calls at once, and there are many subjects now.
-  const found = await mapLimit(SUBJECTS, 6, (s) => searchCatalog(s, env, fetcher));
+  const until = Date.now() + DISCOVERY_BUDGET_MS;
+  const found = await mapLimit(SUBJECTS, 3, async (s) => (Date.now() > until ? { problem: 'Out of time for this lookup.' } : searchCatalog(s, env, fetcher)));
   const seen = new Set<string>();
   const entries: DatasetInfo[] = [];
   let complete = true;
@@ -156,7 +161,12 @@ async function tableOf(id: string, env: DataGovEnv, fetcher: Fetcher, now: numbe
   const key = (env.DATA_GOV_IN_API_KEY ?? '').trim();
   const url = `https://api.data.gov.in/resource/${id}?api-key=${encodeURIComponent(key)}&format=json&offset=0&limit=${ROWS_READ}`;
   try {
-    const res = await fetcher(url, { cache: 'no-store', redirect: 'manual', headers: { accept: 'application/json' }, signal: AbortSignal.timeout(8_000) });
+    let res = await fetcher(url, { cache: 'no-store', redirect: 'manual', headers: { accept: 'application/json' }, signal: AbortSignal.timeout(8_000) });
+    // "Too many requests": wait as the portal asks and ask again (up to twice).
+    for (let attempt = 1; res.status === 429 && attempt <= 2; attempt++) {
+      await new Promise((r) => setTimeout(r, backoffMs(res, attempt, env.RETRY_MS ?? 1200)));
+      res = await fetcher(url, { cache: 'no-store', redirect: 'manual', headers: { accept: 'application/json' }, signal: AbortSignal.timeout(8_000) });
+    }
     if (!res.ok) return null;
     const t = parseTable(await res.json());
     if (!t.columns.length) return null;
@@ -184,7 +194,7 @@ export async function searchDataGov(query: string, env: DataGovEnv, fetcher: Fet
   // Past the time budget no new dataset is started (what was read stays cached for the next search).
   const stopAt = Date.now() + TIME_BUDGET_MS;
   let skipped = 0;
-  const tables = await mapLimit(datasets, 6, async (d) => {
+  const tables = await mapLimit(datasets, 4, async (d) => {
     if (Date.now() > stopAt && !dataGovCache.tables.has(d.id)) {
       skipped++;
       return null;
