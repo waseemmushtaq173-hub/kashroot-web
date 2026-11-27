@@ -99,8 +99,9 @@ export function ShellTopBar({
               type="button"
               onClick={onSignOut}
               aria-label="Sign out"
-              className={`inline-flex h-12 cursor-pointer items-center gap-2 rounded-xl bg-white/90 px-3 text-base font-semibold text-slate-800 shadow-sm ring-1 ring-slate-900/10 transition hover:bg-white lg:hidden ${ring}`}
+              className={`hidden h-12 cursor-pointer items-center gap-2 rounded-xl bg-white/90 px-3 text-base font-semibold text-slate-800 shadow-sm ring-1 ring-slate-900/10 transition hover:bg-white sm:inline-flex lg:hidden ${ring}`}
             >
+              {/* On a phone the bar has no room for it: Sign out is in the Menu, with the rest of the person's links. */}
               <LogOut className="h-5 w-5" aria-hidden />
               <span className="hidden sm:inline">Sign out</span>
             </button>

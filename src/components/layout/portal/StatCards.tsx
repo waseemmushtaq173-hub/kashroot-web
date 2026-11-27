@@ -38,7 +38,8 @@ export function StatCards({ kpis, theme }: { kpis: KPI[]; theme: PortalTheme; lo
           </>
         );
         // Every card lifts a little under the pointer (the buttons a little more clearly, with their arrow).
-        const face = 'kr-kpi group relative isolate block h-full overflow-hidden rounded-2xl p-3 text-left transition-[transform,box-shadow] sm:p-5 duration-200 ease-out hover:-translate-y-[5px] hover:shadow-xl motion-reduce:transition-none motion-reduce:hover:translate-y-0';
+        const lone = kpis.length === 3 && i === 2 ? 'col-span-2 sm:col-span-1 ' : '';
+        const face = lone + 'kr-kpi group relative isolate block h-full overflow-hidden rounded-2xl p-3 text-left transition-[transform,box-shadow] sm:p-5 duration-200 ease-out hover:-translate-y-[5px] hover:shadow-xl motion-reduce:transition-none motion-reduce:hover:translate-y-0';
         return kpi.onClick ? (
           <button
             key={kpi.label}

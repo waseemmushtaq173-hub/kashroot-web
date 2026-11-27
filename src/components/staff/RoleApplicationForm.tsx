@@ -21,11 +21,11 @@ const COPY = {
   REPORTER: {
     place: ['Your mandi and shop', 'e.g. Sopore fruit mandi, shop 14'],
     licence: ['Mandi licence or trade licence number (optional)', 'e.g. APMC/SOP/1234'],
-    details: ['Your work at the mandi', 'e.g. Commission agent for 12 years, apples and pears'],
+    details: ['Your work at the mandi', 'e.g. Commission agent, 12 years'],
     photo: 'Photo of your mandi licence, trade licence or ID card',
   },
   EXPERT: {
-    place: ['Where you work', 'e.g. Horticulture Development Officer, Shopian'],
+    place: ['Where you work', 'e.g. Horticulture Officer, Shopian'],
     licence: ['Registration or employee ID (optional)', 'e.g. HDO/SHP/2019/045'],
     details: ['Your qualification', 'e.g. MSc Horticulture, SKUAST-K'],
     photo: 'Photo of your degree certificate or office ID card',
