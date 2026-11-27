@@ -68,7 +68,7 @@ function suggestionsFor(lang: VoiceLang, crops: Crop[]): Suggestion[] {
   return lines[lang === 'doi' ? 'hi' : lang].map((text) => ({ text }));
 }
 
-const PLACEHOLDER: Record<'en' | 'hi' | 'ur', string> = { en: 'Or type your question…', hi: 'अपना सवाल लिखें…', ur: 'اپنا سوال لکھیں…' };
+const PLACEHOLDER: Record<'en' | 'hi' | 'ur', string> = { en: 'Or type it here…', hi: 'अपना सवाल लिखें…', ur: 'اپنا سوال لکھیں…' };
 
 /** The lang attribute for text in this language (fonts, screen readers). */
 const langAttr = (l: VoiceLang) => (l === 'en' ? undefined : l);

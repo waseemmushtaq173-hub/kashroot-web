@@ -721,7 +721,7 @@ export default function UnifiedLiveTrackingPortal() {
                   type="text"
                   value={trackingIdInput}
                   onChange={(e) => setTrackingIdInput(e.target.value.toUpperCase())}
-                  placeholder="As given by the sender or the driver"
+                  placeholder="From the sender or driver"
                   autoComplete="off"
                   className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 font-mono text-sm font-semibold text-slate-900 focus:border-forest focus:outline-none"
                 />

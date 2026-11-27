@@ -59,7 +59,7 @@ export interface ContactOtpProps {
 export type PhoneRoute = 'sms' | 'whatsapp';
 
 const INPUT = 'block min-h-11 w-full rounded-xl border-0 bg-white px-3.5 py-2.5 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 disabled:bg-slate-50 disabled:text-slate-500';
-const BUTTON = 'inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50';
+const BUTTON = 'inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50';
 
 /** Words for a failed send — never the raw fetch internals; always words a person can act on. */
 function sendWords(err: unknown): string {
@@ -203,7 +203,7 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
 
       {!verified && (
         <div className="mt-3 space-y-2.5">
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <label htmlFor={id} className="sr-only">{fieldLabel}</label>
             <span className="relative flex-1">
               <Icon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
@@ -227,7 +227,7 @@ export function ContactOtp({ channel, value, onChange, onVerified, verified, onR
             </span>
             {/* Once a code is sent, "Resend OTP" lives on the code card. */}
             {!token && (
-              <button type="button" onClick={() => void send()} disabled={busy !== null || !valid || wait > 0} className={`${BUTTON} ${accent.button}`}>
+              <button type="button" onClick={() => void send()} disabled={busy !== null || !valid || wait > 0} className={`${BUTTON} w-full sm:w-auto ${accent.button}`}>
                 {busy === 'send' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
                 {wait > 0 ? `Resend ${wait}s` : 'Send OTP'}
               </button>

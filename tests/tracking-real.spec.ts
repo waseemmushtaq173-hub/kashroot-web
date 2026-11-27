@@ -14,7 +14,7 @@ test('the tracking box opens empty and nothing is opened for the visitor', async
   await page.goto('/tracking');
   await page.waitForLoadState('load');
   await page.waitForTimeout(2500);
-  const box = page.getByPlaceholder('As given by the sender or the driver');
+  const box = page.getByPlaceholder('From the sender or driver');
   await expect(box).toBeVisible();
   await expect(box).toHaveValue('');
   // No shipment is open: its status strip is not on the page.
