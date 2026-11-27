@@ -30,7 +30,7 @@ export default async function LoginChooserPage({ searchParams }: { searchParams:
     <div className="w-full">
       <h1 className="font-display text-3xl font-semibold tracking-tight text-slate-900">Choose your portal</h1>
       <p className="mt-2 text-slate-600">Each portal has its own sign-in.</p>
-      <ul className="mt-8 grid gap-3 sm:grid-cols-2">
+      <ul className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-2.5 sm:mt-8 sm:grid-cols-2 sm:gap-3">
         {PUBLIC_PORTAL_IDS.map((id) => {
           const copy = PORTAL_LOGIN[id];
           const Icon = copy.icon;
@@ -45,7 +45,7 @@ export default async function LoginChooserPage({ searchParams }: { searchParams:
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block font-semibold">{PORTALS[id].label}</span>
-                  <span className="block truncate text-xs text-slate-500">{PORTALS[id].tagline}</span>
+                  <span className="block text-xs leading-snug text-slate-600 sm:truncate">{PORTALS[id].tagline}</span>
                 </span>
                 <ArrowRight className="h-4 w-4 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-slate-700" aria-hidden />
               </Link>

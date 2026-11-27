@@ -81,8 +81,9 @@ async function inspect(page: Page): Promise<Report> {
       if (!shown(el) || decorative(el)) continue;
       const input = el as HTMLInputElement;
       const st = getComputedStyle(input);
+      const ph = getComputedStyle(input, '::placeholder'); // the placeholder can be smaller and lighter than what is typed
       const ctx = document.createElement('canvas').getContext('2d')!;
-      ctx.font = `${st.fontWeight} ${st.fontSize} ${st.fontFamily}`;
+      ctx.font = `${ph.fontWeight} ${ph.fontSize} ${ph.fontFamily}`;
       const need = ctx.measureText(input.placeholder).width + parseFloat(st.paddingLeft) + parseFloat(st.paddingRight);
       if (need > input.clientWidth + 1) out.placeholder.push(`${name(input)} needs ${Math.round(need)}px, has ${input.clientWidth}px`);
     }
@@ -100,8 +101,9 @@ async function inspect(page: Page): Promise<Report> {
     }
     for (const el of document.querySelectorAll('button, a[href], input:not([type=hidden]), select, textarea')) {
       if (!shown(el) || decorative(el) || floating(el)) continue;
-      const r = el.getBoundingClientRect();
-      atoms.push({ el, t: name(el), l: r.left, r: r.right, top: r.top + scrollY, bottom: r.bottom + scrollY });
+      // A link inside a sentence that wraps is one box per line, not one big box over the lines between.
+      const rects = getComputedStyle(el).display === 'inline' ? [...el.getClientRects()] : [el.getBoundingClientRect()];
+      for (const r of rects) atoms.push({ el, t: name(el), l: r.left, r: r.right, top: r.top + scrollY, bottom: r.bottom + scrollY });
     }
     atoms.sort((a, b) => a.top - b.top);
     for (let i = 0; i < atoms.length; i++) {
@@ -157,7 +159,9 @@ test.describe('on a phone, the page opens on the tool, not on a paragraph', () =
     await expect(page.getByText('Not yet', { exact: true })).toHaveCount(0);
     await expect(page.getByText('1,531', { exact: true })).toBeVisible();
     // The line under the title is for screen readers only.
-    await expect(page.getByText('type the registration number or the name from the label')).toBeHidden();
+    const line = page.locator('p.sr-only', { hasText: 'type the registration number or the name from the label' });
+    await expect(line).toHaveCount(1);
+    expect((await line.boundingBox())!.width).toBeLessThanOrEqual(2);
   });
 
   test('the floating microphone is a small button on a phone', async ({ page }) => {
