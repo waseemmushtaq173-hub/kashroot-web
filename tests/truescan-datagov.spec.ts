@@ -8,7 +8,7 @@ import { join } from 'node:path';
 
 import { expect, test } from '@playwright/test';
 
-import { dataGovCache, isSkuastDataset, parseTable, searchDataGov, wordsOf } from '@/lib/dataGovTruescan';
+import { dataGovCache, isSkuastDataset, latestDataGov, newestFirst, parseTable, searchDataGov, wordsOf } from '@/lib/dataGovTruescan';
 import { skuastLookup, skuastSearch } from '@/lib/skuast-kashmir-recommendations';
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8');
@@ -256,4 +256,55 @@ test('"too many requests" from the portal is waited out and asked again, for the
   expect(seen.table).toBe(2);
   // Every subject was asked twice (refused, then answered).
   expect(seen['lists:pesticide']).toBe(2);
+});
+
+test('rows come newest first when a column holds years or dates, and are left alone when none does', () => {
+  // The oldest year is printed first in these tables; "updated data" is the last years.
+  const subsidy = [['2002-2003', 'Indigenous Urea', '7790'], ['2010-11', 'Indigenous Urea', '14000'], ['2023-24', 'Indigenous Urea', '110000'], ['2015', 'Indigenous Urea', '1']];
+  expect(newestFirst(subsidy).map((r) => r[0])).toEqual(['2023-24', '2015', '2010-11', '2002-2003']);
+  // Dates in either order of writing.
+  expect(newestFirst([['01/03/2026', 'a'], ['16/10/2026', 'b'], ['2026-05-02', 'c']]).map((r) => r[1])).toEqual(['b', 'c', 'a']);
+  // A column of names is not a time column; the table stays as published.
+  const plants = [['YARA Babrala', '1155'], ['IFFCO Aonla', '900']];
+  expect(newestFirst(plants)).toEqual(plants);
+  expect(newestFirst([])).toEqual([]);
+  // One stray year in a column of words does not turn it into a time column.
+  const mixed = [['Punjab', '2020'], ['Bihar', 'x'], ['Assam', 'y']];
+  expect(newestFirst(mixed)).toEqual(mixed);
+});
+
+test('a search shows the newest dataset first, and its newest rows first', async () => {
+  const A2 = '00000000-0000-4000-8000-0000000000a1';
+  const B2 = '00000000-0000-4000-8000-0000000000b2';
+  const fetcher = async (u: string) => {
+    const url = new URL(u);
+    if (url.pathname === '/lists') return json({ records: [{ index_name: A2, title: 'Fertiliser subsidy 2014', org: ['Dept'], updated: '2018-11-29' }, { index_name: B2, title: 'Fertiliser sales 2025', org: ['Dept'], updated: '2026-10-16T19:12:07Z' }] });
+    const id = url.pathname.split('/').pop() ?? '';
+    const years = id === A2 ? ['2002-03', '2013-14'] : ['2021-22', '2024-25', '2023-24'];
+    return json({ title: id === A2 ? 'Fertiliser subsidy 2014' : 'Fertiliser sales 2025', org: 'Dept', updated_date: id === A2 ? '2018-11-29' : '2026-10-16T19:12:07Z', field: [{ id: 'year', name: 'Year' }, { id: 'product', name: 'Product' }], records: years.map((y) => ({ year: y, product: 'Urea' })) });
+  };
+  const r = await searchDataGov('urea', ENV, fetcher);
+  expect(r.ok).toBe(true);
+  if (!r.ok) return;
+  expect(r.hits.map((h) => h.dataset.title)).toEqual(['Fertiliser sales 2025', 'Fertiliser subsidy 2014']);
+  expect(r.hits[0].rows.map((x) => x[0])).toEqual(['2024-25', '2023-24', '2021-22']);
+  expect(r.hits[1].rows.map((x) => x[0])).toEqual(['2013-14', '2002-03']);
+});
+
+test('the latest view lists the most recently updated datasets, each with its newest rows; nothing without a key', async () => {
+  expect(await latestDataGov({}, async () => json({}))).toMatchObject({ ok: false, reason: 'no_key' });
+  const ids = Array.from({ length: 12 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`);
+  const fetcher = async (u: string) => {
+    const url = new URL(u);
+    if (url.pathname === '/lists') return json({ records: ids.map((id, i) => ({ index_name: id, title: `Fertiliser list ${i}`, org: ['Dept'], updated: `2026-0${(i % 9) + 1}-01` })) });
+    const id = url.pathname.split('/').pop() ?? '';
+    return json({ title: `Fertiliser list ${ids.indexOf(id)}`, org: 'Dept', updated_date: `2026-0${(ids.indexOf(id) % 9) + 1}-01`, field: [{ id: 'year', name: 'Year' }], records: ['2019', '2025', '2022', '2024'].map((y) => ({ year: y })) });
+  };
+  const l = await latestDataGov(ENV, fetcher);
+  expect(l.ok).toBe(true);
+  if (!l.ok) return;
+  expect(l.items).toHaveLength(6);
+  const dates = l.items.map((i) => i.dataset.updated ?? '');
+  expect([...dates].sort().reverse()).toEqual(dates);
+  expect(l.items[0].rows.map((r) => r[0])).toEqual(['2025', '2024', '2022']);
 });

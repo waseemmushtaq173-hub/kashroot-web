@@ -6,7 +6,7 @@
  */
 import { NextResponse } from 'next/server';
 
-import { searchDataGov } from '@/lib/dataGovTruescan';
+import { latestDataGov, searchDataGov } from '@/lib/dataGovTruescan';
 import { ipLimited, tooMany } from '@/lib/server/sign';
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +14,13 @@ export const maxDuration = 60;
 
 export async function GET(request: Request) {
   if (ipLimited(request, 'truescan-datagov', 30)) return tooMany();
-  const q = new URL(request.url).searchParams.get('q') ?? '';
+  const params = new URL(request.url).searchParams;
+  // ?latest=1: the most recently updated datasets with their newest rows, for the card on the TrueScan page.
+  if (params.get('latest')) {
+    const latest = await latestDataGov({ DATA_GOV_IN_API_KEY: process.env.DATA_GOV_IN_API_KEY, TRUESCAN_DATAGOV_RESOURCES: process.env.TRUESCAN_DATAGOV_RESOURCES });
+    return NextResponse.json(latest, { status: latest.ok || latest.reason === 'no_datasets' || latest.reason === 'no_key' ? 200 : 502, headers: { 'cache-control': 'no-store' } });
+  }
+  const q = params.get('q') ?? '';
   const answer = await searchDataGov(q, {
     DATA_GOV_IN_API_KEY: process.env.DATA_GOV_IN_API_KEY,
     TRUESCAN_DATAGOV_RESOURCES: process.env.TRUESCAN_DATAGOV_RESOURCES,
