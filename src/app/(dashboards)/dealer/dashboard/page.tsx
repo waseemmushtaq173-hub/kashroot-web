@@ -332,7 +332,7 @@ export default function DealerDashboardPage() {
                 </table>
               </div>
             )}
-            <p className="mt-4 text-xs text-slate-500">Manifest format: CSV with columns <code>name,batch,expiry,stock,manufacturer,type,registration</code> (expiry as YYYY-MM-DD; type is fertilizer, pesticide, seed or other).</p>
+            <p className="mt-4 text-xs text-slate-500">Manifest format: CSV with columns <code className="break-all">name,batch,expiry,stock,manufacturer,type,registration</code> (expiry as YYYY-MM-DD; type is fertilizer, pesticide, seed or other).</p>
           </Panel>
         </div>
       )}
