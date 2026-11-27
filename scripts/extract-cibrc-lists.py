@@ -25,13 +25,11 @@ OUT = os.path.join(ROOT, 'src', 'data', 'cibrc-official.json')
 SOURCE = 'Central Insecticides Board & Registration Committee (CIB&RC), Directorate of Plant Protection, Quarantine & Storage, Ministry of Agriculture and Farmers Welfare'
 PAGE = 'https://ppqs.gov.in/divisions/cib-rc/registered-products'
 
-FILES = {
-    'pesticides': 'list_of_pesticides_as_on_31.03.2026.pdf',
-    'formulations': 'list_pf_pesticide_formulations_registered_as_on_31.03.2026.pdf',
-    'banned': 'list_of_pesticides_which_are_banned_refused_registration_and_restricted_in_use_31.10.26.pdf',
-    'household': '7._formulation_approved_for_public_health_household_and_rodenticideUpdated_31.07.2026.pdf',
-    'locust': 'approved_pesticides_for_desert_locust_control.pdf',
-}
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from cibrc_files import newest, printed_date_matches  # noqa: E402
+
+# The newest file of each list in official-data/cibrc, by the date in its name (a newer PDF dropped there is read in its place).
+FILES = newest(SRC)
 
 
 def fail(msg):
@@ -388,6 +386,10 @@ def main():
         'household': household(),
         'locust': locust(),
     }
+    # A file named for one date but printed with another is not taken: it may be an old list under a new name.
+    for key in ('pesticides', 'formulations', 'banned', 'household'):
+        if not printed_date_matches(FILES[key], data[key]['as_on']):
+            fail(f"{FILES[key]} says it is as on {data[key]['as_on']}, which is not the date in its file name; nothing was written")
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, 'w', encoding='utf-8') as fh:
         json.dump(data, fh, ensure_ascii=False, indent=1)
