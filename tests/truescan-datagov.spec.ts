@@ -205,3 +205,32 @@ test('up to 60 datasets are read, 1,000 rows of each, and a word further down a 
   expect(r.hits[0].rows).toEqual([['Zincsulphate 21%']]);
   expect(r.partial).toBeUndefined();
 });
+
+test('a catalogue some subjects did not answer is kept only a minute, and the answer says how many datasets did not answer', async () => {
+  const ids = Array.from({ length: 6 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`);
+  let refuse = true;
+  const fetcher = async (u: string) => {
+    const url = new URL(u);
+    if (url.pathname === '/lists') {
+      // The first subject asked is refused, the rest answer.
+      if (refuse && url.searchParams.get('filters[title]') === 'banned pesticide') return json({}, 503);
+      return json({ records: ids.map((id, i) => ({ index_name: id, title: `Fertiliser list ${i}`, org: ['Dept'], updated: '2026-01-01' })) });
+    }
+    const id = url.pathname.split('/').pop() ?? '';
+    // Two datasets do not answer.
+    if (id === ids[4] || id === ids[5]) return json({}, 500);
+    return json({ title: `Fertiliser list ${ids.indexOf(id)}`, org: 'Dept', records: [{ product: 'Urea' }] });
+  };
+  const first = await searchDataGov('urea', ENV, fetcher);
+  expect(first.ok).toBe(true);
+  if (!first.ok) return;
+  expect(first.found).toBe(6);
+  expect(first.unread).toBe(2);
+  expect(first.datasets).toHaveLength(4);
+  expect(dataGovCache.catalogue?.complete).toBe(false);
+  // A minute later every subject answers and the catalogue is looked up again (not kept for six hours).
+  refuse = false;
+  const later = await searchDataGov('urea', ENV, fetcher, Date.now() + 61_000);
+  expect(later.ok).toBe(true);
+  expect(dataGovCache.catalogue?.complete).toBe(true);
+});

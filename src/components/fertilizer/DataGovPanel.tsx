@@ -95,9 +95,13 @@ export function DataGovPanel({ query }: { query: string }) {
               </div>
             ))
           )}
-          {state.answer.partial && <p className="text-xs text-amber-900">Some datasets did not load in time. Check again to look in the rest.</p>}
+          {(state.answer.unread ?? 0) > 0 && (
+            <p className="text-xs text-amber-900">
+              {state.answer.unread} of the {state.answer.found} datasets did not answer just now{state.answer.partial ? ' in time' : ''}. Check again to look in them too.
+            </p>
+          )}
           <details className="text-xs text-slate-600">
-            <summary className="flex min-h-11 cursor-pointer items-center">Datasets looked in ({state.answer.datasets.length})</summary>
+            <summary className="flex min-h-11 cursor-pointer items-center">Datasets looked in ({state.answer.datasets.length}{state.answer.found && state.answer.found !== state.answer.datasets.length ? ` of ${state.answer.found}` : ''})</summary>
             <ul className="mt-1 list-disc space-y-0.5 pl-5">
               {state.answer.datasets.map((d) => (
                 <li key={d.id}>
