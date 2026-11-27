@@ -26,7 +26,7 @@ for (const width of [360, 390, 412]) {
         await page.goto(path, { waitUntil: 'load' });
         await page.waitForTimeout(2200);
         const r = await inspect(page);
-        const found = [...r.wider.map((x) => `WIDER: ${x}`), ...r.cut.map((x) => `CUT OFF: ${x}`), ...r.placeholder.map((x) => `PLACEHOLDER: ${x}`), ...r.overlaps.map((x) => `ON TOP: ${x}`)];
+        const found = [...r.wider.map((x) => `WIDER: ${x}`), ...r.cut.map((x) => `CUT OFF: ${x}`), ...r.placeholder.map((x) => `PLACEHOLDER: ${x}`), ...r.overlaps.map((x) => `ON TOP: ${x}`), ...r.unreadable.map((x) => `UNREADABLE: ${x}`)];
         expect([...new Set(found)].slice(0, 12), `${path} at ${width}px`).toEqual([]);
       });
     }
@@ -60,6 +60,22 @@ test.describe('on a phone, the page opens on the tool, not on a paragraph', () =
     const b = (await mic.boundingBox())!;
     expect(b.width).toBeLessThanOrEqual(52);
     expect(b.width).toBeGreaterThanOrEqual(44);
+  });
+
+  test('sign-in pages: each portal\u2019s button has its own colour and the form fits the first screen', async ({ page }) => {
+    const colours: Record<string, string> = {};
+    for (const id of ['farmer', 'buyer', 'kissan', 'rental', 'tracking', 'dealer', 'expert', 'trader', 'business']) {
+      await page.goto(`/login/${id}`, { waitUntil: 'load' });
+      const button = page.getByRole('button', { name: /^Sign in to / }).last();
+      await expect(button).toBeVisible();
+      const info = await button.evaluate((el) => ({ img: getComputedStyle(el).backgroundImage, bottom: el.getBoundingClientRect().bottom }));
+      colours[id] = info.img.match(/rgb\([^)]*\)/)?.[0] ?? info.img;
+      // Ending above 700px leaves room for the "I am human" box (about 80px) and still keeps the button on an 800px screen.
+      expect(info.bottom, `${id}: the sign-in button ends inside the first screen`).toBeLessThan(700);
+    }
+    // One colour per portal, none of them the shared indigo the site's push-button rule paints on every submit button.
+    expect(new Set(Object.values(colours)).size, JSON.stringify(colours)).toBe(Object.keys(colours).length);
+    expect(Object.values(colours)).not.toContain('rgb(99, 88, 224)');
   });
 
   test('register: each role has its own colour (a farmer is not indigo)', async ({ page }) => {

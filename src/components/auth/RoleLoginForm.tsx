@@ -508,7 +508,8 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
       <h2 id={ids.heading} className="font-display text-2xl font-semibold tracking-tight text-slate-900">
         Sign in to the {info.label} portal
       </h2>
-      <p className="mt-1 text-sm text-slate-600">
+      {/* The heading says where you are, and "Create an account" is under the button: the explanation is for screen readers only. */}
+      <p className="sr-only">
         Every KashRoot portal has its own sign-in. No {info.label} account yet? Sign in with your KashRoot email and password and create it, or use Create an account below.
       </p>
       {elsewhere.length > 0 && (
@@ -615,6 +616,7 @@ export function RoleLoginForm({ portal, next, verified = false }: RoleLoginFormP
           {human.element}
           <button
             type="submit"
+            data-kr-plain
             disabled={!canSubmit}
             className={`inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-sm font-semibold shadow-lg transition disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none ${theme.button} ${focusRing}`}
           >

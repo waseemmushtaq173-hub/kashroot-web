@@ -110,6 +110,7 @@ export function AskForm({ account, onSent, initialKind = 'question' }: { account
             <button
               key={k.id}
               type="button"
+              data-kr-plain
               aria-pressed={kind === k.id}
               onClick={() => setKind(k.id)}
               className={`flex cursor-pointer items-center gap-3 rounded-2xl p-3 text-left transition ${kind === k.id ? 'bg-forest-soft ring-2 ring-forest-mid' : 'bg-white ring-1 ring-slate-200 hover:bg-slate-50'}`}

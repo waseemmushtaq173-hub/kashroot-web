@@ -76,7 +76,7 @@ export default function ForgotPasswordPage() {
           </label>
           {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800 ring-1 ring-rose-200">{error}</p>}
           {human.element}
-          <button type="submit" disabled={busy} className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 px-5 py-3.5 font-semibold text-white shadow-lg shadow-rose-600/30 transition hover:-translate-y-0.5 disabled:opacity-60">
+          <button type="submit" data-kr-plain disabled={busy} className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 px-5 py-3.5 font-semibold text-white shadow-lg shadow-rose-600/30 transition hover:-translate-y-0.5 disabled:opacity-60">
             {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} Send reset link
           </button>
         </form>
