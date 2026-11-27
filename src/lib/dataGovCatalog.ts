@@ -20,7 +20,7 @@ export interface CatalogEntry {
 export type CatalogAnswer = { entries: CatalogEntry[]; total: number | null } | { problem: string };
 
 const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
-const LIMIT = 20;
+const LIMIT = 50;
 
 const text = (v: unknown): string => {
   if (typeof v === 'string') return v.trim();

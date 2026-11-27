@@ -29,7 +29,7 @@ export interface DataGovHit {
 }
 
 export type DataGovAnswer =
-  | { ok: true; query: string; datasets: DatasetInfo[]; hits: DataGovHit[]; checkedRows: number; at: string }
+  | { ok: true; query: string; datasets: DatasetInfo[]; hits: DataGovHit[]; checkedRows: number; at: string; /** Some datasets were not read in time: ask again for the rest. */ partial?: boolean }
   | { ok: false; reason: 'no_key' | 'bad_query' | 'unreachable' | 'no_datasets'; message: string };
 
 export interface DataGovEnv {
@@ -45,13 +45,19 @@ const SUBJECTS = [
   'banned pesticide', 'registered pesticide', 'CIBRC', 'Insecticides Act', 'plant growth regulator', 'biopesticide', 'biofertilizer', 'bio-fertiliser',
   'SKUAST', 'Sher-e-Kashmir', 'spray schedule',
   'pesticide', 'insecticide', 'fungicide', 'herbicide', 'fertilizer', 'fertiliser',
+  // Then the lists of makers and dealers, the Fertiliser (Control) Order and the nutrients by name.
+  'Fertiliser Control Order', 'fertilizer manufacturer', 'fertilizer dealer', 'pesticide manufacturer', 'pesticide dealer', 'agrochemical',
+  'organic manure', 'micronutrient', 'urea', 'potash', 'NPK fertilizer', 'soil health',
 ];
-const SUBJECT_TITLE = /pesticid|insecticid|fungicid|herbicid|fertili[sz]er|agro-?chemical|manure|npk|urea|growth regulator|\bpgr\b|cib&?rc|insecticides act|skuast|sher-e-kashmir|spray schedule/i;
+const SUBJECT_TITLE = /pesticid|insecticid|fungicid|herbicid|fertili[sz]er|agro-?chemical|manure|npk|urea|growth regulator|\bpgr\b|cib&?rc|insecticides act|skuast|sher-e-kashmir|spray schedule|micronutrient|potash|\bdap\b|bio-?fertili|compost|soil health|plant protection|\bfco\b/i;
 /** A dataset published by SKUAST-Kashmir (named in the panel). */
 export const isSkuastDataset = (d: { title: string; org: string }) => /skuast|sher-e-kashmir/i.test(`${d.title} ${d.org}`);
 const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
-const MAX_DATASETS = 30;
-const ROWS_READ = 500;
+const MAX_DATASETS = 60;
+/** Rows read from each dataset (the portal serves up to 1,000 at a time). */
+const ROWS_READ = 1000;
+/** Longest a search may spend starting new dataset reads; what was read is kept for the next search. */
+const TIME_BUDGET_MS = 25_000;
 const ROWS_SHOWN = 5;
 const COLUMNS_SHOWN = 7;
 const CATALOGUE_TTL = 6 * 3600_000;
@@ -103,7 +109,8 @@ async function datasetsToSearch(env: DataGovEnv, fetcher: Fetcher, now: number):
   if (named.length) return named.slice(0, MAX_DATASETS).map((id) => ({ id, title: dataGovCache.tables.get(id)?.title || id, org: '', updated: null }));
 
   if (dataGovCache.catalogue && now - dataGovCache.catalogue.at < CATALOGUE_TTL) return dataGovCache.catalogue.entries;
-  const found = await Promise.all(SUBJECTS.map((s) => searchCatalog(s, env, fetcher)));
+  // A few at a time, like the tables: the portal refuses a crowd of calls at once, and there are many subjects now.
+  const found = await mapLimit(SUBJECTS, 6, (s) => searchCatalog(s, env, fetcher));
   const seen = new Set<string>();
   const entries: DatasetInfo[] = [];
   for (const answer of found) {
@@ -146,7 +153,7 @@ async function tableOf(id: string, env: DataGovEnv, fetcher: Fetcher, now: numbe
     const t = parseTable(await res.json());
     if (!t.columns.length) return null;
     const table: Table = { at: now, ...t };
-    if (dataGovCache.tables.size >= 24) dataGovCache.tables.delete(dataGovCache.tables.keys().next().value as string);
+    if (dataGovCache.tables.size >= 64) dataGovCache.tables.delete(dataGovCache.tables.keys().next().value as string);
     dataGovCache.tables.set(id, table);
     return table;
   } catch {
@@ -166,7 +173,16 @@ export async function searchDataGov(query: string, env: DataGovEnv, fetcher: Fet
   if (!datasets.length) return { ok: false, reason: 'no_datasets', message: 'data.gov.in did not list a dataset on pesticides or fertilisers just now.' };
 
   // A few at a time: thirty calls at once were refused by data.gov.in (only half came back), and a second try for any that failed.
-  const tables = await mapLimit(datasets, 6, async (d) => (await tableOf(d.id, env, fetcher, now)) ?? (await tableOf(d.id, env, fetcher, now)));
+  // Past the time budget no new dataset is started (what was read stays cached for the next search).
+  const stopAt = Date.now() + TIME_BUDGET_MS;
+  let skipped = 0;
+  const tables = await mapLimit(datasets, 6, async (d) => {
+    if (Date.now() > stopAt && !dataGovCache.tables.has(d.id)) {
+      skipped++;
+      return null;
+    }
+    return (await tableOf(d.id, env, fetcher, now)) ?? (await tableOf(d.id, env, fetcher, now));
+  });
   if (tables.every((t) => t === null)) return { ok: false, reason: 'unreachable', message: 'data.gov.in could not be reached just now. Try again in a minute.' };
 
   const hits: DataGovHit[] = [];
@@ -183,5 +199,5 @@ export async function searchDataGov(query: string, env: DataGovEnv, fetcher: Fet
     });
     if (rows.length) hits.push({ dataset: info, columns: t.columns, rows: rows.slice(0, ROWS_SHOWN) });
   });
-  return { ok: true, query: q, datasets: searched, hits, checkedRows, at: new Date(now).toISOString() };
+  return { ok: true, query: q, datasets: searched, hits, checkedRows, at: new Date(now).toISOString(), ...(skipped ? { partial: true } : {}) };
 }
