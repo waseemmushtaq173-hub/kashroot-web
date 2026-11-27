@@ -20,7 +20,7 @@ export interface CatalogEntry {
 export type CatalogAnswer = { entries: CatalogEntry[]; total: number | null } | { problem: string };
 
 const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
-const LIMIT = 50;
+const LIMIT = 100;
 
 const text = (v: unknown): string => {
   if (typeof v === 'string') return v.trim();
@@ -58,9 +58,16 @@ export function parseCatalog(json: unknown): { entries: CatalogEntry[]; total: n
 }
 
 /** Searches the catalogue for a word or two. */
+/** How long to wait before asking again after "too many requests" (the portal's own Retry-After, up to 4 s, else 1.2 s × the try). */
+export function backoffMs(res: Response, attempt: number, base = 1200): number {
+  const told = Number(res.headers.get('retry-after'));
+  const ms = Number.isFinite(told) && told > 0 ? told * 1000 : base * attempt;
+  return Math.min(ms, 4000);
+}
+
 export async function searchCatalog(
   query: string,
-  env: { DATA_GOV_IN_API_KEY?: string },
+  env: { DATA_GOV_IN_API_KEY?: string; /** Test only: the base wait, in ms, between tries. */ RETRY_MS?: number },
   fetcher: (url: string, init?: RequestInit) => Promise<Response> = fetch,
 ): Promise<CatalogAnswer> {
   const q = query.trim().slice(0, 80);
@@ -70,6 +77,11 @@ export async function searchCatalog(
   let res: Response;
   try {
     res = await fetcher(catalogUrl(q, key), { cache: 'no-store', redirect: 'manual', headers: { accept: 'application/json' }, signal: AbortSignal.timeout(25_000) });
+    // The portal answers a crowd of calls with 429 (or 503): wait as it asks and ask again, up to three times.
+    for (let attempt = 1; (res.status === 429 || res.status === 503) && attempt <= 3; attempt++) {
+      await new Promise((r) => setTimeout(r, backoffMs(res, attempt, env.RETRY_MS ?? 1200)));
+      res = await fetcher(catalogUrl(q, key), { cache: 'no-store', redirect: 'manual', headers: { accept: 'application/json' }, signal: AbortSignal.timeout(25_000) });
+    }
   } catch {
     // The address is not repeated: it carries the key.
     return { problem: 'data.gov.in could not be reached from this site.' };

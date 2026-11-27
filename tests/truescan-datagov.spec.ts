@@ -13,7 +13,8 @@ import { skuastLookup, skuastSearch } from '@/lib/skuast-kashmir-recommendations
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8');
 const KEY = 'test-key-9876543210';
-const ENV = { DATA_GOV_IN_API_KEY: KEY };
+// A refused call is asked again after a wait; the tests make that wait 1 ms.
+const ENV = { DATA_GOV_IN_API_KEY: KEY, RETRY_MS: 1 };
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const C = '33333333-3333-4333-8333-333333333333';
@@ -183,7 +184,7 @@ test('the makers, dealers and the Fertiliser (Control) Order are asked for too, 
   for (const s of ['Fertiliser Control Order', 'fertilizer manufacturer', 'fertilizer dealer', 'pesticide manufacturer', 'pesticide dealer', 'micronutrient']) expect(src, s).toContain(`'${s}'`);
   // The registers and SKUAST still come first.
   expect(src.indexOf("'banned pesticide'")).toBeLessThan(src.indexOf("'Fertiliser Control Order'"));
-  expect(read('src/lib/dataGovCatalog.ts')).toContain('const LIMIT = 50;');
+  expect(read('src/lib/dataGovCatalog.ts')).toContain('const LIMIT = 100;');
 });
 
 test('up to 60 datasets are read, 1,000 rows of each, and a word further down a long table is found', async () => {
@@ -233,4 +234,26 @@ test('a catalogue some subjects did not answer is kept only a minute, and the an
   const later = await searchDataGov('urea', ENV, fetcher, Date.now() + 61_000);
   expect(later.ok).toBe(true);
   expect(dataGovCache.catalogue?.complete).toBe(true);
+});
+
+test('"too many requests" from the portal is waited out and asked again, for the catalogue and for a table', async () => {
+  const id = '00000000-0000-4000-8000-000000000001';
+  const seen: Record<string, number> = {};
+  const fetcher = async (u: string) => {
+    const url = new URL(u);
+    const k = url.pathname === '/lists' ? `lists:${url.searchParams.get('filters[title]')}` : 'table';
+    seen[k] = (seen[k] ?? 0) + 1;
+    // Each first call is refused, the second answers (the first catalogue answer carries a Retry-After of 0: use the default wait).
+    if (seen[k] === 1) return new Response('{}', { status: 429, headers: { 'retry-after': '0' } });
+    if (url.pathname === '/lists') return json({ records: [{ index_name: id, title: 'Fertiliser list', org: ['Dept'], updated: '2026-01-01' }] });
+    return json({ title: 'Fertiliser list', org: 'Dept', records: [{ product: 'Urea' }] });
+  };
+  const r = await searchDataGov('urea', ENV, fetcher);
+  expect(r.ok).toBe(true);
+  if (!r.ok) return;
+  expect(r.datasets).toHaveLength(1);
+  expect(r.hits).toHaveLength(1);
+  expect(seen.table).toBe(2);
+  // Every subject was asked twice (refused, then answered).
+  expect(seen['lists:pesticide']).toBe(2);
 });
