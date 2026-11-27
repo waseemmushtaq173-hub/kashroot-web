@@ -338,17 +338,17 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
                       setSelectedRole(r);
                       setValue('role', r);
                     }}
-                    className={`relative flex cursor-pointer items-center gap-3 rounded-2xl p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md ${on ? `${s.selected} shadow-md` : 'bg-white ring-1 ring-slate-200'}`}
+                    className={`relative flex cursor-pointer items-center gap-2.5 rounded-2xl p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md ${on ? `${s.selected} shadow-md` : 'bg-white ring-1 ring-slate-200'}`}
                   >
-                    <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br text-white shadow-lg ${s.tile}`}>
+                    <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br text-white shadow-lg sm:h-10 sm:w-10 ${s.tile}`}>
                       <Icon className="h-5 w-5" aria-hidden />
                     </span>
-                    <span className={`min-w-0 ${on ? 'pr-5' : ''}`}>
+                    <span className="min-w-0">
                       <span className="block font-semibold leading-tight text-slate-900">{label}</span>
                       <span className="block text-xs leading-tight text-slate-600">{s.hint}</span>
                     </span>
                     {on && (
-                      <span className="absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-white shadow">
+                      <span data-chip-tick className="absolute -right-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full bg-white shadow ring-1 ring-slate-200">
                         <Check className={`h-3.5 w-3.5 ${s.text}`} aria-hidden />
                       </span>
                     )}

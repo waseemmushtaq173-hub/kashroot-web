@@ -144,3 +144,12 @@ export async function inspect(page: Page): Promise<Report> {
     return out;
   });
 }
+
+/**
+ * A test browser on the live site cannot reach hCaptcha (the config blocks its host on purpose), so every login page it opens
+ * reports "script-blocked" to /api/human, and that lands in the Admin "Sign-ins and traffic" counts as a failed "I am human"
+ * check. The report is answered here instead, so test runs never add to what the Admin reads as real visitors.
+ */
+export async function keepOutOfAdminCounts(page: Page): Promise<void> {
+  await page.route('**/api/human', (route) => route.fulfill({ status: 204, body: '' }));
+}
