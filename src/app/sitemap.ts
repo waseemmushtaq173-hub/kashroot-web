@@ -16,6 +16,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     page('/support', 0.4, 'monthly'),
     page('/terms', 0.2, 'monthly'),
     page('/privacy', 0.2, 'monthly'),
+    page('/refunds', 0.2, 'monthly'),
+    page('/delivery', 0.2, 'monthly'),
     ...PUBLIC_PORTAL_IDS.map((p) => page(`/login/${p}`, 0.5, 'monthly')),
     ...SIGNUP_PORTALS.filter((p) => !STAFF_PORTAL_IDS.includes(p)).map((p) => page(`/register/${p}`, 0.5, 'monthly')),
   ];

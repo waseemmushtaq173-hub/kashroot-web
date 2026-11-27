@@ -39,6 +39,9 @@ export default function TermsPage() {
         <p>
           Use <Link className="font-semibold text-forest-deep underline" href="/support">Help &amp; support</Link> — at the top of every page — to ask KashRoot, follow your request, or find KashRoot’s official contacts. {NEVER_ASKS}
         </p>
+        <p>
+          See also the <Link className="font-semibold text-forest-deep underline" href="/refunds">Cancellation &amp; Refund Policy</Link> and the <Link className="font-semibold text-forest-deep underline" href="/delivery">Shipping &amp; Delivery Policy</Link>.
+        </p>
       </section>
     </InfoPage>
   );

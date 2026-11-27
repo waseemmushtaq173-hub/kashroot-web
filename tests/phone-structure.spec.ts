@@ -9,7 +9,7 @@ import { expect, test } from '@playwright/test';
 
 import { PORTAL_IDS } from '@/lib/auth/roles';
 
-const PAGES = ['/', '/login', ...PORTAL_IDS.map((id) => `/login/${id}`), '/register', '/forgot-password', '/compare-prices', '/mandi-weather', '/supplies/tester', '/escrow', '/support', '/privacy', '/terms', '/tracking', '/status', '/offline'];
+const PAGES = ['/', '/login', ...PORTAL_IDS.map((id) => `/login/${id}`), '/register', '/forgot-password', '/compare-prices', '/mandi-weather', '/supplies/tester', '/escrow', '/support', '/privacy', '/terms', '/refunds', '/delivery', '/tracking', '/status', '/offline'];
 
 import { inspect } from './helpers/phoneInspect';
 

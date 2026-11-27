@@ -11,7 +11,7 @@ import { expect, test } from '@playwright/test';
 
 import { PORTAL_IDS } from '@/lib/auth/roles';
 
-const PUBLIC = ['/', '/login', '/register', '/support', '/privacy', '/terms', '/status', '/tracking', '/mandi-weather', '/compare-prices', '/compare-prices?tab=universal', '/escrow', '/official', '/vehicle', '/contributions', '/forgot-password', '/offline', '/studio', '/tracking/dashboard', ...PORTAL_IDS.map((id) => `/login/${id}`)];
+const PUBLIC = ['/', '/login', '/register', '/support', '/privacy', '/terms', '/refunds', '/delivery', '/status', '/tracking', '/mandi-weather', '/compare-prices', '/compare-prices?tab=universal', '/escrow', '/official', '/vehicle', '/contributions', '/forgot-password', '/offline', '/studio', '/tracking/dashboard', ...PORTAL_IDS.map((id) => `/login/${id}`)];
 const DASHBOARDS = ['/farmer/dashboard', '/buyer/dashboard', '/kissan-tools/dashboard', '/rental/dashboard', '/dealer/dashboard', '/expert', '/trader/dashboard', '/admin/dashboard', '/hub/dashboard', '/business/dashboard', '/farmer/orchard-health', '/farmer/season-planner'];
 
 for (const width of [390, 1280]) {
