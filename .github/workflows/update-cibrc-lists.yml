@@ -1,0 +1,58 @@
+name: Keep the CIB&RC lists in TrueScan current
+
+# Every Monday (and on demand): look at the CIB&RC's registered-products page for newer official lists. A newer list is
+# copied unchanged, read by scripts/extract-cibrc-lists.py (which stops if any list no longer reads in order), and offered
+# as a pull request. Nothing reaches TrueScan until that pull request is merged. If the CIB&RC site cannot be reached from
+# GitHub, or has nothing newer, the job ends quietly and tries again next week.
+
+on:
+  schedule:
+    - cron: '40 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: update-cibrc-lists
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Tools to read the PDFs
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq poppler-utils
+          pip install --quiet pdfplumber
+      - name: Look at the CIB&RC page and save its files
+        run: python3 scripts/fetch-official-documents.py || echo "The government site could not be read just now; trying again next week."
+      - name: Take any list newer than the one in use
+        run: python3 scripts/update-cibrc-lists.py
+      - name: Read the lists (stops if one no longer reads in order)
+        run: python3 scripts/extract-cibrc-lists.py
+      - name: Offer the change as a pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git status --porcelain -- official-data/cibrc src/data | grep -q .; then
+            branch="auto/cibrc-lists-$(date -u +%Y%m%d)"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git checkout -b "$branch"
+            git add official-data/cibrc src/data/cibrc-official.json src/data/cibrc-official-meta.json
+            git commit -m "TrueScan: newer CIB&RC lists, read from the publisher's own files"
+            git push origin "$branch"
+            body="The CIB&RC site has newer list files. They were copied unchanged into official-data/cibrc, read by scripts/extract-cibrc-lists.py (counts and dates checked), and TrueScan's two data files were rewritten. Merge to publish."
+            gh pr create --base main --head "$branch" --title "TrueScan: newer CIB&RC lists" --body "$body" \
+              || gh issue create --title "Newer CIB&RC lists are ready on branch $branch" --body "$body Open a pull request from branch $branch."
+          else
+            echo "No newer CIB&RC lists."
+          fi
