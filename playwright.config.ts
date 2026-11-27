@@ -20,6 +20,7 @@ export default defineConfig({
         '--use-angle=swiftshader',
         '--enable-unsafe-swiftshader',
         '--ignore-gpu-blocklist',
+        // The live widget is never run by a test. Its failure report is answered by the test (keepOutOfAdminCounts), not sent to the site.
         ...(LIVE ? ['--host-resolver-rules=MAP hcaptcha.com ~NOTFOUND, MAP *.hcaptcha.com ~NOTFOUND'] : []),
       ],
     },

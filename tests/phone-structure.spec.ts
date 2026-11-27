@@ -11,7 +11,11 @@ import { PORTAL_IDS } from '@/lib/auth/roles';
 
 const PAGES = ['/', '/login', ...PORTAL_IDS.map((id) => `/login/${id}`), '/register', '/forgot-password', '/compare-prices', '/mandi-weather', '/supplies/tester', '/escrow', '/support', '/privacy', '/terms', '/refunds', '/delivery', '/tracking', '/status', '/offline'];
 
-import { inspect } from './helpers/phoneInspect';
+import { inspect, keepOutOfAdminCounts } from './helpers/phoneInspect';
+
+test.beforeEach(async ({ page }) => {
+  await keepOutOfAdminCounts(page);
+});
 
 for (const width of [360, 390, 412]) {
   test.describe(`${width} px`, () => {
@@ -76,6 +80,30 @@ test.describe('on a phone, the page opens on the tool, not on a paragraph', () =
     // One colour per portal, none of them the shared indigo the site's push-button rule paints on every submit button.
     expect(new Set(Object.values(colours)).size, JSON.stringify(colours)).toBe(Object.keys(colours).length);
     expect(Object.values(colours)).not.toContain('rgb(99, 88, 224)');
+  });
+
+  test('register: on the narrowest common phone (360 px) the chosen tick never sits on the role name and the hint stays short', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 700 });
+    await page.goto('/register', { waitUntil: 'load' });
+    for (const name of ['Farmer', 'Buyer']) {
+      const chip = page.getByRole('button', { name: new RegExp(`^${name}`) });
+      await chip.click();
+      const m = await chip.evaluate((el) => {
+        const label = el.querySelector('span.font-semibold') as HTMLElement;
+        const hint = el.querySelector('span.text-xs') as HTMLElement;
+        const tick = el.querySelector('[data-chip-tick]') as HTMLElement | null;
+        // The words themselves (not the wider box around them).
+        const range = document.createRange();
+        range.selectNodeContents(label);
+        const a = range.getBoundingClientRect();
+        const b = tick?.getBoundingClientRect();
+        const hit = b ? Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1 : null;
+        return { clipped: label.scrollWidth > label.clientWidth + 1, tickOnLabel: hit, hintLines: Math.round(hint.getBoundingClientRect().height / parseFloat(getComputedStyle(hint).lineHeight)) };
+      });
+      expect(m.clipped, `${name}: the role name is cut off`).toBe(false);
+      expect(m.tickOnLabel, `${name}: the tick sits on the role name`).toBe(false);
+      expect(m.hintLines, `${name}: the hint wraps to ${m.hintLines} lines`).toBeLessThanOrEqual(2);
+    }
   });
 
   test('register: each role has its own colour (a farmer is not indigo)', async ({ page }) => {
