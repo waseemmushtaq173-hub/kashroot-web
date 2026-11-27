@@ -348,7 +348,7 @@ export default function RentalPage() {
         <ShareRequests onChange={() => void refresh()} />
         <Panel theme={theme} title="My bookings" icon={CalendarDays}>
           {mine.length === 0 ? (
-            <EmptyState theme={theme} icon={CalendarDays} title="No bookings yet" text="Book your place in a cold store and it appears here, with how to pay the owner, where your bins or crates go, and your receipt." action={<Btn theme={theme} className="min-h-[44px]" onClick={() => setTab('cold')}>Find cold storage</Btn>} />
+            <EmptyState theme={theme} icon={CalendarDays} title="No bookings yet" text="Book a cold store and it appears here, with your receipt." action={<Btn theme={theme} className="min-h-[44px]" onClick={() => setTab('cold')}>Find cold storage</Btn>} />
           ) : (
             <ul className="space-y-4">
               {mine.map((b) => (

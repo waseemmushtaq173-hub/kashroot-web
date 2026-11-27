@@ -332,7 +332,7 @@ export default function DealerDashboardPage() {
                 </table>
               </div>
             )}
-            <p className="mt-4 text-xs text-slate-500">Manifest format: CSV with columns <code className="break-all">name,batch,expiry,stock,manufacturer,type,registration</code> (expiry as YYYY-MM-DD; type is fertilizer, pesticide, seed or other).</p>
+            <p className="mt-4 text-xs text-slate-500">CSV columns: <code className="break-all">name,batch,expiry,stock,manufacturer,type,registration</code> (expiry YYYY-MM-DD; type: fertilizer, pesticide, seed or other).</p>
           </Panel>
         </div>
       )}
@@ -340,7 +340,7 @@ export default function DealerDashboardPage() {
       {tab === 'market' && (
         <div className="space-y-4">
           <p className="rounded-2xl bg-white/80 p-4 text-sm text-slate-700 ring-1 ring-slate-900/5">
-            What you list here shows in the <strong>Kissan Tools</strong> shop (with your photos) and on the main <strong>Price Comparison</strong>, next to other sellers’ prices. Kissan Tools buyers pay you after you accept, before you ship; Price Comparison buyers pay you after delivery. Orders from both come here.
+            Your listings show in the <strong>Kissan Tools</strong> shop and on <strong>Price Comparison</strong>. Orders from both come here.
           </p>
           {account ? (
             <SellerDesk account={account} theme={theme} show="sell" category="supplies" addRequest={sell.n} addDraft={sell.draft} />
@@ -380,7 +380,7 @@ export default function DealerDashboardPage() {
         </Panel>
       )}
 
-      {tab === 'payouts' && <div className="max-w-xl"><PayoutForm theme={theme} payout={payout} onSaved={setPayout} title="Where buyers pay you" intro="Price Comparison buyers pay you here after delivery; Kissan Tools buyers pay you here after you accept, before you ship. Only someone with a live order sees these." /></div>}
+      {tab === 'payouts' && <div className="max-w-xl"><PayoutForm theme={theme} payout={payout} onSaved={setPayout} title="Where buyers pay you" intro="Buyers pay you here. Only someone with a live order sees these." /></div>}
 
       <Modal
         open={addOpen}

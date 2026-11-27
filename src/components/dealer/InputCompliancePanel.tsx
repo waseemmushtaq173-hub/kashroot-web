@@ -155,7 +155,7 @@ export function InputCompliancePanel({ batches }: { batches: PanelBatch[] }) {
           ))}
         </ul>
         <p className="mt-2 text-[11px] text-slate-500">
-          Total stock on this gauge board: {totalStock.toLocaleString('en-IN')} units across {batches.length} batch{batches.length === 1 ? '' : 'es'}. Check every consignment against these rules before it reaches the counter.
+          Total stock on this gauge board: {totalStock.toLocaleString('en-IN')} units across {batches.length} batch{batches.length === 1 ? '' : 'es'}. Check each consignment against these rules before it reaches the counter.
         </p>
       </div>
     </Panel>

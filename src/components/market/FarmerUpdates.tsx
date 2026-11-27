@@ -103,7 +103,7 @@ export function FarmerUpdates({ orders, products = [], onOpenOrders }: { orders:
       <div className="space-y-4">
         <HubNearby products={products} />
         <Panel theme={theme} title="Pickups & updates" icon={Truck}>
-          <EmptyState theme={theme} icon={Truck} title="No orders yet" text="When a buyer orders your boxes, it appears here at once: accept it, pack the boxes, and follow the KashRoot pickup vehicle to your gate, the hub and the buyer." />
+          <EmptyState theme={theme} icon={Truck} title="No orders yet" text="When a buyer orders your boxes, it appears here." />
         </Panel>
       </div>
     );

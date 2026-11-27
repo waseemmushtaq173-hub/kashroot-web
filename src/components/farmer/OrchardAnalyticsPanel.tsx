@@ -122,7 +122,7 @@ export function OrchardAnalyticsPanel({ district }: { district?: string | null }
       )}
       {!query && !own ? (
         <p className="text-sm text-slate-600">
-          Add your district in <strong>My details</strong> (or press <strong>Use my location</strong> on the home page) to see the scab risk, soil moisture and rain outlook for your orchard.
+          Add your district in <strong>My details</strong> to see scab risk, soil moisture and rain for your orchard.
         </p>
       ) : error ? (
         <p className="text-sm text-slate-600">{error}</p>

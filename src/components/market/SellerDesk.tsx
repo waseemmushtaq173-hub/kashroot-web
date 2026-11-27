@@ -249,7 +249,7 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
       {(show === 'all' || show === 'sell' || show === 'orders') && (
         <Panel theme={theme} title="Orders to act on" icon={CheckCircle2} className="lg:col-span-2">
           {waiting.length === 0 && others.length === 0 ? (
-            <EmptyState theme={theme} icon={Package} title="No orders yet" text="When a buyer orders one of your products, it appears here. Accept it, ship it, and confirm when the money reaches you." />
+            <EmptyState theme={theme} icon={Package} title="No orders yet" text="When a buyer orders, it appears here." />
           ) : (
             <ul className="space-y-3">
               {[...waiting, ...others].map((g) => {
@@ -286,10 +286,10 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
               title="Nothing listed yet"
               text={
                 mixed
-                  ? 'List your apples, walnuts or saffron, or farm inputs you sell (fertiliser, sprays, packaging, tools), with price and quantity. Buyers see your produce right away in their Buyer portal (Buy apples & produce) and on Price Comparison. Farm inputs, with a photo, show in the Kissan Tools shop.'
+                  ? 'List your apples, walnuts, saffron or farm inputs with price and quantity.'
                   : category === 'produce'
-                    ? 'List your apples, walnuts or saffron with price and quantity. Buyers see them right away in their Buyer portal (Buy apples & produce) and on Price Comparison, and can order.'
-                    : 'Add your products with price, stock and a photo. Farmers see them right away in the Kissan Tools shop and on Price Comparison, and can order.'
+                    ? 'List your apples, walnuts or saffron with price and quantity.'
+                    : 'Add your products with price, stock and a photo.'
               }
             />
           ) : (
@@ -336,7 +336,7 @@ export function SellerDesk({ account, theme, show = 'all', category = 'supplies'
       )}
 
       {(show === 'all' || show === 'payouts') && (
-        <PayoutForm theme={theme} payout={payout} onSaved={setPayout} title="Where buyers pay you" intro="Price Comparison buyers pay you here after the goods reach them. Kissan Tools buyers pay you here before you ship. Only a buyer with a live order sees these details." />
+        <PayoutForm theme={theme} payout={payout} onSaved={setPayout} title="Where buyers pay you" intro="Buyers pay you here. Only a buyer with a live order sees these details." />
       )}
 
       {editor}

@@ -39,7 +39,7 @@ export function PooledLocationBar({ listings, chosen, onChoose, buyer, locating,
         <div className="min-w-0">
           <h3 id="pooled-title" className="flex items-center gap-2 font-display text-xl font-semibold text-slate-900"><Building2 className="h-5 w-5 text-forest" aria-hidden /> Pooled locations: KashRoot hubs</h3>
           <p className="mt-1 text-sm text-slate-600">
-            A KashRoot hub collects from every orchard within {CLUSTER_RADIUS_KM} km. Buy from farmers near the same hub and your boxes come together there, then travel to you in one go. Choose a hub to see its produce and how far each orchard is.
+            A hub collects from every orchard within {CLUSTER_RADIUS_KM} km. Buy near one hub and your boxes travel to you together.
           </p>
         </div>
         <button type="button" onClick={onLocate} disabled={locating} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-forest-deep ring-1 ring-forest-line hover:bg-forest-soft disabled:opacity-60">

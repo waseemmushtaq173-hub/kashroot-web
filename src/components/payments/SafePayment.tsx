@@ -70,7 +70,7 @@ export function SafePayment({ as, account, theme, children }: { as: 'buyer' | 'f
           <p className="text-sm text-slate-600">Checking…</p>
         ) : (
           <div className="space-y-3 text-sm text-slate-700">
-            <p>Everyone who pays or gets paid on KashRoot verifies their identity once, so both sides know who they are dealing with. KashRoot keeps only the last 4 digits — never your full Aadhaar.</p>
+            <p>Verify your identity once. KashRoot keeps only the last 4 digits of Aadhaar — never the full number.</p>
             <ul className="space-y-2">
               <li className="flex items-center justify-between gap-2 rounded-xl bg-white/80 p-3 ring-1 ring-slate-900/5">
                 <span className="flex items-center gap-2 font-semibold text-slate-900">Aadhaar {aadhaar && status?.aadhaar_last4 ? <span className="font-mono text-slate-500">•••• {status.aadhaar_last4}</span> : null}</span>
@@ -99,7 +99,7 @@ export function SafePayment({ as, account, theme, children }: { as: 'buyer' | 'f
         <ol className="list-decimal space-y-2 pl-5 text-sm text-slate-700">
           {STEPS[as].map((s) => <li key={s}>{s}</li>)}
         </ol>
-        <p className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-600 ring-1 ring-slate-900/5">The buyer pays only after delivery: the money stays with the buyer until the goods arrive and are checked, then goes straight from the buyer’s UPI / bank to the farmer’s. KashRoot never holds or releases it. Every payment number is recorded on the order, so either side can prove what was paid.</p>
+        <p className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-600 ring-1 ring-slate-900/5">The buyer pays after delivery, straight from their UPI / bank to the farmer’s. KashRoot never holds the money. Every payment number is recorded on the order.</p>
       </Panel>
 
       {children && <div className="lg:col-span-2">{children}</div>}

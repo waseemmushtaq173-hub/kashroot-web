@@ -165,7 +165,7 @@ function FarmerDashboard() {
               <ChinarLeaf className="pointer-events-none absolute -bottom-8 -right-6 -z-10 h-40 w-40 -rotate-12 opacity-20" color="#FDE68A" />
               <h3 className="font-display text-2xl font-semibold">Ready to harvest?</h3>
               <p className="mt-1 max-w-md text-white/90">
-                List apples, walnuts or saffron with your price. Buyers see it in their Buyer portal right away, order, and pay you directly by UPI once the goods reach them.
+                List apples, walnuts or saffron with your price. Buyers order straight from it.
               </p>
               <div className="mt-5 flex flex-wrap gap-2">
                 <Btn theme={theme} variant="white" icon={PlusCircle} onClick={listProduce}>
@@ -263,7 +263,7 @@ function TodayWeather({ district }: { district?: string }) {
   const spot = own ? null : regionSpot(region);
   const place = own || spot?.name || 'Srinagar';
   const query = own ? `q=${encodeURIComponent(own)}` : spot ? spotParams(spot) : 'q=Srinagar';
-  const hint = own || spot?.exact ? null : spot ? `The main town of ${stateLabel(spot.state)}. Add your district in My details for your own weather.` : 'Add your district in My details (or press Use my location on the home page) for your own weather.';
+  const hint = own || spot?.exact ? null : spot ? `The main town of ${stateLabel(spot.state)}. Add your district in My details for your own weather.` : 'Add your district in My details for your own weather.';
   // Each answer kept with the request it answers, so a new place never shows the last one's weather.
   const [got, setGot] = useState<{ query: string; w?: Weather; error?: string } | null>(null);
   const w = got?.query === query ? (got.w ?? null) : null;

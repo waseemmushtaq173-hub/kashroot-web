@@ -154,7 +154,7 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
       ) : error ? (
         <p role="alert" className="text-sm text-rose-800">{error}</p>
       ) : byMandi.length === 0 ? (
-        <EmptyState theme={theme} icon={Megaphone} title="No rates posted yet" text="Approved Mandi Helpers post each day’s rates here. Are you at a mandi? Use “Post rates for your mandi” above." />
+        <EmptyState theme={theme} icon={Megaphone} title="No rates posted yet" text="Approved Mandi Helpers post here. At a mandi? Use “Post rates for your mandi” above." />
       ) : (
         <>
           {wanted && !matching.length && <p className="mb-3 text-sm text-amber-800">No {commodity} rate posted in the last few days — showing all crops.</p>}

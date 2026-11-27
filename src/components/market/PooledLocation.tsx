@@ -52,7 +52,7 @@ export function PooledLocation({ orders, onOpenOrders, onShop }: { orders: Marke
           theme={theme}
           icon={Truck}
           title="No order at a pooled location yet"
-          text="In Buy apples & produce, choose a KashRoot hub, see how far it is, and buy from the farmers near it. KashRoot collects their boxes at that hub and sends them to you together: you follow every farmer's boxes here."
+          text="Choose a hub in Buy apples & produce and buy from farmers near it. You follow their boxes here."
           action={<Btn theme={theme} onClick={onShop}>Buy apples &amp; produce</Btn>}
         />
       </Panel>
