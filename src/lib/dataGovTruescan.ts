@@ -83,6 +83,36 @@ export const dataGovCache: { catalogue: { at: number; entries: DatasetInfo[]; co
 
 const text = (v: unknown): string => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : Array.isArray(v) ? v.map(text).filter(Boolean).join(' › ') : '');
 
+/** A year ("2024"), a financial year ("2023-24") or a date ("16/10/2026", "2026-10-16") as a number that grows with time; null for anything else. */
+function whenOf(v: string): number | null {
+  const s = v.trim();
+  let m = /^((?:19|20)\d{2})(?:\s*[-–/]\s*(?:\d{2}|\d{4}))?$/.exec(s);
+  if (m) return Number(m[1]) * 400;
+  m = /^(\d{1,2})[-/.](\d{1,2})[-/.]((?:19|20)\d{2})$/.exec(s);
+  if (m) return Number(m[3]) * 400 + Number(m[2]) * 31 + Number(m[1]);
+  m = /^((?:19|20)\d{2})[-/.](\d{1,2})[-/.](\d{1,2})/.exec(s);
+  if (m) return Number(m[1]) * 400 + Number(m[2]) * 31 + Number(m[3]);
+  return null;
+}
+
+/**
+ * The rows of a table, newest first, when one of its columns holds years or dates (most of these tables run from the oldest year to the
+ * newest, so the first rows are the oldest: a 2002–03 subsidy line is not "updated data"). Tables with no such column are left as published.
+ */
+export function newestFirst(rows: string[][]): string[][] {
+  const width = Math.max(0, ...rows.map((r) => r.length));
+  for (let c = 0; c < width; c++) {
+    const values = rows.map((r) => whenOf(r[c] ?? ''));
+    const dated = values.filter((v) => v !== null).length;
+    if (!rows.length || dated < Math.max(2, rows.length * 0.7)) continue;
+    return rows
+      .map((r, i) => ({ r, w: values[i] ?? -1, i }))
+      .sort((a, b) => b.w - a.w || a.i - b.i)
+      .map((x) => x.r);
+  }
+  return rows;
+}
+
 /** The words a row must contain: letters and digits, two or more characters. */
 export function wordsOf(query: string): string[] {
   return query.toLowerCase().split(/[^a-z0-9ऀ-ॿ؀-ۿ]+/i).filter((w) => w.length >= 2).slice(0, 6);
@@ -215,8 +245,32 @@ export async function searchDataGov(query: string, env: DataGovEnv, fetcher: Fet
       const hay = r.join(' ').toLowerCase();
       return words.every((w) => hay.includes(w));
     });
-    if (rows.length) hits.push({ dataset: info, columns: t.columns, rows: rows.slice(0, ROWS_SHOWN) });
+    if (rows.length) hits.push({ dataset: info, columns: t.columns, rows: newestFirst(rows).slice(0, ROWS_SHOWN) });
   });
+  // The most recently updated dataset first (ISO dates sort as text; a dataset with no date goes last).
+  hits.sort((a, b) => (b.dataset.updated ?? '').localeCompare(a.dataset.updated ?? ''));
   const unread = datasets.length - searched.length;
   return { ok: true, query: q, datasets: searched, hits, checkedRows, at: new Date(now).toISOString(), found: datasets.length, ...(unread ? { unread } : {}), ...(skipped ? { partial: true } : {}) };
+}
+
+export type DataGovLatest =
+  | { ok: true; items: DataGovHit[]; at: string }
+  | { ok: false; reason: 'no_key' | 'unreachable' | 'no_datasets'; message: string };
+
+/** The most recently updated datasets on these subjects, each with its newest rows: what data.gov.in has published lately. */
+export async function latestDataGov(env: DataGovEnv, fetcher: Fetcher = fetch, now = Date.now(), count = 6): Promise<DataGovLatest> {
+  if (!(env.DATA_GOV_IN_API_KEY ?? '').trim()) return { ok: false, reason: 'no_key', message: 'data.gov.in is not connected on this site yet.' };
+  const datasets = await datasetsToSearch(env, fetcher, now);
+  if (!datasets.length) return { ok: false, reason: 'no_datasets', message: 'data.gov.in did not list a dataset on pesticides or fertilisers just now.' };
+  // The newest few by their own date, then read (a few spare, in case some do not answer).
+  const newest = [...datasets].sort((a, b) => (b.updated ?? '').localeCompare(a.updated ?? '')).slice(0, count + 4);
+  const tables = await mapLimit(newest, 4, async (d) => (await tableOf(d.id, env, fetcher, now)) ?? (await tableOf(d.id, env, fetcher, now)));
+  if (tables.every((t) => t === null)) return { ok: false, reason: 'unreachable', message: 'data.gov.in could not be reached just now. Try again in a minute.' };
+  const items: DataGovHit[] = [];
+  tables.forEach((t, i) => {
+    if (!t || !t.rows.length || items.length >= count) return;
+    const dataset: DatasetInfo = { id: newest[i].id, title: t.title || newest[i].title, org: t.org || newest[i].org, updated: t.updated ?? newest[i].updated };
+    items.push({ dataset, columns: t.columns, rows: newestFirst(t.rows).slice(0, 3) });
+  });
+  return { ok: true, items, at: new Date(now).toISOString() };
 }

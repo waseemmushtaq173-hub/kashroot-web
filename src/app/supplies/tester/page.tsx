@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import { FlaskConical } from 'lucide-react';
 
+import { DataGovLatest } from '@/components/fertilizer/DataGovLatest';
 import { FertilizerChecker } from '@/components/fertilizer/FertilizerChecker';
 import { PortalShell } from '@/components/layout/PortalShell';
 import { CIBRC_META } from '@/lib/cibrcOfficial';
@@ -46,6 +47,7 @@ export default function FertilizerTesterPage() {
       actions={<span className="inline-flex items-center gap-2 rounded-xl bg-white/20 px-3 py-2 text-sm font-semibold text-white ring-1 ring-white/40 backdrop-blur"><FlaskConical className="h-4 w-4" aria-hidden /> Free for everyone</span>}
     >
       <FertilizerChecker />
+      <DataGovLatest />
     </PortalShell>
   );
 }
