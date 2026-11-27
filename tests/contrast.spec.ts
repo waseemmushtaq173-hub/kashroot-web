@@ -11,7 +11,7 @@ import { expect, test } from '@playwright/test';
 import { PORTAL_IDS } from '@/lib/auth/roles';
 
 const axePath = join(process.cwd(), 'node_modules', 'axe-core', 'axe.min.js');
-const PAGES = ['/', '/login', '/register', '/support', '/privacy', '/terms', '/status', '/tracking', '/mandi-weather', '/compare-prices', '/forgot-password', '/offline', ...PORTAL_IDS.map((id) => `/login/${id}`)];
+const PAGES = ['/', '/login', '/register', '/support', '/privacy', '/terms', '/refunds', '/delivery', '/status', '/tracking', '/mandi-weather', '/compare-prices', '/forgot-password', '/offline', ...PORTAL_IDS.map((id) => `/login/${id}`)];
 
 for (const width of [390, 1280]) {
   test.describe(`${width} px`, () => {
