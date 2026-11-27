@@ -518,8 +518,11 @@ export function ColdStoreExplorer({
               {waiting ? drawingSoon : <StoreTopView scene={scene} floor={floor} stateOf={stateOf} counts={counts} active={openIndex} onPick={openChamber} mode={mode} />}
               {scene.problems.length > 0 && (
                 <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-950 ring-1 ring-amber-300">
-                  {mode === 'owner' ? scene.problems.slice(0, 3).join(' ') : 'As the owner measured them, some chambers do not fit inside the building, so they are drawn where they would stand (in red).'}
+                  {mode === 'owner' ? scene.problems.slice(0, 3).join(' ') : 'As the owner measured them, some chambers need more room than the building has, so the building is drawn larger here.'}
                 </p>
+              )}
+              {scene.problems.length === 0 && mode === 'owner' && scene.notes.length > 0 && (
+                <p className="rounded-xl bg-sky-50 px-3 py-2 text-sm text-sky-950 ring-1 ring-sky-200">{scene.notes.slice(0, 3).join(' ')}</p>
               )}
             </section>
           )}

@@ -578,6 +578,7 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
     const u = scene.building.unit;
     const dim = (title: string, sub: string, width: number) => {
       const t = label(T, title, sub, width, true, 24, 60);
+      t.userData.size = true; // a measurement plate: hidden from outside until "Show sizes" is pressed
       labels.push(t);
       add(t);
       return t;
@@ -844,10 +845,12 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
       const cu = scene.building?.unit ?? 'm';
       const wide = label(T, showLength(r.w, cu), 'length', 1.5, true, 14, 36);
       wide.position.set(cx, H + 0.35, wz(o, r.y));
+      wide.userData.size = true;
       add(wide);
       labels.push(wide);
       const deep = label(T, showLength(r.d, cu), 'width', 1.5, true, 14, 36);
       deep.position.set(wx(o, r.x), H + 0.35, cz);
+      deep.userData.size = true;
       add(deep);
       labels.push(deep);
     }
@@ -885,6 +888,7 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
         if (f.floor === 1 && c.toScale) {
           const aisle = label(T, `Aisle ${showLength(upright ? w.w : w.d, scene.building?.unit ?? 'm')}`, 'forklift aisle', 1.7, true, 16, 40);
           aisle.position.set(wx(o, w.x + w.w / 2), f.z0 + 1.1, wz(o, w.y + w.d / 2));
+          aisle.userData.size = true;
           add(aisle);
           labels.push(aisle);
         }

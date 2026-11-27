@@ -510,6 +510,8 @@ export function ColdStore3D({
   // From outside, the person can show only the places with room, only their own, and one floor at a
   // time (the upper floors hide the lower ones). Walking always shows everything, as it stands.
   const [focus, setFocus] = useState<Focus>('all');
+  // Measurement plates (length, width, height, aisle) are hidden from outside so the names and the places can be read; one button shows them.
+  const [sizes, setSizes] = useState(false);
   const [floorShown, setFloorShown] = useState<number | null>(null);
   const floorsMost = useMemo(() => Math.max(1, ...scene.chambers.map((c) => c.floors.length)), [scene]);
   const mineLook: Look | null = mode === 'view' ? 'mine' : mode === 'book' ? 'selected' : null;
@@ -575,10 +577,10 @@ export function ColdStore3D({
   }, []);
 
   // The latest data and callbacks, for the scene (which is set up once).
-  const latest = useRef({ scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName, route, onStep, onStack, chambers, stackOf });
+  const latest = useRef({ scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName, route, onStep, onStack, chambers, stackOf, sizes });
   useEffect(() => {
-    latest.current = { scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName, route, onStep, onStack, chambers, stackOf };
-  }, [scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName, route, onStep, onStack, chambers, stackOf]);
+    latest.current = { scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName, route, onStep, onStack, chambers, stackOf, sizes };
+  }, [scene, cells, free, mode, onPlace, onActive, view, activeIndex, mineName, route, onStep, onStack, chambers, stackOf, sizes]);
   useEffect(() => safe(() => api.current?.setRoute(route)), [safe, route]);
   // Each step said aloud as the walk reaches it, in the person's language.
   useEffect(() => {
@@ -1353,7 +1355,10 @@ export function ColdStore3D({
           });
         }
         const px = (2 * Math.tan(T.MathUtils.degToRad(camera.fov / 2))) / Math.max(1, el.clientHeight);
-        sizeLabels([...(shell?.labels ?? []), ...(places?.labels ?? [])], camera, px);
+        const plates = [...(shell?.labels ?? []), ...(places?.labels ?? [])];
+        const showSizes = mode3 === 'walk' || latest.current.sizes;
+        for (const s of plates) s.visible = showSizes || !s.userData.size;
+        sizeLabels(plates, camera, px);
         renderer.render(world3, camera);
       };
       const setView = (v: View3D) => {
@@ -1740,7 +1745,8 @@ export function ColdStore3D({
   const ww = WAY_WORDS[guideLang];
   const chip = (on: boolean) => `inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition ${on ? 'bg-forest text-white' : 'bg-forest-soft text-forest-deep ring-1 ring-[#CFE0D6] hover:bg-forest-soft'}`;
   const shownInfo = info !== null ? scene.chambers[info] : null;
-  const note = scene.problems.length ? (mode === 'owner' ? scene.problems.slice(0, 2).join(' ') : 'As the owner measured them, some chambers do not fit inside the building, so they are drawn outside it.') : '';
+  // Every chamber is drawn inside the building. When the owner's numbers need more room than the building has, the building is drawn larger and the owner is told why; a chamber that moved to the other side is told to the owner only.
+  const note = scene.problems.length ? (mode === 'owner' ? scene.problems.slice(0, 2).join(' ') : 'As the owner measured them, some chambers need more room than the building has, so the building is drawn larger here.') : mode === 'owner' ? scene.notes.slice(0, 2).join(' ') : '';
   const big = zoom > 1.3;
   const height = walking ? (big ? 'min(78vh, 1050px)' : 'min(70vh, 560px)') : big ? 'min(62vh, 820px)' : 'min(62vh, 520px)';
   const card =
@@ -1764,6 +1770,13 @@ export function ColdStore3D({
     ) : null;
   return (
     <div className="space-y-2">
+      {mode === 'book' && (
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl bg-forest-soft px-4 py-2.5 text-base font-semibold text-forest-deep ring-1 ring-[#CFE0D6]">
+          <span>{walking ? '1. Walk up to a stack.' : '1. Tap a chamber to open it.'}</span>
+          <span>{walking ? '2. Tap a free stack to choose it.' : '2. Tap a free stack to choose it.'}</span>
+          <span>3. Press Book.</span>
+        </p>
+      )}
       <div className="flex flex-wrap gap-2" role="group" aria-label={walking ? 'Walk to' : 'Look at'}>
         {route && onView && (
           <button type="button" onClick={showWay} className={`${chip(true)} shadow-sm hover:bg-forest-deep`}>
@@ -1833,6 +1846,9 @@ export function ColdStore3D({
               )}
             </>
           )}
+          <button type="button" aria-pressed={sizes} onClick={() => setSizes((v) => !v)} className={chip(sizes)}>
+            Show sizes
+          </button>
           {floorsMost > 1 && (
             <span className="inline-flex flex-wrap items-center gap-1.5">
               <Layers className="h-4 w-4 text-slate-500" aria-hidden />
