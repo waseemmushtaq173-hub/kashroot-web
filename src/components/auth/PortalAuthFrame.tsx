@@ -24,10 +24,10 @@ export function PortalAuthFrame({ portal, labelledBy, children }: { portal: Port
   const focusRing = `focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${theme.outline}`;
 
   return (
-    <div className={`relative isolate flex min-h-[100svh] items-start justify-center overflow-hidden px-4 py-10 sm:py-16 ${theme.canvas}`}>
+    <div className={`relative isolate flex min-h-[100svh] items-start justify-center overflow-hidden px-4 py-3 sm:py-16 ${theme.canvas}`}>
       <div className="grid w-full max-w-5xl overflow-hidden rounded-[2rem] bg-white/60 shadow-[0_30px_80px_rgba(15,23,42,0.18)] ring-1 ring-[#E8A317]/30 backdrop-blur-2xl lg:grid-cols-[1.05fr_1fr]">
         {/* Story over the live 3D valley. */}
-        <section className="relative isolate min-h-[220px] overflow-hidden p-6 text-white sm:p-10 lg:flex lg:min-h-[620px] lg:flex-col lg:justify-start lg:gap-12">
+        <section className="relative isolate overflow-hidden p-4 text-white sm:min-h-[220px] sm:p-10 lg:flex lg:min-h-[620px] lg:flex-col lg:justify-start lg:gap-12">
           <div aria-hidden className={`absolute inset-0 -z-20 bg-gradient-to-b ${theme.canvas}`} />
           <ValleyScene mood={copy.mood} className="-z-20" />
           <div aria-hidden className={`absolute inset-0 -z-10 bg-gradient-to-tr ${theme.sceneTint}`} />
@@ -45,12 +45,12 @@ export function PortalAuthFrame({ portal, labelledBy, children }: { portal: Port
               </Link>
             </div>
           </div>
-          <div className="mt-8 lg:mt-0">
-            <span data-depth className={`grid h-14 w-14 place-items-center rounded-2xl ${theme.iconTile}`}>
+          <div className="mt-3 sm:mt-8 lg:mt-0">
+            <span data-depth className={`grid h-11 w-11 place-items-center rounded-2xl sm:h-14 sm:w-14 ${theme.iconTile}`}>
               <Icon className="h-6 w-6" aria-hidden />
             </span>
-            <p className={`mt-5 text-xs font-semibold uppercase tracking-[0.18em] ${theme.eyebrow}`}>{copy.eyebrow}</p>
-            <h1 className="font-display mt-2 text-3xl font-semibold tracking-tight text-white drop-shadow-sm [text-wrap:balance] sm:text-4xl">{copy.headline}</h1>
+            <p className={`mt-3 text-xs font-semibold uppercase sm:mt-5 tracking-[0.18em] ${theme.eyebrow}`}>{copy.eyebrow}</p>
+            <h1 className="font-display mt-1 text-2xl font-semibold tracking-tight text-white drop-shadow-sm [text-wrap:balance] sm:mt-2 sm:text-4xl">{copy.headline}</h1>
             <p className="sr-only">{copy.description}</p>
             <ul className="mt-6 hidden space-y-2.5 sm:block">
               {copy.highlights.map((item) => (

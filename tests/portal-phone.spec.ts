@@ -80,7 +80,7 @@ for (const portal of PUBLIC) {
       const findings: string[] = [];
       const check = async (where: string) => {
         const r = await inspect(page);
-        for (const x of [...r.wider.map((s) => `WIDER: ${s}`), ...r.cut.map((s) => `CUT OFF: ${s}`), ...r.placeholder.map((s) => `PLACEHOLDER: ${s}`), ...r.overlaps.map((s) => `ON TOP: ${s}`)]) findings.push(`[${where}] ${x}`);
+        for (const x of [...r.wider.map((s) => `WIDER: ${s}`), ...r.cut.map((s) => `CUT OFF: ${s}`), ...r.placeholder.map((s) => `PLACEHOLDER: ${s}`), ...r.overlaps.map((s) => `ON TOP: ${s}`), ...r.unreadable.map((s) => `UNREADABLE: ${s}`)]) findings.push(`[${where}] ${x}`);
       };
       await check('home');
 

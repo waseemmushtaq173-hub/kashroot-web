@@ -1,6 +1,7 @@
 /**
  * Looks at a page the way a person holding a phone does: nothing wider than the screen, nothing cut off by its own box, no
- * placeholder cut short, no two pieces of text or two buttons on top of each other. Used by phone-structure.spec.ts (public
+ * placeholder cut short, no two pieces of text or two buttons on top of each other, and no chosen (pressed or selected) button whose
+ * text cannot be read on its own background. Used by phone-structure.spec.ts (public
  * pages) and portal-phone.spec.ts (every portal, signed in).
  */
 import type { Page } from '@playwright/test';
@@ -10,13 +11,14 @@ export interface Report {
   cut: string[];
   placeholder: string[];
   overlaps: string[];
+  unreadable: string[];
 }
 
 /** Runs in the page. Decorative things (aria-hidden, pointer-events none, fixed/sticky bars) are left out. */
 export async function inspect(page: Page): Promise<Report> {
   return page.evaluate(() => {
     const vw = document.documentElement.clientWidth;
-    const out: Report = { wider: [], cut: [], placeholder: [], overlaps: [] };
+    const out: Report = { wider: [], cut: [], placeholder: [], overlaps: [], unreadable: [] };
     const SKIP = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'PATH', 'DEFS', 'G', 'CIRCLE', 'RECT', 'LINE', 'POLYLINE', 'POLYGON', 'USE', 'TITLE', 'SVG']);
     const shown = (el: Element) => {
       const r = el.getBoundingClientRect();
@@ -115,6 +117,28 @@ export async function inspect(page: Page): Promise<Report> {
         const field = /^(INPUT|SELECT|TEXTAREA)$/;
         if ((field.test(a.el.tagName) && b.el.closest('div, label')?.contains(a.el)) || (field.test(b.el.tagName) && a.el.closest('div, label')?.contains(b.el))) continue;
         out.overlaps.push(`"${a.t}" over "${b.t}" (${Math.round(w)}×${Math.round(h)}px)`);
+      }
+    }
+    // A chosen (pressed, selected, checked) control is painted by the site's own rule; its text must still be readable on every
+    // colour of that paint (3:1 is the floor for large or bold text; a gradient is judged on its worst stop).
+    const rgb = (s: string) => (s.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+    const lum = ([r, g, b]: number[]) => {
+      const f = (v: number) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+      return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+    };
+    const ratio = (a: number[], b: number[]) => { const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05); };
+    for (const el of document.querySelectorAll('[aria-pressed="true"], [aria-checked="true"], [aria-selected="true"], [aria-current="page"]')) {
+      if (!shown(el) || decorative(el)) continue;
+      const cs = getComputedStyle(el);
+      const stops = (cs.backgroundImage.match(/rgb\([^)]*\)/g) ?? []).map(rgb).filter((c) => c.length >= 3);
+      const bgs = stops.length ? stops : [rgb(cs.backgroundColor)].filter((c) => c.length >= 3);
+      if (!bgs.length) continue;
+      for (const child of el.querySelectorAll('*')) {
+        if (![...child.childNodes].some((n) => n.nodeType === 3 && n.textContent?.trim())) continue;
+        const fg = rgb(getComputedStyle(child).color);
+        if (fg.length < 3) continue;
+        const worst = Math.min(...bgs.map((c) => ratio(fg, c)));
+        if (worst < 3) out.unreadable.push(`${name(el)} text "${(child.textContent ?? '').trim().slice(0, 20)}" ${worst.toFixed(1)}:1`);
       }
     }
     return out;

@@ -332,6 +332,7 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
                   <button
                     type="button"
                     key={r}
+                    data-kr-plain
                     aria-pressed={on}
                     onClick={() => {
                       setSelectedRole(r);
@@ -455,6 +456,7 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
           {human.element}
           <button
             type="submit"
+            data-kr-plain
             disabled={!isFormValid || registerMutation.isPending}
             className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-4 text-base font-semibold shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 ${look.button}`}
           >
