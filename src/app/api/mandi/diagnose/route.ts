@@ -8,6 +8,8 @@ import { NextResponse } from 'next/server';
 
 import { MANDI_RESOURCE } from '@/lib/mandi-shared';
 import { diagnoseAgmarknet } from '@/lib/server/agmarknet';
+import { searchCatalog } from '@/lib/dataGovCatalog';
+import { SUBJECTS } from '@/lib/dataGovTruescan';
 import { govFetch } from '@/lib/server/govFetch';
 import { fetchMandiPrices } from '@/lib/server/mandi';
 import { ipLimited, tooMany } from '@/lib/server/sign';
@@ -100,6 +102,19 @@ export async function GET(request: Request) {
   );
   const wanted = { 'filters[commodity]': commodity, 'filters[state.keyword]': state };
   const recent = await recency(VARIETY_RESOURCE, wanted);
+  // ?catalogue=1: how many datasets the portal's catalogue lists on each TrueScan subject, and whether a fixed list of
+  // datasets is set on this site (only whether, and how many: never the ids).
+  let catalogue: unknown;
+  if (q.get('catalogue')) {
+    const env = { DATA_GOV_IN_API_KEY: process.env.DATA_GOV_IN_API_KEY };
+    const named = (process.env.TRUESCAN_DATAGOV_RESOURCES ?? '').split(/[\s,;]+/).filter(Boolean).length;
+    const answers = await Promise.all(SUBJECTS.slice(0, 40).map(async (s) => [s, await searchCatalog(s, env)] as const));
+    catalogue = {
+      fixedListSet: named > 0,
+      fixedListCount: named,
+      subjects: answers.map(([s, a]) => ('problem' in a ? { subject: s, problem: a.problem } : { subject: s, returned: a.entries.length, portalTotal: a.total, titles: a.entries.slice(0, 3).map((e) => e.title.slice(0, 60)) })),
+    };
+  }
   let combined: unknown;
   try {
     const r = await fetchMandiPrices({ commodity, state, limit: 5 });
@@ -107,5 +122,5 @@ export async function GET(request: Request) {
   } catch (err) {
     combined = { error: err instanceof Error ? err.message : String(err) };
   }
-  return NextResponse.json({ region: process.env.VERCEL_REGION ?? 'local', agmarknet, dataGov: Object.fromEntries(dataGov), recent: { resource: 'variety', ...recent }, combined }, { headers: { 'cache-control': 'no-store' } });
+  return NextResponse.json({ region: process.env.VERCEL_REGION ?? 'local', agmarknet, dataGov: Object.fromEntries(dataGov), recent: { resource: 'variety', ...recent }, catalogue, combined }, { headers: { 'cache-control': 'no-store' } });
 }
