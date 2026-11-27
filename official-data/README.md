@@ -52,8 +52,10 @@ pesticides: no entry is typed in by KashRoot.
 The Government's PDFs skip some serial numbers (277 in the ingredients list; 17 in the formulations list). That is
 in the PDFs themselves and is recorded in the JSON (`numbers_not_printed`); nothing is filled in.
 
-**To update when the CIB&RC posts newer lists:** replace the PDF here with the newer one (keep the publisher's file
-name), run `python3 scripts/extract-cibrc-lists.py` (it checks its own counts and stops if a list no longer reads),
-and commit the PDF and the two JSON files. The lists name chemicals and formulations, not brands or registration
-numbers, and TrueScan says so under every answer.
-
+**To update when the CIB&RC posts newer lists:** save the new PDFs from the page above into a folder, then run
+`python3 scripts/update-cibrc-lists.py --from <that folder>` (it copies only real PDFs with a newer date in their name) and
+`python3 scripts/extract-cibrc-lists.py` (it reads the newest file of each list, checks its own counts and that the date
+printed inside each PDF is the date in its name, and stops if anything does not add up). Commit the PDFs and the two JSON
+files. The CIB&RC site answers GitHub's servers with HTTP 403 (checked on 16 Nov 2026), so this cannot be fetched
+automatically from GitHub; the lists name chemicals and formulations, not brands or registration numbers, and TrueScan
+says so under every answer.
