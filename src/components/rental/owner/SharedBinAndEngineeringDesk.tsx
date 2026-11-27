@@ -848,7 +848,7 @@ export function FarmerStoredApplesDesk({
 
       {!facilityId ? (
         <Panel theme={theme} title="My stored apples" icon={Apple}>
-          <EmptyState theme={theme} icon={Snowflake} title="Choose a cold store" text="Pick a cold store above to book crates, see exactly where your apples are stored, and ask for them back." />
+          <EmptyState theme={theme} icon={Snowflake} title="Choose a cold store" text="Pick a cold store above to book crates and see where your apples are." />
         </Panel>
       ) : (
         <>

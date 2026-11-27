@@ -158,7 +158,7 @@ function BuyerDashboard() {
                   theme={theme}
                   icon={ShoppingBag}
                   title="No open orders"
-                  text="Open Buy apples & produce, choose what you want and press Order. You pay only after the goods reach you."
+                  text="Open Buy apples & produce and press Order. You pay after the goods reach you."
                   action={shopButton}
                 />
               ) : (
@@ -168,12 +168,12 @@ function BuyerDashboard() {
 
             <Panel theme={theme} title="Pay after delivery" icon={ShieldCheck}>
               <ol className="list-decimal space-y-1 pl-5 text-sm text-slate-700">
-                <li>Order in Buy apples & produce — your payment locks in KashRoot escrow.</li>
-                <li>The farmer accepts, packs and dispatches; live GPS follows the trip.</li>
+                <li>Order in Buy apples & produce. You pay nothing now.</li>
+                <li>The farmer dispatches; live GPS follows the trip.</li>
                 <li>When it arrives, check it and press “✅ Confirm Delivery Received”.</li>
-                <li>The escrow releases to the farmer — pay by UPI and type the payment number.</li>
+                <li>Pay the farmer by UPI and type the payment number.</li>
               </ol>
-              <p className="mt-3 text-xs text-slate-500">Something wrong? Press “Report a problem” on the order before you confirm — the escrow waits for KashRoot.</p>
+              <p className="mt-3 text-xs text-slate-500">Something wrong? Press “Report a problem” before you confirm.</p>
             </Panel>
           </div>
         </div>
@@ -183,7 +183,7 @@ function BuyerDashboard() {
         <div className="space-y-5">
           <p className="flex items-start gap-2 rounded-2xl bg-forest-soft p-4 text-sm text-forest-pine ring-1 ring-forest-line">
             <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-forest" aria-hidden />
-            <span><strong>Pay after delivery.</strong> Farmers list their produce in the Farmer portal and it shows here by itself. Order now — your payment locks in KashRoot escrow. The farmer dispatches with live GPS; press “✅ Confirm Delivery Received” after the goods reach you, and the escrow releases to the farmer.</span>
+            <span><strong>Pay after delivery.</strong> Order now; when the goods reach you, press “✅ Confirm Delivery Received”, then pay the farmer by UPI.</span>
           </p>
           <ListingBrowser
             category="produce"
@@ -201,7 +201,7 @@ function BuyerDashboard() {
                 theme={theme}
                 icon={Apple}
                 title="No produce listed yet"
-                text="When farmers list apples, walnuts, cherries or other produce in the Farmer portal, it shows here by itself — you do not need to reload. Please check again later."
+                text="When farmers list produce, it shows here by itself."
               />
             }
           />
@@ -212,7 +212,7 @@ function BuyerDashboard() {
         <SafePayment as="buyer" account={account} theme={theme}>
           <Panel theme={theme} title="Waiting for your payment" icon={ShieldCheck}>
             {toPay.length === 0 ? (
-              <p className="text-sm text-slate-600">Nothing to pay right now. When goods reach you, press “✅ Confirm Delivery Received” on the order — the escrow releases to the farmer there.</p>
+              <p className="text-sm text-slate-600">Nothing to pay right now. When goods reach you, press “✅ Confirm Delivery Received” on the order.</p>
             ) : (
               list(toPay)
             )}
@@ -229,7 +229,7 @@ function BuyerDashboard() {
           ) : error ? (
             <p role="alert" className="text-rose-800">{error}</p>
           ) : all.length === 0 ? (
-            <EmptyState theme={theme} icon={ShoppingCart} title="No orders yet" text="Open Buy apples & produce, choose what you want and press Order. You pay the farmer only after the goods reach you." action={shopButton} />
+            <EmptyState theme={theme} icon={ShoppingCart} title="No orders yet" text="Open Buy apples & produce and press Order. You pay after the goods reach you." action={shopButton} />
           ) : (
             list(all)
           )}

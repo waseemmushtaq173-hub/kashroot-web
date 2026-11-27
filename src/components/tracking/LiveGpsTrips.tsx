@@ -200,9 +200,7 @@ export function LiveGpsTrips() {
             }
           >
             <p className="text-sm text-slate-600">
-              A shipment trip shares the driver&rsquo;s live GPS from pickup to delivery — with the driver&rsquo;s consent, distance
-              covered and left, speed, ETA and a stale-signal alert if the pings stop. The consignments in the other tabs keep
-              working as before.
+              A trip shares the driver&rsquo;s live GPS from pickup to delivery, with the driver&rsquo;s consent.
             </p>
           </Panel>
 
@@ -213,7 +211,7 @@ export function LiveGpsTrips() {
               theme={theme}
               icon={Navigation}
               title="No live GPS trips yet"
-              text="Create a trip, grant the driver's consent, and the live position streams here — covered distance, remaining distance, speed and ETA, with an alert when the signal goes quiet."
+              text="Create a trip and the live position streams here, with distance, speed and ETA."
             />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">

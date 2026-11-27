@@ -156,7 +156,7 @@ export function EquipmentSpecTables({ className = '' }: { className?: string }) 
           ))}
       </div>
       <p className="mt-3 text-[11px] text-slate-400">
-        Prices are indicative dealer ranges and change by model, year and district. Subsidy percentages per SMAM / PMKSY / horticulture-department norms as applicable — confirm with your agriculture office.
+        Indicative dealer prices; they vary by model, year and district. Subsidy per SMAM / PMKSY norms — confirm with your agriculture office.
       </p>
     </section>
   );

@@ -117,7 +117,7 @@ function VehicleLookup({ onUseCode }: { onUseCode: () => void }) {
   return (
     <>
       <Panel theme={theme} title="Look up a vehicle number" icon={Search}>
-        <p className="mb-4 text-sm text-slate-600">Official registration details (VAHAN) and FASTag toll crossings through the Government’s ULIP platform. For live position, use a KashRoot consignment code instead.</p>
+        <p className="mb-4 text-sm text-slate-600">Official VAHAN registration and FASTag toll crossings (Government ULIP). For live position use a KashRoot code.</p>
         <form onSubmit={track} className="flex flex-col gap-3 sm:flex-row">
           <label htmlFor="plate" className="sr-only">Vehicle registration number</label>
           <input
@@ -152,7 +152,7 @@ function VehicleLookup({ onUseCode }: { onUseCode: () => void }) {
 
       {!result && !error && (
         <div className="mt-6">
-          <EmptyState theme={theme} icon={MapPinned} title="Real data only" text="Details come from the national vehicle registry (VAHAN) and the route from FASTag toll crossings, through the Government's ULIP platform." />
+          <EmptyState theme={theme} icon={MapPinned} title="Real data only" text="Details come from VAHAN and FASTag, through the Government's ULIP platform." />
         </div>
       )}
 
@@ -297,14 +297,14 @@ function Tracking() {
       {tab === 'track' && (
         <div className="space-y-6">
           <Panel theme={theme} title="Track with a consignment code" icon={Search}>
-            <p className="mb-4 text-sm text-slate-600">Type the code your transporter sent you (it looks like KR-3F9A1C7B), or open the tracking link they shared. You see where the truck is from the driver’s phone, and can call the driver. No account needed.</p>
+            <p className="mb-4 text-sm text-slate-600">Type the code your transporter sent (like KR-3F9A1C7B) or open their tracking link. No account needed.</p>
             <form className="flex flex-col gap-3 sm:flex-row" onSubmit={(e) => { e.preventDefault(); const c = cleanCode(code); if (c.length >= 4) { setActive(c); window.history.replaceState(null, '', `?code=${encodeURIComponent(c)}`); } }}>
               <label htmlFor="track-code" className="sr-only">Consignment code</label>
               <input id="track-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Transporter’s code, e.g. KR-7F3K9Q2A" autoCapitalize="characters" className={`${INPUT} flex-1 font-mono text-base uppercase tracking-wider placeholder:font-sans placeholder:normal-case placeholder:tracking-normal`} />
               <Btn theme={theme} type="submit" icon={MapPinned}>Track</Btn>
             </form>
           </Panel>
-          {active ? <LiveTrack key={active} code={active} /> : <EmptyState theme={theme} icon={MapPinned} title="Live position from the driver’s phone" text="Your transporter gives you a KashRoot code. The driver’s phone shares the truck’s position while it drives — no app needed." />}
+          {active ? <LiveTrack key={active} code={active} /> : <EmptyState theme={theme} icon={MapPinned} title="Live position from the driver’s phone" text="Type the KashRoot code your transporter gave you." />}
         </div>
       )}
       {tab === 'mine' && (signedIn === null ? (
@@ -435,7 +435,7 @@ function MyConsignments({ list, draft, onChange, onTrack }: { list: Consignment[
       </Panel>
       <Panel theme={theme} title="Your consignments" icon={Truck}>
         {list.length === 0 ? (
-          <EmptyState theme={theme} icon={Truck} title="None yet" text="Create a consignment, send the driver link to the driver on WhatsApp, and share the tracking link and delivery code with your buyer or farmer." />
+          <EmptyState theme={theme} icon={Truck} title="None yet" text="Create a consignment, send the driver link to the driver and the tracking link to your buyer." />
         ) : (
           <ul className="space-y-3">
             {list.map((c) => {
@@ -492,7 +492,7 @@ function MyConsignments({ list, draft, onChange, onTrack }: { list: Consignment[
             })}
           </ul>
         )}
-        <p className="mt-4 text-xs text-slate-500">The driver link is private — only send it to the driver. Anyone with the tracking link or code can see where the load is; only you see the delivery code.</p>
+        <p className="mt-4 text-xs text-slate-500">Send the driver link only to the driver. Anyone with the tracking link can see the load; only you see the delivery code.</p>
       </Panel>
     </div>
   );

@@ -268,7 +268,7 @@ function ExpertApply({ account }: { account: Account }) {
         <>
           <p className="mb-4 text-sm text-slate-700">
             {status === 'rejected' ? 'Your last application was not approved. You can apply again with clearer details and photo. ' : ''}
-            Answer farmers’ questions, soil tests and video calls. KashRoot checks your qualification before approving, and answers that help farmers are counted as your work, for payment.
+            Answer farmers’ questions, soil tests and video calls. Your qualification is checked before approval.
           </p>
           {status !== undefined && <RoleApplicationForm role="EXPERT" account={account} theme={theme} onSent={() => setStatus('pending')} />}
         </>

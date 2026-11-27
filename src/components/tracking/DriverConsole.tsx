@@ -193,9 +193,7 @@ export function DriverConsole() {
     <div className="space-y-6">
       <Panel theme={theme} title="RTO fleet registry" icon={ShieldCheck}>
         <p className="text-sm text-slate-600">
-          Vehicles registered here are verified against the RTO record the moment a trip is created — the trip card then
-          shows an <strong>RTO-verified vehicle</strong> badge and carries the registry details. Import the fleet CSV from
-          the transport corporation, or check one number below.
+          Vehicles registered here are checked against the RTO record when a trip is created. Import the fleet CSV, or check one number below.
         </p>
       </Panel>
 
@@ -290,7 +288,7 @@ export function DriverConsole() {
             theme={theme}
             icon={Truck}
             title="The registry is empty"
-            text="Import the fleet CSV above — after that every trip with a registered vehicle is RTO-verified automatically."
+            text="Import the fleet CSV above; trips with a registered vehicle are then RTO-verified."
           />
         ) : (
           <div className="overflow-x-auto">

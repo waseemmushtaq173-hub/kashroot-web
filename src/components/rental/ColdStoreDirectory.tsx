@@ -137,7 +137,7 @@ export function ColdStoreDirectory({
           <p className="text-sm text-slate-600">
             <strong className="text-slate-900">{entries.length.toLocaleString('en-IN')}</strong> cold store{entries.length === 1 ? '' : 's'} found · <strong className="text-forest">{onKashRoot}</strong> on KashRoot, ready to book
           </p>
-          <p className="mt-1 text-xs text-slate-500">Stores on KashRoot show every chamber on a floor plan and in 3D, and you choose your own place. The others are listed so you know they exist.</p>
+          <p className="mt-1 text-xs text-slate-500">KashRoot stores show a floor plan and 3D; the others are listed only.</p>
           {reading && (
             <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Reading the official list (National Horticulture Board) and OpenStreetMap — more stores appear here when they arrive.
@@ -177,7 +177,7 @@ export function ColdStoreDirectory({
 
       {!loading && !reading && entries.length === 0 ? (
         <p className="flex items-start gap-2 rounded-2xl bg-amber-50 p-4 text-sm text-amber-950 ring-1 ring-amber-200">
-          <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> The cold store lists could not be loaded just now. KashRoot tries the official list again automatically — please look again in a while.
+          <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> The cold store lists could not be loaded just now. KashRoot tries again automatically.
         </p>
       ) : !loading && entries.length > 0 && found.length === 0 ? (
         <p className="rounded-2xl bg-white/80 p-4 text-sm text-slate-700 ring-1 ring-slate-900/5">No cold store matches “{q.trim() || district}”. Try another spelling, or All districts.</p>
@@ -246,13 +246,13 @@ export function ColdStoreDirectory({
               <li key={s.id}>
                 <a href={s.url} target="_blank" rel="noopener noreferrer" className="font-medium text-slate-700 underline decoration-slate-300 underline-offset-2">{s.id === 'nhb' ? 'National Horticulture Board — National Cold Storage database' : 'OpenStreetMap — the community map'}</a>
                 {': '}
-                {s.ok ? `${s.count.toLocaleString('en-IN')} in Jammu & Kashmir${s.at ? ` (read ${when(s.at)})` : ''}` : s.count ? `${s.count.toLocaleString('en-IN')} from the last copy (${when(s.at)}); could not be reached just now` : 'could not be reached just now — KashRoot tries again automatically'}
+                {s.ok ? `${s.count.toLocaleString('en-IN')} in Jammu & Kashmir${s.at ? ` (read ${when(s.at)})` : ''}` : s.count ? `${s.count.toLocaleString('en-IN')} from the last copy (${when(s.at)}); could not be reached just now` : 'could not be reached just now; trying again'}
               </li>
             ))}
             <li>KashRoot directory (checked and added by the KashRoot team): {adminCount.toLocaleString('en-IN')}</li>
             <li>On KashRoot (listed by the owners, bookable): {onKashRoot.toLocaleString('en-IN')}</li>
           </ul>
-          <p className="mt-1">Names are shown as each source publishes them. A store that appears in several lists is shown once.</p>
+          <p className="mt-1">Names as each source publishes them; a store in several lists shows once.</p>
         </div>
       )}
     </section>
@@ -285,7 +285,7 @@ function SuggestStore({ waiting, reload }: { waiting: DirectoryRow[]; reload: ()
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="flex items-start gap-2 text-forest-deep">
           <MessageSquarePlus className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-          <span><strong>Missing a cold store?</strong> Tell us its name and place — the KashRoot team checks it, then every farmer sees it.</span>
+          <span><strong>Missing a cold store?</strong> Tell us its name and place; the team checks it first.</span>
         </p>
         {!open && <Btn theme={theme} size="sm" variant="soft" onClick={() => setOpen(true)}>Suggest a cold store</Btn>}
       </div>

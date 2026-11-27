@@ -195,7 +195,7 @@ export default function KissanToolsDashboardPage() {
               theme={theme}
               icon={Store}
               title="No farm tools or inputs listed yet"
-              text="Agro-dealers and farmers who sell tools, sprays, fertiliser or packaging list them in their portal. They show here with their photos as soon as they do. Check again soon."
+              text="Sellers’ tools, sprays, fertiliser and packaging show here, with photos, as soon as they are listed."
             />
           ) : shown.length === 0 ? (
             <EmptyState
@@ -296,7 +296,7 @@ export default function KissanToolsDashboardPage() {
           ) : orders === null ? (
             <Skeleton label="Loading your orders…" height="h-24" />
           ) : baskets.length === 0 ? (
-            <EmptyState theme={theme} icon={Package} title="No orders yet" text="Find farm tools and inputs in the Shop, add them to the cart and order. You pay the seller after they accept." action={<Btn theme={theme} className="min-h-11" onClick={() => setTab('shop')}>Go to the shop</Btn>} />
+            <EmptyState theme={theme} icon={Package} title="No orders yet" text="Order tools and inputs from the Shop. You pay the seller after they accept." action={<Btn theme={theme} className="min-h-11" onClick={() => setTab('shop')}>Go to the shop</Btn>} />
           ) : (
             <ul className="space-y-3">
               {baskets.map((g) => (

@@ -89,7 +89,7 @@ export function SoilLabTests({ account }: { account: Account | null | undefined 
   return (
     <div className="space-y-4">
       <Panel theme={theme} title="Soil and lab tests" icon={FlaskConical}>
-        <p className="text-sm text-slate-700">A lab near you comes to your orchard or field, takes the sample, and puts the report here. Then you can ask an expert what to do about it.</p>
+        <p className="text-sm text-slate-700">A lab comes to your field, takes the sample and puts the report here.</p>
         <ol className="mt-3 grid gap-2 text-sm text-slate-800 sm:grid-cols-4">
           {['Choose a lab and a test', 'Say where and which day', 'The lab visits and takes the sample', 'Read the report; ask an expert'].map((t, i) => (
             <li key={t} className="flex items-start gap-2 rounded-xl bg-forest-soft p-3 ring-1 ring-forest-line"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-forest text-xs font-bold text-white">{i + 1}</span>{t}</li>
@@ -125,7 +125,7 @@ export function SoilLabTests({ account }: { account: Account | null | undefined 
             <p role="status" className="mt-4 flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Looking for labs…</p>
           ) : labs.length === 0 ? (
             <div className="mt-4">
-              <EmptyState theme={theme} icon={FlaskConical} title={district ? `No lab serves ${district} yet` : 'No lab has joined yet'} text="Labs and soil-testing professionals join KashRoot from their Business admin. When one serves your district, it appears here." />
+              <EmptyState theme={theme} icon={FlaskConical} title={district ? `No lab serves ${district} yet` : 'No lab has joined yet'} text="When a lab serves your district, it appears here." />
             </div>
           ) : (
             <ul className="mt-4 space-y-4">
