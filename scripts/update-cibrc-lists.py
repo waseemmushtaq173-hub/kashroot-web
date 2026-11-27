@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """
-Copies a newer CIB&RC list from the folder the fetch job saved the publisher's files into (official-data/cibrc-ppqs)
-into official-data/cibrc, where extract-cibrc-lists.py reads them. Nothing is edited: a file is copied byte for byte,
-and only when it is a real PDF with a newer date in its name than the one in use.
+Puts newly downloaded CIB&RC lists in place. Point it at the folder you saved the PDFs from
+https://ppqs.gov.in/divisions/cib-rc/registered-products into; it copies into official-data/cibrc (where
+extract-cibrc-lists.py reads them) every file that is a real PDF with a newer date in its name than the one in use. Nothing
+is edited: a file is copied byte for byte. Then run  python3 scripts/extract-cibrc-lists.py.
 
-    python3 scripts/update-cibrc-lists.py [--from DIR] [--to DIR]
+    python3 scripts/update-cibrc-lists.py --from ~/Downloads [--to official-data/cibrc]
 
+(ppqs.gov.in answers GitHub's servers with HTTP 403, so this cannot run on its own there.)
 Prints "NEW <file>" for each file copied and "Nothing newer" otherwise. Always exits 0.
 """
 import os

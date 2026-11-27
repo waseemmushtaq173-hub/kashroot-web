@@ -1,10 +1,9 @@
 /**
- * The CIB&RC lists keep themselves current: which file of each list is the newest, which fetched file is newer than the
- * one in use, and that an old list under a new name is not taken. The scripts are plain Python and are run here as the
- * weekly job runs them. Needs python3 only (no PDFs are read).
+ * Putting a newer CIB&RC list in: which file of each list is the newest, which downloaded file is newer than the one in
+ * use, and that an old list under a new name is not taken. The scripts are plain Python. Needs python3 only (no PDFs are read).
  */
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -65,12 +64,4 @@ print(ok('list_of_pesticides_as_on_30.09.2026.pdf', '30.09.2026'), ok('list_of_p
       ok('approved_pesticides_for_desert_locust_control.pdf', None))
 `);
   expect(out).toBe('True False True True True');
-});
-
-test('the weekly job only offers a pull request: it never pushes to main or merges', () => {
-  const wf = readFileSync(join(process.cwd(), '.github/workflows/update-cibrc-lists.yml'), 'utf8');
-  expect(wf).toContain('schedule:');
-  expect(wf).toMatch(/git push origin "\$branch"/);
-  expect(wf).not.toMatch(/git push origin (main|HEAD)/);
-  expect(wf).not.toMatch(/gh pr merge/);
 });
