@@ -177,3 +177,31 @@ test('the SKUAST-K schedule is searched on its own, by a molecule, a pest or the
   expect(checker).not.toMatch(/skuast/i);
 });
 
+
+test('the makers, dealers and the Fertiliser (Control) Order are asked for too, after the registers', () => {
+  const src = read('src/lib/dataGovTruescan.ts');
+  for (const s of ['Fertiliser Control Order', 'fertilizer manufacturer', 'fertilizer dealer', 'pesticide manufacturer', 'pesticide dealer', 'micronutrient']) expect(src, s).toContain(`'${s}'`);
+  // The registers and SKUAST still come first.
+  expect(src.indexOf("'banned pesticide'")).toBeLessThan(src.indexOf("'Fertiliser Control Order'"));
+  expect(read('src/lib/dataGovCatalog.ts')).toContain('const LIMIT = 50;');
+});
+
+test('up to 60 datasets are read, 1,000 rows of each, and a word further down a long table is found', async () => {
+  const ids = Array.from({ length: 80 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`);
+  const fetcher = async (u: string) => {
+    const url = new URL(u);
+    if (url.pathname === '/lists') return json({ records: ids.map((id, i) => ({ index_name: id, title: `Fertiliser list ${i}`, org: ['Dept'], updated: '2026-01-01' })) });
+    const id = url.pathname.split('/').pop() ?? '';
+    expect(url.searchParams.get('limit')).toBe('1000');
+    const last = id === ids[3];
+    // The wanted row is the 900th: past the first 500 the portal used to be asked for.
+    return json({ title: `Fertiliser list ${ids.indexOf(id)}`, org: 'Dept', records: Array.from({ length: 900 }, (_, i) => ({ product: last && i === 899 ? 'Zincsulphate 21%' : `Row ${i}` })) });
+  };
+  const r = await searchDataGov('zincsulphate', ENV, fetcher);
+  expect(r.ok).toBe(true);
+  if (!r.ok) return;
+  expect(r.datasets).toHaveLength(60);
+  expect(r.hits).toHaveLength(1);
+  expect(r.hits[0].rows).toEqual([['Zincsulphate 21%']]);
+  expect(r.partial).toBeUndefined();
+});

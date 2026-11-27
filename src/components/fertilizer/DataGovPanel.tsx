@@ -95,6 +95,7 @@ export function DataGovPanel({ query }: { query: string }) {
               </div>
             ))
           )}
+          {state.answer.partial && <p className="text-xs text-amber-900">Some datasets did not load in time. Check again to look in the rest.</p>}
           <details className="text-xs text-slate-600">
             <summary className="flex min-h-11 cursor-pointer items-center">Datasets looked in ({state.answer.datasets.length})</summary>
             <ul className="mt-1 list-disc space-y-0.5 pl-5">
