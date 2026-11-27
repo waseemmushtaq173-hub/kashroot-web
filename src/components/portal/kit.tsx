@@ -214,14 +214,14 @@ export function Panel({
   id?: string;
 }) {
   return (
-    <section id={id} className={`${GLASS_CARD} min-w-0 p-5 sm:p-6 ${className}`}>
+    <section id={id} className={`${GLASS_CARD} min-w-0 p-4 sm:p-6 ${className}`}>
       {(title || action) && (
-        <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <header className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:mb-4 sm:gap-3">
           {title && (
-            <h2 className="flex items-center gap-2.5 font-display text-xl font-semibold tracking-tight text-ink">
+            <h2 className="flex items-center gap-2 font-display text-lg font-semibold tracking-tight text-ink sm:gap-2.5 sm:text-xl">
               {Icon && (
-                <span data-hue={hueOf(title)} className={`grid h-9 w-9 place-items-center rounded-xl ${theme.tile}`}>
-                  <Icon className="h-[18px] w-[18px]" aria-hidden />
+                <span data-hue={hueOf(title)} className={`grid h-8 w-8 place-items-center rounded-xl sm:h-9 sm:w-9 ${theme.tile}`}>
+                  <Icon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" aria-hidden />
                 </span>
               )}
               {title}
@@ -443,13 +443,14 @@ export function PageHeader({
 }) {
   return (
     // The forest hero banner every portal page opens with (globals.css .kr-hero): white title, gold line under it.
-    <div className="kr-hero relative isolate flex flex-col gap-5 overflow-hidden rounded-3xl p-5 sm:flex-row sm:items-end sm:justify-between sm:p-7">
-      <ChinarLeaf className="pointer-events-none absolute -right-6 -top-8 -z-10 h-40 w-40 rotate-12 opacity-[0.14]" color={theme.leaf} />
+    <div className="kr-hero relative isolate flex flex-col gap-3 overflow-hidden rounded-3xl p-4 sm:flex-row sm:items-end sm:justify-between sm:gap-5 sm:p-7">
+      <ChinarLeaf className="pointer-events-none absolute -right-6 -top-8 -z-10 h-28 w-28 rotate-12 opacity-[0.14] sm:h-40 sm:w-40" color={theme.leaf} />
       <div className="min-w-0 max-w-3xl">
-        {eyebrow && <p className="inline-flex items-center rounded-full bg-forest-soft px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-forest ring-1 ring-[#C6A45B]">{eyebrow}</p>}
-        <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight text-white [text-wrap:balance] sm:text-4xl">{title}</h1>
-        {description && <p className="mt-2 max-w-2xl text-base leading-relaxed text-[#D9E8E0]">{description}</p>}
-        <span aria-hidden className="mt-4 block h-0.5 w-24 rounded-full bg-gradient-to-r from-champagne to-transparent" />
+        {eyebrow && <p className="inline-flex items-center rounded-full bg-forest-soft px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-forest ring-1 ring-[#C6A45B] sm:px-3 sm:py-1 sm:text-xs sm:tracking-[0.14em]">{eyebrow}</p>}
+        <h1 className="mt-2 font-display text-[1.65rem] leading-tight font-semibold tracking-tight text-white [text-wrap:balance] sm:mt-3 sm:text-4xl">{title}</h1>
+        {/* The title says what the page is; a paragraph under it only pushed the tool down. Kept for screen readers. */}
+        {description && <p className="sr-only">{description}</p>}
+        <span aria-hidden className="mt-3 block h-0.5 w-20 rounded-full bg-gradient-to-r from-champagne to-transparent sm:mt-4 sm:w-24" />
       </div>
       {actions && (
         <div ref={actionsRef} data-kr-title-actions className="flex shrink-0 flex-wrap gap-2">
@@ -466,8 +467,8 @@ export function PageHeader({
 export function KpiTile({ label, value, hint, icon: Icon, theme = PORTAL_THEMES.farmer }: { label: string; value: ReactNode; hint?: string; icon?: LucideIcon; theme?: PortalTheme }) {
   return (
     // In a row these alternate forest green and soft sage (globals.css .kr-kpi), each on its own ledge.
-    <div className="kr-kpi relative rounded-2xl p-4 sm:p-5">
-      <p className="kr-kpi-label flex items-center justify-between gap-2 text-sm font-semibold">
+    <div className="kr-kpi relative rounded-2xl p-3 sm:p-5">
+      <p className="kr-kpi-label flex items-center justify-between gap-2 text-xs font-semibold sm:text-sm">
         {label}
         {Icon && (
           <span className={`grid h-8 w-8 place-items-center rounded-lg ${theme.tile}`}>
@@ -475,8 +476,8 @@ export function KpiTile({ label, value, hint, icon: Icon, theme = PORTAL_THEMES.
           </span>
         )}
       </p>
-      <p className="kr-kpi-value mt-2 text-3xl font-bold leading-tight tracking-tight tabular-nums">{value}</p>
-      {hint && <p className="kr-kpi-hint mt-1.5 text-xs font-medium">{hint}</p>}
+      <p className="kr-kpi-value mt-1 text-2xl font-bold leading-tight tracking-tight tabular-nums sm:mt-2 sm:text-3xl">{value}</p>
+      {hint && <p className="kr-kpi-hint mt-1 text-[11px] font-medium leading-snug sm:mt-1.5 sm:text-xs">{hint}</p>}
     </div>
   );
 }

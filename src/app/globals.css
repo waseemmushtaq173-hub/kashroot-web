@@ -617,13 +617,15 @@ dialog.kr-drawer[open] { animation: kr-drawer-in 0.22s ease-out; }
 
   /* The forest hero banner at the top of every portal page (portal kit PageHeader). */
   .kr-hero {
-    /* A rainbow stripe along the bottom edge, then a soft gold glow, then the portal's own deep-to-bright gradient. */
+    /* A rainbow stripe along the bottom edge, then a glow of every colour of the spectrum from each corner (sized in
+       percent, so a phone's small banner shows all of them, not one corner of a big wash), over the portal's own deep gradient. */
     background:
       linear-gradient(90deg, #EF4444 0%, #F97316 16%, #FACC15 32%, #22C55E 48%, #06B6D4 64%, #3B82F6 80%, #8B5CF6 92%, #EC4899 100%) bottom / 100% 5px no-repeat,
-      radial-gradient(44rem 20rem at 104% -14%, rgba(236, 72, 153, .62), transparent 66%),
-      radial-gradient(40rem 17rem at 70% 132%, rgba(251, 146, 60, .52), transparent 64%),
-      radial-gradient(34rem 16rem at -8% 118%, rgba(6, 182, 212, .50), transparent 66%),
-      radial-gradient(28rem 14rem at 36% -26%, rgba(168, 85, 247, .44), transparent 62%),
+      radial-gradient(ellipse 70% 90% at 100% 0%, rgba(244, 114, 182, .62), transparent 70%),
+      radial-gradient(ellipse 70% 90% at 100% 100%, rgba(251, 146, 60, .58), transparent 70%),
+      radial-gradient(ellipse 70% 90% at 0% 100%, rgba(34, 211, 238, .52), transparent 70%),
+      radial-gradient(ellipse 60% 80% at 0% 0%, rgba(74, 222, 128, .34), transparent 70%),
+      radial-gradient(ellipse 50% 70% at 50% 50%, rgba(250, 204, 21, .16), transparent 75%),
       linear-gradient(135deg, rgb(var(--kr-deep-rgb)) 0%, rgb(var(--kr-forest-rgb)) 62%, rgb(var(--kr-mid-rgb)) 100%);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 14px 30px -12px rgb(var(--kr-deep-rgb) / .55);
     color: #FFFFFF;

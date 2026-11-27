@@ -124,7 +124,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
 
       {/* Rows and the form held at the top, the story panel a fixed height beside it: when the "I am
           human" check passes and the form opens below it, nothing above moves. */}
-      <div className="mx-auto grid min-h-[100svh] max-w-7xl content-start gap-6 p-4 sm:p-6 lg:grid-cols-[1.05fr_1fr] lg:gap-10 lg:p-8">
+      <div className="mx-auto grid min-h-[100svh] max-w-7xl grid-cols-[minmax(0,1fr)] content-start gap-6 p-4 sm:p-6 lg:grid-cols-[1.05fr_1fr] lg:gap-10 lg:p-8">
         {/* 3D story panel */}
         <section className="relative isolate flex min-h-[15rem] flex-col justify-between overflow-hidden rounded-[2rem] p-6 text-white shadow-[0_30px_80px_rgba(15,23,42,0.25)] sm:p-10 lg:sticky lg:top-8 lg:h-[calc(100svh-4rem)] lg:min-h-[36rem]">
           <div aria-hidden className={`absolute inset-0 -z-20 ${theme.base}`} />
@@ -144,7 +144,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
           <div className="mt-10 lg:mt-0">
             <p className={`text-xs font-semibold uppercase tracking-[0.2em] ${theme.eyebrow}`}>Join the valley marketplace</p>
             <h1 className="font-display mt-3 max-w-xl text-3xl font-semibold leading-tight tracking-tight drop-shadow-sm [text-wrap:balance] sm:text-5xl">{theme.headline}</h1>
-            <p className="mt-3 max-w-lg text-base text-white/90 sm:text-lg">{theme.copy}</p>
+            <p className="sr-only">{theme.copy}</p>
             <ul className="mt-6 hidden flex-wrap gap-2 sm:flex">
               {FEATURES.map(({ icon: Icon, label }) => (
                 <li key={label} className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-sm font-medium ring-1 ring-white/30 backdrop-blur">

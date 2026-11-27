@@ -37,44 +37,44 @@ const ROLE_STYLE: Record<RegisterRole, { icon: LucideIcon; label: string; theme:
     label: 'Farmer',
     theme: 'farmer',
     hint: 'Sell my harvest',
-    tile: 'from-forest to-[#14123A] shadow-forest-pine/30',
-    selected: 'bg-gradient-to-br from-[#FBF8F0] to-forest-soft ring-2 ring-amber-400',
-    button: 'from-forest to-forest-deep shadow-forest-deep/30',
-    ring: 'focus:ring-forest',
-    text: 'text-forest-deep',
+    tile: 'from-rose-600 to-orange-500 shadow-rose-900/30',
+    selected: 'bg-gradient-to-br from-rose-50 to-orange-50 ring-2 ring-rose-400',
+    button: 'from-rose-600 to-orange-500 shadow-rose-900/30',
+    ring: 'focus:ring-rose-500',
+    text: 'text-rose-800',
   },
   BUYER: {
     icon: ShoppingBag,
     label: 'Buyer',
     theme: 'buyer',
     hint: 'Source produce',
-    tile: 'from-forest to-[#14123A] shadow-forest-pine/30',
-    selected: 'bg-gradient-to-br from-[#FBF8F0] to-forest-soft ring-2 ring-amber-400',
-    button: 'from-forest to-forest-deep shadow-forest-deep/30',
-    ring: 'focus:ring-forest',
-    text: 'text-forest-deep',
+    tile: 'from-blue-600 to-cyan-500 shadow-blue-900/30',
+    selected: 'bg-gradient-to-br from-blue-50 to-cyan-50 ring-2 ring-sky-400',
+    button: 'from-blue-600 to-cyan-600 shadow-blue-900/30',
+    ring: 'focus:ring-blue-500',
+    text: 'text-blue-800',
   },
   SELLER: {
     icon: Store,
     label: 'Seller',
     theme: 'seller',
     hint: 'Sell inputs & packaging',
-    tile: 'from-forest to-[#14123A] shadow-forest-pine/30',
-    selected: 'bg-gradient-to-br from-[#FBF8F0] to-forest-soft ring-2 ring-amber-400',
-    button: 'from-forest to-forest-deep shadow-forest-deep/30',
-    ring: 'focus:ring-forest',
-    text: 'text-forest-deep',
+    tile: 'from-fuchsia-600 to-rose-500 shadow-fuchsia-900/30',
+    selected: 'bg-gradient-to-br from-fuchsia-50 to-rose-50 ring-2 ring-fuchsia-400',
+    button: 'from-fuchsia-600 to-rose-600 shadow-fuchsia-900/30',
+    ring: 'focus:ring-fuchsia-500',
+    text: 'text-fuchsia-800',
   },
   PROVIDER: {
     icon: Truck,
     label: 'Logistics',
     theme: 'logistics',
     hint: 'Transport & cold chain',
-    tile: 'from-forest to-[#14123A] shadow-forest-pine/30',
-    selected: 'bg-gradient-to-br from-[#FBF8F0] to-forest-soft ring-2 ring-amber-400',
-    button: 'from-forest to-forest-deep shadow-forest-deep/30',
-    ring: 'focus:ring-forest',
-    text: 'text-forest-deep',
+    tile: 'from-violet-600 to-blue-500 shadow-violet-900/30',
+    selected: 'bg-gradient-to-br from-violet-50 to-blue-50 ring-2 ring-violet-400',
+    button: 'from-violet-600 to-blue-600 shadow-violet-900/30',
+    ring: 'focus:ring-violet-500',
+    text: 'text-violet-800',
   },
 };
 
@@ -342,12 +342,12 @@ export function SignUpForm({ portal, initialRole = 'FARMER', headingId }: SignUp
                     <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br text-white shadow-lg ${s.tile}`}>
                       <Icon className="h-5 w-5" aria-hidden />
                     </span>
-                    <span className="min-w-0">
-                      <span className="block font-semibold text-slate-900">{label}</span>
-                      <span className="block truncate text-xs text-slate-500">{s.hint}</span>
+                    <span className={`min-w-0 ${on ? 'pr-5' : ''}`}>
+                      <span className="block font-semibold leading-tight text-slate-900">{label}</span>
+                      <span className="block text-xs leading-tight text-slate-600">{s.hint}</span>
                     </span>
                     {on && (
-                      <span className="absolute right-2 top-2 grid h-5 w-5 place-items-center rounded-full bg-white shadow">
+                      <span className="absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-white shadow">
                         <Check className={`h-3.5 w-3.5 ${s.text}`} aria-hidden />
                       </span>
                     )}

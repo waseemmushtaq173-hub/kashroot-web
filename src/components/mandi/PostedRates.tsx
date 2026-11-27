@@ -147,7 +147,6 @@ export function PostedRates({ theme, commodity }: { theme: PortalTheme; commodit
   return (
     <Panel theme={theme} title="Today’s rates from the mandis" icon={Megaphone} action={action}>
       {savedAt && rates?.length ? <SavedAt at={savedAt} className="mb-3" /> : null}
-      <p className="mb-4 text-sm text-slate-600">Posted on KashRoot by traders and commission agents at each mandi, approved by KashRoot. Each rate shows who posted it and when. <strong>Confirmed</strong> means another trader, a farmer or KashRoot checked it. Were you at the mandi? Press <em>Correct</em> or <em>Wrong</em>.</p>
       {/* The 2D multi-mandi comparison chart. */}
       {bars.length > 1 && <MandiBars bars={bars} className="mb-4" />}
       {rates === null ? (

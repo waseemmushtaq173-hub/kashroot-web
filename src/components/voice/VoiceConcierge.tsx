@@ -277,7 +277,6 @@ export function VoiceConcierge({ compact = false, autoListen = false, onNavigate
           ) : (
             <>
               <h2 className="font-display mt-2 text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">Ask KashRoot anything</h2>
-              <p className="mt-1 text-sm text-slate-600">Prices, weather, crop care and how to use KashRoot — speak, and hear the answer in Kashmiri, Urdu, Hindi, Dogri or English. Say what you want done, and KashRoot fills in the form for you.</p>
             </>
           )}
         </div>

@@ -695,9 +695,6 @@ export default function UnifiedLiveTrackingPortal() {
             <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
               Live GPS Vehicle &amp; Shipment Tracking Portal
             </h1>
-            <p className="mt-1 max-w-3xl text-sm text-[#D9E8E0]">
-              Real-time consent-based GPS telemetry connecting Jammu &amp; Kashmir orchard consignments to buyers across India.
-            </p>
           </div>
 
         </div>

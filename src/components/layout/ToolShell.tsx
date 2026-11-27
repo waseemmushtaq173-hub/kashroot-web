@@ -81,7 +81,7 @@ export function ToolHeader({ tool, title, description, actions }: ToolHeaderProp
           <div className="min-w-0">
             <p className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${theme.eyebrow}`}>{eyebrow}</p>
             <h1 className="mt-1 font-sans text-2xl font-semibold tracking-tight text-slate-900">{title ?? toolTitle}</h1>
-            {description && <p className="mt-0.5 max-w-2xl text-sm text-slate-600">{description}</p>}
+            {description && <p className="sr-only">{description}</p>}
           </div>
         </div>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}

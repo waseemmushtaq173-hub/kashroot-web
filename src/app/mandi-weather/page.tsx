@@ -271,6 +271,8 @@ export default function MandiWeatherPage() {
       return getJson<Forecast>(`/api/weather?${p}`);
     },
     staleTime: 5 * 60_000,
+    // Open on a phone, the forecast keeps itself current (paused while the tab is hidden).
+    refetchInterval: 10 * 60_000,
     enabled: inBrowser,
     networkMode: 'offlineFirst',
   });
@@ -297,6 +299,7 @@ export default function MandiWeatherPage() {
       return getJson<ImdWeatherResponse>(`/api/v1/weather?${p}`);
     },
     staleTime: 15 * 60_000,
+    refetchInterval: 15 * 60_000,
     enabled: inBrowser,
     networkMode: 'offlineFirst',
   });
@@ -379,6 +382,9 @@ export default function MandiWeatherPage() {
       );
     },
     staleTime: 10 * 60_000,
+    // Prices are read again every 10 minutes while the page is open, and when the person comes back to it.
+    refetchInterval: 10 * 60_000,
+    refetchOnWindowFocus: true,
     networkMode: 'offlineFirst',
   });
   const mandiSavedAt = useSavedAt('/api/mandi', () => void mandiQ.refetch());
@@ -427,7 +433,7 @@ export default function MandiWeatherPage() {
     return { avg: usable.reduce((s, r) => s + r.modalPrice, 0) / usable.length, hi, lo, latest, count: usable.length };
   }, [rows, unusual]);
 
-  const postedQ = useQuery({ queryKey: ['posted-rates'], queryFn: () => recentRates(), staleTime: 5 * 60_000, networkMode: 'offlineFirst' });
+  const postedQ = useQuery({ queryKey: ['posted-rates'], queryFn: () => recentRates(), staleTime: 5 * 60_000, refetchInterval: 5 * 60_000, refetchOnWindowFocus: true, networkMode: 'offlineFirst' });
   const posted = useMemo(() => {
     const want = applied.commodity.trim().toLowerCase();
     const list = (postedQ.data ?? []).filter((r) => !want || r.commodity.toLowerCase().includes(want) || want.includes(r.commodity.toLowerCase()));
@@ -755,6 +761,9 @@ export default function MandiWeatherPage() {
           <>
             {mandiQ.data?.stale && <LastUpdated at={mandiQ.data.fetchedAt} source={mandiQ.data.source} className="mr-2" />}
             {mandiQ.data?.stale && <Badge tone="amber">Stale</Badge>}
+            {mandiQ.data && !mandiQ.data.stale && mandiQ.dataUpdatedAt > 0 && (
+              <span className="text-xs font-medium text-slate-600" data-testid="mandi-updated">Updated {new Date(mandiQ.dataUpdatedAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })} · refreshes by itself</span>
+            )}
           </>
         }>
           <div className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_1fr_1fr_auto]">

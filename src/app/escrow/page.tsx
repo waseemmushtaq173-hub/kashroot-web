@@ -39,14 +39,16 @@ export default function SafePaymentPage() {
       theme="provider"
     >
       <div className="space-y-6">
-        <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ol className="grid gap-2.5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
           {STEPS.map((s, i) => (
             <li key={s.label}>
               <Tilt3D className="h-full rounded-3xl" max={5}>
-                <div className="h-full rounded-3xl bg-white/85 p-5 shadow-sm ring-1 ring-slate-900/5">
-                  <span className={`grid h-11 w-11 place-items-center rounded-2xl ${theme.tile}`}><s.icon className="h-5 w-5" aria-hidden /></span>
-                  <p className="mt-3 font-semibold text-slate-900">{i + 1}. {s.label}</p>
-                  <p className="mt-1 text-sm text-slate-600">{s.text}</p>
+                <div className="flex h-full gap-3 rounded-3xl bg-white/85 p-4 shadow-sm ring-1 ring-slate-900/5 sm:block sm:p-5">
+                  <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-2xl sm:h-11 sm:w-11 ${theme.tile}`}><s.icon className="h-5 w-5" aria-hidden /></span>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-slate-900 sm:mt-3">{i + 1}. {s.label}</p>
+                    <p className="mt-0.5 text-[13px] leading-snug text-slate-600 sm:mt-1 sm:text-sm">{s.text}</p>
+                  </div>
                 </div>
               </Tilt3D>
             </li>
