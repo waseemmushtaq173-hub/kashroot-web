@@ -450,6 +450,13 @@ export function ColdStoreExplorer({
           This cold store has not been measured yet: the owner has not entered its building, chambers and floors. Below are only the rows and places the owner gave. Call the owner to ask which chamber and floor your apples will go to, and whether they use bins or crates.
         </p>
       )}
+      {mode === 'book' && view === 'drawing' && !plainRooms && (
+        <p data-testid="drawing-steps" className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl bg-forest-soft px-4 py-2.5 text-base font-semibold text-forest-deep ring-1 ring-[#CFE0D6]">
+          <span>1. Tap a chamber to open it.</span>
+          <span>2. Tap a free green place to choose it.</span>
+          <span>3. Press Next.</span>
+        </p>
+      )}
       {view === 'photos' && realStore ? (
         <StorePhotosView listingId={listingId} />
       ) : view !== 'drawing' && plainRooms ? (

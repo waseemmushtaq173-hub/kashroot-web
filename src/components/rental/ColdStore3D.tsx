@@ -1774,7 +1774,7 @@ export function ColdStore3D({
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl bg-forest-soft px-4 py-2.5 text-base font-semibold text-forest-deep ring-1 ring-[#CFE0D6]">
           <span>{walking ? '1. Walk up to a stack.' : '1. Tap a chamber to open it.'}</span>
           <span>{walking ? '2. Tap a free stack to choose it.' : '2. Tap a free stack to choose it.'}</span>
-          <span>3. Press Book.</span>
+          <span>3. Press Next.</span>
         </p>
       )}
       <div className="flex flex-wrap gap-2" role="group" aria-label={walking ? 'Walk to' : 'Look at'}>

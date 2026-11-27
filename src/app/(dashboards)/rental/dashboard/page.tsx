@@ -22,7 +22,7 @@
  * Data: rental_listings, rental_bookings, payout_accounts (shared database).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Boxes, Building2, CalendarDays, Camera, CheckCircle2, ClipboardCheck, Factory, IndianRupee, Landmark, Map as MapIcon, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, ReceiptText, Search, Snowflake, Sparkles, Store, Trash2, Warehouse, XCircle } from 'lucide-react';
+import { ArrowRight, Boxes, Building2, CalendarDays, Camera, CheckCircle2, ClipboardCheck, Eye, Factory, IndianRupee, Landmark, Map as MapIcon, MapPin, Minus, Pencil, Phone, Plus, PlusCircle, ReceiptText, Search, Snowflake, Sparkles, Store, Trash2, Warehouse, XCircle } from 'lucide-react';
 import { toast } from '@/lib/client/toast';
 
 import { IdentityStatus } from '@/components/auth/IdentityStatus';
@@ -374,6 +374,8 @@ export default function RentalPage() {
           shares={shares}
           prefill={claim}
           onChange={() => refresh()}
+          onPreview={(l) => setBooking(l, null, true)}
+          onRequests={() => setTab('requests')}
         />
       ) : null}
 
@@ -706,6 +708,8 @@ function OwnerPanel({
   places,
   prefill,
   onChange,
+  onPreview,
+  onRequests,
 }: {
   /** The owner's tab: their stores (plan & 3D), the shared bin & CA desk, bookings to confirm, or where farmers pay them. */
   section: 'stores' | 'operations' | 'requests' | 'payments';
@@ -719,6 +723,10 @@ function OwnerPanel({
   /** A store from the directory its owner is listing ("Your store? List it"). */
   prefill: { title: string; district: string; address: string } | null;
   onChange: () => Promise<void> | void;
+  /** Open this store's booking window as a farmer sees it (nothing can be booked). */
+  onPreview: (l: RentalListing) => void;
+  /** Go to "Bookings to confirm". */
+  onRequests: () => void;
 }) {
   // The owner wizard: a new store (listing null) or one being changed, from a step.
   const [wizard, setWizard] = useState<{ key: string; listing: RentalListing | null; start?: Step; prefill?: typeof prefill } | null>(() => (prefill ? { key: 'claim', listing: null, prefill } : null));
@@ -753,6 +761,11 @@ function OwnerPanel({
 
   const pending = incoming.filter((b) => b.status === 'requested' || b.status === 'paid');
   const others = incoming.filter((b) => !(b.status === 'requested' || b.status === 'paid'));
+  // The owner has checked the money in their bank or UPI app: confirm the booking (from the list and from the store map).
+  const received = (b: RentalBooking) => {
+    if (!b.payment_ref && !window.confirm(`${b.renter_name} has not written a payment reference yet. Did ${inr(b.amount)} reach your bank or UPI app?`)) return;
+    void run(() => bookingAction(b.id, 'confirm'), 'Money received — the booking is confirmed');
+  };
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -776,10 +789,6 @@ function OwnerPanel({
               const lines = placeLines(mineHere, chambers);
               const what = mineHere.length ? countsText(mineHere, chambers, { units: b.units }) : `${b.units.toLocaleString('en-IN')} ${UNIT_LABEL[(b.rental_listings?.unit ?? 'box_month') as keyof typeof UNIT_LABEL].unit}`;
               const waitingOnShare = shares.get(b.id)?.state === 'asked';
-              const received = () => {
-                if (!b.payment_ref && !window.confirm(`${b.renter_name} has not written a payment reference yet. Did ${inr(b.amount)} reach your bank or UPI app?`)) return;
-                void run(() => bookingAction(b.id, 'confirm'), 'Money received — the booking is confirmed');
-              };
               return (
                 <li key={b.id} className="flex flex-col gap-3 rounded-2xl bg-white/85 p-4 ring-1 ring-slate-900/5 lg:flex-row lg:items-center lg:justify-between">
                   <div className="min-w-0">
@@ -794,7 +803,7 @@ function OwnerPanel({
                     )}
                   </div>
                   <div className="flex shrink-0 flex-wrap gap-2">
-                    <Btn theme={theme} className="min-h-[44px]" icon={CheckCircle2} disabled={busy || waitingOnShare} onClick={received}>Money received</Btn>
+                    <Btn theme={theme} className="min-h-[44px]" icon={CheckCircle2} disabled={busy || waitingOnShare} onClick={() => received(b)}>Money received</Btn>
                     {hasReceipt(b) && <Btn theme={theme} variant="soft" className="min-h-[44px]" icon={ReceiptText} href={`/rental/receipt/${b.id}`}>Receipt</Btn>}
                     <Btn theme={theme} variant="danger" className="min-h-[44px]" icon={XCircle} disabled={busy} onClick={() => { const note = window.prompt('Why can you not take this booking? The farmer will see this. If they already paid, say how you will return the money.'); if (note === null) return; void run(() => bookingAction(b.id, 'reject', undefined, note), 'Booking declined'); }}>Decline</Btn>
                   </div>
@@ -907,6 +916,8 @@ function OwnerPanel({
                   <div className="mt-3 flex flex-wrap gap-2">
                     {wizardStore && !ready && !l.active && <Btn theme={theme} className="min-h-[44px]" icon={ArrowRight} onClick={() => openWizard(l)}>Finish setting up</Btn>}
                     {mapped && <Btn theme={theme} variant={wizardStore && !ready && !l.active ? 'soft' : 'solid'} className="min-h-[44px]" icon={MapIcon} onClick={() => setMapOf(l)}>Cold store map & 3D</Btn>}
+                    {mapped && <Btn theme={theme} variant="soft" className="min-h-[44px]" icon={Eye} data-testid="store-preview" onClick={() => onPreview(l)}>See how a farmer books & pays</Btn>}
+                    {pending.some((b) => b.listing_id === l.id) && <Btn theme={theme} className="min-h-[44px]" icon={ClipboardCheck} data-testid="store-requests" onClick={onRequests}>Bookings to confirm · {pending.filter((b) => b.listing_id === l.id).length}</Btn>}
                     <Btn theme={theme} variant="soft" className="min-h-[44px]" icon={Pencil} onClick={() => openWizard(l, 1)}>Change details</Btn>
                     <Btn theme={theme} variant="soft" className="min-h-[44px]" icon={Camera} onClick={() => setPhotosOf(l)}>Photos</Btn>
                     {!wizardStore && <Btn theme={theme} variant="soft" className="min-h-[44px]" icon={IndianRupee} onClick={() => setRentOf(l)}>Change rent</Btn>}
@@ -968,6 +979,17 @@ function OwnerPanel({
           places={places}
           onClose={() => setMapOf(null)}
           onEdit={() => openWizard(owned.find((l) => l.id === mapOf.id) ?? mapOf, 3)}
+          onPreview={() => {
+            const l = owned.find((x) => x.id === mapOf.id) ?? mapOf;
+            setMapOf(null);
+            onPreview(l);
+          }}
+          onRequests={() => {
+            setMapOf(null);
+            onRequests();
+          }}
+          onReceived={received}
+          busy={busy}
         />
       )}
 
