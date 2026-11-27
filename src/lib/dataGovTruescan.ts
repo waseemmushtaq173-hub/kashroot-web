@@ -41,7 +41,7 @@ type Fetcher = (url: string, init?: RequestInit) => Promise<Response>;
 
 // The registers first (banned, registered, the Act's own lists) and SKUAST: there are few such datasets, and they must not be
 // crowded out of the places by the many statistics on pesticides and fertilisers.
-const SUBJECTS = [
+export const SUBJECTS = [
   'banned pesticide', 'registered pesticide', 'CIBRC', 'Insecticides Act', 'plant growth regulator', 'biopesticide', 'biofertilizer', 'bio-fertiliser',
   'SKUAST', 'Sher-e-Kashmir', 'spray schedule',
   'pesticide', 'insecticide', 'fungicide', 'herbicide', 'fertilizer', 'fertiliser',
