@@ -142,12 +142,12 @@ export default async function HomePage() {
                 <span key={c} className="h-2 w-6 rounded-full ring-1 ring-slate-900/10" style={{ backgroundColor: c }} />
               ))}
             </p>
-            {/* Real live platform counts — each shown only when its table answered. */}
-            {(metrics.stores != null || metrics.lots != null || metrics.rates != null) && (
+            {/* Real live platform counts — each shown only when its table answered and has something: a zero says nothing to a visitor. */}
+            {[metrics.stores, metrics.lots, metrics.rates].some((n) => n != null && n > 0) && (
               <p className="mt-2.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] font-medium text-ink-soft sm:gap-x-4 sm:text-sm">
-                {metrics.stores != null && <span><strong className="font-semibold text-ink">{fmt(metrics.stores)}</strong> cold stores listed</span>}
-                {metrics.lots != null && <span><strong className="font-semibold text-ink">{fmt(metrics.lots)}</strong> produce lots on sale</span>}
-                {metrics.rates != null && <span><strong className="font-semibold text-ink">{fmt(metrics.rates)}</strong> mandi rates today</span>}
+                {metrics.stores != null && metrics.stores > 0 && <span><strong className="font-semibold text-ink">{fmt(metrics.stores)}</strong> cold stores listed</span>}
+                {metrics.lots != null && metrics.lots > 0 && <span><strong className="font-semibold text-ink">{fmt(metrics.lots)}</strong> produce lots on sale</span>}
+                {metrics.rates != null && metrics.rates > 0 && <span><strong className="font-semibold text-ink">{fmt(metrics.rates)}</strong> mandi rates posted today</span>}
               </p>
             )}
           </section>

@@ -150,16 +150,21 @@ interface MandiResult {
   partial?: boolean;
   widened?: string;
   stale?: boolean;
+  /** Agmarknet's own price service: "captcha" when it asks every visitor to solve one (no website can read it). */
+  agmarknet?: 'ok' | 'captcha' | 'down';
 }
 
+// Any spelling works (the server matches "Kerala" to "Keralam", "Uttrakhand" to "Uttarakhand").
 const STATES = [
-  'Andhra Pradesh', 'Assam', 'Bihar', 'Chandigarh', 'Chattisgarh', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jammu and Kashmir',
-  'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Nagaland', 'NCT of Delhi', 'Odisha',
-  'Pondicherry', 'Punjab', 'Rajasthan', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttrakhand', 'West Bengal',
+  'Andhra Pradesh', 'Assam', 'Bihar', 'Chandigarh', 'Chhattisgarh', 'Delhi', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jammu and Kashmir',
+  'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Nagaland', 'Odisha',
+  'Puducherry', 'Punjab', 'Rajasthan', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
 ];
 
-const QUICK_COMMODITIES = ['Apple'];
-const BOX_COMMODITIES = new Set(['Apple']);
+/** Crops people look for; the feed's own list (below) adds the rest. Names as Agmarknet spells them. */
+const QUICK_COMMODITIES = ['Apple', 'Potato', 'Onion', 'Tomato', 'Cabbage', 'Cauliflower', 'Carrot', 'Garlic', 'Banana', 'Orange', 'Grapes', 'Pomegranate', 'Maize', 'Wheat'];
+const cropKey = (v: string) => v.toLowerCase().replace(/[^a-z]/g, '');
+const BOX_COMMODITIES = new Set(['apple']);
 
 const WMO: [number[], string, LucideIcon][] = [
   [[0], 'Clear sky', Sun],
@@ -378,21 +383,21 @@ export default function MandiWeatherPage() {
   });
   const mandiSavedAt = useSavedAt('/api/mandi', () => void mandiQ.refetch());
 
-  const isBoxCommodity = applied.commodity && BOX_COMMODITIES.has(applied.commodity);
+  const isBoxCommodity = BOX_COMMODITIES.has(cropKey(applied.commodity));
   const defaultUnit = isBoxCommodity ? 'box' : 'quintal';
   const effectiveUnit = unit === 'box' && !isBoxCommodity ? 'quintal' : unit;
   const factor = effectiveUnit === 'kg' ? 0.01 : effectiveUnit === 'box' ? (boxKg > 0 ? boxKg : 17) / 100 : 1;
   const unitLabel = effectiveUnit === 'box' ? `box (${boxKg} kg)` : effectiveUnit;
 
   const rows = useMemo(() => {
-    const list = [...(mandiQ.data?.records ?? [])].filter((r) =>
-      r.commodity.toLowerCase().replace(/[^a-z]/g, '') === 'apple'
-    );
+    // Never mixed crops in one table (its best / average / lowest would mean nothing): only the crop asked for.
+    const want = cropKey(applied.commodity);
+    const list = want ? [...(mandiQ.data?.records ?? [])].filter((r) => cropKey(r.commodity) === want) : [];
     if (sort === 'price-asc') list.sort((a, b) => a.modalPrice - b.modalPrice);
     else if (sort === 'price-desc') list.sort((a, b) => b.modalPrice - a.modalPrice);
     else list.sort((a, b) => b.arrivalDate.localeCompare(a.arrivalDate) || a.market.localeCompare(b.market));
     return list;
-  }, [mandiQ.data, sort]);
+  }, [mandiQ.data, sort, applied.commodity]);
 
   const byState = useMemo(() => {
     const groups = new Map<string, MandiRecord[]>();
@@ -772,7 +777,7 @@ export default function MandiWeatherPage() {
             <div className="flex items-end">
               <Btn theme={theme} type="submit" icon={Search} className="w-full">Show prices</Btn>
             </div>
-            <datalist id="commodities">{commodities.map((c) => <option key={c} value={c} />)}</datalist>
+            <datalist id="commodities">{[...new Set([...QUICK_COMMODITIES, ...commodities])].map((c) => <option key={c} value={c} />)}</datalist>
             <datalist id="states">{STATES.map((s) => <option key={s} value={s} />)}</datalist>
           </div>
 
@@ -822,6 +827,11 @@ export default function MandiWeatherPage() {
             </div>
           )}
           {mandiQ.data?.stale && applied.commodity && <LastUpdated at={mandiQ.data.fetchedAt} source={mandiQ.data.source} className="mt-5" />}
+          {mandiQ.data?.stale && rows.length > 0 && (
+            <p className="mt-3 flex items-start gap-2 rounded-2xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> The official feeds have no new {applied.commodity} reports right now. These are the latest KashRoot saved, each with the date it was reported.
+            </p>
+          )}
           {mandiQ.data?.widened && rows.length > 0 && (
             <p className="mt-5 flex items-start gap-2 rounded-2xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
               <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> {mandiQ.data.widened}
@@ -829,8 +839,23 @@ export default function MandiWeatherPage() {
           )}
           {mandiQ.data && rows.length === 0 && applied.commodity && (
             <div className="mt-6">
-              <EmptyState theme={theme} icon={Thermometer} title={`No reports for ${applied.commodity}`} text={`No mandi has reported ${applied.commodity}${applied.state ? ` in ${applied.state}` : ''} to Agmarknet today. Mandis report only on days they trade — check the rates posted by Mandi Helpers above, or try another commodity.`} />
+              <EmptyState
+                theme={theme}
+                icon={Thermometer}
+                title={mandiQ.data.agmarknet === 'captcha' ? `No ${applied.commodity} prices can be read right now` : `No ${applied.commodity} reports in the official feed`}
+                text={
+                  mandiQ.data.agmarknet === 'captcha'
+                    ? `Agmarknet, the government's mandi price site, now asks every visitor to solve a CAPTCHA, so no website can read it automatically. The other official feed (data.gov.in) has no ${applied.commodity} reports${applied.state ? ` for ${applied.state}` : ''} today. Open agmarknet.gov.in to read today's prices there, or see the rates Mandi Helpers posted above.`
+                    : `The official feed has no ${applied.commodity} reports${applied.state ? ` for ${applied.state}` : ''} right now. A mandi appears here only on the days it reports. Check the rates posted by Mandi Helpers above, or try another crop.`
+                }
+              />
+              <p className="mt-3 text-center text-sm">
+                <a href="https://agmarknet.gov.in/" target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center font-semibold text-slate-700 underline">Open agmarknet.gov.in</a>
+              </p>
             </div>
+          )}
+          {mandiQ.data && !applied.commodity && (
+            <p className="mt-6 text-sm text-slate-600">Type a crop (for example Apple) to see its prices.</p>
           )}
           {stats && (
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
