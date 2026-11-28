@@ -13,7 +13,7 @@ test('the 3D view tells a new farmer the three steps, and hides measurement plat
   await page.getByText('3D view', { exact: true }).first().click();
   await expect(page.locator('canvas').first()).toBeVisible();
   await expect(page.getByText('1. Tap a chamber to open it.')).toBeVisible();
-  await expect(page.getByText('3. Press Next.')).toBeVisible();
+  await expect(page.getByText('3. Press Book & pay now.')).toBeVisible();
   const sizes = page.getByRole('button', { name: 'Show sizes' });
   await expect(sizes).toHaveAttribute('aria-pressed', 'false');
   await sizes.click();

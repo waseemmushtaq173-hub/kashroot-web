@@ -26,5 +26,5 @@ test('clicking a stack in 3D selects it, and the price follows the number of bin
   await page.getByLabel(/How many bins here/i).fill('3');
   await expect(page.getByText(/3 × ₹45 × 6 months/)).toBeVisible();
   await expect(page.getByText('₹810')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Book Selected Bin/i })).toBeEnabled();
+  await expect(page.getByRole('button', { name: /Book & pay now/i })).toBeEnabled();
 });

@@ -196,6 +196,12 @@ export interface StoreDraft {
     spPackingL: string; spPackingW: string;
     spMachineryL: string; spMachineryW: string;
     spDockL: string; spDockW: string;
+    /** Where each work space stands: distance from the left wall and from the front wall ('' = not said). */
+    spCleaningX: string; spCleaningY: string;
+    spGradingX: string; spGradingY: string;
+    spPackingX: string; spPackingY: string;
+    spMachineryX: string; spMachineryY: string;
+    spDockX: string; spDockY: string;
   };
   chambers: ChamberDraft[];
 }
@@ -237,7 +243,7 @@ export function blankStore(who?: { name?: string; phone?: string; district?: str
     area: who?.village ?? '',
     address: prefill?.address ?? '',
     unit: 'ft',
-    building: { length: '', width: '', height: '', door: blankDoor(), sides: '', wallThickness: '', passageWidth: '', doorKind: '', spCleaningL: '', spCleaningW: '', spGradingL: '', spGradingW: '', spPackingL: '', spPackingW: '', spMachineryL: '', spMachineryW: '', spDockL: '', spDockW: '' },
+    building: { length: '', width: '', height: '', door: blankDoor(), sides: '', wallThickness: '', passageWidth: '', doorKind: '', spCleaningL: '', spCleaningW: '', spGradingL: '', spGradingW: '', spPackingL: '', spPackingW: '', spMachineryL: '', spMachineryW: '', spDockL: '', spDockW: '', ...BLANK_SPOTS },
     chambers: [],
   };
 }
@@ -380,16 +386,24 @@ export const SPACE_TEXT: Record<SpaceKey, string> = {
   dock: 'Loading & Unloading Bay',
 };
 /** One space as the owner sized it: length × width, in metres. */
-export type SpaceSize = { l: number; w: number };
+export type SpaceSize = {
+  l: number;
+  w: number;
+  /** Where the owner says it stands, in metres from the building's left wall and from its front wall (the near corner). Absent: not said. */
+  x?: number;
+  y?: number;
+};
 export type WorkSpaces = Partial<Record<SpaceKey, SpaceSize>>;
 /** The draft fields of each space's length and width. */
-export const SPACE_DRAFT_FIELDS: Record<SpaceKey, { l: string; w: string }> = {
-  cleaning: { l: 'spCleaningL', w: 'spCleaningW' },
-  grading: { l: 'spGradingL', w: 'spGradingW' },
-  packing: { l: 'spPackingL', w: 'spPackingW' },
-  machinery: { l: 'spMachineryL', w: 'spMachineryW' },
-  dock: { l: 'spDockL', w: 'spDockW' },
+export const SPACE_DRAFT_FIELDS: Record<SpaceKey, { l: string; w: string; x: string; y: string }> = {
+  cleaning: { l: 'spCleaningL', w: 'spCleaningW', x: 'spCleaningX', y: 'spCleaningY' },
+  grading: { l: 'spGradingL', w: 'spGradingW', x: 'spGradingX', y: 'spGradingY' },
+  packing: { l: 'spPackingL', w: 'spPackingW', x: 'spPackingX', y: 'spPackingY' },
+  machinery: { l: 'spMachineryL', w: 'spMachineryW', x: 'spMachineryX', y: 'spMachineryY' },
+  dock: { l: 'spDockL', w: 'spDockW', x: 'spDockX', y: 'spDockY' },
 };
+/** Where each work space stands, blank (nothing said yet). */
+const BLANK_SPOTS = { spCleaningX: '', spCleaningY: '', spGradingX: '', spGradingY: '', spPackingX: '', spPackingY: '', spMachineryX: '', spMachineryY: '', spDockX: '', spDockY: '' };
 /** Every building length is kept inside these metres, however it was typed. */
 export const BUILDING_LIMITS = { wallThickness: [0.05, 1.5], passage: [2, 12], space: [1, 60] } as const;
 /** A door in metres: its wall, from the left corner of that wall (standing outside facing it), width, height. */
@@ -730,7 +744,24 @@ export function storeModel(draft: StoreDraft): StoreModel {
     const f = SPACE_DRAFT_FIELDS[k];
     const l = buildingLen(d.building[f.l as keyof typeof d.building] as string, u, BUILDING_LIMITS.space[0], BUILDING_LIMITS.space[1]);
     const w = buildingLen(d.building[f.w as keyof typeof d.building] as string, u, BUILDING_LIMITS.space[0], BUILDING_LIMITS.space[1]);
-    if (l !== null && w !== null) workSpaces[k] = { l, w };
+    if (l !== null && w !== null) {
+      workSpaces[k] = { l, w };
+      // Where it stands: both distances or neither. Only what the owner typed is used — nothing is placed for them.
+      const num0 = (v: string) => {
+        const n = readNumber(v);
+        return n !== null && Number.isFinite(n) ? n : null;
+      };
+      const x = num0(d.building[f.x as keyof typeof BLANK_SPOTS]);
+      const y = num0(d.building[f.y as keyof typeof BLANK_SPOTS]);
+      if ((x !== null) !== (y !== null)) add('warn', 2, `building.${x === null ? f.x : f.y}`, `${SPACE_TEXT[k]}: write both distances — from the left wall and from the front wall — or neither.`);
+      else if (x !== null && y !== null) {
+        const xm = metres(x, u);
+        const ym = metres(y, u);
+        if (xm < 0 || ym < 0) add('warn', 2, `building.${f.x}`, `${SPACE_TEXT[k]}: the distances cannot be below 0.`);
+        else if (bL !== null && bW !== null && (xm + l > bL + 0.02 || ym + w > bW + 0.02)) add('warn', 2, `building.${f.x}`, `${SPACE_TEXT[k]} would go outside the building at ${say(x, u)} from the left wall and ${say(y, u)} from the front wall. Check the distances or its size.`);
+        else workSpaces[k] = { l, w, x: xm, y: ym };
+      }
+    }
   }
   // Drawn on both sides until the owner chooses (it cannot be saved before).
   const building: Building | null = bL !== null && bW !== null && bH !== null && mainDoor ? {
@@ -1675,7 +1706,10 @@ export function asBuilding(v: unknown): Building | null {
     const out: WorkSpaces = {};
     for (const k of SPACE_KEYS) {
       const s = ws[k];
-      if (s && num(s.l) && num(s.w)) out[k] = { l: clamp(s.l, BUILDING_LIMITS.space[0], BUILDING_LIMITS.space[1]), w: clamp(s.w, BUILDING_LIMITS.space[0], BUILDING_LIMITS.space[1]) };
+      if (s && num(s.l) && num(s.w)) {
+        out[k] = { l: clamp(s.l, BUILDING_LIMITS.space[0], BUILDING_LIMITS.space[1]), w: clamp(s.w, BUILDING_LIMITS.space[0], BUILDING_LIMITS.space[1]) };
+        if (typeof s.x === 'number' && Number.isFinite(s.x) && s.x >= 0 && typeof s.y === 'number' && Number.isFinite(s.y) && s.y >= 0) out[k] = { ...out[k]!, x: s.x, y: s.y };
+      }
     }
     if (Object.keys(out).length > 0) workSpaces = out;
   }
@@ -1822,8 +1856,13 @@ export function draftFromSaved(
           spMachineryW: building.workSpaces?.machinery ? t(building.workSpaces.machinery.w) : '',
           spDockL: building.workSpaces?.dock ? t(building.workSpaces.dock.l) : '',
           spDockW: building.workSpaces?.dock ? t(building.workSpaces.dock.w) : '',
+          ...Object.fromEntries(SPACE_KEYS.flatMap((k) => {
+            const f = SPACE_DRAFT_FIELDS[k];
+            const sp = building.workSpaces?.[k];
+            return [[f.x, sp?.x !== undefined ? t(sp.x) : ''], [f.y, sp?.y !== undefined ? t(sp.y) : '']];
+          })) as typeof BLANK_SPOTS,
         }
-      : { length: '', width: '', height: '', door: blankDoor(), sides: '', wallThickness: '', passageWidth: '', doorKind: '', spCleaningL: '', spCleaningW: '', spGradingL: '', spGradingW: '', spPackingL: '', spPackingW: '', spMachineryL: '', spMachineryW: '', spDockL: '', spDockW: '' },
+      : { length: '', width: '', height: '', door: blankDoor(), sides: '', wallThickness: '', passageWidth: '', doorKind: '', spCleaningL: '', spCleaningW: '', spGradingL: '', spGradingW: '', spPackingL: '', spPackingW: '', spMachineryL: '', spMachineryW: '', spDockL: '', spDockW: '', ...BLANK_SPOTS },
     chambers: groups.map((g) => {
       const s = g.size!;
       const o = outlineOf(s);
@@ -1888,6 +1927,7 @@ export function switchUnit(d: StoreDraft, unit: SizeUnit): StoreDraft {
       spPackingL: conv(d.building.spPackingL), spPackingW: conv(d.building.spPackingW),
       spMachineryL: conv(d.building.spMachineryL), spMachineryW: conv(d.building.spMachineryW),
       spDockL: conv(d.building.spDockL), spDockW: conv(d.building.spDockW),
+      ...(Object.fromEntries(SPACE_KEYS.flatMap((k) => [[SPACE_DRAFT_FIELDS[k].x, conv(d.building[SPACE_DRAFT_FIELDS[k].x as keyof typeof BLANK_SPOTS])], [SPACE_DRAFT_FIELDS[k].y, conv(d.building[SPACE_DRAFT_FIELDS[k].y as keyof typeof BLANK_SPOTS])]])) as typeof BLANK_SPOTS),
     },
     chambers: d.chambers.map((c) => ({
       ...c,

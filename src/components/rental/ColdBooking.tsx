@@ -721,7 +721,7 @@ export function ColdBooking({
           <div className="flex w-full flex-wrap items-center justify-between gap-3">
             {summary}
             {picked.size > 0 ? (
-              <Btn theme={theme} className="min-h-[52px] w-full text-base sm:w-auto" icon={ArrowRight} data-testid="next-confirm" onClick={toConfirm}>Next: confirm · {inr(price.total)}</Btn>
+              <Btn theme={theme} className="min-h-[52px] w-full text-base sm:w-auto" icon={ArrowRight} data-testid="next-confirm" onClick={toConfirm}>Book & pay now · {inr(price.total)}</Btn>
             ) : (
               <Btn theme={theme} className="min-h-[52px] w-full text-base sm:w-auto" icon={Sparkles} data-testid="choose-for-me" disabled={!taken} onClick={choosePlaces}>Choose places for me</Btn>
             )}

@@ -651,18 +651,22 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
       };
       const start = md.width / 2 + 1.1;
       const out = 1.7;
-      // A refrigerated truck each side of the door: white insulated body with a gold waistline, forest green cab.
-      for (const side of [1, -1]) {
+      // A refrigerated truck each side of the door: white insulated body with a gold waistline, forest green cab — drawn only when the
+      // owner gave a loading & unloading bay; nothing is made up for a store that did not.
+      const bayGiven = scene.zones.some((z) => z.key === 'dock');
+      for (const side of bayGiven ? [1, -1] : []) {
         truck(4.6, 2.4, 2.6, 1.85, side * (start + 2.3), out, mats.leaf);
         truck(4.62, 2.42, 0.12, 1.1, side * (start + 2.3), out, mats.gold);
         truck(1.6, 2.3, 2.0, 1.55, side * (start + 5.4), out, mats.paint);
         truck(0.12, 2.2, 0.8, 1.9, side * (start + 6.2), out, mats.glass);
         for (const a of [start + 0.9, start + 3.6, start + 5.4]) for (const s of [-1, 1]) truck(0.9, 0.3, 1, 0.5, side * a, out + s * 1.1, mats.pipe);
       }
-      const bay = label(T, 'Truck loading / unloading bay', 'dispatch · outside the main door', 4.2, true, 22, 52);
-      bay.position.set(wx(o, md.mid.x + ux * (start + 2.8) - md.inward.x * out), 5.2, wz(o, md.mid.y + uy * (start + 2.8) - md.inward.y * out));
-      add(bay);
-      labels.push(bay);
+      if (bayGiven) {
+        const bay = label(T, 'Truck loading / unloading bay', 'dispatch · outside the main door', 4.2, true, 22, 52);
+        bay.position.set(wx(o, md.mid.x + ux * (start + 2.8) - md.inward.x * out), 5.2, wz(o, md.mid.y + uy * (start + 2.8) - md.inward.y * out));
+        add(bay);
+        labels.push(bay);
+      }
     }
     // The airlock vestibule inside the main door (Leaflet 427 anteroom): its walls where the side is open hall, the
     // inner door across the passage with a PVC strip curtain hung in it, so warm outside air never reaches the hall.
