@@ -485,74 +485,45 @@ export function chamberDoorTexture(T: Three, number: number, ratio: number, acce
   const h = Math.round(Math.min(640, Math.max(256, w * ratio)));
   const { c, g } = canvas(w, h);
   if (g) {
+    // The leaf of a cold-room sliding door is safety yellow all over (as in the photographs of real stores), with its number on a
+    // white plate in black.
     const sheen = g.createLinearGradient(0, 0, w, 0);
-    sheen.addColorStop(0, '#e9edf1');
-    sheen.addColorStop(0.5, '#f7f9fb');
-    sheen.addColorStop(1, '#e6ebf0');
+    sheen.addColorStop(0, '#f2bf0a');
+    sheen.addColorStop(0.5, '#fbd024');
+    sheen.addColorStop(1, '#eeb907');
     g.fillStyle = sheen;
     g.fillRect(0, 0, w, h);
     // Fine vertical ribs of the sandwich sheet.
     for (let x = 14; x < w; x += 14) {
-      g.fillStyle = 'rgba(255,255,255,0.8)';
+      g.fillStyle = 'rgba(255,255,255,0.22)';
       g.fillRect(x, 0, 1, h);
-      g.fillStyle = 'rgba(100,116,139,0.14)';
+      g.fillStyle = 'rgba(120,80,0,0.16)';
       g.fillRect(x + 1, 0, 1, h);
     }
-    // The leaf's edge, and a stainless kick plate with a yellow-and-black hazard band over it.
+    // The leaf's edge, and a stainless kick plate low on it.
     g.lineWidth = 6;
-    g.strokeStyle = '#aeb7c0';
+    g.strokeStyle = '#7c6a1b';
     g.strokeRect(3, 3, w - 6, h - 6);
-    g.fillStyle = '#b9c1c9';
-    g.fillRect(0, h * 0.93, w, h * 0.07);
-    const bandY = h * 0.88;
-    const bandH = h * 0.05;
-    g.fillStyle = '#111827';
-    g.fillRect(0, bandY, w, bandH);
-    g.fillStyle = '#facc15';
-    for (let x = -bandH; x < w; x += bandH * 2) {
-      g.beginPath();
-      g.moveTo(x, bandY + bandH);
-      g.lineTo(x + bandH, bandY);
-      g.lineTo(x + bandH * 2, bandY);
-      g.lineTo(x + bandH, bandY + bandH);
-      g.closePath();
-      g.fill();
-    }
-    // This chamber's own colour across the top of the leaf and on its number badge, so no two doors look alike.
+    g.fillStyle = '#aab2ba';
+    g.fillRect(0, h * 0.92, w, h * 0.08);
+    // This chamber's own colour, a thin band across the top of the leaf (the number stays black on white, as on the real doors).
     g.fillStyle = accent;
-    g.fillRect(0, 0, w, h * 0.045);
-    // The chamber's number on a round badge.
-    const r = w * 0.13;
-    g.fillStyle = accent;
-    g.beginPath();
-    g.arc(w / 2, h * 0.17, r, 0, Math.PI * 2);
-    g.fill();
-    g.strokeStyle = '#ffffff';
-    g.lineWidth = 4;
-    g.stroke();
+    g.fillRect(0, 0, w, h * 0.04);
+    // The chamber's number: black on a white plate, big enough to read from the far end of the passage.
+    const pw = w * 0.5;
+    const ph = Math.min(h * 0.34, w * 0.62);
+    const px = (w - pw) / 2;
+    const py = h * 0.5;
     g.fillStyle = '#ffffff';
-    g.font = `800 ${Math.round(r * (number > 9 ? 1.05 : 1.3))}px system-ui, sans-serif`;
+    g.fillRect(px, py, pw, ph);
+    g.strokeStyle = '#111827';
+    g.lineWidth = 3;
+    g.strokeRect(px, py, pw, ph);
+    g.fillStyle = '#111827';
+    g.font = `800 ${Math.round(ph * (number > 9 ? 0.62 : 0.84))}px system-ui, sans-serif`;
     g.textAlign = 'center';
     g.textBaseline = 'middle';
-    g.fillText(String(number), w / 2, h * 0.17 + 2);
-    // A small warning pictogram (low oxygen / cold room) low on the leaf.
-    const ty = h * 0.74;
-    const tw = w * 0.09;
-    g.fillStyle = '#fde047';
-    g.strokeStyle = '#111827';
-    g.lineWidth = 4;
-    g.beginPath();
-    g.moveTo(w / 2, ty - tw);
-    g.lineTo(w / 2 + tw, ty + tw * 0.75);
-    g.lineTo(w / 2 - tw, ty + tw * 0.75);
-    g.closePath();
-    g.fill();
-    g.stroke();
-    g.fillStyle = '#111827';
-    g.fillRect(w / 2 - 2, ty - tw * 0.4, 4, tw * 0.7);
-    g.beginPath();
-    g.arc(w / 2, ty + tw * 0.5, 2.5, 0, Math.PI * 2);
-    g.fill();
+    g.fillText(String(number), w / 2, py + ph / 2 + 2);
   }
   const t = new T.CanvasTexture(c);
   t.colorSpace = T.SRGBColorSpace;

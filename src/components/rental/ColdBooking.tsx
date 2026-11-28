@@ -17,7 +17,7 @@
  */
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, CalendarDays, CheckCircle2, Map as MapIcon, Navigation, ReceiptText, RefreshCw, Snowflake, Sparkles, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, Map as MapIcon, Navigation, ReceiptText, RefreshCw, Snowflake, Sparkles, Trash2, X } from 'lucide-react';
 import { z } from 'zod';
 import { authFetch } from '@/lib/auth-fetch';
 import { toast } from '@/lib/client/toast';
@@ -678,7 +678,7 @@ export function ColdBooking({
       )
     ) : null;
   const summary = (
-    <p className="text-sm text-slate-700">
+    <p className="min-w-0 flex-1 text-sm text-slate-700" data-testid="choose-summary">
       {picked.size ? (
         <>
           <strong className="text-slate-900">{picked.size} place{picked.size === 1 ? '' : 's'}</strong> · {chosenWords}{fitNote} · {months} month{months === 1 ? '' : 's'} ·{' '}
@@ -691,6 +691,17 @@ export function ColdBooking({
       )}
     </p>
   );
+  // The one button that is always there to press: before any place is chosen it chooses them (asking how many, if KashRoot does not know); once places are chosen it goes on to confirm and pay.
+  const chooser = useRef<HTMLDivElement>(null);
+  const wantField = useRef<HTMLInputElement>(null);
+  const askHowMany = () => {
+    chooser.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    window.setTimeout(() => wantField.current?.focus({ preventScroll: true }), 350);
+  };
+  const choosePlaces = () => {
+    if (!(wanted > 0) || (kinds.length > 1 && !kind)) return askHowMany();
+    chooseForMe();
+  };
   // Booked on a place another farmer is on: the booking waits for that farmer's yes before it can be paid.
   const share = useShareStatus(booked?.id, step === 'pay');
   const waitingOnShare = share.status?.state === 'asked' || share.status?.state === 'declined';
@@ -709,12 +720,16 @@ export function ColdBooking({
         step === 'choose' ? (
           <div className="flex w-full flex-wrap items-center justify-between gap-3">
             {summary}
-            <Btn theme={theme} className="min-h-[44px]" disabled={!picked.size} onClick={toConfirm}>Continue</Btn>
+            {picked.size > 0 ? (
+              <Btn theme={theme} className="min-h-[52px] w-full text-base sm:w-auto" icon={ArrowRight} data-testid="next-confirm" onClick={toConfirm}>Next: confirm · {inr(price.total)}</Btn>
+            ) : (
+              <Btn theme={theme} className="min-h-[52px] w-full text-base sm:w-auto" icon={Sparkles} data-testid="choose-for-me" disabled={!taken} onClick={choosePlaces}>Choose places for me</Btn>
+            )}
           </div>
         ) : step === 'confirm' ? (
-          <div className="flex w-full flex-wrap items-center justify-between gap-3">
+          <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
             <Btn theme={theme} variant="ghost" className="min-h-[44px]" icon={ArrowLeft} onClick={() => setStep('choose')}>Back to the map</Btn>
-            <Btn theme={theme} className="min-h-[44px]" icon={CheckCircle2} disabled={busy || preview} onClick={() => void book()}>{preview ? `Preview only · ${inr(price.total)}` : busy ? 'Booking…' : `Book for ${inr(price.total)}`}</Btn>
+            <Btn theme={theme} className="min-h-[52px] w-full text-base sm:w-auto" icon={CheckCircle2} disabled={busy || preview} onClick={() => void book()}>{preview ? `Preview only · ${inr(price.total)}` : busy ? 'Booking…' : `Book for ${inr(price.total)}`}</Btn>
           </div>
         ) : (
           <div className="flex w-full flex-wrap items-center justify-end gap-3">
@@ -723,6 +738,7 @@ export function ColdBooking({
         )
       }
     >
+      <Steps step={step} />
       {step === 'choose' ? (
         <div className="space-y-4">
           {preview && <PreviewNote />}
@@ -748,7 +764,7 @@ export function ColdBooking({
             <span>Showing which places are free from {niceDate(start)} to {niceDate(lastDay(start, months))}.</span>
             <button type="button" onClick={() => void load()} className="inline-flex min-h-[44px] cursor-pointer items-center gap-1 rounded-lg px-2 text-sm font-semibold text-forest hover:bg-ivory"><RefreshCw className="h-4 w-4" aria-hidden /> Refresh</button>
           </p>
-          <div className="flex flex-wrap items-end gap-2 rounded-2xl bg-forest-soft p-3 ring-1 ring-[#CFE0D6]">
+          <div ref={chooser} className="flex flex-wrap items-end gap-2 rounded-2xl bg-forest-soft p-3 ring-1 ring-[#CFE0D6]">
             {kinds.length > 1 && (
               <div role="radiogroup" aria-label="What will you bring?" className="flex basis-full gap-2">
                 {kinds.map((k) => (
@@ -760,7 +776,7 @@ export function ColdBooking({
             )}
             <div className="w-full sm:w-56">
               <Field label={`How many ${word} do you have?`}>
-                <input type="number" min={1} inputMode="numeric" className={`${INPUT} min-h-[44px] text-base`} value={want} onChange={(e) => setWant(e.target.value)} placeholder="e.g. 40" />
+                <input ref={wantField} type="number" min={1} inputMode="numeric" className={`${INPUT} min-h-[44px] text-base`} value={want} onChange={(e) => setWant(e.target.value)} placeholder="e.g. 40" />
               </Field>
             </div>
             <Btn theme={theme} className="min-h-[44px]" icon={Sparkles} disabled={!taken} onClick={chooseForMe}>Choose places for me</Btn>
@@ -921,10 +937,13 @@ export function ColdBooking({
           <ShareWaiting status={share.status} checking={share.checking} onCheck={() => void share.check()} />
           {!waitingOnShare && (
           <div className="rounded-xl bg-white p-4 ring-1 ring-slate-200">
-            <p className="font-semibold text-slate-900 mb-2">Gate Pass QR Code</p>
-            <p className="text-sm text-slate-600 mb-3">Scan this QR code at the cold store gate for entry</p>
-            <GatePassQR bookingId={booked.id} bookingCode={bookingCode(booked.id)} places={asPlaced} chambers={chambers} ownerName={l.owner_name} ownerPhone={l.phone} amount={booked.amount} />
+            {/* Paying comes first: it is what the farmer is here to do. The gate pass is under it. */}
             <PayOwner bookingId={booked.id} amount={booked.amount} owner={{ name: l.owner_name, phone: l.phone }} onPaid={() => setStep('paid')} />
+            <div className="mt-5 border-t border-slate-200 pt-4">
+              <p className="font-semibold text-slate-900 mb-2">Gate Pass QR Code</p>
+              <p className="text-sm text-slate-600 mb-3">Scan this QR code at the cold store gate for entry</p>
+              <GatePassQR bookingId={booked.id} bookingCode={bookingCode(booked.id)} places={asPlaced} chambers={chambers} ownerName={l.owner_name} ownerPhone={l.phone} amount={booked.amount} />
+            </div>
           </div>
           )}
         </div>
@@ -1008,6 +1027,29 @@ export function MyPlaces({ places, chambers, listingId, start, months, name }: {
         </div>
       )}
     </div>
+  );
+}
+
+/** Where the farmer is: choose places → confirm → pay the owner. Always on screen, so the way to pay is never out of sight. */
+function Steps({ step }: { step: Step }) {
+  const at = step === 'choose' ? 0 : step === 'confirm' ? 1 : step === 'pay' ? 2 : 3;
+  return (
+    <ol aria-label="Booking steps" data-testid="booking-steps" className="mb-4 grid grid-cols-3 gap-1.5 sm:gap-2">
+      {['Choose places', 'Confirm', 'Pay the owner'].map((label, i) => {
+        const now = i === at;
+        const done = i < at;
+        return (
+          <li
+            key={label}
+            aria-current={now ? 'step' : undefined}
+            className={`flex min-h-[44px] items-center gap-1.5 rounded-xl px-2 py-1.5 text-[13px] font-semibold leading-tight ring-1 sm:gap-2 sm:px-3 sm:text-sm ${now ? 'bg-forest text-white ring-forest' : done ? 'bg-forest-soft text-forest-deep ring-[#CFE0D6]' : 'bg-white text-slate-600 ring-slate-200'}`}
+          >
+            <span aria-hidden className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold ${now ? 'bg-white/25 text-white' : done ? 'bg-forest text-white' : 'bg-slate-100 text-slate-600'}`}>{done ? '✓' : i + 1}</span>
+            <span className="min-w-0">{label}</span>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 

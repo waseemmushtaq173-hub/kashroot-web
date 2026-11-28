@@ -65,11 +65,11 @@ test('picture: 3D cold store', async ({ page }) => {
   await page.getByRole('button', { name: 'Chamber 1' }).click();
   await page.waitForTimeout(2500);
   await page.locator('canvas[role="img"]').screenshot({ path: 'test-results/look-3d-chamber.png' });
-  await page.getByRole('button', { name: 'X-ray walls' }).click();
+  await page.getByRole('button', { name: 'See inside all chambers' }).click();
   await page.getByRole('button', { name: 'View from the door' }).click();
   await page.waitForTimeout(2500);
   await page.locator('canvas[role="img"]').screenshot({ path: 'test-results/look-3d-xray.png' });
-  await page.getByRole('button', { name: 'X-ray walls' }).click();
+  await page.getByRole('button', { name: 'See inside all chambers' }).click();
   await page.getByRole('tab', { name: 'Walk inside' }).click();
   await page.waitForTimeout(3000);
   await page.locator('canvas[role="img"]').screenshot({ path: 'test-results/look-3d-walk.png' });

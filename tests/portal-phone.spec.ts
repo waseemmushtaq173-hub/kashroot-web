@@ -64,9 +64,11 @@ async function signIn(page: Page, portal: PortalId) {
 
 // Admin and the KashRoot Hub answer "Page not found" to anyone who has not passed the team unlock, so a stand-in account cannot open
 // them; their sign-in pages are checked in phone-structure.spec.ts.
+// 360 px is the most common Android width (and the narrowest the top bar must fit); 390 px is a current iPhone.
+for (const width of [360, 390]) {
 for (const portal of PUBLIC) {
-  test.describe(`${portal} portal`, () => {
-    test.use({ viewport: { width: 390, height: 800 }, isMobile: true, hasTouch: true });
+  test.describe(`${portal} portal at ${width}px`, () => {
+    test.use({ viewport: { width, height: 800 }, isMobile: true, hasTouch: true });
 
     test(`${portal}: its home and every section button lay out cleanly`, async ({ page }) => {
       const errors: string[] = [];
@@ -101,9 +103,18 @@ for (const portal of PUBLIC) {
         await tab.click({ timeout: 3000 }).catch(() => undefined);
         await page.waitForTimeout(900);
         await check(label);
+        // The section just opened is fully in sight (the row of buttons scrolls it in), not half off the screen.
+        const sight = await page.evaluate(() => {
+          const t = document.querySelector('[role="tablist"][aria-orientation="horizontal"] [aria-selected="true"]');
+          if (!t) return null;
+          const r = t.getBoundingClientRect();
+          return { left: r.left, right: r.right, vw: document.documentElement.clientWidth };
+        });
+        if (sight && (sight.left < -1 || sight.right > sight.vw + 1)) findings.push(`[${label}] the open section button is not fully in sight (${Math.round(sight.left)} to ${Math.round(sight.right)} of ${sight.vw}px)`);
       }
-      expect([...new Set(findings)].slice(0, 15), `${portal} on a 390px phone`).toEqual([]);
+      expect([...new Set(findings)].slice(0, 15), `${portal} on a ${width}px phone`).toEqual([]);
       expect(errors, 'no script errors').toEqual([]);
     });
   });
+}
 }

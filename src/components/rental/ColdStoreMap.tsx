@@ -450,6 +450,13 @@ export function ColdStoreExplorer({
           This cold store has not been measured yet: the owner has not entered its building, chambers and floors. Below are only the rows and places the owner gave. Call the owner to ask which chamber and floor your apples will go to, and whether they use bins or crates.
         </p>
       )}
+      {mode === 'book' && view === 'drawing' && !plainRooms && (
+        <p data-testid="drawing-steps" className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl bg-forest-soft px-4 py-2.5 text-base font-semibold text-forest-deep ring-1 ring-[#CFE0D6]">
+          <span>1. Tap a chamber to open it.</span>
+          <span>2. Tap a free green place to choose it.</span>
+          <span>3. Press Next.</span>
+        </p>
+      )}
       {view === 'photos' && realStore ? (
         <StorePhotosView listingId={listingId} />
       ) : view !== 'drawing' && plainRooms ? (
@@ -518,8 +525,11 @@ export function ColdStoreExplorer({
               {waiting ? drawingSoon : <StoreTopView scene={scene} floor={floor} stateOf={stateOf} counts={counts} active={openIndex} onPick={openChamber} mode={mode} />}
               {scene.problems.length > 0 && (
                 <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-950 ring-1 ring-amber-300">
-                  {mode === 'owner' ? scene.problems.slice(0, 3).join(' ') : 'As the owner measured them, some chambers do not fit inside the building, so they are drawn where they would stand (in red).'}
+                  {mode === 'owner' ? scene.problems.slice(0, 3).join(' ') : 'As the owner measured them, some chambers need more room than the building has, so the building is drawn larger here.'}
                 </p>
+              )}
+              {scene.problems.length === 0 && mode === 'owner' && scene.notes.length > 0 && (
+                <p className="rounded-xl bg-sky-50 px-3 py-2 text-sm text-sky-950 ring-1 ring-sky-200">{scene.notes.slice(0, 3).join(' ')}</p>
               )}
             </section>
           )}

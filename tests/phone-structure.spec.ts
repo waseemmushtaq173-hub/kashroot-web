@@ -106,6 +106,54 @@ test.describe('on a phone, the page opens on the tool, not on a paragraph', () =
     }
   });
 
+  test('the voice assistant takes little room on a phone: one row of languages, a small mic, area controls side by side', async ({ page }) => {
+    await page.route('**/api/supabase/**', (route) => route.fulfill({ json: [] }));
+    await page.goto('/', { waitUntil: 'load' });
+    await page.waitForTimeout(2000);
+    const panel = page.locator('[data-voice-panel]').first();
+    await expect(panel).toBeVisible();
+    const m = await panel.evaluate((el) => {
+      const rect = (e: Element) => e.getBoundingClientRect();
+      const langs = [...el.querySelectorAll('[role="group"][aria-label="Language"] button')].map((b) => rect(b));
+      const mic = [...el.querySelectorAll('button')].find((b) => /Speak your question|Stop listening/.test(b.getAttribute('aria-label') ?? ''))!;
+      const here = [...el.querySelectorAll('button')].find((b) => /Use my location|Finding/.test(b.textContent ?? ''))!;
+      const state = el.querySelector('select')!;
+      const examples = [...el.querySelectorAll('[role="group"][aria-label="Try saying"] button')].filter((b) => rect(b).width > 0);
+      return {
+        height: rect(el).height,
+        langCount: langs.length,
+        langRows: new Set(langs.map((r) => Math.round(r.top))).size,
+        mic: rect(mic).width,
+        areaRows: new Set([Math.round(rect(here).top), Math.round(rect(state).top)]).size,
+        examples: examples.length,
+      };
+    });
+    expect(m.langCount, 'five languages').toBe(5);
+    expect(m.langRows, 'all the languages sit in one row').toBe(1);
+    expect(m.mic, 'the microphone is 64 px, not 80').toBeLessThanOrEqual(66);
+    expect(m.mic).toBeGreaterThanOrEqual(56);
+    expect(m.areaRows, '"Use my location" and the state box share a row').toBe(1);
+    expect(m.examples, 'three example questions on a phone').toBeLessThanOrEqual(3);
+    expect(m.height, `the whole panel is ${Math.round(m.height)} px tall (it was 837)`).toBeLessThanOrEqual(600);
+  });
+
+  test('text is a step smaller on a phone: no heading above 28 px, the page text 15 px, text boxes still 16 px (no zoom when tapped)', async ({ page }) => {
+    await page.route('**/api/supabase/**', (route) => route.fulfill({ json: [] }));
+    for (const path of ['/', '/supplies/tester', '/mandi-weather', '/escrow']) {
+      await page.goto(path, { waitUntil: 'load' });
+      await page.waitForTimeout(1500);
+      const m = await page.evaluate(() => {
+        const heads = [...document.querySelectorAll('h1, h2, h3')].filter((h) => h.getBoundingClientRect().width > 0).map((h) => parseFloat(getComputedStyle(h).fontSize));
+        const fields = [...document.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), textarea')].filter((f) => f.getBoundingClientRect().width > 0);
+        return { biggest: Math.max(0, ...heads), body: parseFloat(getComputedStyle(document.body).fontSize), smallestField: fields.length ? Math.min(...fields.map((f) => parseFloat(getComputedStyle(f).fontSize))) : 16 };
+      });
+      expect(m.biggest, `${path}: the biggest heading`).toBeLessThanOrEqual(28);
+      expect(m.body, `${path}: the page text`).toBeLessThanOrEqual(15.01);
+      // TrueScan's own box is one of the fields: a phone browser zooms the page in on a field smaller than 16 px.
+      if (path === '/supplies/tester') expect(await page.locator('#truescan-text').evaluate((e) => parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(16);
+    }
+  });
+
   test('register: each role has its own colour (a farmer is not indigo)', async ({ page }) => {
     await page.goto('/register', { waitUntil: 'load' });
     const colour = (name: string) => page.getByRole('button', { name: new RegExp(`^${name}`) }).locator('span').first().evaluate((e) => getComputedStyle(e).backgroundImage);

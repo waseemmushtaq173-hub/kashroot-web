@@ -58,18 +58,19 @@ export function ShellTopBar({
 
   return (
     <header data-kr-topbar className="sticky top-0 z-30 border-b-2 border-champagne bg-[#F4F5FF]/85 shadow-[0_8px_30px_-18px_rgba(30,27,75,0.35)] backdrop-blur-xl">
-      <div className="flex h-[72px] items-center gap-2 px-3 sm:gap-3 sm:px-6 xl:px-8">
+      <div className="flex h-[72px] items-center gap-1.5 px-3 sm:gap-3 sm:px-6 xl:px-8">
         <button
           type="button"
           onClick={onMenu}
           aria-haspopup="dialog"
           aria-expanded={menuOpen}
-          className={`inline-flex h-12 shrink-0 cursor-pointer items-center gap-2 rounded-xl bg-white/90 px-3 text-base font-semibold text-slate-800 shadow-sm ring-1 ring-slate-900/10 transition hover:bg-white lg:hidden ${ring}`}
+          className={`inline-flex h-12 shrink-0 cursor-pointer items-center gap-2 rounded-xl bg-white/90 px-2.5 text-base font-semibold text-slate-800 shadow-sm ring-1 ring-slate-900/10 transition hover:bg-white sm:px-3 lg:hidden ${ring}`}
         >
           <Menu className="h-5 w-5" aria-hidden />
           Menu
         </button>
-        <Link href="/" aria-label="KashRoot home" className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl lg:hidden ${ring}`}>
+        {/* Below 390 px the bar has no room for it; Home is in the Menu. */}
+        <Link href="/" aria-label="KashRoot home" className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl max-[389px]:hidden lg:hidden ${ring}`}>
           <Emblem className="h-10 w-10" />
         </Link>
         {portalName && <span className="hidden min-w-0 max-w-[11rem] truncate text-base font-semibold text-slate-800 sm:block lg:hidden">{portalName}</span>}

@@ -26,7 +26,7 @@ export async function inspect(page: Page): Promise<Report> {
       return r.width > 1 && r.height > 1 && st.visibility !== 'hidden' && st.display !== 'none' && st.opacity !== '0';
     };
     const name = (el: Element) => `${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}"${(el.getAttribute('aria-label') || el.textContent || el.getAttribute('placeholder') || '').trim().replace(/\s+/g, ' ').slice(0, 36)}"`;
-    const decorative = (el: Element) => !!el.closest('[aria-hidden="true"], .sr-only, dialog:not([open]), [hidden], nextjs-portal, [data-nextjs-toast], details:not([open]) > :not(summary)') || (getComputedStyle(el).pointerEvents === 'none' && !el.textContent?.trim());
+    const decorative = (el: Element) => !!el.closest('[aria-hidden="true"], [data-stretched], .sr-only, dialog:not([open]), [hidden], nextjs-portal, [data-nextjs-toast], details:not([open]) > :not(summary)') || (getComputedStyle(el).pointerEvents === 'none' && !el.textContent?.trim());
     const floating = (el: Element) => {
       for (let e: Element | null = el; e && e !== document.body; e = e.parentElement) {
         const p = getComputedStyle(e).position;

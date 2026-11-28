@@ -10,16 +10,16 @@
  * Capacity and vacancy of the store are counted from the map.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pencil, Phone } from 'lucide-react';
+import { CheckCircle2, ClipboardCheck, Eye, Pencil, Phone } from 'lucide-react';
 
 import { ColdStoreExplorer, type Look } from '@/components/rental/ColdStoreMap';
 import type { PlaceHolder } from '@/components/rental/ColdStore3D';
 import { niceDate, placesText } from '@/components/rental/ColdBooking';
 import { Badge, Btn, Field, INPUT, Modal, PORTAL_THEMES } from '@/components/portal/kit';
 import { ownerMeasured } from '@/lib/coldLayout';
-import { unitWord } from '@/lib/coldStore';
+import { unitWord, unitsText } from '@/lib/coldStore';
 import { inr } from '@/lib/db/client';
-import { periodEnd, placeKey, roomOn, takenPlaces, type BookedPlace, type ColdChamber, type PlaceInfo } from '@/lib/db/coldMap';
+import { periodEnd, placeKey, placeName, roomOn, takenPlaces, type BookedPlace, type ColdChamber, type PlaceInfo } from '@/lib/db/coldMap';
 import { BOOKING_STATUS, type RentalBooking, type RentalListing } from '@/lib/db/rentals';
 
 const theme = PORTAL_THEMES.rental;
@@ -40,6 +40,10 @@ export function ColdMapEditor({
   places,
   onClose,
   onEdit,
+  onPreview,
+  onRequests,
+  onReceived,
+  busy = false,
 }: {
   listing: RentalListing;
   chambers: ColdChamber[];
@@ -50,6 +54,13 @@ export function ColdMapEditor({
   onClose: () => void;
   /** Open the owner wizard at the chambers. */
   onEdit: () => void;
+  /** Open the booking window as a farmer sees it (nothing can be booked), to see how a farmer chooses a place and pays. */
+  onPreview?: () => void;
+  /** Go to "Bookings to confirm". */
+  onRequests?: () => void;
+  /** The money for this booking has reached the owner: confirm it. */
+  onReceived?: (b: RentalBooking) => void;
+  busy?: boolean;
 }) {
   const [viewing, setViewing] = useState<string | null>(chambers[0]?.id ?? null);
   const [start, setStart] = useState(today());
@@ -134,14 +145,55 @@ export function ColdMapEditor({
   // Chambers from before the wizard (boxes only) or without the owner's own measurements.
   const oldSetup = chambers.filter((c) => c.storage === 'boxes' || !ownerMeasured(c.size));
   const who = picked ? holder.get(picked) ?? [] : [];
+  const waiting = bookings.filter((b) => b.status === 'requested' || b.status === 'paid');
+  // What the store holds, and how much of it is free for the months shown: counted place by place from the map, the same numbers as the drawing's.
+  const totals = useMemo(() => {
+    let holds = 0;
+    let free = 0;
+    for (const c of chambers) {
+      for (let r = 1; r <= c.rows; r++) {
+        for (let i = 0; i < c.cols; i++) {
+          const slot = placeName(r, i);
+          if (c.blocked.includes(slot)) continue;
+          holds += c.boxes_per_slot;
+          free += roomOn(c, taken.get(placeKey(c.id, slot)));
+        }
+      }
+    }
+    return { holds, free };
+  }, [chambers, taken]);
   const unit = chambers.find((c) => picked?.startsWith(`${c.id}:`))?.storage ?? 'boxes';
   return (
     <Modal open wide onClose={onClose} title={`Cold store map · ${l.title}`}>
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-slate-700">Your whole store as farmers see it. Tap a booked stack to see whose boxes they are.</p>
-          <Btn theme={theme} variant="soft" className="min-h-[44px]" icon={Pencil} onClick={onEdit}>Change chambers</Btn>
+        <div role="group" aria-label="What you can do here" className="grid gap-2 sm:grid-cols-3">
+          {onPreview && chambers.length > 0 && (
+            <Btn theme={theme} className="min-h-[48px] text-base" icon={Eye} data-testid="owner-preview" onClick={onPreview}>See how a farmer books & pays</Btn>
+          )}
+          {onRequests && (
+            <Btn theme={theme} variant={waiting.length ? 'solid' : 'soft'} className="min-h-[48px] text-base" icon={ClipboardCheck} data-testid="owner-requests" onClick={onRequests}>
+              Bookings to confirm{waiting.length ? ` · ${waiting.length}` : ''}
+            </Btn>
+          )}
+          <Btn theme={theme} variant="soft" className="min-h-[48px] text-base" icon={Pencil} onClick={onEdit}>Change chambers</Btn>
         </div>
+        {chambers.length > 0 && (
+          <div>
+            <dl data-testid="owner-counts" className="grid grid-cols-3 gap-2 text-center">
+              {[
+                ['Free', totals.free, 'bg-forest-soft text-forest-deep ring-[#CFE0D6]'],
+                ['Booked', Math.max(0, totals.holds - totals.free), 'bg-sky-50 text-sky-950 ring-sky-200'],
+                ['Waiting for you', waiting.length, waiting.length ? 'bg-amber-50 text-amber-950 ring-amber-300' : 'bg-slate-50 text-slate-800 ring-slate-200'],
+              ].map(([label, n, tone]) => (
+                <div key={label as string} className={`rounded-2xl p-2.5 ring-1 ${tone}`}>
+                  <dt className="text-xs font-semibold">{label}</dt>
+                  <dd className="text-xl font-bold tabular-nums">{(n as number).toLocaleString('en-IN')}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="mt-1.5 text-xs text-slate-600">Out of {totals.holds.toLocaleString('en-IN')} {unitsText(chambers.map((c) => c.storage))} for the months chosen below, counted from your chambers. Tap a booked place to see whose it is.</p>
+          </div>
+        )}
         {oldSetup.length > 0 && (
           <div role="note" className="rounded-2xl bg-amber-50 p-4 text-amber-950 ring-2 ring-amber-300">
             <p className="font-semibold">This store is still the old setup</p>
@@ -193,7 +245,17 @@ export function ColdMapEditor({
                       {b.units.toLocaleString('en-IN')} in all · {niceDate(b.start_date)} to {niceDate(periodEnd(b.start_date, b.duration))} · {inr(Number(b.amount))}
                     </p>
                     <p className="mt-1 text-slate-700">Places: {placesText(places.filter((p) => p.booking_id === b.id), chambers)}</p>
-                    <a href={`tel:${b.renter_phone}`} className="mt-2 inline-flex items-center gap-1 font-semibold text-forest"><Phone className="h-4 w-4" aria-hidden /> {b.renter_phone}</a>
+                    {(b.status === 'requested' || b.status === 'paid') && (
+                      <p className={`mt-1 ${b.payment_ref ? 'text-forest-deep' : 'text-amber-800'}`}>
+                        {b.payment_ref ? <>Farmer says paid · reference <span className="font-mono font-semibold">{b.payment_ref}</span> — check it in your bank or UPI app.</> : 'Not paid yet.'}
+                      </p>
+                    )}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {(b.status === 'requested' || b.status === 'paid') && onReceived && (
+                        <Btn theme={theme} className="min-h-[44px]" icon={CheckCircle2} disabled={busy} data-testid="owner-money-received" onClick={() => onReceived(b)}>Money received</Btn>
+                      )}
+                      <Btn theme={theme} variant="soft" className="min-h-[44px]" icon={Phone} href={`tel:${b.renter_phone}`}>Call {b.renter_phone}</Btn>
+                    </div>
                   </div>
                 ))}
               </section>

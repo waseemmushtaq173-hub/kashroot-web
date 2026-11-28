@@ -264,10 +264,10 @@ export function VoiceConcierge({ compact = false, autoListen = false, onNavigate
   return (
     <div
       data-voice-panel={compact ? undefined : ''}
-      className={compact ? 'relative p-4 sm:p-5' : 'relative overflow-hidden rounded-3xl bg-white/80 p-4 shadow-[0_18px_44px_rgba(15,23,42,0.12)] ring-1 ring-white/70 backdrop-blur-xl sm:p-5'}
+      className={compact ? 'relative p-4 sm:p-5' : 'relative overflow-hidden rounded-3xl bg-white/80 p-3 shadow-[0_18px_44px_rgba(15,23,42,0.12)] ring-1 ring-white/70 backdrop-blur-xl sm:p-5'}
     >
       {!compact && <div aria-hidden className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-gradient-to-br from-amber-300/50 to-rose-300/40 blur-3xl" />}
-      <div className="relative flex flex-wrap items-center justify-between gap-4">
+      <div className="relative flex flex-wrap items-center justify-between gap-2 sm:gap-4">
         <div>
           <p className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 ring-1 ring-amber-200">
             <Sparkles className="h-3.5 w-3.5" aria-hidden /> Voice assistant
@@ -276,12 +276,13 @@ export function VoiceConcierge({ compact = false, autoListen = false, onNavigate
             <h2 id="voice-panel-title" className="font-display mt-2 pe-12 text-xl font-semibold tracking-tight text-slate-900">Speak, KashRoot does the rest</h2>
           ) : (
             <>
-              <h2 className="font-display mt-2 text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">Ask KashRoot anything</h2>
+              <h2 className="font-display mt-1.5 text-lg font-semibold tracking-tight text-slate-900 sm:mt-2 sm:text-2xl">Ask KashRoot anything</h2>
             </>
           )}
         </div>
         <LangPicker
           dogri
+          className="w-full sm:w-auto"
           value={lang}
           onChange={(l) => {
             setLang(l);
@@ -297,14 +298,14 @@ export function VoiceConcierge({ compact = false, autoListen = false, onNavigate
         </p>
       )}
 
-      <div className={`relative grid gap-4 ${compact ? 'mt-4' : 'mt-3 gap-4 md:grid-cols-[auto_1fr] md:items-start'}`}>
-        <div className={compact ? 'flex items-center gap-4' : 'flex flex-col items-center gap-3'}>
+      <div className={`relative grid gap-3 sm:gap-4 ${compact ? 'mt-4' : 'mt-2.5 sm:mt-3 md:grid-cols-[auto_1fr] md:items-start'}`}>
+        <div className={compact ? 'flex items-center gap-4' : 'flex items-center gap-3 md:flex-col'}>
           <button
             type="button"
             onClick={toggleListening}
             aria-pressed={listening}
             aria-label={listening ? 'Stop listening' : 'Speak your question'}
-            className={`group relative grid shrink-0 cursor-pointer place-items-center rounded-full bg-gradient-to-br from-amber-400 via-orange-500 to-rose-600 text-white shadow-[0_18px_40px_rgba(234,88,12,0.45),inset_0_-8px_20px_rgba(0,0,0,0.2),inset_0_8px_16px_rgba(255,255,255,0.35)] transition hover:scale-105 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-amber-500 motion-reduce:transition-none ${compact ? 'h-20 w-20' : 'h-20 w-20 sm:h-24 sm:w-24'}`}
+            className={`group relative grid shrink-0 cursor-pointer place-items-center rounded-full bg-gradient-to-br from-amber-400 via-orange-500 to-rose-600 text-white shadow-[0_18px_40px_rgba(234,88,12,0.45),inset_0_-8px_20px_rgba(0,0,0,0.2),inset_0_8px_16px_rgba(255,255,255,0.35)] transition hover:scale-105 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-amber-500 motion-reduce:transition-none ${compact ? 'h-20 w-20' : 'h-16 w-16 sm:h-24 sm:w-24'}`}
           >
             {listening && (
               <>
@@ -312,9 +313,9 @@ export function VoiceConcierge({ compact = false, autoListen = false, onNavigate
                 <span aria-hidden className="absolute -inset-3 animate-pulse rounded-full ring-4 ring-orange-300/60 motion-reduce:animate-none" />
               </>
             )}
-            {listening ? <MicOff className={`relative ${compact ? 'h-8 w-8' : 'h-10 w-10'}`} aria-hidden /> : <Mic className={`relative ${compact ? 'h-8 w-8' : 'h-10 w-10'}`} aria-hidden />}
+            {listening ? <MicOff className={`relative ${compact ? 'h-8 w-8' : 'h-7 w-7 sm:h-10 sm:w-10'}`} aria-hidden /> : <Mic className={`relative ${compact ? 'h-8 w-8' : 'h-7 w-7 sm:h-10 sm:w-10'}`} aria-hidden />}
           </button>
-          <div className={compact ? 'min-w-0' : 'flex flex-col items-center gap-3'}>
+          <div className={compact ? 'min-w-0' : 'flex min-w-0 flex-col items-start gap-1 md:items-center md:gap-3'}>
             <p className="text-sm font-medium text-slate-600" aria-live="polite">
               {ks ? (
                 <span lang="ks">{listening ? t('assistant.listening') : thinking ? t('assistant.thinking') : speaking ? t('assistant.speaking') : canListen ? t('assistant.tap') : t('assistant.placeholder')}</span>
@@ -331,11 +332,12 @@ export function VoiceConcierge({ compact = false, autoListen = false, onNavigate
         </div>
 
         <div className="min-w-0">
-          <div ref={listRef} className={`${compact ? 'max-h-64' : 'max-h-80'} min-h-[9rem] space-y-3 overflow-y-auto rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-900/5`} aria-live="polite">
+          <div ref={listRef} className={`${compact ? 'max-h-64' : 'max-h-80'} min-h-[9rem] space-y-3 overflow-y-auto rounded-2xl bg-slate-50/80 p-3 ring-1 sm:p-4 ring-slate-900/5`} aria-live="polite">
+            {/* A phone shows the first three example questions; the rest are for wider screens. */}
             {turns.length === 0 && !interim && !card && (
-              <div role="group" aria-label="Try saying" className="flex flex-wrap gap-2">
+              <div role="group" aria-label="Try saying" className="flex flex-wrap gap-1.5 max-sm:[&>button:nth-child(n+4)]:hidden sm:gap-2">
                 {suggestions.map((s) => (
-                  <button key={s.text} type="button" dir={s.dir ?? rtl} lang={s.dir ? undefined : langAttr(lang)} onClick={() => send(s.text)} className="min-h-11 cursor-pointer rounded-full bg-white px-3 py-1.5 text-sm text-slate-700 ring-1 ring-slate-900/10 transition hover:bg-amber-50 hover:ring-amber-300">
+                  <button key={s.text} type="button" dir={s.dir ?? rtl} lang={s.dir ? undefined : langAttr(lang)} onClick={() => send(s.text)} className="min-h-11 cursor-pointer rounded-full bg-white px-3 py-1.5 text-[13px] text-slate-700 ring-1 sm:text-sm ring-slate-900/10 transition hover:bg-amber-50 hover:ring-amber-300">
                     {s.text}
                   </button>
                 ))}
@@ -419,7 +421,7 @@ export function VoiceConcierge({ compact = false, autoListen = false, onNavigate
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder={ks ? t('assistant.placeholder') : PLACEHOLDER[cardText(lang)]}
-              className="min-h-12 min-w-0 flex-1 rounded-xl border-0 bg-white px-4 py-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-orange-500"
+              className="min-h-11 min-w-0 flex-1 rounded-xl border-0 bg-white px-4 py-2.5 text-slate-900 sm:min-h-12 sm:py-3 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-orange-500"
             />
             {ks && (
               <button type="button" onClick={() => setKeys((v) => !v)} aria-pressed={keys} aria-label="Kashmiri letters" title="Kashmiri letters (ٲ ۄ ؠ …)" className="inline-flex cursor-pointer items-center rounded-xl bg-white px-3 text-slate-700 shadow-sm ring-1 ring-inset ring-slate-200 hover:bg-amber-50">

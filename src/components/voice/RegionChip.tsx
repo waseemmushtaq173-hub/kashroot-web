@@ -11,10 +11,10 @@ import { stateLabel, STATES, useRegion } from '@/lib/region';
 
 export function RegionChip({ district, className = '' }: { district?: string | null; className?: string }) {
   const { region, crops, locating, problem, locate, choose } = useRegion({ district });
-  const how = region?.from === 'location' ? ' (from your location)' : region?.from === 'district' ? ' (from My details)' : '';
+  const how = region?.from === 'location' ? ' · by location' : region?.from === 'district' ? ' · from My details' : '';
   return (
-    <div className={`flex flex-wrap items-center gap-2 text-sm text-slate-700 ${className}`}>
-      <p className="flex items-center gap-1.5" aria-live="polite">
+    <div className={`flex flex-wrap items-center gap-1.5 text-xs text-slate-700 sm:gap-2 sm:text-sm ${className}`}>
+      <p className="flex w-full items-center gap-1.5 sm:w-auto" aria-live="polite">
         <MapPin className="h-4 w-4 shrink-0 text-forest" aria-hidden />
         {region ? (
           <span>
@@ -30,15 +30,15 @@ export function RegionChip({ district, className = '' }: { district?: string | n
         type="button"
         onClick={() => void locate()}
         disabled={locating}
-        className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3 font-semibold text-slate-800 ring-1 ring-slate-900/10 transition hover:bg-forest-soft disabled:cursor-wait disabled:opacity-60"
+        className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3 text-[13px] font-semibold text-slate-800 ring-1 ring-slate-900/10 transition hover:bg-forest-soft disabled:cursor-wait disabled:opacity-60 max-sm:min-w-0 max-sm:flex-1 max-sm:justify-center sm:text-sm"
       >
         {locating ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <LocateFixed className="h-4 w-4" aria-hidden />}
         {locating ? 'Finding…' : 'Use my location'}
       </button>
-      <label className="inline-flex items-center">
+      <label className="inline-flex items-center max-sm:min-w-0 max-sm:flex-1">
         <span className="sr-only">Your state</span>
-        <select value={region?.state ?? ''} onChange={(e) => choose(e.target.value)} className="min-h-11 max-w-[14rem] cursor-pointer rounded-xl border-0 bg-white px-3 py-2 text-sm text-slate-800 ring-1 ring-inset ring-slate-900/10 focus:ring-2 focus:ring-forest">
-          <option value="">Choose your state</option>
+        <select value={region?.state ?? ''} onChange={(e) => choose(e.target.value)} className="min-h-11 max-w-[14rem] cursor-pointer rounded-xl border-0 bg-white px-3 py-2 text-sm text-slate-800 max-sm:w-full ring-1 ring-inset ring-slate-900/10 focus:ring-2 focus:ring-forest">
+          <option value="">Choose state</option>
           {STATES.map((s) => (
             <option key={s.name} value={s.name}>{stateLabel(s.name)}</option>
           ))}

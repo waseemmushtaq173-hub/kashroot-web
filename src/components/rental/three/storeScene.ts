@@ -15,7 +15,7 @@
  * chambers stand side by side along a corridor. Pure: no three.js, no React.
  */
 import { ensureBuildingEnclosesChambers, planOf, type ChamberPlan, type Wall } from '@/lib/coldLayout';
-import { arrangeStore, doorLine, fromDoor, groupChambers, oppositeWall, outlineOf, placeRect, type Building, type ChamberGroup, type PreviewRows, type SpaceKey, type Storage, type WallSide, type WorkSpaces } from '@/lib/coldStore';
+import { arrangeStore, doorLine, fromDoor, groupChambers, oppositeWall, outlineOf, passageWall as passageWallOf, placeRect, type Building, type ChamberGroup, type PreviewRows, type SpaceKey, type Storage, type WallSide, type WorkSpaces } from '@/lib/coldStore';
 import { placeName, type ColdChamber } from '@/lib/db/coldMap';
 
 export interface Vec {
@@ -194,6 +194,8 @@ export interface StoreScene {
   chambers: SceneChamber[];
   /** Why something is drawn where it should not be. */
   problems: string[];
+  /** Said to the owner, not a fault: a chamber was put on another bank (its door turned with it) because it did not fit where its number puts it. */
+  notes: string[];
   /** Older chambers stand beside the building in this view. */
   beside: boolean;
   /** The most floors any chamber has. */
@@ -601,6 +603,7 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
   const older = groups.filter((g) => !(g.no !== null && g.size));
   const chambers: SceneChamber[] = [];
   const problems: string[] = [];
+  const notes: string[] = [];
   const b = building ?? null;
   const unit = b?.unit ?? wizard[0]?.size?.unit ?? older.find((g) => g.floors[0].size)?.floors[0].size?.unit ?? 'm';
 
@@ -631,7 +634,7 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
       return { ...g, size: { ...g.size!, doorWall: side === 'back' ? b.door.wall : oppositeWall(b.door.wall) } };
     });
     let enclosed = ensureBuildingEnclosesChambers(b, banked.map((g) => g.size!));
-    const arranged = (cur: Building) => arrangeStore(cur, banked.map((g) => ({ key: g.key, name: g.name, outline: outlineOf(g.size!), spot: g.size!.spot, side: bankOf(g) })));
+    const arranged = (cur: Building) => arrangeStore(cur, banked.map((g) => ({ key: g.key, name: g.name, outline: outlineOf(g.size!), spot: g.size!.spot, side: bankOf(g), keepAxis: true, explicit: bankOf(g) !== undefined })));
     let lay = arranged(enclosed);
     const round2 = (n: number) => Math.round(n * 100) / 100;
     for (let grown = 0; grown < 3; grown++) {
@@ -652,7 +655,20 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
     // The owner's live preview brings where its top view puts each chamber (lib/coldStore previewChambers): the very same places.
     const pre = rows as PreviewRows;
     for (const p of pre.spots ? (pre.problems ?? []) : lay.problems.map((x) => x.message)) if (!problems.includes(p)) problems.push(p);
-    for (const g of banked) chambers.push(wizardChamber(g, chambers.length, pre.spots?.[g.floors[0].id] ?? lay.spots[g.key]));
+    for (const p of pre.spots ? (pre.notes ?? []) : lay.notes.map((x) => x.message)) if (!notes.includes(p)) notes.push(p);
+    // A chamber the layout put on the other side of the passage (it did not fit on its own) has its door turned to face the passage
+    // (or the hall): a door on the wall behind it would open onto the outside. Its plan is door-relative, so it simply turns round.
+    const wallFor = (side: WallSide): Wall => (side === 'back' ? b.door.wall : side === 'front' ? oppositeWall(b.door.wall) : side === 'left' ? passageWallOf(b.door.wall, 'left') : passageWallOf(b.door.wall, 'right'));
+    const axis = (w: Wall) => (w === 'front' || w === 'back' ? 'y' : 'x');
+    const turned = banked.map((g) => {
+      const spot = pre.spots?.[g.floors[0].id] ?? lay.spots[g.key];
+      const want = spot && !spot.byOwner && spot.side ? wallFor(spot.side) : null;
+      const have = g.size!.doorWall ?? 'front';
+      if (!want || want === have || axis(want) !== axis(have)) return g;
+      const turn = <T extends { doorWall?: Wall } | null | undefined>(s: T): T => (s ? { ...s, doorWall: want } : s);
+      return { ...g, size: turn(g.size), floors: g.floors.map((f) => ({ ...f, size: turn(f.size) })) } as ChamberGroup;
+    });
+    for (const g of turned) chambers.push(wizardChamber(g, chambers.length, pre.spots?.[g.floors[0].id] ?? lay.spots[g.key]));
     // Older chambers: never outside the walls. The building stretches to
     // wrap them, east of the measured chambers, passage still in front —
     // Chamber 1 every chamber sits inside the insulated perimeter.
@@ -778,7 +794,7 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
   }
   const vestibule = vestibuleOf(mainDoor, passage, chambers, hall);
   const structure = effBuilding ? structureOf({ hall, wallT: effBuilding.wallThickness ?? 0.25, mainDoor, passage, vestibule, chambers, zones }) : { pillars: [], beams: [] };
-  return { building: effBuilding, hall, bounds: { x: x0, y: y0, w: x1 - x0, d: y1 - y0 }, height: Math.max(height, 1), mainDoor, walls, passage, vestibule, structure, zones, chambers, problems, beside: false, floors, unit };
+  return { building: effBuilding, hall, bounds: { x: x0, y: y0, w: x1 - x0, d: y1 - y0 }, height: Math.max(height, 1), mainDoor, walls, passage, vestibule, structure, zones, chambers, problems, notes, beside: false, floors, unit };
 }
 
 const ORD = ['1st', '2nd', '3rd'];

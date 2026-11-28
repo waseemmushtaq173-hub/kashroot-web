@@ -266,6 +266,28 @@ export function makeKit(T: Three, phone: boolean, protos: ColdKitGeos | null = n
   const edge = new T.LineBasicMaterial({ color: '#334155', transparent: true, opacity: 0.55 });
   const edgeOn = new T.LineBasicMaterial({ color: '#3730A3' });
   const textures = Object.values(tex);
+  // A real photograph of concrete (Poly Haven "Concrete Floor 02", CC0 — public/textures/CREDITS.txt) replaces the drawn floor once it
+  // has arrived; if it cannot load, the drawn one simply stays.
+  let alive = true;
+  let photoFloor: { dispose: () => void } | null = null;
+  new T.TextureLoader().load(
+    '/textures/concrete-floor.jpg',
+    (photo) => {
+      if (!alive) return photo.dispose();
+      photo.colorSpace = T.SRGBColorSpace;
+      photo.wrapS = photo.wrapT = T.RepeatWrapping;
+      photo.anisotropy = phone ? 1 : 4;
+      photoFloor = photo;
+      mats.hall.map = photo;
+      mats.hall.color.set('#C9CFD3');
+      mats.chamberFloor.map = photo;
+      mats.chamberFloor.color.set('#D2D7DA');
+      mats.hall.needsUpdate = true;
+      mats.chamberFloor.needsUpdate = true;
+    },
+    undefined,
+    () => undefined,
+  );
   return {
     T,
     unitBox,
@@ -276,6 +298,8 @@ export function makeKit(T: Three, phone: boolean, protos: ColdKitGeos | null = n
     edgeOn,
     textures,
     dispose: () => {
+      alive = false;
+      photoFloor?.dispose();
       unitBox.dispose();
       for (const g of geos.values()) g.dispose();
       if (protos) for (const g of Object.values(protos)) g.dispose();
@@ -578,6 +602,7 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
     const u = scene.building.unit;
     const dim = (title: string, sub: string, width: number) => {
       const t = label(T, title, sub, width, true, 24, 60);
+      t.userData.size = true; // a measurement plate: hidden from outside until "Show sizes" is pressed
       labels.push(t);
       add(t);
       return t;
@@ -702,7 +727,44 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
     }
   }
 
-  // The chambers.
+  // The chambers. Chambers that touch are one block: a single partition wall between neighbours (the lower number keeps its wall),
+  // a roof that runs flush across the join, and one corner post where corners meet — never two separate boxes side by side.
+  const JOIN = 0.06;
+  const span = (a0: number, a1: number, b0: number, b1: number) => Math.min(a1, b1) - Math.max(a0, b0);
+  /** Is there another chamber against this edge of `c`? side: 'x0' left, 'x1' right, 'y0' front, 'y1' back (plan frame). */
+  const joined = (c: (typeof scene.chambers)[number], side: 'x0' | 'x1' | 'y0' | 'y1') =>
+    scene.chambers.some((q) => {
+      if (q === c) return false;
+      const a = c.rect;
+      const b = q.rect;
+      if (side === 'x0') return Math.abs(b.x + b.w - a.x) < JOIN && span(a.y, a.y + a.d, b.y, b.y + b.d) > 0.1;
+      if (side === 'x1') return Math.abs(b.x - (a.x + a.w)) < JOIN && span(a.y, a.y + a.d, b.y, b.y + b.d) > 0.1;
+      if (side === 'y0') return Math.abs(b.y + b.d - a.y) < JOIN && span(a.x, a.x + a.w, b.x, b.x + b.w) > 0.1;
+      return Math.abs(b.y - (a.y + a.d)) < JOIN && span(a.x, a.x + a.w, b.x, b.x + b.w) > 0.1;
+    });
+  /** The parts of one wall segment of `c` that are not already a lower-numbered neighbour's wall. */
+  const ownWall = (c: (typeof scene.chambers)[number], seg: Seg): Seg[] => {
+    const horizontal = Math.abs(seg.y2 - seg.y1) < 1e-6;
+    const line = horizontal ? seg.y1 : seg.x1;
+    let parts: [number, number][] = [horizontal ? [Math.min(seg.x1, seg.x2), Math.max(seg.x1, seg.x2)] : [Math.min(seg.y1, seg.y2), Math.max(seg.y1, seg.y2)]];
+    for (const q of scene.chambers) {
+      if (q === c || q.index > c.index) continue;
+      const edges = horizontal ? [q.rect.y, q.rect.y + q.rect.d] : [q.rect.x, q.rect.x + q.rect.w];
+      if (!edges.some((e) => Math.abs(e - line) < JOIN)) continue;
+      const [a, z] = horizontal ? [q.rect.x, q.rect.x + q.rect.w] : [q.rect.y, q.rect.y + q.rect.d];
+      parts = parts.flatMap(([p, e]) => {
+        const lo = Math.max(p, a);
+        const hi = Math.min(e, z);
+        if (hi - lo < 0.05) return [[p, e] as [number, number]];
+        const kept: [number, number][] = [];
+        if (lo - p > 0.05) kept.push([p, lo]);
+        if (e - hi > 0.05) kept.push([hi, e]);
+        return kept;
+      });
+    }
+    return parts.map(([p, e]) => (horizontal ? { ...seg, x1: p, y1: line, x2: e, y2: line } : { ...seg, x1: line, y1: p, x2: line, y2: e }));
+  };
+  const posted = new Set<string>();
   for (const c of scene.chambers) {
     const r = c.rect;
     const cx = wx(o, r.x + r.w / 2);
@@ -710,23 +772,37 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
     const H = c.h;
     // Its insulated floor, its walls of insulated panels (open at the door), the wall over the door.
     slab({ x: r.x + 0.07, y: r.y + 0.07, w: r.w - 0.14, d: r.d - 0.14 }, 0.01, 0.008, mats.chamberFloor, 3);
-    for (const s of c.walls) roomWall(s, 0, H, 0.14, r, 'chamber', c.index);
+    for (const sg of c.walls) for (const part of ownWall(c, sg)) roomWall(part, 0, H, 0.14, r, 'chamber', c.index);
     // Its own colour, and its roof: insulated panels on top with a band of that colour round the edge. From outside every chamber but the
     // open one stays shut under it (ColdStore3D lifts it off the open one, in x-ray mode and when walking).
     const accent = chamberAccent(c.no ?? c.index + 1);
     if (c.toScale) {
-      const rg = new T.BoxGeometry(r.w + 0.3, 0.24, r.d + 0.3);
-      tile(rg, (r.w + 0.3) / 1.22, (r.d + 0.3) / 1.22);
+      // A roof that overhangs 0.15 where the chamber meets the open floor, and runs flush across a join with the next chamber.
+      const e0 = joined(c, 'x0') ? 0 : 0.15;
+      const e1 = joined(c, 'x1') ? 0 : 0.15;
+      const f0 = joined(c, 'y0') ? 0 : 0.15;
+      const f1 = joined(c, 'y1') ? 0 : 0.15;
+      const roofW = r.w + e0 + e1;
+      const roofD = r.d + f0 + f1;
+      const rg = new T.BoxGeometry(roofW, 0.24, roofD);
+      tile(rg, roofW / 1.22, roofD / 1.22);
       const band = new T.MeshStandardMaterial({ color: accent, roughness: 0.5, metalness: 0.15 });
       const roof = new T.Mesh(rg, [band, band, mats.chamberRoof, band, band, band]);
-      roof.position.set(cx, H + 0.12, cz);
+      roof.position.set(wx(o, r.x - e0 + roofW / 2), H + 0.12, wz(o, r.y - f0 + roofD / 2));
       roof.userData.chamber = c.index;
       roof.userData.of = 'chamberRoof';
       group.add(roof);
       roofs.push(roof);
     }
     // Stainless corner posts up the chamber's four corners, as on the panel rooms in the photos.
-    if (c.toScale) for (const [px, py] of [[r.x, r.y], [r.x + r.w, r.y], [r.x, r.y + r.d], [r.x + r.w, r.y + r.d]]) box(0.17, H, 0.17, wx(o, px), H / 2, wz(o, py), mats.stainless);
+    if (c.toScale) {
+      for (const [px, py] of [[r.x, r.y], [r.x + r.w, r.y], [r.x, r.y + r.d], [r.x + r.w, r.y + r.d]]) {
+        const key = `${Math.round(px * 10)},${Math.round(py * 10)}`;
+        if (posted.has(key)) continue;
+        posted.add(key);
+        box(0.17, H, 0.17, wx(o, px), H / 2, wz(o, py), mats.stainless);
+      }
+    }
     if (c.door) {
       roomWall(c.door, c.doorH, H, 0.14, r, 'chamber', c.index);
       // The door frame, and the insulated sliding door pushed open beside it, outside.
@@ -844,10 +920,12 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
       const cu = scene.building?.unit ?? 'm';
       const wide = label(T, showLength(r.w, cu), 'length', 1.5, true, 14, 36);
       wide.position.set(cx, H + 0.35, wz(o, r.y));
+      wide.userData.size = true;
       add(wide);
       labels.push(wide);
       const deep = label(T, showLength(r.d, cu), 'width', 1.5, true, 14, 36);
       deep.position.set(wx(o, r.x), H + 0.35, cz);
+      deep.userData.size = true;
       add(deep);
       labels.push(deep);
     }
@@ -885,6 +963,7 @@ export function buildShell(kit: Kit, scene: StoreScene, o: Origin): Shell {
         if (f.floor === 1 && c.toScale) {
           const aisle = label(T, `Aisle ${showLength(upright ? w.w : w.d, scene.building?.unit ?? 'm')}`, 'forklift aisle', 1.7, true, 16, 40);
           aisle.position.set(wx(o, w.x + w.w / 2), f.z0 + 1.1, wz(o, w.y + w.d / 2));
+          aisle.userData.size = true;
           add(aisle);
           labels.push(aisle);
         }
@@ -1311,7 +1390,7 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
     const g = c.group;
     const free = freeOf(c.index);
     const sub = `${g.floors.length > 1 ? `${g.floors.length} floors · ` : ''}${countText(g.count, c.storage)} · ${free.toLocaleString('en-IN')} free`;
-    const tag = label(T, c.name, sub, Math.min(Math.max(c.rect.w * 0.85, 3.2), 8), false, 40, 84);
+    const tag = label(T, c.name, sub, Math.min(Math.max(c.rect.w * 0.85, 3.2), 8), false, 30, 62);
     tag.position.set(wx(o, c.rect.x + c.rect.w / 2), c.h + 1.3, wz(o, c.rect.y + c.rect.d / 2));
     group.add(tag);
     labels.push(tag);

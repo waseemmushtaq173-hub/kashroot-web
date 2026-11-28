@@ -24,6 +24,10 @@ test('an owner sees what a customer sees, but cannot book or pay on their own st
   expect(page).toContain('>Choose your place</Btn>');
   expect(page).toContain('preview={booking.preview}');
   expect(page).toContain('onPreview={() => setBooking(l, null, true)}');
+  // The owner's own store card and map window also open it, so an owner never has to hunt for how a farmer books and pays.
+  expect(page).toContain('data-testid="store-preview"');
+  expect(page).toContain('onPreview={(l) => setBooking(l, null, true)}');
+  expect(page).toContain('onReceived={received}');
 
   const dialog = read('src/components/rental/ColdBooking.tsx');
   // The booking itself is refused in the preview, before anything is saved, and its button is off.

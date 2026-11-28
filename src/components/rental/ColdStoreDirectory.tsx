@@ -156,7 +156,7 @@ export function ColdStoreDirectory({
               setQ(e.target.value);
               setShown(PAGE);
             }}
-            placeholder="Search all cold stores: name, village or district"
+            placeholder="Search by name, village or district"
           />
         </label>
         <label>
@@ -205,7 +205,7 @@ export function ColdStoreDirectory({
                   ) : null}
                   <p className="mt-2 text-xs text-slate-500">Source: {sourcesOf(e).join(' · ')}</p>
                   <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 pt-3 text-sm">
-                    {listing && <Btn theme={theme} size="sm" onClick={() => onBook(listing)}>Choose your place</Btn>}
+                    {listing && <Btn theme={theme} className="min-h-[48px] w-full basis-full text-base" onClick={() => onBook(listing)}>Choose your place</Btn>}
                     {!listing && onClaim && (
                       <button type="button" onClick={() => onClaim(e)} className="inline-flex cursor-pointer items-center gap-1 font-semibold text-forest hover:underline">
                         <Store className="h-3.5 w-3.5" aria-hidden /> Your store? List it

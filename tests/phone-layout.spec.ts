@@ -18,7 +18,7 @@ test('the page is laid out at the phone\'s own width, not 800 px wide', () => {
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 
-  test('the home page: the three cards sit side by side as small tiles, with text a phone can read', async ({ page }) => {
+  test('the home page: the three cards sit side by side as small square tiles, with text a phone can read', async ({ page }) => {
     await page.goto('/', { waitUntil: 'load' });
     expect(await page.evaluate(() => ({ w: innerWidth, scale: visualViewport?.scale }))).toEqual({ w: 390, scale: 1 });
     const tools = page.getByLabel('KashRoot tools').locator('article');
@@ -36,8 +36,9 @@ test.describe('on a phone', () => {
     // The long text and the tag are left out of the small tile; the name and the button stay.
     await expect(tools.first().locator('p')).toBeHidden();
     await expect(tools.first().getByRole('heading', { name: 'Pay After Delivery' })).toBeVisible();
-    await expect(tools.first().getByRole('link', { name: 'How it works' })).toBeVisible();
-    await expect(tools.first().getByRole('link', { name: 'Buy produce' })).toBeVisible();
+    // The tile itself opens the tool; the second action is a chip under it.
+    await expect(tools.first().getByRole('link', { name: 'How escrow payment works' })).toBeVisible();
+    await expect(page.getByLabel('KashRoot tools').getByRole('link', { name: 'Buy produce' })).toBeVisible();
     // Nothing runs off the screen sideways.
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
   });

@@ -118,8 +118,8 @@ export default async function HomePage() {
       <HeroShowcase initialSeason={seasonForDate(new Date())}>
         <SiteHeader tone="light" showRoleSignIn />
 
-        {/* Bottom padding leaves room for the season badge (no more). */}
-        <main id="main-content" className="mx-auto max-w-7xl px-4 pb-24 pt-4 sm:px-6 sm:pt-6 lg:px-8">
+        {/* The season badge sits under this, in the flow, so nothing here is ever covered by it. */}
+        <main id="main-content" className="mx-auto max-w-7xl px-4 pb-3 pt-4 sm:px-6 sm:pt-6 lg:px-8">
           <section className={`max-w-xl rounded-3xl p-3.5 sm:p-6 ${GLASS.panel}`}>
             <p className="inline-flex items-center gap-2 rounded-full bg-white/85 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-ink ring-1 ring-slate-900/10">
               <span aria-hidden className="kr-spectrum h-1.5 w-8 rounded-full" />
@@ -149,14 +149,25 @@ export default async function HomePage() {
           </section>
 
           <section aria-label="KashRoot tools" className="mt-3 grid grid-cols-3 gap-2 sm:mt-4 sm:grid-cols-1 sm:gap-4 md:grid-cols-3">
-            {/* A phone: the three side by side as small tiles (icon, name, one button). From 640 px one full card per row, from 768 px three across. */}
-            {TOOL_ORDER.map((id) => (
-              <div key={id} data-portal={TOOL_HUE[id]}>
-                <Tilt3D className="rounded-3xl" max={6}>
-                  <ToolCard id={id} />
-                </Tilt3D>
-              </div>
-            ))}
+            {/* A phone: three square tiles side by side (icon and name; the tile opens the tool) with the second action in a chip under each.
+                From 640 px one full card per row, from 768 px three across. */}
+            {TOOL_ORDER.map((id) => {
+              const { secondary } = TOOL_ACTIONS[id];
+              return (
+                <div key={id} data-portal={TOOL_HUE[id]} className="min-w-0 max-sm:self-start">
+                  <Tilt3D className="rounded-3xl max-sm:h-auto" max={6}>
+                    <ToolCard id={id} />
+                  </Tilt3D>
+                  <Link
+                    href={secondary.href}
+                    aria-label={secondary.label}
+                    className={`mt-1.5 flex min-h-11 w-full items-center justify-center rounded-full px-1 py-1.5 text-center text-[12px] font-semibold leading-tight sm:hidden ${BUTTON_LINK} ${TOOLS[id].theme.secondaryButton}`}
+                  >
+                    {secondary.short}
+                  </Link>
+                </div>
+              );
+            })}
           </section>
         </main>
       </HeroShowcase>
@@ -211,26 +222,29 @@ function ToolCard({ id }: { id: ToolId }) {
 
   return (
     <article
-      className={`group relative flex h-full flex-col overflow-hidden rounded-2xl p-3 sm:rounded-3xl sm:p-5 ${GLASS.panel} transition duration-300 [transform-style:preserve-3d] hover:-translate-y-1 hover:bg-white hover:[box-shadow:var(--kr-card-hover-shadow),0_24px_48px_-12px_rgba(30,27,75,0.25)] motion-reduce:transition-none motion-reduce:hover:translate-y-0`}
+      className={`group relative flex h-full flex-col overflow-hidden rounded-3xl p-2 max-sm:aspect-square max-sm:h-auto max-sm:items-center max-sm:justify-center max-sm:text-center sm:rounded-3xl sm:p-5 ${GLASS.panel} transition duration-300 [transform-style:preserve-3d] hover:-translate-y-1 hover:bg-white hover:[box-shadow:var(--kr-card-hover-shadow),0_24px_48px_-12px_rgba(30,27,75,0.25)] motion-reduce:transition-none motion-reduce:hover:translate-y-0`}
     >
       <div
         aria-hidden
         className={`pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full opacity-70 blur-3xl transition-opacity duration-300 group-hover:opacity-100 ${theme.glowA}`}
       />
 
+      {/* A phone: the whole square is the way into the tool (the button is for wider screens). */}
+      <Link href={primary.href} aria-label={primary.label} data-stretched className="absolute inset-0 z-10 rounded-3xl sm:hidden" />
+
       <div className="relative flex items-start justify-between gap-3">
-        <span data-depth className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl sm:h-10 sm:w-10 ${theme.iconTile}`}>
+        <span data-depth className={`grid h-9 w-9 shrink-0 place-items-center rounded-full sm:h-10 sm:w-10 sm:rounded-xl ${theme.iconTile}`}>
           <Icon className="h-[18px] w-[18px] sm:h-5 sm:w-5" aria-hidden />
         </span>
         {/* On a phone the tile is a third of the screen: the tag and the long text are left out. */}
         <span className={`hidden rounded-full px-2.5 py-0.5 text-[11px] font-semibold sm:inline ${theme.eyebrow}`}>{tool.eyebrow}</span>
       </div>
 
-      <h2 className="relative mt-2 font-display text-[13px] font-semibold leading-tight tracking-tight text-ink sm:mt-3 sm:text-xl">{tool.title}</h2>
+      <h2 className="relative mt-1.5 font-display text-[12px] font-semibold leading-[1.15] tracking-tight text-ink sm:mt-3 sm:text-xl sm:leading-tight">{tool.title}</h2>
       <p className="relative mt-1.5 hidden text-sm leading-snug text-ink-soft sm:block">{tool.description}</p>
 
       {/* A phone: one small button and a small link under it. From 640 px the two buttons share the row equally and a long label wraps instead of running past the card. */}
-      <div className="relative mt-auto flex flex-col gap-1 pt-2.5 sm:flex-row sm:flex-wrap sm:gap-2 sm:pt-3">
+      <div className="relative mt-auto hidden flex-col gap-1 pt-2.5 sm:flex sm:flex-row sm:flex-wrap sm:gap-2 sm:pt-3">
         <Link
           href={primary.href}
           className={`min-h-11 min-w-0 flex-none gap-1.5 whitespace-normal !px-1.5 !py-1.5 text-center !text-[12px] !leading-tight sm:min-h-11 sm:flex-1 sm:basis-32 sm:!px-5 sm:!py-2.5 sm:!text-sm ${BUTTON_LINK} ${theme.primaryButton}`}
