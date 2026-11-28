@@ -794,7 +794,8 @@ export function storeModel(draft: StoreDraft): StoreModel {
       return L && W && along.has(c.key) ? [{ c, L, W, H: foot(c.height) ?? 0 }] : [];
     });
     if (sized.length) {
-      const pre = arrangeStore(building, sized.map(({ c, L, W, H }) => ({ key: c.key, name: `Chamber ${c.no}`, outline: { length: L, width: W, height: H, door: null }, side: along.get(c.key)!.side })));
+      const said = (c: ChamberDraft) => ['LEFT', 'RIGHT', 'BACK', 'FRONT'].includes((c.wallPosition || '').trim().toUpperCase());
+      const pre = arrangeStore(building, sized.map(({ c, L, W, H }) => ({ key: c.key, name: `Chamber ${c.no}`, outline: { length: L, width: W, height: H, door: null }, side: along.get(c.key)!.side, explicit: said(c) })));
       fitNotes = pre.notes;
       for (const { c } of sized) {
         const now = pre.spots[c.key]?.side;
@@ -816,7 +817,7 @@ export function storeModel(draft: StoreDraft): StoreModel {
   // Where the chambers stand, and whether they fit inside the building.
   let layout: Arrangement | null = null;
   if (building && chambers.length) {
-    layout = arrangeStore(building, chambers.map((mc) => ({ key: mc.key, name: mc.name, outline: mc.outline, spot: mc.spot, side: mc.side ?? undefined })));
+    layout = arrangeStore(building, chambers.map((mc) => ({ key: mc.key, name: mc.name, outline: mc.outline, spot: mc.spot, side: mc.side ?? undefined, explicit: Boolean(mc.side) })));
     for (const p of layout.problems) add('warn', 3, `${p.key}.fit`, p.message);
     layout.notes = [...fitNotes, ...layout.notes.filter((x) => !fitNotes.some((y) => y.key === x.key))];
   }
@@ -1387,7 +1388,7 @@ const SIDE_TEXT: Record<Side, string> = { left: 'Left side', right: 'Right side'
  */
 export function arrangeStore(
   b: Pick<Building, 'length' | 'width' | 'height' | 'unit'> & { door?: DoorAt | null; sides?: Sides },
-  chambers: { key: string; name: string; outline: Outline; spot?: { x: number; y: number }; side?: WallSide; keepAxis?: boolean }[],
+  chambers: { key: string; name: string; outline: Outline; spot?: { x: number; y: number }; side?: WallSide; keepAxis?: boolean; explicit?: boolean }[],
 ): Arrangement {
   const spots: Record<string, Spot> = {};
   const problems: { key: string; message: string }[] = [];
@@ -1410,10 +1411,10 @@ export function arrangeStore(
   const notes: { key: string; message: string }[] = [];
   let n = 0;
 
-  // A chamber stands where it fits. The bank its number gives (1 left, 2 right … or the owner's wall) is tried first; when that
-  // bank cannot hold it — a 61 m chamber on a side with 17 m between the passage and the wall — the other side, the back wall and
-  // the front wall are tried in turn, so it is never drawn in the passage or outside the walls. Only when no bank can hold it does
-  // it stay on its own bank and get named in `problems` (below), and the building is drawn larger around it.
+  // A chamber stands on the bank the owner chose (LEFT / RIGHT / BACK / FRONT in step 3) — always; it is never moved to another wall
+  // behind the owner's back. Only a chamber with no wall said (the building's bank setting gives it: 1 left, 2 right …) may go to the
+  // bank across the passage when its own bank cannot hold it, and that is told to the owner. A chamber that fits nowhere stays on its
+  // bank and is named in `problems` (below), and the building is drawn larger where it pokes out.
   const touches = (a: { x: number; y: number; w: number; d: number }, o: { x: number; y: number; w: number; d: number }) =>
     a.x < o.x + o.w - slack && o.x < a.x + a.w - slack && a.y < o.y + o.d - slack && o.y < a.y + a.d - slack;
   const standing = () => Object.values(spots).filter((s) => s.fits);
@@ -1450,14 +1451,12 @@ export function arrangeStore(
     const others = Object.entries(spots).filter(([, o]) => o.fits);
     return reach && inside && !standing().some((o) => touches(spot, o) || touches(mine, o)) && !others.some(([k]) => strips[k] && touches(strips[k], spot));
   };
-  // keepAxis: the chamber's plan was worked out for a door on this axis (a stored chamber), so only the bank across the passage
-  // (left <-> right, back <-> front) is tried: the door just turns to the other wall.
-  const fitBank = (pref: WallSide, w: number, d: number, keepAxis: boolean): WallSide => {
-    if (tryBank(pref, w, d)) return pref;
-    const order: WallSide[] = keepAxis
-      ? [({ left: 'right', right: 'left', back: 'front', front: 'back' } as const)[pref]]
-      : pref === 'left' ? ['right', 'back', 'front'] : pref === 'right' ? ['left', 'back', 'front'] : pref === 'back' ? ['left', 'right', 'front'] : ['left', 'right', 'back'];
-    return order.find((s) => tryBank(s, w, d)) ?? pref;
+  // A chamber the owner placed never moves. One they did not place may cross to the bank on the other side of the passage
+  // (left <-> right, back <-> front); its door then faces the passage or the hall from there.
+  const fitBank = (pref: WallSide, w: number, d: number, explicit: boolean): WallSide => {
+    if (explicit || tryBank(pref, w, d)) return pref;
+    const across = ({ left: 'right', right: 'left', back: 'front', front: 'back' } as const)[pref];
+    return tryBank(across, w, d) ? across : pref;
   };
   const BANK_TEXT: Record<WallSide, string> = { left: 'the left of the passage', right: 'the right of the passage', back: 'along the far wall', front: 'along the entrance wall' };
 
@@ -1473,7 +1472,7 @@ export function arrangeStore(
     }
     const preferred = c.side ?? sideOrder(sides, n);
     n++;
-    const side = fitBank(preferred, w, d, Boolean(c.keepAxis));
+    const side = fitBank(preferred, w, d, Boolean(c.explicit));
     if (side !== preferred) notes.push({ key: c.key, message: `${c.name} is too big for ${BANK_TEXT[preferred]}, so it stands ${BANK_TEXT[side]}, with its door opening into the building.` });
     // Across the passage (out from it to the wall) and along it.
     const out = alongFront ? w : d;
@@ -1490,7 +1489,7 @@ export function arrangeStore(
       const run = alongFront ? w : d;
       const into = alongFront ? d : w;
       const at = rowAt[side];
-      rowAt[side] = at + run + 0.6;
+      rowAt[side] = at + run;
       // In the L-bank the left bank may reach this wall: the row then starts past its last chamber (as in the owner's diagram).
       const pastLeft = side === 'back' && leftOut > 0 && taken.left > pass.depth - into + slack ? leftOut + LBANK_GAP : 0;
       const uu = (side === 'front' ? Math.min(pass.u1 + 0.6, pass.across) : 0) + at + pastLeft;

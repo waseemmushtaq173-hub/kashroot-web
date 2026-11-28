@@ -79,10 +79,56 @@ test('the Al Noor store (313 × 223 ft, one chamber 200 × 45 × 50 ft): inside,
       const b = built(d);
       expect(b, `${sides}/${wall || '-'} builds`).not.toBeNull();
       const bad = broken(`${sides}/${wall || '-'}`, b!.scene);
-      expect(bad, bad.join('\n')).toEqual([]);
-      expect(b!.scene.problems, `${sides}/${wall || '-'}: nothing is drawn where it should not be`).toEqual([]);
+      const scene = b!.scene;
+      if (!wall) {
+        // No wall said: the layout may use the bank across the passage; everything is inside, doors open, nothing flagged.
+        expect(bad, bad.join('\n')).toEqual([]);
+        expect(scene.problems, `${sides}/-: nothing is drawn where it should not be`).toEqual([]);
+        continue;
+      }
+      // The owner said the wall: the chamber stands on it — never moved to another wall — and is inside the drawn building.
+      expect(scene.chambers[0].side, `${sides}/${wall}: stays on the wall the owner chose`).toBe(wall.toLowerCase());
+      expect(scene.notes.join(' '), `${sides}/${wall}: not moved`).not.toContain('too big for');
+      expect(bad.filter((m) => /is outside/.test(m)), `${sides}/${wall}`).toEqual([]);
+      // When the owner's numbers cannot work on that wall (a door 55 ft from the left wall leaves 55 ft for a 200 ft chamber), the owner is told — never silent.
+      if (bad.length) expect(scene.problems.length, `${sides}/${wall}: ${bad[0]} — and nothing told the owner`).toBeGreaterThan(0);
     }
   }
+});
+
+test('six chambers, three typed LEFT and three RIGHT, main door in the middle: each stays where it was put, doors on the passage, nothing flagged', () => {
+  const d = store({ unit: 'ft', length: 313, width: 223, height: 60, doorFrom: 146, sides: 'both', chambers: [1, 2, 3, 4, 5, 6].map((n) => ({ length: 100, width: 45, height: 50, wall: n <= 3 ? 'LEFT' : 'RIGHT' })) });
+  for (const c of d.chambers) Object.assign(c, { count: '600', kg: '300', unitL: '4', unitW: '3.3', unitH: '2.5', aisle: '4.9', stackGap: '0.3', wallGap: '1', cratesPerBin: '300', stackHigh: '20', floorHeights: '50', door: { wall: 'front', from: '17', width: '10', height: '14' } });
+  const model = storeModel(d);
+  expect(model.issues.filter((i) => i.level === 'error').map((i) => i.message), 'no errors').toEqual([]);
+  const b = built(d)!;
+  expect(b, 'builds').not.toBeNull();
+  expect(broken('six', b.scene)).toEqual([]);
+  expect(b.scene.problems).toEqual([]);
+  expect(b.scene.notes, 'nobody was moved').toEqual([]);
+  expect(b.scene.chambers.map((c) => c.side)).toEqual(['left', 'left', 'left', 'right', 'right', 'right']);
+  // Each door faces the passage from its own side: the left chambers' doors on their right wall, the right chambers' on their left.
+  expect(b.scene.chambers.map((c) => c.doorWall)).toEqual(['right', 'right', 'right', 'left', 'left', 'left']);
+});
+
+test('chambers on one bank touch: one partition wall between neighbours, no gap and no overlap (left, right and along the far wall)', () => {
+  const gap = (a: { x: number; y: number; w: number; d: number }, b: { x: number; y: number; w: number; d: number }) =>
+    Math.max(b.x - (a.x + a.w), a.x - (b.x + b.w), b.y - (a.y + a.d), a.y - (b.y + b.d));
+  const d = store({ unit: 'ft', length: 313, width: 223, height: 60, doorFrom: 146, sides: 'both', chambers: [1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ length: 60, width: 45, height: 50, wall: n <= 3 ? 'LEFT' : n <= 6 ? 'RIGHT' : 'BACK' })) });
+  for (const c of d.chambers) Object.assign(c, { count: '300', kg: '300', unitL: '4', unitW: '3.3', unitH: '2.5', aisle: '4.9', stackGap: '0.3', wallGap: '1', cratesPerBin: '300', stackHigh: '20', floorHeights: '50', door: { wall: 'front', from: '17', width: '10', height: '14' } });
+  const b = built(d)!;
+  expect(b, 'builds').not.toBeNull();
+  const at = (n: number) => b.scene.chambers[n - 1].rect;
+  for (const [x, y] of [[1, 2], [2, 3], [4, 5], [5, 6], [7, 8]]) expect(Math.abs(gap(at(x), at(y))), `Chamber ${x} and ${y} share one wall`).toBeLessThan(0.1);
+  expect(broken('block', b.scene)).toEqual([]);
+});
+
+test('a chamber the owner put LEFT that the left side cannot hold stays LEFT: the owner is told which numbers to check', () => {
+  const d = store({ length: 60, width: 40, height: 12, doorFrom: 8, sides: 'both', chambers: [{ length: 30, width: 10, height: 8, wall: 'LEFT' }] });
+  const b = built(d)!;
+  expect(b.scene.chambers[0].side).toBe('left');
+  expect(b.scene.notes.join(' ')).not.toContain('too big for');
+  expect(b.scene.problems.join(' '), 'told, not silent').toContain('Chamber 1');
 });
 
 test('a chamber too big for its side goes to the side that holds it, and the owner is told', () => {

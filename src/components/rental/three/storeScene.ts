@@ -634,7 +634,7 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
       return { ...g, size: { ...g.size!, doorWall: side === 'back' ? b.door.wall : oppositeWall(b.door.wall) } };
     });
     let enclosed = ensureBuildingEnclosesChambers(b, banked.map((g) => g.size!));
-    const arranged = (cur: Building) => arrangeStore(cur, banked.map((g) => ({ key: g.key, name: g.name, outline: outlineOf(g.size!), spot: g.size!.spot, side: bankOf(g), keepAxis: true })));
+    const arranged = (cur: Building) => arrangeStore(cur, banked.map((g) => ({ key: g.key, name: g.name, outline: outlineOf(g.size!), spot: g.size!.spot, side: bankOf(g), keepAxis: true, explicit: bankOf(g) !== undefined })));
     let lay = arranged(enclosed);
     const round2 = (n: number) => Math.round(n * 100) / 100;
     for (let grown = 0; grown < 3; grown++) {
