@@ -148,7 +148,7 @@ export function SelectedBinPanel({
 
       {short && <p className="mt-2 text-xs text-[#6B4F0F]">This cold store takes at least {countText(minUnits, st)} in one booking. You have chosen {totalChosen.toLocaleString('en-IN')} so far: add more here or on another place.</p>}
       <button type="button" data-testid="book-selected-bin" onClick={onBook} disabled={boxes < 1} className="kr-btn-primary mt-3 w-full">
-        Book Selected Bin Capacity <ArrowRight className="h-4 w-4" aria-hidden />
+        Book & pay now <ArrowRight className="h-4 w-4" aria-hidden />
       </button>
     </section>
   );

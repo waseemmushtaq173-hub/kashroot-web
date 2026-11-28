@@ -15,7 +15,7 @@
  * chambers stand side by side along a corridor. Pure: no three.js, no React.
  */
 import { ensureBuildingEnclosesChambers, planOf, type ChamberPlan, type Wall } from '@/lib/coldLayout';
-import { arrangeStore, doorLine, fromDoor, groupChambers, oppositeWall, outlineOf, passageWall as passageWallOf, placeRect, type Building, type ChamberGroup, type PreviewRows, type SpaceKey, type Storage, type WallSide, type WorkSpaces } from '@/lib/coldStore';
+import { arrangeStore, doorLine, fromDoor, groupChambers, oppositeWall, outlineOf, passageWall as passageWallOf, placeRect, type Building, type ChamberGroup, type PreviewRows, SPACE_TEXT, type SpaceKey, type Storage, type WallSide, type WorkSpaces } from '@/lib/coldStore';
 import { placeName, type ColdChamber } from '@/lib/db/coldMap';
 
 export interface Vec {
@@ -129,6 +129,8 @@ export interface SceneZone {
   key: 'cleaning' | 'grading' | 'sorting' | 'packing' | 'machinery' | 'dock';
   label: string;
   rect: Rect;
+  /** True when the owner said where it stands; false when KashRoot had to fit it on the free floor. */
+  placed?: boolean;
 }
 
 /**
@@ -478,16 +480,13 @@ function biggestFreeRect(hall: Rect, taken: Rect[]): Rect | null {
   return best;
 }
 
-/** The lines of work, in the order they follow the fruit through the store (the sorting area is carved from the grading lane). */
+/** The lines of work, in the order they follow the fruit through the store, named as the owner's own form names them. */
 const ZONE_LINES: [SpaceKey, string][] = [
-  ['cleaning', 'Receiving & weighing area'],
-  ['grading', 'Automated grading line'],
-  ['packing', 'Packaging space'],
-  // The refrigeration plant is not drawn in the hall for anyone: the hall holds receiving, grading,
-  // sorting, packaging and dispatch only (the plant's size stays in the owner's own form).
+  ['cleaning', 'Apple Cleaning & Washing'],
+  ['grading', 'Grading & Sorting Machinery'],
+  ['packing', 'Apple Packing & Boxing'],
+  ['machinery', 'Refrigeration Plant / Machinery Room'],
 ];
-/** The grading lane's share that stays the machine line; the rest, beside it, is the sorting area. */
-const GRADING_SHARE = 0.62;
 
 /** The colour a work zone is painted in — the same hue in the 2D drawing and on the 3D floor. */
 export const ZONE_LOOK: Record<SceneZone['key'], string> = {
@@ -500,94 +499,62 @@ export const ZONE_LOOK: Record<SceneZone['key'], string> = {
 };
 
 /**
- * Where the work zones stand. A zone the owner sized keeps its own length ×
- * width (clamped into the free floor, laid along its longer side; too many
- * for it shrink together so every one still fits); zones left empty are set
- * out as equal lanes on whatever room is left. The dock stands on the
- * passage floor at the main door — an owner-sized dock keeps its length as
- * the depth it reaches into the passage. Only real free floor is set out —
- * never a chamber, never the forklift corridor. Exported for the wizard's
- * own live drawing (owner/StoreDrawing), which draws the same zones from
- * the draft.
+ * Where the work zones stand — only what the owner gave. An area the owner
+ * sized AND placed stands exactly where they said (distance from the left
+ * wall and from the front wall, its length along the building's length). An
+ * area they sized but did not place is set on the free floor, with its own
+ * length × width (flagged `placed: false` so the owner is told to say where it
+ * stands). An area they did not size is not drawn at all: KashRoot invents no
+ * rooms. The dock is the strip at the main door only when the owner sized it.
+ * Never on a chamber or the forklift corridor when KashRoot has to choose.
+ * Exported for the wizard's own live drawing (owner/StoreDrawing).
  */
 export function workZones(hall: Rect, chamberRects: Rect[], passage: Rect | null, doorWall: Wall, ownerSpaces?: WorkSpaces): SceneZone[] {
   const zones: SceneZone[] = [];
+  const owner = ownerSpaces ?? null;
+  if (!owner) return zones;
   const taken = [...chamberRects];
   if (passage) taken.push({ ...passage });
-  const free = biggestFreeRect(hall, taken);
-  const owner = ownerSpaces ?? null;
-  if (free) {
+  // Placed by the owner: exactly there.
+  for (const [k, label] of ZONE_LINES) {
+    const s = owner[k];
+    if (s && s.x !== undefined && s.y !== undefined) zones.push({ key: k, label, rect: { x: hall.x + s.x, y: hall.y + s.y, w: s.l, d: s.w }, placed: true });
+  }
+  // Sized but not placed: on the free floor, as long as the owner gave it.
+  const loose = ZONE_LINES.filter(([k]) => owner[k] && (owner[k]!.x === undefined || owner[k]!.y === undefined));
+  const free = loose.length ? biggestFreeRect(hall, [...taken, ...zones.map((z) => z.rect)]) : null;
+  if (free && loose.length) {
     const along = free.w >= free.d;
     const run = along ? free.w : free.d;
     const cross = along ? free.d : free.w;
-    const put = (key: SceneZone['key'], label: string, len: number, wid: number, at: number) => {
-      zones.push({ key, label, rect: along ? { x: free.x + at, y: free.y + (cross - wid) / 2, w: len, d: wid } : { x: free.x + (cross - wid) / 2, y: free.y + at, w: wid, d: len } });
-    };
-    const sized = ZONE_LINES.filter(([k]) => owner?.[k]);
-    const rest = ZONE_LINES.filter(([k]) => !owner?.[k]);
-    if (sized.length) {
-      // Owner-sized first: their lengths along the run (an owner space is
-      // never smaller than 1 m), shrinking together when they overflow, with
-      // the gap left between them.
-      const lanes = sized.map(([k, label]) => {
-        const s = owner![k]!;
-        const len = Math.min(Math.max(s.l, 1), run);
-        const wid = Math.min(Math.max(s.w, 1), cross);
-        return { k, label, len, wid };
-      });
-      const room = run - ZONE_GAP * Math.max(0, lanes.length - 1);
-      const total = lanes.reduce((n, s) => n + s.len, 0);
-      const scale = total > room && total > 0 ? room / total : 1;
-      let at = 0;
-      for (const s of lanes) {
-        const len = Math.max(1, s.len * scale);
-        put(s.k, s.label, len, s.wid, at);
-        at += len + ZONE_GAP;
-      }
-      // The zones left to KashRoot: equal lanes over what run is still free.
-      const left = Math.max(0, run - at);
-      const n = Math.min(rest.length, Math.floor(left / ZONE_MIN_LANE));
-      if (n > 0) {
-        const lane = left / n;
-        rest.slice(0, n).forEach(([key, label], i) => put(key, label, lane - 2 * ZONE_GAP, cross - 2 * ZONE_GAP, at + i * lane + ZONE_GAP));
-      }
-    } else {
-      // Nothing owner-sized: the four lines of work as equal lanes, as many
-      // as fit side by side along the free rect's longer side.
-      const n = Math.min(ZONE_LINES.length, Math.floor(run / ZONE_MIN_LANE));
-      const lane = run / n;
-      ZONE_LINES.slice(0, n).forEach(([key, label], i) => put(key, label, lane - 2 * ZONE_GAP, cross - 2 * ZONE_GAP, i * lane + ZONE_GAP));
+    const lanes = loose.map(([k, label]) => ({ k, label, len: Math.min(Math.max(owner[k]!.l, 1), run), wid: Math.min(Math.max(owner[k]!.w, 1), cross) }));
+    const room = run - ZONE_GAP * Math.max(0, lanes.length - 1);
+    const total = lanes.reduce((n, s) => n + s.len, 0);
+    const scale = total > room && total > 0 ? room / total : 1;
+    let at = 0;
+    for (const s of lanes) {
+      const len = Math.max(1, s.len * scale);
+      zones.push({ key: s.k, label: s.label, rect: along ? { x: free.x + at, y: free.y + (cross - s.wid) / 2, w: len, d: s.wid } : { x: free.x + (cross - s.wid) / 2, y: free.y + at, w: s.wid, d: len }, placed: false });
+      at += len + ZONE_GAP;
     }
   }
-  // The grading lane holds the machine line and, beside it along the same run, the sorting area.
-  const gi = zones.findIndex((z) => z.key === 'grading');
-  if (gi >= 0) {
-    const g = zones[gi].rect;
-    const along = g.w >= g.d;
-    const run = along ? g.w : g.d;
-    if (run >= ZONE_MIN_LANE * 2) {
-      const lineLen = Math.max(ZONE_MIN_LANE, (run - ZONE_GAP) * GRADING_SHARE);
-      const sortLen = run - ZONE_GAP - lineLen;
-      if (sortLen >= 1.5) {
-        zones[gi] = { ...zones[gi], rect: along ? { ...g, w: lineLen } : { ...g, d: lineLen } };
-        zones.splice(gi + 1, 0, { key: 'sorting', label: 'Sorting area', rect: along ? { ...g, x: g.x + lineLen + ZONE_GAP, w: sortLen } : { ...g, y: g.y + lineLen + ZONE_GAP, d: sortLen } });
+  const dock = owner.dock;
+  if (dock) {
+    if (dock.x !== undefined && dock.y !== undefined) {
+      zones.push({ key: 'dock', label: SPACE_TEXT.dock, rect: { x: hall.x + dock.x, y: hall.y + dock.y, w: dock.l, d: dock.w }, placed: true });
+    } else if (passage) {
+      // At the main door, along the passage: as deep as the length the owner gave.
+      const horiz = doorWall === 'front' || doorWall === 'back';
+      const size = horiz ? passage.d : passage.w;
+      const depth = Math.min(Math.max(1.2, dock.l), size);
+      if (depth >= 1.2 && Math.min(passage.w, passage.d) >= 1.2) {
+        const touchesNear = horiz ? Math.abs(passage.y - hall.y) < 0.6 : Math.abs(passage.x - hall.x) < 0.6;
+        const touchesFar = horiz ? Math.abs(passage.y + passage.d - (hall.y + hall.d)) < 0.6 : Math.abs(passage.x + passage.w - (hall.x + hall.w)) < 0.6;
+        const frontEnd = doorWall === 'front' || doorWall === 'left' ? touchesNear : touchesFar;
+        const lo = horiz ? passage.y : passage.x;
+        const at = frontEnd ? lo : lo + size - depth;
+        zones.push({ key: 'dock', label: SPACE_TEXT.dock, rect: horiz ? { x: passage.x, y: at, w: passage.w, d: depth } : { x: at, y: passage.y, w: depth, d: passage.d }, placed: false });
       }
-    }
-  }
-  if (passage) {
-    // The dock is the strip of the passage at the main door: the passage
-    // runs from it, clear of every chamber, to the wall opposite. An
-    // owner-sized dock keeps its length as the depth it reaches in.
-    const horiz = doorWall === 'front' || doorWall === 'back';
-    const size = horiz ? passage.d : passage.w;
-    const depth = Math.min(owner?.dock ? Math.max(1.2, owner.dock.l) : 3, size);
-    if (depth >= 1.2 && Math.min(passage.w, passage.d) >= 1.2) {
-      const touchesNear = horiz ? Math.abs(passage.y - hall.y) < 0.6 : Math.abs(passage.x - hall.x) < 0.6;
-      const touchesFar = horiz ? Math.abs(passage.y + passage.d - (hall.y + hall.d)) < 0.6 : Math.abs(passage.x + passage.w - (hall.x + hall.w)) < 0.6;
-      const frontEnd = doorWall === 'front' || doorWall === 'left' ? touchesNear : touchesFar;
-      const lo = horiz ? passage.y : passage.x;
-      const at = frontEnd ? lo : lo + size - depth;
-      zones.push({ key: 'dock', label: 'Dispatch & truck bay', rect: horiz ? { x: passage.x, y: at, w: passage.w, d: depth } : { x: at, y: passage.y, w: depth, d: passage.d } });
     }
   }
   return zones;
@@ -772,10 +739,15 @@ export function buildScene(rows: ColdChamber[], building: Building | null | unde
     const seg = doorLine(b.door, { length: hall.w, width: hall.d });
     mainDoor = { seg, wall: b.door.wall, from: b.door.from, width: b.door.width, height: b.door.height, mid: midOf(seg), inward: INWARD[b.door.wall], kind: b.doorKind };
     walls = wallsOf(hall, seg, b.door.wall);
-    // The work zones painted on the floor: the dock at the main door, and
-    // the lines of work on the biggest clear floor — real free floor only,
-    // the owner's own sizes kept where they gave them.
+    // The work areas painted on the floor: only the ones the owner sized, where the owner said they stand. One sized but not placed is
+    // set on free floor and the owner is told to say where it stands.
     zones = workZones(hall, chambers.map((c) => c.rect), passage, b.door.wall, b.workSpaces);
+    for (const z of zones) {
+      if (z.placed === false) {
+        const msg = `${z.label} has a size but no position, so it is drawn where it fits. Say how far it is from the left wall and from the front wall (step 2, The building).`;
+        if (!notes.includes(msg)) notes.push(msg);
+      }
+    }
   }
 
   let x0 = hall.x;

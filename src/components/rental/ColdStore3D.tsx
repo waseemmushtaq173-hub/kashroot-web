@@ -149,7 +149,7 @@ const PITCH = 1.05;
 const FOV = { orbit: 45, walk: 68 } as const;
 
 /** What a chamber holds: over the 3D view's corner, or under the view on a phone (`zoom`: bigger words there). */
-function InfoCard({ c, free, rate, unit, onClose, onWalk, zoom }: { c: SceneChamber; free: number; rate: number | null; unit: 'ft' | 'm'; onClose: () => void; onWalk?: () => void; zoom: number }) {
+function InfoCard({ c, free, rate, unit, onClose, onWalk, onBook, zoom }: { c: SceneChamber; free: number; rate: number | null; unit: 'ft' | 'm'; onClose: () => void; onWalk?: () => void; onBook?: () => void; zoom: number }) {
   const g = c.group;
   const st: Storage = c.storage;
   const r = g.rate ?? rate;
@@ -196,6 +196,11 @@ function InfoCard({ c, free, rate, unit, onClose, onWalk, zoom }: { c: SceneCham
           </>
         )}
       </dl>
+      {onBook && free > 0 && (
+        <button type="button" data-testid="book-here" onClick={onBook} className="kr-btn-primary mt-2 inline-flex min-h-[48px] w-full items-center justify-center gap-2 text-base">
+          Book a place here
+        </button>
+      )}
       {onWalk && (
         <button type="button" onClick={onWalk} className="mt-2 inline-flex min-h-[44px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-forest px-3 font-semibold text-white hover:bg-forest-deep">
           <Footprints className="h-4 w-4" aria-hidden /> Walk in here
@@ -1749,6 +1754,18 @@ export function ColdStore3D({
   const note = scene.problems.length ? (mode === 'owner' ? scene.problems.slice(0, 2).join(' ') : 'As the owner measured them, some chambers need more room than the building has, so the building is drawn larger here.') : mode === 'owner' ? scene.notes.slice(0, 2).join(' ') : '';
   const big = zoom > 1.3;
   const height = walking ? (big ? 'min(78vh, 1050px)' : 'min(70vh, 560px)') : big ? 'min(62vh, 820px)' : 'min(62vh, 520px)';
+  // "Book a place here" on a chamber's card: the free place nearest its door is chosen at once (the same as tapping it), and the
+  // booking window asks how many bins and goes on to "Book & pay now".
+  const bookHere = (ci: number) => {
+    const ch = scene.chambers[ci];
+    const pick = cells
+      .filter((x) => x.chamber === ci && (x.look === 'free' || x.look === 'part'))
+      .sort((a, b) => a.floor - b.floor || a.row - b.row || a.col - b.col)[0];
+    const f = pick ? ch?.floors[pick.floor] : null;
+    if (!pick || !f) return;
+    onActive(f.row.id);
+    onPlace?.(f.row, pick.slot, pick.look);
+  };
   const card =
     !walking && shownInfo ? (
       <InfoCard
@@ -1766,6 +1783,7 @@ export function ColdStore3D({
               }
             : undefined
         }
+        onBook={mode === 'book' && onPlace ? () => bookHere(shownInfo.index) : undefined}
       />
     ) : null;
   return (
@@ -1774,7 +1792,7 @@ export function ColdStore3D({
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl bg-forest-soft px-4 py-2.5 text-base font-semibold text-forest-deep ring-1 ring-[#CFE0D6]">
           <span>{walking ? '1. Walk up to a stack.' : '1. Tap a chamber to open it.'}</span>
           <span>{walking ? '2. Tap a free stack to choose it.' : '2. Tap a free stack to choose it.'}</span>
-          <span>3. Press Next.</span>
+          <span>3. Press Book & pay now.</span>
         </p>
       )}
       <div className="flex flex-wrap gap-2" role="group" aria-label={walking ? 'Walk to' : 'Look at'}>

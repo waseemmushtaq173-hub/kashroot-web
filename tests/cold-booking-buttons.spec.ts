@@ -2,7 +2,7 @@
  * The buttons a farmer and an owner need in the cold-store booking, where they can be seen.
  *
  * A farmer: the window says where they are (1 Choose places, 2 Confirm, 3 Pay the owner), and the bottom of the window always has one big
- * button to press — "Choose places for me" (asks how many bins when KashRoot does not know), then "Next: confirm · ₹…", then
+ * button to press — "Choose places for me" (asks how many bins when KashRoot does not know), then "Book & pay now · ₹…", then
  * "Book for ₹…", and on the last step the owner's payment comes before the gate pass.
  * An owner: the map window opens with "See how a farmer books & pays", "Bookings to confirm" and "Change chambers", the free / booked /
  * waiting counts, and "Money received" on a place a farmer has booked.
@@ -64,7 +64,7 @@ for (const width of [360, 390, 1280]) {
       // Places chosen: the same place now says what comes next and what it costs.
       const next = page.getByTestId('next-confirm');
       await expect(next).toBeVisible();
-      await expect(next).toContainText(/Next: confirm · ₹/);
+      await expect(next).toContainText(/Book & pay now · ₹/);
       await next.click();
       await expect(steps.locator('[aria-current="step"]')).toContainText('Confirm');
       const book = page.getByRole('button', { name: /^Book for ₹/ });
@@ -121,3 +121,20 @@ for (const width of [360, 390, 1280]) {
     });
   });
 }
+
+test.describe('a chamber in 3D', () => {
+  test.use({ viewport: { width: 1280, height: 1300 } });
+
+  test('its card says "Book a place here": the free place nearest the door is chosen and "Book & pay now" shows the price', async ({ page }) => {
+    test.setTimeout(240_000); // the software 3D renderer is slow on its first load
+    await open(page, '/test-pages/booking');
+    await page.getByText('3D view', { exact: true }).first().click();
+    await page.getByRole('button', { name: 'Chamber 1', exact: true }).click({ timeout: 90_000 });
+    await page.getByTestId('book-here').click({ timeout: 30_000 });
+    const go = page.getByTestId('next-confirm');
+    await expect(go).toContainText(/Book & pay now · ₹/);
+    // From there it is the same way on: confirm, book, pay the owner.
+    await go.click();
+    await expect(page.getByRole('button', { name: /^Book for ₹/ })).toBeVisible();
+  });
+});

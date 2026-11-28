@@ -3,7 +3,7 @@
 /**
  * ?view=owner is the cold-store test page (../cold-store); this page opens the farmers' booking window itself, on the draft
  * typed there, for a test farmer. A test sets the draft in localStorage, answers the database's calls, opens this page, and
- * then clicks through: a bin in 3D, "Book Selected Bin Capacity", the confirm step, the booking, the pay step.
+ * then clicks through: a bin in 3D, "Book & pay now", the confirm step, the booking, the pay step.
  */
 import { useEffect, useMemo, useState } from 'react';
 

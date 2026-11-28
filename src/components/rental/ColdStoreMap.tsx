@@ -454,7 +454,7 @@ export function ColdStoreExplorer({
         <p data-testid="drawing-steps" className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl bg-forest-soft px-4 py-2.5 text-base font-semibold text-forest-deep ring-1 ring-[#CFE0D6]">
           <span>1. Tap a chamber to open it.</span>
           <span>2. Tap a free green place to choose it.</span>
-          <span>3. Press Next.</span>
+          <span>3. Press Book & pay now.</span>
         </p>
       )}
       {view === 'photos' && realStore ? (

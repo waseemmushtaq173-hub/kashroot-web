@@ -207,7 +207,7 @@ export function BuildingStep({ kit }: { kit: Kit }) {
         <fieldset className="space-y-3 rounded-2xl bg-forest-soft/70 p-4 ring-1 ring-forest-line">
           <legend className="sr-only">Work spaces</legend>
           <p className="flex items-center gap-2 text-base font-semibold text-forest-deep"><Warehouse className="h-5 w-5" aria-hidden /> Work spaces (cleaning, grading, packing, plant, bay)</p>
-          <p className="text-sm text-slate-700">The rooms around the chambers where the fruit is cleaned, graded, packed and loaded. Give each one its length and width — leave a space empty and the drawing makes it fit the room left over.</p>
+          <p className="text-sm text-slate-700">The rooms where the fruit is cleaned, graded, packed and loaded. Give each one its length and width, and say where it stands: how far from the left wall and from the front wall. A space you leave empty is not drawn — nothing is made up for you.</p>
           <div className="space-y-3">
             {SPACE_KEYS.map((k: SpaceKey) => (
               <div key={k} className="rounded-xl bg-white p-3 ring-1 ring-slate-200">
@@ -215,6 +215,8 @@ export function BuildingStep({ kit }: { kit: Kit }) {
                 <div className="mt-1.5 grid gap-3 sm:grid-cols-2">
                   <KitBox kit={kit} field={`building.${SPACE_DRAFT_FIELDS[k].l}`} label={`Length (${u})`} number />
                   <KitBox kit={kit} field={`building.${SPACE_DRAFT_FIELDS[k].w}`} label={`Width (${u})`} number />
+                  <KitBox kit={kit} field={`building.${SPACE_DRAFT_FIELDS[k].x}`} label={`From the left wall (${u})`} number hint="Stand inside facing the back wall: how far its near corner is from the left wall." />
+                  <KitBox kit={kit} field={`building.${SPACE_DRAFT_FIELDS[k].y}`} label={`From the front wall (${u})`} number hint="How far its near corner is from the front wall." />
                 </div>
               </div>
             ))}

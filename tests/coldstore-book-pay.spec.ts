@@ -1,6 +1,6 @@
 /**
  * The whole way a farmer books in the 3D store, as the real booking window runs it: click a bin in 3D, the selected-bin panel
- * asks how many bins and shows the price, "Book Selected Bin Capacity" opens the confirm step, "Book" makes the booking, and
+ * asks how many bins and shows the price, "Book & pay now" opens the confirm step, "Book" makes the booking, and
  * the pay step shows who to pay. The database's answers are supplied by the test (nothing is saved); what the browser sends
  * to the unit registry is checked: the farmer's own account, the booking's own reference, and always "PENDING" (only the
  * owner marks places paid). Needs a server started with KR_TEST_PAGES=1; KR_BASE_URL says where.

@@ -82,21 +82,48 @@ test('the default "both sides" store still alternates, so nothing existing moves
   expect(c2.rect.x).toBeGreaterThan(scene.passage!.x);
 });
 
-test('the hall holds receiving, the grading line, sorting, packaging and dispatch; farmers never see the plant', () => {
-  const scene = built(lbankStore(7));
-  const keys = scene.zones.map((z) => z.key);
-  for (const k of ['cleaning', 'grading', 'sorting', 'packing', 'dock']) expect(keys, `zone ${k}`).toContain(k);
-  expect(scene.zones.find((z) => z.key === 'cleaning')!.label).toMatch(/receiving/i);
-  expect(scene.zones.find((z) => z.key === 'grading')!.label).toMatch(/grading line/i);
-  expect(scene.zones.find((z) => z.key === 'dock')!.label).toMatch(/dispatch/i);
-  for (const mode of ['book', 'view'] as const) expect(zonesForViewer(scene.zones, mode).map((z) => z.key)).not.toContain('machinery');
-  // No zone stands on a chamber or on the forklift passage.
-  for (const z of scene.zones.filter((x) => x.key !== 'dock')) {
-    for (const c of scene.chambers) {
-      const overlap = Math.min(z.rect.x + z.rect.w, c.rect.x + c.rect.w) - Math.max(z.rect.x, c.rect.x) > 0.05 && Math.min(z.rect.y + z.rect.d, c.rect.y + c.rect.d) - Math.max(z.rect.y, c.rect.y) > 0.05;
-      expect(overlap, `${z.label} on ${c.name}`).toBe(false);
-    }
-  }
+test('work areas are only what the owner entered, and where the owner said: nothing is made up', () => {
+  // Nothing entered: no area is drawn — no lanes, no sorting area, no dock.
+  expect(built(lbankStore(7)).zones, 'no area the owner did not enter').toEqual([]);
+
+  // Sized AND placed: exactly there (metres from the left wall and the front wall), exactly that size.
+  const d = lbankStore(7);
+  Object.assign(d.building, { spPackingL: '12', spPackingW: '8', spPackingX: '40', spPackingY: '45', spCleaningL: '10', spCleaningW: '6', spCleaningX: '52', spCleaningY: '45' });
+  const scene = built(d);
+  expect(scene.zones.map((z) => z.key).sort()).toEqual(['cleaning', 'packing']);
+  const packing = scene.zones.find((z) => z.key === 'packing')!;
+  expect(packing.rect.x).toBeCloseTo(40, 1);
+  expect(packing.rect.y).toBeCloseTo(45, 1);
+  expect(packing.rect.w).toBeCloseTo(12, 1);
+  expect(packing.rect.d).toBeCloseTo(8, 1);
+  expect(packing.placed).toBe(true);
+  expect(scene.notes.join(' '), 'placed by the owner: nothing to tell').not.toContain('no position');
+
+  // Sized but not placed: drawn on free floor with its own size, and the owner is told to say where it stands.
+  const e = lbankStore(3);
+  Object.assign(e.building, { spGradingL: '10', spGradingW: '6' });
+  const loose = built(e);
+  expect(loose.zones.map((z) => z.key)).toEqual(['grading']);
+  expect(loose.zones[0].placed).toBe(false);
+  expect(loose.notes.join(' ')).toContain('Grading & Sorting Machinery has a size but no position');
+
+  // The dock only when the owner sized it; farmers never see the machinery room.
+  const f = lbankStore(3);
+  Object.assign(f.building, { spDockL: '5', spDockW: '4', spMachineryL: '6', spMachineryW: '5', spMachineryX: '2', spMachineryY: '50' });
+  const withDock = built(f);
+  expect(withDock.zones.map((z) => z.key).sort()).toEqual(['dock', 'machinery']);
+  for (const mode of ['book', 'view'] as const) expect(zonesForViewer(withDock.zones, mode).map((z) => z.key)).not.toContain('machinery');
+  expect(zonesForViewer(withDock.zones, 'owner').map((z) => z.key)).toContain('machinery');
+});
+
+test('a position outside the building, or only one distance, is flagged and never used', () => {
+  const d = lbankStore(3);
+  Object.assign(d.building, { spPackingL: '12', spPackingW: '8', spPackingX: '65', spPackingY: '5' });
+  const model = storeModel(d);
+  expect(model.issues.map((i) => i.message).join(' ')).toContain('would go outside the building');
+  const half = lbankStore(3);
+  Object.assign(half.building, { spPackingL: '12', spPackingW: '8', spPackingX: '10' });
+  expect(storeModel(half).issues.map((i) => i.message).join(' ')).toContain('write both distances');
 });
 
 test('the airlock vestibule sits just inside the main door with an inner door across the passage', () => {
