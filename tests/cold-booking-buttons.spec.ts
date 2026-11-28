@@ -125,16 +125,19 @@ for (const width of [360, 390, 1280]) {
 test.describe('a chamber in 3D', () => {
   test.use({ viewport: { width: 1280, height: 1300 } });
 
-  test('its card says "Book a place here": the free place nearest the door is chosen and "Book & pay now" shows the price', async ({ page }) => {
+  test('its card says "Book a place here": the camera flies to the free place nearest the door, and its bar says "Book & pay now"', async ({ page }) => {
     test.setTimeout(240_000); // the software 3D renderer is slow on its first load
     await open(page, '/test-pages/booking');
     await page.getByText('3D view', { exact: true }).first().click();
     await page.getByRole('button', { name: 'Chamber 1', exact: true }).click({ timeout: 90_000 });
     await page.getByTestId('book-here').click({ timeout: 30_000 });
-    const go = page.getByTestId('next-confirm');
-    await expect(go).toContainText(/Book & pay now · ₹/);
+    // The camera flies down to the place (as a stadium's seat view) and the place's own bar says where it is, with Book & pay now.
+    const bar = page.getByTestId('seat-bar');
+    await expect(bar).toBeVisible();
+    await expect(bar).toContainText(/Chamber 1 · Row \d+, stack \d+/i);
+    await expect(page.getByTestId('next-confirm')).toContainText(/Book & pay now · ₹/);
     // From there it is the same way on: confirm, book, pay the owner.
-    await go.click();
+    await page.getByTestId('seat-book').click();
     await expect(page.getByRole('button', { name: /^Book for ₹/ })).toBeVisible();
   });
 });

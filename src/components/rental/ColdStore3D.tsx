@@ -104,6 +104,10 @@ interface Api {
   setActive: (index: number) => void;
   setView: (v: View3D) => void;
   frame: (what: 'all' | 'door' | 'top' | number) => void;
+  /** Fly down to stand in front of one place, as from a seat in a stadium: its chamber open, the place in front of you. */
+  seat: (chamber: number, floor: number, slot: string) => void;
+  /** Take the chosen place's glow away (back to choosing). */
+  clearSeat: () => void;
   walkTo: (index: number | null) => void;
   /** Where the next walk starts (a chamber's door), instead of the main door. */
   walkFrom: (index: number) => void;
@@ -394,6 +398,7 @@ export function ColdStore3D({
   onOpenTwin,
   facilityName,
   facilityId,
+  onBookNow,
 }: {
   chambers: ColdChamber[];
   stateOf: (c: ColdChamber, slot: string) => Look;
@@ -418,6 +423,8 @@ export function ColdStore3D({
   holdersOf?: (c: ColdChamber, slot: string) => PlaceHolder[];
   /** Farmer views: how many units the viewer themselves hold on one place (null: not known). */
   mineOf?: (c: ColdChamber, slot: string) => number | null;
+  /** Book mode: the place's bar "Book & pay now" goes on to confirming and paying (the booking window's own next step). */
+  onBookNow?: () => void;
   onOpenTwin?: () => void;
   /** The facility's name, shown in the place inspector (Facility → Chamber → …). */
   facilityName?: string;
@@ -446,6 +453,8 @@ export function ColdStore3D({
   // eslint-disable-next-line react-hooks/set-state-in-effect -- kept as shipped: changing when this state is set needs its signed-in flow tested
   useEffect(() => setMounted(true), []);
   const [info, setInfo] = useState<number | null>(null);
+  // The place flown down to (book mode): its bar at the foot of the view, with "Book & pay now".
+  const [seatAt, setSeatAt] = useState<{ chamber: number; floor: number; slot: string } | null>(null);
   const [where, setWhere] = useState<Where>({ text: 'You are outside the main door.', chamber: -1, level: 1, floors: 1 });
   const [target, setTarget] = useState<Target | null>(null);
   const [measure, setMeasure] = useState<Measure | null>(null);
@@ -844,18 +853,18 @@ export function ColdStore3D({
       let startAt: number | null = null;
 
       // ── Camera ──
-      let flight: { from: number[]; to: number[]; t0: number } | null = null;
+      let flight: { from: number[]; to: number[]; t0: number; dur: number } | null = null;
       // The view last chosen (whole store, from the door, from above, a chamber) until the camera is moved by hand:
       // when the view changes size (a phone turned, buttons growing on a phone) it is framed again, so nothing is cut off.
       let framed: 'all' | 'door' | 'top' | number | null = null;
-      const setPose = (pos: number[], target: number[], instant: boolean) => {
+      const setPose = (pos: number[], target: number[], instant: boolean, dur = 700) => {
         if (instant || reduceMotion) {
           camera.position.set(pos[0], pos[1], pos[2]);
           controls.target.set(target[0], target[1], target[2]);
           controls.update();
           flight = null;
         } else {
-          flight = { from: [camera.position.x, camera.position.y, camera.position.z, controls.target.x, controls.target.y, controls.target.z], to: [...pos, ...target], t0: performance.now() };
+          flight = { from: [camera.position.x, camera.position.y, camera.position.z, controls.target.x, controls.target.y, controls.target.z], to: [...pos, ...target], t0: performance.now(), dur };
         }
         dirty = true;
         kick();
@@ -933,6 +942,82 @@ export function ColdStore3D({
         const p = { x: st.at.x - n.x * back, y: st.at.y - n.y * back };
         const t = { x: st.at.x + n.x * (3 + deep * 0.45), y: st.at.y + n.y * (3 + deep * 0.45) };
         setPose([wx(origin, p.x), up, wz(origin, p.y)], [wx(origin, t.x), 0, wz(origin, t.y)], instant);
+      };
+
+      let seatMark: InstanceType<typeof T.Group> | null = null;
+      const clearSeat = () => {
+        if (!seatMark) return;
+        world3.remove(seatMark);
+        seatMark.traverse((o) => {
+          const m = o as unknown as { geometry?: { dispose: () => void }; material?: { dispose: () => void } };
+          m.geometry?.dispose();
+          m.material?.dispose();
+        });
+        seatMark = null;
+        dirty = true;
+        kick();
+      };
+      // The view from one place, as a seat view in a stadium: standing in the chamber's walkway right in front of the stack, at
+      // eye height on its floor, looking at it. The camera flies down in one smooth move; drag to look around from there.
+      const seat = (ci: number, fi: number, slot: string) => {
+        const s = shown;
+        const c = s?.chambers[ci];
+        const f = c?.floors[fi];
+        const p = f?.places.find((x) => x.slot === slot);
+        if (!s || !c || !f || !p) return;
+        framed = null;
+        const pc = { x: p.rect.x + p.rect.w / 2, y: p.rect.y + p.rect.d / 2 };
+        let stand: { x: number; y: number };
+        const w = f.walkway;
+        if (w) {
+          // On the walkway's middle line, level with the place.
+          stand = w.d >= w.w ? { x: w.x + w.w / 2, y: Math.min(Math.max(pc.y, w.y + 0.5), w.y + w.d - 0.5) } : { x: Math.min(Math.max(pc.x, w.x + 0.5), w.x + w.w - 0.5), y: w.y + w.d / 2 };
+        } else {
+          // No walkway: a few steps back from the place, towards the chamber door.
+          const toward = c.door ? midOf(c.door) : { x: c.rect.x + c.rect.w / 2, y: c.rect.y + c.rect.d / 2 };
+          const dx = toward.x - pc.x;
+          const dy = toward.y - pc.y;
+          const len = Math.hypot(dx, dy) || 1;
+          const back = Math.min(3, len);
+          stand = { x: pc.x + (dx / len) * back, y: pc.y + (dy / len) * back };
+        }
+        if (w) {
+          // A few steps back along the walkway towards the chamber door, so the place is seen at an angle with its neighbours,
+          // as the pitch is seen from a seat — not nose to nose with it.
+          const door = c.door ? midOf(c.door) : { x: w.x + w.w / 2, y: w.y };
+          const upright = w.d >= w.w;
+          const along = upright ? Math.sign(door.y - stand.y) || -1 : Math.sign(door.x - stand.x) || -1;
+          const room = upright ? (along > 0 ? w.y + w.d - 0.4 - stand.y : stand.y - (w.y + 0.4)) : along > 0 ? w.x + w.w - 0.4 - stand.x : stand.x - (w.x + 0.4);
+          const step = Math.max(0, Math.min(3.2, room));
+          stand = upright ? { x: stand.x, y: stand.y + along * step } : { x: stand.x + along * step, y: stand.y };
+        }
+        if (Math.hypot(stand.x - pc.x, stand.y - pc.y) < 2) {
+          // Too close to see the whole stack: step back along the same line (or towards the door).
+          const dx = stand.x - pc.x || 0.001;
+          const dy = stand.y - pc.y;
+          const len = Math.hypot(dx, dy) || 1;
+          stand = { x: pc.x + (dx / len) * 2.2, y: pc.y + (dy / len) * 2.2 };
+        }
+        // From a raised seat: about level with the top of the stack (never above the ceiling), looking down at its middle, so the
+        // whole stack, its neighbours and its "Your choice" tag are all in view.
+        // The chosen place glows: a soft rose box round the whole stack with bright edges, so it stands out from its neighbours.
+        clearSeat();
+        const sw = p.rect.w + 0.12;
+        const sd = p.rect.d + 0.12;
+        const sh = Math.max(0.6, f.stackH) + 0.1;
+        const box = new T.BoxGeometry(sw, sh, sd);
+        const glow = new T.Mesh(box, new T.MeshBasicMaterial({ color: '#F43F5E', transparent: true, opacity: 0.18, depthWrite: false }));
+        const edges = new T.LineSegments(new T.EdgesGeometry(box), new T.LineBasicMaterial({ color: '#FB7185' }));
+        seatMark = new T.Group();
+        seatMark.add(glow, edges);
+        seatMark.position.set(wx(origin, pc.x), f.z0 + sh / 2, wz(origin, pc.y));
+        seatMark.renderOrder = 5;
+        world3.add(seatMark);
+        // Above the stack tops when the room allows (as from an upper tier), so a place behind its neighbours still shows; looking
+        // down at the chosen stack's glowing top.
+        const eye = f.z0 + Math.max(EYE + 0.4, Math.min(f.h - 0.25, f.stackH + 1.6));
+        const lookAt = f.z0 + Math.max(0.6, Math.min(eye - f.z0 - 1, f.stackH * 0.75));
+        setPose([wx(origin, stand.x), eye, wz(origin, stand.y)], [wx(origin, pc.x), lookAt, wz(origin, pc.y)], false, 1500);
       };
 
       // ── Walking ──
@@ -1077,7 +1162,14 @@ export function ColdStore3D({
         const f = s?.chambers[cell.chamber]?.floors[cell.floor];
         if (!f) return;
         activate(f.row.id);
-        if (choosable(cell)) pick?.(f.row, cell.slot, cell.look);
+        if (choosable(cell)) {
+          pick?.(f.row, cell.slot, cell.look);
+          // Choosing a free place (not taking one off): fly down to it, and show the place's own bar with "Book & pay now".
+          if (latest.current.mode === 'book' && mode3 === 'orbit' && (cell.look === 'free' || cell.look === 'part')) {
+            seat(cell.chamber, cell.floor, cell.slot);
+            setSeatAt({ chamber: cell.chamber, floor: cell.floor, slot: cell.slot });
+          }
+        }
       };
       let aimed: Cell | null = null;
       let aimAt = 0;
@@ -1561,7 +1653,9 @@ export function ColdStore3D({
         last = t;
         let busy = false;
         if (flight) {
-          const k = ease(Math.min(1, (performance.now() - flight.t0) / 700));
+          const u = Math.min(1, (performance.now() - flight.t0) / flight.dur);
+          // A long flight (down to a place) starts and lands softly, like a camera crane; a short one just eases out.
+          const k = flight.dur > 900 ? (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2) : ease(u);
           const f = flight.from;
           const to = flight.to;
           camera.position.set(f[0] + (to[0] - f[0]) * k, f[1] + (to[1] - f[1]) * k, f[2] + (to[2] - f[2]) * k);
@@ -1609,6 +1703,8 @@ export function ColdStore3D({
         setActive,
         setView,
         frame: (w) => frame(w),
+        seat,
+        clearSeat,
         walkTo,
         walkFrom: (i) => (startAt = i),
         goFloor,
@@ -1689,6 +1785,14 @@ export function ColdStore3D({
     // data and callbacks reach the scene through `latest`/`api`.
   }, [textId, mounted, attempt, kitProtos]);
 
+  // The place taken off again (tapped once more, cleared, or booked by someone else meanwhile): its glow and bar go too.
+  const seatGone = Boolean(seatAt) && cells.find((x) => x.chamber === seatAt?.chamber && x.floor === seatAt?.floor && x.slot === seatAt?.slot)?.look !== 'selected';
+  useEffect(() => {
+    if (!seatGone) return;
+    api.current?.clearSeat();
+    queueMicrotask(() => setSeatAt(null));
+  }, [seatGone]);
+
   if (failed) {
     return <p className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-950 ring-1 ring-amber-200">This phone or browser cannot show 3D. Use the Drawing — it shows the same chambers and places.</p>;
   }
@@ -1765,7 +1869,60 @@ export function ColdStore3D({
     if (!pick || !f) return;
     onActive(f.row.id);
     onPlace?.(f.row, pick.slot, pick.look);
+    setInfo(null);
+    api.current?.seat(ci, pick.floor, pick.slot);
+    setSeatAt({ chamber: ci, floor: pick.floor, slot: pick.slot });
   };
+  // The chosen place's bar over the foot of the view, as on a stadium seat view: where it is, its room and rent, "Other places"
+  // (back to the chamber) and "Book & pay now" (on to confirming and paying the owner).
+  const seatCell = seatAt ? cells.find((x) => x.chamber === seatAt.chamber && x.floor === seatAt.floor && x.slot === seatAt.slot) : undefined;
+  const seatChamber = seatAt ? scene.chambers[seatAt.chamber] : undefined;
+  const seatRow = seatAt ? seatChamber?.floors[seatAt.floor]?.row : undefined;
+  const seatRate = seatChamber ? seatChamber.group.rate ?? rate : null;
+
+  const seatBar =
+    mode === 'book' && !walking && ready && seatAt && seatCell?.look === 'selected' && seatChamber && seatRow ? (
+      <section
+        aria-label="Your chosen place"
+        data-testid="seat-bar"
+        className="absolute inset-x-2 bottom-2 z-30 mx-auto flex max-w-xl flex-wrap items-center gap-2 rounded-2xl bg-slate-950/85 px-3 py-2.5 text-white shadow-2xl ring-1 ring-white/15 backdrop-blur-md sm:flex-nowrap sm:rounded-full sm:pl-5"
+      >
+        <div className="min-w-0 basis-full sm:flex-1 sm:basis-auto">
+          <p className="truncate text-[11px] font-bold uppercase tracking-[0.12em] text-white/90">
+            {seatChamber.name}
+            {seatChamber.floors.length > 1 ? ` · Floor ${seatAt.floor + 1}` : ''} · {placeLabel(seatAt.slot)}
+          </p>
+          <p className="truncate text-xs text-white/75">
+            A full place holds {countText(seatChamber.floors[seatAt.floor]?.k ?? 0, seatChamber.storage)}
+            {seatRate ? ` · ₹${nice(seatRate)} a ${unitWord(seatChamber.storage, 1)} a month` : ''}
+          </p>
+        </div>
+        <button
+          type="button"
+          data-kr-plain
+          onClick={() => {
+            const ci = seatAt.chamber;
+            setSeatAt(null);
+            api.current?.clearSeat();
+            api.current?.frame(ci);
+          }}
+          className="inline-flex min-h-[44px] shrink-0 cursor-pointer items-center rounded-full px-3 text-xs font-semibold text-white/90 ring-1 ring-white/25 hover:bg-white/10"
+        >
+          ‹ Other places
+        </button>
+        {onBookNow && (
+          <button
+            type="button"
+            data-kr-plain
+            data-testid="seat-book"
+            onClick={onBookNow}
+            className="inline-flex min-h-[44px] flex-1 shrink-0 cursor-pointer items-center justify-center rounded-full bg-rose-500 px-4 text-sm font-bold text-white shadow-lg shadow-rose-900/30 hover:bg-rose-400 sm:flex-none"
+          >
+            Book &amp; pay now
+          </button>
+        )}
+      </section>
+    ) : null;
   const card =
     !walking && shownInfo ? (
       <InfoCard
@@ -1937,6 +2094,7 @@ export function ColdStore3D({
             onMark={() => api.current?.mark()}
           />
         )}
+        {seatBar}
         {!big && card}
       </div>
       {big && card}

@@ -312,6 +312,7 @@ export function ColdStoreExplorer({
   mineOf,
   facilityName,
   facilityId,
+  onBookNow,
 }: {
   chambers: ColdChamber[];
   stateOf: (c: ColdChamber, slot: string) => Look;
@@ -340,6 +341,8 @@ export function ColdStoreExplorer({
   facilityName?: string;
   /** The facility's database id, shown in the 3D place inspector (Facility ID row). */
   facilityId?: string;
+  /** Book mode: "Book & pay now" on a chosen place in 3D goes on to confirming and paying. */
+  onBookNow?: () => void;
 }) {
   const [view, setView] = useState<ExplorerView>('drawing');
   // While the drawing is looked at, the 3D code (and three.js) loads in the background, so the
@@ -489,6 +492,7 @@ export function ColdStoreExplorer({
                 mineOf={mineOf}
                 facilityName={facilityName}
                 facilityId={facilityId}
+                onBookNow={onBookNow}
                 view={view === 'walk' ? 'walk' : 'orbit'}
                 onView={(v) => setView(v === 'walk' ? 'walk' : '3d')}
               />
