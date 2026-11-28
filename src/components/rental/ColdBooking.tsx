@@ -801,6 +801,7 @@ export function ColdBooking({
               mineOf={mineOf}
               facilityName={l.title}
               facilityId={l.id}
+              onBookNow={toConfirm}
             />
           )}
           {taken && (
