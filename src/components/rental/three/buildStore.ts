@@ -266,6 +266,28 @@ export function makeKit(T: Three, phone: boolean, protos: ColdKitGeos | null = n
   const edge = new T.LineBasicMaterial({ color: '#334155', transparent: true, opacity: 0.55 });
   const edgeOn = new T.LineBasicMaterial({ color: '#3730A3' });
   const textures = Object.values(tex);
+  // A real photograph of concrete (Poly Haven "Concrete Floor 02", CC0 — public/textures/CREDITS.txt) replaces the drawn floor once it
+  // has arrived; if it cannot load, the drawn one simply stays.
+  let alive = true;
+  let photoFloor: { dispose: () => void } | null = null;
+  new T.TextureLoader().load(
+    '/textures/concrete-floor.jpg',
+    (photo) => {
+      if (!alive) return photo.dispose();
+      photo.colorSpace = T.SRGBColorSpace;
+      photo.wrapS = photo.wrapT = T.RepeatWrapping;
+      photo.anisotropy = phone ? 1 : 4;
+      photoFloor = photo;
+      mats.hall.map = photo;
+      mats.hall.color.set('#C9CFD3');
+      mats.chamberFloor.map = photo;
+      mats.chamberFloor.color.set('#D2D7DA');
+      mats.hall.needsUpdate = true;
+      mats.chamberFloor.needsUpdate = true;
+    },
+    undefined,
+    () => undefined,
+  );
   return {
     T,
     unitBox,
@@ -276,6 +298,8 @@ export function makeKit(T: Three, phone: boolean, protos: ColdKitGeos | null = n
     edgeOn,
     textures,
     dispose: () => {
+      alive = false;
+      photoFloor?.dispose();
       unitBox.dispose();
       for (const g of geos.values()) g.dispose();
       if (protos) for (const g of Object.values(protos)) g.dispose();
@@ -1366,7 +1390,7 @@ export function buildPlaces(kit: Kit, scene: StoreScene, cells: Cell[], o: Origi
     const g = c.group;
     const free = freeOf(c.index);
     const sub = `${g.floors.length > 1 ? `${g.floors.length} floors · ` : ''}${countText(g.count, c.storage)} · ${free.toLocaleString('en-IN')} free`;
-    const tag = label(T, c.name, sub, Math.min(Math.max(c.rect.w * 0.85, 3.2), 8), false, 40, 84);
+    const tag = label(T, c.name, sub, Math.min(Math.max(c.rect.w * 0.85, 3.2), 8), false, 30, 62);
     tag.position.set(wx(o, c.rect.x + c.rect.w / 2), c.h + 1.3, wz(o, c.rect.y + c.rect.d / 2));
     group.add(tag);
     labels.push(tag);

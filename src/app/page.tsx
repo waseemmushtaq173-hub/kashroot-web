@@ -118,8 +118,8 @@ export default async function HomePage() {
       <HeroShowcase initialSeason={seasonForDate(new Date())}>
         <SiteHeader tone="light" showRoleSignIn />
 
-        {/* Bottom padding leaves room for the season badge (no more). */}
-        <main id="main-content" className="mx-auto max-w-7xl px-4 pb-24 pt-4 sm:px-6 sm:pt-6 lg:px-8">
+        {/* The season badge sits under this, in the flow, so nothing here is ever covered by it. */}
+        <main id="main-content" className="mx-auto max-w-7xl px-4 pb-3 pt-4 sm:px-6 sm:pt-6 lg:px-8">
           <section className={`max-w-xl rounded-3xl p-3.5 sm:p-6 ${GLASS.panel}`}>
             <p className="inline-flex items-center gap-2 rounded-full bg-white/85 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-ink ring-1 ring-slate-900/10">
               <span aria-hidden className="kr-spectrum h-1.5 w-8 rounded-full" />

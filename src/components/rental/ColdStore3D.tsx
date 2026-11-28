@@ -1864,7 +1864,7 @@ export function ColdStore3D({
             </span>
           )}
           <button type="button" aria-pressed={xrayWalls} onClick={() => setXrayWalls((v) => !v)} className={chip(xrayWalls)}>
-            <ScanEye className="h-4 w-4" aria-hidden /> X-ray walls
+            <ScanEye className="h-4 w-4" aria-hidden /> See inside all chambers
           </button>
           <button
             type="button"

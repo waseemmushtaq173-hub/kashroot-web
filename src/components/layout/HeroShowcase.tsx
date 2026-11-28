@@ -109,18 +109,19 @@ export function HeroShowcase({
 
       {children}
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-end p-4 sm:p-6">
-        <div className="pointer-events-auto flex items-center gap-2.5 rounded-full bg-white/70 py-1.5 pl-3.5 pr-1.5 shadow-[0_8px_30px_rgba(15,23,42,0.12)] ring-1 ring-white/70 backdrop-blur-xl">
-          <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${SEASON_DOT[current.season]}`} />
+      {/* Below the page's content, never over it: a very small season badge at the right, in the flow. */}
+      <div className="flex justify-end px-4 pb-1 sm:px-6 lg:px-8">
+        <div className="flex items-center gap-1.5 rounded-full bg-white/70 py-0 pl-2.5 pr-0.5 shadow-[0_4px_14px_rgba(15,23,42,0.10)] ring-1 ring-white/70 backdrop-blur-xl">
+          <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${SEASON_DOT[current.season]}`} />
 
           {/* Announce the season only when the user is driving the carousel;
               a polite announcement every 7s would drown out a screen reader. */}
-          <p aria-live={paused ? 'polite' : 'off'} className="text-xs font-medium tracking-wide text-slate-700">
+          <p aria-live={paused ? 'polite' : 'off'} className="text-[10px] font-medium tracking-wide text-slate-700">
             <span className="sr-only">Season: </span>
             {current.season}
           </p>
 
-          <div className="hidden items-center sm:flex" role="group" aria-label="Choose a photo">
+          <div className="-my-[11px] hidden items-center sm:flex" role="group" aria-label="Choose a photo">
             {slides.map((slide, i) => (
               <button
                 key={slide.key}
@@ -151,11 +152,11 @@ export function HeroShowcase({
             type="button"
             onClick={() => setPaused((p) => !p)}
             aria-label={paused ? 'Play season slideshow' : 'Pause season slideshow'}
-            className="group grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-700"
+            className="group -my-[11px] grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-700"
           >
-            {/* The round button looks as before; the whole 44 px around it can be tapped. */}
-            <span className="grid h-7 w-7 place-items-center rounded-full bg-white/80 text-slate-700 ring-1 ring-slate-900/10 transition group-hover:bg-white">
-              {paused ? <Play className="h-3.5 w-3.5" aria-hidden /> : <Pause className="h-3.5 w-3.5" aria-hidden />}
+            {/* A tiny round button; the whole 44 px around it (reaching past the slim badge) can be tapped. */}
+            <span className="grid h-5 w-5 place-items-center rounded-full bg-white/80 text-slate-700 ring-1 ring-slate-900/10 transition group-hover:bg-white">
+              {paused ? <Play className="h-2.5 w-2.5" aria-hidden /> : <Pause className="h-2.5 w-2.5" aria-hidden />}
             </span>
           </button>
         </div>
